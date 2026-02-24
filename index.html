@@ -1,0 +1,2257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>IQcadence — CS Health Score</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f0f4f8;--surface:#fff;--border:#e2e8f0;--focus:#3b82f6;
+  --text:#0f172a;--muted:#64748b;--subtle:#94a3b8;
+  --blue:#2563eb;--blue-d:#1d4ed8;--blue-l:#eff6ff;--blue-m:#bfdbfe;
+  --green:#16a34a;--green-l:#f0fdf4;--green-m:#bbf7d0;
+  --amber:#d97706;--amber-l:#fffbeb;--amber-m:#fde68a;
+  --red:#dc2626;--red-l:#fef2f2;--red-m:#fecaca;
+  --purple:#7c3aed;--purple-l:#f5f3ff;--purple-m:#ddd6fe;
+  --teal:#0891b2;--teal-l:#ecfeff;--teal-m:#a5f3fc;
+  --r:10px;--rlg:14px;
+  --sh:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+  --shm:0 4px 16px rgba(0,0,0,.10);
+  --shlg:0 12px 40px rgba(0,0,0,.15);
+  --font:'Inter',system-ui,-apple-system,sans-serif;
+}
+html{font-size:16px}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+h1{font-size:1.6rem;font-weight:800;line-height:1.2;letter-spacing:-.02em}
+h2{font-size:1.05rem;font-weight:700;line-height:1.3;letter-spacing:-.01em}
+h3{font-size:.9rem;font-weight:700}
+p{line-height:1.65;color:var(--muted)}
+a{color:var(--blue);text-decoration:none}
+
+/* TOPBAR */
+.topbar{background:linear-gradient(90deg,#2e3fa3 0%,#2e3fa3 200px,#3d5bbf 350px,#4a6fd4 100%);border-bottom:none;padding:0 20px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:0 2px 12px rgba(46,63,163,.4)}
+.topbar__brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:.95rem;color:#fff;letter-spacing:-.01em}
+.topbar__logo{width:34px;height:34px;background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.25);border-radius:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:.95rem;flex-shrink:0;backdrop-filter:blur(4px)}
+.topbar__name{font-weight:800;font-size:.97rem;letter-spacing:-.02em;color:#fff}
+.topbar__sub{display:block;font-size:.65rem;font-weight:500;color:rgba(255,255,255,.6);margin-top:1px;letter-spacing:.02em;text-transform:uppercase}
+.topbar__right{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.topbar__divider{width:1px;height:22px;background:rgba(255,255,255,.2);margin:0 4px}
+/* Topbar buttons need white-friendly styles */
+.topbar .btn-ghost{background:rgba(255,255,255,.1);color:#fff;border-color:rgba(255,255,255,.2)}.topbar .btn-ghost:hover{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.35);color:#fff}
+.topbar .btn-primary{background:rgba(255,255,255,.18);color:#fff;border:1.5px solid rgba(255,255,255,.3);box-shadow:none}.topbar .btn-primary:hover{background:rgba(255,255,255,.28);box-shadow:none;transform:none}
+.topbar .btn-outline{background:rgba(255,255,255,.1);color:#fff;border-color:rgba(255,255,255,.25)}.topbar .btn-outline:hover{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.4)}
+
+/* MANAGER FILTER */
+.mgr-filter{position:relative}
+.mgr-filter__btn{white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis}
+.mgr-filter__dropdown{position:absolute;top:calc(100% + 8px);right:0;min-width:200px;max-width:260px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.10),0 2px 6px rgba(0,0,0,.06);z-index:200;padding:6px 0;animation:fadeIn .15s ease}
+.mgr-filter__item{padding:4px 14px}
+.mgr-filter__item label{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.8rem;color:var(--text);user-select:none;padding:3px 0}
+.mgr-filter__item label:hover{color:var(--blue)}
+.mgr-filter__item input[type=checkbox]{accent-color:var(--blue);width:14px;height:14px;cursor:pointer}
+.mgr-filter__sep{height:1px;background:var(--border);margin:4px 0}
+
+/* LAYOUT */
+.shell{display:flex;min-height:calc(100vh - 56px)}
+.sidebar{width:214px;flex-shrink:0;background:#0f172a;border-right:none;padding:12px 8px;display:flex;flex-direction:column;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto;box-shadow:2px 0 12px rgba(0,0,0,.15)}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:.835rem;font-weight:600;color:rgba(255,255,255,.55);cursor:pointer;border:none;background:none;width:100%;text-align:left;transition:color .15s,background .15s;border-radius:8px;margin-bottom:1px}
+.nav-item:hover{color:rgba(255,255,255,.9);background:rgba(255,255,255,.08)}
+.nav-item.active{color:#fff;background:rgba(37,99,235,.5)}
+.nav-item.active .nav-icon{background:#2563eb;color:#fff;box-shadow:0 2px 8px rgba(37,99,235,.4)}
+.nav-icon{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.8rem;background:rgba(255,255,255,.07);color:rgba(255,255,255,.5);flex-shrink:0;transition:background .15s,color .15s}
+.nav-item:hover .nav-icon{background:rgba(255,255,255,.12);color:rgba(255,255,255,.85)}
+.nav-sep{height:1px;background:rgba(255,255,255,.08);margin:6px 4px}
+.nav-label{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.28);padding:8px 12px 3px}
+.main{flex:1;overflow-x:hidden;padding:24px 28px 60px;min-width:0}
+
+/* VIEWS */
+.view{display:none}.view.active{display:block;animation:fadeIn .2s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:8px 15px;border-radius:8px;border:none;font-size:.84rem;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap;font-family:var(--font);letter-spacing:-.01em}
+.btn-primary{background:var(--blue);color:#fff;box-shadow:0 1px 3px rgba(37,99,235,.3)}.btn-primary:hover{background:var(--blue-d);transform:translateY(-1px);box-shadow:0 4px 12px rgba(37,99,235,.4)}
+.btn-outline{background:transparent;color:var(--blue);border:1.5px solid var(--blue-m)}.btn-outline:hover{background:var(--blue-l);border-color:var(--blue)}
+.btn-ghost{background:transparent;color:var(--muted);border:1.5px solid var(--border)}.btn-ghost:hover{background:var(--bg);color:var(--text);border-color:var(--subtle)}
+.btn-success{background:var(--green);color:#fff;box-shadow:0 1px 3px rgba(22,163,74,.3)}.btn-success:hover{background:#15803d}
+.btn-danger{background:transparent;color:var(--red);border:1.5px solid var(--red-m)}.btn-danger:hover{background:var(--red-l);border-color:var(--red)}
+.btn-amber{background:var(--amber);color:#fff}.btn-amber:hover{background:#b45309}
+.btn-sm{padding:5px 11px;font-size:.77rem}
+.btn-xs{padding:3px 8px;font-size:.71rem}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important;box-shadow:none!important}
+
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:22px;box-shadow:var(--sh)}
+.card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:10px;flex-wrap:wrap}
+.card-hd h2{margin:0}
+
+/* PAGE HEADER */
+.page-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:10px}
+.page-hd h1{margin:0}
+.page-hd p{margin-top:3px;font-size:.84rem;color:var(--muted)}
+
+/* STAT GRID */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:14px;margin-bottom:22px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 18px 16px;box-shadow:var(--sh);cursor:pointer;transition:box-shadow .18s,transform .18s,border-color .18s;position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--rlg) var(--rlg) 0 0;background:transparent;transition:background .18s}
+.stat-card:hover{box-shadow:var(--shm);transform:translateY(-2px);border-color:transparent}
+.stat-card:hover::before{background:var(--accent-color,var(--blue))}
+.stat-card__icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:.95rem;margin-bottom:12px}
+.stat-card__num{font-size:2.1rem;font-weight:800;line-height:1;margin-bottom:4px;letter-spacing:-.03em}
+.stat-card__label{font-size:.72rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.stat-card__delta{font-size:.72rem;font-weight:700;margin-top:5px;display:flex;align-items:center;gap:3px}
+
+/* CHARTS */
+.charts-grid{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:22px;align-items:stretch}
+.charts-left{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:16px}
+.charts-right{display:grid;grid-template-rows:1fr 1fr;gap:16px}
+.seg-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.seg-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 20px;box-shadow:var(--sh);cursor:pointer;transition:transform .15s,box-shadow .15s,border-color .15s}
+.seg-card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.1);border-color:var(--blue)}
+.seg-card__label{font-size:.82rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--subtle);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.seg-card__label::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--blue)}
+.seg-card.smb    .seg-card__label::before{background:#7c3aed}
+.seg-card.mid    .seg-card__label::before{background:#2563eb}
+.seg-card.ent    .seg-card__label::before{background:#0891b2}
+.seg-card__num{font-size:1.9rem;font-weight:800;letter-spacing:-.04em;color:var(--text);line-height:1}
+.seg-card__sub{font-size:.72rem;color:var(--muted);margin-top:2px}
+.seg-card__divider{height:1px;background:var(--border);margin:12px 0}
+.seg-card__row{display:flex;justify-content:space-between;align-items:center;font-size:.76rem;margin-bottom:5px}
+.seg-card__row:last-child{margin-bottom:0}
+.seg-card__row-label{color:var(--muted)}
+.seg-card__row-val{font-weight:700;color:var(--text)}
+.seg-health-bar{display:flex;height:5px;border-radius:100px;overflow:hidden;gap:2px;margin-top:10px}
+.seg-health-seg{border-radius:100px;transition:width .5s}
+@media(max-width:900px){.seg-cards{grid-template-columns:1fr}}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--sh)}
+.chart-title{font-size:.88rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--subtle);margin-bottom:16px;display:flex;align-items:center;gap:6px}
+.chart-title::before{content:'';display:inline-block;width:3px;height:12px;border-radius:2px;background:var(--blue);flex-shrink:0}
+
+/* DONUT */
+.donut-wrap{display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+.donut-legend{display:flex;flex-direction:column;gap:10px;flex:1}
+.legend-item{display:flex;align-items:center;gap:9px;font-size:.8rem}
+.legend-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.legend-label{flex:1;color:var(--muted);font-weight:500}
+.legend-val{font-weight:700;color:var(--text);font-size:.85rem}
+
+/* BAR CHART */
+.bar-chart{display:flex;flex-direction:column;gap:8px}
+.bar-row{display:flex;align-items:center;gap:9px;font-size:.76rem}
+.bar-row__label{min-width:76px;color:var(--muted);font-weight:500;font-size:.73rem;text-align:right}
+.bar-track{flex:1;height:16px;background:var(--bg);border-radius:100px;overflow:hidden}
+.bar-fill{height:100%;border-radius:100px;transition:width .8s cubic-bezier(.4,0,.2,1);display:flex;align-items:center;padding:0 8px;min-width:2px}
+.bar-fill-lbl{font-size:.67rem;font-weight:700;color:#fff;white-space:nowrap}
+.bar-row__val{min-width:46px;font-weight:700;font-size:.73rem;text-align:right;color:var(--text)}
+
+/* SPARKLINE */
+.sparkline-wrap{overflow:hidden}
+svg.sparkline{display:block}
+
+/* HEATMAP */
+.heatmap{overflow-x:auto}
+.heatmap table{border-collapse:collapse;font-size:.72rem;width:100%}
+.heatmap th{padding:4px 7px;text-align:left;font-weight:600;color:var(--subtle);font-size:.67rem;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;transition:color .14s}
+.heatmap th:hover{color:var(--blue)}
+.heatmap td{padding:4px 7px;border-radius:3px;text-align:center;font-weight:700;min-width:48px}
+.heatmap td.nc{text-align:left;font-weight:600;color:var(--text);min-width:120px;padding-right:10px}
+.hm-r{color:var(--red);background:var(--red-l)}.hm-y{color:var(--amber);background:var(--amber-l)}.hm-g{color:var(--green);background:var(--green-l)}
+
+/* ALERTS */
+.alert-item{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--red);border-radius:var(--r);padding:11px 14px;font-size:.82rem;margin-bottom:8px;cursor:pointer;transition:box-shadow .15s,background .15s}
+.alert-item:hover{box-shadow:var(--shm);background:#fafbfc}
+.alert-item.selected{background:var(--blue-l);border-color:var(--blue-m)}
+.alert-item.amber{border-left-color:var(--amber)}
+.alert-item.blue{border-left-color:var(--blue)}
+.alert-item.green{border-left-color:var(--green)}
+.alert-item.snoozed{opacity:.45;border-left-color:var(--subtle)}
+.alert-item__check{width:16px;height:16px;flex-shrink:0;accent-color:var(--blue);cursor:pointer}
+.alert-item__icon{font-size:1rem;flex-shrink:0;width:22px;text-align:center}
+.alert-item__body{flex:1;min-width:0}
+.alert-item__text{color:var(--text);line-height:1.35}
+.alert-item__text strong{color:var(--text)}
+.alert-item__text span{color:var(--muted)}
+.alert-item__meta{font-size:.68rem;color:var(--subtle);margin-top:2px;display:flex;gap:8px;align-items:center}
+.alert-item__cat{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:1px 5px;border-radius:4px;background:var(--red-m);color:#7f1d1d}
+.alert-item__cat.amber{background:var(--amber-m);color:#78350f}
+.alert-item__cat.blue{background:var(--blue-m);color:#1e3a5f}
+.alert-item__cat.green{background:var(--green-m);color:#14532d}
+.alert-item__actions{display:flex;gap:5px;flex-shrink:0}
+/* Alert group heading */
+.alert-group-hd{font-size:.88rem;font-weight:700;letter-spacing:.02em;color:var(--text);margin:22px 0 10px;display:flex;align-items:center;gap:7px;padding-bottom:6px;border-bottom:2px solid var(--border)}
+.alert-group-hd:first-child{margin-top:0}
+.alert-group-hd svg{opacity:.7;flex-shrink:0}
+.alert-item__icon{display:flex;align-items:center;justify-content:center;width:22px;flex-shrink:0;opacity:.7}
+/* Alerts page — top panels + full-width list */
+.alerts-top-panels{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+.alerts-top-panels>.dash-kpi-card{padding:22px 24px;cursor:default}
+.alerts-top-panels .alert-panel-title{font-size:.88rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;opacity:1;color:#fff;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.alerts-top-panels .alert-panel-title .info-tip{color:rgba(255,255,255,.6);opacity:1}
+.alerts-top-panels .alert-panel-title .info-tip:hover{color:#fff}
+/* KPI cells inside gradient */
+.dash-kpi-card .alert-kpi-cell{background:rgba(255,255,255,.13);border-left-color:rgba(255,255,255,.35)}
+.dash-kpi-card .alert-kpi-cell.red,.dash-kpi-card .alert-kpi-cell.amber,.dash-kpi-card .alert-kpi-cell.blue,.dash-kpi-card .alert-kpi-cell.green{background:rgba(255,255,255,.18);border-left-color:rgba(255,255,255,.5)}
+.dash-kpi-card .alert-kpi-val{color:#fff}
+.dash-kpi-card .alert-kpi-lbl{color:rgba(255,255,255,.7)}
+/* MRR rows inside gradient */
+.dash-kpi-card .alert-mrr-dot{border:1.5px solid rgba(255,255,255,.3)}
+.dash-kpi-card .alert-mrr-label{color:rgba(255,255,255,.85)}
+.dash-kpi-card .alert-mrr-val{color:#fff}
+/* Category bars inside gradient */
+.dash-kpi-card .alert-cat-row:hover{background:rgba(255,255,255,.1)}
+.dash-kpi-card .alert-cat-name{color:rgba(255,255,255,.9)}
+.dash-kpi-card .alert-cat-count{color:rgba(255,255,255,.65)}
+.dash-kpi-card .alert-cat-track{background:rgba(255,255,255,.15)}
+.dash-kpi-card .alert-cat-bar{background:#fff !important;opacity:.85}
+/* Action rows inside gradient */
+.dash-kpi-card .alert-action-row:hover{background:rgba(255,255,255,.1)}
+.dash-kpi-card .alert-action-dot{border:1.5px solid rgba(255,255,255,.3)}
+.dash-kpi-card .alert-action-cust{color:#fff}
+.dash-kpi-card .alert-action-text{color:rgba(255,255,255,.7)}
+@media(max-width:1100px){.alerts-top-panels{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.alerts-top-panels{grid-template-columns:1fr}}
+/* Alert score circle */
+.alert-score-circle{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:800;color:#fff;flex-shrink:0}
+/* Alert tier + meta chips */
+.alert-tier-chip{font-size:.62rem;font-weight:700;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.alert-meta-csm{font-size:.68rem;color:var(--muted);white-space:nowrap}
+.alert-meta-days{font-size:.68rem;color:var(--muted);white-space:nowrap}
+/* Alert KPI cells */
+.alert-kpi-cell{background:var(--bg);border-radius:12px;padding:18px 20px;border-left:4px solid var(--border)}
+.alert-kpi-cell.red{background:var(--red-l);border-left-color:#dc2626}
+.alert-kpi-cell.amber{background:var(--amber-l);border-left-color:#d97706}
+.alert-kpi-cell.blue{background:var(--blue-l);border-left-color:#2563eb}
+.alert-kpi-cell.green{background:var(--green-l);border-left-color:#16a34a}
+.alert-kpi-val{font-size:2rem;font-weight:800;color:var(--text);line-height:1}
+.alert-kpi-lbl{font-size:.72rem;color:var(--muted);margin-top:6px;font-weight:600}
+/* MRR exposure rows */
+.alert-mrr-row{display:flex;align-items:center;gap:10px;margin-bottom:13px}
+.alert-mrr-row:last-child{margin-bottom:0}
+.alert-mrr-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
+.alert-mrr-label{font-size:.8rem;font-weight:600;flex:1;color:var(--text)}
+.alert-mrr-val{font-size:.85rem;font-weight:800;color:var(--text)}
+/* Category bar rows */
+.alert-cat-row{margin-bottom:14px;cursor:pointer;padding:4px 6px;border-radius:6px;transition:background .12s}
+.alert-cat-row:hover{background:rgba(59,130,246,.06)}
+.alert-cat-row:last-child{margin-bottom:0}
+.alert-cat-meta{display:flex;justify-content:space-between;font-size:.76rem;margin-bottom:5px}
+.alert-cat-name{font-weight:600;color:var(--text)}
+.alert-cat-count{color:var(--muted);font-weight:700}
+.alert-cat-track{height:8px;background:var(--border);border-radius:5px;overflow:hidden}
+.alert-cat-bar{height:100%;border-radius:5px;transition:width .3s}
+/* Priority Actions widget */
+.alert-action-row{display:flex;align-items:flex-start;gap:10px;padding:8px 8px;border-radius:8px;transition:background .12s;cursor:pointer}
+.alert-action-row:hover{background:var(--bg)}
+.alert-action-row+.alert-action-row{margin-top:2px}
+.alert-action-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.alert-action-body{flex:1;min-width:0}
+.alert-action-cust{font-size:.78rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.alert-action-text{font-size:.72rem;color:var(--muted);line-height:1.4;margin-top:1px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* Alert list view toggle */
+.alert-view-toggle{display:inline-flex;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;overflow:hidden}
+.alert-view-btn{padding:5px 14px;font-size:.75rem;font-weight:600;color:var(--muted);background:none;border:none;cursor:pointer;transition:all .15s}
+.alert-view-btn:hover{color:var(--text)}
+.alert-view-btn.active{background:var(--blue);color:#fff}
+/* Priority group headers */
+.alert-priority-hd{font-size:.88rem;font-weight:700;letter-spacing:.02em;color:var(--text);margin:22px 0 10px;display:flex;align-items:center;gap:7px;padding-bottom:6px;border-bottom:2px solid var(--border)}
+.alert-priority-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+/* Bulk action bar */
+.alert-bulk-bar{display:none;align-items:center;gap:8px;background:var(--blue-l);border:1px solid var(--blue-m);border-radius:var(--r);padding:8px 14px;margin-bottom:12px;font-size:.82rem;font-weight:600;color:var(--blue)}
+.alert-bulk-bar.visible{display:flex}
+/* Snooze dropdown */
+.snooze-dd{position:relative;display:inline-block}
+.snooze-dd__menu{display:none;position:absolute;right:0;top:calc(100% + 4px);background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shm);z-index:200;min-width:130px}
+.snooze-dd__menu.open{display:block}
+.snooze-dd__item{display:block;width:100%;padding:7px 14px;font-size:.8rem;font-family:var(--font);text-align:left;background:none;border:none;cursor:pointer;color:var(--text)}
+.snooze-dd__item:hover{background:var(--bg)}
+
+/* CUSTOMER TABLE */
+.list-toolbar{display:flex;align-items:center;gap:7px;margin-bottom:14px;flex-wrap:wrap}
+.search-box{flex:1;min-width:150px;padding:7px 12px 7px 34px;border:1.5px solid var(--border);border-radius:8px;font-size:.84rem;font-family:var(--font);color:var(--text);background:var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat 10px center;outline:none;transition:border-color .16s,box-shadow .16s}
+.search-box:focus{border-color:var(--focus);box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+.fchip{padding:5px 13px;border-radius:100px;border:1.5px solid var(--border);background:var(--surface);font-size:.74rem;font-weight:600;color:var(--muted);cursor:pointer;transition:all .14s;letter-spacing:.01em}
+.fchip:hover{border-color:var(--subtle);color:var(--text)}
+.fchip.fa{background:var(--blue-l);color:var(--blue);border-color:var(--blue-m)}
+.fchip.fcr{background:#fef2f2;color:#dc2626;border-color:#fecaca}
+.fchip.fr{background:#fff7ed;color:#ea580c;border-color:#fed7aa}
+.fchip.fw{background:var(--amber-l);color:var(--amber);border-color:var(--amber-m)}
+.fchip.fh{background:var(--green-l);color:var(--green);border-color:var(--green-m)}
+.fchip.fe{background:var(--teal-l);color:var(--teal);border-color:var(--teal-m)}
+.fchip.ft{background:#f3f0ef;color:#7a5c58;border-color:#c9b8b5}
+
+.ct{width:100%;min-width:1100px;border-collapse:collapse;font-size:.82rem}
+#table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+#cust-scroll-wrap{max-height:520px;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+#cust-scroll-wrap::-webkit-scrollbar{width:6px;height:6px}
+#cust-scroll-wrap::-webkit-scrollbar-track{background:transparent}
+#cust-scroll-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+#cust-scroll-wrap::-webkit-scrollbar-thumb:hover{background:var(--subtle)}
+#customers-table-card{padding-left:0;padding-right:0}
+#customers-table-card .list-toolbar,#customers-table-card #filter-pill-bar{padding-left:22px;padding-right:22px}
+.ct thead{position:sticky;top:0;z-index:2}
+.ct th{text-align:left;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);padding:7px 9px;border-bottom:1.5px solid var(--border);background:var(--bg);cursor:pointer;user-select:none;white-space:normal;line-height:1.25;min-width:0;transition:color .13s}
+.ct th:hover{color:var(--blue)}
+.ct td{padding:9px 9px;border-bottom:1px solid var(--border);vertical-align:middle}
+.ct tr:last-child td{border-bottom:none}
+.ct tbody tr{transition:background .1s}
+.ct tbody tr:hover{background:var(--bg)}
+.ct tbody tr:hover td:first-child{border-left:3px solid var(--blue-m)}
+.ct tbody tr.selected{background:var(--blue-l)}
+.ct td.cb-col{width:32px;padding-right:0;border-left:3px solid transparent;transition:border-color .1s}
+.ct-two-line{display:flex;flex-direction:column;gap:2px;line-height:1.2}
+.ct-two-line .ct-sub{font-size:.68rem;color:var(--muted)}
+
+.mini-score{display:inline-flex;align-items:center;gap:6px;font-weight:700}
+.mini-bar{width:48px;height:5px;background:var(--border);border-radius:100px;overflow:hidden}
+.mini-bar__f{height:100%;border-radius:100px}
+.bsm{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:6px;font-size:.69rem;font-weight:700;letter-spacing:.02em}
+.bsm::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.bsm.critical{background:#fef2f2;color:#dc2626}.bsm.critical::before{background:#dc2626}
+.bsm.risk{background:#fff7ed;color:#ea580c}.bsm.risk::before{background:#ea580c}
+.bsm.watch{background:var(--amber-l);color:var(--amber)}.bsm.watch::before{background:var(--amber)}
+.bsm.healthy{background:var(--green-l);color:var(--green)}.bsm.healthy::before{background:var(--green)}
+.bsm.expand{background:var(--teal-l);color:var(--teal)}.bsm.expand::before{background:var(--teal)}
+.tag{display:inline-block;padding:2px 8px;border-radius:6px;font-size:.67rem;font-weight:600;background:var(--purple-l);color:var(--purple);margin:1px;letter-spacing:.01em}
+.lifecycle-badge{display:inline-block;padding:3px 9px;border-radius:6px;font-size:.69rem;font-weight:600;letter-spacing:.02em}
+.lc-onboarding{background:var(--teal-l);color:var(--teal)}
+.lc-active{background:var(--green-l);color:var(--green)}
+.lc-atrisk{background:var(--red-l);color:var(--red)}
+.lc-churned{background:#f1f5f9;color:var(--subtle);text-decoration:line-through}
+.lc-won{background:var(--amber-l);color:var(--amber)}
+.delta-up{color:var(--green);font-size:.7rem;font-weight:700}
+.delta-dn{color:var(--red);font-size:.7rem;font-weight:700}
+.delta-eq{color:var(--subtle);font-size:.7rem;font-weight:700}
+
+.empty-st{text-align:center;padding:56px 24px;color:var(--muted)}
+.empty-st .ei{font-size:2.4rem;margin-bottom:12px;opacity:.5}
+.empty-st h3{color:var(--text);margin-bottom:6px;font-size:1rem}
+.empty-st p{font-size:.84rem;max-width:320px;margin:0 auto 16px}
+
+/* BULK ACTION BAR */
+.bulk-bar{display:none;align-items:center;gap:10px;background:var(--blue);color:#fff;padding:9px 16px;border-radius:var(--r);margin-bottom:12px;font-size:.84rem;font-weight:600;flex-wrap:wrap}
+.bulk-bar.show{display:flex}
+.bulk-bar__count{flex:1}
+
+/* FORM */
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.fg .full{grid-column:1/-1}
+.form-section{grid-column:1/-1;padding-top:6px;margin-top:4px;border-top:1px solid var(--border)}
+.form-section-label{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--subtle);margin-bottom:10px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:.79rem;font-weight:600;color:var(--text);display:flex;align-items:center;gap:5px}
+.field .hint{font-size:.7rem;color:var(--subtle)}
+.field input,.field select,.field textarea{padding:8px 11px;border:1.5px solid var(--border);border-radius:8px;font-size:.87rem;font-family:var(--font);color:var(--text);background:var(--surface);outline:none;transition:border-color .16s,box-shadow .16s}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--focus);box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+.field input[type=range]{padding:4px 0;border:none;box-shadow:none;cursor:pointer;accent-color:var(--blue);height:20px}
+.range-row{display:flex;align-items:center;gap:10px}
+.rv{min-width:48px;text-align:center;font-weight:700;font-size:.8rem;color:var(--blue);background:var(--blue-l);border-radius:6px;padding:3px 8px}
+.field textarea{resize:vertical;min-height:72px}
+.field input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:var(--blue)}
+
+/* SCORE DISPLAY */
+.score-panel{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+.score-hero{display:flex;flex-direction:column;align-items:center;gap:12px;padding:24px 14px;text-align:center}
+.score-ring{position:relative;width:140px;height:140px}
+.score-ring svg{transform:rotate(-90deg)}
+.sr-track{fill:none;stroke:var(--border);stroke-width:11}
+.sr-fill{fill:none;stroke-width:11;stroke-linecap:round;transition:stroke-dashoffset .9s cubic-bezier(.4,0,.2,1),stroke .3s}
+.sr-label{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.sr-num{font-size:2rem;font-weight:800;line-height:1;color:var(--text)}
+.sr-word{font-size:.65rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:2px}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:100px;font-size:.8rem;font-weight:700}
+.badge-critical{background:#fef2f2;color:#dc2626;border:1.5px solid #fecaca}
+.badge-risk{background:#fff7ed;color:#ea580c;border:1.5px solid #fed7aa}
+.badge-watch{background:var(--amber-l);color:var(--amber);border:1.5px solid var(--amber-m)}
+.badge-healthy{background:var(--green-l);color:var(--green);border:1.5px solid var(--green-m)}
+.badge-expand{background:var(--teal-l);color:var(--teal);border:1.5px solid var(--teal-m)}
+.rec-box{background:var(--bg);border:1px solid var(--border);border-left:4px solid var(--blue);border-radius:var(--r);padding:12px 14px;font-size:.84rem;color:var(--text);text-align:left;line-height:1.6;max-width:420px}
+.rec-box strong{color:var(--blue)}
+.bd-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--subtle);margin-bottom:10px}
+.bd-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:.79rem}
+.bd-label{min-width:145px;color:var(--muted);font-weight:500}
+.bd-bar{flex:1;height:6px;background:var(--border);border-radius:100px;overflow:hidden}
+.bd-fill{height:100%;border-radius:100px;transition:width .9s cubic-bezier(.4,0,.2,1)}
+.bd-score{min-width:28px;text-align:right;font-weight:700;font-size:.75rem}
+
+/* PLAYBOOK */
+.playbook{margin-top:16px}
+.playbook-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--subtle);margin-bottom:10px}
+.play-item{display:flex;align-items:flex-start;gap:9px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:7px;font-size:.82rem}
+.play-item__icon{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:800;letter-spacing:.02em;flex-shrink:0;margin-top:1px;background:var(--border);color:var(--muted)}
+.play-item__icon.play-urgent{background:var(--red-l);color:var(--red)}
+.play-item__icon.play-engage{background:var(--amber-l);color:var(--amber)}
+.play-item__icon.play-coach{background:var(--blue-l,#eff6ff);color:var(--blue)}
+.play-item__icon.play-adopt{background:var(--blue-l,#eff6ff);color:var(--blue)}
+.play-item__icon.play-support{background:var(--red-l);color:var(--red)}
+.play-item__icon.play-expand{background:var(--green-l);color:var(--green)}
+.play-item__icon.play-renew{background:var(--teal-l,#f0fdfa);color:var(--teal)}
+.play-item__icon.play-ok{background:var(--green-l);color:var(--green)}
+.play-item__text{color:var(--text);line-height:1.5}
+.play-item__text strong{color:var(--blue)}
+/* Threshold dot */
+.th-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle;flex-shrink:0}
+
+/* NOTES */
+.note-item{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:8px}
+.note-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.note-date{font-size:.7rem;color:var(--subtle)}
+.note-text{font-size:.84rem;color:var(--text);line-height:1.5}
+
+/* HISTORY */
+.hist-row{display:flex;align-items:center;gap:10px;padding:8px 0 3px;font-size:.8rem}
+.hist-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;box-shadow:0 0 0 2px var(--surface)}
+.hist-score{font-weight:800;min-width:28px;font-size:.9rem;letter-spacing:-.02em}
+.hist-date{color:var(--subtle);font-size:.71rem;margin-left:auto;white-space:nowrap}
+.hist-reason{font-size:.72rem;color:var(--muted);padding:3px 0 9px 18px;border-bottom:1px solid var(--border);line-height:1.55}
+.hist-reason:last-child{border-bottom:none;padding-bottom:0}
+
+/* SETTINGS */
+.weight-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:8px 10px;border-radius:8px;transition:background .12s}
+.weight-row:hover{background:var(--bg)}
+.weight-label{min-width:170px;font-size:.84rem;font-weight:600;color:var(--text)}
+.weight-pct{display:flex;align-items:center;gap:0;color:var(--blue)}
+.weight-pct input[type=number]{-moz-appearance:textfield}
+.weight-pct input[type=number]::-webkit-outer-spin-button,.weight-pct input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.weight-pct input[type=number]:focus{border-color:var(--blue)}
+.total-bar{height:6px;background:var(--border);border-radius:100px;overflow:hidden;margin:14px 0 6px}
+.total-fill{height:100%;border-radius:100px;transition:width .3s;background:var(--blue)}
+.profile-row{display:flex;align-items:center;gap:8px;padding:10px 14px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--surface);transition:box-shadow .15s,border-color .15s,background .12s;cursor:pointer}
+.profile-row:hover{box-shadow:var(--shm);border-color:transparent;background:rgba(59,130,246,.04)}
+.profile-row.profile-active{background:rgba(59,130,246,.08);border-left:3px solid var(--blue);border-color:var(--blue)}
+.profile-row__name{flex:1;font-size:.85rem;font-weight:600}
+.threshold-row{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.threshold-label{min-width:150px;font-size:.85rem;font-weight:600}
+.threshold-input{width:72px;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:.88rem;font-family:var(--font);text-align:center;outline:none}
+.threshold-input:focus{border-color:var(--focus)}
+.cfg-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.cfg-grid>.card{margin-bottom:0}
+@media(max-width:900px){.cfg-grid{grid-template-columns:1fr}}
+.cfg-columns{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.cfg-col{display:flex;flex-direction:column;gap:16px}
+.cfg-col>.card{margin-bottom:0}
+@media(max-width:900px){.cfg-columns{grid-template-columns:1fr}}
+/* Score distribution bar */
+.score-dist-bar{display:flex;height:28px;border-radius:6px;overflow:hidden;margin-bottom:12px}.score-dist-bar>div{display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;color:#fff;min-width:2px;transition:width .3s}
+.score-dist-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:2px}.score-dist-legend span{display:flex;align-items:center;gap:4px;font-size:.75rem;color:var(--text)}.score-dist-legend .dl{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+/* Quick actions grid */
+.qa-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.qa-btn{display:flex;align-items:center;gap:8px;padding:12px 14px;border-radius:8px;border:1.5px solid var(--border);background:var(--card);cursor:pointer;font-size:.78rem;font-weight:600;color:var(--text);transition:border-color .15s,background .15s,transform .12s}.qa-btn:hover{border-color:var(--blue);background:rgba(59,130,246,.06);transform:translateY(-1px)}.qa-btn svg{flex-shrink:0;color:var(--blue)}
+/* Data health stats */
+.dh-stats{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}.dh-row{display:flex;justify-content:space-between;align-items:center;font-size:.82rem}.dh-row .dh-val{font-weight:700}.dh-row .dh-val.warn{color:var(--amber)}.dh-row .dh-val.good{color:var(--green)}
+.dh-bar{height:8px;border-radius:4px;background:var(--border);overflow:hidden}.dh-bar>div{height:100%;border-radius:4px;background:var(--green);transition:width .3s}
+/* Config history timeline */
+.cfg-history{list-style:none;padding:0;margin:0;max-height:240px;overflow-y:auto}.cfg-history li{padding:8px 0;border-bottom:1px solid var(--border);font-size:.8rem}.cfg-history li:last-child{border-bottom:none}.cfg-history .ch-action{font-weight:600;color:var(--text)}.cfg-history .ch-time{color:var(--muted);font-size:.72rem;margin-top:2px}.cfg-history .ch-empty{color:var(--muted);font-style:italic;padding:16px 0;text-align:center}
+
+/* CSV IMPORT */
+.drop-zone{border:2px dashed var(--border);border-radius:var(--rlg);padding:40px 20px;text-align:center;cursor:pointer;transition:border-color .16s,background .16s}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--blue);background:var(--blue-l)}
+.drop-zone input{display:none}
+.drop-zone__icon{font-size:2.2rem;margin-bottom:8px}
+.csv-prev{margin-top:14px;overflow-x:auto;border-radius:var(--r);border:1px solid var(--border)}
+.csv-prev table{width:100%;border-collapse:collapse;font-size:.76rem}
+.csv-prev th{background:var(--bg);padding:6px 9px;border-bottom:1px solid var(--border);font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);text-align:left}
+.csv-prev td{padding:6px 9px;border-bottom:1px solid var(--border);color:var(--muted)}
+.csv-prev tr:last-child td{border-bottom:none}
+.tmpl-box{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-bottom:16px;font-size:.8rem}
+.tmpl-box code{display:block;margin-top:7px;font-family:'Courier New',monospace;font-size:.72rem;color:var(--blue);white-space:pre-wrap;word-break:break-all}
+
+/* COLUMN MAP */
+.col-map{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin-bottom:8px;font-size:.8rem}
+.col-map select{padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--r);font-size:.78rem;font-family:var(--font);outline:none}
+.col-map select:focus{border-color:var(--focus)}
+.col-map__arrow{color:var(--subtle);font-size:.8rem;text-align:center}
+
+/* MODAL */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);backdrop-filter:blur(2px);z-index:200;align-items:center;justify-content:center;padding:16px}
+.modal-bg.open{display:flex}
+.modal{background:var(--surface);border-radius:var(--rlg);padding:26px;max-width:560px;width:100%;box-shadow:var(--shlg);max-height:92vh;overflow-y:auto;border:1px solid var(--border)}
+.modal-hd{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;gap:10px}
+.modal-close{background:none;border:none;cursor:pointer;font-size:1rem;color:var(--muted);padding:4px 7px;border-radius:6px;transition:background .14s,color .14s;line-height:1}
+.modal-close:hover{background:var(--bg);color:var(--text)}
+.modal-ft{margin-top:20px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;padding-top:16px;border-top:1px solid var(--border)}
+
+/* DETAIL MODAL TABS */
+.dtab-row{display:flex;gap:3px;background:var(--border);border-radius:var(--r);padding:3px;margin-bottom:16px;width:fit-content}
+.dtab{padding:5px 12px;border-radius:7px;border:none;background:transparent;font-size:.78rem;font-weight:600;color:var(--muted);cursor:pointer;transition:all .13s}
+.dtab.active{background:var(--surface);color:var(--text);box-shadow:var(--sh)}
+.dtab-pane{display:none}.dtab-pane.active{display:block}
+
+/* TOGGLE SWITCH */
+.toggle-switch{position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0}
+.toggle-switch input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;cursor:pointer;inset:0;background:var(--border);border-radius:22px;transition:.2s}
+.toggle-slider::before{content:'';position:absolute;height:16px;width:16px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.toggle-switch input:checked + .toggle-slider{background:var(--blue)}
+.toggle-switch input:checked + .toggle-slider::before{transform:translateX(18px)}
+
+/* AUTOMATIONS PAGE */
+.auto-card{background:var(--bg);border:1.5px solid var(--border);border-radius:var(--rlg);padding:18px 20px;margin-bottom:14px}
+.auto-card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px}
+.auto-card-hd h3{margin:0;font-size:.88rem;font-weight:700}
+.auto-card-hd p{margin:0}
+.auto-endpoint{background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:10px 14px;font-family:'SF Mono',Monaco,'Cascadia Code',monospace;font-size:.78rem;word-break:break-all;color:var(--text);position:relative}
+.auto-endpoint .copy-btn{position:absolute;right:6px;top:6px;padding:3px 8px;font-size:.68rem;border-radius:5px}
+.auto-status{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:.72rem;font-weight:600}
+.auto-status.success{color:#16a34a;background:rgba(22,163,74,.08)}
+.auto-status.failed{color:#dc2626;background:rgba(220,38,38,.08)}
+.auto-status.pending{color:#d97706;background:rgba(217,119,6,.08)}
+.auto-dir-out{color:var(--blue);font-weight:600;font-size:.72rem}
+.auto-dir-in{color:#7c3aed;font-weight:600;font-size:.72rem}
+.alert-summary-table{width:100%;border-collapse:collapse;font-size:.82rem}
+.alert-summary-table th{text-align:left;padding:8px 12px;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:2px solid var(--border)}
+.alert-summary-table td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.alert-summary-table tr:last-child td{border-bottom:none}
+.alert-summary-table tr:hover{background:var(--bg)}
+.channel-pill{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:12px;font-size:.71rem;font-weight:600;background:rgba(59,130,246,.08);color:var(--blue);margin-right:4px;white-space:nowrap}
+/* Wizard */
+.wizard-container{background:var(--card);border:1.5px solid var(--border);border-radius:var(--rlg);padding:24px 28px}
+.wizard-stepper{display:flex;align-items:center;gap:0;margin-bottom:28px;padding:0 20px}
+.wizard-step{display:flex;flex-direction:column;align-items:center;opacity:.4;transition:opacity .2s}
+.wizard-step.active,.wizard-step.completed{opacity:1}
+.wizard-step__circle{width:34px;height:34px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;color:var(--muted);background:var(--surface);transition:all .2s}
+.wizard-step.active .wizard-step__circle{background:var(--blue);color:#fff;border-color:var(--blue)}
+.wizard-step.completed .wizard-step__circle{background:var(--green);color:#fff;border-color:var(--green)}
+.wizard-step__label{font-size:.72rem;font-weight:600;margin-top:6px;color:var(--muted);white-space:nowrap}
+.wizard-step.active .wizard-step__label{color:var(--text)}
+.wizard-step__line{flex:1;height:2px;background:var(--border);margin:0 8px;margin-bottom:18px;transition:background .2s}
+.wizard-step__line.completed{background:var(--green)}
+.wizard-pane{display:none}
+.wizard-pane.active{display:block}
+.wizard-nav{display:flex;justify-content:space-between;align-items:center;margin-top:24px;padding-top:18px;border-top:1.5px solid var(--border)}
+.wizard-alert-card{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border:1.5px solid var(--border);border-radius:var(--rlg);cursor:pointer;transition:all .15s;background:var(--surface);margin-bottom:10px;user-select:none}
+.wizard-alert-card:hover{border-color:rgba(59,130,246,.35);background:rgba(59,130,246,.02)}
+.wizard-alert-card.selected{border-color:rgba(59,130,246,.6);background:rgba(59,130,246,.04)}
+.wizard-alert-card__check{width:20px;height:20px;border-radius:6px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;transition:all .15s;font-size:.7rem;color:transparent}
+.wizard-alert-card.selected .wizard-alert-card__check{background:var(--blue);border-color:var(--blue);color:#fff}
+.wizard-threshold-card{padding:16px 18px;border:1.5px solid var(--border);border-radius:var(--rlg);background:var(--surface);margin-bottom:12px}
+.wizard-schedule-option{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border:1.5px solid var(--border);border-radius:var(--rlg);cursor:pointer;transition:all .15s;background:var(--surface);margin-bottom:10px}
+.wizard-schedule-option:hover{border-color:rgba(59,130,246,.35)}
+.wizard-schedule-option.active{border-color:rgba(59,130,246,.6);background:rgba(59,130,246,.04)}
+.wizard-schedule-option input[type=radio]{accent-color:var(--blue);width:16px;height:16px;margin-top:2px;cursor:pointer}
+.wizard-channel-row{padding:14px 16px;border:1.5px solid var(--border);border-radius:var(--rlg);background:var(--surface);margin-bottom:10px}
+
+/* PRINT / REPORT */
+@media print{
+  .topbar,.sidebar,.modal-bg,.toast-wrap,.bulk-bar,.list-toolbar,.btn{display:none!important}
+  .shell{display:block}
+  .main{padding:0}
+  .print-report{display:block!important}
+  .view{display:none!important}
+  .view.print-target{display:block!important}
+}
+.print-report{display:none}
+
+/* EXPANSION CALC */
+.exp-calc{background:linear-gradient(135deg,var(--amber-l) 0%,#fff 70%);border:1px solid var(--amber-m);border-radius:var(--rlg);padding:20px 24px;margin-bottom:22px;position:relative;overflow:hidden}
+.exp-calc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--amber),#f59e0b)}
+.exp-calc h2{margin-bottom:14px}
+.exp-number{font-size:2rem;font-weight:800;color:var(--amber);line-height:1;letter-spacing:-.03em}
+
+/* TOAST */
+.toast-wrap{position:fixed;bottom:20px;right:20px;z-index:999;display:flex;flex-direction:column;gap:7px;pointer-events:none}
+.toast{background:var(--text);color:#fff;padding:10px 16px;border-radius:var(--r);font-size:.82rem;font-weight:600;box-shadow:var(--shm);opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s;pointer-events:auto}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.success{background:var(--green)}
+.toast.warn{background:var(--amber)}
+.toast.error{background:var(--red)}
+
+/* FOOTER */
+.footer{text-align:center;padding:12px;font-size:.68rem;color:var(--subtle);border-top:1px solid var(--border);background:var(--bg);letter-spacing:.02em}
+
+/* MOMENTUM BADGE */
+.momentum{display:inline-flex;align-items:center;gap:4px;font-size:.7rem;font-weight:700;padding:2px 7px;border-radius:100px}
+.momentum.up{background:var(--green-l);color:var(--green)}
+.momentum.dn{background:var(--red-l);color:var(--red)}
+.momentum.flat{background:var(--bg);color:var(--subtle)}
+.momentum.new{background:var(--purple-l);color:var(--purple)}
+
+/* CSM PERFORMANCE */
+.csm-rank{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;font-size:.72rem;font-weight:800;flex-shrink:0}
+.csm-rank.gold{background:#fef3c7;color:#b45309}
+.csm-rank.silver{background:#f1f5f9;color:#475569}
+.csm-rank.bronze{background:#fed7aa;color:#c2410c}
+.csm-rank.default{background:var(--bg);color:var(--muted)}
+.csm-health-bar{display:flex;height:8px;border-radius:4px;overflow:hidden;min-width:100px;gap:1px}
+.csm-health-bar span{display:block;height:100%;transition:width .3s}
+.csm-trend{display:inline-flex;align-items:center;gap:3px;font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:100px}
+.csm-trend.up{background:var(--green-l);color:var(--green)}
+.csm-trend.dn{background:var(--red-l);color:var(--red)}
+.csm-trend.flat{background:var(--bg);color:var(--subtle)}
+.csm-drill-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:18px;padding:16px 0}
+.csm-drill-stat{text-align:center}
+.csm-drill-stat__val{font-size:1.4rem;font-weight:800;line-height:1}
+.csm-drill-stat__label{font-size:.66rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-top:3px}
+.csm-overdue{display:inline-flex;align-items:center;gap:3px;font-size:.66rem;font-weight:700;padding:2px 7px;border-radius:4px;background:#fef2f2;color:#dc2626}
+.csm-perf-table-wrap{overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.csm-perf-table-wrap::-webkit-scrollbar{height:6px}
+.csm-perf-table-wrap::-webkit-scrollbar-track{background:transparent}
+.csm-perf-table-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.csm-row{transition:background .15s}
+.csm-row.csm-expanded{background:var(--blue-l);border-left:3px solid var(--blue)}
+.csm-row.csm-expanded td:first-child{border-left:none}
+.csm-expand-row{background:transparent !important}
+.csm-expand-row:hover{background:transparent !important}
+.csm-expand-cell{padding:20px 24px 24px !important;border-bottom:2px solid var(--border);background:var(--blue-l)}
+.csm-expand-cell .ct{box-shadow:0 2px 12px rgba(0,0,0,.08);border-radius:var(--r);overflow:hidden;border:1.5px solid var(--border)}
+.csm-expand-cell .ct th{background:var(--surface);border-bottom:1.5px solid var(--border)}
+.csm-expand-cell .ct td{background:#fff}
+.csm-expand-cell .ct tbody tr:hover td{background:var(--blue-l)}
+.csm-expand-btn{display:inline-flex;align-items:center;gap:4px}
+.csm-expand-btn svg{transition:transform .2s}
+.csm-workload-row{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);font-size:.82rem}
+.csm-workload-row:last-child{border-bottom:none}
+.csm-workload-name{width:110px;font-weight:700;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.csm-workload-bar{flex:1;height:20px;border-radius:4px;background:var(--bg);overflow:hidden;position:relative}
+.csm-workload-fill{height:100%;border-radius:4px;transition:width .4s ease;display:flex;align-items:center;padding-left:6px;font-size:.66rem;font-weight:700;color:#fff;white-space:nowrap}
+.csm-workload-val{width:70px;text-align:right;font-weight:600;font-size:.78rem;flex-shrink:0}
+.csm-focus-item{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start}
+.csm-focus-item:last-child{border-bottom:none}
+.csm-focus-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:.72rem}
+.csm-focus-text{flex:1;min-width:0}
+.csm-focus-text strong{font-size:.82rem}
+.csm-focus-text p{font-size:.75rem;color:var(--muted);margin-top:2px;line-height:1.4}
+.csm-movement-item{padding:10px 16px;border-bottom:1px solid var(--border);font-size:.8rem;display:flex;align-items:center;gap:8px}
+.csm-movement-item:last-child{border-bottom:none}
+.csm-movement-arrow{font-weight:800;font-size:.72rem;padding:2px 6px;border-radius:4px}
+.csm-movement-arrow.up{background:var(--green-l);color:var(--green)}
+.csm-movement-arrow.dn{background:var(--red-l);color:var(--red)}
+.csm-activity-item{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start;font-size:.8rem}
+.csm-activity-item:last-child{border-bottom:none}
+.csm-activity-time{width:60px;flex-shrink:0;font-size:.68rem;color:var(--subtle);font-weight:600;padding-top:2px}
+.csm-activity-body{flex:1;min-width:0}
+.csm-activity-body strong{color:var(--text)}
+@media(max-width:900px){#csm-insights-row,#csm-bottom-row{grid-template-columns:1fr}}
+
+/* SEGMENTS PAGE */
+.seg-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.seg-card.seg-expanded{border-color:var(--blue);box-shadow:0 0 0 2px rgba(59,130,246,.18)}
+.seg-expand-panel{display:none;background:var(--blue-l);border:1.5px solid var(--border);border-radius:var(--rlg);padding:20px 24px 24px;margin-top:16px}
+.seg-expand-panel.open{display:block}
+.seg-expand-panel .ct td{background:#fff}
+.seg-expand-panel .ct tbody tr:hover td{background:var(--blue-l)}
+.seg-expand-panel .ct{box-shadow:0 2px 12px rgba(0,0,0,.08);border-radius:var(--r);overflow:hidden;border:1.5px solid var(--border)}
+.seg-expand-panel .ct th{background:var(--surface);border-bottom:1.5px solid var(--border)}
+.seg-table-wrap-scroll{overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.seg-table-wrap-scroll::-webkit-scrollbar{height:6px}
+.seg-table-wrap-scroll::-webkit-scrollbar-track{background:transparent}
+.seg-table-wrap-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.seg-table-row{transition:background .15s;cursor:pointer}
+.seg-table-row:hover{background:var(--bg)}
+.seg-table-row.seg-row-expanded{background:var(--blue-l);border-left:3px solid var(--blue)}
+.seg-table-row.seg-row-expanded td:first-child{border-left:none}
+.seg-table-expand-row{background:transparent !important}
+.seg-table-expand-row:hover{background:transparent !important}
+.seg-table-expand-cell{padding:20px 24px 24px !important;border-bottom:2px solid var(--border);background:var(--blue-l)}
+.seg-table-expand-cell .ct{box-shadow:0 2px 12px rgba(0,0,0,.08);border-radius:var(--r);overflow:hidden;border:1.5px solid var(--border)}
+.seg-table-expand-cell .ct th{background:var(--surface);border-bottom:1.5px solid var(--border)}
+.seg-table-expand-cell .ct td{background:#fff}
+.seg-table-expand-cell .ct tbody tr:hover td{background:var(--blue-l)}
+.seg-score-badge{display:inline-flex;align-items:center;justify-content:center;min-width:38px;padding:2px 8px;border-radius:100px;font-size:.78rem;font-weight:800}
+.seg-card-trend{display:inline-flex;align-items:center;gap:3px;font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:100px}
+.seg-card-trend.up{background:var(--green-l);color:var(--green)}
+.seg-card-trend.dn{background:var(--red-l);color:var(--red)}
+.seg-card-trend.flat{background:var(--bg);color:var(--subtle)}
+.seg-sort-btn{cursor:pointer;user-select:none;white-space:nowrap}
+.seg-sort-btn:hover{color:var(--blue)}
+.seg-sort-active{color:var(--blue);font-weight:800}
+@media(max-width:900px){.seg-cards-grid{grid-template-columns:1fr}.dash-kpi-row{grid-template-columns:repeat(2,1fr)}}
+
+/* URGENCY BADGE */
+.urgency{display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:700;padding:3px 9px;border-radius:100px;white-space:nowrap}
+.urgency.critical{background:var(--red-l);color:var(--red);border:1.5px solid var(--red-m)}
+.urgency.high{background:var(--amber-l);color:var(--amber);border:1.5px solid var(--amber-m)}
+.urgency.medium{background:var(--blue-l);color:var(--blue);border:1.5px solid var(--blue-m)}
+.urgency.low{background:var(--green-l);color:var(--green);border:1.5px solid var(--green-m)}
+
+/* SENTIMENT */
+.sentiment-btns{display:flex;gap:6px;margin:10px 0}
+.sent-btn{flex:1;padding:9px;border-radius:var(--r);border:1.5px solid var(--border);background:var(--surface);font-size:1.1rem;cursor:pointer;transition:all .15s;font-family:var(--font);display:flex;flex-direction:column;align-items:center;gap:3px}
+.sent-btn span{font-size:.67rem;font-weight:700;color:var(--muted)}
+.sent-btn:hover,.sent-btn.active{border-color:var(--blue);background:var(--blue-l)}
+.sent-btn.pos.active{border-color:var(--green);background:var(--green-l)}
+.sent-btn.neu.active{border-color:var(--amber);background:var(--amber-l)}
+.sent-btn.neg.active{border-color:var(--red);background:var(--red-l)}
+.sent-log{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;margin-bottom:6px;font-size:.8rem;display:flex;align-items:center;gap:8px}
+.sent-log__icon{font-size:1rem;flex-shrink:0}
+.sent-log__meta{font-size:.68rem;color:var(--subtle);margin-left:auto;white-space:nowrap}
+
+/* CADENCE BADGE */
+.cadence-ok{color:var(--green);font-size:.72rem;font-weight:700}
+.cadence-warn{color:var(--amber);font-size:.72rem;font-weight:700}
+.cadence-overdue{color:var(--red);font-size:.72rem;font-weight:700}
+
+/* PRIORITY LIST (Friday List) */
+.priority-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:11px 13px;margin-bottom:7px;display:flex;align-items:center;gap:11px;cursor:pointer;transition:box-shadow .15s,border-color .15s,transform .15s}
+.priority-card:hover{box-shadow:var(--shm);border-color:transparent;transform:translateX(2px)}
+.priority-rank{width:28px;height:28px;border-radius:8px;background:var(--blue);color:#fff;font-size:.76rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.priority-rank.r1{background:var(--red)}
+.priority-rank.r2{background:var(--amber)}
+.priority-rank.r3{background:var(--blue)}
+.priority-info{flex:1;min-width:0}
+.priority-name{font-weight:700;font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.priority-why{font-size:.72rem;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ─── DASHBOARD KPI ROW ─────────────────────────────────────── */
+.dash-kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px}
+.dash-kpi-card{border-radius:var(--rlg);padding:20px 20px 18px;cursor:pointer;transition:transform .15s,box-shadow .15s;position:relative;color:#fff}
+.dash-kpi-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:50}
+.dash-kpi-blue{background:linear-gradient(135deg,#2563eb 0%,#3b82f6 100%)}
+.dash-kpi-red{background:linear-gradient(135deg,#dc2626 0%,#ef4444 100%)}
+.dash-kpi-teal{background:linear-gradient(135deg,#0891b2 0%,#06b6d4 100%)}
+.dash-kpi-amber{background:linear-gradient(135deg,#d97706 0%,#f59e0b 100%)}
+.dash-kpi-green{background:linear-gradient(135deg,#16a34a 0%,#22c55e 100%)}
+.dash-kpi-purple{background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%)}
+.dash-kpi-indigo{background:linear-gradient(135deg,#4338ca 0%,#6366f1 100%)}
+.dash-kpi-rose{background:linear-gradient(135deg,#be123c 0%,#f43f5e 100%)}
+.dash-kpi-cyan{background:linear-gradient(135deg,#0e7490 0%,#22d3ee 100%)}
+.dash-kpi-violet{background:linear-gradient(135deg,#6d28d9 0%,#a78bfa 100%)}
+.dash-kpi-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.dash-kpi-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.dash-kpi-label{font-size:.88rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;opacity:1}
+.dash-kpi-num{font-size:2.2rem;font-weight:800;line-height:1;letter-spacing:-.04em;margin-bottom:3px}
+.dash-kpi-sub{font-size:.72rem;opacity:.72;font-weight:500}
+.dash-kpi-pill{display:inline-flex;align-items:center;padding:3px 9px;border-radius:100px;font-size:.7rem;font-weight:700;letter-spacing:.01em}
+.dash-kpi-pill.red{background:rgba(0,0,0,.18);color:#fff}
+.dash-kpi-pill.green{background:rgba(255,255,255,.2);color:#fff}
+.dash-kpi-pill.amber{background:rgba(0,0,0,.18);color:#fff}
+.dash-kpi-pill.teal{background:rgba(255,255,255,.2);color:#fff}
+.dash-kpi-pill.blue{background:rgba(0,0,0,.18);color:#fff}
+.dash-health-bar{display:flex;height:7px;border-radius:100px;overflow:hidden;gap:2px;margin-top:10px}
+.dash-health-seg{border-radius:100px;transition:width .6s cubic-bezier(.4,0,.2,1);min-width:0}
+
+/* ─── DASHBOARD MAIN ROW ────────────────────────────────────── */
+.dash-main-row{display:grid;grid-template-columns:1fr 320px;gap:16px;margin-bottom:20px;align-items:start}
+.dash-priority-panel{padding:20px 22px 0}
+.priority-table-wrap,#priority-table-wrap{padding-bottom:20px}
+.dash-sidebar{display:flex;flex-direction:column;gap:0}
+
+/* Priority table (in dashboard) */
+.ptbl{width:100%;border-collapse:collapse;font-size:.8rem}
+.ptbl th{text-align:left;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);padding:0 10px 8px;border-bottom:1.5px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none;transition:color .13s}
+.ptbl th:hover{color:var(--blue)}
+.ptbl td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+.ptbl tr:last-child td{border-bottom:none}
+.ptbl tbody tr{cursor:pointer;transition:background .1s}
+.ptbl tbody tr:hover{background:var(--bg)}
+.ptbl .qa-btns{display:flex;gap:4px;opacity:0;transition:opacity .15s}
+.ptbl tbody tr:hover .qa-btns{opacity:1}
+.p-rank{width:22px;height:22px;border-radius:6px;background:var(--blue);color:#fff;font-size:.68rem;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.p-rank.pr-critical{background:#dc2626}.p-rank.pr1{background:#ea580c}.p-rank.pr-watch{background:var(--amber)}.p-rank.pr2{background:var(--green)}.p-rank.pr3{background:var(--blue)}.p-rank.pr-expand{background:var(--teal)}
+
+/* Dash alerts compact */
+.dash-alert-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;margin-bottom:5px;cursor:pointer;transition:background .12s;border-left:3px solid var(--red);background:var(--red-l)}
+.dash-alert-item:hover{filter:brightness(.97)}
+.dash-alert-item.amber{border-left-color:var(--amber);background:var(--amber-l)}
+.dash-alert-item.blue{border-left-color:var(--blue);background:var(--blue-l)}
+.dash-alert-item.green{border-left-color:var(--green);background:var(--green-l)}
+.dash-alert-item__icon{font-size:.85rem;flex-shrink:0}
+.dash-alert-item__body{flex:1;min-width:0}
+.dash-alert-item__text{font-size:.75rem;color:var(--text);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-alert-item__sub{font-size:.67rem;color:var(--muted);margin-top:1px}
+
+/* Dash recent compact */
+.dash-recent-item{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.dash-recent-item:last-child{border-bottom:none}
+.dash-recent-item:hover .dash-recent-name{color:var(--blue)}
+.dash-recent-name{font-size:.82rem;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-recent-meta{font-size:.7rem;color:var(--muted);white-space:nowrap}
+.win-item{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.win-item:last-child{border-bottom:none}
+.win-item:hover .win-name{color:var(--blue)}
+.win-name{font-size:.82rem;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.win-delta{font-size:.75rem;font-weight:800;color:#16a34a;white-space:nowrap}
+.win-badge{font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:100px;white-space:nowrap}
+
+/* RESPONSIVE */
+@media(max-width:1300px){.dash-kpi-row{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:1100px){.dash-kpi-row{grid-template-columns:repeat(2,1fr)}.dash-main-row{grid-template-columns:1fr}}
+@media(max-width:900px){.sidebar{display:none}.charts-grid{grid-template-columns:1fr}.charts-left{grid-template-columns:1fr;grid-template-rows:auto}.charts-right{grid-template-rows:auto}.score-panel{grid-template-columns:1fr}#dash-bottom-grid{grid-template-columns:1fr}}
+@media(max-width:600px){.main{padding:14px 12px 48px}.fg{grid-column:1/-1}.fg{grid-template-columns:1fr}.stat-grid{grid-template-columns:1fr 1fr}h1{font-size:1.35rem}#dash-bottom-grid{grid-template-columns:1fr}.dash-kpi-row{grid-template-columns:1fr 1fr}}
+
+/* AUTH GATE */
+#auth-gate{position:fixed;inset:0;background:linear-gradient(135deg,#f0f4f8 0%,#e8eef5 100%);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}
+.auth-card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:40px 36px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(15,23,42,.12)}
+.auth-logo{width:56px;height:56px;background:linear-gradient(135deg,#2563eb,#1d4ed8);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;box-shadow:0 4px 14px rgba(37,99,235,.35)}
+.auth-card h1{font-size:1.4rem;margin-bottom:4px;text-align:center;letter-spacing:-.02em}
+.auth-card .sub{font-size:.84rem;color:var(--muted);margin-bottom:24px;text-align:center}
+.auth-tabs{display:flex;gap:3px;background:var(--border);border-radius:var(--r);padding:3px;margin-bottom:20px}
+.auth-tab{flex:1;padding:7px;border-radius:7px;border:none;background:transparent;font-size:.82rem;font-weight:600;color:var(--muted);cursor:pointer;transition:all .13s;font-family:var(--font)}
+.auth-tab.active{background:var(--surface);color:var(--text);box-shadow:var(--sh)}
+.auth-field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.auth-field label{font-size:.8rem;font-weight:600;color:var(--text)}
+.auth-input{padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:.9rem;font-family:var(--font);outline:none;transition:border-color .16s;width:100%}
+.auth-input:focus{border-color:var(--focus);box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+.auth-btn{width:100%;padding:11px;background:var(--blue);color:#fff;border:none;border-radius:var(--r);font-size:.92rem;font-weight:700;cursor:pointer;font-family:var(--font);transition:background .15s;margin-top:4px}
+.auth-btn:hover{background:var(--blue-d)}
+.auth-btn:disabled{opacity:.5;cursor:not-allowed}
+.auth-err{font-size:.78rem;color:var(--red);margin-top:10px;min-height:18px;font-weight:600;text-align:center}
+.auth-ok{font-size:.78rem;color:var(--green);margin-top:10px;min-height:18px;font-weight:600;text-align:center}
+.auth-link{font-size:.78rem;color:var(--blue);cursor:pointer;text-align:center;margin-top:12px;display:block}
+.auth-link:hover{text-decoration:underline}
+.auth-divider{display:flex;align-items:center;gap:8px;margin:14px 0;color:var(--subtle);font-size:.72rem}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+/* User pill in topbar */
+.user-pill{display:flex;align-items:center;gap:7px;font-size:.78rem;font-weight:600;color:rgba(255,255,255,.85)}
+.user-avatar{width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.2);border:1.5px solid rgba(255,255,255,.3);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700}
+/* ─── COLUMN FILTER SYSTEM ─── */
+.col-th-inner{display:flex;align-items:center;gap:2px;white-space:nowrap}
+.col-sort-label{flex:1;background:none;border:none;padding:0;font:inherit;color:inherit;cursor:pointer;text-align:left;letter-spacing:inherit;text-transform:inherit;user-select:none;min-width:0}
+.col-sort-label.no-sort{cursor:default}
+.col-sort-arrow{font-size:.58rem;color:var(--blue);flex-shrink:0;width:8px;line-height:1}
+.col-sort-arrow.idle{visibility:hidden}
+.col-filter-btn{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;padding:0;background:none;border:none;border-radius:3px;cursor:pointer;color:var(--subtle);flex-shrink:0;transition:color .12s,background .12s}
+.col-filter-btn:hover,.col-filter-btn.active{color:var(--blue);background:var(--blue-l)}
+.col-filter-menu{display:none;position:absolute;z-index:400;min-width:185px;max-width:280px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shm);animation:fadeIn .12s ease}
+.col-filter-menu.open{display:block}
+.col-filter-hd{display:flex;align-items:center;justify-content:space-between;padding:7px 11px 5px;border-bottom:1px solid var(--border)}
+.col-filter-title{font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--subtle)}
+.col-filter-clear{font-size:.72rem;font-weight:600;color:var(--blue);background:none;border:none;cursor:pointer;padding:1px 5px;border-radius:3px;font-family:var(--font)}
+.col-filter-clear:hover{background:var(--blue-l)}
+.col-filter-body{padding:8px 10px}
+.cff-radio-group{display:flex;flex-direction:column;gap:3px;margin-bottom:7px}
+.cff-radio{display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--text);cursor:pointer;padding:2px 0}
+.cff-radio input{accent-color:var(--blue);cursor:pointer}
+.cff-inputs{display:flex;align-items:center;gap:4px}
+.cff-num-input{width:100%;padding:5px 7px;border:1.5px solid var(--border);border-radius:5px;font-size:.8rem;font-family:var(--font);color:var(--text);background:var(--surface);outline:none;transition:border-color .13s;box-sizing:border-box}
+.cff-num-input:focus{border-color:var(--focus)}
+.cff-between-sep{font-size:.75rem;color:var(--muted);flex-shrink:0}
+.cff-enum-list{display:flex;flex-direction:column;gap:2px;max-height:170px;overflow-y:auto}
+.cff-check-item{display:flex;align-items:center;gap:7px;padding:3px 2px;font-size:.8rem;color:var(--text);cursor:pointer;border-radius:3px;transition:background .1s}
+.cff-check-item:hover{background:var(--bg)}
+.cff-check-item input[type=checkbox]{accent-color:var(--blue);width:13px;height:13px;cursor:pointer;flex-shrink:0}
+.cff-text-input{width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:.82rem;font-family:var(--font);color:var(--text);background:var(--surface);outline:none;transition:border-color .13s;box-sizing:border-box}
+.cff-text-input:focus{border-color:var(--focus)}
+.widget-see-all{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:.75rem;font-weight:600;color:var(--blue);cursor:pointer;text-align:center;transition:opacity .13s}
+.widget-see-all:hover{opacity:.7}
+.filter-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 8px 3px 10px;background:var(--blue-l);color:var(--blue);border:1.5px solid var(--blue-m);border-radius:100px;font-size:.72rem;font-weight:600;white-space:nowrap;cursor:pointer;transition:background .12s}
+.filter-pill:hover{background:var(--blue-m)}
+.filter-pill-x{background:none;border:none;cursor:pointer;color:var(--blue);font-size:.8rem;line-height:1;padding:0 1px;opacity:.7;transition:opacity .12s}
+.filter-pill-x:hover{opacity:1}
+/* ─── Info Tooltip ─── */
+.info-tip{position:relative;display:inline-flex;align-items:center;cursor:default;font-size:.72rem;font-weight:400;color:var(--subtle);opacity:.7;margin-left:3px;line-height:1;vertical-align:middle;transition:opacity .13s}
+.info-tip:hover{opacity:1;color:var(--blue);z-index:9999}
+.info-tip::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1e293b;color:#f8fafc;font-size:.7rem;font-weight:400;line-height:1.45;white-space:normal;width:210px;padding:7px 10px;border-radius:7px;pointer-events:none;opacity:0;transition:opacity .15s;z-index:9999;text-align:left;box-shadow:0 4px 16px rgba(0,0,0,.18);text-transform:none;letter-spacing:normal}
+.info-tip:hover::after{opacity:1}
+.info-tip::before{content:'';position:absolute;bottom:calc(100% + 2px);left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#1e293b;pointer-events:none;opacity:0;transition:opacity .15s;z-index:10000}
+.info-tip:hover::before{opacity:1}
+.info-tip.tip-below::after{bottom:auto;top:calc(100% + 6px)}
+.info-tip.tip-below::before{bottom:auto;top:calc(100% + 2px);border-top-color:transparent;border-bottom-color:#1e293b}
+.dash-kpi-card:has(.info-tip:hover),.card:has(.info-tip:hover),.chart-card:has(.info-tip:hover){z-index:100;position:relative}
+/* ─── Sparklines ─── */
+.sparkline{display:block;overflow:visible}
+td .sparkline{vertical-align:middle}
+/* ─── Renewal Pipeline ─── */
+.rp-row{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:.78rem}
+.rp-label{width:90px;color:var(--muted);flex-shrink:0;font-size:.73rem}
+.rp-track{flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.rp-fill{height:100%;border-radius:4px;transition:width .4s}
+.rp-meta{display:flex;gap:10px;align-items:center;min-width:180px;justify-content:flex-end;font-size:.72rem;color:var(--text)}
+.rp-mrr{font-weight:700}
+.rp-risk{color:#dc2626;font-weight:600}
+/* ─── Manager Heatmap ─── */
+.mheat-table{width:100%;border-collapse:collapse;font-size:.78rem}
+.mheat-table th{text-align:left;padding:5px 8px;color:var(--subtle);font-weight:600;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border)}
+.mheat-table td{padding:7px 8px;border-bottom:1px solid var(--border-l,#f1f5f9)}
+.mheat-table tr:last-child td{border-bottom:none}
+.mheat-score{display:inline-block;padding:2px 8px;border-radius:100px;font-weight:700;font-size:.75rem}
+/* ─── Score Breakdown enhancements ─── */
+.bd-weight{width:30px;text-align:right;font-size:.67rem;color:var(--subtle);flex-shrink:0}
+.bd-raw{width:90px;text-align:right;font-size:.68rem;color:var(--muted);flex-shrink:0}
+/* ─── Playbook done state ─── */
+.play-done .play-item__text{opacity:.4;text-decoration:line-through}
+/* ─── Next Touch badges ─── */
+.nt-badge{display:inline-block;padding:1px 7px;border-radius:100px;font-size:.7rem;font-weight:700}
+.nt-overdue{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}
+.nt-today{background:var(--amber-l);color:var(--amber);border:1px solid var(--amber-m)}
+.nt-ok{background:var(--green-l);color:var(--green);border:1px solid var(--green-m)}
+/* Next Touch inline edit */
+.nt-cell{cursor:pointer;position:relative;white-space:nowrap}
+.nt-cell:hover{background:var(--blue-l);border-radius:4px}
+.nt-inline-empty{font-size:.72rem;color:var(--blue);font-weight:600;opacity:.6;transition:opacity .12s}
+.nt-cell:hover .nt-inline-empty{opacity:1}
+.nt-inline-picker{position:absolute;top:100%;left:0;z-index:200;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.15);padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.nt-inline-picker input[type=date]{font-size:.8rem;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);outline:none}
+.nt-inline-picker input[type=date]:focus{border-color:var(--blue)}
+.nt-inline-picker-btns{display:flex;gap:6px;justify-content:flex-end}
+/* Segments view (v85) */
+.seg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:14px}
+.seg-card{padding:14px 16px;transition:box-shadow .15s}
+.seg-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.1)}
+/* Preset dropdown (v85) */
+#preset-dd-menu .snooze-dd__item{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#preset-dd-menu .snooze-dd__item .preset-del{background:none;border:none;cursor:pointer;color:var(--muted);font-size:.75rem;padding:0 2px;line-height:1;opacity:.6}
+#preset-dd-menu .snooze-dd__item .preset-del:hover{opacity:1;color:var(--red)}
+</style>
+</head>
+<body>
+
+<!-- SUPABASE SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- AUTH GATE -->
+<div id="auth-gate" style="display:none">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <svg width="28" height="28" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1" y="9" width="3" height="8" rx="1.5" fill="white" opacity=".7"/>
+        <rect x="6" y="5" width="3" height="12" rx="1.5" fill="white" opacity=".85"/>
+        <rect x="11" y="1" width="3" height="16" rx="1.5" fill="white"/>
+        <circle cx="15.5" cy="3" r="1.5" fill="#93c5fd"/>
+      </svg>
+    </div>
+    <h1>IQcadence</h1>
+    <p class="sub">CS Health Score</p>
+
+    <!-- Login form only — no public sign-up -->
+    <div id="form-login">
+      <div class="auth-field">
+        <label>Email</label>
+        <input class="auth-input" type="email" id="login-email" placeholder="you@company.com" onkeydown="if(event.key==='Enter')authSignIn()"/>
+      </div>
+      <div class="auth-field">
+        <label>Password</label>
+        <input class="auth-input" type="password" id="login-pw" placeholder="Your password" onkeydown="if(event.key==='Enter')authSignIn()"/>
+      </div>
+      <button class="auth-btn" id="login-btn" onclick="authSignIn()">Sign In →</button>
+      <div class="auth-divider">or</div>
+      <span class="auth-link" onclick="authTab('reset')">Forgot your password?</span>
+    </div>
+
+    <!-- Sign up form — hidden, kept for admin use via JS -->
+    <div id="form-signup" style="display:none">
+      <div class="auth-field">
+        <label>Email</label>
+        <input class="auth-input" type="email" id="signup-email" placeholder="you@company.com"/>
+      </div>
+      <div class="auth-field">
+        <label>Password <span style="font-size:.72rem;color:var(--subtle)">(min 6 chars)</span></label>
+        <input class="auth-input" type="password" id="signup-pw" placeholder="Choose a password"/>
+      </div>
+      <div class="auth-field">
+        <label>Confirm Password</label>
+        <input class="auth-input" type="password" id="signup-pw2" placeholder="Repeat password" onkeydown="if(event.key==='Enter')authSignUp()"/>
+      </div>
+      <button class="auth-btn" id="signup-btn" onclick="authSignUp()">Create Account →</button>
+    </div>
+
+    <!-- Reset form -->
+    <div id="form-reset" style="display:none">
+      <p style="font-size:.82rem;color:var(--muted);margin-bottom:14px">Enter your email and we'll send a password reset link.</p>
+      <div class="auth-field">
+        <label>Email</label>
+        <input class="auth-input" type="email" id="reset-email" placeholder="you@company.com" onkeydown="if(event.key==='Enter')authReset()"/>
+      </div>
+      <button class="auth-btn" id="reset-btn" onclick="authReset()">Send Reset Link →</button>
+      <span class="auth-link" onclick="authTab('login')" style="margin-top:8px">← Back to Sign In</span>
+    </div>
+
+    <div class="auth-err" id="auth-err"></div>
+    <div class="auth-ok"  id="auth-ok"></div>
+  </div>
+</div>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="topbar__brand">
+    <img src="Logo/iQcadence_logo.png" alt="IQcadence" style="height:40px;width:auto;display:block"/>
+  </div>
+  <div class="topbar__right">
+    <!-- Client Filter (admin only) -->
+    <div class="mgr-filter" id="client-filter-wrap" style="display:none">
+      <button class="btn btn-sm btn-ghost mgr-filter__btn" id="client-filter-btn" onclick="toggleClientDropdown()" title="View client data">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span id="client-filter-label">My Data</span> ▾
+      </button>
+      <div class="mgr-filter__dropdown" id="client-filter-dropdown" style="display:none">
+        <div class="mgr-filter__item">
+          <label><input type="radio" name="client-radio" id="cr-own" value="__own__" onchange="clientRadioChange(this)" checked> My Data</label>
+        </div>
+        <div class="mgr-filter__sep"></div>
+        <div id="client-filter-list"></div>
+      </div>
+    </div>
+    <!-- Manager Filter -->
+    <div class="mgr-filter" id="mgr-filter-wrap">
+      <button class="btn btn-sm btn-ghost mgr-filter__btn" id="mgr-filter-btn" onclick="toggleMgrDropdown()" title="Filter by manager">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span id="mgr-filter-label">All Managers</span> ▾
+      </button>
+      <div class="mgr-filter__dropdown" id="mgr-filter-dropdown" style="display:none">
+        <div class="mgr-filter__item">
+          <label><input type="checkbox" id="mgr-all" onchange="mgrAllToggle(this)" checked> All Managers</label>
+        </div>
+        <div class="mgr-filter__sep"></div>
+        <div id="mgr-filter-list"></div>
+      </div>
+    </div>
+    <div class="user-pill" id="user-pill" style="display:none">
+      <div class="user-avatar" id="user-avatar">?</div>
+      <span id="user-email-lbl" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+    </div>
+    <div class="topbar__divider"></div>
+    <div class="snooze-dd" id="bell-dd-wrap">
+      <button class="btn btn-sm btn-ghost" id="bell-btn" onclick="event.stopPropagation();toggleBellDd()" style="position:relative;padding:6px 8px" title="Notifications">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span id="bell-badge" style="position:absolute;top:-3px;right:-3px;background:var(--red);color:#fff;font-size:.55rem;font-weight:700;padding:0 4px;border-radius:100px;line-height:1.7;display:none;min-width:14px;text-align:center"></span>
+      </button>
+      <div class="snooze-dd__menu" id="bell-dd-menu" style="min-width:310px;right:0;left:auto;max-height:380px;overflow-y:auto;top:calc(100% + 6px)"></div>
+    </div>
+    <div class="topbar__divider"></div>
+    <button class="btn btn-sm btn-ghost" onclick="nav('settings')">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Settings
+    </button>
+    <button class="btn btn-sm btn-ghost" onclick="showBackupMenu()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Backup
+    </button>
+    <button class="btn btn-sm btn-ghost" onclick="authSignOut()" id="signout-btn" style="display:none">Sign Out</button>
+    <button class="btn btn-sm btn-primary" onclick="nav('score')">+ Score Customer</button>
+  </div>
+</header>
+
+<div class="shell">
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="nav-label">Main</div>
+  <button class="nav-item active" id="ni-dashboard" onclick="nav('dashboard')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>Dashboard</button>
+  <button class="nav-item" id="ni-alerts" onclick="nav('alerts')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>Alerts<span id="alert-badge" style="margin-left:auto;background:var(--red);color:#fff;font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:100px;display:none"></span></button>
+  <button class="nav-item" id="ni-customers" onclick="nav('customers')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>Customers</button>
+  <button class="nav-item" id="ni-segments" onclick="nav('segments')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>Segments</button>
+  <button class="nav-item" id="ni-csmperf" onclick="nav('csmperf')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg></span>CSM Performance</button>
+  <div class="nav-sep"></div>
+  <div class="nav-label">Add Data</div>
+  <button class="nav-item" id="ni-score" onclick="nav('score')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span>Score Customer</button>
+  <button class="nav-item" id="ni-csv" onclick="nav('csv')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg></span>CSV Import</button>
+  <div class="nav-sep"></div>
+  <div class="nav-label">Config</div>
+  <button class="nav-item" id="ni-settings" onclick="nav('settings')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>Weights &amp; Config</button>
+  <button class="nav-item" id="ni-auditlog" onclick="nav('auditlog')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>Audit Log</button>
+  <button class="nav-item" id="ni-automations" onclick="nav('automations')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></span>Automations</button>
+  <!-- Admin only -->
+  <div class="nav-sep" id="ni-admin-sep" style="display:none"></div>
+  <div class="nav-label" id="ni-admin-label" style="display:none">Admin</div>
+  <button class="nav-item" id="ni-clients" onclick="nav('clients')" style="display:none"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>Clients</button>
+  <button class="nav-item" id="ni-users" onclick="nav('users')" style="display:none"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>User Management</button>
+</nav>
+
+<!-- MAIN -->
+<main class="main">
+
+<!-- ═══════════════ DASHBOARD ═══════════════ -->
+<div class="view active" id="view-dashboard">
+  <div class="page-hd">
+    <div>
+      <h1>Dashboard</h1>
+      <p id="dash-subtitle">Customer health overview</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <div class="snooze-dd" id="export-dd-dash">
+        <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation();toggleExportDd('dash')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export ▾
+        </button>
+        <div class="snooze-dd__menu" id="export-menu-dash">
+          <button class="snooze-dd__item" onclick="exportCSV();toggleExportDd('dash')">Export Data</button>
+          <button class="snooze-dd__item" onclick="exportBulksheet();toggleExportDd('dash')">Export Bulksheet</button>
+        </div>
+      </div>
+      <button class="btn btn-sm btn-primary" onclick="nav('score')">+ Score Customer</button>
+    </div>
+  </div>
+
+  <!-- ROW 1: KPI Cards (4 big) -->
+  <div class="dash-kpi-row">
+
+    <!-- Health Distribution -->
+    <div class="dash-kpi-card dash-kpi-blue" onclick="nav('customers');setFilter('all')">
+      <div class="dash-kpi-top">
+        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <span class="dash-kpi-label">Book Health <span class="info-tip tip-below" data-tip="Total active accounts and their health distribution across the 5 score bands (Critical → Expansion).">ⓘ</span></span>
+      </div>
+      <div class="dash-kpi-num" id="kpi-total">0</div>
+      <div class="dash-kpi-sub">Total active accounts</div>
+      <div class="dash-health-bar" id="kpi-health-bar">
+        <div class="dash-health-seg" id="hbar-critical" style="background:#dc2626" title="Critical"></div>
+        <div class="dash-health-seg" id="hbar-risk"     style="background:#ea580c" title="At Risk"></div>
+        <div class="dash-health-seg" id="hbar-watch"    style="background:#d97706" title="Watch"></div>
+        <div class="dash-health-seg" id="hbar-healthy"  style="background:#16a34a" title="Healthy"></div>
+        <div class="dash-health-seg" id="hbar-expand"   style="background:#0891b2" title="Expansion"></div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+        <span class="dash-kpi-pill red"    id="kpi-risk-pct">0 At Risk</span>
+        <span class="dash-kpi-pill amber"  id="kpi-watch-pct">0 Watch</span>
+        <span class="dash-kpi-pill green"  id="kpi-healthy-pct">0 Healthy</span>
+        <span class="dash-kpi-pill teal"   id="kpi-expand-pct">0 Exp.</span>
+      </div>
+    </div>
+
+    <!-- Revenue at Risk -->
+    <div class="dash-kpi-card dash-kpi-red" onclick="nav('customers');setFilter('risk')">
+      <div class="dash-kpi-top">
+        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <span class="dash-kpi-label">Revenue at Risk <span class="info-tip tip-below" data-tip="Combined MRR of all At Risk and Critical accounts based on their latest health score.">ⓘ</span></span>
+      </div>
+      <div class="dash-kpi-num" id="kpi-risk-mrr-big">$0</div>
+      <div class="dash-kpi-sub">MRR in At Risk accounts</div>
+      <div style="margin-top:10px"><span class="dash-kpi-pill red" id="kpi-risk-count">0 accounts</span></div>
+    </div>
+
+    <!-- Renewals -->
+    <div class="dash-kpi-card dash-kpi-teal" onclick="nav('alerts')">
+      <div class="dash-kpi-top">
+        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <span class="dash-kpi-label">Upcoming Renewals <span class="info-tip tip-below" data-tip="Accounts with a renewal date within the next 30 days. Click to see renewal alerts.">ⓘ</span></span>
+      </div>
+      <div class="dash-kpi-num" id="kpi-renewals">0</div>
+      <div class="dash-kpi-sub">Due in next 30 days</div>
+      <div style="margin-top:10px"><span class="dash-kpi-pill teal" id="kpi-renewals-mrr">$0 at stake</span></div>
+    </div>
+
+    <!-- Expansion Opportunity -->
+    <div class="dash-kpi-card dash-kpi-green" id="exp-callout" onclick="nav('customers');setFilter('expand')">
+      <div class="dash-kpi-top">
+        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        </div>
+        <span class="dash-kpi-label">Expansion Opportunity <span class="info-tip tip-below" data-tip="Estimated upsell potential (20% of MRR) for accounts currently in Expansion health.">ⓘ</span></span>
+      </div>
+      <div class="dash-kpi-num" id="exp-arpu">$0</div>
+      <div class="dash-kpi-sub">Est. upsell potential (20%)</div>
+      <div style="margin-top:10px"><span class="dash-kpi-pill green" id="exp-count">0 accounts ready</span></div>
+    </div>
+
+    <!-- Total MRR -->
+    <div class="dash-kpi-card dash-kpi-purple" onclick="nav('customers');setFilter('all')">
+      <div class="dash-kpi-top">
+        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+        <span class="dash-kpi-label">Total MRR <span class="info-tip tip-below" data-tip="Sum of monthly recurring revenue across all active (non-churned) accounts.">ⓘ</span></span>
+      </div>
+      <div class="dash-kpi-num" id="kpi-total-mrr">$0</div>
+      <div class="dash-kpi-sub">All active accounts</div>
+      <div style="margin-top:10px"><span class="dash-kpi-pill" style="background:rgba(255,255,255,.2);color:#fff" id="kpi-avg-score-pill">Avg score —</span></div>
+    </div>
+
+  </div><!-- /kpi row -->
+
+  <!-- Renewal Pipeline -->
+  <div class="card" style="margin-top:16px;padding:16px 20px">
+    <div class="card-hd" style="margin-bottom:12px">
+      <h2>Renewal Pipeline <span class="info-tip" data-tip="MRR at stake by renewal window. Only accounts with a renewal date set are included.">ⓘ</span></h2>
+      <span style="font-size:.7rem;color:var(--muted)">Next 90 days</span>
+    </div>
+    <div id="renewal-pipeline-wrap"></div>
+  </div>
+
+  <!-- ROW 2: Priority Table (wide) + Right Sidebar -->
+  <div class="dash-main-row">
+
+    <!-- Priority Accounts Table -->
+    <div class="card dash-priority-panel">
+      <div class="card-hd" style="margin-bottom:14px">
+        <div>
+          <h2>Priority Accounts <span class="info-tip" data-tip="Ranked by urgency: weighted combination of health status, days until renewal, and MRR exposure.">ⓘ</span></h2>
+          <p style="font-size:.73rem;margin-top:2px;color:var(--muted)">Sorted by urgency — At Risk · close to renewal · high MRR</p>
+        </div>
+        <button class="btn btn-sm btn-outline" onclick="nav('customers');setFilter('risk')">View All At Risk →</button>
+      </div>
+      <div id="priority-table-wrap"></div>
+    </div>
+
+    <!-- Right sidebar -->
+    <div class="dash-sidebar">
+
+      <!-- Alerts card -->
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-hd" style="margin-bottom:10px">
+          <h2>Alerts <span class="info-tip" data-tip="Recent alerts for accounts needing attention. Includes health drops, upcoming renewals, and overdue contacts.">ⓘ</span></h2>
+          <button class="btn btn-xs btn-ghost" onclick="nav('alerts')">See all →</button>
+        </div>
+        <div id="dash-alerts-wrap"></div>
+      </div>
+
+      <!-- Recently Scored -->
+      <div class="card" style="margin-top:16px">
+        <div class="card-hd" style="margin-bottom:10px">
+          <h2>Recently Scored <span class="info-tip" data-tip="Accounts most recently scored or re-scored, showing their latest health score and status.">ⓘ</span></h2>
+        </div>
+        <div id="recent-wrap"></div>
+      </div>
+
+    </div>
+  </div><!-- /main row -->
+
+  <!-- ROW 3: charts (left 2/3) + wins/drops (right 1/3) -->
+  <div class="charts-grid" style="margin-top:20px">
+
+    <!-- Left: 3 charts in a 2-col inner grid, 3rd spans full width -->
+    <div class="charts-left">
+      <div class="chart-card">
+        <div class="chart-title">Status Breakdown <span class="info-tip" data-tip="Count of active accounts in each of the 5 health bands based on their current score.">ⓘ</span></div>
+        <div class="donut-wrap">
+          <svg width="100" height="100" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="46" fill="none" stroke="var(--border)" stroke-width="16"/>
+            <circle id="dn-critical" cx="60" cy="60" r="46" fill="none" stroke-width="16" stroke-linecap="butt"/>
+            <circle id="dn-risk"     cx="60" cy="60" r="46" fill="none" stroke-width="16" stroke-linecap="butt"/>
+            <circle id="dn-watch"    cx="60" cy="60" r="46" fill="none" stroke-width="16" stroke-linecap="butt"/>
+            <circle id="dn-healthy"  cx="60" cy="60" r="46" fill="none" stroke-width="16" stroke-linecap="butt"/>
+            <circle id="dn-expand"   cx="60" cy="60" r="46" fill="none" stroke-width="16" stroke-linecap="butt"/>
+            <text x="60" y="56" text-anchor="middle" font-size="20" font-weight="800" fill="var(--text)" font-family="Inter,system-ui,sans-serif" id="dn-num">0</text>
+            <text x="60" y="70" text-anchor="middle" font-size="8" fill="var(--muted)" font-family="Inter,system-ui,sans-serif">total</text>
+          </svg>
+          <div class="donut-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#dc2626"></div><span class="legend-label">Critical</span><span class="legend-val" id="leg-critical">0</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:#ea580c"></div><span class="legend-label">At Risk</span><span class="legend-val" id="leg-risk">0</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:#d97706"></div><span class="legend-label">Watch</span><span class="legend-val" id="leg-watch">0</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:#16a34a"></div><span class="legend-label">Healthy</span><span class="legend-val" id="leg-healthy">0</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background:#0891b2"></div><span class="legend-label">Expansion</span><span class="legend-val" id="leg-expand">0</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Score Distribution <span class="info-tip" data-tip="Histogram of health scores (0–100) across all active accounts, grouped by band.">ⓘ</span></div>
+        <div class="bar-chart" id="dist-chart"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">MRR by Health Status <span class="info-tip" data-tip="Total MRR contributed by accounts in each health band. Larger bars = more revenue at that status.">ⓘ</span></div>
+        <div class="bar-chart" id="mrr-chart"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Score by Segment <span class="info-tip" data-tip="Average health score per customer tier (SMB, Mid-Market, Enterprise).">ⓘ</span></div>
+        <div class="bar-chart" id="seg-chart"></div>
+      </div>
+    </div>
+
+    <!-- Right: Most Improved + Biggest Drops stacked -->
+    <div class="charts-right">
+      <div class="chart-card">
+        <div class="card-hd" style="margin-bottom:10px">
+          <h2 style="font-size:.85rem;display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>Most Improved <span class="info-tip" data-tip="Accounts with the largest positive health score change in the last 7 days, sorted best to worst.">ⓘ</span></h2>
+          <span style="font-size:.7rem;color:var(--muted)">This week</span>
+        </div>
+        <div id="wins-wrap"></div>
+      </div>
+      <div class="chart-card">
+        <div class="card-hd" style="margin-bottom:10px">
+          <h2 style="font-size:.85rem;display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>Biggest Drops <span class="info-tip" data-tip="Accounts with the largest negative health score change in the last 7 days, sorted worst first.">ⓘ</span></h2>
+          <span style="font-size:.7rem;color:var(--muted)">This week</span>
+        </div>
+        <div id="drops-wrap"></div>
+      </div>
+    </div>
+
+  </div>
+
+
+  <!-- Segment View -->
+  <div style="margin-top:20px">
+    <div style="font-size:.88rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--subtle);margin-bottom:12px">Book by Tier</div>
+    <div class="seg-cards" id="seg-cards"></div>
+  </div>
+
+  <!-- Signal Heatmap (detail, below fold) -->
+  <div class="card" style="margin-top:20px">
+    <div class="card-hd">
+      <h2>Signal Heatmap <span class="info-tip" data-tip="Per-signal view of every active account. Sorted by health score, worst first. Click column headers to re-sort.">ⓘ</span></h2>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:.74rem;color:var(--subtle);font-weight:500" id="heat-subtitle">Sorted by score · worst first</span>
+      </div>
+    </div>
+    <div class="heatmap" id="heatmap-wrap"><div style="color:var(--subtle);font-size:.8rem;padding:16px 0;text-align:center">No customers yet</div></div>
+  </div>
+
+  <!-- hidden KPI ids kept for JS compat -->
+  <span id="kpi-healthy" style="display:none">0</span>
+  <span id="kpi-expand"  style="display:none">0</span>
+  <span id="kpi-avg"     style="display:none">0</span>
+  <span id="kpi-mrr"     style="display:none">$0</span>
+  <span id="kpi-risk"    style="display:none">0</span>
+  <span id="kpi-risk-mrr" style="display:none"></span>
+  <span id="kpi-renewals-mrr" style="display:none"></span>
+  <span id="exp-mrr"     style="display:none">$0</span>
+
+</div><!-- /dashboard -->
+
+<!-- ═══════════════ ALERTS ═══════════════ -->
+<div class="view" id="view-alerts">
+  <div class="page-hd">
+    <div><h1>Alerts</h1><p>Accounts that need your attention</p></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn btn-sm btn-ghost" id="alerts-select-all-btn" onclick="alertsSelectAll()">Select All</button>
+      <button class="btn btn-sm btn-ghost" onclick="clearSnoozed()">Clear Snoozed</button>
+    </div>
+  </div>
+  <!-- Bulk action bar -->
+  <div class="alert-bulk-bar" id="alert-bulk-bar">
+    <span id="alert-bulk-count">0 selected</span>
+    <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+      <div class="snooze-dd" id="bulk-snooze-dd">
+        <button class="btn btn-sm btn-outline" onclick="toggleBulkSnoozeDd()">Snooze ▾</button>
+        <div class="snooze-dd__menu" id="bulk-snooze-menu">
+          <button class="snooze-dd__item" onclick="bulkSnooze(1)">Snooze 1 day</button>
+          <button class="snooze-dd__item" onclick="bulkSnooze(7)">Snooze 7 days</button>
+          <button class="snooze-dd__item" onclick="bulkSnooze(30)">Snooze 30 days</button>
+        </div>
+      </div>
+      <button class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red)" onclick="bulkDismiss()">Dismiss</button>
+      <button class="btn btn-sm btn-ghost" onclick="alertsClearSelection()">✕ Cancel</button>
+    </div>
+  </div>
+
+  <!-- 4 stat widgets across the top -->
+  <div class="alerts-top-panels">
+
+    <!-- Alert Summary KPIs -->
+    <div class="dash-kpi-card dash-kpi-indigo">
+      <div class="alert-panel-title">Alert Summary <span class="info-tip" data-tip="Overview of active alerts across your book. Includes critical/risk accounts, upcoming renewals, and snoozed items.">ⓘ</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px" id="alert-kpi-grid">
+        <div class="alert-kpi-cell" id="akpi-total">
+          <div class="alert-kpi-val">—</div>
+          <div class="alert-kpi-lbl">Total Active</div>
+        </div>
+        <div class="alert-kpi-cell red" id="akpi-critical">
+          <div class="alert-kpi-val">—</div>
+          <div class="alert-kpi-lbl">Critical / Risk</div>
+        </div>
+        <div class="alert-kpi-cell blue" id="akpi-renewal">
+          <div class="alert-kpi-val">—</div>
+          <div class="alert-kpi-lbl">Renewing ≤60d</div>
+        </div>
+        <div class="alert-kpi-cell amber" id="akpi-snoozed">
+          <div class="alert-kpi-val">—</div>
+          <div class="alert-kpi-lbl">Snoozed</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MRR Exposure -->
+    <div class="dash-kpi-card dash-kpi-rose">
+      <div class="alert-panel-title">MRR Exposure <span class="info-tip" data-tip="Monthly recurring revenue at risk from accounts in Critical or At Risk health bands.">ⓘ</span></div>
+      <div id="alert-mrr-wrap"></div>
+    </div>
+
+    <!-- By Category -->
+    <div class="dash-kpi-card dash-kpi-cyan">
+      <div class="alert-panel-title">By Category <span class="info-tip" data-tip="Alert breakdown by type: health drops, upcoming renewals, overdue contacts, and NPS changes.">ⓘ</span></div>
+      <div id="alert-cat-wrap"></div>
+    </div>
+
+    <!-- Priority Actions -->
+    <div class="dash-kpi-card dash-kpi-violet">
+      <div class="alert-panel-title">Priority Actions <span class="info-tip" data-tip="Top recommended actions based on alert urgency. Click a customer to open their detail view.">ⓘ</span></div>
+      <div id="alert-actions-wrap"></div>
+    </div>
+
+  </div>
+
+  <!-- Alert list view toggle -->
+  <div id="alert-view-bar" style="display:none;margin-bottom:14px;display:flex;align-items:center;gap:8px">
+    <span style="font-size:.75rem;font-weight:600;color:var(--muted)">View:</span>
+    <div class="alert-view-toggle">
+      <button class="alert-view-btn active" id="alert-view-cat" onclick="setAlertView('category')">By Category</button>
+      <button class="alert-view-btn" id="alert-view-pri" onclick="setAlertView('priority')">By Priority</button>
+      <button class="alert-view-btn" id="alert-view-cust" onclick="setAlertView('customer')">By Customer</button>
+    </div>
+    <input type="text" id="alert-cust-search" placeholder="Search customer…" oninput="renderAlerts()" autocomplete="off" style="display:none;padding:5px 12px;font-size:.78rem;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);width:200px;outline:none;transition:border-color .15s">
+  </div>
+
+  <!-- Full-width alert list -->
+  <div id="alerts-list"><div class="empty-st"><div class="ei"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><h3>All clear!</h3><p>No alerts right now — all customers are in good shape.</p></div></div>
+
+</div>
+
+<!-- ═══════════════ CUSTOMERS ═══════════════ -->
+<div class="view" id="view-customers">
+  <div class="page-hd">
+    <div><h1>Customers</h1><p id="cust-count-lbl">—</p></div>
+    <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+      <div class="snooze-dd" id="export-dd-tbl">
+        <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation();toggleExportDd('tbl')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export ▾
+        </button>
+        <div class="snooze-dd__menu" id="export-menu-tbl">
+          <button class="snooze-dd__item" onclick="exportCSV();toggleExportDd('tbl')">Export Data</button>
+          <button class="snooze-dd__item" onclick="exportBulksheet();toggleExportDd('tbl')">Export Bulksheet</button>
+        </div>
+      </div>
+      <div class="snooze-dd" id="preset-dd-wrap">
+        <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation();togglePresetDd()" id="preset-dd-btn">🔖 Presets ▾</button>
+        <div class="snooze-dd__menu" id="preset-dd-menu" style="min-width:210px;right:0;left:auto"></div>
+      </div>
+      <button class="btn btn-sm btn-ghost" onclick="rescoreAllFromToolbar()" title="Recalculate all health scores using current weights">↻ Re-score All</button>
+      <button class="btn btn-sm btn-primary" onclick="nav('score')">+ Add Customer</button>
+    </div>
+  </div>
+  <!-- Bulk bar -->
+  <div class="bulk-bar" id="bulk-bar">
+    <span class="bulk-bar__count" id="bulk-count">0 selected</span>
+    <button class="btn btn-sm btn-ghost" id="bulk-edit-btn" style="color:#fff;border-color:rgba(255,255,255,.4)" onclick="bulkEdit()">✏️ Edit</button>
+    <button class="btn btn-sm btn-ghost" style="color:#fff;border-color:rgba(255,255,255,.4)" onclick="bulkRescore()">↻ Re-score</button>
+    <button class="btn btn-sm btn-ghost" style="color:#fff;border-color:rgba(255,255,255,.4)" onclick="bulkTag()">🏷 Tag</button>
+    <button class="btn btn-sm btn-ghost" style="color:#fff;border-color:rgba(255,255,255,.4)" onclick="bulkLifecycle()">Set Stage</button>
+    <button class="btn btn-sm btn-ghost" style="color:#fff;border-color:rgba(255,255,255,.4)" onclick="bulkDelete()">🗑 Delete</button>
+    <button class="btn btn-sm btn-ghost" style="color:#fff;border-color:rgba(255,255,255,.4)" onclick="clearSelection()">✕ Cancel</button>
+  </div>
+  <div class="card" id="customers-table-card">
+    <div class="list-toolbar">
+      <input class="search-box" type="text" placeholder="Search customers…" id="search-input" oninput="renderCustomers()"/>
+      <button class="fchip fa" id="fc-all"      onclick="setFilter('all')">All</button>
+      <button class="fchip"    id="fc-critical" onclick="setFilter('critical')">Critical</button>
+      <button class="fchip"    id="fc-risk"     onclick="setFilter('risk')">At Risk</button>
+      <button class="fchip"    id="fc-watch"    onclick="setFilter('watch')">Watch</button>
+      <button class="fchip"    id="fc-healthy"  onclick="setFilter('healthy')">Healthy</button>
+      <button class="fchip"    id="fc-expand"   onclick="setFilter('expand')">Expansion</button>
+      <button class="fchip"    id="fc-churned"  onclick="setFilter('churned')">Churned</button>
+      <button class="fchip"    id="fc-trash"   onclick="setFilter('trash')" style="margin-left:auto">Trash</button>
+    </div>
+    <!-- Active column filter pills -->
+    <div id="filter-pill-bar" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:10px;align-items:center"></div>
+    <div id="table-wrap">
+      <div class="empty-st" id="cust-empty"><div class="ei">📭</div><h3>No customers yet</h3><p>Score your first customer manually or bulk-import via CSV.</p><div style="display:flex;gap:8px;justify-content:center;margin-top:12px"><button class="btn btn-primary btn-sm" onclick="nav('score')">+ Score a Customer</button><button class="btn btn-outline btn-sm" onclick="nav('csv')">📂 Import CSV</button></div></div>
+      <div id="cust-scroll-wrap">
+        <table class="ct" id="cust-table" style="display:none">
+          <thead id="cust-thead"><tr>
+            <th class="cb-col"><input type="checkbox" id="select-all" onchange="toggleSelectAll(this.checked)"/></th>
+          </tr></thead>
+          <tbody id="cust-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <!-- Trash view — shown when filterMode === 'trash' -->
+  <div class="card" id="trash-wrap" style="display:none"></div>
+</div><!-- /customers -->
+
+<!-- ═══════════════ SEGMENTS ═══════════════ -->
+<div class="view" id="view-segments">
+  <div class="page-hd">
+    <div><h1>Segments</h1><p id="seg-subtitle">Customers grouped by tag</p></div>
+  </div>
+  <!-- Gradient KPI summary -->
+  <div class="dash-kpi-row" id="seg-kpi-row"></div>
+  <!-- Enriched segment card grid + expand panel -->
+  <div id="seg-cards-wrap"></div>
+  <!-- Segment comparison table -->
+  <div class="card" style="margin-top:16px">
+    <div class="card-hd"><h2>Segment Comparison <span class="info-tip" data-tip="Side-by-side view of all segments with key metrics. Click column headers to sort.">ⓘ</span></h2><p style="font-size:.72rem;color:var(--muted);margin-top:2px">All segments side-by-side — click headers to sort</p></div>
+    <div id="seg-table-wrap"></div>
+  </div>
+  <!-- Segment insights -->
+  <div class="card" style="margin-top:16px">
+    <div class="card-hd"><h2>Segment Insights <span class="info-tip" data-tip="Auto-generated priorities based on risk levels, declining trends, overdue contacts, and upcoming renewals.">ⓘ</span></h2><p style="font-size:.72rem;color:var(--muted);margin-top:2px">Auto-generated priorities &amp; highlights</p></div>
+    <div id="seg-insights-wrap"></div>
+  </div>
+</div><!-- /segments -->
+
+<!-- ═══════════════ CSM PERFORMANCE ═══════════════ -->
+<div class="view" id="view-csmperf">
+  <div class="page-hd">
+    <div><h1>CSM Performance</h1><p>Portfolio metrics for each Customer Success Manager.</p></div>
+  </div>
+  <!-- Summary stat cards (gradient KPI row) -->
+  <div class="dash-kpi-row" id="csmperf-stats"></div>
+  <!-- Per-CSM leaderboard + inline expand -->
+  <div class="card">
+    <div class="card-hd"><h2>CSM Leaderboard <span class="info-tip" data-tip="Ranked by a composite performance index combining average score, health ratio, risk ratio, and contact cadence.">ⓘ</span></h2></div>
+    <div id="csmperf-wrap"></div>
+  </div>
+  <!-- Suggested Focus Areas + Workload Balance row -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;align-items:start" id="csm-insights-row">
+    <div class="card">
+      <div class="card-hd"><h2>Suggested Focus Areas <span class="info-tip" data-tip="Auto-generated action items highlighting overdue contacts, at-risk renewals, and declining portfolios per CSM.">ⓘ</span></h2><p style="font-size:.72rem;color:var(--muted);margin-top:2px">Auto-generated priorities per CSM</p></div>
+      <div id="csm-focus-wrap"></div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><h2>Workload Balance <span class="info-tip" data-tip="Account count and MRR distribution across CSMs. Highlights overloaded managers in amber.">ⓘ</span></h2><p style="font-size:.72rem;color:var(--muted);margin-top:2px">Account &amp; MRR distribution across CSMs</p></div>
+      <div id="csm-workload-wrap"></div>
+    </div>
+  </div>
+  <!-- Portfolio Movement + Activity Feed row -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;align-items:start" id="csm-bottom-row">
+    <div class="card">
+      <div class="card-hd"><h2>Portfolio Movement <span class="info-tip" data-tip="Tracks customers that changed health bands in the last 7 days, grouped by CSM.">ⓘ</span></h2><p style="font-size:.72rem;color:var(--muted);margin-top:2px">Health band changes in the last 7 days</p></div>
+      <div id="csm-movement-wrap"></div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><h2>CSM Activity Feed <span class="info-tip" data-tip="Recent audit log actions grouped by CSM, showing what each manager has been doing.">ⓘ</span></h2><p style="font-size:.72rem;color:var(--muted);margin-top:2px">Recent actions by each manager</p></div>
+      <div id="csm-activity-wrap"></div>
+    </div>
+  </div>
+</div><!-- /csmperf -->
+
+<!-- ═══════════════ SCORE CUSTOMER ═══════════════ -->
+<div class="view" id="view-score">
+  <div class="page-hd"><div><h1 id="form-title">Score a Customer</h1><p>Fill in the signals below to calculate a health score.</p></div></div>
+  <div class="score-panel">
+    <div class="card">
+      <form id="score-form" onsubmit="submitForm(event)">
+        <div class="fg">
+          <!-- Section: Account -->
+          <div class="field full"><label>Company / Customer Name *</label><input type="text" id="f-name" placeholder="Acme Corp" required/></div>
+          <div class="field"><label>Assigned Manager</label><input type="text" id="f-manager" placeholder="Jane Smith" list="manager-datalist"/><datalist id="manager-datalist"></datalist></div>
+          <div class="field"><label>Scoring Profile <span style="font-weight:400;color:var(--subtle);font-size:.7rem">optional</span></label><select id="f-profile"><option value="">Global Weights (default)</option></select></div>
+          <div class="field"><label>MRR <span style="font-weight:400;color:var(--subtle);font-size:.7rem">$/mo</span></label><input type="number" id="f-mrr" min="0" placeholder="5000"/></div>
+          <div class="field"><label>ARR <span style="font-weight:400;color:var(--subtle);font-size:.7rem">$ annual — leave blank to auto-calc (MRR×12)</span></label><input type="number" id="f-arr" min="0" placeholder="60000"/></div>
+          <div class="field"><label>Customer Since</label><input type="date" id="f-since"/></div>
+          <div class="field"><label>Tier</label><select id="f-tier"><option value="smb">SMB</option><option value="mid" selected>Mid-Market</option><option value="enterprise">Enterprise</option></select></div>
+          <div class="field"><label>Lifecycle Stage</label><select id="f-lifecycle"><option value="onboarding">Onboarding</option><option value="active" selected>Active</option><option value="atrisk">At Risk</option><option value="won">Won / Upsold</option><option value="churned">Churned</option></select></div>
+          <div class="field"><label>Tags <span style="font-weight:400;color:var(--subtle);font-size:.7rem">comma-separated</span></label><input type="text" id="f-tags" placeholder="power-user, renewal-soon"/></div>
+          <!-- Section: Signals -->
+          <div class="form-section full"><div class="form-section-label">Health Signals</div></div>
+          <div class="field full"><label>Login Frequency <span style="font-weight:400;color:var(--subtle);font-size:.7rem">last 30 days — 0=never, 30=daily</span></label><div class="range-row"><input type="range" id="f-logins" min="0" max="30" value="10" oninput="rv('logins',this.value+' days')"/><span class="rv" id="rv-logins">10 days</span></div></div>
+          <div class="field full"><label>Feature Adoption <span style="font-weight:400;color:var(--subtle);font-size:.7rem">0=nothing used, 100=power user</span></label><div class="range-row"><input type="range" id="f-adoption" min="0" max="100" value="50" oninput="rv('adoption',this.value+'%')"/><span class="rv" id="rv-adoption">50%</span></div></div>
+          <div class="field"><label>Open Support Tickets</label><input type="number" id="f-tickets" min="0" max="99" value="1"/></div>
+          <div class="field"><label>NPS / CSAT</label><select id="f-nps"><option value="unknown">Unknown</option><option value="detractor">Detractor (0–6)</option><option value="passive">Passive (7–8)</option><option value="promoter" selected>Promoter (9–10)</option></select></div>
+          <div class="field full"><label>Days Since Last Contact</label><div class="range-row"><input type="range" id="f-days" min="0" max="180" value="14" oninput="rv('days',this.value+' days')"/><span class="rv" id="rv-days">14 days</span></div></div>
+          <div class="field"><label>Renewal Date</label><input type="date" id="f-renewal-date"/></div>
+          <div class="field"><label>Next Scheduled Touch</label><input type="date" id="f-next-touch" style="width:100%"/></div>
+          <div class="field"><label>Growth Signal</label><select id="f-growth"><option value="none">None / Flat</option><option value="mild">Mild (seats/features added)</option><option value="strong">Strong (upgrade conversations)</option></select></div>
+          <!-- Section: Note -->
+          <div class="form-section full"><div class="form-section-label">Notes</div></div>
+          <div class="field full"><label>Note <span style="font-weight:400;color:var(--subtle);font-size:.7rem">optional</span></label><textarea id="f-note" placeholder="Quick context note…"></textarea></div>
+          <div class="field full"><button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;font-size:.9rem">Calculate Health Score →</button></div>
+        </div>
+      </form>
+    </div>
+    <div>
+      <div class="card" id="result-placeholder" style="text-align:center;padding:56px 18px;color:var(--muted)">
+        <div style="width:56px;height:56px;background:var(--blue-l);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <h3 style="color:var(--text);margin-bottom:7px">Score Preview</h3>
+        <p style="font-size:.84rem;max-width:220px;margin:0 auto">Fill in the form and click Calculate to see results here.</p>
+      </div>
+      <div class="card" id="result-card" style="display:none">
+        <div class="score-hero">
+          <div class="score-ring">
+            <svg viewBox="0 0 140 140" width="140" height="140">
+              <circle class="sr-track" cx="70" cy="70" r="58"/>
+              <circle class="sr-fill" id="ring-fill" cx="70" cy="70" r="58" stroke-dasharray="364.42" stroke-dashoffset="364.42"/>
+            </svg>
+            <div class="sr-label"><span class="sr-num" id="score-num">—</span><span class="sr-word">/ 100</span></div>
+          </div>
+          <div id="score-badge" class="badge badge-healthy">Healthy</div>
+          <div class="rec-box" id="score-rec"></div>
+        </div>
+        <div class="bd-title">Signal Breakdown</div>
+        <div id="breakdown-wrap"></div>
+        <div class="playbook" id="playbook-wrap"></div>
+        <div style="display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+          <button class="btn btn-success btn-sm" onclick="saveScore()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Save to Dashboard
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="printReport()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Print Report
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="resetForm()">Score Another</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div><!-- /score -->
+
+<!-- ═══════════════ CSV IMPORT ═══════════════ -->
+<div class="view" id="view-csv">
+  <div class="page-hd"><div><h1>CSV Import</h1><p>Bulk-import customers. Supports column remapping.</p></div></div>
+  <div class="card">
+    <div class="tmpl-box">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <div><strong>Supported column headers:</strong><p style="font-size:.77rem;margin-top:2px;color:var(--muted)">Or upload any CSV — you can remap columns after upload.</p></div>
+        <button class="btn btn-sm btn-outline" onclick="dlTemplate()">Template CSV</button>
+      </div>
+      <code>name, manager, mrr, arr, logins_30d, feature_adoption_pct, open_tickets, nps_category, days_since_contact, renewal_date, months_to_renewal, growth_signal, tier, tags, lifecycle, customer_since, next_touch, scoring_profile, note, sentiment</code>
+    </div>
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('csv-input').click()" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+      <div class="drop-zone__icon">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--subtle)" stroke-width="1.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+      </div>
+      <h3 style="font-weight:700">Drop a CSV file here</h3>
+      <p style="margin-top:5px;font-size:.83rem">or click to browse your files</p>
+      <input type="file" id="csv-input" accept=".csv" onchange="handleFile(event)"/>
+    </div>
+    <div id="csv-map-wrap" style="display:none;margin-top:16px">
+      <h3 style="margin-bottom:12px">Map Your Columns</h3>
+      <div id="col-map-rows"></div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btn-ghost btn-sm" onclick="clearCSV()">Clear</button>
+        <button class="btn btn-primary btn-sm" onclick="applyMapping()">Preview & Import</button>
+      </div>
+    </div>
+    <div id="csv-prev-wrap" style="display:none;margin-top:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:7px">
+        <div><strong id="csv-count">0 rows ready</strong><p style="font-size:.75rem;margin-top:1px;color:var(--red)" id="csv-err"></p></div>
+        <div style="display:flex;gap:7px">
+          <button class="btn btn-ghost btn-sm" onclick="clearCSV()">Clear</button>
+          <button class="btn btn-primary btn-sm" onclick="importCSV()">Import All</button>
+        </div>
+      </div>
+      <div class="csv-prev" id="csv-prev"></div>
+    </div>
+  </div>
+</div><!-- /csv -->
+
+<!-- ═══════════════ SETTINGS ═══════════════ -->
+<div class="view" id="view-settings">
+  <div class="page-hd"><div><h1>Weights &amp; Config</h1><p>Customize scoring, thresholds, and scoring profiles.</p></div></div>
+
+  <!-- Tab bar -->
+  <div class="dtab-row" style="margin-bottom:18px">
+    <button class="dtab active" id="cfg-tab-config"  onclick="cfgTab('config')">Config</button>
+    <button class="dtab"        id="cfg-tab-account" onclick="cfgTab('account')">Account</button>
+  </div>
+
+  <!-- Config tab -->
+  <div class="dtab-pane active" id="cfg-pane-config">
+    <div class="cfg-columns">
+      <!-- LEFT COLUMN: Weights → Thresholds -->
+      <div class="cfg-col">
+        <!-- Signal Weights -->
+        <div class="card">
+          <div class="card-hd"><h2>Signal Weights <span class="info-tip" data-tip="Control how much each signal contributes to the health score. Click a profile on the right to load its weights here.">ⓘ</span></h2></div>
+          <div id="editing-profile-label" style="display:none;font-size:.78rem;font-weight:600;color:var(--blue);margin-bottom:10px;padding:6px 10px;background:rgba(59,130,246,.06);border-radius:6px"></div>
+          <p style="font-size:.82rem;margin-bottom:14px">Adjust how much each signal contributes to the health score. Weights must total 100%.</p>
+          <div id="weight-rows"></div>
+          <div class="total-bar" style="margin:14px 0 4px"><div class="total-fill" id="total-fill" style="width:100%"></div></div>
+          <div style="margin-bottom:14px"><span id="total-label" style="font-size:.75rem;font-weight:700">Total: 100%</span></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="resetWeights()">Reset</button>
+            <button class="btn btn-success btn-sm" onclick="saveWeights()">Save as Global Weights</button>
+            <button id="btn-update-profile" class="btn btn-amber btn-sm" style="display:none" onclick="updateEditingProfile()">Update Profile</button>
+            <button class="btn btn-outline btn-sm" onclick="saveWeightsAsProfile()">Save as New Profile</button>
+          </div>
+        </div>
+        <!-- Score Thresholds -->
+        <div class="card">
+          <div class="card-hd"><h2>Score Thresholds <span class="info-tip" data-tip="Define score cutoffs for each health band. Changes apply to all accounts on next re-score.">ⓘ</span></h2></div>
+          <p style="font-size:.82rem;margin-bottom:16px">Define what score ranges map to each of the 5 health bands.</p>
+          <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#dc2626"></span>Critical — below</span><input class="threshold-input" type="number" id="th-critical" min="1" max="99" value="25" oninput="updateThresholdLabels()"/><span style="font-size:.8rem;color:var(--muted)">pts → 0–<span id="th-critical-max">24</span></span></div>
+          <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#ea580c"></span>At Risk — below</span><input class="threshold-input" type="number" id="th-risk" min="1" max="99" value="50" oninput="updateThresholdLabels()"/><span style="font-size:.8rem;color:var(--muted)">pts → <span id="th-risk-range">25–49</span></span></div>
+          <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:var(--amber)"></span>Watch — below</span><input class="threshold-input" type="number" id="th-watch" min="1" max="99" value="65" oninput="updateThresholdLabels()"/><span style="font-size:.8rem;color:var(--muted)">pts → <span id="th-watch-range">50–64</span></span></div>
+          <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:var(--green)"></span>Healthy — below</span><input class="threshold-input" type="number" id="th-healthy" min="1" max="99" value="80" oninput="updateThresholdLabels()"/><span style="font-size:.8rem;color:var(--muted)">pts → <span id="th-healthy-range">65–79</span></span></div>
+          <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:var(--teal)"></span>Expansion — above</span><span style="font-size:.8rem;color:var(--muted)">≥ <span id="th-expand-val">80</span> pts</span></div>
+          <div style="margin-top:14px;display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="resetThresholds()">Reset</button>
+            <button class="btn btn-success btn-sm" onclick="saveThresholds()">Save Thresholds</button>
+          </div>
+        </div>
+      </div>
+      <!-- RIGHT COLUMN: Profiles → Distribution → Quick Actions → Data Health -->
+      <div class="cfg-col">
+        <!-- Scoring Profiles -->
+        <div class="card">
+          <div class="card-hd"><h2>Scoring Profiles <span class="info-tip" data-tip="Click a profile to load its weights into the editor. Edit, update, or create new profiles from the sliders.">ⓘ</span></h2></div>
+          <p style="font-size:.82rem;margin-bottom:14px">Click a profile to load its weights into the editor on the left.</p>
+          <div id="profiles-list"></div>
+        </div>
+        <!-- Score Distribution -->
+        <div class="card">
+          <div class="card-hd"><h2>Score Distribution <span class="info-tip" data-tip="Live breakdown of accounts across health bands based on current threshold settings. Updates when you save thresholds or weights.">ⓘ</span></h2></div>
+          <p style="font-size:.82rem;margin-bottom:14px">Current spread of accounts across health bands.</p>
+          <div id="cfg-score-dist"></div>
+        </div>
+        <!-- Data Health -->
+        <div class="card">
+          <div class="card-hd"><h2>Data Health <span class="info-tip" data-tip="Overview of customer data quality — completeness, freshness, and accounts needing attention.">ⓘ</span></h2></div>
+          <div id="cfg-data-health"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Account tab -->
+  <div class="dtab-pane" id="cfg-pane-account">
+    <div class="card" style="max-width:600px;margin-bottom:18px">
+      <div class="card-hd"><h2>Account</h2></div>
+      <p style="font-size:.82rem;margin-bottom:14px">Signed in as <strong id="settings-email">—</strong></p>
+      <div style="display:flex;flex-direction:column;gap:10px;max-width:320px">
+        <div class="field"><label>New Password <span style="font-weight:400;color:var(--subtle)">(leave blank to keep current)</span></label><input type="password" id="pw-new" placeholder="New password (min 6 chars)"/></div>
+        <div class="field"><label>Confirm New Password</label><input type="password" id="pw-confirm" placeholder="Repeat new password"/></div>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:8px">
+        <button class="btn btn-success btn-sm" onclick="changePassword()">Update Password</button>
+        <button class="btn btn-danger btn-sm" onclick="authSignOut()">Sign Out</button>
+      </div>
+    </div>
+    <!-- Quick Actions -->
+    <div class="card" style="max-width:600px">
+      <div class="card-hd"><h2>Quick Actions <span class="info-tip" data-tip="Common config tasks — recalculate scores, back up or restore settings, or reset everything to factory defaults.">ⓘ</span></h2></div>
+      <p style="font-size:.82rem;margin-bottom:14px">Manage your scoring configuration.</p>
+      <div class="qa-grid">
+        <button class="qa-btn" onclick="rescoreAll()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Recalculate Scores</button>
+        <button class="qa-btn" onclick="backupExport()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export Backup</button>
+        <button class="qa-btn" onclick="document.getElementById('cfg-import-file').click()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Import Backup</button>
+        <button class="qa-btn" onclick="resetAllDefaults()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>Reset All Defaults</button>
+      </div>
+      <input type="file" id="cfg-import-file" accept=".json" style="display:none" onchange="restoreBackup(event)"/>
+    </div>
+  </div>
+
+
+</div><!-- /settings -->
+
+<!-- ═══════════════ USER MANAGEMENT (ADMIN ONLY) ═══════════════ -->
+<div class="view" id="view-users">
+  <div class="page-hd">
+    <div><h1>User Management</h1><p>Create, view, and remove users of this app.</p></div>
+    <button class="btn btn-sm btn-primary" onclick="openCreateUserModal()">+ Create User</button>
+  </div>
+
+  <div class="card" style="margin-bottom:18px">
+    <div class="card-hd" style="margin-bottom:12px"><h2>All Users</h2><span id="users-count" style="font-size:.78rem;color:var(--muted);margin-left:8px"></span></div>
+    <div id="users-loading" style="text-align:center;padding:32px;color:var(--muted);font-size:.85rem">Loading users…</div>
+    <table class="ct" id="users-table" style="display:none">
+      <thead><tr>
+        <th>Email</th>
+        <th>Business Name</th>
+        <th>Customers</th>
+        <th>Created</th>
+        <th>Actions</th>
+      </tr></thead>
+      <tbody id="users-tbody"></tbody>
+    </table>
+    <div id="users-empty" style="display:none;text-align:center;padding:32px;color:var(--muted)">No users found.</div>
+  </div>
+</div><!-- /users -->
+
+<!-- ═══════════════ CLIENTS (ADMIN ONLY) ═══════════════ -->
+<div class="view" id="view-clients">
+  <div class="page-hd">
+    <div><h1>🏢 Clients</h1><p>Manage your client businesses. Assign users to clients.</p></div>
+    <button class="btn btn-sm btn-primary" onclick="openCreateClientModal()">+ Add Client</button>
+  </div>
+  <div class="card">
+    <div class="card-hd" style="margin-bottom:12px"><h2>All Clients</h2><span id="clients-count" style="font-size:.78rem;color:var(--muted);margin-left:8px"></span></div>
+    <div id="clients-loading" style="text-align:center;padding:32px;color:var(--muted);font-size:.85rem">Loading clients…</div>
+    <table class="ct" id="clients-table" style="display:none">
+      <thead><tr>
+        <th>Business Name</th>
+        <th>Plan</th>
+        <th>Users</th>
+        <th>Notes</th>
+        <th>Actions</th>
+      </tr></thead>
+      <tbody id="clients-tbody"></tbody>
+    </table>
+    <div id="clients-empty" style="display:none;text-align:center;padding:32px;color:var(--muted)">No clients yet. Add your first client above.</div>
+  </div>
+</div><!-- /clients -->
+
+<!-- ═══════════════ AUDIT LOG ═══════════════ -->
+<div class="view" id="view-auditlog">
+  <div class="page-hd">
+    <div><h1>Audit Log</h1><p>Track all changes made to customers, settings, and data.</p></div>
+  </div>
+  <!-- Audit Log tabs -->
+  <div class="dtab-row" style="margin-bottom:16px">
+    <button class="dtab active" onclick="auditTab('activity')">Activity Log</button>
+    <button class="dtab" onclick="auditTab('config')">Config History</button>
+  </div>
+  <!-- Activity Log pane -->
+  <div class="dtab-pane active" id="audit-pane-activity">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+      <select id="audit-filter-action" onchange="renderAuditLog()" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.8rem;font-family:var(--font);color:var(--text);background:var(--surface)">
+        <option value="all">All Actions</option>
+        <optgroup label="Customers">
+          <option value="customer_created">Customer Created</option>
+          <option value="customer_scored">Customer Scored</option>
+          <option value="customer_updated">Customer Updated</option>
+          <option value="customer_deleted">Moved to Trash</option>
+          <option value="customer_restored">Restored from Trash</option>
+          <option value="customer_hard_deleted">Permanently Deleted</option>
+        </optgroup>
+        <optgroup label="Settings">
+          <option value="weights_updated">Weights Updated</option>
+          <option value="weights_reset">Weights Reset</option>
+          <option value="thresholds_updated">Thresholds Updated</option>
+          <option value="thresholds_reset">Thresholds Reset</option>
+        </optgroup>
+        <optgroup label="Scoring Profiles">
+          <option value="profile_created">Profile Created</option>
+          <option value="profile_updated">Profile Updated</option>
+          <option value="profile_loaded">Profile Loaded</option>
+          <option value="profile_deleted">Profile Deleted</option>
+        </optgroup>
+        <optgroup label="Other">
+          <option value="csv_import">CSV Import</option>
+          <option value="note_added">Note Added</option>
+          <option value="sentiment_logged">Sentiment Logged</option>
+        </optgroup>
+      </select>
+      <button class="btn btn-sm btn-ghost" onclick="exportAuditLog()">Export CSV</button>
+      <button class="btn btn-sm btn-ghost" onclick="loadAuditLog(true)" title="Refresh">Refresh</button>
+    </div>
+    <div class="card">
+      <div id="audit-loading" style="text-align:center;padding:32px;color:var(--muted);font-size:.85rem">Loading audit log…</div>
+      <table class="ct" id="audit-table" style="display:none">
+        <thead><tr>
+          <th>Time</th>
+          <th>User</th>
+          <th>Action</th>
+          <th>Customer</th>
+          <th>Details</th>
+        </tr></thead>
+        <tbody id="audit-tbody"></tbody>
+      </table>
+      <div id="audit-empty" style="display:none;text-align:center;padding:40px;color:var(--muted)">
+        <div style="font-size:2rem;margin-bottom:8px;opacity:.3">📋</div>
+        <h3 style="margin-bottom:4px">No audit entries yet</h3>
+        <p style="font-size:.85rem">Actions you take will be recorded here automatically.</p>
+      </div>
+      <div id="audit-pagination" style="display:none;padding:14px 0 4px;text-align:center">
+        <button class="btn btn-sm btn-ghost" id="audit-load-more" onclick="loadMoreAudit()">Load more…</button>
+      </div>
+    </div>
+  </div>
+  <!-- Config History pane -->
+  <div class="dtab-pane" id="audit-pane-config">
+    <div class="card">
+      <div class="card-hd"><h2>Config History <span class="info-tip" data-tip="Recent changes to thresholds, weights, and profiles — a mini audit trail for your scoring setup.">ⓘ</span></h2><button class="btn btn-ghost btn-sm" onclick="clearConfigHistory()">Clear History</button></div>
+      <div id="cfg-change-history"></div>
+    </div>
+  </div>
+</div><!-- /auditlog -->
+
+<!-- ═══════════════ AUTOMATIONS ═══════════════ -->
+<div class="view" id="view-automations">
+  <div class="page-hd">
+    <div>
+      <h1>Automations</h1>
+      <p>Send alerts to Slack, Teams &amp; email — or connect to 5,000+ apps via webhooks &amp; API.</p>
+    </div>
+  </div>
+
+  <!-- Tab bar -->
+  <div class="dtab-row" style="margin-bottom:18px">
+    <button class="dtab active" id="auto-tab-channels" onclick="autoTab('channels')">Channels</button>
+    <button class="dtab" id="auto-tab-webhooks" onclick="autoTab('webhooks')">Custom Webhooks</button>
+    <button class="dtab" id="auto-tab-api" onclick="autoTab('api')">API Endpoints (Inbound)</button>
+    <button class="dtab" id="auto-tab-log" onclick="autoTab('log')">Event Log</button>
+  </div>
+
+  <!-- ── Channels (Direct Slack / Teams / Email) ── -->
+  <div class="dtab-pane active" id="auto-pane-channels">
+    <!-- Alert Summary (above wizard) -->
+    <div class="card" style="max-width:860px;margin-bottom:18px">
+      <div class="card-hd"><h2>Alert Summary <span class="info-tip" data-tip="Overview of all configured alerts — what triggers them, which channels receive them, and quick actions to edit or remove.">ⓘ</span></h2></div>
+      <div id="alert-summary-container">
+        <p style="font-size:.82rem;color:var(--muted);padding:8px 0">No active alerts configured yet. Use the wizard below to get started.</p>
+      </div>
+    </div>
+
+    <!-- 3-Step Alert Wizard -->
+    <div id="alert-wizard" class="wizard-container" style="max-width:860px">
+      <div class="wizard-stepper">
+        <div class="wizard-step active" data-step="1">
+          <div class="wizard-step__circle">1</div>
+          <div class="wizard-step__label">Choose Alerts</div>
+        </div>
+        <div class="wizard-step__line"></div>
+        <div class="wizard-step" data-step="2">
+          <div class="wizard-step__circle">2</div>
+          <div class="wizard-step__label">Thresholds</div>
+        </div>
+        <div class="wizard-step__line"></div>
+        <div class="wizard-step" data-step="3">
+          <div class="wizard-step__circle">3</div>
+          <div class="wizard-step__label">Delivery & Schedule</div>
+        </div>
+      </div>
+      <div id="wizard-pane-1" class="wizard-pane active"></div>
+      <div id="wizard-pane-2" class="wizard-pane"></div>
+      <div id="wizard-pane-3" class="wizard-pane"></div>
+      <div class="wizard-nav">
+        <button id="wizard-back" class="btn btn--ghost" onclick="wizardBack()" style="display:none">← Back</button>
+        <button id="wizard-next" class="btn btn--primary" onclick="wizardNext()">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Custom Webhooks (Zapier / Outbound) ── -->
+  <div class="dtab-pane" id="auto-pane-webhooks">
+    <div class="card" style="max-width:720px">
+      <div class="card-hd"><h2>Custom Webhooks <span class="info-tip" data-tip="Advanced: POST JSON to custom webhook URLs (e.g. Zapier 'Webhooks by Zapier' trigger) for routing to any of 5,000+ apps.">ⓘ</span></h2></div>
+      <p style="font-size:.82rem;color:var(--muted);margin-bottom:16px">Configure per-trigger webhook URLs for Zapier or custom integrations. For simple Slack/Teams/Email alerts, use the Channels tab instead.</p>
+      <div id="auto-webhooks-list"></div>
+    </div>
+  </div>
+
+  <!-- ── API Endpoints (Inbound) ── -->
+  <div class="dtab-pane" id="auto-pane-api">
+    <div class="card" style="max-width:720px;margin-bottom:16px">
+      <div class="card-hd"><h2>API Key <span class="info-tip" data-tip="Your API key authenticates inbound requests from Zapier or other services. Include it in the x-api-key header.">ⓘ</span></h2></div>
+      <p style="font-size:.82rem;color:var(--muted);margin-bottom:14px">All inbound API requests require this key in the <code style="background:var(--bg);padding:1px 5px;border-radius:4px;font-size:.78rem">x-api-key</code> header.</p>
+      <div id="auto-api-key-section"></div>
+    </div>
+    <div class="card" style="max-width:720px">
+      <div class="card-hd"><h2>Available Endpoints <span class="info-tip" data-tip="Use these endpoints from Zapier's 'Webhooks by Zapier' action, or any HTTP client like curl or Postman.">ⓘ</span></h2></div>
+      <div id="auto-api-endpoints"></div>
+    </div>
+  </div>
+
+  <!-- ── Event Log ── -->
+  <div class="dtab-pane" id="auto-pane-log">
+    <div class="card">
+      <div class="card-hd">
+        <h2>Event Log</h2>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="auto-log-filter" onchange="renderWebhookLog()" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.78rem;font-family:var(--font);color:var(--text);background:var(--surface)">
+            <option value="all">All Events</option>
+            <option value="outbound">Outbound Only</option>
+            <option value="inbound">Inbound Only</option>
+          </select>
+          <button class="btn btn-sm btn-ghost" onclick="loadWebhookLog(true)">Refresh</button>
+        </div>
+      </div>
+      <div id="auto-log-loading" style="text-align:center;padding:32px;color:var(--muted);font-size:.85rem">Loading event log…</div>
+      <table class="ct" id="auto-log-table" style="display:none">
+        <thead><tr>
+          <th>Time</th>
+          <th>Direction</th>
+          <th>Event</th>
+          <th>Customer</th>
+          <th>Status</th>
+          <th>Details</th>
+        </tr></thead>
+        <tbody id="auto-log-tbody"></tbody>
+      </table>
+      <div id="auto-log-empty" style="display:none;text-align:center;padding:40px;color:var(--muted)">
+        <div style="font-size:2rem;margin-bottom:8px;opacity:.3">⚡</div>
+        <h3 style="margin-bottom:4px">No webhook events yet</h3>
+        <p style="font-size:.85rem">Events will appear here when webhooks fire or API calls are received.</p>
+      </div>
+      <div id="auto-log-pagination" style="display:none;padding:14px 0 4px;text-align:center">
+        <button class="btn btn-sm btn-ghost" onclick="loadMoreWebhookLog()">Load more…</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /automations -->
+
+<!-- CREATE CLIENT MODAL -->
+<div class="modal-bg" id="create-client-modal" onclick="if(event.target===this)closeModal('create-client-modal')">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-hd"><h2>Add Client</h2><button class="modal-close" onclick="closeModal('create-client-modal')">✕</button></div>
+    <div class="modal-bd">
+      <div class="field" style="margin-bottom:12px">
+        <label>Business Name *</label>
+        <input type="text" id="cc-name" placeholder="Acme Corp" style="width:100%"/>
+      </div>
+      <div class="field" style="margin-bottom:12px">
+        <label>Plan Tier</label>
+        <select id="cc-tier" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.85rem;font-family:var(--font);color:var(--text);background:var(--surface)">
+          <option value="solo">Solo — $29/mo</option>
+          <option value="starter">Starter — $79/mo</option>
+          <option value="team" selected>Team — $149/mo</option>
+          <option value="growth">Growth — $249/mo</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:12px">
+        <label>Notes <span style="font-weight:400;color:var(--subtle);font-size:.72rem">(optional)</span></label>
+        <textarea id="cc-notes" placeholder="Any context about this client…" style="width:100%;height:70px;resize:vertical"></textarea>
+      </div>
+      <div id="cc-err" style="color:var(--red);font-size:.8rem;min-height:18px"></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('create-client-modal')">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="cc-btn" onclick="adminSaveClient()">Add Client →</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT CLIENT MODAL -->
+<div class="modal-bg" id="edit-client-modal" onclick="if(event.target===this)closeModal('edit-client-modal')">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-hd"><h2>Edit Client</h2><button class="modal-close" onclick="closeModal('edit-client-modal')">✕</button></div>
+    <div class="modal-bd">
+      <input type="hidden" id="ec-id"/>
+      <div class="field" style="margin-bottom:12px">
+        <label>Business Name *</label>
+        <input type="text" id="ec-name" placeholder="Acme Corp" style="width:100%"/>
+      </div>
+      <div class="field" style="margin-bottom:12px">
+        <label>Plan Tier</label>
+        <select id="ec-tier" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.85rem;font-family:var(--font);color:var(--text);background:var(--surface)">
+          <option value="solo">Solo — $29/mo</option>
+          <option value="starter">Starter — $79/mo</option>
+          <option value="team">Team — $149/mo</option>
+          <option value="growth">Growth — $249/mo</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:12px">
+        <label>Notes</label>
+        <textarea id="ec-notes" style="width:100%;height:70px;resize:vertical"></textarea>
+      </div>
+      <div id="ec-err" style="color:var(--red);font-size:.8rem;min-height:18px"></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('edit-client-modal')">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="ec-btn" onclick="adminUpdateClient()">Save Changes →</button>
+    </div>
+  </div>
+</div>
+
+<!-- CREATE USER MODAL -->
+<div class="modal-bg" id="create-user-modal" onclick="if(event.target===this)closeModal('create-user-modal')">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-hd"><h2>Create New User</h2><button class="modal-close" onclick="closeModal('create-user-modal')">✕</button></div>
+    <div class="modal-bd">
+      <div class="field" style="margin-bottom:12px">
+        <label>Email Address *</label>
+        <input type="email" id="cu-email" placeholder="user@company.com" style="width:100%"/>
+      </div>
+      <div class="field" style="margin-bottom:12px">
+        <label>Assign to Client</label>
+        <select id="cu-client" style="width:100%">
+          <option value="">— No client assigned —</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:12px">
+        <label>Temporary Password *</label>
+        <input type="text" id="cu-pw" placeholder="Min 8 characters" style="width:100%"/>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:4px">Share this with the user — they can change it in Settings after logging in.</div>
+      </div>
+      <div id="cu-err" style="color:var(--red);font-size:.8rem;min-height:18px"></div>
+      <div id="cu-ok" style="color:var(--green);font-size:.8rem;min-height:18px"></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('create-user-modal')">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="cu-btn" onclick="adminCreateUser()">Create User →</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT USER MODAL -->
+<div class="modal-bg" id="edit-user-modal" onclick="if(event.target===this)closeModal('edit-user-modal')">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-hd"><h2>Edit User</h2><button class="modal-close" onclick="closeModal('edit-user-modal')">✕</button></div>
+    <div class="modal-bd">
+      <input type="hidden" id="eu-userid"/>
+      <div class="field" style="margin-bottom:12px">
+        <label>Email Address</label>
+        <input type="email" id="eu-email" style="width:100%;background:var(--bg);color:var(--muted)" readonly/>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:3px">Email cannot be changed here. User must update it themselves in Settings.</div>
+      </div>
+      <div class="field" style="margin-bottom:12px">
+        <label>Assign to Client</label>
+        <select id="eu-client" style="width:100%">
+          <option value="">— No client assigned —</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:12px">
+        <label>Reset Password <span style="font-weight:400;color:var(--subtle);font-size:.72rem">(leave blank to keep current)</span></label>
+        <input type="text" id="eu-pw" placeholder="New temporary password (min 8 chars)" style="width:100%"/>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:4px">If set, share the new password with the user.</div>
+      </div>
+      <div id="eu-err" style="color:var(--red);font-size:.8rem;min-height:18px"></div>
+      <div id="eu-ok" style="color:var(--green);font-size:.8rem;min-height:18px"></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('edit-user-modal')">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="eu-btn" onclick="adminSaveEdit()">Save Changes →</button>
+    </div>
+  </div>
+</div>
+
+</main>
+</div><!-- /shell -->
+
+<footer class="footer">IQcadence CS Health Score · v86b · Data stored securely in your account</footer>
+
+<!-- TOAST -->
+<div class="toast-wrap" id="tw"></div>
+
+<!-- CUSTOMER DETAIL MODAL -->
+<div class="modal-bg" id="detail-modal">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-hd">
+      <div><h2 id="dm-name">—</h2><p id="dm-sub" style="font-size:.8rem;margin-top:1px"></p></div>
+      <button class="modal-close" onclick="closeModal('detail-modal')">✕</button>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;padding:0 0 10px;border-bottom:1px solid var(--border);margin-bottom:0">
+      <button class="btn btn-outline btn-sm" onclick="editCustomer()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Edit &amp; Re-score
+      </button>
+      <button class="btn btn-outline btn-sm" id="dm-qbr-btn" onclick="openQBR()">QBR Prep</button>
+      <button class="btn btn-ghost btn-sm" onclick="printCustomerReport()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Print
+      </button>
+      <button class="btn btn-danger btn-sm" onclick="deleteFromModal()">Delete</button>
+    </div>
+    <div class="dtab-row">
+      <button class="dtab active" id="dt-overview"  onclick="dtab('overview')">Overview</button>
+      <button class="dtab" id="dt-playbook"          onclick="dtab('playbook')">Playbook</button>
+      <button class="dtab" id="dt-notes"             onclick="dtab('notes')">Notes</button>
+      <button class="dtab" id="dt-sentiment"         onclick="dtab('sentiment')">Sentiment</button>
+      <button class="dtab" id="dt-history"           onclick="dtab('history')">History</button>
+    </div>
+    <div class="dtab-pane active" id="dp-overview"><div id="dm-overview"></div></div>
+    <div class="dtab-pane" id="dp-playbook"><div id="dm-playbook"></div></div>
+    <div class="dtab-pane" id="dp-notes">
+      <div id="dm-notes-list"></div>
+      <div style="display:flex;gap:7px;margin-top:10px">
+        <textarea id="note-input" style="flex:1;padding:8px 11px;border:1.5px solid var(--border);border-radius:var(--r);font-size:.84rem;font-family:var(--font);resize:vertical;min-height:64px;outline:none" placeholder="Add a note…"></textarea>
+        <button class="btn btn-primary btn-sm" style="align-self:flex-end" onclick="addNote()">Add</button>
+      </div>
+    </div>
+    <div class="dtab-pane" id="dp-sentiment">
+      <p style="font-size:.8rem;color:var(--muted);margin-bottom:10px">Log a quick vibe check after each call. Builds a sentiment trend over time.</p>
+      <div class="sentiment-btns">
+        <button class="sent-btn pos" id="sent-pos" onclick="setSentiment('positive')">😊<span>Positive</span></button>
+        <button class="sent-btn neu" id="sent-neu" onclick="setSentiment('neutral')">😐<span>Neutral</span></button>
+        <button class="sent-btn neg" id="sent-neg" onclick="setSentiment('negative')">😟<span>Negative</span></button>
+      </div>
+      <div style="display:flex;gap:7px;margin-bottom:12px">
+        <input type="text" id="sent-note" placeholder="Optional context (e.g. 'Champion mentioned budget cuts')" style="flex:1;padding:8px 11px;border:1.5px solid var(--border);border-radius:var(--r);font-size:.82rem;font-family:var(--font);outline:none"/>
+        <button class="btn btn-primary btn-sm" onclick="logSentiment()">Log</button>
+      </div>
+      <div id="dm-sentiment-list"></div>
+    </div>
+    <div class="dtab-pane" id="dp-history">
+      <div id="dm-history-sparkline" style="margin-bottom:12px"></div>
+      <div id="dm-history-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- QBR PREP MODAL -->
+<div class="modal-bg" id="qbr-modal">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-hd">
+      <div><h2>QBR Prep — <span id="qbr-title">—</span></h2><p style="font-size:.78rem;color:var(--muted);margin-top:2px">Copy and paste into your deck, email, or doc</p></div>
+      <button class="modal-close" onclick="closeModal('qbr-modal')">✕</button>
+    </div>
+    <div style="display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" onclick="copyQBR()">Copy to Clipboard</button>
+      <button class="btn btn-ghost btn-sm" onclick="printQBR()">Print</button>
+    </div>
+    <div id="qbr-content" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:18px;font-size:.82rem;line-height:1.7;white-space:pre-wrap;font-family:'Courier New',monospace;max-height:60vh;overflow-y:auto;color:var(--text)"></div>
+    <div class="modal-ft">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('qbr-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="modal-bg" id="confirm-modal">
+  <div class="modal" style="max-width:340px">
+    <div class="modal-hd"><h2>Are you sure?</h2><button class="modal-close" onclick="closeModal('confirm-modal')">✕</button></div>
+    <p id="confirm-msg"></p>
+    <div class="modal-ft">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('confirm-modal')">Cancel</button>
+      <button class="btn btn-danger btn-sm" id="confirm-ok">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- BULK TAG MODAL -->
+<div class="modal-bg" id="bulk-tag-modal">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-hd"><h2>Bulk Tag</h2><button class="modal-close" onclick="closeModal('bulk-tag-modal')">✕</button></div>
+    <div class="field"><label>Add tag to all selected customers</label><input type="text" id="bulk-tag-input" placeholder="e.g. renewal-q4"/></div>
+    <div class="modal-ft">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('bulk-tag-modal')">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="applyBulkTag()">Apply Tag</button>
+    </div>
+  </div>
+</div>
+
+<!-- BULK LIFECYCLE MODAL -->
+<div class="modal-bg" id="bulk-lifecycle-modal">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-hd"><h2>Set Stage</h2><button class="modal-close" onclick="closeModal('bulk-lifecycle-modal')">✕</button></div>
+    <div class="field"><label>Set lifecycle stage for all selected</label>
+      <select id="bulk-lc-input"><option value="onboarding">Onboarding</option><option value="active">Active</option><option value="atrisk">At Risk</option><option value="won">Won / Upsold</option><option value="churned">Churned</option></select>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('bulk-lifecycle-modal')">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="applyBulkLifecycle()">Apply Stage</button>
+    </div>
+  </div>
+</div>
+
+<!-- BACKUP MENU MODAL -->
+<!-- DATA HEALTH DETAIL MODAL -->
+<div class="modal-bg" id="dh-detail-modal">
+  <div class="modal" style="max-width:720px">
+    <div class="modal-hd"><h3 id="dh-detail-title">Stale Accounts</h3><button class="modal-close" onclick="closeModal('dh-detail-modal')">✕</button></div>
+    <div id="dh-detail-body"></div>
+    <div class="modal-ft"><button class="btn btn-ghost btn-sm" onclick="closeModal('dh-detail-modal')">Close</button></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="backup-modal">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-hd"><h2>Backup &amp; Restore</h2><button class="modal-close" onclick="closeModal('backup-modal')">✕</button></div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn btn-outline" onclick="backupExport()">Export JSON Backup</button>
+      <div style="border:1.5px dashed var(--border);border-radius:var(--r);padding:16px;text-align:center;cursor:pointer" onclick="document.getElementById('restore-input').click()">
+        <div style="margin-bottom:6px"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--subtle)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+        <strong style="font-size:.84rem">Restore from JSON Backup</strong>
+        <p style="font-size:.76rem;margin-top:3px">Click to select a .json backup file</p>
+        <input type="file" id="restore-input" accept=".json" style="display:none" onchange="restoreBackup(event)"/>
+      </div>
+    </div>
+    <div class="modal-ft"><button class="btn btn-ghost btn-sm" onclick="closeModal('backup-modal')">Close</button></div>
+  </div>
+</div>
+
+<!-- SAVE / EDIT PROFILE MODAL -->
+<div class="modal-bg" id="profile-modal">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-hd"><h2 id="profile-modal-title">Save Scoring Profile</h2><button class="modal-close" onclick="closeModal('profile-modal')">✕</button></div>
+    <div class="field" style="margin-bottom:16px"><label>Profile Name</label><input type="text" id="profile-name-input" placeholder="e.g. SMB Weights, Enterprise Focus"/></div>
+    <p style="font-size:.8rem;font-weight:600;margin-bottom:10px;color:var(--text)">Signal Weights <span style="font-weight:400;font-size:.75rem;color:var(--muted)">(must total 100%)</span></p>
+    <div id="pm-weight-rows"></div>
+    <div class="total-bar" style="margin:8px 0 2px"><div class="total-fill" id="pm-total-fill" style="width:100%"></div></div>
+    <div style="margin-bottom:14px"><span id="pm-total-label" style="font-size:.75rem;font-weight:700">Total: 100% (good)</span></div>
+    <div class="modal-ft">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('profile-modal')">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="profile-confirm-btn" onclick="confirmSaveProfile()">Save Profile</button>
+    </div>
+  </div>
+</div>
+
+<!-- PRINT REPORT (hidden, shown on print) -->
+<div id="print-area" style="display:none"></div>
+
+<!-- Column filter portal — appended to body so it clears overflow:hidden on ancestors -->
+<div id="col-filter-portal" class="col-filter-menu"></div>
+
+<!-- DIGEST MODAL (v86) -->
+<div class="modal-bg" id="digest-modal" onclick="if(event.target===this)closeModal('digest-modal')">
+  <div class="modal" style="max-width:660px">
+    <div class="modal-hd">
+      <h2>📧 Weekly Digest Preview</h2>
+      <button class="modal-close" onclick="closeModal('digest-modal')">✕</button>
+    </div>
+    <div class="modal-bd">
+      <p style="font-size:.75rem;color:var(--muted);margin-bottom:12px">This is how your digest email will look. Use "Copy HTML" to paste into your email client, or download as a .html file.</p>
+      <div id="digest-preview" style="border:1px solid var(--border);border-radius:8px;padding:20px;background:#fff;font-family:Arial,sans-serif;font-size:13px;line-height:1.5;color:#1e293b;max-height:440px;overflow-y:auto"></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('digest-modal')">Close</button>
+      <button class="btn btn-outline btn-sm" onclick="copyDigestHTML()">📋 Copy HTML</button>
+      <button class="btn btn-primary btn-sm" onclick="downloadDigestHTML()">⬇ Download .html</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/app.js?v=79"></script>
+</body>
+</html>

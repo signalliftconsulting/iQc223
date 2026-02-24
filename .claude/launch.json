@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "C:\\Users\\iande\\Website Claude\\SignalLift-CS-Health"],
+      "port": 3000
+    }
+  ]
+}
