@@ -1,11 +1,24 @@
 /* ============================================================
    IQcadence — CS Health Score — app.js
+   When setting innerHTML with dynamic or user-supplied data (e.g. customer
+   name, notes, manager), always wrap it with escHtml() to prevent XSS.
    ============================================================ */
 
 // ─── SUPABASE CLIENT ─────────────────────────────────────────
-const SUPABASE_URL  = 'https://qctiyigznbztxcowehnl.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjdGl5aWd6bmJ6dHhjb3dlaG5sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1NTEwMjcsImV4cCI6MjA4NzEyNzAyN30.Uto2G5WzDIgDplQlgSwvo1BT3voym8msjZSSy9GUBsg';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+// Load from js/config.js (copy from config.example.js). config.js is gitignored.
+const _cfg = window.__IQCADENCE_CONFIG__ || {};
+const SUPABASE_URL  = _cfg.SUPABASE_URL  || '';
+const SUPABASE_ANON = _cfg.SUPABASE_ANON || '';
+const ADMIN_EMAILS  = Array.isArray(_cfg.ADMIN_EMAILS) && _cfg.ADMIN_EMAILS.length
+  ? _cfg.ADMIN_EMAILS
+  : ['signalliftconsulting@gmail.com', 'ian@iqcadence.com']; // fallback until RLS uses config/table
+
+let sb = null; // set after config check
+if (SUPABASE_URL && SUPABASE_ANON) {
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+} else {
+  console.error('IQcadence: Missing Supabase config. Copy js/config.example.js to js/config.js and set SUPABASE_URL and SUPABASE_ANON.');
+}
 
 let currentUser = null; // set after auth
 
@@ -17,6 +30,9 @@ let sortKey    = 'score';
 let sortDir    = -1; // -1 = desc
 let filterMode = 'all';
 let activeManagers = new Set(); // empty = show all
+const SEG_UNTAGGED = '__untagged__';
+const SEG_UNTAGGED_LABEL = 'Untagged';
+function segDisplayLabel(tag) { return tag === SEG_UNTAGGED ? SEG_UNTAGGED_LABEL : tag; }
 let adminClients   = [];        // list of {id, name, notes} — admin only
 let activeClientId = '__own__'; // '__own__' = admin's own data, else client UUID
 let trash          = [];        // soft-deleted customers
@@ -31,52 +47,58 @@ let webhookLogOffset  = 0;
 let _prevCustomerStates = new Map(); // id → { score, status } for trigger detection
 
 // ─── PLAN TIER GATING ──────────────────────────────────────
-let clientPlanTier = 'growth'; // default to growth (full access) until resolved
+let clientPlanTier = 'enterprise'; // default to enterprise (full access) until resolved
 
-const PLAN_TIERS = ['solo', 'starter', 'team', 'growth'];
-const PLAN_TIER_LABELS = { solo: 'Solo', starter: 'Starter', team: 'Team', growth: 'Growth' };
-const PLAN_TIER_COLORS = { solo: 'var(--muted)', starter: 'var(--blue)', team: 'var(--purple)', growth: 'var(--green)' };
+const PLAN_TIERS = ['starter', 'team', 'pro', 'enterprise'];
+const PLAN_TIER_LABELS = { starter: 'Starter', team: 'Team', pro: 'Pro', enterprise: 'Enterprise' };
+const PLAN_TIER_COLORS = { starter: 'var(--muted)', team: 'var(--blue)', pro: 'var(--purple)', enterprise: 'var(--green)' };
 
 const PLAN_FEATURES = {
-  // Starter+
-  csm_filtering:     'starter',
-  manager_dashboard: 'starter',
+  // Starter (basic)
+  reports_basic:     'starter',
+  trend_sparklines:  'starter',
   email_digest:      'starter',
+  renewal_pipeline:  'starter',
+  urgency_scoring:   'starter',
+  at_risk_alerts:    'starter',
+  priority_list:     'starter',
   // Team+
-  trend_sparklines:  'team',
-  renewal_pipeline:  'team',
-  urgency_scoring:   'team',
+  csm_filtering:     'team',
+  manager_dashboard: 'team',
   sentiment:         'team',
-  priority_list:     'team',
-  at_risk_alerts:    'team',
   audit_log:         'team',
   custom_tags:       'team',
-  // Growth
-  next_best_action:  'growth',
-  scoring_profiles:  'growth',
-  qbr_prep:          'growth',
-  csm_performance:   'growth',
-  playbooks:         'growth',
-  momentum:          'growth',
-  automations:       'growth',
+  scoring_profiles:  'team',
+  segments:          'team',
+  alert_channels:    'team',
+  report_segments:   'team',
+  // Pro+
+  next_best_action:  'pro',
+  qbr_prep:          'pro',
+  csm_performance:   'pro',
+  report_csmperf:    'pro',
+  playbooks:         'pro',
+  momentum:          'pro',
+  automations:       'pro',
+  api_webhooks:      'pro',
 };
 
 const PLAN_LIMITS = {
-  solo:    { users: 1,  accounts: 20 },
-  starter: { users: 3,  accounts: 60 },
-  team:    { users: 8,  accounts: 150 },
-  growth:  { users: 15, accounts: Infinity },
+  starter:    { users: 1,  accounts: 150 },
+  team:       { users: 5,  accounts: 750 },
+  pro:        { users: 15, accounts: Infinity },
+  enterprise: { users: Infinity, accounts: Infinity },
 };
 
 function hasFeature(key) {
   if (isAdmin()) return true; // admin always has full access
-  const userTier  = PLAN_TIERS.indexOf(clientPlanTier || 'solo');
-  const needsTier = PLAN_TIERS.indexOf(PLAN_FEATURES[key] || 'solo');
+  const userTier  = PLAN_TIERS.indexOf(clientPlanTier || 'starter');
+  const needsTier = PLAN_TIERS.indexOf(PLAN_FEATURES[key] || 'starter');
   return userTier >= needsTier;
 }
 
 function getPlanLimit(key) {
-  const limits = PLAN_LIMITS[clientPlanTier || 'solo'] || PLAN_LIMITS.solo;
+  const limits = PLAN_LIMITS[clientPlanTier || 'starter'] || PLAN_LIMITS.starter;
   return limits[key];
 }
 
@@ -87,7 +109,7 @@ function tierBadgeHTML(tier) {
 }
 
 function upgradeHTML(featureKey) {
-  const needed = PLAN_FEATURES[featureKey] || 'solo';
+  const needed = PLAN_FEATURES[featureKey] || 'starter';
   const label  = PLAN_TIER_LABELS[needed] || needed;
   return `<div style="text-align:center;padding:40px 20px;color:var(--muted)">
     <div style="font-size:1.5rem;margin-bottom:10px">🔒</div>
@@ -97,8 +119,11 @@ function upgradeHTML(featureKey) {
 }
 
 // Resolve the current user's client tier on boot
+// Legacy tier migration map (old DB values → new tier names)
+const TIER_MIGRATION = { solo: 'starter', growth: 'pro' };
+
 async function resolveClientPlanTier() {
-  if (isAdmin()) { clientPlanTier = 'growth'; return; }
+  if (isAdmin()) { clientPlanTier = 'enterprise'; return; }
 
   // Use cached tier immediately so renders don't flash wrong state
   try {
@@ -118,15 +143,17 @@ async function resolveClientPlanTier() {
         .select('plan_tier')
         .eq('id', profile.client_id)
         .single();
-      clientPlanTier = client?.plan_tier || 'solo';
+      clientPlanTier = client?.plan_tier || 'starter';
     } else {
-      clientPlanTier = 'solo'; // no client assigned = solo
+      clientPlanTier = 'starter'; // no client assigned = starter
     }
+    // Migrate legacy tier names (solo→starter, growth→pro)
+    if (TIER_MIGRATION[clientPlanTier]) clientPlanTier = TIER_MIGRATION[clientPlanTier];
     localStorage.setItem('iqc_plan_tier', clientPlanTier);
   } catch(e) {
     console.warn('Could not resolve plan tier:', e.message);
-    // Keep cached value if available, otherwise fall to solo
-    if (!PLAN_TIERS.includes(clientPlanTier)) clientPlanTier = 'solo';
+    // Keep cached value if available, otherwise fall to starter
+    if (!PLAN_TIERS.includes(clientPlanTier)) clientPlanTier = 'starter';
   }
   applyTierGating();
 }
@@ -136,8 +163,10 @@ function applyTierGating() {
   if (isAdmin()) return; // admin sees everything
 
   const gatedNav = {
-    'ni-csmperf':  'csm_performance',
-    'ni-auditlog': 'audit_log',
+    'ni-segments':    'segments',
+    'ni-automations': 'alert_channels',
+    'ni-csmperf':     'csm_performance',
+    'ni-auditlog':    'audit_log',
   };
 
   Object.entries(gatedNav).forEach(([navId, featureKey]) => {
@@ -322,6 +351,7 @@ function fromRow(row) {
     tickets:   row.tickets   || 0,
     nps:       row.nps       || 'unknown',
     days:         row.days         || 0,
+    _baseDays:    row.days         || 0,
     renewal_date: row.renewal_date || '',
     renewal:      row.renewal_date
       ? Math.max(0, Math.round((new Date(row.renewal_date) - new Date()) / (1000 * 60 * 60 * 24 * 30.44)))
@@ -357,7 +387,7 @@ function toRow(c) {
     adoption:  c.adoption   || 0,
     tickets:   c.tickets    || 0,
     nps:       c.nps        || 'unknown',
-    days:         c.days         || 0,
+    days:         c._baseDays != null ? c._baseDays : (c.days || 0),
     renewal_date: c.renewal_date || '',
     renewal:      c.renewal      || 0,
     growth:    c.growth     || 'none',
@@ -383,11 +413,15 @@ async function loadCustomersFromSupabase() {
   let query;
 
   if (isAdmin()) {
-    // Admin always loads just their own rows here;
-    // client data loaded separately via loadClientCustomers()
+    // Admin loads rows from ALL admin user IDs so all admins see the same data
+    const { data: adminProfiles } = await sb.from('user_profiles')
+      .select('user_id, email')
+      .in('email', ADMIN_EMAILS.map(e => e.toLowerCase()));
+    const adminIds = (adminProfiles || []).map(p => p.user_id);
+    if (!adminIds.includes(currentUser.id)) adminIds.push(currentUser.id);
     query = sb.from('customers')
       .select('*')
-      .eq('user_id', currentUser.id)
+      .in('user_id', adminIds)
       .order('created_at', { ascending: false });
   } else {
     // Non-admin: load all customers from users in the same client
@@ -693,7 +727,7 @@ function updateUserUI(user) {
     if (settingsEmail) settingsEmail.textContent = user.email;
 
     // Show admin nav items only for the admin email
-    const admin = user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+    const admin = ADMIN_EMAILS.some(e => user.email.toLowerCase() === e.toLowerCase());
     ['ni-admin-sep','ni-admin-label','ni-clients','ni-users'].forEach(id => {
       const el2 = document.getElementById(id);
       if (el2) el2.style.display = admin ? '' : 'none';
@@ -781,6 +815,41 @@ function getActiveWeights(c) {
 // Returns true if a signal dimension is active (weight > 0) for this customer
 function signalOn(c, key) {
   return (getActiveWeights(c)[key] || 0) > 0;
+}
+
+// ─── DYNAMIC SCORE DECAY ─────────────────────────────────────
+// Returns the date when a customer was last scored (most recent history entry)
+function getLastScoredDate(c) {
+  const hist = c.history || [];
+  if (!hist.length) return c.created ? new Date(c.created) : new Date();
+  let max = 0;
+  hist.forEach(function(h) { if (h.date) { var t = new Date(h.date).getTime(); if (t > max) max = t; } });
+  return max ? new Date(max) : new Date(c.created || Date.now());
+}
+
+// Returns effective days since contact, accounting for time elapsed since last scored
+function getEffectiveDays(c) {
+  var base = c._baseDays != null ? c._baseDays : (c.days || 0);
+  var lastScored = getLastScoredDate(c);
+  var elapsed = Math.max(0, Math.floor((Date.now() - lastScored.getTime()) / 86400000));
+  return base + elapsed;
+}
+
+// Recalculate all customer scores using dynamic effective days
+function refreshLiveScores() {
+  customers.forEach(function(c) {
+    if (c.lifecycle === 'churned') return;
+    var effDays = getEffectiveDays(c);
+    if (effDays === c.days) return;
+    var data = { logins: c.logins || 0, adoption: c.adoption || 0,
+      tickets: c.tickets || 0, nps: c.nps || 'unknown',
+      days: effDays, growth: c.growth || 'none' };
+    var w = getActiveWeights(c);
+    var result = calcScore(data, w);
+    c.days   = effDays;
+    c.score  = result.score;
+    c.status = getStatus(result.score);
+  });
 }
 
 function makeRec(score, data) {
@@ -939,11 +1008,10 @@ function buildNextBestAction(c) {
 }
 
 // ─── NAVIGATION ─────────────────────────────────────────────
-const VIEWS = ['dashboard','alerts','customers','segments','csmperf','score','csv','settings','automations','auditlog','users','clients'];
-const ADMIN_EMAIL = 'signalliftconsulting@gmail.com';
+const VIEWS = ['dashboard','alerts','customers','segments','trends','csmperf','reports','score','csv','settings','automations','auditlog','users','clients','help'];
 
 function isAdmin() {
-  return currentUser && currentUser.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  return currentUser && ADMIN_EMAILS.some(e => currentUser.email.toLowerCase() === e.toLowerCase());
 }
 
 function nav(v) {
@@ -967,13 +1035,911 @@ function nav(v) {
   if (v === 'dashboard') renderDashboard();
   if (v === 'alerts')    renderAlerts();
   if (v === 'customers') renderCustomers();
-  if (v === 'segments')  renderSegments();
+  if (v === 'segments')  { if (!hasFeature('segments')) { el('seg-kpi-row').innerHTML = ''; el('seg-cards-wrap').innerHTML = upgradeHTML('segments'); el('seg-table-wrap').innerHTML = ''; el('seg-insights-wrap').innerHTML = ''; } else renderSegments(); }
+  if (v === 'trends')    renderTrends();
   if (v === 'csmperf')   { if (!hasFeature('csm_performance')) { el('csmperf-wrap').innerHTML = upgradeHTML('csm_performance'); el('csmperf-stats').innerHTML = ''; } else renderCSMPerformance(); }
   if (v === 'settings')  renderSettings();
   if (v === 'auditlog')  { if (!hasFeature('audit_log')) { el('audit-loading').style.display='none'; document.getElementById('audit-table').style.display='none'; document.getElementById('audit-empty').innerHTML = upgradeHTML('audit_log'); document.getElementById('audit-empty').style.display='block'; } else { loadAuditLog(); renderConfigHistory(); } }
+  if (v === 'reports')     renderReporting();
   if (v === 'automations') renderAutomations();
   if (v === 'users')     renderUsers();
   if (v === 'clients')   renderClients();
+}
+
+// ─── REPORTS ────────────────────────────────────────────────
+function renderReporting() {
+  const wrap = el('reports-wrap');
+  if (!wrap) return;
+
+  const lockSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+
+  const reports = [
+    { section:'all', tier:'starter', featureKey:'reports_basic',
+      title:'Customer Health Export', desc:'Download all customers as CSV with scores, signals, status, MRR, and tags.',
+      iconBg:'var(--blue-l)', iconColor:'var(--blue)',
+      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+      actions:[
+        { label:'Print / PDF', cls:'btn-primary', fn:'printCustomerHealth()' },
+        { label:'Export CSV', cls:'btn-outline', fn:'exportCSV()' }
+      ]
+    },
+    { section:'all', tier:'starter', featureKey:'reports_basic',
+      title:'Score History Export', desc:'Per-customer score changes over time with all signal snapshots.',
+      iconBg:'var(--teal-l)', iconColor:'var(--teal)',
+      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
+      actions:[{ label:'Export CSV', cls:'btn-primary', fn:'exportScoreHistory()' }]
+    },
+    { section:'all', tier:'starter', featureKey:'reports_basic',
+      title:'Portfolio Health Summary', desc:'Printable dashboard snapshot with KPI cards, status distribution, segment breakdown, and top at-risk accounts.',
+      iconBg:'var(--purple-l)', iconColor:'var(--purple)',
+      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+      actions:[
+        { label:'Print / PDF', cls:'btn-primary', fn:'printPortfolioSummary()' },
+        { label:'Export CSV', cls:'btn-outline', fn:'exportPortfolioCSV()' }
+      ]
+    },
+    { section:'all', tier:'starter', featureKey:'reports_basic',
+      title:'Weekly Health Digest', desc:'Email-ready weekly digest with KPIs, at-risk accounts, and score movers.',
+      iconBg:'var(--green-l)', iconColor:'var(--green)',
+      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
+      actions:[
+        { label:'Print / PDF', cls:'btn-primary', fn:'printDigestReport()' },
+        { label:'Download HTML', cls:'btn-outline', fn:'downloadDigestHTML()' },
+        { label:'Copy HTML', cls:'btn-outline', fn:'copyDigestHTML()' }
+      ]
+    },
+    { section:'all', tier:'starter', featureKey:'reports_basic',
+      title:'At-Risk Report', desc:'Critical and At Risk customers sorted by MRR, with scores, trends, days since contact, and renewal dates.',
+      iconBg:'var(--red-l)', iconColor:'var(--red)',
+      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+      actions:[
+        { label:'Print / PDF', cls:'btn-primary', fn:'printAtRiskReport()' },
+        { label:'Export CSV', cls:'btn-outline', fn:'exportAtRiskCSV()' }
+      ]
+    },
+    { section:'all', tier:'starter', featureKey:'reports_basic',
+      title:'Renewal Forecast Report', desc:'Customers grouped by renewal window (this month, 30/60/90 days) with health status and MRR.',
+      iconBg:'var(--amber-l)', iconColor:'var(--amber)',
+      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+      actions:[
+        { label:'Print / PDF', cls:'btn-primary', fn:'printRenewalForecast()' },
+        { label:'Export CSV', cls:'btn-outline', fn:'exportRenewalCSV()' }
+      ]
+    },
+    { section:'all', tier:'starter', featureKey:'reports_basic',
+      title:'Trend Report (30/60/90d)', desc:'Overall portfolio health score trend over time with status mix and MRR changes.',
+      iconBg:'var(--teal-l)', iconColor:'var(--teal)',
+      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
+      actions:[
+        { label:'Print / PDF', cls:'btn-primary', fn:'printTrendReport()' },
+        { label:'Export CSV', cls:'btn-outline', fn:'exportTrendCSV()' }
+      ]
+    },
+    { section:'all', tier:'starter', featureKey:'reports_basic',
+      title:'Churn Risk Report', desc:'Combined risk ranking with estimated revenue impact, scored by health, trend, NPS, engagement, and renewal proximity.',
+      iconBg:'var(--red-l)', iconColor:'var(--red)',
+      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+      actions:[
+        { label:'Print / PDF', cls:'btn-primary', fn:'printChurnRiskReport()' },
+        { label:'Export CSV', cls:'btn-outline', fn:'exportChurnRiskCSV()' }
+      ]
+    },
+    // Gated reports
+    { section:'all', tier:'team', featureKey:'report_segments',
+      title:'Segment Analysis Report', desc:'Health breakdown by tier, lifecycle, and tag — with MRR at risk per segment.',
+      iconBg:'var(--purple-l)', iconColor:'var(--purple)',
+      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
+      actions:[
+        { label:'Print / PDF', cls:'btn-primary', fn:'printSegmentAnalysis()' },
+        { label:'Export CSV', cls:'btn-outline', fn:'exportSegmentCSV()' }
+      ]
+    },
+    { section:'all', tier:'pro', featureKey:'report_csmperf',
+      title:'CSM Performance Report', desc:'Per-manager portfolio metrics — avg score, risk ratio, MRR managed, contact cadence.',
+      iconBg:'var(--blue-l)', iconColor:'var(--blue)',
+      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+      actions:[
+        { label:'Print / PDF', cls:'btn-primary', fn:'printCSMReport()' },
+        { label:'Export CSV', cls:'btn-outline', fn:'exportCSMReportCSV()' }
+      ]
+    },
+  ];
+
+  const sections = [
+    { key:'all', label:'Reports' },
+  ];
+
+  let html = '';
+  sections.forEach(sec => {
+    const secReports = reports.filter(r => r.section === sec.key);
+    html += '<div class="rpt-section">' +
+      '<div class="rpt-section-hd"><h2>' + sec.label + '</h2></div>' +
+      '<div class="rpt-grid">';
+    secReports.forEach(r => {
+      const locked = !hasFeature(r.featureKey);
+      html += '<div class="rpt-card' + (locked ? ' locked' : '') + '">' +
+        (locked ? '<div class="rpt-lock-overlay">' + lockSvg + ' ' + (PLAN_TIER_LABELS[r.tier] || r.tier) + '+ required</div>' : '') +
+        '<div class="rpt-card__icon" style="background:' + r.iconBg + ';color:' + r.iconColor + '">' + r.icon + '</div>' +
+        '<div class="rpt-card__title">' + r.title + '</div>' +
+        '<div class="rpt-card__desc">' + r.desc + '</div>' +
+        '<div class="rpt-card__actions">' +
+          r.actions.map(a => '<button class="btn btn-sm ' + a.cls + '" onclick="' + a.fn + '"' + (locked ? ' disabled' : '') + '>' + a.label + '</button>').join('') +
+        '</div></div>';
+    });
+    html += '</div></div>';
+  });
+  wrap.innerHTML = html;
+}
+
+// ── Report: Score History Export (Solo) ──
+function exportScoreHistory() {
+  const hdr = 'customer_name,manager,tier,mrr,tags,date,score,status,logins,adoption,tickets,nps,days_since_contact,growth,lifecycle';
+  const rows = [];
+  customers.forEach(c => {
+    (c.history || []).forEach(h => {
+      const s = h.signals || {};
+      const st = typeof getStatus === 'function' ? getStatus(h.score || 0) : '';
+      rows.push(csvRow([
+        c.name, c.manager || '', c.tier || '', c.mrr || 0, (c.tags || []).join('|'),
+        h.date || '', h.score || 0, st,
+        s.logins ?? '', s.adoption ?? '', s.tickets ?? '', s.nps ?? '',
+        s.days ?? '', s.growth ?? '', s.lifecycle ?? ''
+      ]));
+    });
+  });
+  if (!rows.length) { toast('No score history found', 'warn'); return; }
+  dlText(hdr + '\n' + rows.join('\n'), 'score-history-export.csv', 'text/csv');
+  toast('Score history exported (' + rows.length + ' entries)', 'success');
+}
+
+// ── Shared print styles ──
+function rptPrintCSS() {
+  return '<style>' +
+    '@page{size:auto;margin:16mm 12mm}' +
+    '@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}' +
+    '#print-area{font-family:"Segoe UI",system-ui,-apple-system,sans-serif;color:#0f172a;padding:20px 36px;max-width:860px;margin:0 auto;line-height:1.55}' +
+    '#print-area *{box-sizing:border-box}' +
+    // header bar
+    '.rpt-hdr{border-top:4px solid #4f46e5;padding-top:18px;margin-bottom:22px;page-break-inside:avoid}' +
+    '.rpt-hdr-inner{display:flex;justify-content:space-between;align-items:flex-start}' +
+    '.rpt-hdr h1{font-size:1.55rem;font-weight:800;margin:0 0 3px;letter-spacing:-.02em;color:#1e293b}' +
+    '.rpt-hdr .sub{color:#64748b;font-size:.82rem;margin:0}' +
+    '.rpt-brand{font-size:.7rem;color:#94a3b8;text-align:right;line-height:1.4;letter-spacing:.02em}' +
+    '.rpt-brand strong{color:#4f46e5;font-weight:700;font-size:.75rem}' +
+    // section headings
+    'h2{font-size:1.05rem;font-weight:700;margin:20px 0 8px;padding-bottom:5px;border-bottom:2px solid #e2e8f0;color:#1e293b;letter-spacing:-.01em}' +
+    // KPI cards
+    '.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:14px 0;page-break-inside:avoid}' +
+    '.kpi{border:1px solid #e2e8f0;border-top:3px solid #4f46e5;border-radius:10px;padding:16px 12px;text-align:center;background:#fff}' +
+    '.kpi-num{font-size:1.45rem;font-weight:800;line-height:1.2;color:#1e293b}' +
+    '.kpi-label{font-size:.68rem;color:#64748b;text-transform:uppercase;margin-top:5px;letter-spacing:.05em;font-weight:600}' +
+    // tables
+    'table{width:100%;border-collapse:collapse;font-size:.8rem;margin-top:10px;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden}' +
+    'thead th{text-align:left;color:#fff;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;padding:9px 10px;white-space:nowrap;background:#475569;font-weight:600}' +
+    'th{text-align:left;color:#fff;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;padding:9px 10px;white-space:nowrap;background:#475569;font-weight:600}' +
+    'td{padding:8px 10px;border-bottom:1px solid #f1f5f9;color:#334155}' +
+    'tr:nth-child(even) td{background:#f8fafc}' +
+    'tr:last-child td{border-bottom:none}' +
+    // status pill helper
+    '.st-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}' +
+    // bar chart
+    '.bar{display:flex;height:24px;border-radius:6px;overflow:hidden;margin:10px 0;border:1px solid #e2e8f0}' +
+    '.bar span{display:block}' +
+    // footer
+    '.rpt-footer{margin-top:16px;padding-top:10px;border-top:1.5px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;font-size:.68rem;color:#94a3b8;page-break-inside:avoid}' +
+    // bucket headers
+    '.bucket-hd{font-size:.95rem;font-weight:700;margin:20px 0 6px;display:flex;align-items:center;gap:8px;color:#1e293b}' +
+    '.bucket-hd .ct{font-weight:400;color:#64748b;font-size:.82rem}' +
+    // page break controls
+    'table{page-break-inside:auto}tr{page-break-inside:avoid}' +
+    'h2{page-break-after:avoid}.bucket-hd{page-break-after:avoid}' +
+  '</style>';
+}
+
+function rptDateStr() {
+  return new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+}
+
+function rptHeader(title, subtitle) {
+  return '<div class="rpt-hdr"><div class="rpt-hdr-inner">' +
+    '<div><h1>' + escHtml(title) + '</h1><p class="sub">' + (subtitle || ('Generated ' + rptDateStr())) + '</p></div>' +
+    '<div class="rpt-brand"><strong>iQcadence</strong><br>CS Health Score</div>' +
+  '</div></div>';
+}
+
+function rptFooter() {
+  return '<div class="rpt-footer"><span>iQcadence CS Health Score &middot; Confidential</span><span>' + rptDateStr() + '</span></div>';
+}
+
+function rptPrint(html) {
+  const pa = document.getElementById('print-area');
+  pa.style.display = 'block';
+  pa.innerHTML = rptPrintCSS() + html;
+  window.print();
+  setTimeout(() => { pa.style.display = 'none'; pa.innerHTML = ''; }, 1000);
+}
+
+// ── SVG Chart Helpers for Print Reports ──
+
+function svgDonut(segments, size) {
+  size = size || 180;
+  const total = segments.reduce((s, seg) => s + seg.value, 0);
+  if (!total) return '';
+  const cx = size / 2, cy = size / 2, r = size * 0.35, sw = size * 0.14;
+  let angle = -90;
+  const paths = [];
+  segments.forEach(seg => {
+    if (!seg.value) return;
+    const pct = seg.value / total;
+    const sa = angle, ea = angle + pct * 360;
+    if (pct >= 0.999) {
+      paths.push('<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + seg.color + '" stroke-width="' + sw + '"/>');
+    } else {
+      const la = pct > 0.5 ? 1 : 0;
+      const sr = sa * Math.PI / 180, er = ea * Math.PI / 180;
+      const x1 = cx + r * Math.cos(sr), y1 = cy + r * Math.sin(sr);
+      const x2 = cx + r * Math.cos(er), y2 = cy + r * Math.sin(er);
+      paths.push('<path d="M' + x1.toFixed(1) + ',' + y1.toFixed(1) + ' A' + r + ',' + r + ' 0 ' + la + ',1 ' + x2.toFixed(1) + ',' + y2.toFixed(1) + '" fill="none" stroke="' + seg.color + '" stroke-width="' + sw + '"/>');
+    }
+    angle = ea;
+  });
+  const legend = segments.filter(s => s.value > 0).map(seg => {
+    const pct = Math.round(seg.value / total * 100);
+    return '<div style="display:flex;align-items:center;gap:6px;font-size:.72rem;color:#334155;margin:3px 0">' +
+      '<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:' + seg.color + ';flex-shrink:0"></span>' +
+      seg.label + ' <strong>' + seg.value + '</strong> (' + pct + '%)</div>';
+  }).join('');
+  return '<div style="display:flex;align-items:center;gap:28px;margin:14px 0;page-break-inside:avoid">' +
+    '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' + paths.join('') +
+    '<text x="' + cx + '" y="' + (cy - 2) + '" text-anchor="middle" font-size="' + (size * 0.15) + '" font-weight="800" fill="#1e293b">' + total + '</text>' +
+    '<text x="' + cx + '" y="' + (cy + 14) + '" text-anchor="middle" font-size="' + (size * 0.06) + '" fill="#64748b" text-transform="uppercase" letter-spacing=".05em">TOTAL</text>' +
+    '</svg><div>' + legend + '</div></div>';
+}
+
+function svgLineChart(points, w, h) {
+  w = w || 780; h = h || 220;
+  if (points.length < 2) return '';
+  var pad = {t: 24, r: 24, b: 50, l: 48};
+  var cw = w - pad.l - pad.r, ch = h - pad.t - pad.b;
+  var vals = points.map(function(p){ return p.value; });
+  var rawMin = Math.min.apply(null, vals), rawMax = Math.max.apply(null, vals);
+  var minV = Math.max(0, rawMin - 5), maxV = Math.min(100, rawMax + 5);
+  if (maxV - minV < 10) { minV = Math.max(0, rawMin - 10); maxV = Math.min(100, rawMax + 10); }
+  var range = maxV - minV || 1;
+  // Grid + Y labels
+  var grid = '', yLbl = '';
+  for (var i = 0; i <= 4; i++) {
+    var gv = minV + (range * i / 4), gy = pad.t + ch - (ch * i / 4);
+    grid += '<line x1="' + pad.l + '" y1="' + gy.toFixed(1) + '" x2="' + (w - pad.r) + '" y2="' + gy.toFixed(1) + '" stroke="#e2e8f0" stroke-width=".8"/>';
+    yLbl += '<text x="' + (pad.l - 8) + '" y="' + (gy + 3.5).toFixed(1) + '" text-anchor="end" font-size="9" fill="#94a3b8">' + Math.round(gv) + '</text>';
+  }
+  // Data points
+  var pts = points.map(function(p, idx) {
+    var x = pad.l + (cw * idx / (points.length - 1));
+    var y = pad.t + ch - (ch * (p.value - minV) / range);
+    return {x: x, y: y};
+  });
+  var linePath = pts.map(function(p, idx) { return (idx === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1); }).join(' ');
+  var areaPath = linePath + ' L' + pts[pts.length - 1].x.toFixed(1) + ',' + (pad.t + ch) + ' L' + pts[0].x.toFixed(1) + ',' + (pad.t + ch) + ' Z';
+  // X labels
+  var maxLbl = Math.min(14, points.length), step = Math.max(1, Math.ceil(points.length / maxLbl));
+  var xLbl = '';
+  points.forEach(function(p, idx) {
+    if (idx % step === 0 || idx === points.length - 1) {
+      var x = pad.l + (cw * idx / (points.length - 1));
+      var lbl = p.label.length > 7 ? p.label.slice(5) : p.label;
+      xLbl += '<text x="' + x.toFixed(1) + '" y="' + (h - 6) + '" text-anchor="middle" font-size="8.5" fill="#94a3b8" transform="rotate(-35,' + x.toFixed(1) + ',' + (h - 6) + ')">' + lbl + '</text>';
+    }
+  });
+  // Dots
+  var dots = pts.map(function(p) {
+    return '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="3" fill="#4f46e5" stroke="#fff" stroke-width="1.5"/>';
+  }).join('');
+  return '<div style="margin:12px 0;overflow:hidden;page-break-inside:avoid"><svg width="100%" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="xMidYMid meet">' +
+    grid + yLbl +
+    '<defs><linearGradient id="lg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4f46e5" stop-opacity=".18"/><stop offset="100%" stop-color="#4f46e5" stop-opacity=".02"/></linearGradient></defs>' +
+    '<path d="' + areaPath + '" fill="url(#lg1)"/>' +
+    '<path d="' + linePath + '" fill="none" stroke="#4f46e5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+    dots + xLbl + '</svg></div>';
+}
+
+function svgBarH(items, w) {
+  w = w || 780;
+  var barH = 26, gap = 6, lblW = 130, valW = 80;
+  var barArea = w - lblW - valW - 16;
+  var h = items.length * (barH + gap) + 8;
+  var maxV = Math.max.apply(null, items.map(function(d){ return d.value; })) || 1;
+  var bars = items.map(function(item, i) {
+    var y = i * (barH + gap) + 4;
+    var bw = Math.max(3, (item.value / maxV) * barArea);
+    var col = item.color || '#4f46e5';
+    return '<text x="' + (lblW - 6) + '" y="' + (y + barH / 2 + 4) + '" text-anchor="end" font-size="11" font-weight="600" fill="#334155">' + item.label + '</text>' +
+      '<rect x="' + lblW + '" y="' + y + '" width="' + bw.toFixed(1) + '" height="' + barH + '" rx="4" fill="' + col + '" opacity=".85"/>' +
+      '<text x="' + (lblW + bw + 8).toFixed(1) + '" y="' + (y + barH / 2 + 4) + '" font-size="11" font-weight="700" fill="#334155">' + (item.valLabel || item.value) + '</text>';
+  }).join('');
+  return '<div style="margin:10px 0;page-break-inside:avoid"><svg width="100%" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="xMidYMid meet">' + bars + '</svg></div>';
+}
+
+function svgRiskBands(scored) {
+  // Stacked risk band visualization: Low / Medium / High / Critical
+  var bands = [
+    {label: 'Low (0\u201329)', color: '#16a34a', count: 0},
+    {label: 'Medium (30\u201349)', color: '#d97706', count: 0},
+    {label: 'High (50\u201369)', color: '#f97316', count: 0},
+    {label: 'Critical (70+)', color: '#dc2626', count: 0}
+  ];
+  scored.forEach(function(r) {
+    if (r.risk >= 70) bands[3].count++;
+    else if (r.risk >= 50) bands[2].count++;
+    else if (r.risk >= 30) bands[1].count++;
+    else bands[0].count++;
+  });
+  var total = scored.length || 1;
+  var w = 780, barH = 32;
+  var legend = bands.map(function(b) {
+    var pct = Math.round(b.count / total * 100);
+    return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:.72rem;color:#334155;margin-right:16px">' +
+      '<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:' + b.color + '"></span>' +
+      b.label + ': <strong>' + b.count + '</strong> (' + pct + '%)</span>';
+  }).join('');
+  var barParts = bands.filter(function(b){ return b.count > 0; }).map(function(b) {
+    var pct = Math.max(2, b.count / total * 100);
+    return '<span style="display:block;width:' + pct + '%;background:' + b.color + ';height:' + barH + 'px"></span>';
+  }).join('');
+  return '<div style="margin:12px 0;page-break-inside:avoid">' +
+    '<div class="bar" style="height:' + barH + 'px;border-radius:8px">' + barParts + '</div>' +
+    '<div style="margin-top:8px;display:flex;flex-wrap:wrap">' + legend + '</div></div>';
+}
+
+function svgMiniBar(items) {
+  // Compact bar chart within a section — used for segment comparisons
+  return items.map(function(item) {
+    var pct = Math.min(100, Math.max(2, item.value));
+    var col = item.value >= 80 ? '#16a34a' : item.value >= 60 ? '#4f46e5' : item.value >= 40 ? '#d97706' : '#dc2626';
+    return '<div style="display:flex;align-items:center;gap:8px;margin:4px 0;font-size:.75rem">' +
+      '<span style="width:100px;text-align:right;font-weight:600;color:#334155;flex-shrink:0">' + item.label + '</span>' +
+      '<div style="flex:1;height:18px;background:#f1f5f9;border-radius:4px;overflow:hidden">' +
+        '<div style="width:' + pct + '%;height:100%;background:' + col + ';border-radius:4px;opacity:.8"></div></div>' +
+      '<span style="width:32px;font-weight:700;color:#334155">' + item.value + '</span></div>';
+  }).join('');
+}
+
+// ── Report: Portfolio Health Summary (Team) ──
+function printPortfolioSummary() {
+  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
+  const total = active.length;
+  const avg = total ? Math.round(active.reduce((s, c) => s + c.score, 0) / total) : 0;
+  const totalMRR = active.reduce((s, c) => s + (c.mrr || 0), 0);
+
+  const bands = ['critical', 'risk', 'watch', 'healthy', 'expand'];
+  const bandData = bands.map(st => {
+    const grp = active.filter(c => c.status === st);
+    return { status: st, label: STATUS_LABEL[st], color: STATUS_COLOR[st], count: grp.length, mrr: grp.reduce((s, c) => s + (c.mrr || 0), 0), pct: total ? Math.round(grp.length / total * 100) : 0 };
+  });
+  const riskMRR = active.filter(c => c.status === 'critical' || c.status === 'risk').reduce((s, c) => s + (c.mrr || 0), 0);
+
+  const tiers = ['smb', 'mid', 'enterprise'];
+  const tierData = tiers.map(t => {
+    const grp = active.filter(c => c.tier === t);
+    return { label: t === 'smb' ? 'SMB' : t === 'mid' ? 'Mid-Market' : 'Enterprise', count: grp.length, mrr: grp.reduce((s, c) => s + (c.mrr || 0), 0), avg: grp.length ? Math.round(grp.reduce((s, c) => s + c.score, 0) / grp.length) : 0 };
+  });
+
+  const topRisk = [...active].filter(c => c.status === 'critical' || c.status === 'risk').sort((a, b) => (b.mrr || 0) - (a.mrr || 0)).slice(0, 10);
+
+  let html = rptHeader('Portfolio Health Summary', 'Generated ' + rptDateStr() + ' &middot; ' + total + ' active accounts') +
+    '<div class="kpi-row">' +
+      '<div class="kpi"><div class="kpi-num">' + total + '</div><div class="kpi-label">Active Accounts</div></div>' +
+      '<div class="kpi"><div class="kpi-num">' + avg + '</div><div class="kpi-label">Avg Health Score</div></div>' +
+      '<div class="kpi"><div class="kpi-num">$' + fmtNum(totalMRR) + '</div><div class="kpi-label">Total MRR</div></div>' +
+      '<div class="kpi" style="border-top-color:#dc2626"><div class="kpi-num" style="color:#dc2626">$' + fmtNum(riskMRR) + '</div><div class="kpi-label">MRR at Risk</div></div>' +
+    '</div>' +
+    '<h2>Status Distribution</h2>' +
+    '<div style="display:flex;gap:30px;align-items:flex-start;flex-wrap:wrap">' +
+      svgDonut(bandData.map(b => ({label: b.label, value: b.count, color: b.color})), 170) +
+      '<div style="flex:1;min-width:280px"><table><tr><th>Status</th><th>Count</th><th>%</th><th style="text-align:right">MRR</th></tr>' +
+        bandData.map(b => '<tr><td><span class="st-dot" style="background:' + b.color + '"></span>' + b.label + '</td><td>' + b.count + '</td><td>' + b.pct + '%</td><td style="text-align:right">$' + fmtNum(b.mrr) + '</td></tr>').join('') +
+      '</table></div></div>' +
+    '<h2>Segment Breakdown</h2>' +
+    svgBarH(tierData.map(t => ({label: t.label, value: t.mrr, color: '#4f46e5', valLabel: '$' + fmtNum(t.mrr)}))) +
+    '<table><tr><th>Tier</th><th>Accounts</th><th style="text-align:right">MRR</th><th>Avg Score</th><th style="text-align:right">Score</th></tr>' +
+      tierData.map(t => {
+        var col = t.avg >= 80 ? '#16a34a' : t.avg >= 60 ? '#4f46e5' : t.avg >= 40 ? '#d97706' : '#dc2626';
+        return '<tr><td><strong>' + t.label + '</strong></td><td>' + t.count + '</td><td style="text-align:right">$' + fmtNum(t.mrr) + '</td>' +
+          '<td><div style="display:flex;align-items:center;gap:6px"><div style="flex:1;height:14px;background:#f1f5f9;border-radius:3px;overflow:hidden"><div style="width:' + t.avg + '%;height:100%;background:' + col + ';border-radius:3px"></div></div></div></td>' +
+          '<td style="text-align:right;font-weight:700;color:' + col + '">' + t.avg + '</td></tr>';
+      }).join('') +
+    '</table>';
+
+  if (topRisk.length) {
+    html += '<h2>Top At-Risk Accounts by MRR</h2>' +
+      '<table><tr><th>Customer</th><th>Score</th><th>Status</th><th style="text-align:right">MRR</th><th>Days Since Contact</th><th>Renewal</th></tr>' +
+      topRisk.map(c => '<tr><td><strong>' + escHtml(c.name) + '</strong></td><td style="font-weight:700;color:' + STATUS_COLOR[c.status] + '">' + c.score + '</td><td><span class="st-dot" style="background:' + STATUS_COLOR[c.status] + '"></span>' + STATUS_LABEL[c.status] + '</td><td style="text-align:right">$' + fmtNum(c.mrr || 0) + '</td><td' + ((c.days || 0) >= 14 ? ' style="color:#dc2626;font-weight:600"' : '') + '>' + (c.days ?? '\u2014') + 'd</td><td>' + (c.renewal_date ? fmtDate(c.renewal_date) : '\u2014') + '</td></tr>').join('') +
+      '</table>';
+  }
+  html += rptFooter();
+  rptPrint(html);
+}
+
+// ── Report: At-Risk Report (Team) ──
+function printAtRiskReport() {
+  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
+  const atRisk = active.filter(c => c.status === 'critical' || c.status === 'risk').sort((a, b) => (b.mrr || 0) - (a.mrr || 0));
+  if (!atRisk.length) { toast('No at-risk customers found', 'success'); return; }
+  const totalRiskMRR = atRisk.reduce((s, c) => s + (c.mrr || 0), 0);
+
+  const critCount = atRisk.filter(c => c.status === 'critical').length;
+  const riskCount = atRisk.length - critCount;
+  const critMRR = atRisk.filter(c => c.status === 'critical').reduce((s, c) => s + (c.mrr || 0), 0);
+  const riskOnlyMRR = totalRiskMRR - critMRR;
+
+  let html = rptHeader('At-Risk Report', 'Generated ' + rptDateStr() + ' &middot; ' + atRisk.length + ' accounts &middot; $' + fmtNum(totalRiskMRR) + ' MRR at risk') +
+    '<div class="kpi-row">' +
+      '<div class="kpi" style="border-top-color:#dc2626"><div class="kpi-num" style="color:#dc2626">' + critCount + '</div><div class="kpi-label">Critical</div></div>' +
+      '<div class="kpi" style="border-top-color:#f97316"><div class="kpi-num" style="color:#f97316">' + riskCount + '</div><div class="kpi-label">At Risk</div></div>' +
+      '<div class="kpi" style="border-top-color:#dc2626"><div class="kpi-num" style="color:#dc2626">$' + fmtNum(critMRR) + '</div><div class="kpi-label">Critical MRR</div></div>' +
+      '<div class="kpi" style="border-top-color:#f97316"><div class="kpi-num" style="color:#f97316">$' + fmtNum(riskOnlyMRR) + '</div><div class="kpi-label">At Risk MRR</div></div>' +
+    '</div>' +
+    svgBarH([
+      {label: 'Critical', value: critMRR, color: '#dc2626', valLabel: '$' + fmtNum(critMRR) + ' (' + critCount + ' accts)'},
+      {label: 'At Risk', value: riskOnlyMRR, color: '#f97316', valLabel: '$' + fmtNum(riskOnlyMRR) + ' (' + riskCount + ' accts)'}
+    ]) +
+    '<h2>At-Risk Accounts</h2>' +
+    '<table><tr><th>Customer</th><th>Manager</th><th>Score</th><th>Status</th><th>7d Trend</th><th style="text-align:right">MRR</th><th>Days Since Contact</th><th>Renewal</th></tr>' +
+    atRisk.map(c => {
+      const delta = getDelta7d(c);
+      const trendStr = delta > 0 ? '+' + delta : String(delta);
+      const trendColor = delta > 0 ? '#16a34a' : delta < 0 ? '#dc2626' : '#64748b';
+      return '<tr><td><strong>' + escHtml(c.name) + '</strong></td><td>' + escHtml(c.manager || '\u2014') + '</td>' +
+        '<td style="font-weight:700;color:' + STATUS_COLOR[c.status] + '">' + c.score + '</td>' +
+        '<td><span class="st-dot" style="background:' + STATUS_COLOR[c.status] + '"></span>' + STATUS_LABEL[c.status] + '</td>' +
+        '<td style="color:' + trendColor + ';font-weight:600">' + trendStr + '</td><td style="text-align:right">$' + fmtNum(c.mrr || 0) + '</td>' +
+        '<td' + ((c.days || 0) >= 14 ? ' style="color:#dc2626;font-weight:600"' : '') + '>' + (c.days ?? '\u2014') + 'd</td>' +
+        '<td>' + (c.renewal_date ? fmtDate(c.renewal_date) : '\u2014') + '</td></tr>';
+    }).join('') +
+    '</table>' + rptFooter();
+  rptPrint(html);
+}
+
+function exportAtRiskCSV() {
+  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
+  const atRisk = active.filter(c => c.status === 'critical' || c.status === 'risk').sort((a, b) => (b.mrr || 0) - (a.mrr || 0));
+  if (!atRisk.length) { toast('No at-risk customers found', 'success'); return; }
+  const hdr = CSV_CUST_HDR;
+  const rows = atRisk.map(c => csvRow(csvCustCols(c)));
+  dlText(hdr + '\n' + rows.join('\n'), 'at-risk-report.csv', 'text/csv');
+  toast('At-risk report exported (' + atRisk.length + ' accounts)', 'success');
+}
+
+// ── Report: Renewal Forecast (Team) ──
+function printRenewalForecast() {
+  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c) && c.renewal_date);
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const d30 = new Date(now); d30.setDate(d30.getDate() + 30);
+  const d60 = new Date(now); d60.setDate(d60.getDate() + 60);
+  const d90 = new Date(now); d90.setDate(d90.getDate() + 90);
+
+  const buckets = [
+    { label: 'This Month', from: now, to: endOfMonth },
+    { label: 'Next 30 Days', from: now, to: d30 },
+    { label: '31\u201360 Days', from: d30, to: d60 },
+    { label: '61\u201390 Days', from: d60, to: d90 },
+  ];
+
+  const assigned = new Set();
+  const bucketData = buckets.map(b => {
+    const items = active.filter(c => {
+      if (assigned.has(c.id)) return false;
+      const rd = new Date(c.renewal_date);
+      return rd >= b.from && rd <= b.to;
+    }).sort((a, b) => new Date(a.renewal_date) - new Date(b.renewal_date));
+    items.forEach(c => assigned.add(c.id));
+    const mrr = items.reduce((s, c) => s + (c.mrr || 0), 0);
+    return { ...b, items, mrr };
+  });
+
+  const totalRenewals = bucketData.reduce((s, b) => s + b.items.length, 0);
+  const totalRMRR = bucketData.reduce((s, b) => s + b.mrr, 0);
+  let html = rptHeader('Renewal Forecast Report', 'Generated ' + rptDateStr() + ' &middot; ' + totalRenewals + ' renewals &middot; $' + fmtNum(totalRMRR) + ' MRR') +
+    '<h2>MRR by Renewal Window</h2>' +
+    svgBarH(bucketData.map(b => ({label: b.label, value: b.mrr, color: b.items.some(c => c.status === 'critical' || c.status === 'risk') ? '#d97706' : '#4f46e5', valLabel: '$' + fmtNum(b.mrr) + ' (' + b.items.length + ')'})));
+
+  bucketData.forEach(b => {
+    html += '<div class="bucket-hd">' + b.label + ' <span class="ct">' + b.items.length + ' accounts &middot; $' + fmtNum(b.mrr) + ' MRR</span></div>';
+    if (b.items.length) {
+      html += '<table><tr><th>Customer</th><th>Manager</th><th>Score</th><th>Status</th><th style="text-align:right">MRR</th><th>Renewal Date</th></tr>' +
+        b.items.map(c => '<tr><td><strong>' + escHtml(c.name) + '</strong></td><td>' + escHtml(c.manager || '\u2014') + '</td><td style="font-weight:700;color:' + STATUS_COLOR[c.status] + '">' + c.score + '</td><td><span class="st-dot" style="background:' + STATUS_COLOR[c.status] + '"></span>' + STATUS_LABEL[c.status] + '</td><td style="text-align:right">$' + fmtNum(c.mrr || 0) + '</td><td>' + fmtDate(c.renewal_date) + '</td></tr>').join('') +
+        '</table>';
+    } else {
+      html += '<p style="color:#94a3b8;font-size:.82rem;margin:4px 0 12px">No renewals in this window.</p>';
+    }
+  });
+
+  html += rptFooter();
+  rptPrint(html);
+}
+
+// ── Report: CSM Performance (Growth) ──
+function printCSMReport() {
+  const active = customers.filter(c => c.lifecycle !== 'churned');
+  const managers = [...new Set(active.map(c => c.manager || '').filter(Boolean))].sort();
+  if (!managers.length) { toast('No managers found', 'warn'); return; }
+
+  const mgrData = managers.map(m => {
+    const grp = active.filter(c => c.manager === m);
+    const atRisk = grp.filter(c => c.status === 'critical' || c.status === 'risk').length;
+    const avgScore = grp.length ? Math.round(grp.reduce((s, c) => s + c.score, 0) / grp.length) : 0;
+    const mrr = grp.reduce((s, c) => s + (c.mrr || 0), 0);
+    const avgDays = grp.length ? Math.round(grp.reduce((s, c) => s + (c.days || 0), 0) / grp.length) : 0;
+    return { manager: m, count: grp.length, avgScore, atRisk, riskPct: grp.length ? Math.round(atRisk / grp.length * 100) : 0, mrr, avgDays };
+  }).sort((a, b) => b.avgScore - a.avgScore);
+
+  let html = rptHeader('CSM Performance Report', 'Generated ' + rptDateStr() + ' &middot; ' + managers.length + ' managers') +
+    '<h2>Avg Health Score by Manager</h2>' +
+    svgBarH(mgrData.map(m => {
+      var col = m.avgScore >= 80 ? '#16a34a' : m.avgScore >= 60 ? '#4f46e5' : m.avgScore >= 40 ? '#d97706' : '#dc2626';
+      return {label: m.manager.length > 18 ? m.manager.slice(0, 16) + '\u2026' : m.manager, value: m.avgScore, color: col, valLabel: m.avgScore + ' avg'};
+    })) +
+    '<h2>Manager Details</h2>' +
+    '<table><tr><th>Manager</th><th>Accounts</th><th>Avg Score</th><th>At Risk</th><th>Risk %</th><th style="text-align:right">MRR Managed</th><th>Avg Days Contact</th></tr>' +
+    mgrData.map(m => {
+      const riskColor = m.riskPct >= 40 ? '#dc2626' : m.riskPct >= 20 ? '#d97706' : '#16a34a';
+      return '<tr><td><strong>' + escHtml(m.manager) + '</strong></td><td>' + m.count + '</td><td style="font-weight:700">' + m.avgScore + '</td><td>' + m.atRisk + '</td><td style="color:' + riskColor + ';font-weight:600">' + m.riskPct + '%</td><td style="text-align:right">$' + fmtNum(m.mrr) + '</td><td>' + m.avgDays + 'd</td></tr>';
+    }).join('') +
+    '</table>' + rptFooter();
+  rptPrint(html);
+}
+
+// ── Report: Segment Analysis (Growth) ──
+function printSegmentAnalysis() {
+  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
+  if (!active.length) { toast('No customers found', 'warn'); return; }
+
+  function segTable(label, groups) {
+    let chart = svgMiniBar(groups.map(g => ({label: g.label.length > 14 ? g.label.slice(0, 12) + '\u2026' : g.label, value: g.avg})));
+    let h = '<h2>' + label + '</h2>' + chart +
+      '<table><tr><th>Segment</th><th>Accounts</th><th>Avg Score</th><th style="text-align:right">MRR</th><th>At Risk %</th></tr>';
+    groups.forEach(g => {
+      const riskColor = g.riskPct >= 40 ? '#dc2626' : g.riskPct >= 20 ? '#d97706' : '#16a34a';
+      h += '<tr><td><strong>' + escHtml(g.label) + '</strong></td><td>' + g.count + '</td><td style="font-weight:700">' + g.avg + '</td><td style="text-align:right">$' + fmtNum(g.mrr) + '</td><td style="color:' + riskColor + ';font-weight:600">' + g.riskPct + '%</td></tr>';
+    });
+    return h + '</table>';
+  }
+
+  function buildGroups(keyFn) {
+    const map = {};
+    active.forEach(c => {
+      const keys = keyFn(c);
+      (Array.isArray(keys) ? keys : [keys]).forEach(k => {
+        if (!k) return;
+        if (!map[k]) map[k] = [];
+        map[k].push(c);
+      });
+    });
+    return Object.entries(map).sort((a, b) => b[1].length - a[1].length).map(([k, grp]) => {
+      const atRisk = grp.filter(c => c.status === 'critical' || c.status === 'risk').length;
+      return { label: k, count: grp.length, avg: Math.round(grp.reduce((s, c) => s + c.score, 0) / grp.length), mrr: grp.reduce((s, c) => s + (c.mrr || 0), 0), riskPct: Math.round(atRisk / grp.length * 100) };
+    });
+  }
+
+  const tierMap = { smb: 'SMB', mid: 'Mid-Market', enterprise: 'Enterprise' };
+  const byTier = buildGroups(c => tierMap[c.tier] || c.tier || 'Unknown');
+  const byLifecycle = buildGroups(c => c.lifecycle || 'Unknown');
+  const byTag = buildGroups(c => (c.tags && c.tags.length) ? c.tags : ['Untagged']);
+
+  let html = rptHeader('Segment Analysis Report', 'Generated ' + rptDateStr() + ' &middot; ' + active.length + ' accounts') +
+    segTable('By Tier', byTier) +
+    segTable('By Lifecycle', byLifecycle) +
+    (byTag.length ? segTable('By Tag', byTag) : '') +
+    rptFooter();
+  rptPrint(html);
+}
+
+// ── Report: Trend Report (Growth) ──
+function printTrendReport() {
+  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
+  const now = new Date();
+  const d90ago = new Date(now); d90ago.setDate(d90ago.getDate() - 90);
+
+  // Collect all history points in the last 90 days, group by date
+  const dateMap = {};
+  active.forEach(c => {
+    (c.history || []).forEach(h => {
+      if (!h.date) return;
+      const d = h.date.slice(0, 10);
+      if (new Date(d) < d90ago) return;
+      if (!dateMap[d]) dateMap[d] = [];
+      dateMap[d].push(h.score);
+    });
+  });
+
+  const dates = Object.keys(dateMap).sort();
+  if (!dates.length) { toast('No score history in the last 90 days', 'warn'); return; }
+
+  const rows = dates.map(d => {
+    const scores = dateMap[d];
+    const avg = Math.round(scores.reduce((s, v) => s + v, 0) / scores.length);
+    return { date: d, entries: scores.length, avg };
+  });
+
+  // Current snapshot
+  const currentAvg = active.length ? Math.round(active.reduce((s, c) => s + c.score, 0) / active.length) : 0;
+  const firstAvg = rows.length ? rows[0].avg : currentAvg;
+  const delta = currentAvg - firstAvg;
+
+  const deltaColor = delta >= 0 ? '#16a34a' : '#dc2626';
+  let html = rptHeader('Trend Report (90 Days)') +
+    '<div class="kpi-row">' +
+      '<div class="kpi"><div class="kpi-num">' + currentAvg + '</div><div class="kpi-label">Current Avg Score</div></div>' +
+      '<div class="kpi"><div class="kpi-num">' + firstAvg + '</div><div class="kpi-label">90 Days Ago</div></div>' +
+      '<div class="kpi" style="border-top-color:' + deltaColor + '"><div class="kpi-num" style="color:' + deltaColor + '">' + (delta >= 0 ? '+' : '') + delta + '</div><div class="kpi-label">Change</div></div>' +
+      '<div class="kpi"><div class="kpi-num">' + active.length + '</div><div class="kpi-label">Active Accounts</div></div>' +
+    '</div>' +
+    '<h2>Average Health Score Trend</h2>' +
+    svgLineChart(rows.map(r => ({label: r.date, value: r.avg}))) +
+    '<h2>Score Trend by Date</h2>' +
+    '<table><tr><th>Date</th><th>Scores Recorded</th><th style="text-align:right">Avg Score</th></tr>' +
+    rows.map(r => '<tr><td>' + r.date + '</td><td>' + r.entries + '</td><td style="text-align:right;font-weight:700">' + r.avg + '</td></tr>').join('') +
+    '</table>' + rptFooter();
+  rptPrint(html);
+}
+
+// ── Report: Churn Risk Report (Growth) ──
+function printChurnRiskReport() {
+  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
+  if (!active.length) { toast('No customers found', 'warn'); return; }
+
+  // Compute composite churn risk score (0-100, higher = more at risk)
+  const scored = active.map(c => {
+    let risk = 0;
+    // Health score (inverse, 0-30 pts)
+    risk += Math.round((100 - c.score) * 0.3);
+    // Negative trend (0-20 pts)
+    const delta = getDelta7d(c);
+    if (delta < 0) risk += Math.min(20, Math.abs(delta) * 2);
+    // NPS detractor (0-15 pts)
+    if (c.nps === 'detractor') risk += 15;
+    else if (c.nps === 'passive') risk += 5;
+    // Low engagement: logins (0-10 pts)
+    if ((c.logins || 0) <= 2) risk += 10;
+    else if ((c.logins || 0) <= 5) risk += 5;
+    // Low adoption (0-10 pts)
+    if ((c.adoption || 0) < 30) risk += 10;
+    else if ((c.adoption || 0) < 50) risk += 5;
+    // High tickets (0-5 pts)
+    if ((c.tickets || 0) >= 5) risk += 5;
+    // Imminent renewal (0-10 pts)
+    if (c.renewal != null && c.renewal <= 2) risk += 10;
+    else if (c.renewal != null && c.renewal <= 4) risk += 5;
+
+    return { c, risk: Math.min(100, risk), impact: (c.mrr || 0) * 12 };
+  }).sort((a, b) => b.risk - a.risk);
+
+  const totalImpact = scored.reduce((s, r) => s + r.impact, 0);
+  const highRisk = scored.filter(r => r.risk >= 50);
+
+  let html = rptHeader('Churn Risk Report', 'Generated ' + rptDateStr() + ' &middot; ' + active.length + ' accounts analyzed') +
+    '<div class="kpi-row">' +
+      '<div class="kpi" style="border-top-color:#dc2626"><div class="kpi-num" style="color:#dc2626">' + highRisk.length + '</div><div class="kpi-label">High Risk (50+)</div></div>' +
+      '<div class="kpi"><div class="kpi-num">$' + fmtNum(totalImpact) + '</div><div class="kpi-label">Total ARR Exposure</div></div>' +
+      '<div class="kpi" style="border-top-color:#d97706"><div class="kpi-num" style="color:#d97706">$' + fmtNum(highRisk.reduce((s, r) => s + r.impact, 0)) + '</div><div class="kpi-label">High Risk ARR</div></div>' +
+      '<div class="kpi"><div class="kpi-num">' + active.length + '</div><div class="kpi-label">Active Accounts</div></div>' +
+    '</div>' +
+    '<h2>Risk Distribution</h2>' +
+    svgRiskBands(scored) +
+    '<h2>All Accounts Ranked by Churn Risk</h2>' +
+    '<table><tr><th>#</th><th>Customer</th><th>Risk Score</th><th>Health</th><th>7d Trend</th><th style="text-align:right">MRR</th><th style="text-align:right">Est. ARR</th><th>NPS</th><th>Renewal</th></tr>' +
+    scored.map((r, i) => {
+      const c = r.c;
+      const delta = getDelta7d(c);
+      const trendStr = delta > 0 ? '+' + delta : String(delta);
+      const trendColor = delta > 0 ? '#16a34a' : delta < 0 ? '#dc2626' : '#64748b';
+      const riskColor = r.risk >= 70 ? '#dc2626' : r.risk >= 50 ? '#d97706' : r.risk >= 30 ? '#64748b' : '#16a34a';
+      return '<tr><td style="color:#94a3b8">' + (i + 1) + '</td><td><strong>' + escHtml(c.name) + '</strong></td>' +
+        '<td style="font-weight:700;color:' + riskColor + '">' + r.risk + '</td>' +
+        '<td style="font-weight:700;color:' + STATUS_COLOR[c.status] + '">' + c.score + '</td>' +
+        '<td style="color:' + trendColor + ';font-weight:600">' + trendStr + '</td>' +
+        '<td style="text-align:right">$' + fmtNum(c.mrr || 0) + '</td><td style="text-align:right">$' + fmtNum(r.impact) + '</td>' +
+        '<td>' + (c.nps || '\u2014') + '</td>' +
+        '<td>' + (c.renewal_date ? fmtDate(c.renewal_date) : '\u2014') + '</td></tr>';
+    }).join('') +
+    '</table>' + rptFooter();
+  rptPrint(html);
+}
+
+// ── CSV helpers ──
+function csvRow(vals) { return vals.map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(','); }
+
+// Standard customer columns for pivot-table-ready CSVs
+const CSV_CUST_HDR = 'name,manager,score,status,status_label,tier,lifecycle,mrr,arr,logins,adoption,tickets,nps,days_since_contact,growth,renewal_date,renewal_months,tags,since,next_touch,trend_7d';
+function csvCustCols(c) {
+  return [c.name, c.manager || '', c.score, c.status, STATUS_LABEL[c.status] || c.status,
+    c.tier || '', c.lifecycle || '', c.mrr || 0, (c.mrr || 0) * 12,
+    c.logins ?? '', c.adoption ?? '', c.tickets ?? '', c.nps || '',
+    c.days ?? '', c.growth || '', c.renewal_date || '', c.renewal ?? '',
+    (c.tags || []).join('|'), c.since || '', c.next_touch || '', getDelta7d(c)];
+}
+
+// ── Export: Portfolio Health CSV ──
+function exportPortfolioCSV() {
+  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
+  if (!active.length) { toast('No customers found', 'warn'); return; }
+  const hdr = CSV_CUST_HDR;
+  const rows = active.map(c => csvRow(csvCustCols(c)));
+  dlText(hdr + '\n' + rows.join('\n'), 'portfolio-health-summary.csv', 'text/csv');
+  toast('Portfolio CSV exported (' + active.length + ' accounts)', 'success');
+}
+
+// ── Export: Renewal Forecast CSV ──
+function exportRenewalCSV() {
+  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c) && c.renewal_date);
+  if (!active.length) { toast('No customers with renewal dates found', 'warn'); return; }
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const sorted = [...active].sort((a, b) => new Date(a.renewal_date) - new Date(b.renewal_date));
+  const hdr = CSV_CUST_HDR + ',days_until_renewal,renewal_bucket';
+  const rows = sorted.map(c => {
+    const rd = new Date(c.renewal_date);
+    const diff = Math.round((rd - now) / (1000 * 60 * 60 * 24));
+    const bucket = diff <= 0 ? 'Past Due' : diff <= 30 ? '0-30 Days' : diff <= 60 ? '31-60 Days' : diff <= 90 ? '61-90 Days' : '90+ Days';
+    return csvRow([...csvCustCols(c), diff, bucket]);
+  });
+  dlText(hdr + '\n' + rows.join('\n'), 'renewal-forecast.csv', 'text/csv');
+  toast('Renewal forecast exported (' + sorted.length + ' accounts)', 'success');
+}
+
+// ── Export: CSM Performance CSV ──
+function exportCSMReportCSV() {
+  const active = customers.filter(c => c.lifecycle !== 'churned');
+  const managers = [...new Set(active.map(c => c.manager || '').filter(Boolean))].sort();
+  if (!managers.length) { toast('No managers found', 'warn'); return; }
+  const hdr = 'manager,accounts,avg_score,critical_count,at_risk_count,watch_count,healthy_count,expansion_count,risk_pct,healthy_pct,mrr_managed,total_arr,avg_days_since_contact,avg_logins,avg_adoption';
+  const rows = managers.map(m => {
+    const grp = active.filter(c => c.manager === m);
+    const n = grp.length;
+    const critical = grp.filter(c => c.status === 'critical').length;
+    const atRisk = grp.filter(c => c.status === 'risk').length;
+    const watch = grp.filter(c => c.status === 'watch').length;
+    const healthy = grp.filter(c => c.status === 'healthy').length;
+    const expand = grp.filter(c => c.status === 'expand').length;
+    const avgScore = n ? Math.round(grp.reduce((s, c) => s + c.score, 0) / n) : 0;
+    const mrr = grp.reduce((s, c) => s + (c.mrr || 0), 0);
+    const avgDays = n ? Math.round(grp.reduce((s, c) => s + (c.days || 0), 0) / n) : 0;
+    const avgLogins = n ? Math.round(grp.reduce((s, c) => s + (c.logins || 0), 0) / n * 10) / 10 : 0;
+    const avgAdoption = n ? Math.round(grp.reduce((s, c) => s + (c.adoption || 0), 0) / n) : 0;
+    return csvRow([m, n, avgScore, critical, atRisk, watch, healthy, expand,
+      n ? Math.round((critical + atRisk) / n * 100) : 0,
+      n ? Math.round((healthy + expand) / n * 100) : 0,
+      mrr, mrr * 12, avgDays, avgLogins, avgAdoption]);
+  });
+  dlText(hdr + '\n' + rows.join('\n'), 'csm-performance.csv', 'text/csv');
+  toast('CSM report exported (' + managers.length + ' managers)', 'success');
+}
+
+// ── Export: Segment Analysis CSV ──
+function exportSegmentCSV() {
+  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
+  if (!active.length) { toast('No customers found', 'warn'); return; }
+  function buildRows(type, keyFn) {
+    const map = {};
+    active.forEach(c => {
+      const keys = keyFn(c);
+      (Array.isArray(keys) ? keys : [keys]).forEach(k => {
+        if (!k) return;
+        if (!map[k]) map[k] = [];
+        map[k].push(c);
+      });
+    });
+    return Object.entries(map).sort((a, b) => b[1].length - a[1].length).map(([k, grp]) => {
+      const n = grp.length;
+      const critical = grp.filter(c => c.status === 'critical').length;
+      const atRisk = grp.filter(c => c.status === 'risk').length;
+      const healthy = grp.filter(c => c.status === 'healthy').length;
+      const expand = grp.filter(c => c.status === 'expand').length;
+      const mrr = grp.reduce((s, c) => s + (c.mrr || 0), 0);
+      return csvRow([type, k, n,
+        Math.round(grp.reduce((s, c) => s + c.score, 0) / n),
+        mrr, mrr * 12,
+        critical, atRisk, healthy + expand,
+        Math.round((critical + atRisk) / n * 100),
+        Math.round((healthy + expand) / n * 100),
+        Math.round(grp.reduce((s, c) => s + (c.days || 0), 0) / n),
+        Math.round(grp.reduce((s, c) => s + (c.adoption || 0), 0) / n)]);
+    });
+  }
+  const tierMap = { smb: 'SMB', mid: 'Mid-Market', enterprise: 'Enterprise' };
+  const hdr = 'segment_type,segment_value,accounts,avg_score,mrr,arr,critical_count,at_risk_count,healthy_count,at_risk_pct,healthy_pct,avg_days_since_contact,avg_adoption';
+  const rows = [
+    ...buildRows('Tier', c => tierMap[c.tier] || c.tier || 'Unknown'),
+    ...buildRows('Lifecycle', c => c.lifecycle || 'Unknown'),
+    ...buildRows('Tag', c => (c.tags && c.tags.length) ? c.tags : ['Untagged']),
+  ];
+  dlText(hdr + '\n' + rows.join('\n'), 'segment-analysis.csv', 'text/csv');
+  toast('Segment analysis exported', 'success');
+}
+
+// ── Export: Trend CSV ──
+function exportTrendCSV() {
+  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
+  const now = new Date();
+  const d90ago = new Date(now); d90ago.setDate(d90ago.getDate() - 90);
+  const dateMap = {};
+  active.forEach(c => {
+    (c.history || []).forEach(h => {
+      if (!h.date) return;
+      const d = h.date.slice(0, 10);
+      if (new Date(d) < d90ago) return;
+      if (!dateMap[d]) dateMap[d] = [];
+      dateMap[d].push(h.score);
+    });
+  });
+  const dates = Object.keys(dateMap).sort();
+  if (!dates.length) { toast('No score history in last 90 days', 'warn'); return; }
+  const hdr = 'date,scores_recorded,avg_score,min_score,max_score,median_score,score_spread';
+  const rows = dates.map(d => {
+    const scores = dateMap[d].sort((a, b) => a - b);
+    const n = scores.length;
+    const avg = Math.round(scores.reduce((s, v) => s + v, 0) / n);
+    const min = scores[0];
+    const max = scores[n - 1];
+    const median = n % 2 === 0 ? Math.round((scores[n / 2 - 1] + scores[n / 2]) / 2) : scores[Math.floor(n / 2)];
+    return csvRow([d, n, avg, min, max, median, max - min]);
+  });
+  dlText(hdr + '\n' + rows.join('\n'), 'trend-report-90d.csv', 'text/csv');
+  toast('Trend report exported (' + dates.length + ' days)', 'success');
+}
+
+// ── Export: Churn Risk CSV ──
+function exportChurnRiskCSV() {
+  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
+  if (!active.length) { toast('No customers found', 'warn'); return; }
+  const scored = active.map(c => {
+    const healthPts = Math.round((100 - c.score) * 0.3);
+    const delta = getDelta7d(c);
+    const trendPts = delta < 0 ? Math.min(20, Math.abs(delta) * 2) : 0;
+    const npsPts = c.nps === 'detractor' ? 15 : c.nps === 'passive' ? 5 : 0;
+    const loginPts = (c.logins || 0) <= 2 ? 10 : (c.logins || 0) <= 5 ? 5 : 0;
+    const adoptPts = (c.adoption || 0) < 30 ? 10 : (c.adoption || 0) < 50 ? 5 : 0;
+    const engagePts = loginPts + adoptPts;
+    const ticketPts = (c.tickets || 0) >= 5 ? 5 : 0;
+    const renewPts = (c.renewal != null && c.renewal <= 2) ? 10 : (c.renewal != null && c.renewal <= 4) ? 5 : 0;
+    const risk = Math.min(100, healthPts + trendPts + npsPts + engagePts + ticketPts + renewPts);
+    return { c, risk, delta, impact: (c.mrr || 0) * 12, healthPts, trendPts, npsPts, engagePts, ticketPts, renewPts };
+  }).sort((a, b) => b.risk - a.risk);
+  const hdr = CSV_CUST_HDR + ',risk_score,est_arr_impact,risk_health_pts,risk_trend_pts,risk_nps_pts,risk_engagement_pts,risk_tickets_pts,risk_renewal_pts';
+  const rows = scored.map(r => csvRow([...csvCustCols(r.c), r.risk, r.impact, r.healthPts, r.trendPts, r.npsPts, r.engagePts, r.ticketPts, r.renewPts]));
+  dlText(hdr + '\n' + rows.join('\n'), 'churn-risk-report.csv', 'text/csv');
+  toast('Churn risk report exported (' + scored.length + ' accounts)', 'success');
+}
+
+// ── Print: Customer Health (all customers table) ──
+function printCustomerHealth() {
+  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
+  if (!active.length) { toast('No customers found', 'warn'); return; }
+  const sorted = [...active].sort((a, b) => a.score - b.score);
+  let html = rptHeader('Customer Health Report', 'Generated ' + rptDateStr() + ' &middot; ' + active.length + ' accounts') +
+    '<table><tr><th>Customer</th><th>Manager</th><th>Score</th><th>Status</th><th>Tier</th><th style="text-align:right">MRR</th><th>Logins</th><th>Adoption</th><th>Tickets</th><th>NPS</th></tr>' +
+    sorted.map(c =>
+      '<tr><td><strong>' + escHtml(c.name) + '</strong></td><td>' + escHtml(c.manager || '\u2014') + '</td>' +
+      '<td style="font-weight:700;color:' + STATUS_COLOR[c.status] + '">' + c.score + '</td>' +
+      '<td><span class="st-dot" style="background:' + STATUS_COLOR[c.status] + '"></span>' + STATUS_LABEL[c.status] + '</td>' +
+      '<td>' + (c.tier === 'smb' ? 'SMB' : c.tier === 'mid' ? 'Mid' : c.tier === 'enterprise' ? 'Ent' : c.tier || '\u2014') + '</td>' +
+      '<td style="text-align:right">$' + fmtNum(c.mrr || 0) + '</td>' +
+      '<td>' + (c.logins ?? '\u2014') + '</td><td>' + (c.adoption ?? '\u2014') + '%</td>' +
+      '<td>' + (c.tickets ?? '\u2014') + '</td><td>' + (c.nps || '\u2014') + '</td></tr>'
+    ).join('') +
+    '</table>' + rptFooter();
+  rptPrint(html);
+}
+
+// ── Print: Weekly Digest (formatted for PDF) ──
+function printDigestReport() {
+  const digestHtml = buildDigestHTML();
+  if (!digestHtml) { toast('No data to generate digest', 'warn'); return; }
+  // Strip the inline email styles and wrap in our report CSS
+  let html = rptHeader('Weekly Health Digest') +
+    '<div style="font-size:.85rem;line-height:1.6">' + digestHtml + '</div>' +
+    rptFooter();
+  rptPrint(html);
 }
 
 // ─── TOAST ──────────────────────────────────────────────────
@@ -1020,6 +1986,7 @@ document.addEventListener('keydown', e => {
   // Esc — close open column filter dropdown or modal
   if (e.key === 'Escape') {
     closeColFilter();
+    closeAlertFilter();
     document.querySelectorAll('.modal-bg.open').forEach(m => m.classList.remove('open'));
     return;
   }
@@ -1056,7 +2023,7 @@ function rv(key, val) {
 function getFormData() {
   return {
     name:     document.getElementById('f-name').value.trim(),
-    manager:  (document.getElementById('f-manager')?.value || '').trim(),
+    manager:  (()=>{ const nEl=document.getElementById('f-manager-new'); if(nEl&&nEl.style.display!=='none'&&nEl.value.trim()) return nEl.value.trim(); const sEl=document.getElementById('f-manager'); return (sEl&&sEl.value&&sEl.value!=='__add_new__') ? sEl.value : ''; })(),
     mrr:      parseFloat(document.getElementById('f-mrr').value)      || 0,
     arr:      parseFloat(document.getElementById('f-arr')?.value)     || 0,
     since:    document.getElementById('f-since')?.value               || '',
@@ -1271,6 +2238,7 @@ function saveScore() {
         dupe.tickets         = data.tickets;
         dupe.nps             = data.nps;
         dupe.days            = data.days;
+        dupe._baseDays       = data.days;
         dupe.renewal         = data.renewal;
         dupe.renewal_date    = data.renewal_date || '';
         dupe.growth          = data.growth;
@@ -1315,6 +2283,7 @@ function saveScore() {
     tickets:         data.tickets,
     nps:             data.nps,
     days:            data.days,
+    _baseDays:       data.days,
     renewal:         data.renewal,
     renewal_date:    data.renewal_date || '',
     growth:          data.growth,
@@ -2588,6 +3557,19 @@ function passesManagerFilter(c) {
 }
 
 // Rebuild the manager dropdown from current customers list
+function buildManagerSelectOptions(selectedManager) {
+  const managers = [...new Set(customers.map(c => c.manager || '').filter(Boolean))].sort();
+  let html = '<option value="">— Select —</option>';
+  managers.forEach(m => {
+    html += `<option value="${escHtml(m)}" ${m === selectedManager ? 'selected' : ''}>${escHtml(m)}</option>`;
+  });
+  if (selectedManager && !managers.includes(selectedManager)) {
+    html += `<option value="${escHtml(selectedManager)}" selected>${escHtml(selectedManager)}</option>`;
+  }
+  html += '<option value="__add_new__">+ Add New...</option>';
+  return html;
+}
+
 function refreshMgrDropdown() {
   const managers = [...new Set(customers.map(c => c.manager || '').filter(Boolean))].sort();
   const wrap = document.getElementById('mgr-filter-wrap');
@@ -2599,6 +3581,13 @@ function refreshMgrDropdown() {
   // Populate datalist for form autocomplete (named managers only)
   const dl = document.getElementById('manager-datalist');
   if (dl) dl.innerHTML = managers.map(m => `<option value="${escHtml(m)}">`).join('');
+
+  // Populate score-form <select> if present
+  const fmSelect = document.getElementById('f-manager');
+  if (fmSelect && fmSelect.tagName === 'SELECT') {
+    const current = fmSelect.value;
+    fmSelect.innerHTML = buildManagerSelectOptions(current);
+  }
 
   const list = document.getElementById('mgr-filter-list');
   if (!list) return;
@@ -2655,6 +3644,15 @@ document.addEventListener('click', function(e) {
   closeColFilter();
 });
 
+// Close alert filter dropdown when clicking outside
+document.addEventListener('click', function(e) {
+  if (!_openAlertFilterKey) return;
+  const menu = document.getElementById('alert-filter-portal');
+  if (menu && menu.contains(e.target)) return;
+  if (e.target.closest && e.target.closest('.col-filter-btn')) return;
+  closeAlertFilter();
+});
+
 function mgrAllToggle(cb) {
   // If "All" is checked → clear individual selections
   const cbs = document.querySelectorAll('.mgr-cb');
@@ -2666,7 +3664,7 @@ function mgrAllToggle(cb) {
     cb.checked = true; // keep "All" checked — can't have nothing selected
   }
   updateMgrFilterLabel();
-  renderDashboard(); renderCustomers(); renderAlerts();
+  renderDashboard(); renderCustomers(); renderAlerts(); renderSegments(); renderCSMPerformance();
 }
 
 function mgrCbChange() {
@@ -2683,7 +3681,7 @@ function mgrCbChange() {
     if (allCb) allCb.checked = false;
   }
   updateMgrFilterLabel();
-  renderDashboard(); renderCustomers(); renderAlerts();
+  renderDashboard(); renderCustomers(); renderAlerts(); renderSegments(); renderCSMPerformance();
 }
 
 function updateMgrFilterLabel() {
@@ -2763,7 +3761,8 @@ function renderFilterPills() {
     const label = def ? def.label : (key === '_delta' ? 'Delta' : key);
 
     let summary = '';
-    if (f.type === 'text')         { summary = `"${(f.q||'').slice(0,20)}"`; }
+    if (f.type === 'untagged')     { summary = 'No tags'; }
+    else if (f.type === 'text')    { summary = `"${(f.q||'').slice(0,20)}"`; }
     else if (f.type === 'enum')    {
       const arr = [...(f.vals||[])].map(v => ENUM_DISPLAY[v] || v);
       summary = arr.length <= 3 ? arr.join(', ') : arr.slice(0,3).join(', ') + ` +${arr.length-3}`;
@@ -2954,7 +3953,13 @@ function applyColumnFilters(list) {
           v = Math.round((new Date(c.next_touch) - new Date()) / 86400000);
           break;
         }
-        case 'tags':    v = (c.tags||[]).join(' ').toLowerCase(); break;
+        case 'tags': {
+          if (f.type === 'untagged') {
+            if ((c.tags || []).length > 0) return false;
+            continue;
+          }
+          v = (c.tags||[]).join(' ').toLowerCase(); break;
+        }
         case '_delta': {
           const d = getDelta7d(c);
           if (f.type === 'up'   && d <= 0) return false;
@@ -3721,13 +4726,43 @@ function renderDetailOverview() {
           ${momentumHTML(c)}
           ${deltaHTML(delta)}
         </div>
-        <div style="margin-top:8px;font-size:.76rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:10px">
-          <span>Tier: <strong style="color:var(--text)">${(c.tier||'—').toUpperCase()}</strong></span>
+        <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;font-size:.78rem">
+          <div>
+            <label style="display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:2px">Manager</label>
+            <select id="di-manager" onchange="if(this.value==='__add_new__'){this.style.display='none';document.getElementById('di-manager-new').style.display='';document.getElementById('di-manager-new').focus()}" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;background:var(--bg);color:var(--text)">${buildManagerSelectOptions(c.manager||'')}</select>
+            <input type="text" id="di-manager-new" placeholder="New manager name..." style="display:none;width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;background:var(--bg);color:var(--text);margin-top:4px" onblur="if(!this.value){this.style.display='none';document.getElementById('di-manager').style.display='';document.getElementById('di-manager').value=''}" />
+          </div>
+          <div>
+            <label style="display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:2px">Tier</label>
+            <select id="di-tier" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;background:var(--bg);color:var(--text)">
+              <option value="smb" ${c.tier==='smb'?'selected':''}>SMB</option>
+              <option value="mid" ${c.tier==='mid'?'selected':''}>Mid-Market</option>
+              <option value="enterprise" ${c.tier==='enterprise'?'selected':''}>Enterprise</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:2px">Lifecycle</label>
+            <select id="di-lifecycle" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;background:var(--bg);color:var(--text)">
+              <option value="onboarding" ${c.lifecycle==='onboarding'?'selected':''}>Onboarding</option>
+              <option value="active" ${c.lifecycle==='active'?'selected':''}>Active</option>
+              <option value="atrisk" ${c.lifecycle==='atrisk'?'selected':''}>At Risk</option>
+              <option value="won" ${c.lifecycle==='won'?'selected':''}>Won/Upsold</option>
+              <option value="churned" ${c.lifecycle==='churned'?'selected':''}>Churned</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:2px">Next Touch</label>
+            <input type="date" id="di-next-touch" value="${c.next_touch||''}" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;background:var(--bg);color:var(--text)" />
+          </div>
+          <div style="grid-column:1/-1">
+            <label style="display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:2px">Tags</label>
+            <input type="text" id="di-tags" value="${escHtml((c.tags||[]).join(', '))}" placeholder="Comma-separated" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;background:var(--bg);color:var(--text)" />
+          </div>
+        </div>
+        <div style="margin-top:6px;font-size:.76rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:10px">
           <span>MRR: <strong style="color:var(--text)">${c.mrr ? '$'+fmtNum(c.mrr) : '—'}</strong></span>
-          ${c.manager ? `<span>Manager: <strong style="color:var(--text)">${escHtml(c.manager)}</strong></span>` : ''}
           ${c.scoring_profile ? `<span>Profile: <strong style="color:var(--text)">${escHtml(c.scoring_profile)}</strong></span>` : ''}
         </div>
-        ${(c.tags||[]).length ? `<div style="margin-top:7px">${c.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>` : ''}
       </div>
     </div>
     <!-- Signals row: cadence + urgency + sentiment -->
@@ -3756,9 +4791,52 @@ function renderDetailOverview() {
       </div>
     </div>
     <div class="rec-box" style="margin-bottom:14px">${rec}</div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+      <button class="btn btn-primary btn-sm" onclick="saveDetailInline()" style="gap:4px">💾 Save Changes</button>
+    </div>
     <div class="bd-title">Signal Breakdown</div>
     ${buildBreakdownHTML(signals, c)}
   `;
+}
+
+async function saveDetailInline() {
+  const c = customers.find(x => x.id === detailId);
+  if (!c) return;
+
+  const mgrSelect = document.getElementById('di-manager');
+  const mgrNew    = document.getElementById('di-manager-new');
+  const tierInput = document.getElementById('di-tier');
+  const lcInput  = document.getElementById('di-lifecycle');
+  const ntInput  = document.getElementById('di-next-touch');
+  const tagsInput = document.getElementById('di-tags');
+
+  if (mgrNew && mgrNew.style.display !== 'none' && mgrNew.value.trim()) {
+    c.manager = mgrNew.value.trim();
+  } else if (mgrSelect && mgrSelect.value && mgrSelect.value !== '__add_new__') {
+    c.manager = mgrSelect.value;
+  }
+  if (tierInput) c.tier      = tierInput.value;
+  if (lcInput)   c.lifecycle = lcInput.value;
+  if (ntInput)   c.next_touch = ntInput.value || null;
+  if (tagsInput) {
+    c.tags = tagsInput.value.split(',').map(t => t.trim()).filter(Boolean);
+  }
+
+  try {
+    await save(c);
+    refreshMgrDropdown();
+    renderDetailOverview();
+    // Update modal header subtitle
+    el('dm-sub').innerHTML = `
+      ${badgeHTML(c.status)} ${lifecycleBadge(c.lifecycle)}
+      <span style="margin-left:6px;color:var(--muted)">Score: <strong>${c.score}</strong></span>
+      ${c.mrr ? `<span style="margin-left:6px;color:var(--muted)">MRR: <strong>$${fmtNum(c.mrr)}</strong></span>` : ''}
+    `;
+    toast('Changes saved', 'success');
+  } catch (err) {
+    console.error('Save failed:', err);
+    toast('Save failed — ' + (err.message || 'unknown error'), 'error');
+  }
 }
 
 function buildRingHTML(score, status) {
@@ -3971,7 +5049,11 @@ function editCustomer(id) {
   document.getElementById('score-form').dataset.editId = c.id;
 
   el('f-name').value     = c.name;
-  if (el('f-manager')) el('f-manager').value = c.manager || '';
+  // Reset manager fields: hide "new" input, show select, rebuild options, set value
+  const fmNew = document.getElementById('f-manager-new');
+  if (fmNew) { fmNew.style.display = 'none'; fmNew.value = ''; }
+  const fmSel = el('f-manager');
+  if (fmSel) { fmSel.style.display = ''; fmSel.innerHTML = buildManagerSelectOptions(c.manager || ''); }
   if (el('f-profile')) { refreshProfileDropdown(); el('f-profile').value = c.scoring_profile || ''; }
   el('f-mrr').value      = c.mrr   || '';
   if (el('f-arr'))   el('f-arr').value   = c.arr   || '';
@@ -4019,6 +5101,7 @@ window.saveScore = function() {
       c.tickets         = data.tickets;
       c.nps             = data.nps;
       c.days            = data.days;
+      c._baseDays       = data.days;
       c.renewal         = data.renewal;
       c.renewal_date    = data.renewal_date || '';
       c.next_touch      = (el('f-next-touch') ? el('f-next-touch').value : '') || '';
@@ -4208,6 +5291,15 @@ function downloadDigestHTML() {
 // ─── AUTOMATIONS (Zapier Webhook Integration) ──────────────
 
 function saveAutomationsCfg() {
+  // Auto-sync selected_alerts to all enabled channels
+  const selected = automationsCfg.selected_alerts || [];
+  if (automationsCfg.channels) {
+    ['slack', 'teams', 'email'].forEach(chKey => {
+      if (automationsCfg.channels[chKey]?.enabled) {
+        automationsCfg.channels[chKey].alerts = [...selected];
+      }
+    });
+  }
   localStorage.setItem('iqc_automations', JSON.stringify(automationsCfg));
   if (currentUser) {
     sb.from('settings').upsert({
@@ -4257,48 +5349,595 @@ function migrateAutomationsCfg() {
   if (!automationsCfg.schedule) {
     automationsCfg.schedule = { mode: 'realtime', daily_time: '09:00', weekly_day: 'monday', weekly_time: '09:00' };
   }
+  // Ensure manager_scope exists with defaults
+  if (!automationsCfg.manager_scope) {
+    automationsCfg.manager_scope = { mode: 'all', managers: [] };
+  }
+}
+
+// ── TRENDS PAGE ──────────────────────────────────────────────
+let _trendRange = '30d';
+let _trendCsmOverlay = '';
+let _trendClientOverlays = []; // array of customer ids
+let _trendMovers = [];          // current movers data
+let _trendSortKey = 'absDelta'; // default sort by absolute change
+let _trendSortDir = -1;         // -1 = descending
+
+function setTrendRange(range) {
+  _trendRange = range;
+  document.querySelectorAll('#trend-range-row .dtab').forEach(b =>
+    b.classList.toggle('active', b.dataset.range === range));
+  renderTrends();
+}
+
+function setTrendCsmOverlay(mgr) {
+  _trendCsmOverlay = mgr || '';
+  renderTrends();
+}
+
+function addTrendClient(id) {
+  if (!_trendClientOverlays.includes(id)) _trendClientOverlays.push(id);
+  const inp = el('trend-client-search');
+  if (inp) inp.value = '';
+  const ac = el('trend-client-ac');
+  if (ac) ac.style.display = 'none';
+  renderTrends();
+}
+
+function removeTrendClient(id) {
+  _trendClientOverlays = _trendClientOverlays.filter(x => x !== id);
+  renderTrends();
+}
+
+function trendClientAutocomplete() {
+  const inp = el('trend-client-search');
+  const ac = el('trend-client-ac');
+  if (!inp || !ac) return;
+  const q = (inp.value || '').trim().toLowerCase();
+  if (!q) { ac.style.display = 'none'; return; }
+  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
+  const matches = active.filter(c =>
+    (c.name || '').toLowerCase().indexOf(q) !== -1 && !_trendClientOverlays.includes(c.id)
+  ).slice(0, 8);
+  if (!matches.length) { ac.style.display = 'none'; return; }
+  ac.innerHTML = matches.map(c =>
+    `<div onclick="addTrendClient('${c.id}')">${escHtml(c.name)} <span style="color:var(--subtle);font-size:.72rem">(${c.score})</span></div>`
+  ).join('');
+  ac.style.display = 'block';
+}
+
+// Close autocomplete on outside click
+document.addEventListener('click', function(e) {
+  const ac = el('trend-client-ac');
+  if (ac && !e.target.closest('#trend-client-search') && !e.target.closest('#trend-client-ac')) {
+    ac.style.display = 'none';
+  }
+});
+
+function renderTrends() {
+  const range = _trendRange || '30d';
+  const days = { '7d': 7, '30d': 30, '90d': 90 }[range] || 30;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  cutoff.setHours(0,0,0,0);
+
+  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
+
+  // ── Aggregate portfolio data by day ──
+  function aggregateByDay(custs) {
+    const dayMap = {};
+    custs.forEach(c => {
+      (c.history || []).forEach(h => {
+        if (!h.date) return;
+        const d = new Date(h.date);
+        if (d < cutoff) return;
+        const key = d.toISOString().slice(0,10);
+        if (!dayMap[key]) dayMap[key] = { total: 0, count: 0 };
+        dayMap[key].total += h.score;
+        dayMap[key].count += 1;
+      });
+    });
+    return Object.entries(dayMap)
+      .map(([date, v]) => ({ date, avg: Math.round(v.total / v.count) }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  const portfolioData = aggregateByDay(active);
+
+  // ── KPIs ──
+  const currentAvg = active.length ? Math.round(active.reduce((s,c) => s + (c.score||0), 0) / active.length) : 0;
+  let improving = 0, declining = 0;
+  active.forEach(c => {
+    const d = getDelta7d(c);
+    if (d > 0) improving++;
+    else if (d < 0) declining++;
+  });
+  const avgDelta7 = active.length ? (active.reduce((s,c) => s + getDelta7d(c), 0) / active.length) : 0;
+  const trendDir = avgDelta7 > 0.5 ? 'Improving' : avgDelta7 < -0.5 ? 'Declining' : 'Stable';
+  const trendDirColor = avgDelta7 > 0.5 ? 'dash-kpi-green' : avgDelta7 < -0.5 ? 'dash-kpi-red' : 'dash-kpi-blue';
+
+  const _ti = (path) => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+  const tIcons = {
+    score: _ti('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'),
+    trend: _ti('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>'),
+    up:    _ti('<polyline points="18 15 12 9 6 15"/>'),
+    down:  _ti('<polyline points="6 9 12 15 18 9"/>'),
+  };
+
+  const kpiRow = el('trend-kpi-row');
+  if (kpiRow) kpiRow.innerHTML = `
+    <div class="dash-kpi-card dash-kpi-blue">
+      <div class="dash-kpi-top">
+        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${tIcons.score}</div>
+        <span class="dash-kpi-label">Portfolio Avg Score</span>
+      </div>
+      <div class="dash-kpi-num">${currentAvg}</div>
+      <div class="dash-kpi-sub">${avgDelta7 >= 0 ? '+' : ''}${avgDelta7.toFixed(1)} avg 7d change</div>
+    </div>
+    <div class="dash-kpi-card ${trendDirColor}">
+      <div class="dash-kpi-top">
+        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${tIcons.trend}</div>
+        <span class="dash-kpi-label">Trend Direction</span>
+      </div>
+      <div class="dash-kpi-num" style="font-size:1.5rem">${trendDir}</div>
+      <div class="dash-kpi-sub">${active.length} active account${active.length !== 1 ? 's' : ''}</div>
+    </div>
+    <div class="dash-kpi-card dash-kpi-teal">
+      <div class="dash-kpi-top">
+        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${tIcons.up}</div>
+        <span class="dash-kpi-label">Accounts Improving</span>
+      </div>
+      <div class="dash-kpi-num">${improving}</div>
+      <div class="dash-kpi-sub">${active.length ? Math.round(improving/active.length*100) : 0}% of portfolio</div>
+    </div>
+    <div class="dash-kpi-card dash-kpi-red">
+      <div class="dash-kpi-top">
+        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${tIcons.down}</div>
+        <span class="dash-kpi-label">Accounts Declining</span>
+      </div>
+      <div class="dash-kpi-num">${declining}</div>
+      <div class="dash-kpi-sub">${active.length ? Math.round(declining/active.length*100) : 0}% of portfolio</div>
+    </div>
+  `;
+
+  // ── Build chart lines ──
+  const OVERLAY_COLORS = ['#7c3aed','#ea580c','#0891b2','#db2777','#059669'];
+  const lines = [];
+
+  // Main portfolio line
+  lines.push({ label: 'Portfolio Average', color: '#3b82f6', width: 2, points: portfolioData });
+
+  // CSM overlay
+  if (_trendCsmOverlay) {
+    const csmCusts = active.filter(c => c.manager === _trendCsmOverlay);
+    const csmData = aggregateByDay(csmCusts);
+    lines.push({ label: escHtml(_trendCsmOverlay), color: OVERLAY_COLORS[0], width: 1.5, points: csmData });
+  }
+
+  // Client overlays
+  _trendClientOverlays.forEach((id, idx) => {
+    const c = customers.find(x => x.id === id);
+    if (!c) return;
+    const hist = (c.history || []).filter(h => h.date && new Date(h.date) >= cutoff)
+      .map(h => ({ date: new Date(h.date).toISOString().slice(0,10), avg: h.score }))
+      .sort((a,b) => a.date.localeCompare(b.date));
+    if (hist.length) {
+      const ci = (idx + 1) % OVERLAY_COLORS.length;
+      lines.push({ label: escHtml(c.name), color: OVERLAY_COLORS[ci], width: 1.5, points: hist });
+    }
+  });
+
+  // Render chart
+  const chartWrap = el('trend-chart-wrap');
+  if (chartWrap) {
+    chartWrap.innerHTML = buildTrendChart(lines, days);
+  }
+
+  // Render legend
+  const legendWrap = el('trend-legend');
+  if (legendWrap) {
+    legendWrap.innerHTML = lines.map(l =>
+      `<div class="trend-legend-item"><div class="trend-legend-dot" style="background:${l.color}"></div>${l.label}</div>`
+    ).join('');
+  }
+
+  // ── Client overlay tags ──
+  const tagsWrap = el('trend-client-tags');
+  if (tagsWrap) {
+    tagsWrap.innerHTML = _trendClientOverlays.map(id => {
+      const c = customers.find(x => x.id === id);
+      return c ? `<span class="trend-client-tag">${escHtml(c.name)}<button onclick="removeTrendClient('${id}')">&times;</button></span>` : '';
+    }).join('');
+  }
+
+  // ── CSM dropdown ──
+  const csmSel = el('trend-csm-overlay');
+  if (csmSel) {
+    const mgrs = [...new Set(active.map(c => c.manager).filter(Boolean))].sort();
+    const prev = csmSel.value;
+    csmSel.innerHTML = '<option value="">No CSM Overlay</option>' +
+      mgrs.map(m => `<option value="${escHtml(m)}"${m === prev ? ' selected' : ''}>${escHtml(m)}</option>`).join('');
+  }
+
+  // ── Top Movers — build data, then render with current sort ──
+  _trendMovers = active.map(c => {
+    const hist = (c.history || []).filter(h => h.date && new Date(h.date) >= cutoff).sort((a,b) => a.date.localeCompare(b.date));
+    const startScore = hist.length ? hist[0].score : c.score;
+    const delta = c.score - startScore;
+    return { name: c.name, score: c.score, delta, absDelta: Math.abs(delta), status: c.status, mrr: c.mrr || 0, manager: c.manager || '—', id: c.id };
+  });
+  renderTrendMovers();
+}
+
+function sortTrendMovers(key) {
+  if (_trendSortKey === key) {
+    _trendSortDir *= -1; // toggle direction
+  } else {
+    _trendSortKey = key;
+    _trendSortDir = key === 'name' || key === 'status' || key === 'manager' ? 1 : -1; // text asc, numbers desc
+  }
+  renderTrendMovers();
+}
+
+function renderTrendMovers() {
+  const wrap = el('trend-movers-wrap');
+  if (!wrap) return;
+
+  const statusColors = { critical:'#dc2626', risk:'#ea580c', watch:'#d97706', healthy:'#16a34a', expand:'#7c3aed' };
+  const statusOrder = { critical:0, risk:1, watch:2, healthy:3, expand:4 };
+
+  // Sort
+  const sorted = [..._trendMovers].sort((a, b) => {
+    let av, bv;
+    switch (_trendSortKey) {
+      case 'name':     av = a.name.toLowerCase(); bv = b.name.toLowerCase(); break;
+      case 'score':    av = a.score; bv = b.score; break;
+      case 'delta':    av = a.delta; bv = b.delta; break;
+      case 'absDelta': av = a.absDelta; bv = b.absDelta; break;
+      case 'status':   av = statusOrder[a.status]||9; bv = statusOrder[b.status]||9; break;
+      case 'mrr':      av = a.mrr; bv = b.mrr; break;
+      case 'manager':  av = a.manager.toLowerCase(); bv = b.manager.toLowerCase(); break;
+      default:         av = a.absDelta; bv = b.absDelta;
+    }
+    if (av < bv) return -1 * _trendSortDir;
+    if (av > bv) return  1 * _trendSortDir;
+    return 0;
+  }).slice(0, 10);
+
+  if (!sorted.length) {
+    wrap.innerHTML = '<p style="color:var(--subtle);font-size:.84rem;padding:12px">No score history available for this period.</p>';
+    return;
+  }
+
+  const arrow = (key) => _trendSortKey === key ? (_trendSortDir === 1 ? ' ▲' : ' ▼') : '';
+  const thStyle = 'padding:8px 12px;font-weight:700;color:var(--fg);cursor:pointer;user-select:none;white-space:nowrap';
+
+  wrap.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:.82rem">
+    <thead><tr style="text-align:left;border-bottom:2px solid var(--border)">
+      <th style="${thStyle}" onclick="sortTrendMovers('name')">Customer${arrow('name')}</th>
+      <th style="${thStyle}" onclick="sortTrendMovers('score')">Score${arrow('score')}</th>
+      <th style="${thStyle}" onclick="sortTrendMovers('delta')">Change${arrow('delta')}${_trendSortKey==='absDelta'?arrow('absDelta'):''}</th>
+      <th style="${thStyle}" onclick="sortTrendMovers('status')">Status${arrow('status')}</th>
+      <th style="${thStyle}" onclick="sortTrendMovers('mrr')">MRR${arrow('mrr')}</th>
+      <th style="${thStyle}" onclick="sortTrendMovers('manager')">CSM${arrow('manager')}</th>
+    </tr></thead>
+    <tbody>${sorted.map(m => {
+      const dColor = m.delta > 0 ? '#16a34a' : m.delta < 0 ? '#dc2626' : 'var(--subtle)';
+      const dSign = m.delta > 0 ? '+' : '';
+      return `<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="nav('customers');setTimeout(()=>openDrawer('${m.id}'),100)">
+        <td style="padding:8px 12px;color:var(--text);font-weight:600">${escHtml(m.name)}</td>
+        <td style="padding:8px 12px;color:var(--text)">${m.score}</td>
+        <td style="padding:8px 12px;color:${dColor};font-weight:700">${dSign}${m.delta}</td>
+        <td style="padding:8px 12px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${statusColors[m.status]||'#888'};margin-right:4px"></span>${m.status}</td>
+        <td style="padding:8px 12px;color:var(--text)">$${fmtNum(m.mrr)}</td>
+        <td style="padding:8px 12px;color:var(--subtle)">${escHtml(m.manager)}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
+function buildTrendChart(lines, rangeDays) {
+  if (!lines.length || !lines[0].points.length) {
+    return '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:.88rem">Not enough score history to display a trend chart. Score a few customers to get started.</p>';
+  }
+
+  const W = 960, H = 260;
+  const pad = { top: 14, right: 24, bottom: 36, left: 40 };
+  const cW = W - pad.left - pad.right;
+  const cH = H - pad.top - pad.bottom;
+
+  // Collect all dates across all lines
+  const allDates = new Set();
+  lines.forEach(l => l.points.forEach(p => allDates.add(p.date)));
+  const dates = [...allDates].sort();
+  if (dates.length < 1) {
+    return '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:.88rem">No data points in this range.</p>';
+  }
+
+  const xScale = (i) => pad.left + (dates.length === 1 ? cW/2 : (i / (dates.length - 1)) * cW);
+  const yScale = (v) => pad.top + cH - (v / 100) * cH;
+
+  // ── Status bands (subtle background) ──
+  const thresholds = window._clientThresholds || DEFAULT_THRESHOLDS;
+  const bandDefs = [
+    { y0: 0,               y1: thresholds.critical, color: '#dc2626', label: 'Critical' },
+    { y0: thresholds.critical, y1: thresholds.risk,     color: '#ea580c', label: 'Risk' },
+    { y0: thresholds.risk,     y1: thresholds.watch,    color: '#d97706', label: 'Watch' },
+    { y0: thresholds.watch,    y1: thresholds.healthy,  color: '#16a34a', label: 'Healthy' },
+    { y0: thresholds.healthy,  y1: 100,                 color: '#3b82f6', label: 'Expand' },
+  ];
+  let bandSVG = bandDefs.map(b => {
+    const y = yScale(b.y1);
+    const h = yScale(b.y0) - y;
+    return `<rect x="${pad.left}" y="${y}" width="${cW}" height="${h}" fill="${b.color}" opacity="0.055"/>`;
+  }).join('');
+  // Band labels on right edge
+  bandSVG += bandDefs.map(b => {
+    const midY = (yScale(b.y1) + yScale(b.y0)) / 2;
+    return `<text x="${W - pad.right + 4}" y="${midY + 2}" font-size="7" fill="${b.color}" opacity="0.55" font-weight="600">${b.label}</text>`;
+  }).join('');
+
+  // ── Grid lines (every 10 units for density) ──
+  let gridSVG = '';
+  for (let v = 0; v <= 100; v += 10) {
+    const y = yScale(v);
+    const isMajor = v % 25 === 0;
+    gridSVG += `<line x1="${pad.left}" y1="${y}" x2="${W-pad.right}" y2="${y}" stroke="var(--border)" stroke-width="${isMajor?1:0.5}" opacity="${isMajor?0.7:0.35}" stroke-dasharray="${v===0||v===100?'0':'3,3'}"/>`;
+    if (v % 20 === 0) {
+      gridSVG += `<text x="${pad.left-8}" y="${y+3}" text-anchor="end" font-size="8" font-weight="${isMajor?'600':'400'}" fill="var(--subtle)">${v}</text>`;
+    }
+  }
+
+  // ── X-axis date labels — show every date for 7d, every 2–3 for 30d, every 7 for 90d ──
+  let xLabels = '';
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const labelEvery = rangeDays <= 7 ? 1 : rangeDays <= 30 ? 2 : 7;
+  dates.forEach((d, i) => {
+    const x = xScale(i);
+    const parts = d.split('-');
+    const mo = parseInt(parts[1]) - 1;
+    const day = parseInt(parts[2]);
+    // Vertical tick marks for every date
+    if (rangeDays <= 30 || i % 3 === 0) {
+      xLabels += `<line x1="${x}" y1="${yScale(0)}" x2="${x}" y2="${yScale(0)+4}" stroke="var(--border)" stroke-width="0.5" opacity="0.5"/>`;
+    }
+    // Labels
+    if (i % labelEvery === 0 || i === dates.length - 1) {
+      const lbl = rangeDays <= 7
+        ? monthNames[mo] + ' ' + day
+        : rangeDays <= 30
+          ? parts[1] + '/' + parts[2]
+          : monthNames[mo] + ' ' + day;
+      xLabels += `<text x="${x}" y="${H - pad.bottom + 16}" text-anchor="middle" font-size="7.5" fill="var(--subtle)">${lbl}</text>`;
+    }
+  });
+
+  // ── Draw area fills + lines ──
+  let linesSVG = '';
+  const dateIdx = {};
+  dates.forEach((d,i) => { dateIdx[d] = i; });
+
+  lines.forEach((line, lineIdx) => {
+    const pts = line.points.filter(p => dateIdx[p.date] !== undefined)
+      .sort((a,b) => a.date.localeCompare(b.date));
+    if (pts.length < 2) return;
+
+    // Area fill under the main line (first line only)
+    if (lineIdx === 0) {
+      const areaBottom = yScale(0);
+      const areaPts = pts.map(p => `${xScale(dateIdx[p.date])},${yScale(p.avg)}`);
+      const firstX = xScale(dateIdx[pts[0].date]);
+      const lastX = xScale(dateIdx[pts[pts.length-1].date]);
+      const areaPath = `M${firstX},${areaBottom} L${areaPts.join(' L')} L${lastX},${areaBottom} Z`;
+      // Gradient fill
+      linesSVG += `<defs><linearGradient id="trendAreaGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${line.color}" stop-opacity="0.18"/>
+        <stop offset="100%" stop-color="${line.color}" stop-opacity="0.02"/>
+      </linearGradient></defs>`;
+      linesSVG += `<path d="${areaPath}" fill="url(#trendAreaGrad)"/>`;
+    }
+
+    // Line
+    const polyPts = pts.map(p => `${xScale(dateIdx[p.date])},${yScale(p.avg)}`).join(' ');
+    linesSVG += `<polyline points="${polyPts}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linejoin="round" stroke-linecap="round" opacity="0.9"/>`;
+
+    // Dots — larger for main, smaller for overlays
+    const dotR = lineIdx === 0 ? 3 : 2.2;
+    pts.forEach((p, pi) => {
+      const cx = xScale(dateIdx[p.date]);
+      const cy = yScale(p.avg);
+      // White outline for readability
+      linesSVG += `<circle cx="${cx}" cy="${cy}" r="${dotR+1}" fill="var(--surface)" opacity="0.8"/>`;
+      linesSVG += `<circle cx="${cx}" cy="${cy}" r="${dotR}" fill="${line.color}"/>`;
+      // Score labels on main line dots (if not too crowded)
+      if (lineIdx === 0 && (pts.length <= 15 || pi % 2 === 0 || pi === pts.length - 1)) {
+        linesSVG += `<text x="${cx}" y="${cy - dotR - 4}" text-anchor="middle" font-size="7" font-weight="700" fill="${line.color}">${p.avg}</text>`;
+      }
+    });
+  });
+
+  // ── Vertical hover columns ──
+  let hoverSVG = '';
+  const mainPts = lines[0].points.filter(p => dateIdx[p.date] !== undefined)
+    .sort((a,b) => a.date.localeCompare(b.date));
+  const colW = dates.length > 1 ? cW / (dates.length - 1) : cW;
+  mainPts.forEach((p, pi) => {
+    const cx = xScale(dateIdx[p.date]);
+    const parts = p.date.split('-');
+    const mo = parseInt(parts[1]) - 1;
+    const day = parseInt(parts[2]);
+    const lbl = monthNames[mo] + ' ' + day;
+    // Collect all line values for this date
+    const allVals = lines.map(l => {
+      const pt = l.points.find(x => x.date === p.date);
+      return pt ? pt.avg : null;
+    }).filter(v => v !== null);
+    const valStr = allVals.join(',');
+    const nameStr = lines.filter((l,i) => { const pt = l.points.find(x => x.date === p.date); return pt; }).map(l => l.label).join('|');
+    const colorStr = lines.filter((l,i) => { const pt = l.points.find(x => x.date === p.date); return pt; }).map(l => l.color).join('|');
+    // Invisible hover rect (full column height)
+    hoverSVG += `<rect x="${cx - colW/2}" y="${pad.top}" width="${colW}" height="${cH}" fill="transparent" style="cursor:crosshair"
+      onmouseenter="showTrendTip(evt,${cx},'${lbl}',[${valStr}],'${nameStr}','${colorStr}')"
+      onmouseleave="hideTrendTip()"/>`;
+  });
+
+  // ── Axis border lines ──
+  let axisSVG = `<line x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${yScale(0)}" stroke="var(--border)" stroke-width="1.5" opacity="0.5"/>`;
+  axisSVG += `<line x1="${pad.left}" y1="${yScale(0)}" x2="${W-pad.right}" y2="${yScale(0)}" stroke="var(--border)" stroke-width="1.5" opacity="0.5"/>`;
+
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;display:block">
+    ${bandSVG}${gridSVG}${axisSVG}${xLabels}${linesSVG}${hoverSVG}
+  </svg>`;
+}
+
+function showTrendTip(evt, cx, dateLabel, scores, names, colors) {
+  let tip = document.getElementById('trend-tip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.id = 'trend-tip';
+    tip.className = 'trend-tooltip';
+    el('trend-chart-wrap').appendChild(tip);
+  }
+  const nameArr = (typeof names === 'string') ? names.split('|') : [names];
+  const colorArr = (typeof colors === 'string') ? colors.split('|') : [colors];
+  const scoreArr = Array.isArray(scores) ? scores : [scores];
+  let rows = scoreArr.map((s, i) =>
+    `<div style="display:flex;align-items:center;gap:6px;margin-top:3px"><span style="width:8px;height:8px;border-radius:50%;background:${colorArr[i]||'#3b82f6'};flex-shrink:0"></span><span>${nameArr[i]||'Score'}</span><strong style="margin-left:auto">${s}</strong></div>`
+  ).join('');
+  tip.innerHTML = `<div style="font-weight:700;margin-bottom:4px;font-size:.82rem">${dateLabel}</div>${rows}`;
+  // Position relative to the chart-wrap container
+  const wrap = el('trend-chart-wrap');
+  const svg = wrap.querySelector('svg');
+  if (!svg) return;
+  const rect = svg.getBoundingClientRect();
+  const wRect = wrap.getBoundingClientRect();
+  const scaleX = rect.width / 960;
+  const left = (cx * scaleX) + (rect.left - wRect.left);
+  tip.style.display = 'block';
+  tip.style.left = (left + 14) + 'px';
+  tip.style.top = '8px';
+}
+
+function hideTrendTip() {
+  const tip = document.getElementById('trend-tip');
+  if (tip) tip.style.display = 'none';
+}
+
+// ── Help search ──
+function helpSearch() {
+  var q = (el('help-search').value || '').trim().toLowerCase();
+  var panes = document.querySelectorAll('#view-help .dtab-pane');
+  var tabs = el('help-tab-row');
+  if (!q) {
+    tabs.style.display = '';
+    panes.forEach(function(p){ p.style.display = ''; p.classList.remove('active'); });
+    var activeBtn = document.querySelector('#view-help .dtab.active');
+    if (!activeBtn) activeBtn = document.querySelector('#view-help .dtab');
+    if (activeBtn) activeBtn.click();
+    document.querySelectorAll('#view-help .help-section').forEach(function(s){ s.style.display = ''; });
+    return;
+  }
+  tabs.style.display = 'none';
+  panes.forEach(function(p){ p.style.display = 'block'; p.classList.add('active'); });
+  document.querySelectorAll('#view-help .help-section').forEach(function(s){
+    var text = s.textContent.toLowerCase();
+    s.style.display = text.indexOf(q) !== -1 ? '' : 'none';
+  });
+}
+
+// ── Help tab switching ──
+function helpTab(t) {
+  document.querySelectorAll('#view-help .dtab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#view-help .dtab-pane').forEach(p => p.classList.remove('active'));
+  const btn = [...document.querySelectorAll('#view-help .dtab')].find(b => b.textContent.trim().toLowerCase().includes(t));
+  if (btn) btn.classList.add('active');
+  const pane = document.getElementById('help-pane-' + t);
+  if (pane) pane.classList.add('active');
 }
 
 // ── Tab switching ──
 function autoTab(which) {
-  ['channels','webhooks','api','log'].forEach(t => {
+  ['active','create','advanced'].forEach(t => {
     el('auto-tab-'+t)?.classList.toggle('active', t === which);
     el('auto-pane-'+t)?.classList.toggle('active', t === which);
   });
-  if (which === 'channels') renderChannelsConfig();
-  if (which === 'log') loadWebhookLog();
+  if (which === 'active') renderActiveAlerts();
+  if (which === 'create') { wizardGoToStep(_wizardStep); renderWizardNav(); }
+  if (which === 'advanced') {
+    // Pro+ only — show upgrade wall if not available
+    if (!hasFeature('api_webhooks')) {
+      const pane = el('auto-pane-advanced');
+      if (pane) pane.innerHTML = upgradeHTML('api_webhooks');
+      return;
+    }
+    renderWebhookConfig();
+    renderApiSection();
+    loadWebhookLog();
+  }
 }
 
 // ── Main render ──
 function renderAutomations() {
-  autoTab('channels');
-  renderChannelsConfig();
+  // Hide Advanced tab button for users without api_webhooks (Pro+)
+  const advBtn = el('auto-tab-advanced');
+  if (advBtn) advBtn.style.display = hasFeature('api_webhooks') ? '' : 'none';
+  autoTab('active');
   renderWebhookConfig();
   renderApiSection();
 }
 
+// ── Automations SVG icons (no emoji) ──
+const _aico   = (p) => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+const _aicoSm = (p) => `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+const _aicoLg = (p) => `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+
+const AUTO_ICONS = {
+  health_below_threshold: '<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>',
+  account_at_risk:  '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+  renewal_approaching: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+  no_contact:       '<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="18" y1="11" x2="23" y2="6"/><line x1="23" y1="11" x2="18" y2="6"/>',
+  nps_detractor:    '<path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/>',
+  lifecycle_change: '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>',
+  rapid_score_drop: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  slack:  '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  teams:  '<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
+  email:  '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/>',
+  realtime: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  daily:    '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  weekly:   '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><rect x="8" y="14" width="3" height="3" rx=".5"/>',
+  allMgrs:  '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+  selMgrs:  '<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/>',
+  bell:  '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+  check: '<polyline points="20 6 9 17 4 12"/>',
+  checkCircle: '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
+  edit:  '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',
+  x:     '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+  warning: '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+  scope: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',
+};
+
 // ── Alert Types (all 7 trigger conditions) ──
 
 const ALERT_TYPES = [
-  { key: 'health_below_threshold', label: 'Health Below Threshold', shortLabel: 'Health Score Alert', icon: '📉',
+  { key: 'health_below_threshold', label: 'Health Below Threshold', shortLabel: 'Health Score Alert', icon: _aico(AUTO_ICONS.health_below_threshold),
     desc: 'Fires when a customer\'s health score drops below the configured threshold.',
     configFields: [{ name: 'threshold', type: 'number', label: 'Score Threshold', default: 50, min: 1, max: 99, hint: 'Fire when score drops below this value' }] },
-  { key: 'account_at_risk', label: 'Account At-Risk', shortLabel: 'At-Risk Alert', icon: '⚠️',
+  { key: 'account_at_risk', label: 'Account At-Risk', shortLabel: 'At-Risk Alert', icon: _aico(AUTO_ICONS.account_at_risk),
     desc: 'Fires when an account\'s status transitions to "risk" or "critical".',
     configFields: [] },
-  { key: 'renewal_approaching', label: 'Renewal Approaching', shortLabel: 'Renewal Alert', icon: '📅',
+  { key: 'renewal_approaching', label: 'Renewal Approaching', shortLabel: 'Renewal Alert', icon: _aico(AUTO_ICONS.renewal_approaching),
     desc: 'Fires when a customer\'s renewal date is within the configured number of days.',
     configFields: [{ name: 'days', type: 'number', label: 'Days Before Renewal', default: 30, min: 1, max: 365, hint: 'Alert this many days before renewal' }] },
-  { key: 'no_contact', label: 'No Contact Alert', shortLabel: 'No Contact', icon: '📵',
+  { key: 'no_contact', label: 'No Contact Alert', shortLabel: 'No Contact', icon: _aico(AUTO_ICONS.no_contact),
     desc: 'Fires when days since last contact exceeds the configured maximum.',
     configFields: [{ name: 'max_days', type: 'number', label: 'Max Days Without Contact', default: 14, min: 1, max: 365, hint: 'Alert if no contact for this many days' }] },
-  { key: 'nps_detractor', label: 'NPS Detractor', shortLabel: 'NPS Alert', icon: '👎',
+  { key: 'nps_detractor', label: 'NPS Detractor', shortLabel: 'NPS Alert', icon: _aico(AUTO_ICONS.nps_detractor),
     desc: 'Fires when a customer\'s NPS changes to "detractor".',
     configFields: [] },
-  { key: 'lifecycle_change', label: 'Lifecycle Change', shortLabel: 'Lifecycle Alert', icon: '🔄',
+  { key: 'lifecycle_change', label: 'Lifecycle Change', shortLabel: 'Lifecycle Alert', icon: _aico(AUTO_ICONS.lifecycle_change),
     desc: 'Fires when a customer\'s lifecycle transitions to "atrisk" or "churned".',
     configFields: [] },
-  { key: 'rapid_score_drop', label: 'Rapid Score Drop', shortLabel: 'Rapid Drop', icon: '⚡',
+  { key: 'rapid_score_drop', label: 'Rapid Score Drop', shortLabel: 'Rapid Drop', icon: _aico(AUTO_ICONS.rapid_score_drop),
     desc: 'Fires when a customer\'s score drops by more than the configured points in a single update.',
     configFields: [{ name: 'points', type: 'number', label: 'Point Drop Threshold', default: 15, min: 5, max: 50, hint: 'Alert if score drops more than this at once' }] }
 ];
@@ -4307,7 +5946,7 @@ const ALERT_TYPES = [
 
 const CHANNELS = [
   {
-    key: 'slack', label: 'Slack', icon: '💬',
+    key: 'slack', label: 'Slack', icon: _aico(AUTO_ICONS.slack),
     desc: 'Post alerts to a Slack channel via Incoming Webhook.',
     inputType: 'url', placeholder: 'https://hooks.slack.com/services/T.../B.../xxxx',
     setup: `<ol style="margin:6px 0 0 18px;font-size:.76rem;line-height:1.6;color:var(--muted)">
@@ -4318,7 +5957,7 @@ const CHANNELS = [
     </ol>`
   },
   {
-    key: 'teams', label: 'Microsoft Teams', icon: '🟦',
+    key: 'teams', label: 'Microsoft Teams', icon: _aico(AUTO_ICONS.teams),
     desc: 'Post alerts to a Teams channel via Workflow webhook.',
     inputType: 'url', placeholder: 'https://prod-xx.westus.logic.azure.com:443/workflows/...',
     setup: `<ol style="margin:6px 0 0 18px;font-size:.76rem;line-height:1.6;color:var(--muted)">
@@ -4329,7 +5968,7 @@ const CHANNELS = [
     </ol>`
   },
   {
-    key: 'email', label: 'Email', icon: '✉️',
+    key: 'email', label: 'Email', icon: _aico(AUTO_ICONS.email),
     desc: 'Send HTML email alerts to one or more recipients.',
     inputType: 'email', placeholder: 'alerts@yourcompany.com, csm-team@company.com',
     setup: `<p style="margin:6px 0 0;font-size:.76rem;line-height:1.6;color:var(--muted)">
@@ -4339,31 +5978,78 @@ const CHANNELS = [
 ];
 
 let _wizardStep = 1;
+let _inlineEditKey = null;
+let _alertSortKey = 'label';
+let _alertSortDir = 1;
+let _alertFilters = {};
+let _openAlertFilterKey = null;
 
-function renderChannelsConfig() {
-  renderAlertSummary();
-  wizardGoToStep(_wizardStep);
+const ALERT_COL_DEFS = [
+  { key: 'label',     label: 'Alert',      ftype: 'text' },
+  { key: 'condition', label: 'Condition',   ftype: 'text' },
+  { key: 'sentTo',    label: 'Sent To',     ftype: 'enum', enumVals: ['Slack', 'Teams', 'Email'] },
+  { key: 'timing',    label: 'Timing',      ftype: 'enum', enumVals: ['Real-time', 'Daily', 'Weekly'] },
+  { key: 'scope',     label: 'Scope',       ftype: 'text' },
+  { key: 'creator',   label: 'Created By',  ftype: 'text' },
+];
+
+// ── Active Alerts (Tab 1) ──
+
+function truncateUrl(url, maxLen) {
+  let s = (url || '').replace(/^https?:\/\//, '');
+  return s.length > maxLen ? escHtml(s.slice(0, maxLen) + '…') : escHtml(s);
 }
 
-// ── Alert Summary ──
+function sentToHtml() {
+  const ch = automationsCfg.channels || {};
+  const parts = [];
+  if (ch.slack?.enabled) parts.push('<span class="dest-tag" title="' + escHtml(ch.slack.url || 'No URL configured') + '">' + _aicoSm(AUTO_ICONS.slack) + ' Slack</span>');
+  if (ch.teams?.enabled) parts.push('<span class="dest-tag" title="' + escHtml(ch.teams.url || 'No URL configured') + '">' + _aicoSm(AUTO_ICONS.teams) + ' Teams</span>');
+  if (ch.email?.enabled) parts.push('<span class="dest-tag" title="' + escHtml(ch.email.recipients || 'No recipients configured') + '">' + _aicoSm(AUTO_ICONS.email) + ' Email</span>');
+  return parts.length
+    ? parts.join(' ')
+    : '<span style="color:var(--muted);font-size:.78rem">' + _aicoSm(AUTO_ICONS.warning) + ' None</span>';
+}
 
-function renderAlertSummary() {
-  const container = el('alert-summary-container');
+function scheduleText() {
+  const s = automationsCfg.schedule || { mode: 'realtime' };
+  if (s.mode === 'daily') return _aicoSm(AUTO_ICONS.daily) + ' Daily at ' + (s.daily_time || '9:00 AM');
+  if (s.mode === 'weekly') {
+    const d = (s.weekly_day || 'monday');
+    return _aicoSm(AUTO_ICONS.weekly) + ' ' + d.charAt(0).toUpperCase() + d.slice(1) + ' at ' + (s.weekly_time || '9:00 AM');
+  }
+  return _aicoSm(AUTO_ICONS.realtime) + ' Real-time';
+}
+
+function renderActiveAlerts() {
+  const container = el('active-alerts-container');
   if (!container) return;
 
   const selected = automationsCfg.selected_alerts || [];
   const channels = automationsCfg.channels || {};
   const settings = automationsCfg.alert_settings || {};
   const schedule = automationsCfg.schedule || { mode: 'realtime' };
-
-  // Active = selected AND at least 1 enabled channel
+  let activeAlerts = ALERT_TYPES.filter(at => selected.includes(at.key));
   const hasAnyChannel = ['slack', 'teams', 'email'].some(k => channels[k]?.enabled);
-  const activeAlerts = ALERT_TYPES.filter(at => selected.includes(at.key));
 
-  if (!activeAlerts.length || !hasAnyChannel) {
-    container.innerHTML = '<p style="font-size:.82rem;color:var(--muted);padding:8px 0">No active alerts configured. Use the wizard below to get started.</p>';
+  if (!activeAlerts.length) {
+    container.innerHTML = '<div class="active-alerts-empty">' +
+      '<div class="empty-icon">' + _aicoLg(AUTO_ICONS.bell) + '</div>' +
+      '<h3 style="margin-bottom:6px">No alerts configured yet</h3>' +
+      '<p style="font-size:.85rem;margin-bottom:16px">Create your first alert to start monitoring customer health.</p>' +
+      '<button class="btn btn-sm btn-primary" onclick="autoTab(\'create\')">+ Create Alert</button>' +
+    '</div>';
     return;
   }
+
+  // ── Shared display values (config-level, not per-alert) ──
+  const mgrScope = automationsCfg.manager_scope || { mode: 'all', managers: [] };
+  const scopeDisplay = mgrScope.mode === 'selected' && mgrScope.managers.length > 0
+    ? mgrScope.managers.map(m => escHtml(m)).join(', ')
+    : 'All';
+  const creatorDisplay = currentUser?.email || '\u2014';
+  const sentToNames = ['slack','teams','email'].filter(k => channels[k]?.enabled).map(k => k === 'teams' ? 'Teams' : k.charAt(0).toUpperCase()+k.slice(1)).join(', ') || 'None';
+  const timingLabel = schedule.mode === 'daily' ? 'Daily' : schedule.mode === 'weekly' ? 'Weekly' : 'Real-time';
 
   function conditionText(at) {
     const s = settings[at.key] || {};
@@ -4379,47 +6065,219 @@ function renderAlertSummary() {
     }
   }
 
-  function scheduleText() {
-    if (schedule.mode === 'daily') return 'Daily @ ' + (schedule.daily_time || '09:00');
-    if (schedule.mode === 'weekly') {
-      const day = (schedule.weekly_day || 'monday');
-      return 'Weekly ' + day.charAt(0).toUpperCase() + day.slice(1) + ' @ ' + (schedule.weekly_time || '09:00');
+  // ── Column value extractor for sort/filter ──
+  function alertColValue(at, key) {
+    switch (key) {
+      case 'label':     return at.label;
+      case 'condition': return conditionText(at);
+      case 'sentTo':    return sentToNames;
+      case 'timing':    return timingLabel;
+      case 'scope':     return scopeDisplay;
+      case 'creator':   return creatorDisplay;
+      default:          return '';
     }
-    return 'Real-time';
   }
 
-  const enabledChannels = ['slack', 'teams', 'email'].filter(k => channels[k]?.enabled);
-  const pills = enabledChannels.map(chKey => {
-    const ch = CHANNELS.find(c => c.key === chKey);
-    return '<span class="channel-pill">' + (ch?.icon || '') + ' ' + escHtml(ch?.label || chKey) + '</span>';
-  }).join('');
+  // ── Apply filters ──
+  const fKeys = Object.keys(_alertFilters);
+  if (fKeys.length) {
+    activeAlerts = activeAlerts.filter(at => {
+      for (const key of fKeys) {
+        const f = _alertFilters[key];
+        if (!f) continue;
+        const v = alertColValue(at, key).toLowerCase();
+        if (f.type === 'text' && !v.includes(f.q)) return false;
+        if (f.type === 'enum') {
+          // For sentTo, check if any enabled channel matches
+          if (key === 'sentTo') {
+            const enabledNames = ['slack','teams','email'].filter(k => channels[k]?.enabled).map(k => k === 'teams' ? 'Teams' : k.charAt(0).toUpperCase()+k.slice(1));
+            if (!enabledNames.some(n => f.vals.has(n))) return false;
+          } else {
+            if (!f.vals.has(alertColValue(at, key))) return false;
+          }
+        }
+      }
+      return true;
+    });
+  }
 
+  // ── Sort ──
+  activeAlerts.sort((a, b) => {
+    const av = alertColValue(a, _alertSortKey).toLowerCase();
+    const bv = alertColValue(b, _alertSortKey).toLowerCase();
+    return av.localeCompare(bv) * _alertSortDir;
+  });
+
+  // ── Build sortable/filterable <thead> ──
+  const funnelSVG = '<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>';
+  const theadCols = ALERT_COL_DEFS.map(col => {
+    const isActiveSort = _alertSortKey === col.key;
+    const filterActive = col.key in _alertFilters;
+    const arrow = '<span class="col-sort-arrow' + (isActiveSort ? '' : ' idle') + '">' + (_alertSortDir === -1 ? '\u25BC' : '\u25B2') + '</span>';
+    const filterBtn = col.ftype
+      ? '<button class="col-filter-btn' + (filterActive ? ' active' : '') + '" onclick="event.stopPropagation();openAlertFilter(\'' + col.key + '\',this)" title="Filter ' + col.label + '">' + funnelSVG + '</button>'
+      : '';
+    return '<th><div class="col-th-inner"><button class="col-sort-label" onclick="alertSortBy(\'' + col.key + '\')">' + col.label + '</button>' + arrow + filterBtn + '</div></th>';
+  }).join('') + '<th style="width:80px">Actions</th>';
+
+  // ── Build rows ──
   const rows = activeAlerts.map(at => {
-    return '<tr>' +
-      '<td><span style="margin-right:6px">' + at.icon + '</span>' + escHtml(at.label) + '</td>' +
-      '<td style="color:var(--muted)">' + conditionText(at) + '</td>' +
-      '<td>' + pills + '</td>' +
-      '<td style="font-size:.78rem;color:var(--muted)">' + scheduleText() + '</td>' +
-      '<td>' +
-        '<button class="btn btn-xs btn-ghost" onclick="wizardGoToStep(1)" title="Edit alerts">✏️</button> ' +
-        '<button class="btn btn-xs btn-ghost" style="color:var(--red)" onclick="wizardRemoveAlert(\'' + at.key + '\')" title="Remove">✕</button>' +
+    const isEditing = _inlineEditKey === at.key;
+
+    // Build inline edit panel if this row is expanded
+    let inlineEditHtml = '';
+    if (isEditing) {
+      // Thresholds
+      let thresholdFields = '';
+      if (at.configFields.length > 0) {
+        thresholdFields = '<div style="margin-bottom:12px">' +
+          '<div style="font-size:.78rem;font-weight:700;margin-bottom:8px;color:var(--text)">Thresholds</div>' +
+          at.configFields.map(f => {
+            const val = (settings[at.key] || {})[f.name] ?? f.default;
+            return '<div class="inline-field">' +
+              '<label>' + escHtml(f.label) + '</label>' +
+              '<input type="' + f.type + '" min="' + f.min + '" max="' + f.max + '" value="' + val + '"' +
+              ' onblur="updateAlertSetting(\'' + at.key + '\', \'' + f.name + '\', +this.value)"' +
+              ' style="width:80px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:var(--font);color:var(--text);background:var(--surface);text-align:center"/>' +
+              '<span style="font-size:.72rem;color:var(--muted)">' + escHtml(f.hint) + '</span>' +
+            '</div>';
+          }).join('') +
+        '</div>';
+      }
+
+      // Channel toggles
+      const channelToggles = CHANNELS.map(ch => {
+        const isOn = !!channels[ch.key]?.enabled;
+        return '<label>' +
+          '<input type="checkbox" ' + (isOn ? 'checked' : '') +
+          ' onchange="toggleChannelInline(\'' + ch.key + '\', this.checked)"/>' +
+          ' ' + ch.icon + ' ' + escHtml(ch.label) +
+        '</label>';
+      }).join('');
+
+      // Email recipients (conditional)
+      let emailRecipientsHtml = '';
+      if (channels.email?.enabled) {
+        emailRecipientsHtml = '<div style="margin-top:12px">' +
+          '<div style="font-size:.78rem;font-weight:700;margin-bottom:6px;color:var(--text)">Email Recipients</div>' +
+          '<input type="email" multiple value="' + escHtml(channels.email?.recipients || '') + '"' +
+          ' placeholder="alerts@company.com, team@company.com"' +
+          ' onblur="updateChannelValue(\'email\', this.value)"' +
+          ' style="width:100%;max-width:400px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:var(--font);color:var(--text);background:var(--surface)"/>' +
+          '<div style="font-size:.72rem;color:var(--muted);margin-top:3px">Comma-separated addresses</div>' +
+        '</div>';
+      }
+
+      // Manager scope
+      const allManagers = [...new Set(customers.map(c => c.manager || '').filter(Boolean))].sort();
+      const inlineMgrScope = automationsCfg.manager_scope || { mode: 'all', managers: [] };
+      const mgrScopeHtml = '<div style="margin-top:12px">' +
+        '<div style="font-size:.78rem;font-weight:700;margin-bottom:6px;color:var(--text)">Manager Scope</div>' +
+        '<div style="display:flex;gap:16px;align-items:center;margin-bottom:6px">' +
+          '<label style="display:flex;align-items:center;gap:4px;font-size:.78rem;cursor:pointer">' +
+            '<input type="radio" name="inline-mgr-scope" value="all"' + (inlineMgrScope.mode === 'all' ? ' checked' : '') + ' onchange="setManagerScopeMode(\'all\')"/> All Managers' +
+          '</label>' +
+          '<label style="display:flex;align-items:center;gap:4px;font-size:.78rem;cursor:pointer">' +
+            '<input type="radio" name="inline-mgr-scope" value="selected"' + (inlineMgrScope.mode === 'selected' ? ' checked' : '') + ' onchange="setManagerScopeMode(\'selected\')"/> Selected Managers' +
+          '</label>' +
+        '</div>' +
+        (inlineMgrScope.mode === 'selected' ? '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
+          allManagers.map(m => {
+            const checked = (inlineMgrScope.managers || []).includes(m);
+            return '<label style="display:flex;align-items:center;gap:4px;font-size:.78rem;cursor:pointer">' +
+              '<input type="checkbox"' + (checked ? ' checked' : '') + ' onchange="toggleManagerScope(\'' + escHtml(m).replace(/'/g, "\\'") + '\', this.checked)"/> ' + escHtml(m) +
+            '</label>';
+          }).join('') +
+        '</div>' : '') +
+      '</div>';
+
+      inlineEditHtml = '<tr><td colspan="7" style="padding:0 12px 10px">' +
+        '<div class="summary-inline-edit">' +
+          thresholdFields +
+          '<div>' +
+            '<div style="font-size:.78rem;font-weight:700;margin-bottom:8px;color:var(--text)">Channels</div>' +
+            '<div class="summary-inline-channels">' + channelToggles + '</div>' +
+          '</div>' +
+          emailRecipientsHtml +
+          mgrScopeHtml +
+          '<div style="margin-top:12px;text-align:right">' +
+            '<button class="btn btn-xs btn-ghost" onclick="closeInlineEdit()" style="color:var(--blue)">Done</button>' +
+          '</div>' +
+        '</div>' +
       '</td></tr>';
+    }
+
+    return '<tr class="' + (isEditing ? 'editing' : '') + '">' +
+      '<td><span style="margin-right:6px;display:inline-flex;vertical-align:middle;color:var(--blue)">' + _aicoSm(AUTO_ICONS[at.key]) + '</span>' + escHtml(at.label) + '</td>' +
+      '<td style="color:var(--muted);font-size:.82rem">' + conditionText(at) + '</td>' +
+      '<td>' + sentToHtml() + '</td>' +
+      '<td style="font-size:.78rem;white-space:nowrap">' + scheduleText() + '</td>' +
+      '<td style="font-size:.78rem;color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis" title="' + escHtml(scopeDisplay) + '">' + scopeDisplay + '</td>' +
+      '<td style="font-size:.78rem;color:var(--muted)">' + escHtml(creatorDisplay) + '</td>' +
+      '<td>' +
+        '<button class="btn btn-xs btn-ghost" onclick="toggleInlineEdit(\'' + at.key + '\')" title="' + (isEditing ? 'Close' : 'Edit') + '">' + (isEditing ? _aicoSm(AUTO_ICONS.check) : _aicoSm(AUTO_ICONS.edit)) + '</button> ' +
+        '<button class="btn btn-xs btn-ghost" style="color:var(--red)" onclick="wizardRemoveAlert(\'' + at.key + '\')" title="Remove">' + _aicoSm(AUTO_ICONS.x) + '</button>' +
+      '</td></tr>' +
+      inlineEditHtml;
   }).join('');
 
-  container.innerHTML = '<table class="alert-summary-table">' +
-    '<thead><tr><th>Alert Type</th><th>Condition</th><th>Channels</th><th>Schedule</th><th style="width:80px">Actions</th></tr></thead>' +
+  // ── Filter pills bar ──
+  let pillsHtml = '';
+  const pillKeys = Object.keys(_alertFilters);
+  if (pillKeys.length) {
+    pillsHtml = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;align-items:center">' +
+      pillKeys.map(key => {
+        const f = _alertFilters[key];
+        const def = ALERT_COL_DEFS.find(d => d.key === key);
+        const label = def ? def.label : key;
+        let summary = '';
+        if (f.type === 'text') summary = '"' + (f.q || '').slice(0, 20) + '"';
+        else if (f.type === 'enum') {
+          const arr = [...(f.vals || [])];
+          summary = arr.length <= 3 ? arr.join(', ') : arr.slice(0, 3).join(', ') + ' +' + (arr.length - 3);
+        }
+        return '<span class="filter-pill">' + escHtml(label) + ': ' + escHtml(summary) +
+          '<button class="filter-pill-x" onclick="event.stopPropagation();clearAlertFilter(\'' + key + '\')" title="Remove filter">' + _aicoSm(AUTO_ICONS.x) + '</button></span>';
+      }).join('') +
+      '<button class="btn btn-xs btn-ghost" onclick="clearAllAlertFilters()" style="font-size:.72rem;color:var(--muted)">Clear all</button>' +
+    '</div>';
+  }
+
+  container.innerHTML = pillsHtml + '<table class="alert-summary-table">' +
+    '<thead><tr>' + theadCols + '</tr></thead>' +
     '<tbody>' + rows + '</tbody></table>';
+}
+
+// ── Thin wrapper — keeps existing callers working ──
+function renderAlertSummary() { renderActiveAlerts(); }
+
+// ── Inline Edit Helpers ──
+
+function toggleInlineEdit(alertKey) {
+  _inlineEditKey = (_inlineEditKey === alertKey) ? null : alertKey;
+  renderAlertSummary();
+}
+
+function closeInlineEdit() {
+  _inlineEditKey = null;
+  renderAlertSummary();
+}
+
+function toggleChannelInline(channelKey, enabled) {
+  if (!automationsCfg.channels) automationsCfg.channels = {};
+  if (!automationsCfg.channels[channelKey]) automationsCfg.channels[channelKey] = {};
+  automationsCfg.channels[channelKey].enabled = enabled;
+  if (enabled && !automationsCfg.channels[channelKey].alerts) {
+    automationsCfg.channels[channelKey].alerts = [...(automationsCfg.selected_alerts || ALERT_TYPES.map(a => a.key))];
+  }
+  saveAutomationsCfg();
+  renderAlertSummary();
+  if (_wizardStep === 3) renderWizardStep3();
 }
 
 function wizardRemoveAlert(key) {
   automationsCfg.selected_alerts = (automationsCfg.selected_alerts || []).filter(a => a !== key);
-  // Also remove from all channel subscriptions
-  const channels = automationsCfg.channels || {};
-  ['slack', 'teams', 'email'].forEach(chKey => {
-    if (channels[chKey]?.alerts) {
-      channels[chKey].alerts = channels[chKey].alerts.filter(a => a !== key);
-    }
-  });
+  if (_inlineEditKey === key) _inlineEditKey = null;
   saveAutomationsCfg();
   renderAlertSummary();
   renderWizardStep(_wizardStep);
@@ -4427,67 +6285,126 @@ function wizardRemoveAlert(key) {
   toast(label + ' removed', 'success');
 }
 
-// ── Wizard Navigation ──
+// ── Alert Table Sort & Filter Functions ──
+
+function alertSortBy(key) {
+  if (_alertSortKey === key) _alertSortDir *= -1;
+  else { _alertSortKey = key; _alertSortDir = 1; }
+  renderAlertSummary();
+}
+
+function openAlertFilter(key, btnEl) {
+  if (_openAlertFilterKey === key) { closeAlertFilter(); return; }
+  closeAlertFilter();
+  _openAlertFilterKey = key;
+  const col  = ALERT_COL_DEFS.find(c => c.key === key);
+  const menu = document.getElementById('alert-filter-portal');
+  menu.innerHTML = buildAlertFilterMenu(col);
+  menu.classList.add('open');
+  const rect = (btnEl.closest('th') || btnEl).getBoundingClientRect();
+  menu.style.top  = (rect.bottom + window.scrollY + 4) + 'px';
+  menu.style.left = (rect.left   + window.scrollX)      + 'px';
+  requestAnimationFrame(() => {
+    const mr = menu.getBoundingClientRect();
+    if (mr.right > window.innerWidth - 8)
+      menu.style.left = (window.innerWidth - mr.width - 8 + window.scrollX) + 'px';
+  });
+  populateAlertFilterUI(key, col);
+  setTimeout(() => menu.querySelector('input')?.focus(), 30);
+}
+
+function closeAlertFilter() {
+  const menu = document.getElementById('alert-filter-portal');
+  if (menu) { menu.classList.remove('open'); menu.innerHTML = ''; }
+  _openAlertFilterKey = null;
+}
+
+function buildAlertFilterMenu(col) {
+  let body = '';
+  if (col.ftype === 'enum') {
+    const vals = col.enumVals || [];
+    body = '<div class="cff-enum-list">' + vals.map(v =>
+      '<label class="cff-check-item">' +
+        '<input type="checkbox" value="' + escHtml(v) + '" class="af-enum-cb" onchange="applyAlertFilterLive()"> ' +
+        escHtml(v) +
+      '</label>'
+    ).join('') + '</div>';
+  } else if (col.ftype === 'text') {
+    body = '<input class="cff-text-input" id="af-text" type="text" placeholder="Search ' + col.label.toLowerCase() + '…" oninput="applyAlertFilterLive()" autocomplete="off">';
+  }
+  return '<div class="col-filter-hd">' +
+      '<span class="col-filter-title">Filter: ' + col.label + '</span>' +
+      '<button class="col-filter-clear" onclick="clearAlertFilter(\'' + col.key + '\')">Clear</button>' +
+    '</div>' +
+    '<div class="col-filter-body">' + body + '</div>';
+}
+
+function populateAlertFilterUI(key, col) {
+  const f = _alertFilters[key];
+  if (!f) return;
+  if (col.ftype === 'enum') {
+    document.querySelectorAll('.af-enum-cb').forEach(cb => { cb.checked = f.vals.has(cb.value); });
+  } else if (col.ftype === 'text') {
+    const inp = document.getElementById('af-text');
+    if (inp) inp.value = f.q || '';
+  }
+}
+
+function applyAlertFilterLive() {
+  const key = _openAlertFilterKey;
+  if (!key) return;
+  const col = ALERT_COL_DEFS.find(c => c.key === key);
+  if (!col) return;
+  if (col.ftype === 'enum') {
+    const checked = [...document.querySelectorAll('.af-enum-cb:checked')].map(cb => cb.value);
+    if (checked.length) _alertFilters[key] = { type: 'enum', vals: new Set(checked) };
+    else delete _alertFilters[key];
+  } else if (col.ftype === 'text') {
+    const q = (document.getElementById('af-text')?.value || '').trim().toLowerCase();
+    if (q) _alertFilters[key] = { type: 'text', q };
+    else delete _alertFilters[key];
+  }
+  renderAlertSummary();
+}
+
+function clearAlertFilter(key) {
+  delete _alertFilters[key];
+  closeAlertFilter();
+  renderAlertSummary();
+}
+
+function clearAllAlertFilters() {
+  _alertFilters = {};
+  closeAlertFilter();
+  renderAlertSummary();
+}
+
+// ── Wizard Navigation (clickable stepper, animated transitions) ──
 
 function wizardGoToStep(step) {
   _wizardStep = step;
   // Update stepper UI
-  document.querySelectorAll('.wizard-step').forEach(el => {
-    const s = parseInt(el.dataset.step);
-    el.classList.toggle('active', s === step);
-    el.classList.toggle('completed', s < step);
+  document.querySelectorAll('.wizard-step').forEach(stepEl => {
+    const s = parseInt(stepEl.dataset.step);
+    stepEl.classList.toggle('active', s === step);
+    stepEl.classList.toggle('completed', s < step);
   });
   // Update connecting lines
-  const lines = document.querySelectorAll('.wizard-step__line');
-  lines.forEach((line, i) => {
+  document.querySelectorAll('.wizard-step__line').forEach((line, i) => {
     line.classList.toggle('completed', (i + 1) < step);
   });
-  // Show/hide panes
+  // Animated pane transition: remove all active, then add on next frame for fade-in
   for (let i = 1; i <= 3; i++) {
     const pane = el('wizard-pane-' + i);
-    if (pane) pane.classList.toggle('active', i === step);
+    if (pane) pane.classList.remove('active');
   }
-  // Back button visibility
-  const backBtn = el('wizard-back');
-  if (backBtn) backBtn.style.display = step === 1 ? 'none' : '';
-  // Next button text
-  const nextBtn = el('wizard-next');
-  if (nextBtn) nextBtn.textContent = step === 3 ? 'Save & Finish' : 'Next \u2192';
+  requestAnimationFrame(() => {
+    const targetPane = el('wizard-pane-' + step);
+    if (targetPane) targetPane.classList.add('active');
+  });
   // Render step content
   renderWizardStep(step);
-}
-
-function wizardNext() {
-  if (_wizardStep === 1) {
-    const selected = automationsCfg.selected_alerts || [];
-    if (!selected.length) {
-      toast('Select at least one alert type to continue', 'warn');
-      return;
-    }
-    wizardGoToStep(2);
-  } else if (_wizardStep === 2) {
-    wizardGoToStep(3);
-  } else if (_wizardStep === 3) {
-    wizardFinalize();
-  }
-}
-
-function wizardBack() {
-  if (_wizardStep > 1) wizardGoToStep(_wizardStep - 1);
-}
-
-function wizardFinalize() {
-  // Sync selected_alerts to all enabled channels
-  const selected = automationsCfg.selected_alerts || [];
-  const channels = automationsCfg.channels || {};
-  ['slack', 'teams', 'email'].forEach(chKey => {
-    if (channels[chKey]?.enabled) {
-      channels[chKey].alerts = [...selected];
-    }
-  });
-  saveAutomationsCfg();
-  renderAlertSummary();
-  toast('Alert configuration saved!', 'success');
+  renderWizardNav();
 }
 
 function renderWizardStep(step) {
@@ -4496,7 +6413,28 @@ function renderWizardStep(step) {
   else if (step === 3) renderWizardStep3();
 }
 
-// ── Step 1: Choose Your Alerts ──
+// ── Wizard Nav (Back / Next / Save & Finish) ──
+
+function renderWizardNav() {
+  const nav = el('wizard-nav-bar');
+  if (!nav) return;
+  const backBtn = _wizardStep > 1
+    ? '<button class="btn btn-sm btn-ghost" onclick="wizardGoToStep(' + (_wizardStep - 1) + ')">← Back</button>'
+    : '<span></span>';
+  const nextBtn = _wizardStep < 3
+    ? '<button class="btn btn-sm btn-primary" onclick="wizardGoToStep(' + (_wizardStep + 1) + ')">Next →</button>'
+    : '<button class="btn btn-sm btn-primary" onclick="wizardSaveAndFinish()">Save & Finish ' + _aicoSm(AUTO_ICONS.check) + '</button>';
+  nav.innerHTML = backBtn + nextBtn;
+}
+
+function wizardSaveAndFinish() {
+  saveAutomationsCfg();
+  _wizardStep = 1;
+  autoTab('active');
+  toast('Alerts saved!', 'success');
+}
+
+// ── Step 1: Choose Your Alerts (2-column grid) ──
 
 function renderWizardStep1() {
   const pane = el('wizard-pane-1');
@@ -4506,14 +6444,41 @@ function renderWizardStep1() {
   const cards = ALERT_TYPES.map(at => {
     const isSel = selected.includes(at.key);
     return '<div class="wizard-alert-card ' + (isSel ? 'selected' : '') + '" onclick="wizardToggleAlert(\'' + at.key + '\')" data-alert-key="' + at.key + '">' +
-      '<div class="wizard-alert-card__check">' + (isSel ? '✓' : '') + '</div>' +
-      '<span style="font-size:1.3rem;flex-shrink:0">' + at.icon + '</span>' +
+      '<div class="wizard-alert-card__check">' + (isSel ? _aicoSm(AUTO_ICONS.check) : '') + '</div>' +
+      '<span style="flex-shrink:0;display:flex;align-items:center;color:var(--blue)">' + at.icon + '</span>' +
       '<div style="flex:1;min-width:0">' +
         '<div style="font-weight:600;font-size:.85rem">' + escHtml(at.label) + '</div>' +
         '<div style="font-size:.75rem;color:var(--muted);margin-top:2px">' + escHtml(at.desc) + '</div>' +
       '</div>' +
     '</div>';
   }).join('');
+
+  // Build manager scope section (moved from Step 3)
+  const mgrScope = automationsCfg.manager_scope || { mode: 'all', managers: [] };
+  const allManagers = [...new Set(customers.map(c => c.manager || '').filter(Boolean))].sort();
+  const mgrScopeHtml = '<div style="margin-top:24px;margin-bottom:14px">' +
+    '<h3 style="margin:0;font-size:1rem">Who should alerts cover?</h3>' +
+    '<p style="font-size:.78rem;color:var(--muted);margin:4px 0 0">Scope alerts to specific managers or monitor all accounts.</p>' +
+  '</div>' +
+  '<div class="wizard-schedule-option ' + (mgrScope.mode === 'all' ? 'active' : '') + '" onclick="setManagerScopeMode(\'all\')">' +
+    '<input type="radio" name="mgr-scope-mode" value="all"' + (mgrScope.mode === 'all' ? ' checked' : '') + ' onclick="event.stopPropagation();setManagerScopeMode(\'all\')"/>' +
+    '<div style="flex:1"><div style="font-weight:600;font-size:.85rem;display:flex;align-items:center;gap:6px">' + _aico(AUTO_ICONS.allMgrs) + ' All Managers</div>' +
+    '<div style="font-size:.75rem;color:var(--muted);margin-top:2px">Alerts fire for every customer regardless of manager</div></div>' +
+  '</div>' +
+  '<div class="wizard-schedule-option ' + (mgrScope.mode === 'selected' ? 'active' : '') + '" onclick="setManagerScopeMode(\'selected\')">' +
+    '<input type="radio" name="mgr-scope-mode" value="selected"' + (mgrScope.mode === 'selected' ? ' checked' : '') + ' onclick="event.stopPropagation();setManagerScopeMode(\'selected\')"/>' +
+    '<div style="flex:1"><div style="font-weight:600;font-size:.85rem;display:flex;align-items:center;gap:6px">' + _aico(AUTO_ICONS.selMgrs) + ' Selected Managers</div>' +
+    '<div style="font-size:.75rem;color:var(--muted);margin-top:2px">Only fire alerts for accounts owned by chosen managers</div>' +
+    (mgrScope.mode === 'selected' ? '<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px">' +
+      allManagers.map(m => {
+        const checked = (mgrScope.managers || []).includes(m);
+        return '<label onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:4px;font-size:.78rem;cursor:pointer">' +
+          '<input type="checkbox"' + (checked ? ' checked' : '') + ' onchange="event.stopPropagation();toggleManagerScope(\'' + escHtml(m).replace(/'/g, "\\'") + '\', this.checked)"/> ' + escHtml(m) +
+        '</label>';
+      }).join('') +
+    '</div>' : '') +
+    '</div>' +
+  '</div>';
 
   pane.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">' +
     '<div>' +
@@ -4524,7 +6489,9 @@ function renderWizardStep1() {
       '<button class="btn btn-xs btn-ghost" onclick="wizardSelectAll()" style="font-size:.75rem">Select All</button>' +
       '<button class="btn btn-xs btn-ghost" onclick="wizardClearAll()" style="font-size:.75rem;color:var(--muted)">Clear</button>' +
     '</div>' +
-  '</div>' + cards;
+  '</div>' +
+  '<div class="wizard-alert-grid">' + cards + '</div>' +
+  mgrScopeHtml;
 }
 
 function wizardToggleAlert(key) {
@@ -4534,18 +6501,21 @@ function wizardToggleAlert(key) {
   else automationsCfg.selected_alerts.push(key);
   saveAutomationsCfg();
   renderWizardStep1();
+  renderAlertSummary();
 }
 
 function wizardSelectAll() {
   automationsCfg.selected_alerts = ALERT_TYPES.map(a => a.key);
   saveAutomationsCfg();
   renderWizardStep1();
+  renderAlertSummary();
 }
 
 function wizardClearAll() {
   automationsCfg.selected_alerts = [];
   saveAutomationsCfg();
   renderWizardStep1();
+  renderAlertSummary();
 }
 
 // ── Step 2: Configure Thresholds ──
@@ -4561,7 +6531,7 @@ function renderWizardStep2() {
 
   if (!configurable.length) {
     pane.innerHTML = '<div style="text-align:center;padding:40px 20px">' +
-      '<div style="font-size:2rem;margin-bottom:12px">✅</div>' +
+      '<div style="font-size:2rem;margin-bottom:12px;color:var(--green)">' + _aicoLg(AUTO_ICONS.checkCircle) + '</div>' +
       '<h3 style="margin:0;font-size:1rem">No thresholds to configure</h3>' +
       '<p style="font-size:.82rem;color:var(--muted);margin-top:6px">Your selected alerts use automatic detection \u2014 no thresholds needed.</p>' +
     '</div>';
@@ -4583,7 +6553,7 @@ function renderWizardStep2() {
 
     return '<div class="wizard-threshold-card">' +
       '<div style="display:flex;align-items:center;gap:10px">' +
-        '<span style="font-size:1.2rem">' + at.icon + '</span>' +
+        '<span style="flex-shrink:0;display:flex;align-items:center;color:var(--blue)">' + at.icon + '</span>' +
         '<div style="font-weight:600;font-size:.88rem">' + escHtml(at.label) + '</div>' +
       '</div>' +
       fields +
@@ -4640,7 +6610,7 @@ function renderWizardStep3() {
         '<div style="display:flex;gap:8px;align-items:center">' +
           '<button class="btn btn-xs btn-outline" onclick="testChannel(\'' + ch.key + '\')"' +
             (!value ? ' disabled title="Enter a ' + (isEmail ? 'recipient' : 'URL') + ' first"' : '') + '>' +
-            '\u26A1 Send Test</button>' +
+            _aicoSm(AUTO_ICONS.realtime) + ' Send Test</button>' +
           '<span id="ch-test-status-' + ch.key + '" style="font-size:.76rem;color:var(--muted)"></span>' +
         '</div>' +
         '<details style="margin-top:8px"><summary style="cursor:pointer;color:var(--blue);font-size:.74rem;font-weight:600">Setup Instructions</summary>' + ch.setup + '</details>' +
@@ -4650,7 +6620,7 @@ function renderWizardStep3() {
     return '<div class="wizard-channel-row">' +
       '<div style="display:flex;align-items:center;justify-content:space-between">' +
         '<div style="display:flex;align-items:center;gap:10px">' +
-          '<span style="font-size:1.2rem">' + ch.icon + '</span>' +
+          '<span style="flex-shrink:0;display:flex;align-items:center;color:var(--blue)">' + ch.icon + '</span>' +
           '<div>' +
             '<div style="font-weight:600;font-size:.85rem">' + escHtml(ch.label) + '</div>' +
             '<div style="font-size:.73rem;color:var(--muted)">' + escHtml(ch.desc) + '</div>' +
@@ -4668,9 +6638,9 @@ function renderWizardStep3() {
 
   // Build schedule options
   const scheduleOptions = [
-    { mode: 'realtime', label: 'Real-time', desc: 'Send alerts immediately when triggered', icon: '\u26A1' },
-    { mode: 'daily', label: 'Daily Digest', desc: 'Bundle alerts into a daily summary', icon: '\uD83D\uDCC5' },
-    { mode: 'weekly', label: 'Weekly Digest', desc: 'Bundle alerts into a weekly summary', icon: '\uD83D\uDCC6' }
+    { mode: 'realtime', label: 'Real-time', desc: 'Send alerts immediately when triggered', icon: _aico(AUTO_ICONS.realtime) },
+    { mode: 'daily', label: 'Daily Digest', desc: 'Bundle alerts into a daily summary', icon: _aico(AUTO_ICONS.daily) },
+    { mode: 'weekly', label: 'Weekly Digest', desc: 'Bundle alerts into a weekly summary', icon: _aico(AUTO_ICONS.weekly) }
   ];
 
   const scheduleHtml = scheduleOptions.map(opt => {
@@ -4706,7 +6676,7 @@ function renderWizardStep3() {
     return '<div class="wizard-schedule-option ' + (isActive ? 'active' : '') + '" onclick="setScheduleMode(\'' + opt.mode + '\')">' +
       '<input type="radio" name="schedule-mode" value="' + opt.mode + '"' + (isActive ? ' checked' : '') + ' onclick="event.stopPropagation();setScheduleMode(\'' + opt.mode + '\')"/>' +
       '<div style="flex:1">' +
-        '<div style="font-weight:600;font-size:.85rem">' + opt.icon + ' ' + escHtml(opt.label) + '</div>' +
+        '<div style="font-weight:600;font-size:.85rem;display:flex;align-items:center;gap:6px">' + opt.icon + ' ' + escHtml(opt.label) + '</div>' +
         '<div style="font-size:.75rem;color:var(--muted);margin-top:2px">' + escHtml(opt.desc) + '</div>' +
         extra +
       '</div>' +
@@ -4740,6 +6710,24 @@ function updateSchedule(field, value) {
   if (!automationsCfg.schedule) automationsCfg.schedule = {};
   automationsCfg.schedule[field] = value;
   saveAutomationsCfg();
+  renderAlertSummary();
+}
+
+function setManagerScopeMode(mode) {
+  if (!automationsCfg.manager_scope) automationsCfg.manager_scope = { mode: 'all', managers: [] };
+  automationsCfg.manager_scope.mode = mode;
+  saveAutomationsCfg();
+  renderWizardStep1();
+  renderAlertSummary();
+}
+
+function toggleManagerScope(manager, checked) {
+  if (!automationsCfg.manager_scope) automationsCfg.manager_scope = { mode: 'selected', managers: [] };
+  const arr = automationsCfg.manager_scope.managers;
+  if (checked && !arr.includes(manager)) arr.push(manager);
+  if (!checked) automationsCfg.manager_scope.managers = arr.filter(m => m !== manager);
+  saveAutomationsCfg();
+  renderWizardStep1();
   renderAlertSummary();
 }
 
@@ -5189,6 +7177,15 @@ function checkWebhookTriggers(c) {
   const hasWebhooks = !!automationsCfg.webhooks;
   const hasChannels = !!automationsCfg.channels;
   if (!hasWebhooks && !hasChannels) { _prevCustomerStates.set(c.id, _snapFields(c)); return; }
+
+  // Manager scope filter — skip if customer's manager isn't in scope
+  const mgrScope = automationsCfg.manager_scope;
+  if (mgrScope && mgrScope.mode === 'selected' && mgrScope.managers.length > 0) {
+    if (!mgrScope.managers.includes(c.manager || '')) {
+      _prevCustomerStates.set(c.id, _snapFields(c));
+      return;
+    }
+  }
 
   const settings = automationsCfg.alert_settings || {};
   const triggeredEvents = [];
@@ -6412,29 +8409,54 @@ async function renderClients() {
   // Count users per client
   let profiles = [];
   try {
-    const { data } = await sb.from('user_profiles').select('client_id');
+    const { data } = await sb.from('user_profiles').select('user_id, client_id');
     profiles = data || [];
   } catch(e) {}
   const userCounts = {};
   profiles.forEach(p => { if (p.client_id) userCounts[p.client_id] = (userCounts[p.client_id]||0)+1; });
 
-  if (countEl) countEl.textContent = `${adminClients.length} client${adminClients.length!==1?'s':''}`;
+  // Count customers per client (via user_profiles → customers)
+  const custCounts = {};
+  let totalCustomers = 0;
+  try {
+    // Get user_id → client_id mapping
+    const userToClient = {};
+    profiles.forEach(p => { if (p.client_id) userToClient[p.client_id] = userToClient[p.client_id] || []; });
+    // Profiles already have client_id; query customer counts grouped by user_id
+    const { data: custRows } = await sb.from('customers').select('user_id');
+    if (custRows) {
+      // Build user_id → client_id lookup
+      const uidToClient = {};
+      profiles.forEach(p => { if (p.client_id) uidToClient[p.user_id] = p.client_id; });
+      custRows.forEach(r => {
+        const cid = uidToClient[r.user_id];
+        if (cid) { custCounts[cid] = (custCounts[cid] || 0) + 1; }
+        totalCustomers++;
+      });
+    }
+  } catch(e) { console.warn('Customer count query:', e.message); }
+
+  if (countEl) countEl.textContent = `${adminClients.length} client${adminClients.length!==1?'s':''} · ${totalCustomers} total customers`;
   if (empty) empty.style.display = 'none';
   if (table) table.style.display = '';
 
-  tbody.innerHTML = adminClients.map(c => `
+  tbody.innerHTML = adminClients.map(c => {
+    const cc = custCounts[c.id] || 0;
+    return `
     <tr>
       <td><strong>${escHtml(c.name)}</strong></td>
-      <td>${tierBadgeHTML(c.plan_tier || 'solo')}</td>
+      <td>${tierBadgeHTML(c.plan_tier || 'starter')}</td>
       <td>${userCounts[c.id] || 0}</td>
+      <td><strong>${cc}</strong></td>
       <td style="color:var(--muted);font-size:.8rem">${escHtml(c.notes || '—')}</td>
       <td>
         <div style="display:flex;gap:4px">
-          <button class="btn btn-xs btn-outline" onclick="openEditClientModal('${escHtml(c.id)}','${escHtml(c.name)}',\`${escHtml(c.notes||'')}\`,'${escHtml(c.plan_tier||'solo')}')">Edit</button>
+          <button class="btn btn-xs btn-outline" onclick="openEditClientModal('${escHtml(c.id)}','${escHtml(c.name)}',\`${escHtml(c.notes||'')}\`,'${escHtml(c.plan_tier||'starter')}')">Edit</button>
           <button class="btn btn-xs btn-danger" onclick="adminDeleteClient('${escHtml(c.id)}','${escHtml(c.name)}')">Remove</button>
         </div>
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 function openCreateClientModal() {
@@ -6477,7 +8499,7 @@ function openEditClientModal(id, name, notes, tier) {
   if (!isAdmin()) return;
   el('ec-id').value    = id;
   el('ec-name').value  = name;
-  el('ec-tier').value  = tier || 'solo';
+  el('ec-tier').value  = tier || 'starter';
   el('ec-notes').value = notes;
   el('ec-err').textContent = '';
   el('ec-btn').disabled = false;
@@ -6488,7 +8510,7 @@ function openEditClientModal(id, name, notes, tier) {
 async function adminUpdateClient() {
   const id        = el('ec-id').value;
   const name      = el('ec-name').value.trim();
-  const plan_tier = el('ec-tier').value || 'solo';
+  const plan_tier = el('ec-tier').value || 'starter';
   const notes     = el('ec-notes').value.trim();
   if (!name) { el('ec-err').textContent = 'Business name is required.'; return; }
   el('ec-btn').disabled = true;
@@ -6695,8 +8717,15 @@ function openEditUserModal(userId, email, clientId) {
   if (!isAdmin()) return;
   el('eu-userid').value = userId;
   el('eu-email').value  = email;
-  el('eu-pw').value     = '';
   el('eu-err').textContent = '';
+  // Clear password input
+  const pwInput = el('eu-pw');
+  if (pwInput) pwInput.value = '';
+  // Reset password button state
+  const pwStatus = el('eu-pw-status');
+  if (pwStatus) { pwStatus.textContent = 'Sends a reset link to the user\'s email address.'; pwStatus.style.color = 'var(--muted)'; }
+  const pwBtn = el('eu-pw-btn');
+  if (pwBtn) { pwBtn.disabled = false; pwBtn.textContent = 'Send Password Reset Email →'; }
   el('eu-ok').textContent  = '';
   el('eu-btn').disabled    = false;
   el('eu-btn').textContent = 'Save Changes →';
@@ -6705,17 +8734,49 @@ function openEditUserModal(userId, email, clientId) {
   openModal('edit-user-modal');
 }
 
+async function adminSendPasswordReset() {
+  if (!isAdmin()) return;
+  const email = el('eu-email')?.value?.trim();
+  if (!email) { el('eu-err').textContent = 'No email found.'; return; }
+
+  el('eu-pw-btn').disabled = true;
+  el('eu-pw-btn').textContent = 'Sending…';
+  el('eu-err').textContent = '';
+
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.href
+  });
+
+  if (error) {
+    el('eu-err').textContent = 'Error: ' + error.message;
+  } else {
+    const status = el('eu-pw-status');
+    if (status) { status.textContent = '✓ Reset link sent to ' + email; status.style.color = 'var(--green)'; }
+    toast('Password reset email sent to ' + email, 'success');
+  }
+
+  el('eu-pw-btn').disabled = false;
+  el('eu-pw-btn').textContent = 'Send Password Reset Email →';
+}
+
 async function adminSaveEdit() {
+  // NOTE: Direct password set for other users requires the Supabase service-role key
+  // (admin API), which is not available client-side. Use the "Send Password Reset Email"
+  // button instead, or set passwords via Supabase Dashboard → Authentication → Users.
   if (!isAdmin()) return;
   const userId   = el('eu-userid').value;
   const clientId = el('eu-client').value;
-  const pw       = el('eu-pw').value.trim();
+  const pw       = el('eu-pw')?.value?.trim() || '';
 
   el('eu-err').textContent = '';
   el('eu-ok').textContent  = '';
 
   if (pw && pw.length < 8) {
     el('eu-err').textContent = 'Password must be at least 8 characters.';
+    return;
+  }
+  if (pw) {
+    el('eu-err').textContent = 'Direct password set is not available from the client. Use "Send Password Reset Email" or the Supabase Dashboard.';
     return;
   }
 
@@ -7022,6 +9083,7 @@ async function importCSV() {
     const dupe = customers.find(c => c.name.toLowerCase() === r.name.toLowerCase());
     if (dupe) {
       Object.assign(dupe, { ...r, score, status });
+      dupe._baseDays = dupe.days || 0;
       dupe.history = dupe.history || [];
       dupe.history.push({ score, date: now });
       // Append note if provided
@@ -7041,6 +9103,7 @@ async function importCSV() {
       const newCust = {
         id: crypto.randomUUID(),
         ...r, score, status,
+        _baseDays: r.days || 0,
         notes,
         sentiment,
         history: [{ score, date: now }],
@@ -7271,6 +9334,13 @@ function rescoreAllFromToolbar() {
 
 let segSortKey = 'mrr';
 let segSortDir = 'desc';
+let _hideUntagged = localStorage.getItem('iqc_hide_untagged') === 'true';
+
+function toggleHideUntagged() {
+  _hideUntagged = !_hideUntagged;
+  localStorage.setItem('iqc_hide_untagged', _hideUntagged);
+  renderSegments();
+}
 
 function renderSegments() {
   const kpiRow = el('seg-kpi-row');
@@ -7279,7 +9349,7 @@ function renderSegments() {
   const insightsWrap = el('seg-insights-wrap');
   if (!kpiRow) return;
 
-  const active = customers.filter(c => c.lifecycle !== 'churned');
+  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
 
   // Cache getDelta7d once per customer
   const deltaCache = new Map();
@@ -7301,6 +9371,22 @@ function renderSegments() {
     });
   });
 
+  // Collect untagged customers into a virtual segment
+  const untaggedCustomers = active.filter(c => !c.tags || c.tags.length === 0);
+  if (untaggedCustomers.length > 0) {
+    tagMap[SEG_UNTAGGED] = { tag: SEG_UNTAGGED, custs: [], totalMRR: 0, healthy: 0, watch: 0, atRisk: 0, riskMRR: 0, overdueCount: 0, renewals90: 0 };
+    const seg = tagMap[SEG_UNTAGGED];
+    untaggedCustomers.forEach(c => {
+      seg.custs.push(c);
+      seg.totalMRR += (c.mrr || 0);
+      if (c.status === 'healthy' || c.status === 'expand') seg.healthy++;
+      else if (c.status === 'watch') seg.watch++;
+      else if (c.status === 'critical' || c.status === 'risk') { seg.atRisk++; seg.riskMRR += (c.mrr || 0); }
+      if (c.days != null && c.days >= 14) seg.overdueCount++;
+      if (c.renewal != null && c.renewal > 0 && c.renewal <= 3) seg.renewals90++;
+    });
+  }
+
   const segments = Object.values(tagMap).map(seg => {
     seg.count = seg.custs.length;
     seg.avgScore = Math.round(seg.custs.reduce((s, c) => s + c.score, 0) / seg.count);
@@ -7312,11 +9398,14 @@ function renderSegments() {
     return seg;
   });
 
+  // Apply "Hide Untagged" filter
+  const visibleSegments = _hideUntagged ? segments.filter(s => s.tag !== SEG_UNTAGGED) : segments;
+
   // Cache for drill-down usage
-  window._segData = segments;
+  window._segData = visibleSegments;
   window._segDeltaCache = deltaCache;
 
-  if (!segments.length) {
+  if (!visibleSegments.length) {
     const tagIcon = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>';
     kpiRow.innerHTML = '';
     if (cardsWrap) cardsWrap.innerHTML = `<div class="empty-st"><div class="ei" style="font-size:1.5rem;color:var(--muted)">${tagIcon}</div><h3>No tags yet</h3><p>Add tags to customers via the edit form or bulk-tag to create segments.</p></div>`;
@@ -7326,12 +9415,15 @@ function renderSegments() {
   }
 
   const subtitle = el('seg-subtitle');
-  if (subtitle) subtitle.textContent = `${segments.length} segment${segments.length !== 1 ? 's' : ''} \u00b7 ${active.length} accounts`;
+  if (subtitle) subtitle.textContent = `${visibleSegments.length} segment${visibleSegments.length !== 1 ? 's' : ''} \u00b7 ${active.length} accounts`;
 
-  renderSegKPIs(segments, active);
-  renderSegCardGrid(segments);
-  renderSegTable(segments);
-  renderSegInsights(segments);
+  const toggleBtn = document.getElementById('seg-toggle-untagged');
+  if (toggleBtn) toggleBtn.textContent = _hideUntagged ? 'Show Untagged' : 'Hide Untagged';
+
+  renderSegKPIs(visibleSegments, active);
+  renderSegCardGrid(visibleSegments);
+  renderSegTable(visibleSegments);
+  renderSegInsights(visibleSegments);
 }
 
 /* ── Segment KPI Cards ─────────────────────────────────────── */
@@ -7401,7 +9493,7 @@ function renderSegKPIs(segments, active) {
         <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${icons.alert}</div>
         <span class="dash-kpi-label">Highest-Risk</span>
       </div>
-      <div class="dash-kpi-num" style="font-size:1.4rem">${highestRisk ? escHtml(highestRisk.tag) : '—'}</div>
+      <div class="dash-kpi-num" style="font-size:1.4rem">${highestRisk ? escHtml(segDisplayLabel(highestRisk.tag)) : '—'}</div>
       <div class="dash-kpi-sub">${highestRisk ? highestRisk.riskPct + '% at risk' : 'No data'}</div>
     </div>
     <div class="dash-kpi-card dash-kpi-green">
@@ -7409,7 +9501,7 @@ function renderSegKPIs(segments, active) {
         <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${icons.trendUp}</div>
         <span class="dash-kpi-label">Fastest-Growing</span>
       </div>
-      <div class="dash-kpi-num" style="font-size:1.4rem">${fastestGrow ? escHtml(fastestGrow.tag) : '—'}</div>
+      <div class="dash-kpi-num" style="font-size:1.4rem">${fastestGrow ? escHtml(segDisplayLabel(fastestGrow.tag)) : '—'}</div>
       <div class="dash-kpi-sub">${fastestGrow ? (fastestGrow.avgDelta >= 0 ? '+' : '') + fastestGrow.avgDelta + ' avg trend' : 'No data'}</div>
     </div>
   `;
@@ -7437,7 +9529,7 @@ function renderSegCardGrid(segments) {
 
     return `<div class="card seg-card" data-seg="${escHtml(seg.tag)}" onclick="drillSegFromCard('${safeTag}')" style="cursor:pointer">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <span class="tag" style="font-size:.78rem">${escHtml(seg.tag)}</span>
+        <span class="tag" style="font-size:.78rem">${escHtml(segDisplayLabel(seg.tag))}</span>
         <span class="seg-score-badge" style="color:${scoreColor(seg.avgScore)};background:${scoreBg(seg.avgScore)}">${seg.avgScore}</span>
       </div>
       <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">
@@ -7520,7 +9612,7 @@ function renderSegTable(segments) {
         const safeTag = seg.tag.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const contactStr = seg.avgDays != null ? seg.avgDays + 'd' : '—';
         return `<tr class="seg-table-row" data-seg="${escHtml(seg.tag)}">
-          <td><strong>${escHtml(seg.tag)}</strong></td>
+          <td><strong>${escHtml(segDisplayLabel(seg.tag))}</strong></td>
           <td>${seg.count}</td>
           <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${scoreColor(seg.avgScore)};background:${seg.avgScore >= 65 ? 'var(--green-l)' : seg.avgScore >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${seg.avgScore}</span></td>
           <td><span class="csm-trend ${trendCls}" style="font-size:.68rem;padding:1px 6px">${trendIcon} ${trendTxt}</span></td>
@@ -7724,23 +9816,23 @@ function renderSegInsights(segments) {
     // High risk % (priority 4)
     if (seg.riskPct > 40 && seg.count >= 3) {
       insights.push({ priority: 4, icon: iconAlert, bg: 'var(--red-l)', color: 'var(--red)',
-        html: `<strong>${escHtml(seg.tag)}</strong> has <strong>${seg.riskPct}%</strong> at risk (${seg.atRisk}/${seg.count})` });
+        html: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> has <strong>${seg.riskPct}%</strong> at risk (${seg.atRisk}/${seg.count})` });
     }
     // At-risk renewals in 90 days (priority 4)
     const riskRenewals = seg.custs.filter(c => (c.status === 'critical' || c.status === 'risk') && c.renewal != null && c.renewal > 0 && c.renewal <= 3).length;
     if (riskRenewals > 0) {
       insights.push({ priority: 4, icon: iconCalendar, bg: 'var(--red-l)', color: 'var(--red)',
-        html: `<strong>${escHtml(seg.tag)}</strong> has <strong>${riskRenewals}</strong> at-risk renewal${riskRenewals !== 1 ? 's' : ''} in 90 days` });
+        html: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> has <strong>${riskRenewals}</strong> at-risk renewal${riskRenewals !== 1 ? 's' : ''} in 90 days` });
     }
     // Declining segment (priority 3)
     if (seg.avgDelta < -2) {
       insights.push({ priority: 3, icon: iconTrendDn, bg: 'var(--amber-l)', color: 'var(--amber)',
-        html: `<strong>${escHtml(seg.tag)}</strong> is declining (${seg.avgDelta} avg this week)` });
+        html: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> is declining (${seg.avgDelta} avg this week)` });
     }
     // Overdue contacts (priority 3)
     if (seg.overdueCount > 0) {
       insights.push({ priority: 3, icon: iconPhone, bg: 'var(--amber-l)', color: 'var(--amber)',
-        html: `<strong>${escHtml(seg.tag)}</strong> has <strong>${seg.overdueCount}</strong> overdue contact${seg.overdueCount !== 1 ? 's' : ''} (14+ days)` });
+        html: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> has <strong>${seg.overdueCount}</strong> overdue contact${seg.overdueCount !== 1 ? 's' : ''} (14+ days)` });
     }
   });
 
@@ -7748,12 +9840,12 @@ function renderSegInsights(segments) {
   const bestAvgScore = segments.reduce((a, b) => a.avgScore > b.avgScore ? a : b, segments[0]);
   if (bestAvgScore && bestAvgScore.avgScore >= 70) {
     insights.push({ priority: 0, icon: iconTrendUp, bg: 'var(--green-l)', color: 'var(--green)',
-      html: `<strong>${escHtml(bestAvgScore.tag)}</strong> is your healthiest segment (avg ${bestAvgScore.avgScore})` });
+      html: `<strong>${escHtml(segDisplayLabel(bestAvgScore.tag))}</strong> is your healthiest segment (avg ${bestAvgScore.avgScore})` });
   }
   const bestDelta = segments.reduce((a, b) => a.avgDelta > b.avgDelta ? a : b, segments[0]);
   if (bestDelta && bestDelta.avgDelta >= 3) {
     insights.push({ priority: 0, icon: iconTrendUp, bg: 'var(--green-l)', color: 'var(--green)',
-      html: `<strong>${escHtml(bestDelta.tag)}</strong> is growing fastest (+${bestDelta.avgDelta} this week)` });
+      html: `<strong>${escHtml(segDisplayLabel(bestDelta.tag))}</strong> is growing fastest (+${bestDelta.avgDelta} this week)` });
   }
 
   // Sort by priority desc, show top 8
@@ -7776,7 +9868,11 @@ function renderSegInsights(segments) {
 
 function filterByTag(tag) {
   nav('customers');
-  columnFilters['tags'] = { type: 'text', q: tag };
+  if (tag === SEG_UNTAGGED) {
+    columnFilters['tags'] = { type: 'untagged' };
+  } else {
+    columnFilters['tags'] = { type: 'text', q: tag };
+  }
   renderCustomers();
 }
 
@@ -7874,39 +9970,307 @@ function dlText(content, filename, mime) {
 }
 
 // ─── DEMO DATA ───────────────────────────────────────────────
+
+const _DEMO_PREFIXES = [
+  'Apex','Atlas','Beacon','Blue','Bolt','Bridge','Bright','Cedar','Cipher','Cirrus',
+  'Cobalt','Core','Crest','Crown','Dash','Drift','Edge','Ember','Falcon','Flux',
+  'Forge','Frost','Grid','Harbor','Helix','Iron','Jade','Kite','Lumen','Maple',
+  'Mesa','Nexus','Noble','Nova','Onyx','Orbit','Pave','Peak','Prism','Pulse',
+  'Quartz','Raven','Ridge','Sage','Scale','Signal','Silver','Slate','Spark','Spire',
+  'Steel','Stone','Storm','Summit','Swift','Terra','Tide','Timber','Torch','Trace',
+  'Vantage','Vault','Vector','Vertex','Vista','Vortex','Wave','Zenith'
+];
+const _DEMO_SUFFIXES = [
+  'AI','Analytics','Cloud','Connect','Data','Digital','Dynamics','Flow','Group','HQ',
+  'Hub','Insights','Intelligence','IO','Labs','Logic','Metrics','Networks','Ops',
+  'Platform','Point','Pulse','Shift','Soft','Solutions','Stack','Studio','Systems',
+  'Tech','Ware','Works'
+];
+const _DEMO_CSMS = ['Sarah Mitchell','James Chen','Maria Rodriguez','David Kim','Rachel Foster','Anil Patel'];
+const _DEMO_NOTES = [
+  'QBR went well. Champion is engaged and open to upsell convo.',
+  'Escalated to VP of Support — tickets still climbing.',
+  'Onboarding kickoff completed. Primary contact trained.',
+  'NPS follow-up done. Main concern is reporting gaps.',
+  'Renewed early with 10% uplift. Very happy with recent features.',
+  'Exec sponsor changed — need to rebuild relationship.',
+  'Product usage dropped after key team member left.',
+  'Expansion convo scheduled for next week.',
+  'Flagged integration issues — eng team is investigating.',
+  'Great case-study candidate. Asked about speaking at conference.'
+];
+
+// Trajectory definitions: each has base signal ranges + trend function
+const _DEMO_TRAJECTORIES = {
+  'stable-healthy': {
+    logins:[18,30], adoption:[65,95], tickets:[0,2], days:[2,15],
+    npsOpts:['promoter','promoter','promoter','passive'],
+    growthOpts:['strong','strong','mild'],
+    lifecycle:'active', noise:0.08,
+    trend: () => 1.0
+  },
+  'stable-low': {
+    logins:[3,10], adoption:[15,40], tickets:[2,5], days:[25,60],
+    npsOpts:['detractor','detractor','passive'],
+    growthOpts:['none','none','mild'],
+    lifecycle:'atrisk', noise:0.10,
+    trend: () => 1.0
+  },
+  'improving': {
+    logins:[5,28], adoption:[20,85], tickets:[0,4], days:[5,40],
+    npsOpts:['detractor','passive','passive','promoter'],
+    growthOpts:['none','mild','strong'],
+    lifecycle:'active', noise:0.12,
+    trend: (d,t) => 0.3 + 0.7 * (d/t)
+  },
+  'declining': {
+    logins:[5,28], adoption:[20,85], tickets:[0,5], days:[5,50],
+    npsOpts:['promoter','passive','passive','detractor'],
+    growthOpts:['strong','mild','none'],
+    lifecycle:'atrisk', noise:0.10,
+    trend: (d,t) => 1.0 - 0.65 * (d/t)
+  },
+  'volatile': {
+    logins:[5,28], adoption:[25,85], tickets:[0,5], days:[5,45],
+    npsOpts:['detractor','passive','promoter'],
+    growthOpts:['none','mild','strong'],
+    lifecycle:'active', noise:0.15,
+    trend: (d,t) => 0.5 + 0.35 * Math.sin(d/t * Math.PI * 4)
+  },
+  'onboarding': {
+    logins:[0,22], adoption:[5,65], tickets:[0,3], days:[5,20],
+    npsOpts:['unknown','passive','passive','promoter'],
+    growthOpts:['none','mild'],
+    lifecycle:'onboarding', noise:0.12,
+    trend: (d,t) => d < t*0.5 ? (d/(t*0.5)) : 1.0
+  },
+  'churning': {
+    logins:[2,20], adoption:[10,60], tickets:[1,7], days:[10,80],
+    npsOpts:['passive','detractor','detractor'],
+    growthOpts:['mild','none','none'],
+    lifecycle:'atrisk', noise:0.08,
+    trend: (d,t) => d < t*0.65 ? (1.0 - 0.25*(d/(t*0.65))) : (0.75 - 0.65*((d-t*0.65)/(t*0.35)))
+  }
+};
+
+// Trajectory assignment order (sums to ~150)
+const _DEMO_TRAJ_DIST = [
+  ...Array(38).fill('stable-healthy'),
+  ...Array(15).fill('stable-low'),
+  ...Array(27).fill('improving'),
+  ...Array(27).fill('declining'),
+  ...Array(21).fill('volatile'),
+  ...Array(12).fill('onboarding'),
+  ...Array(10).fill('churning')
+];
+
+function _dClamp(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); }
+function _dLerp([lo,hi],t){ return lo+(hi-lo)*_dClamp(t,0,1); }
+function _dRand(lo,hi){ return lo+Math.random()*(hi-lo); }
+function _dPick(arr,t){
+  // Shift selection toward end of array as t increases
+  const idx = _dClamp(Math.floor(t * arr.length), 0, arr.length-1);
+  // Add some randomness
+  const jitter = Math.floor(Math.random() * 2) - 1;
+  return arr[_dClamp(idx+jitter, 0, arr.length-1)];
+}
+
+function _generateDemoNames(count) {
+  const used = new Set();
+  const names = [];
+  const shuffled = [..._DEMO_PREFIXES].sort(() => Math.random()-0.5);
+  for (let i = 0; i < shuffled.length && names.length < count; i++) {
+    const suf = _DEMO_SUFFIXES[Math.floor(Math.random()*_DEMO_SUFFIXES.length)];
+    const n = shuffled[i] + ' ' + suf;
+    if (!used.has(n)) { used.add(n); names.push(n); }
+  }
+  // If we need more (unlikely), add numbered variants
+  let extra = 1;
+  while (names.length < count) { names.push('Company ' + (extra++)); }
+  return names;
+}
+
+function _generateDemoSignals(traj, dayIdx, totalDays) {
+  const t = traj.trend(dayIdx, totalDays);
+  const n = () => 1 + (Math.random()*2-1) * traj.noise;
+  // For positive signals, t scales up; for negative (tickets/days), invert
+  const logins   = _dClamp(Math.round(_dLerp(traj.logins, t) * n()), 0, 40);
+  const adoption = _dClamp(Math.round(_dLerp(traj.adoption, t) * n()), 0, 100);
+  const tickets  = _dClamp(Math.round(_dLerp(traj.tickets, 1-t) * n()), 0, 8);
+  const days     = _dClamp(Math.round(_dLerp(traj.days, 1-t) * n()), 0, 120);
+  const nps      = _dPick(traj.npsOpts, t);
+  const growth   = _dPick(traj.growthOpts, t);
+  return { logins, adoption, tickets, nps, days, growth, lifecycle: traj.lifecycle };
+}
+
+function _generateDemoHistory(trajKey, now) {
+  const traj = _DEMO_TRAJECTORIES[trajKey];
+  const totalDays = 90;
+  const entries = [];
+  for (let d = totalDays; d >= 0; d--) {
+    // Skip ~15% of days for realistic gaps (but always keep first and last)
+    if (d > 0 && d < totalDays && Math.random() < 0.15) continue;
+    const dayIdx = totalDays - d;
+    const signals = _generateDemoSignals(traj, dayIdx, totalDays);
+    const { score } = calcScore(signals);
+    entries.push({
+      score,
+      date: new Date(now - d * 86400000).toISOString(),
+      signals
+    });
+  }
+  return entries;
+}
+
+function _generateDemoCustomer(name, index, now) {
+  // Trajectory
+  const trajKey = _DEMO_TRAJ_DIST[index % _DEMO_TRAJ_DIST.length];
+  const traj = _DEMO_TRAJECTORIES[trajKey];
+
+  // Tier & MRR
+  const tier = index < 90 ? 'smb' : index < 135 ? 'mid' : 'enterprise';
+  const mrr = tier === 'smb' ? Math.round(_dRand(500,3000)/50)*50
+            : tier === 'mid' ? Math.round(_dRand(3000,15000)/100)*100
+            : Math.round(_dRand(15000,50000)/500)*500;
+
+  // History
+  const history = _generateDemoHistory(trajKey, now);
+  const last = history[history.length - 1];
+  const lastSig = last.signals;
+
+  // Renewal: spread across next 12 months
+  const renDate = new Date(now);
+  renDate.setMonth(renDate.getMonth() + (index % 12) + 1);
+  renDate.setDate(1 + Math.floor(Math.random() * 27));
+  const renewal_date = renDate.toISOString().slice(0,10);
+  const renewal = Math.max(0, Math.round((renDate - new Date(now)) / (1000*60*60*24*30.44)));
+
+  // Tags (auto-assigned)
+  const tags = [];
+  if (renewal <= 2) tags.push('renewal-soon');
+  if (last.score >= 85 && lastSig.growth === 'strong') tags.push('upsell-candidate');
+  if (last.score < 30) tags.push('churn-risk');
+  if (lastSig.logins >= 25 && lastSig.adoption >= 80) tags.push('power-user');
+  if (traj.lifecycle === 'onboarding') tags.push('onboarding');
+  if (last.score >= 90 && lastSig.nps === 'promoter') tags.push('case-study');
+
+  // Notes (~20% of customers)
+  const notes = [];
+  if (Math.random() < 0.20) {
+    const noteDate = new Date(now - Math.floor(Math.random()*14)*86400000).toISOString();
+    notes.push({ text: _DEMO_NOTES[index % _DEMO_NOTES.length], date: noteDate });
+  }
+
+  // Customer-since date (3-18 months ago)
+  const sinceDate = new Date(now);
+  sinceDate.setMonth(sinceDate.getMonth() - 3 - (index % 16));
+  const since = sinceDate.toISOString().slice(0,10);
+
+  // Created date (staggered)
+  const createdDate = new Date(now);
+  createdDate.setMonth(createdDate.getMonth() - 3 - Math.floor(Math.random()*9));
+  const created = createdDate.toISOString();
+
+  // Lifecycle override: stable-healthy with high score can be 'won'
+  let lifecycle = traj.lifecycle;
+  if (trajKey === 'stable-healthy' && last.score >= 88 && Math.random() < 0.2) lifecycle = 'won';
+
+  return {
+    id:              crypto.randomUUID(),
+    name,
+    score:           last.score,
+    status:          getStatus(last.score),
+    mrr,
+    arr:             mrr * 12,
+    since,
+    tier,
+    lifecycle,
+    logins:          lastSig.logins,
+    adoption:        lastSig.adoption,
+    tickets:         lastSig.tickets,
+    nps:             lastSig.nps,
+    days:            lastSig.days,
+    _baseDays:       lastSig.days,
+    renewal_date,
+    renewal,
+    growth:          lastSig.growth,
+    tags,
+    notes,
+    history,
+    sentiment:       [],
+    manager:         _DEMO_CSMS[index % _DEMO_CSMS.length],
+    scoring_profile: '',
+    deleted_at:      null,
+    created,
+    next_touch:      '',
+    playbook_checks: {}
+  };
+}
+
 function initDemo() {
   const now = Date.now();
-  const daysAgo = d => new Date(now - d*86400000).toISOString();
-  const demo = [
-    { name:'Acme Corp',       mrr:8500,  tier:'mid',        lifecycle:'active',    logins:22, adoption:78, tickets:1, nps:'promoter',  days:5,  renewal:9, growth:'strong', tags:['power-user'] },
-    { name:'Beta Tech',       mrr:2200,  tier:'smb',        lifecycle:'atrisk',    logins:3,  adoption:22, tickets:4, nps:'detractor', days:45, renewal:2, growth:'none',   tags:['renewal-soon'] },
-    { name:'Cascade Systems', mrr:18000, tier:'enterprise', lifecycle:'active',    logins:28, adoption:91, tickets:0, nps:'promoter',  days:3,  renewal:11,growth:'strong', tags:['upsell-candidate'] },
-    { name:'Delta SaaS',      mrr:1100,  tier:'smb',        lifecycle:'onboarding',logins:8,  adoption:35, tickets:2, nps:'passive',   days:12, renewal:10,growth:'mild',   tags:[] },
-    { name:'Echo AI',         mrr:5500,  tier:'mid',        lifecycle:'active',    logins:18, adoption:65, tickets:1, nps:'promoter',  days:9,  renewal:6, growth:'mild',   tags:['qbr-pending'] },
-    { name:'Foxtrot Labs',    mrr:3300,  tier:'smb',        lifecycle:'atrisk',    logins:2,  adoption:15, tickets:5, nps:'detractor', days:60, renewal:1, growth:'none',   tags:['renewal-soon','churn-risk'] },
-    { name:'Gamma Cloud',     mrr:22000, tier:'enterprise', lifecycle:'won',       logins:30, adoption:95, tickets:0, nps:'promoter',  days:2,  renewal:12,growth:'strong', tags:['case-study'] },
-    { name:'Harbor Analytics',mrr:4800,  tier:'mid',        lifecycle:'active',    logins:14, adoption:58, tickets:2, nps:'passive',   days:18, renewal:5, growth:'none',   tags:[] }
-  ];
-  customers = demo.map((d, i) => {
-    const { score } = calcScore(d);
-    const status = getStatus(score);
-    // Build history with 4 data points
-    const hist = [
-      { score: Math.max(0,Math.min(100,score - 15 + Math.floor(Math.random()*10))), date: daysAgo(90) },
-      { score: Math.max(0,Math.min(100,score - 8  + Math.floor(Math.random()*8))),  date: daysAgo(60) },
-      { score: Math.max(0,Math.min(100,score - 3  + Math.floor(Math.random()*6))),  date: daysAgo(30) },
-      { score, date: daysAgo(i) }
-    ];
-    return {
-      id:       crypto.randomUUID(),
-      ...d,
-      score, status,
-      notes:    i===0 ? [{ text:'QBR went well. Champion is engaged and open to upsell convo.', date: daysAgo(5) }] : [],
-      history:  hist,
-      created:  daysAgo(i * 7)
-    };
+  const names = _generateDemoNames(150);
+  // Shuffle trajectory distribution for variety
+  _DEMO_TRAJ_DIST.sort(() => Math.random() - 0.5);
+  customers = names.map((name, i) => _generateDemoCustomer(name, i, now));
+}
+
+// One-time admin function: push demo data to Supabase for demo@iqcadence.com
+// Run from browser console while logged in as admin: seedDemoData()
+async function seedDemoData() {
+  // Seeds 150 demo customers into an EXISTING client.
+  // Usage: seedDemoData()           — auto-finds demo@iqcadence.com's client
+  //        seedDemoData('some-email@x.com') — uses that user's client instead
+  if (!isAdmin()) { console.error('Must be logged in as admin'); return; }
+
+  const targetEmail = arguments[0] || 'demo@iqcadence.com';
+
+  // 1. Find the user's profile and client
+  console.log('1/3 — Finding user profile for ' + targetEmail + '…');
+  const { data: prof, error: profErr } = await sb.from('user_profiles')
+    .select('user_id, client_id, email, business_name')
+    .eq('email', targetEmail.toLowerCase())
+    .single();
+
+  if (profErr || !prof) {
+    console.error('No user_profiles row found for ' + targetEmail);
+    console.error('Make sure the user has logged in at least once, or create their profile in User Management.');
+    return;
+  }
+  if (!prof.client_id) {
+    console.error('User ' + targetEmail + ' is not assigned to any client.');
+    console.error('Go to Settings → User Management → Edit, and assign them to a client first.');
+    return;
+  }
+
+  console.log('   User ID:', prof.user_id);
+  console.log('   Client ID:', prof.client_id);
+  console.log('   Business:', prof.business_name || '(none)');
+
+  // 2. Generate 150 demo customers in memory
+  console.log('2/3 — Generating 150 demo customers…');
+  initDemo(); // populates customers[]
+
+  // 3. Push to Supabase under that user's ID
+  console.log('3/3 — Pushing to Supabase (150 rows)…');
+  const rows = customers.map(c => {
+    const row = toRow(c);
+    row.user_id = prof.user_id; // assign to the target user
+    return row;
   });
-  // Callers are responsible for pushing demo customers to Supabase via save()
+
+  let inserted = 0;
+  for (let i = 0; i < rows.length; i += 25) {
+    const chunk = rows.slice(i, i + 25);
+    const { error } = await sb.from('customers').upsert(chunk, { onConflict: 'id' });
+    if (error) { console.error('Insert error at chunk', i, error.message); return; }
+    inserted += chunk.length;
+    console.log('   ' + inserted + '/' + rows.length + ' rows…');
+  }
+
+  console.log('✓ Done! 150 demo customers seeded under ' + targetEmail + ' (client: ' + prof.client_id + ')');
+  console.log('Any user assigned to client ' + prof.client_id + ' will see these profiles.');
+  toast('Demo data seeded — 150 customers for ' + targetEmail, 'success');
 }
 
 // ─── PASSWORD CHANGE ─────────────────────────────────────────
@@ -8079,7 +10443,7 @@ function printQBR() {
 // ─── CSM PERFORMANCE DASHBOARD ───────────────────────────────
 
 function renderCSMPerformance() {
-  const active = customers.filter(c => c.lifecycle !== 'churned');
+  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
   const statsWrap  = el('csmperf-stats');
   const tableWrap  = el('csmperf-wrap');
   if (!statsWrap || !tableWrap) return;
@@ -8922,6 +11286,15 @@ function exportAuditLog() {
   // Load settings from localStorage immediately (fast local cache)
   loadSettings();
 
+  if (!sb) {
+    document.getElementById('auth-gate').style.display = 'flex';
+    document.getElementById('config-err').style.display = 'block';
+    document.getElementById('form-login').style.display = 'none';
+    document.getElementById('form-signup').style.display = 'none';
+    document.getElementById('form-reset').style.display = 'none';
+    return;
+  }
+
   // ── Step 1: Check for existing session instantly ──────────
   // getSession() reads from localStorage — no network call needed.
   // This prevents the flicker of showing the auth gate on refresh.
@@ -8941,6 +11314,7 @@ function exportAuditLog() {
       if (cached) { customers = JSON.parse(cached); hasCached = true; }
     } catch(e) {}
 
+    refreshLiveScores();
     refreshMgrDropdown();
     renderDashboard();
     renderSettings();
@@ -8956,6 +11330,7 @@ function exportAuditLog() {
       toast('Could not reach Supabase — showing cached data', 'warn');
     } finally {
       setLoading(false);
+      refreshLiveScores();
       refreshMgrDropdown();
       renderDashboard();
       renderSettings();

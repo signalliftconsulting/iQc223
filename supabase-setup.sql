@@ -66,8 +66,8 @@ CREATE POLICY "clients_owner" ON clients
 
 CREATE POLICY "clients_admin" ON clients
   FOR ALL
-  USING  ((auth.jwt() ->> 'email') = 'signalliftconsulting@gmail.com')
-  WITH CHECK ((auth.jwt() ->> 'email') = 'signalliftconsulting@gmail.com');
+  USING      ((auth.jwt() ->> 'email') = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']))
+  WITH CHECK ((auth.jwt() ->> 'email') = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']));
 
 -- Allow users to READ their own client record (needed for plan tier resolution)
 CREATE POLICY "clients_member_read" ON clients
@@ -116,8 +116,8 @@ CREATE POLICY "profiles_self_update" ON user_profiles
 -- Admin can do everything — identified by JWT email, NOT a table lookup
 CREATE POLICY "profiles_admin_all" ON user_profiles
   FOR ALL
-  USING      ((auth.jwt() ->> 'email') = 'signalliftconsulting@gmail.com')
-  WITH CHECK ((auth.jwt() ->> 'email') = 'signalliftconsulting@gmail.com');
+  USING      ((auth.jwt() ->> 'email') = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']))
+  WITH CHECK ((auth.jwt() ->> 'email') = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']));
 
 
 -- ─────────────────────────────────────────────────────────────────
@@ -165,8 +165,8 @@ CREATE POLICY "customers_owner" ON customers
 -- Admin can read/write all customers
 CREATE POLICY "customers_admin" ON customers
   FOR ALL
-  USING      ((auth.jwt() ->> 'email') = 'signalliftconsulting@gmail.com')
-  WITH CHECK ((auth.jwt() ->> 'email') = 'signalliftconsulting@gmail.com');
+  USING      ((auth.jwt() ->> 'email') = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']))
+  WITH CHECK ((auth.jwt() ->> 'email') = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']));
 
 
 -- ─────────────────────────────────────────────────────────────────
@@ -221,8 +221,8 @@ CREATE POLICY "audit_logs_owner" ON audit_logs
 -- Admin can see all audit logs
 CREATE POLICY "audit_logs_admin" ON audit_logs
   FOR ALL
-  USING      ((auth.jwt() ->> 'email') = 'signalliftconsulting@gmail.com')
-  WITH CHECK ((auth.jwt() ->> 'email') = 'signalliftconsulting@gmail.com');
+  USING      ((auth.jwt() ->> 'email') = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']))
+  WITH CHECK ((auth.jwt() ->> 'email') = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']));
 
 
 -- ─────────────────────────────────────────────────────────────────
@@ -273,8 +273,8 @@ CREATE POLICY "webhook_events_owner" ON webhook_events
 
 CREATE POLICY "webhook_events_admin" ON webhook_events
   FOR ALL
-  USING      ((auth.jwt() ->> 'email') = 'signalliftconsulting@gmail.com')
-  WITH CHECK ((auth.jwt() ->> 'email') = 'signalliftconsulting@gmail.com');
+  USING      ((auth.jwt() ->> 'email') = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']))
+  WITH CHECK ((auth.jwt() ->> 'email') = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']));
 
 
 -- ─────────────────────────────────────────────────────────────────
