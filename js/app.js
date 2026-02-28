@@ -1,24 +1,11 @@
 /* ============================================================
    IQcadence — CS Health Score — app.js
-   When setting innerHTML with dynamic or user-supplied data (e.g. customer
-   name, notes, manager), always wrap it with escHtml() to prevent XSS.
    ============================================================ */
 
 // ─── SUPABASE CLIENT ─────────────────────────────────────────
-// Load from js/config.js (copy from config.example.js). config.js is gitignored.
-const _cfg = window.__IQCADENCE_CONFIG__ || {};
-const SUPABASE_URL  = _cfg.SUPABASE_URL  || '';
-const SUPABASE_ANON = _cfg.SUPABASE_ANON || '';
-const ADMIN_EMAILS  = Array.isArray(_cfg.ADMIN_EMAILS) && _cfg.ADMIN_EMAILS.length
-  ? _cfg.ADMIN_EMAILS
-  : ['signalliftconsulting@gmail.com', 'ian@iqcadence.com']; // fallback until RLS uses config/table
-
-let sb = null; // set after config check
-if (SUPABASE_URL && SUPABASE_ANON) {
-  sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
-} else {
-  console.error('IQcadence: Missing Supabase config. Copy js/config.example.js to js/config.js and set SUPABASE_URL and SUPABASE_ANON.');
-}
+const SUPABASE_URL  = 'https://qctiyigznbztxcowehnl.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjdGl5aWd6bmJ6dHhjb3dlaG5sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1NTEwMjcsImV4cCI6MjA4NzEyNzAyN30.Uto2G5WzDIgDplQlgSwvo1BT3voym8msjZSSy9GUBsg';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 let currentUser = null; // set after auth
 
@@ -1009,6 +996,7 @@ function buildNextBestAction(c) {
 
 // ─── NAVIGATION ─────────────────────────────────────────────
 const VIEWS = ['dashboard','alerts','customers','segments','trends','csmperf','reports','score','csv','settings','automations','auditlog','users','clients','help'];
+const ADMIN_EMAILS = ['signalliftconsulting@gmail.com', 'ian@iqcadence.com'];
 
 function isAdmin() {
   return currentUser && ADMIN_EMAILS.some(e => currentUser.email.toLowerCase() === e.toLowerCase());
@@ -11285,15 +11273,6 @@ function exportAuditLog() {
 (async function init() {
   // Load settings from localStorage immediately (fast local cache)
   loadSettings();
-
-  if (!sb) {
-    document.getElementById('auth-gate').style.display = 'flex';
-    document.getElementById('config-err').style.display = 'block';
-    document.getElementById('form-login').style.display = 'none';
-    document.getElementById('form-signup').style.display = 'none';
-    document.getElementById('form-reset').style.display = 'none';
-    return;
-  }
 
   // ── Step 1: Check for existing session instantly ──────────
   // getSession() reads from localStorage — no network call needed.
