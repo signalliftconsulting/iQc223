@@ -3844,7 +3844,13 @@ function _renderCustomers() {
           if (ntd <= 7)  return `<span class="nt-badge nt-ok">${dateStr}</span>`;
           return `<span style="font-size:.75rem;color:var(--muted)">${dateStr}</span>`;
         })()}</td>
-        <td>${(c.tags||[]).map(t=>`<span class="tag">${t}</span>`).join('')}</td>
+        <td>${((tags) => {
+          if (!tags.length) return '';
+          const first = `<span class="tag">${escHtml(tags[0])}</span>`;
+          if (tags.length === 1) return first;
+          const allTags = tags.map(t => escHtml(t)).join(', ');
+          return first + `<span class="tag tag-more" title="${allTags}">+${tags.length - 1}</span>`;
+        })(c.tags||[])}</td>
       </tr>`;
   }).join('');
 }
