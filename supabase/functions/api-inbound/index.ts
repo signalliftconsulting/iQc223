@@ -33,6 +33,39 @@ function getStatusFromScore(score: number): string {
   return 'expand';
 }
 
+// ── Input validation helpers ──
+function validateNumber(val: unknown, min: number, max: number | null, name: string): number {
+  const n = Number(val);
+  if (isNaN(n)) throw new Error(`${name} must be a valid number`);
+  if (n < min) throw new Error(`${name} must be >= ${min}`);
+  if (max !== null && n > max) throw new Error(`${name} must be <= ${max}`);
+  return n;
+}
+
+function validateString(val: unknown, maxLen: number, name: string): string {
+  if (typeof val !== 'string') throw new Error(`${name} must be a string`);
+  if (val.length > maxLen) throw new Error(`${name} must be ${maxLen} characters or fewer`);
+  return val;
+}
+
+function validateDate(val: unknown, name: string): string {
+  if (typeof val !== 'string') throw new Error(`${name} must be a date string`);
+  if (!/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})?)?$/.test(val)) {
+    throw new Error(`${name} must be a valid date (YYYY-MM-DD or ISO 8601)`);
+  }
+  if (isNaN(Date.parse(val))) throw new Error(`${name} is not a valid date`);
+  return val;
+}
+
+function validateTags(val: unknown): string[] {
+  if (typeof val === 'string') return val.split(',').map(t => t.trim()).filter(Boolean);
+  if (Array.isArray(val)) {
+    if (!val.every(v => typeof v === 'string')) throw new Error('tags must be strings');
+    return val;
+  }
+  throw new Error('tags must be an array of strings or comma-separated string');
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -89,27 +122,27 @@ serve(async (req) => {
         .is('deleted_at', null)
         .limit(1);
 
-      // Build row with only the provided fields
+      // Build row with only the provided fields (validated)
       const row: Record<string, any> = {
         user_id: userId,
-        name: data.name,
+        name: validateString(data.name, 255, 'name'),
       };
-      if (data.mrr != null)        row.mrr = data.mrr;
-      if (data.arr != null)        row.arr = data.arr;
-      if (data.score != null)      { row.score = Number(data.score); row.status = getStatusFromScore(Number(data.score)); }
-      if (data.tier)               row.tier = data.tier;
-      if (data.lifecycle)          row.lifecycle = data.lifecycle;
-      if (data.manager)            row.manager = data.manager;
-      if (data.tags)               row.tags = data.tags;
-      if (data.nps)                row.nps = data.nps;
-      if (data.logins != null)     row.logins = Number(data.logins);
-      if (data.adoption != null)   row.adoption = Number(data.adoption);
-      if (data.tickets != null)    row.tickets = Number(data.tickets);
-      if (data.days != null)       row.days = Number(data.days);
-      if (data.renewal_date)       row.renewal_date = data.renewal_date;
-      if (data.growth)             row.growth = data.growth;
-      if (data.since)              row.since = data.since;
-      if (data.next_touch)         row.next_touch = data.next_touch;
+      if (data.mrr != null)        row.mrr = validateNumber(data.mrr, 0, null, 'mrr');
+      if (data.arr != null)        row.arr = validateNumber(data.arr, 0, null, 'arr');
+      if (data.score != null)      { row.score = validateNumber(data.score, 0, 100, 'score'); row.status = getStatusFromScore(row.score); }
+      if (data.tier)               row.tier = validateString(data.tier, 50, 'tier');
+      if (data.lifecycle)          row.lifecycle = validateString(data.lifecycle, 50, 'lifecycle');
+      if (data.manager)            row.manager = validateString(data.manager, 100, 'manager');
+      if (data.tags)               row.tags = validateTags(data.tags);
+      if (data.nps != null)        row.nps = validateNumber(data.nps, -100, 100, 'nps');
+      if (data.logins != null)     row.logins = validateNumber(data.logins, 0, null, 'logins');
+      if (data.adoption != null)   row.adoption = validateNumber(data.adoption, 0, 100, 'adoption');
+      if (data.tickets != null)    row.tickets = validateNumber(data.tickets, 0, null, 'tickets');
+      if (data.days != null)       row.days = validateNumber(data.days, 0, null, 'days');
+      if (data.renewal_date)       row.renewal_date = validateDate(data.renewal_date, 'renewal_date');
+      if (data.growth)             row.growth = validateString(data.growth, 50, 'growth');
+      if (data.since)              row.since = validateDate(data.since, 'since');
+      if (data.next_touch)         row.next_touch = validateDate(data.next_touch, 'next_touch');
 
       if (existing && existing.length > 0) {
         // Update existing customer
@@ -155,10 +188,31 @@ serve(async (req) => {
 
       if (!existing || !existing.length) throw new Error('Account not found: ' + data.name);
 
-      const update: Record<string, any> = { [data.field]: data.value };
+      // Validate value matches expected type for the field
+      const numericFieldLimits: Record<string, [number, number | null]> = {
+        score: [0, 100], nps: [-100, 100], logins: [0, null],
+        adoption: [0, 100], tickets: [0, null], days: [0, null],
+        mrr: [0, null], arr: [0, null]
+      };
+      const stringFieldLimits: Record<string, number> = {
+        tier: 50, lifecycle: 50, manager: 100, growth: 50
+      };
+      const dateFieldNames = ['renewal_date', 'next_touch'];
+
+      let validatedValue: any = data.value;
+      if (numericFieldLimits[data.field]) {
+        const [min, max] = numericFieldLimits[data.field];
+        validatedValue = validateNumber(data.value, min, max, data.field);
+      } else if (stringFieldLimits[data.field]) {
+        validatedValue = validateString(data.value, stringFieldLimits[data.field], data.field);
+      } else if (dateFieldNames.includes(data.field)) {
+        validatedValue = validateDate(data.value, data.field);
+      }
+
+      const update: Record<string, any> = { [data.field]: validatedValue };
       // If updating score, also update derived status
       if (data.field === 'score') {
-        update.status = getStatusFromScore(Number(data.value));
+        update.status = getStatusFromScore(validatedValue);
       }
 
       const { error } = await serviceClient

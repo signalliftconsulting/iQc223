@@ -23,6 +23,58 @@ function getCorsHeaders(req: Request) {
   };
 }
 
+// ── SSRF protection: validate webhook URLs before fetching ──
+function validateWebhookUrl(raw: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error('Invalid webhook URL');
+  }
+
+  // Only allow http/https
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error('Webhook URL must use http or https protocol');
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+
+  // Block known dangerous hostnames
+  if (['localhost', 'metadata.google.internal'].includes(hostname)) {
+    throw new Error('Webhook URL hostname is not allowed');
+  }
+  if (hostname.endsWith('.local')) {
+    throw new Error('Webhook URL hostname is not allowed');
+  }
+
+  // Block private/reserved IPv4 ranges
+  const ipv4 = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (ipv4) {
+    const first = Number(ipv4[1]);
+    const second = Number(ipv4[2]);
+    if (
+      first === 0 ||                                     // 0.0.0.0/8
+      first === 10 ||                                    // 10.0.0.0/8
+      first === 127 ||                                   // 127.0.0.0/8
+      (first === 169 && second === 254) ||               // 169.254.0.0/16
+      (first === 172 && second >= 16 && second <= 31) || // 172.16.0.0/12
+      (first === 192 && second === 168)                  // 192.168.0.0/16
+    ) {
+      throw new Error('Webhook URL must not target private/reserved IP addresses');
+    }
+  }
+
+  // Block IPv6 loopback and private ranges
+  if (hostname === '[::1]' || hostname === '::1') {
+    throw new Error('Webhook URL must not target loopback addresses');
+  }
+  if (/^\[?f[cd]/i.test(hostname) || /^\[?fe80:/i.test(hostname)) {
+    throw new Error('Webhook URL must not target private IPv6 addresses');
+  }
+
+  return parsed.href;
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -133,6 +185,9 @@ serve(async (req) => {
     const { url, payload, test } = body;
     if (!url) throw new Error('Missing webhook URL');
 
+    // ── SSRF protection: validate webhook target ──
+    const validatedUrl = validateWebhookUrl(url);
+
     // ── POST to webhook URL with timeout ──
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
@@ -142,7 +197,7 @@ serve(async (req) => {
     let error_msg = '';
 
     try {
-      const resp = await fetch(url, {
+      const resp = await fetch(validatedUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

@@ -697,6 +697,8 @@ async function authSignOut() {
   customers   = [];
   trash       = [];
   await sb.auth.signOut();
+  // Clear all cached data to prevent leakage to next user
+  Object.keys(localStorage).filter(k => k.startsWith('iqc_')).forEach(k => localStorage.removeItem(k));
   // Show login immediately — onAuthStateChange will also fire
   showAuthGate();
   authTab('login');
@@ -2574,7 +2576,7 @@ function renderDashAlerts() {
         <div class="dash-alert-item__text"><strong>${escHtml(cust?.name||'')}</strong> — ${def.label}</div>
         <div class="dash-alert-item__sub">${escHtml(a.sub||'')}</div>
       </div>
-      <button class="btn btn-xs btn-ghost" style="flex-shrink:0;padding:2px 7px;font-size:.66rem" onclick="event.stopPropagation();openDetail('${a.cid}')">→</button>
+      <button class="btn btn-xs btn-ghost" style="flex-shrink:0;padding:2px 7px;font-size:.66rem" onclick="event.stopPropagation();openDetail('${escHtml(a.cid)}')">→</button>
     </div>`;
   }).join('') + `<div style="margin-top:8px;text-align:center"><button class="btn btn-xs btn-ghost" onclick="nav('alerts')" style="font-size:.72rem;color:var(--muted)">See all ${buildAlerts().filter(a=>!isSnoozed(a.id)&&!dismissed.has(a.id)).length} alerts →</button></div>`;
 }
@@ -3449,7 +3451,7 @@ function alertItemHTML(a, isSnzd) {
   return `
     <div class="alert-item ${a.type} ${isSnzd?'snoozed':''} ${sel?'selected':''}" id="alert-row-${escHtml(a.id)}" onclick="openDetail('${escHtml(a.cid)}')">
       <div class="alert-score-circle" style="background:${scoreColor}">${scoreVal}</div>
-      <input type="checkbox" class="alert-item__check" ${sel?'checked':''} onclick="event.stopPropagation();alertToggleSelect('${a.id}',this)" title="Select">
+      <input type="checkbox" class="alert-item__check" ${sel?'checked':''} onclick="event.stopPropagation();alertToggleSelect('${escHtml(a.id)}',this)" title="Select">
       <div class="alert-item__icon">${def.icon}</div>
       <div class="alert-item__body">
         <div class="alert-item__text">${a.msg}</div>
@@ -3463,15 +3465,15 @@ function alertItemHTML(a, isSnzd) {
       </div>
       <div class="alert-item__actions">
         ${isSnzd
-          ? `<button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();unsnooze('${a.id}')">Wake</button>`
-          : `<div class="snooze-dd"><button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();toggleSnoozeDd('${a.id}')">Snooze ▾</button>
-             <div class="snooze-dd__menu" id="snooze-dd-${a.id}">
-               <button class="snooze-dd__item" onclick="event.stopPropagation();snoozeAlert('${a.id}',1)">1 day</button>
-               <button class="snooze-dd__item" onclick="event.stopPropagation();snoozeAlert('${a.id}',7)">7 days</button>
-               <button class="snooze-dd__item" onclick="event.stopPropagation();snoozeAlert('${a.id}',30)">30 days</button>
+          ? `<button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();unsnooze('${escHtml(a.id)}')">Wake</button>`
+          : `<div class="snooze-dd"><button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();toggleSnoozeDd('${escHtml(a.id)}')">Snooze ▾</button>
+             <div class="snooze-dd__menu" id="snooze-dd-${escHtml(a.id)}">
+               <button class="snooze-dd__item" onclick="event.stopPropagation();snoozeAlert('${escHtml(a.id)}',1)">1 day</button>
+               <button class="snooze-dd__item" onclick="event.stopPropagation();snoozeAlert('${escHtml(a.id)}',7)">7 days</button>
+               <button class="snooze-dd__item" onclick="event.stopPropagation();snoozeAlert('${escHtml(a.id)}',30)">30 days</button>
              </div></div>
-             <button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();dismissAlert('${a.id}')" title="Dismiss">✕</button>`}
-        <button class="btn btn-xs btn-outline" onclick="event.stopPropagation();openDetail('${a.cid}')">View →</button>
+             <button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();dismissAlert('${escHtml(a.id)}')" title="Dismiss">✕</button>`}
+        <button class="btn btn-xs btn-outline" onclick="event.stopPropagation();openDetail('${escHtml(a.cid)}')">View →</button>
       </div>
     </div>`;
 }
@@ -4055,7 +4057,7 @@ function _renderCustomers() {
     const cad   = getCadenceStatus(c);
     return `
       <tr class="${isSel?'selected':''}" data-id="${c.id}">
-        <td class="cb-col"><input type="checkbox" ${isSel?'checked':''} onchange="toggleSelect('${c.id}',this.checked)" onclick="event.stopPropagation()"/></td>
+        <td class="cb-col"><input type="checkbox" ${isSel?'checked':''} onchange="toggleSelect('${escHtml(c.id)}',this.checked)" onclick="event.stopPropagation()"/></td>
         <td style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')"><strong>${escHtml(c.name)}</strong>${(()=>{ if (!c.next_touch) return ''; const ntd = Math.round((new Date(c.next_touch)-new Date())/86400000); return ntd < 0 ? ' <span class="nt-badge nt-overdue" style="font-size:.62rem;padding:1px 5px">Touch overdue</span>' : ''; })()}</td>
         <td>${c.manager ? escHtml(c.manager) : '<span style="color:var(--muted);font-style:italic">—</span>'}</td>
         <td>${c.scoring_profile && c.scoring_profile !== 'Global Weights' ? `<span class="tag">${escHtml(c.scoring_profile)}</span>` : '<span style="color:var(--muted);font-style:italic;font-size:.75rem">Global</span>'}</td>
@@ -4092,7 +4094,7 @@ function _renderCustomers() {
           if (c.renewal != null && c.renewal > 0) return `<div class="ct-two-line">${urgencyHTML(c)}<span class="ct-sub">${c.renewal}mo</span></div>`;
           return '—';
         })()}</td>
-        <td class="nt-cell" onclick="event.stopPropagation();openInlineNextTouch('${c.id}',this)">${(()=>{
+        <td class="nt-cell" onclick="event.stopPropagation();openInlineNextTouch('${escHtml(c.id)}',this)">${(()=>{
           if (!c.next_touch) return '<span class="nt-inline-empty">+ Schedule</span>';
           const d = new Date(c.next_touch);
           const today = new Date(); today.setHours(0,0,0,0);
@@ -4122,9 +4124,9 @@ function openInlineNextTouch(custId, tdEl) {
   picker.innerHTML = `
     <input type="date" id="nt-pick-date" value="${c.next_touch || ''}">
     <div class="nt-inline-picker-btns">
-      ${c.next_touch ? `<button class="btn btn-ghost btn-xs" onclick="saveInlineNextTouch('${custId}','');this.closest('.nt-inline-picker').remove()">Clear</button>` : ''}
+      ${c.next_touch ? `<button class="btn btn-ghost btn-xs" onclick="saveInlineNextTouch('${escHtml(custId)}','');this.closest('.nt-inline-picker').remove()">Clear</button>` : ''}
       <button class="btn btn-ghost btn-xs" onclick="this.closest('.nt-inline-picker').remove()">Cancel</button>
-      <button class="btn btn-primary btn-xs" onclick="saveInlineNextTouch('${custId}',document.getElementById('nt-pick-date').value);this.closest('.nt-inline-picker').remove()">Save</button>
+      <button class="btn btn-primary btn-xs" onclick="saveInlineNextTouch('${escHtml(custId)}',document.getElementById('nt-pick-date').value);this.closest('.nt-inline-picker').remove()">Save</button>
     </div>`;
   tdEl.appendChild(picker);
 
@@ -4502,8 +4504,8 @@ function _renderPriorityList() {
       <td style="font-size:.73rem;color:var(--muted)">${escHtml(c.manager||'—')}</td>
       <td>
         <div class="qa-btns">
-          <button class="btn btn-xs btn-ghost" title="Open account" onclick="event.stopPropagation();openDetail('${c.id}')">Open</button>
-          <button class="btn btn-xs btn-outline" title="Log a touch" onclick="event.stopPropagation();openDetail('${c.id}');setTimeout(()=>el('note-text')?.focus(),400)">Log</button>
+          <button class="btn btn-xs btn-ghost" title="Open account" onclick="event.stopPropagation();openDetail('${escHtml(c.id)}')">Open</button>
+          <button class="btn btn-xs btn-outline" title="Log a touch" onclick="event.stopPropagation();openDetail('${escHtml(c.id)}');setTimeout(()=>el('note-text')?.focus(),400)">Log</button>
         </div>
       </td>
     </tr>`;
@@ -5403,7 +5405,7 @@ function trendClientAutocomplete() {
   ).slice(0, 8);
   if (!matches.length) { ac.style.display = 'none'; return; }
   ac.innerHTML = matches.map(c =>
-    `<div onclick="addTrendClient('${c.id}')">${escHtml(c.name)} <span style="color:var(--subtle);font-size:.72rem">(${c.score})</span></div>`
+    `<div onclick="addTrendClient('${escHtml(c.id)}')">${escHtml(c.name)} <span style="color:var(--subtle);font-size:.72rem">(${c.score})</span></div>`
   ).join('');
   ac.style.display = 'block';
 }
@@ -5548,7 +5550,7 @@ function renderTrends() {
   if (tagsWrap) {
     tagsWrap.innerHTML = _trendClientOverlays.map(id => {
       const c = customers.find(x => x.id === id);
-      return c ? `<span class="trend-client-tag">${escHtml(c.name)}<button onclick="removeTrendClient('${id}')">&times;</button></span>` : '';
+      return c ? `<span class="trend-client-tag">${escHtml(c.name)}<button onclick="removeTrendClient('${escHtml(id)}')">&times;</button></span>` : '';
     }).join('');
   }
 
@@ -5626,7 +5628,7 @@ function renderTrendMovers() {
     <tbody>${sorted.map(m => {
       const dColor = m.delta > 0 ? '#16a34a' : m.delta < 0 ? '#dc2626' : 'var(--subtle)';
       const dSign = m.delta > 0 ? '+' : '';
-      return `<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="nav('customers');setTimeout(()=>openDrawer('${m.id}'),100)">
+      return `<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="nav('customers');setTimeout(()=>openDrawer('${escHtml(m.id)}'),100)">
         <td style="padding:8px 12px;color:var(--text);font-weight:600">${escHtml(m.name)}</td>
         <td style="padding:8px 12px;color:var(--text)">${m.score}</td>
         <td style="padding:8px 12px;color:${dColor};font-weight:700">${dSign}${m.delta}</td>
@@ -7995,7 +7997,7 @@ function showDhDetail(type) {
         rows.map(c => {
           const st = getStatus(c.score);
           return `<tr>
-            <td><a href="#" onclick="event.preventDefault();closeModal('dh-detail-modal');openDetail('${c.id}')" style="color:var(--blue);font-weight:700;text-decoration:none">${escHtml(c.name)}</a></td>
+            <td><a href="#" onclick="event.preventDefault();closeModal('dh-detail-modal');openDetail('${escHtml(c.id)}')" style="color:var(--blue);font-weight:700;text-decoration:none">${escHtml(c.name)}</a></td>
             <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${statusColors[st]||'#888'};margin-right:4px"></span>${c.score}</td>
             <td style="font-weight:600;color:${c.days>=60?'#ef4444':c.days>=30?'#f59e0b':'inherit'}">${c.days}d</td>
             <td>${c.logins}</td>
@@ -8019,7 +8021,7 @@ function showDhDetail(type) {
         rows.map(({c, miss}) => {
           const st = getStatus(c.score);
           return `<tr>
-            <td><a href="#" onclick="event.preventDefault();closeModal('dh-detail-modal');openDetail('${c.id}')" style="color:var(--blue);font-weight:700;text-decoration:none">${escHtml(c.name)}</a></td>
+            <td><a href="#" onclick="event.preventDefault();closeModal('dh-detail-modal');openDetail('${escHtml(c.id)}')" style="color:var(--blue);font-weight:700;text-decoration:none">${escHtml(c.name)}</a></td>
             <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${statusColors[st]||'#888'};margin-right:4px"></span>${c.score}</td>
             <td style="font-size:.78rem">${miss.map(s => `<span style="display:inline-block;background:rgba(239,68,68,.08);color:#b91c1c;padding:1px 6px;border-radius:4px;margin:1px 2px;font-size:.72rem">${sigLabels[s]||s}</span>`).join('')}</td>
             <td style="text-transform:uppercase;font-size:.72rem">${escHtml(c.tier)}</td>
@@ -9206,7 +9208,7 @@ function renderBellDd() {
   const dotColor = { red:'var(--red)', amber:'var(--amber)', blue:'var(--blue)', green:'var(--green)' };
   let html = top5.map(a => {
     const c = customers.find(x => x.id === a.cid);
-    return `<button class="snooze-dd__item" onclick="toggleBellDd();${c ? `openDetail('${c.id}')` : `nav('alerts')`}" style="flex-direction:column;align-items:flex-start;gap:2px;padding:9px 14px">
+    return `<button class="snooze-dd__item" onclick="toggleBellDd();${c ? `openDetail('${escHtml(c.id)}')` : `nav('alerts')`}" style="flex-direction:column;align-items:flex-start;gap:2px;padding:9px 14px">
       <div style="display:flex;align-items:center;gap:7px;width:100%">
         <span style="width:7px;height:7px;border-radius:50%;background:${dotColor[a.type]||'var(--muted)'};flex-shrink:0"></span>
         <span style="font-size:.78rem;color:var(--text);flex:1;text-align:left">${a.msg}</span>
@@ -9953,7 +9955,7 @@ function restoreBackup(e) {
 
 // ─── UTILITIES ──────────────────────────────────────────────
 function escHtml(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 function fmtDate(iso) {
