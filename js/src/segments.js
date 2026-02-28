@@ -556,7 +556,7 @@ function exportBulksheet() {
       c.logins||0, c.adoption||0, c.tickets||0, c.nps||'unknown', c.days||0,
       c.renewal_date||'', c.renewal||0, c.growth||'none',
       (c.tags||[]).join('|'), c.since||'', c.next_touch||'',
-      c.scoring_profile||'', latestNote, latestSent, c.created||''
+      c.scoring_profile||'Global Weights', latestNote, latestSent, c.created||''
     ].map(v => `"${String(v).replace(/"/g,'""')}"`)
     .join(',');
   });

@@ -345,7 +345,7 @@ function exportCSV() {
       c.logins, c.adoption, c.tickets, c.nps, c.days,
       c.renewal_date||'', c.renewal||0, c.growth||'none',
       (c.tags||[]).join('|'), c.since||'', c.next_touch||'',
-      c.scoring_profile||'', latestNote, latestSent, c.created||''
+      c.scoring_profile||'Global Weights', latestNote, latestSent, c.created||''
     ].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');
   });
   dlText(hdr + '\n' + rows.join('\n'), 'cs-health-export.csv', 'text/csv');
