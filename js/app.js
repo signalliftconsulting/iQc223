@@ -9415,9 +9415,16 @@ document.addEventListener('click', function(e) {
 
 function renderTrends() {
   const range = _trendRange || '30d';
-  const days = { '7d': 7, '30d': 30, '90d': 90 }[range] || 30;
+  let days;
   const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - days);
+  if (range === 'ytd') {
+    const jan1 = new Date(cutoff.getFullYear(), 0, 1);
+    days = Math.ceil((cutoff - jan1) / 86400000);
+    cutoff.setTime(jan1.getTime());
+  } else {
+    days = { '7d': 7, '30d': 30, '90d': 90 }[range] || 30;
+    cutoff.setDate(cutoff.getDate() - days);
+  }
   cutoff.setHours(0,0,0,0);
 
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
@@ -9641,7 +9648,7 @@ function buildTrendChart(lines, rangeDays) {
   }
 
   const W = 960, H = 260;
-  const pad = { top: 14, right: 24, bottom: 36, left: 40 };
+  const pad = { top: 14, right: 56, bottom: 36, left: 40 };
   const cW = W - pad.left - pad.right;
   const cH = H - pad.top - pad.bottom;
 
@@ -9673,7 +9680,7 @@ function buildTrendChart(lines, rangeDays) {
   // Band labels on right edge
   bandSVG += bandDefs.map(b => {
     const midY = (yScale(b.y1) + yScale(b.y0)) / 2;
-    return `<text x="${W - pad.right + 4}" y="${midY + 2}" font-size="7" fill="${b.color}" opacity="0.55" font-weight="600">${b.label}</text>`;
+    return `<text x="${W - pad.right + 6}" y="${midY + 3}" font-size="8" fill="${b.color}" opacity="0.6" font-weight="700">${b.label}</text>`;
   }).join('');
 
   // ── Grid lines (every 10 units for density) ──
@@ -9690,23 +9697,19 @@ function buildTrendChart(lines, rangeDays) {
   // ── X-axis date labels — show every date for 7d, every 2–3 for 30d, every 7 for 90d ──
   let xLabels = '';
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const labelEvery = rangeDays <= 7 ? 1 : rangeDays <= 30 ? 2 : 7;
+  const labelEvery = rangeDays <= 7 ? 1 : rangeDays <= 30 ? 2 : rangeDays <= 90 ? 7 : 14;
   dates.forEach((d, i) => {
     const x = xScale(i);
     const parts = d.split('-');
     const mo = parseInt(parts[1]) - 1;
     const day = parseInt(parts[2]);
-    // Vertical tick marks for every date
-    if (rangeDays <= 30 || i % 3 === 0) {
+    // Vertical tick marks
+    if (rangeDays <= 30 || (rangeDays <= 90 && i % 3 === 0) || i % 7 === 0) {
       xLabels += `<line x1="${x}" y1="${yScale(0)}" x2="${x}" y2="${yScale(0)+4}" stroke="var(--border)" stroke-width="0.5" opacity="0.5"/>`;
     }
     // Labels
     if (i % labelEvery === 0 || i === dates.length - 1) {
-      const lbl = rangeDays <= 7
-        ? monthNames[mo] + ' ' + day
-        : rangeDays <= 30
-          ? parts[1] + '/' + parts[2]
-          : monthNames[mo] + ' ' + day;
+      const lbl = monthNames[mo] + ' ' + day;
       xLabels += `<text x="${x}" y="${H - pad.bottom + 16}" text-anchor="middle" font-size="7.5" fill="var(--subtle)">${lbl}</text>`;
     }
   });
@@ -9749,7 +9752,8 @@ function buildTrendChart(lines, rangeDays) {
       linesSVG += `<circle cx="${cx}" cy="${cy}" r="${dotR+1}" fill="var(--surface)" opacity="0.8"/>`;
       linesSVG += `<circle cx="${cx}" cy="${cy}" r="${dotR}" fill="${line.color}"/>`;
       // Score labels on main line dots (if not too crowded)
-      if (lineIdx === 0 && (pts.length <= 15 || pi % 2 === 0 || pi === pts.length - 1)) {
+      const labelSkip = pts.length <= 15 ? 1 : pts.length <= 30 ? 2 : pts.length <= 60 ? 4 : 7;
+      if (lineIdx === 0 && (pi % labelSkip === 0 || pi === pts.length - 1)) {
         linesSVG += `<text x="${cx}" y="${cy - dotR - 4}" text-anchor="middle" font-size="7" font-weight="700" fill="${line.color}">${p.avg}</text>`;
       }
     });
