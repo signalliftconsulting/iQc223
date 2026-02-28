@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   email         TEXT,
   business_name TEXT DEFAULT '',
   client_id     UUID REFERENCES clients(id) ON DELETE SET NULL,
+  role          TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')),
   created_at    TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -118,6 +119,26 @@ CREATE POLICY "profiles_admin_all" ON user_profiles
   FOR ALL
   USING      ((auth.jwt() ->> 'email') = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']))
   WITH CHECK ((auth.jwt() ->> 'email') = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']));
+
+-- Prevent non-admins from escalating their own role
+-- Only admin JWT emails can set role = 'admin'
+CREATE OR REPLACE FUNCTION protect_role_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.role IS DISTINCT FROM OLD.role THEN
+    IF NOT ((current_setting('request.jwt.claims', true)::json ->> 'email')
+            = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com'])) THEN
+      NEW.role := OLD.role;  -- silently revert role change for non-admins
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_protect_role ON user_profiles;
+CREATE TRIGGER trg_protect_role
+  BEFORE UPDATE ON user_profiles
+  FOR EACH ROW EXECUTE FUNCTION protect_role_column();
 
 
 -- ─────────────────────────────────────────────────────────────────

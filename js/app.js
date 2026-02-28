@@ -24,6 +24,7 @@ let activeManagers = new Set(); // empty = show all
 const SEG_UNTAGGED = '__untagged__';
 const SEG_UNTAGGED_LABEL = 'Untagged';
 function segDisplayLabel(tag) { return tag === SEG_UNTAGGED ? SEG_UNTAGGED_LABEL : tag; }
+let _userRole      = null;      // 'admin' | 'user' — fetched from user_profiles on login
 let adminClients   = [];        // list of {id, name, notes} — admin only
 let activeClientId = '__own__'; // '__own__' = admin's own data, else client UUID
 let trash          = [];        // soft-deleted customers
@@ -406,8 +407,8 @@ async function loadCustomersFromSupabase() {
   if (isAdmin()) {
     // Admin loads rows from ALL admin user IDs so all admins see the same data
     const { data: adminProfiles } = await sb.from('user_profiles')
-      .select('user_id, email')
-      .in('email', ADMIN_EMAILS.map(e => e.toLowerCase()));
+      .select('user_id, role')
+      .eq('role', 'admin');
     const adminIds = (adminProfiles || []).map(p => p.user_id);
     if (!adminIds.includes(currentUser.id)) adminIds.push(currentUser.id);
     query = sb.from('customers')
@@ -694,6 +695,7 @@ async function authSignOut() {
   _showOverlay(false);
   stopPolling();
   currentUser = null;
+  _userRole   = null;
   customers   = [];
   trash       = [];
   await sb.auth.signOut();
@@ -719,8 +721,8 @@ function updateUserUI(user) {
     if (signout) signout.style.display = '';
     if (settingsEmail) settingsEmail.textContent = user.email;
 
-    // Show admin nav items only for the admin email
-    const admin = ADMIN_EMAILS.some(e => user.email.toLowerCase() === e.toLowerCase());
+    // Show admin nav items — uses isAdmin() which checks server-fetched role first
+    const admin = isAdmin();
     ['ni-admin-sep','ni-admin-label','ni-clients','ni-users'].forEach(id => {
       const el2 = document.getElementById(id);
       if (el2) el2.style.display = admin ? '' : 'none';
@@ -1005,6 +1007,9 @@ const VIEWS = ['dashboard','alerts','customers','segments','trends','csmperf','r
 const ADMIN_EMAILS = (_cfg && _cfg.ADMIN_EMAILS) || [];
 
 function isAdmin() {
+  // Primary: server-fetched role from user_profiles (can't be spoofed via console)
+  if (_userRole === 'admin') return true;
+  // Fallback: config-based check (only used before profile loads; RLS still protects data)
   return currentUser && ADMIN_EMAILS.some(e => currentUser.email.toLowerCase() === e.toLowerCase());
 }
 
@@ -8810,16 +8815,23 @@ async function adminSaveEdit() {
 // Auto-register current user's profile on login (so admin can see them)
 async function ensureUserProfile(user) {
   try {
-    const { data } = await sb.from('user_profiles').select('user_id').eq('user_id', user.id).single();
+    const { data } = await sb.from('user_profiles').select('user_id, role').eq('user_id', user.id).single();
     if (!data) {
       // Not registered yet — create profile row
       await sb.from('user_profiles').insert({
         user_id:       user.id,
         email:         user.email,
         business_name: '',
+        role:          'user',
         created_at:    new Date().toISOString()
       });
+      _userRole = 'user';
+    } else {
+      // Store the server-fetched role (can't be spoofed from console)
+      _userRole = data.role || 'user';
     }
+    // Re-apply admin UI now that role is confirmed from server
+    updateUserUI(user);
   } catch(e) { /* silent — non-critical */ }
 }
 
