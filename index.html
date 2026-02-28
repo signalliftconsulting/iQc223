@@ -1141,7 +1141,7 @@ td .sparkline{vertical-align:middle}
     <button class="nav-group-hd" onclick="toggleNavGroup('data')"><svg class="nav-group-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>Add Data</button>
     <div class="nav-group-body">
       <button class="nav-item" id="ni-score" onclick="nav('score')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span>Score Customer</button>
-      <button class="nav-item" id="ni-csv" onclick="nav('csv')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg></span>CSV Import</button>
+      <button class="nav-item" id="ni-csv" onclick="nav('csv')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg></span>CSV Export / Import</button>
     </div>
   </div>
   <div class="nav-group open" id="ng-config">
@@ -1742,7 +1742,21 @@ td .sparkline{vertical-align:middle}
 
 <!-- ═══════════════ CSV IMPORT ═══════════════ -->
 <div class="view" id="view-csv">
-  <div class="page-hd"><div><h1>CSV Import</h1><p>Bulk-import customers. Supports column remapping.</p></div></div>
+  <div class="page-hd">
+    <div><h1>CSV Export / Import</h1><p>Export filtered data or bulk-import customers.</p></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <div class="snooze-dd" id="export-dd-csv">
+        <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation();toggleExportDd('csv')">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export ▾
+        </button>
+        <div class="snooze-dd__menu" id="export-menu-csv">
+          <button class="snooze-dd__item" onclick="exportCSV();toggleExportDd('csv')">Export Data</button>
+          <button class="snooze-dd__item" onclick="exportBulksheet();toggleExportDd('csv')">Export Bulksheet</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="card">
     <div class="tmpl-box">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
@@ -2957,6 +2971,6 @@ td .sparkline{vertical-align:middle}
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=89"></script>
+<script src="js/app.js?v=90"></script>
 </body>
 </html>

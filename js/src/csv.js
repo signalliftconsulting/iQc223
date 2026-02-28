@@ -335,8 +335,9 @@ function dlTemplate() {
 }
 
 function exportCSV() {
+  const filtered = customers.filter(c => passesManagerFilter(c));
   const hdr = 'name,manager,score,status,mrr,arr,tier,lifecycle,logins,adoption,tickets,nps,days,renewal_date,renewal,growth,tags,since,next_touch,scoring_profile,note,sentiment,created';
-  const rows = customers.map(c => {
+  const rows = filtered.map(c => {
     const latestNote = (c.notes||[]).length ? c.notes[c.notes.length-1].text : '';
     const latestSent = (c.sentiment||[]).length ? c.sentiment[c.sentiment.length-1].val : '';
     return [
@@ -349,6 +350,7 @@ function exportCSV() {
     ].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');
   });
   dlText(hdr + '\n' + rows.join('\n'), 'cs-health-export.csv', 'text/csv');
+  toast(`Exported ${filtered.length} customer${filtered.length !== 1 ? 's' : ''}`);
 }
 
 function toggleExportDd(key) {

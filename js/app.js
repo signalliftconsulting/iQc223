@@ -7,7 +7,7 @@
 /* ============================================================
    IQcadence — CS Health Score — app.js
    ============================================================ */
-const APP_VERSION = 'v87';
+const APP_VERSION = 'v90';
 console.log('%c IQcadence ' + APP_VERSION + ' loaded ', 'background:#6366f1;color:#fff;font-weight:bold;padding:2px 8px;border-radius:4px');
 
 // ─── SUPABASE CLIENT ─────────────────────────────────────────
@@ -9333,8 +9333,9 @@ function filterByTag(tag) {
 
 // Bulksheet export — import-compatible headers + current data, ready to re-upload
 function exportBulksheet() {
+  const filtered = customers.filter(c => passesManagerFilter(c));
   const hdr = 'name,manager,score,status,mrr,arr,tier,lifecycle,logins_30d,feature_adoption_pct,open_tickets,nps_category,days_since_contact,renewal_date,months_to_renewal,growth_signal,tags,since,next_touch,scoring_profile,note,sentiment,created';
-  const rows = customers.map(c => {
+  const rows = filtered.map(c => {
     const latestNote = (c.notes||[]).length ? c.notes[c.notes.length-1].text : '';
     const latestSent = (c.sentiment||[]).length ? c.sentiment[c.sentiment.length-1].val : '';
     return [
@@ -9348,6 +9349,7 @@ function exportBulksheet() {
     .join(',');
   });
   dlText(hdr + '\n' + rows.join('\n'), 'cs-health-bulksheet.csv', 'text/csv');
+  toast(`Exported ${filtered.length} customer${filtered.length !== 1 ? 's' : ''} (bulksheet)`);
 }
 
 
@@ -11004,8 +11006,9 @@ function dlTemplate() {
 }
 
 function exportCSV() {
+  const filtered = customers.filter(c => passesManagerFilter(c));
   const hdr = 'name,manager,score,status,mrr,arr,tier,lifecycle,logins,adoption,tickets,nps,days,renewal_date,renewal,growth,tags,since,next_touch,scoring_profile,note,sentiment,created';
-  const rows = customers.map(c => {
+  const rows = filtered.map(c => {
     const latestNote = (c.notes||[]).length ? c.notes[c.notes.length-1].text : '';
     const latestSent = (c.sentiment||[]).length ? c.sentiment[c.sentiment.length-1].val : '';
     return [
@@ -11018,6 +11021,7 @@ function exportCSV() {
     ].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');
   });
   dlText(hdr + '\n' + rows.join('\n'), 'cs-health-export.csv', 'text/csv');
+  toast(`Exported ${filtered.length} customer${filtered.length !== 1 ? 's' : ''}`);
 }
 
 function toggleExportDd(key) {

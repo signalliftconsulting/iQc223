@@ -546,8 +546,9 @@ function filterByTag(tag) {
 
 // Bulksheet export — import-compatible headers + current data, ready to re-upload
 function exportBulksheet() {
+  const filtered = customers.filter(c => passesManagerFilter(c));
   const hdr = 'name,manager,score,status,mrr,arr,tier,lifecycle,logins_30d,feature_adoption_pct,open_tickets,nps_category,days_since_contact,renewal_date,months_to_renewal,growth_signal,tags,since,next_touch,scoring_profile,note,sentiment,created';
-  const rows = customers.map(c => {
+  const rows = filtered.map(c => {
     const latestNote = (c.notes||[]).length ? c.notes[c.notes.length-1].text : '';
     const latestSent = (c.sentiment||[]).length ? c.sentiment[c.sentiment.length-1].val : '';
     return [
@@ -561,5 +562,6 @@ function exportBulksheet() {
     .join(',');
   });
   dlText(hdr + '\n' + rows.join('\n'), 'cs-health-bulksheet.csv', 'text/csv');
+  toast(`Exported ${filtered.length} customer${filtered.length !== 1 ? 's' : ''} (bulksheet)`);
 }
 
