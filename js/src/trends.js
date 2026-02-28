@@ -66,7 +66,7 @@ function renderTrends() {
     days = Math.ceil((cutoff - jan1) / 86400000);
     cutoff.setTime(jan1.getTime());
   } else {
-    days = { '7d': 7, '30d': 30, '90d': 90 }[range] || 30;
+    days = { '7d': 7, '30d': 30, '90d': 90, '6m': 180, '1y': 365, '2y': 730 }[range] || 30;
     cutoff.setDate(cutoff.getDate() - days);
   }
   cutoff.setHours(0,0,0,0);
@@ -341,7 +341,7 @@ function buildTrendChart(lines, rangeDays) {
   // ── X-axis date labels — show every date for 7d, every 2–3 for 30d, every 7 for 90d ──
   let xLabels = '';
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const labelEvery = rangeDays <= 7 ? 1 : rangeDays <= 30 ? 2 : rangeDays <= 90 ? 7 : 14;
+  const labelEvery = rangeDays <= 7 ? 1 : rangeDays <= 30 ? 2 : rangeDays <= 90 ? 7 : rangeDays <= 180 ? 14 : 30;
   dates.forEach((d, i) => {
     const x = xScale(i);
     const parts = d.split('-');
