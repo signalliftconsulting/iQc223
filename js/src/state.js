@@ -1,6 +1,8 @@
 /* ============================================================
    IQcadence — CS Health Score — app.js
    ============================================================ */
+const APP_VERSION = 'v83';
+console.log('%c IQcadence ' + APP_VERSION + ' loaded ', 'background:#6366f1;color:#fff;font-weight:bold;padding:2px 8px;border-radius:4px');
 
 // ─── SUPABASE CLIENT ─────────────────────────────────────────
 // NOTE: The anon key is intentionally public — Supabase security comes from
