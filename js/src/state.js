@@ -20,7 +20,8 @@ let selectedIds= new Set();
 let sortKey    = 'score';
 let sortDir    = -1; // -1 = desc
 let filterMode = 'all';
-let activeManagers = new Set(); // empty = show all
+let activeManagers = new Set();
+let mgrFilterAll   = true; // true = show all managers, false = use activeManagers set
 const SEG_UNTAGGED = '__untagged__';
 const SEG_UNTAGGED_LABEL = 'Untagged';
 function segDisplayLabel(tag) { return tag === SEG_UNTAGGED ? SEG_UNTAGGED_LABEL : tag; }

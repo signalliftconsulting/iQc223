@@ -1,7 +1,7 @@
 // Returns true if customer passes the active manager filter
 function passesManagerFilter(c) {
-  if (activeManagers.size === 0) return true;             // empty = show all (default)
-  if (activeManagers.has('__none_selected__')) return false; // explicitly none selected
+  if (mgrFilterAll) return true;                          // "All Managers" checked
+  if (activeManagers.size === 0) return false;            // none selected = show nothing
   if (!c.manager && activeManagers.has('__unassigned__')) return true;
   return activeManagers.has(c.manager || '');
 }
@@ -45,15 +45,12 @@ function refreshMgrDropdown() {
   // Check if any customers are unassigned
   const hasUnassigned = customers.some(c => !c.manager);
 
-  const showAll = activeManagers.size === 0;
-  const noneSelected = activeManagers.has('__none_selected__');
-
   const namedItems = managers.map(m => `
     <div class="mgr-filter__item">
       <label>
         <input type="checkbox" class="mgr-cb" value="${escHtml(m)}"
           onchange="mgrCbChange()"
-          ${showAll || (!noneSelected && activeManagers.has(m)) ? 'checked' : ''}>
+          ${mgrFilterAll || activeManagers.has(m) ? 'checked' : ''}>
         ${escHtml(m)}
       </label>
     </div>`).join('');
@@ -63,7 +60,7 @@ function refreshMgrDropdown() {
       <label>
         <input type="checkbox" class="mgr-cb" value="__unassigned__"
           onchange="mgrCbChange()"
-          ${showAll || (!noneSelected && activeManagers.has('__unassigned__')) ? 'checked' : ''}>
+          ${mgrFilterAll || activeManagers.has('__unassigned__') ? 'checked' : ''}>
         <span style="color:var(--muted);font-style:italic">Unassigned</span>
       </label>
     </div>` : '';
@@ -72,7 +69,7 @@ function refreshMgrDropdown() {
 
   // Sync the "All Managers" checkbox with actual state
   const allCb = document.getElementById('mgr-all');
-  if (allCb) allCb.checked = showAll;
+  if (allCb) allCb.checked = mgrFilterAll;
 
   updateMgrFilterLabel();
 }
@@ -113,12 +110,14 @@ document.addEventListener('click', function(e) {
 function mgrAllToggle(cb) {
   const cbs = document.querySelectorAll('.mgr-cb');
   if (cb.checked) {
-    // "All" checked → clear filter, show everything
+    // "All" checked → show everything
+    mgrFilterAll = true;
     activeManagers.clear();
     cbs.forEach(c => c.checked = true);
   } else {
-    // "All" unchecked → deselect everything so user can pick individual managers
-    activeManagers = new Set(['__none_selected__']);
+    // "All" unchecked → show nothing until user picks individual managers
+    mgrFilterAll = false;
+    activeManagers.clear();
     cbs.forEach(c => c.checked = false);
   }
   updateMgrFilterLabel();
@@ -130,15 +129,18 @@ function mgrCbChange() {
   const checked = cbs.filter(c => c.checked).map(c => c.value);
   const allCb = document.getElementById('mgr-all');
   if (checked.length === cbs.length) {
-    // All selected → clear filter, show everything
+    // All selected → show everything
+    mgrFilterAll = true;
     activeManagers.clear();
     if (allCb) allCb.checked = true;
   } else if (checked.length === 0) {
-    // None selected → keep deselected state so user can pick
-    activeManagers = new Set(['__none_selected__']);
+    // None selected → show nothing
+    mgrFilterAll = false;
+    activeManagers.clear();
     if (allCb) allCb.checked = false;
   } else {
     // Some selected → filter to those
+    mgrFilterAll = false;
     activeManagers = new Set(checked);
     if (allCb) allCb.checked = false;
   }
@@ -149,9 +151,9 @@ function mgrCbChange() {
 function updateMgrFilterLabel() {
   const lbl = document.getElementById('mgr-filter-label');
   if (!lbl) return;
-  if (activeManagers.size === 0) {
+  if (mgrFilterAll) {
     lbl.textContent = 'All Managers';
-  } else if (activeManagers.has('__none_selected__')) {
+  } else if (activeManagers.size === 0) {
     lbl.textContent = 'Select Managers…';
   } else if (activeManagers.size === 1) {
     const val = [...activeManagers][0];

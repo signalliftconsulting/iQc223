@@ -71,6 +71,7 @@ async function clientRadioChange(radio) {
     // Load this client's customers (all users assigned to this client)
     await loadClientCustomers(activeClientId);
   }
+  mgrFilterAll = true;
   activeManagers.clear();
   refreshMgrDropdown();
   renderDashboard();
