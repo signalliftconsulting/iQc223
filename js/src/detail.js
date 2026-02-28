@@ -75,6 +75,9 @@ function showResult({ data, score, signals, status, rec, plays }) {
   const card = document.getElementById('result-card');
   card.style.display = 'block';
 
+  // Scroll to the result so the user sees the score immediately
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
   // Score ring
   document.getElementById('score-num').textContent = score;
   const circ = 2 * Math.PI * 58;

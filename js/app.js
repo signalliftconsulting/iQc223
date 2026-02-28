@@ -1623,6 +1623,9 @@ function isAdmin() {
 }
 
 function nav(v) {
+  // Remember active view for page refresh
+  try { localStorage.setItem('iqc_active_view', v); } catch(e) {}
+
   // Auto-expand the group containing this view
   _autoExpandGroupFor(v);
 
@@ -4260,6 +4263,9 @@ function showResult({ data, score, signals, status, rec, plays }) {
   document.getElementById('result-placeholder').style.display = 'none';
   const card = document.getElementById('result-card');
   card.style.display = 'block';
+
+  // Scroll to the result so the user sees the score immediately
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   // Score ring
   document.getElementById('score-num').textContent = score;
@@ -11725,9 +11731,13 @@ async function ensureUserProfile(user) {
       if (cached) { customers = JSON.parse(cached); hasCached = true; }
     } catch(e) {}
 
+    // Restore last active view (or default to dashboard)
+    const savedView = localStorage.getItem('iqc_active_view');
+    const restoreView = savedView && VIEWS.includes(savedView) ? savedView : 'dashboard';
+
     refreshLiveScores();
     refreshMgrDropdown();
-    renderDashboard();
+    nav(restoreView);
     renderSettings();
     startPolling();
 
@@ -11743,7 +11753,7 @@ async function ensureUserProfile(user) {
       setLoading(false);
       refreshLiveScores();
       refreshMgrDropdown();
-      renderDashboard();
+      nav(restoreView);
       renderSettings();
     }
 
@@ -11778,7 +11788,7 @@ async function ensureUserProfile(user) {
     hideAuthGate();
     updateUserUI(currentUser);
     ensureUserProfile(currentUser);
-    renderDashboard();
+    nav('dashboard');
     renderSettings();
     startPolling();
 
@@ -11792,7 +11802,7 @@ async function ensureUserProfile(user) {
     } finally {
       setLoading(false);
       refreshMgrDropdown();
-      renderDashboard();
+      nav('dashboard');
       renderSettings();
     }
   });

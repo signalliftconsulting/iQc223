@@ -64,6 +64,9 @@ function isAdmin() {
 }
 
 function nav(v) {
+  // Remember active view for page refresh
+  try { localStorage.setItem('iqc_active_view', v); } catch(e) {}
+
   // Auto-expand the group containing this view
   _autoExpandGroupFor(v);
 

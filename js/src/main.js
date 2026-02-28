@@ -22,9 +22,13 @@
       if (cached) { customers = JSON.parse(cached); hasCached = true; }
     } catch(e) {}
 
+    // Restore last active view (or default to dashboard)
+    const savedView = localStorage.getItem('iqc_active_view');
+    const restoreView = savedView && VIEWS.includes(savedView) ? savedView : 'dashboard';
+
     refreshLiveScores();
     refreshMgrDropdown();
-    renderDashboard();
+    nav(restoreView);
     renderSettings();
     startPolling();
 
@@ -40,7 +44,7 @@
       setLoading(false);
       refreshLiveScores();
       refreshMgrDropdown();
-      renderDashboard();
+      nav(restoreView);
       renderSettings();
     }
 
@@ -75,7 +79,7 @@
     hideAuthGate();
     updateUserUI(currentUser);
     ensureUserProfile(currentUser);
-    renderDashboard();
+    nav('dashboard');
     renderSettings();
     startPolling();
 
@@ -89,7 +93,7 @@
     } finally {
       setLoading(false);
       refreshMgrDropdown();
-      renderDashboard();
+      nav('dashboard');
       renderSettings();
     }
   });
