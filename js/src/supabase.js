@@ -693,7 +693,13 @@ let _pollTimer = null;
 async function silentSync() {
   if (!currentUser) return;
   try {
-    await loadCustomersFromSupabase();
+    // Respect the active client context — if admin switched to a specific client,
+    // reload that client's data instead of the admin's own
+    if (isAdmin() && activeClientId !== '__own__') {
+      await loadClientCustomers(activeClientId, true);
+    } else {
+      await loadCustomersFromSupabase();
+    }
     refreshMgrDropdown();
     const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
     if (active === 'dashboard') renderDashboard();

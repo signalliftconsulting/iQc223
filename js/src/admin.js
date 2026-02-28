@@ -90,8 +90,8 @@ function updateClientFilterLabel() {
 }
 
 // Load all customers belonging to users assigned to a given client
-async function loadClientCustomers(clientId) {
-  setLoading(true);
+async function loadClientCustomers(clientId, silent) {
+  if (!silent) setLoading(true);
   try {
     // Get all user_ids assigned to this client
     const { data: profiles, error: pErr } = await sb.from('user_profiles')
@@ -99,7 +99,7 @@ async function loadClientCustomers(clientId) {
     if (pErr) throw pErr;
 
     const userIds = (profiles || []).map(p => p.user_id);
-    if (!userIds.length) { customers = []; trash = []; setLoading(false); return; }
+    if (!userIds.length) { customers = []; trash = []; if (!silent) setLoading(false); return; }
 
     // Load all customers for those users (active + soft-deleted)
     const { data, error } = await sb.from('customers')
@@ -115,7 +115,7 @@ async function loadClientCustomers(clientId) {
     customers = [];
     trash = [];
   } finally {
-    setLoading(false);
+    if (!silent) setLoading(false);
   }
 }
 
