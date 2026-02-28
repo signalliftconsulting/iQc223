@@ -459,7 +459,7 @@ function renderAlertPanel(all, active, snz) {
 // ════════════════════════════════════════════════════════════════
 
 function _briefingNarrative(active, snz) {
-  const total = customers.filter(c => c.lifecycle !== 'churned');
+  const total = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
   if (!total.length) return '';
   const n = total.length;
   const critRisk   = total.filter(c => c.status === 'critical' || c.status === 'risk');
@@ -467,11 +467,23 @@ function _briefingNarrative(active, snz) {
   const healthy    = total.filter(c => c.status === 'healthy' || c.status === 'expand');
   const healthPct  = Math.round((healthy.length / n) * 100);
 
-  // MRR at risk — only health-based critical/risk (matches MRR Exposure widget)
-  const riskMrr = critRisk.reduce((s, c) => s + (c.mrr || 0), 0);
+  // MRR at risk
+  const riskMrr   = critRisk.reduce((s, c) => s + (c.mrr || 0), 0);
+  const totalMrr  = total.reduce((s, c) => s + (c.mrr || 0), 0);
+  const riskMrrPct = totalMrr > 0 ? Math.round((riskMrr / totalMrr) * 100) : 0;
 
   // Average score
   const avgScore = Math.round(total.reduce((s, c) => s + (c.score || 0), 0) / n);
+
+  // ── Week-over-week momentum ──
+  let improving = 0, declining = 0, stable = 0;
+  let biggestDrop = null, biggestRise = null;
+  total.forEach(c => {
+    const d = getDelta7d(c);
+    if (d > 2) { improving++; if (!biggestRise || d > getDelta7d(biggestRise)) biggestRise = c; }
+    else if (d < -2) { declining++; if (!biggestDrop || d < getDelta7d(biggestDrop)) biggestDrop = c; }
+    else stable++;
+  });
 
   // Alert counts by category
   const renewals     = active.filter(a => a.cat === 'renewal');
@@ -483,96 +495,161 @@ function _briefingNarrative(active, snz) {
   const momentum     = active.filter(a => a.cat === 'momentum');
 
   // Touched recently
-  const recentTouch = total.filter(c => c.days != null && c.days <= 14).length;
-  const touchPct    = Math.round((recentTouch / n) * 100);
+  const recentTouch  = total.filter(c => c.days != null && c.days <= 14).length;
+  const touchPct     = Math.round((recentTouch / n) * 100);
+  const ghosted      = total.filter(c => c.days != null && c.days > 30);
 
   // Customers without alerts
   const alertCids  = new Set(active.map(a => a.cid));
   const clearCount = total.filter(c => !alertCids.has(c.id)).length;
-  const clearPct   = Math.round((clearCount / n) * 100);
+
+  // ── Cross-signal: risky renewals (renewing soon AND unhealthy) ──
+  const renewCids = new Set(renewals.map(a => a.cid));
+  const riskyRenewals = critRisk.filter(c => renewCids.has(c.id));
+
+  // ── Cross-signal: declining + no recent contact ──
+  const silentDecliners = total.filter(c => getDelta7d(c) < -3 && c.days != null && c.days > 21);
+
+  // ── Tier concentration: enterprise accounts at risk ──
+  const entAtRisk = critRisk.filter(c => c.tier === 'enterprise');
+  const entMrrAtRisk = entAtRisk.reduce((s, c) => s + (c.mrr || 0), 0);
+
+  // ── Low adoption correlation ──
+  const lowAdoption = total.filter(c => c.adoption != null && c.adoption < 30 && (c.status === 'healthy' || c.status === 'expand'));
+
+  // Day-of-week awareness
+  const dow = new Date().getDay(); // 0=Sun ... 5=Fri
+  const isMon = dow === 1;
+  const isFri = dow === 5;
 
   const lines = [];
 
-  // ── Opening: overall health assessment ──
+  // ── Opening: overall health with momentum context ──
   if (critRisk.length === 0 && watchAccts.length === 0) {
-    if (n <= 3) {
-      lines.push(`Your ${n} active account${n > 1 ? 's are' : ' is'} all in good standing with an average health score of ${avgScore}.`);
+    if (improving > declining) {
+      lines.push(`Your portfolio is trending up — all ${n} accounts are healthy or growing, average score ${avgScore}. ${improving} account${improving !== 1 ? 's' : ''} improved this week.`);
     } else {
-      lines.push(`Your portfolio is in strong shape — all ${n} accounts are healthy or growing, with an average score of ${avgScore}.`);
+      lines.push(`Portfolio looks solid — all ${n} accounts are in good standing, average score ${avgScore}.`);
     }
   } else if (critRisk.length === 0) {
-    lines.push(`${healthy.length} of ${n} accounts (${healthPct}%) are healthy or growing. ${watchAccts.length} ${watchAccts.length === 1 ? 'is' : 'are'} in the watch zone but no accounts are at critical risk. Average score: ${avgScore}.`);
+    lines.push(`${healthy.length} of ${n} accounts (${healthPct}%) are healthy or expanding. ${watchAccts.length} in the watch zone — ${declining > 0 ? 'keep an eye on declining trends' : 'holding steady for now'}.`);
   } else if (critRisk.length <= 2) {
-    const names = critRisk.slice(0, 2).map(c => c.name).join(' and ');
-    lines.push(`Most of your portfolio is stable, but <strong>${names}</strong> ${critRisk.length === 1 ? 'needs' : 'need'} immediate attention.`);
-    if (riskMrr > 0) lines.push(`That puts <strong>$${fmtNum(riskMrr)}</strong> in MRR at health-score risk.`);
+    const names = critRisk.slice(0, 2).map(c => `<strong>${escHtml(c.name)}</strong> (${c.score})`).join(' and ');
+    lines.push(`${names} ${critRisk.length === 1 ? 'needs' : 'need'} immediate attention.`);
+    if (riskMrr > 0) {
+      lines.push(`That's <strong>$${fmtNum(riskMrr)}</strong> MRR at risk${riskMrrPct >= 20 ? ` — ${riskMrrPct}% of your portfolio revenue` : ''}.`);
+    }
   } else {
-    lines.push(`<strong>${critRisk.length} accounts</strong> are in critical or at-risk health — <strong>$${fmtNum(riskMrr)}</strong> MRR is exposed. These should be your first priority today.`);
+    lines.push(`<strong>${critRisk.length} accounts</strong> are critical or at-risk, exposing <strong>$${fmtNum(riskMrr)}</strong> MRR${riskMrrPct >= 15 ? ` (${riskMrrPct}% of portfolio)` : ''}. ${isMon ? 'Prioritize these to start the week strong.' : 'These should be today\'s top priority.'}`);
   }
 
-  // ── Renewals ──
-  if (urgRenewals.length > 0) {
+  // ── Cross-signal: renewals at risk (highest urgency) ──
+  if (riskyRenewals.length > 0) {
+    const rr = riskyRenewals.slice(0, 2);
+    const rrNames = rr.map(c => `<strong>${escHtml(c.name)}</strong>`).join(' and ');
+    const rrMrr = riskyRenewals.reduce((s, c) => s + (c.mrr || 0), 0);
+    lines.push(`⚠ ${rrNames} ${riskyRenewals.length === 1 ? 'is' : 'are'} both unhealthy AND renewing soon — $${fmtNum(rrMrr)} MRR at direct churn risk. ${riskyRenewals.length === 1 ? 'This needs' : 'These need'} an escalation plan.`);
+  } else if (urgRenewals.length > 0) {
+    // Regular urgent renewals
     const renCids = new Set();
     const renNames = [];
     urgRenewals.forEach(a => { if (!renCids.has(a.cid)) { renCids.add(a.cid); const c = customers.find(x => x.id === a.cid); if (c) renNames.push(c.name); }});
     if (renNames.length <= 2) {
-      lines.push(`<strong>${renNames.join(' and ')}</strong> ${renNames.length === 1 ? 'has a' : 'have'} renewal${renNames.length === 1 ? '' : 's'} due within 14 days — lock ${renNames.length === 1 ? 'this' : 'these'} in soon.`);
+      lines.push(`<strong>${renNames.join(' and ')}</strong> ${renNames.length === 1 ? 'renews' : 'renew'} within 14 days — lock ${renNames.length === 1 ? 'this' : 'these'} in soon.`);
     } else {
-      lines.push(`<strong>${urgRenewals.length} renewals</strong> are due within 14 days — get those conversations started.`);
+      lines.push(`<strong>${urgRenewals.length} renewals</strong> due within 14 days — get conversations started.`);
     }
   } else if (renewals.length > 0) {
-    lines.push(`${renewals.length} renewal${renewals.length === 1 ? '' : 's'} upcoming in the next 60 days — none urgent yet.`);
+    lines.push(`${renewals.length} renewal${renewals.length !== 1 ? 's' : ''} coming up in 60 days — none urgent yet, good time to prep.`);
+  }
+
+  // ── Enterprise tier at risk (high-value call-out) ──
+  if (entAtRisk.length > 0 && entMrrAtRisk > 0) {
+    lines.push(`${entAtRisk.length} enterprise account${entAtRisk.length !== 1 ? 's' : ''} at risk — <strong>$${fmtNum(entMrrAtRisk)}</strong> in high-value MRR needs exec-level attention.`);
+  }
+
+  // ── Cross-signal: silent decliners (declining + no contact) ──
+  if (silentDecliners.length > 0) {
+    const sd = silentDecliners.slice(0, 2);
+    const sdNames = sd.map(c => `<strong>${escHtml(c.name)}</strong>`).join(' and ');
+    if (silentDecliners.length <= 2) {
+      lines.push(`${sdNames} ${silentDecliners.length === 1 ? 'is' : 'are'} declining with no contact in 21+ days — the longer you wait, the harder the recovery.`);
+    } else {
+      lines.push(`<strong>${silentDecliners.length} accounts</strong> are declining with no recent contact — these gaps need closing before scores drop further.`);
+    }
   }
 
   // ── Cadence / outreach gaps ──
-  if (cadenceRed.length > 0) {
-    const cadCids = new Set();
-    const cadNames = [];
-    cadenceRed.forEach(a => { if (!cadCids.has(a.cid)) { cadCids.add(a.cid); const c = customers.find(x => x.id === a.cid); if (c) cadNames.push(c.name); }});
-    if (cadNames.length <= 2) {
-      lines.push(`<strong>${cadNames.join(' and ')}</strong> ${cadNames.length === 1 ? 'has' : 'have'} overdue check-ins — reach out before silence becomes a risk.`);
+  if (cadenceRed.length > 0 && !silentDecliners.length) {
+    // Only show if we didn't already call out silent decliners
+    if (cadenceRed.length <= 3) {
+      const cadCids = new Set();
+      const cadNames = [];
+      cadenceRed.forEach(a => { if (!cadCids.has(a.cid)) { cadCids.add(a.cid); const c = customers.find(x => x.id === a.cid); if (c) cadNames.push(c.name); }});
+      lines.push(`<strong>${cadNames.join(', ')}</strong> ${cadNames.length === 1 ? 'has' : 'have'} overdue check-ins.`);
     } else {
-      lines.push(`<strong>${cadenceRed.length} accounts</strong> have overdue check-ins — get those touchpoints scheduled.`);
+      lines.push(`<strong>${cadenceRed.length} accounts</strong> have overdue check-ins — schedule those touchpoints.`);
     }
   }
 
-  // ── Tickets ──
-  if (ticketAlerts.length > 0) {
-    lines.push(`${ticketAlerts.length} account${ticketAlerts.length > 1 ? 's have' : ' has'} elevated support tickets — worth a proactive check-in.`);
+  // ── Tickets + sentiment (combine if both present) ──
+  if (ticketAlerts.length > 0 && sentNeg.length > 0) {
+    lines.push(`${ticketAlerts.length} account${ticketAlerts.length !== 1 ? 's' : ''} with elevated tickets and ${sentNeg.length} with negative sentiment — a pattern worth investigating. Could indicate a product or support gap.`);
+  } else if (ticketAlerts.length > 0) {
+    lines.push(`${ticketAlerts.length} account${ticketAlerts.length !== 1 ? 's have' : ' has'} elevated support tickets — a proactive check-in can prevent escalation.`);
+  } else if (sentNeg.length > 0) {
+    lines.push(`${sentNeg.length} account${sentNeg.length !== 1 ? 's' : ''} logged negative sentiment — follow up before it compounds.`);
   }
 
-  // ── Sentiment ──
-  if (sentNeg.length > 0) {
-    lines.push(`${sentNeg.length} account${sentNeg.length > 1 ? 's' : ''} logged negative sentiment recently — follow up before it escalates.`);
+  // ── Hidden risk: healthy accounts with low adoption ──
+  if (lowAdoption.length > 0) {
+    lines.push(`Watch: ${lowAdoption.length} "healthy" account${lowAdoption.length !== 1 ? 's have' : ' has'} adoption below 30% — scores may look good now, but low usage often predicts future churn.`);
   }
 
-  // ── Declining momentum ──
-  if (momentum.length > 0) {
-    lines.push(`${momentum.length} account${momentum.length > 1 ? 's are' : ' is'} showing declining momentum scores.`);
+  // ── Declining momentum (only if not already covered by silent decliners) ──
+  if (momentum.length > 0 && declining > improving && !silentDecliners.length) {
+    lines.push(`${declining} account${declining !== 1 ? 's' : ''} declining this week vs ${improving} improving — momentum is tilting negative.`);
+  }
+
+  // ── Biggest mover call-out ──
+  if (biggestDrop && getDelta7d(biggestDrop) < -8) {
+    lines.push(`Biggest drop: <strong>${escHtml(biggestDrop.name)}</strong> fell ${Math.abs(getDelta7d(biggestDrop))} points this week${biggestDrop.status === 'critical' || biggestDrop.status === 'risk' ? ' and is now at risk' : ''}.`);
+  }
+  if (biggestRise && getDelta7d(biggestRise) > 8) {
+    lines.push(`Biggest gain: <strong>${escHtml(biggestRise.name)}</strong> climbed +${getDelta7d(biggestRise)} points — great momentum.`);
   }
 
   // ── Positive / expansion ──
   if (expansions.length > 0) {
-    lines.push(`On the bright side, <strong>${expansions.length} expansion</strong> opportunit${expansions.length === 1 ? 'y is' : 'ies are'} flagged — high-value accounts ready for growth conversations.`);
+    const expMrr = expansions.reduce((s, a) => { const c = customers.find(x => x.id === a.cid); return s + (c?.mrr || 0); }, 0);
+    lines.push(`<strong>${expansions.length} expansion</strong> opportunit${expansions.length === 1 ? 'y' : 'ies'} flagged${expMrr > 0 ? ` across $${fmtNum(expMrr)} MRR` : ''} — these accounts are primed for growth conversations.`);
   }
 
-  // ── Outreach / coverage ──
-  if (touchPct >= 70) {
-    lines.push(`Outreach coverage is strong — ${touchPct}% of accounts were touched in the last 14 days.`);
+  // ── Outreach coverage ──
+  if (ghosted.length > 0 && touchPct < 50) {
+    lines.push(`Only ${touchPct}% of accounts touched in 14 days, and <strong>${ghosted.length}</strong> haven't been contacted in over a month. ${isFri ? 'Consider blocking time Monday to close these gaps.' : 'Prioritize outreach this week.'}`);
+  } else if (touchPct >= 70) {
+    lines.push(`Outreach coverage is strong at ${touchPct}%. Keep it up.`);
   } else if (touchPct >= 40) {
-    lines.push(`${touchPct}% of accounts were touched in the last 14 days. Consider scheduling more check-ins this week.`);
-  } else if (touchPct > 0) {
-    lines.push(`Only ${touchPct}% of accounts have been contacted recently — outreach coverage could use attention.`);
+    lines.push(`${touchPct}% of accounts touched recently — room to improve coverage.`);
   }
 
-  // ── Snoozed ──
+  // ── Snoozed reminder ──
   if (snz.length > 0) {
-    lines.push(`${snz.length} alert${snz.length > 1 ? 's are' : ' is'} snoozed — remember to circle back.`);
+    lines.push(`${snz.length} snoozed alert${snz.length !== 1 ? 's' : ''} — don't forget to circle back.`);
   }
 
   // ── All clear closing ──
   if (active.length === 0 && critRisk.length === 0) {
-    lines.push(`No active alerts — a great time to focus on strategic outreach, expansion conversations, or getting ahead on renewals.`);
+    const suggestions = [];
+    if (expansions.length === 0 && total.some(c => c.status === 'expand'))
+      suggestions.push('expansion conversations');
+    if (renewals.length === 0)
+      suggestions.push('early renewal planning');
+    if (touchPct < 60)
+      suggestions.push('outreach to untouched accounts');
+    suggestions.push('strategic QBR prep');
+    lines.push(`No active alerts — a great time to focus on ${suggestions.slice(0, 2).join(' or ')}.`);
   }
 
   return lines.join(' ');
