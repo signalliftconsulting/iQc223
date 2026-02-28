@@ -31,15 +31,12 @@ let dismissed = new Set();
 function buildAlerts() {
   const alerts = [];
   const now = new Date();
-  console.log('[ALERTS] buildAlerts called → mgrFilterAll=' + mgrFilterAll + ', activeManagers.size=' + activeManagers.size + ', customers.length=' + customers.length);
-
   // Customer display snapshot — embedded in every alert for rich rendering
   const snap = c => ({ _score:c.score, _status:c.status, _tier:c.tier, _manager:c.manager||'', _days:c.days||0 });
 
-  let filteredOut = 0;
   customers.forEach(c => {
     if (c.lifecycle === 'churned') return;
-    if (!passesManagerFilter(c)) { filteredOut++; return; }
+    if (!passesManagerFilter(c)) return;
 
     // ── Health ──
     if (c.status === 'critical')
@@ -124,7 +121,6 @@ function buildAlerts() {
     return ((cb?.mrr||0) - (ca?.mrr||0));
   });
 
-  console.log('[ALERTS] buildAlerts result → ' + alerts.length + ' alerts, ' + filteredOut + ' customers filtered out by manager');
   return alerts;
 }
 

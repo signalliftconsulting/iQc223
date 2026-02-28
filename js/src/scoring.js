@@ -338,6 +338,7 @@ function buildCadenceAlerts() {
   const alerts = [];
   customers.forEach(c => {
     if (c.lifecycle === 'churned') return;
+    if (!passesManagerFilter(c)) return;
     // Next touch overdue alert
     if (c.next_touch) {
       const ntDays = Math.round((new Date() - new Date(c.next_touch)) / 86400000);

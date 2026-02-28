@@ -7,7 +7,7 @@
 /* ============================================================
    IQcadence — CS Health Score — app.js
    ============================================================ */
-const APP_VERSION = 'v84';
+const APP_VERSION = 'v85';
 console.log('%c IQcadence ' + APP_VERSION + ' loaded ', 'background:#6366f1;color:#fff;font-weight:bold;padding:2px 8px;border-radius:4px');
 
 // ─── SUPABASE CLIENT ─────────────────────────────────────────
@@ -1513,6 +1513,7 @@ function buildCadenceAlerts() {
   const alerts = [];
   customers.forEach(c => {
     if (c.lifecycle === 'churned') return;
+    if (!passesManagerFilter(c)) return;
     // Next touch overdue alert
     if (c.next_touch) {
       const ntDays = Math.round((new Date() - new Date(c.next_touch)) / 86400000);
@@ -2409,15 +2410,12 @@ let dismissed = new Set();
 function buildAlerts() {
   const alerts = [];
   const now = new Date();
-  console.log('[ALERTS] buildAlerts called → mgrFilterAll=' + mgrFilterAll + ', activeManagers.size=' + activeManagers.size + ', customers.length=' + customers.length);
-
   // Customer display snapshot — embedded in every alert for rich rendering
   const snap = c => ({ _score:c.score, _status:c.status, _tier:c.tier, _manager:c.manager||'', _days:c.days||0 });
 
-  let filteredOut = 0;
   customers.forEach(c => {
     if (c.lifecycle === 'churned') return;
-    if (!passesManagerFilter(c)) { filteredOut++; return; }
+    if (!passesManagerFilter(c)) return;
 
     // ── Health ──
     if (c.status === 'critical')
@@ -2502,7 +2500,6 @@ function buildAlerts() {
     return ((cb?.mrr||0) - (ca?.mrr||0));
   });
 
-  console.log('[ALERTS] buildAlerts result → ' + alerts.length + ' alerts, ' + filteredOut + ' customers filtered out by manager');
   return alerts;
 }
 
@@ -3240,7 +3237,6 @@ function mgrAllToggle(cb) {
     activeManagers.clear();
     cbs.forEach(c => c.checked = false);
   }
-  console.log('[MGR] mgrAllToggle → mgrFilterAll=' + mgrFilterAll + ', activeManagers.size=' + activeManagers.size);
   updateMgrFilterLabel();
   renderDashboard(); renderCustomers(); renderAlerts(); renderSegments(); renderCSMPerformance();
 }
@@ -3262,7 +3258,6 @@ function mgrCbChange() {
     activeManagers = new Set(checked);
     if (allCb) allCb.checked = false;
   }
-  console.log('[MGR] mgrCbChange → mgrFilterAll=' + mgrFilterAll + ', activeManagers.size=' + activeManagers.size + ', checked=' + JSON.stringify(checked));
   updateMgrFilterLabel();
   renderDashboard(); renderCustomers(); renderAlerts(); renderSegments(); renderCSMPerformance();
 }

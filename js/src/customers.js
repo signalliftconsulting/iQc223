@@ -118,7 +118,6 @@ function mgrAllToggle(cb) {
     activeManagers.clear();
     cbs.forEach(c => c.checked = false);
   }
-  console.log('[MGR] mgrAllToggle → mgrFilterAll=' + mgrFilterAll + ', activeManagers.size=' + activeManagers.size);
   updateMgrFilterLabel();
   renderDashboard(); renderCustomers(); renderAlerts(); renderSegments(); renderCSMPerformance();
 }
@@ -140,7 +139,6 @@ function mgrCbChange() {
     activeManagers = new Set(checked);
     if (allCb) allCb.checked = false;
   }
-  console.log('[MGR] mgrCbChange → mgrFilterAll=' + mgrFilterAll + ', activeManagers.size=' + activeManagers.size + ', checked=' + JSON.stringify(checked));
   updateMgrFilterLabel();
   renderDashboard(); renderCustomers(); renderAlerts(); renderSegments(); renderCSMPerformance();
 }
