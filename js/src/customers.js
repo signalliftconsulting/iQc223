@@ -110,16 +110,15 @@ document.addEventListener('click', function(e) {
 function mgrAllToggle(cb) {
   const cbs = document.querySelectorAll('.mgr-cb');
   if (cb.checked) {
-    // "All" checked → show everything
     mgrFilterAll = true;
     activeManagers.clear();
     cbs.forEach(c => c.checked = true);
   } else {
-    // "All" unchecked → show nothing until user picks individual managers
     mgrFilterAll = false;
     activeManagers.clear();
     cbs.forEach(c => c.checked = false);
   }
+  console.log('[MGR] mgrAllToggle → mgrFilterAll=' + mgrFilterAll + ', activeManagers.size=' + activeManagers.size);
   updateMgrFilterLabel();
   renderDashboard(); renderCustomers(); renderAlerts(); renderSegments(); renderCSMPerformance();
 }
@@ -129,21 +128,19 @@ function mgrCbChange() {
   const checked = cbs.filter(c => c.checked).map(c => c.value);
   const allCb = document.getElementById('mgr-all');
   if (checked.length === cbs.length) {
-    // All selected → show everything
     mgrFilterAll = true;
     activeManagers.clear();
     if (allCb) allCb.checked = true;
   } else if (checked.length === 0) {
-    // None selected → show nothing
     mgrFilterAll = false;
     activeManagers.clear();
     if (allCb) allCb.checked = false;
   } else {
-    // Some selected → filter to those
     mgrFilterAll = false;
     activeManagers = new Set(checked);
     if (allCb) allCb.checked = false;
   }
+  console.log('[MGR] mgrCbChange → mgrFilterAll=' + mgrFilterAll + ', activeManagers.size=' + activeManagers.size + ', checked=' + JSON.stringify(checked));
   updateMgrFilterLabel();
   renderDashboard(); renderCustomers(); renderAlerts(); renderSegments(); renderCSMPerformance();
 }
