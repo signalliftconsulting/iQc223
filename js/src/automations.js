@@ -624,6 +624,16 @@ function clearAllAlertFilters() {
 // ── Wizard Navigation (clickable stepper, animated transitions) ──
 
 function wizardGoToStep(step) {
+  // Validate current step before advancing
+  if (step > _wizardStep) {
+    if (_wizardStep === 1) {
+      const mgrScope = automationsCfg.manager_scope || { mode: 'all', managers: [] };
+      if (mgrScope.mode === 'selected' && (!mgrScope.managers || mgrScope.managers.length === 0)) {
+        toast('Please select at least one manager, or choose "All Managers"', 'error');
+        return;
+      }
+    }
+  }
   _wizardStep = step;
   // Update stepper UI
   document.querySelectorAll('.wizard-step').forEach(stepEl => {
