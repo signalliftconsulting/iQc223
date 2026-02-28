@@ -3,8 +3,12 @@
    ============================================================ */
 
 // ─── SUPABASE CLIENT ─────────────────────────────────────────
-const SUPABASE_URL  = 'https://qctiyigznbztxcowehnl.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjdGl5aWd6bmJ6dHhjb3dlaG5sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1NTEwMjcsImV4cCI6MjA4NzEyNzAyN30.Uto2G5WzDIgDplQlgSwvo1BT3voym8msjZSSy9GUBsg';
+// NOTE: The anon key is intentionally public — Supabase security comes from
+// Row Level Security (RLS) policies, not from hiding this key.
+// Admin emails are loaded from js/config.js (gitignored) if available.
+const _cfg = window.__IQCADENCE_CONFIG__ || {};
+const SUPABASE_URL  = _cfg.SUPABASE_URL  || 'https://qctiyigznbztxcowehnl.supabase.co';
+const SUPABASE_ANON = _cfg.SUPABASE_ANON || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjdGl5aWd6bmJ6dHhjb3dlaG5sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1NTEwMjcsImV4cCI6MjA4NzEyNzAyN30.Uto2G5WzDIgDplQlgSwvo1BT3voym8msjZSSy9GUBsg';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 let currentUser = null; // set after auth
@@ -578,8 +582,8 @@ function renderTrash() {
       <td>${badgeHTML(c.status)}</td>
       <td>$${(c.mrr||0).toLocaleString()}</td>
       <td style="white-space:nowrap">
-        <button class="btn btn-sm btn-ghost" style="margin-right:4px" onclick="restoreCustomer('${c.id}')">Restore</button>
-        <button class="btn btn-sm btn-danger" onclick="hardDeleteCustomer('${c.id}')">Delete Forever</button>
+        <button class="btn btn-sm btn-ghost" style="margin-right:4px" onclick="restoreCustomer('${escHtml(c.id)}')">Restore</button>
+        <button class="btn btn-sm btn-danger" onclick="hardDeleteCustomer('${escHtml(c.id)}')">Delete Forever</button>
       </td>
     </tr>`;
   }).join('');
@@ -996,7 +1000,7 @@ function buildNextBestAction(c) {
 
 // ─── NAVIGATION ─────────────────────────────────────────────
 const VIEWS = ['dashboard','alerts','customers','segments','trends','csmperf','reports','score','csv','settings','automations','auditlog','users','clients','help'];
-const ADMIN_EMAILS = ['signalliftconsulting@gmail.com', 'ian@iqcadence.com'];
+const ADMIN_EMAILS = (_cfg && _cfg.ADMIN_EMAILS) || [];
 
 function isAdmin() {
   return currentUser && ADMIN_EMAILS.some(e => currentUser.email.toLowerCase() === e.toLowerCase());
@@ -2564,7 +2568,7 @@ function renderDashAlerts() {
     const def = ALERT_CATS[a.cat] || ALERT_CATS.health;
     const cust = customers.find(x => x.id === a.cid);
     return `
-    <div class="dash-alert-item ${a.type}" onclick="openDetail('${a.cid}')">
+    <div class="dash-alert-item ${a.type}" onclick="openDetail('${escHtml(a.cid)}')">
       <div class="dash-alert-item__icon">${def.icon}</div>
       <div class="dash-alert-item__body">
         <div class="dash-alert-item__text"><strong>${escHtml(cust?.name||'')}</strong> — ${def.label}</div>
@@ -2758,7 +2762,7 @@ function renderHeatmap(active) {
       const daysPct   = Math.max(0,100-(c.days/180)*100);
       const growPct   = {none:25,mild:65,strong:100}[c.growth]||25;
       return `<tr>
-        <td class="nc" style="cursor:pointer" onclick="openDetail('${c.id}')">${c.name}</td>
+        <td class="nc" style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">${c.name}</td>
         <td class="${hmColor(c.score,false)}">${c.score}</td>
         <td class="${hmColor(loginPct,false)}">${c.logins}d</td>
         <td class="${hmColor(c.adoption,false)}">${c.adoption}%</td>
@@ -2794,7 +2798,7 @@ function renderRecent(active) {
     .slice(0, 5);
 
   wrap.innerHTML = sorted.map(c => `
-    <div class="dash-recent-item" onclick="openDetail('${c.id}')">
+    <div class="dash-recent-item" onclick="openDetail('${escHtml(c.id)}')">
       ${scoreHTML(c)}
       <span class="dash-recent-name">${escHtml(c.name)}</span>
       <span class="dash-recent-meta">${fmtDate(c.created)}</span>
@@ -2846,7 +2850,7 @@ function renderWins(active) {
     const badgeColor = STATUS_COLOR[st] || '#16a34a';
     const badgeBg    = { critical:'#fef2f2', risk:'#fff7ed', watch:'#fffbeb', healthy:'#f0fdf4', expand:'#ecfeff' }[st] || '#f0fdf4';
     return `
-    <div class="win-item" onclick="openDetail('${c.id}')">
+    <div class="win-item" onclick="openDetail('${escHtml(c.id)}')">
       <div style="width:32px;height:32px;border-radius:50%;background:${badgeBg};border:2px solid ${badgeColor};display:flex;align-items:center;justify-content:center;flex-shrink:0">
         <span style="font-size:.72rem;font-weight:800;color:${badgeColor}">${newScore}</span>
       </div>
@@ -2903,7 +2907,7 @@ function renderDrops(active) {
     const badgeColor = STATUS_COLOR[st] || '#ea580c';
     const badgeBg    = statusBg[st] || '#fff7ed';
     return `
-    <div class="win-item" onclick="openDetail('${c.id}')">
+    <div class="win-item" onclick="openDetail('${escHtml(c.id)}')">
       <div style="width:32px;height:32px;border-radius:50%;background:${badgeBg};border:2px solid ${badgeColor};display:flex;align-items:center;justify-content:center;flex-shrink:0">
         <span style="font-size:.72rem;font-weight:800;color:${badgeColor}">${newScore}</span>
       </div>
@@ -3272,7 +3276,7 @@ function _renderAlerts() {
     if (custList.length) {
       custList.forEach(([cid, data]) => {
         const scoreColor = STATUS_COLOR[data.status] || '#94a3b8';
-        html += `<div class="alert-group-hd" style="cursor:pointer" onclick="openDetail('${cid}')">
+        html += `<div class="alert-group-hd" style="cursor:pointer" onclick="openDetail('${escHtml(cid)}')">
           <span class="alert-score-circle" style="background:${scoreColor};width:26px;height:26px;font-size:.65rem;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-weight:800">${data.score}</span>
           ${escHtml(data.name)}
           ${data.mrr ? `<span style="font-weight:400;color:var(--subtle);font-size:.75rem">$${fmtNum(data.mrr)} MRR</span>` : ''}
@@ -3417,7 +3421,7 @@ function renderAlertPanel(all, active, snz) {
 
     if (items.length) {
       actWrap.innerHTML = items.slice(0, 4).map(it => `
-        <div class="alert-action-row" onclick="openDetail('${it.cid}')">
+        <div class="alert-action-row" onclick="openDetail('${escHtml(it.cid)}')">
           <div class="alert-action-dot" style="background:${urgColors[it.level]||'rgba(255,255,255,.4)'}"></div>
           <div class="alert-action-body">
             <div class="alert-action-cust">${escHtml(it.name)}</div>
@@ -3443,7 +3447,7 @@ function alertItemHTML(a, isSnzd) {
   const scoreColor = STATUS_COLOR[a._status] || '#94a3b8';
   const scoreVal   = (a._score != null) ? a._score : '—';
   return `
-    <div class="alert-item ${a.type} ${isSnzd?'snoozed':''} ${sel?'selected':''}" id="alert-row-${a.id}" onclick="openDetail('${a.cid}')">
+    <div class="alert-item ${a.type} ${isSnzd?'snoozed':''} ${sel?'selected':''}" id="alert-row-${escHtml(a.id)}" onclick="openDetail('${escHtml(a.cid)}')">
       <div class="alert-score-circle" style="background:${scoreColor}">${scoreVal}</div>
       <input type="checkbox" class="alert-item__check" ${sel?'checked':''} onclick="event.stopPropagation();alertToggleSelect('${a.id}',this)" title="Select">
       <div class="alert-item__icon">${def.icon}</div>
@@ -3583,12 +3587,15 @@ function refreshMgrDropdown() {
   // Check if any customers are unassigned
   const hasUnassigned = customers.some(c => !c.manager);
 
+  const showAll = activeManagers.size === 0;
+  const noneSelected = activeManagers.has('__none_selected__');
+
   const namedItems = managers.map(m => `
     <div class="mgr-filter__item">
       <label>
         <input type="checkbox" class="mgr-cb" value="${escHtml(m)}"
           onchange="mgrCbChange()"
-          ${activeManagers.size === 0 || activeManagers.has(m) ? 'checked' : ''}>
+          ${showAll || (!noneSelected && activeManagers.has(m)) ? 'checked' : ''}>
         ${escHtml(m)}
       </label>
     </div>`).join('');
@@ -3598,7 +3605,7 @@ function refreshMgrDropdown() {
       <label>
         <input type="checkbox" class="mgr-cb" value="__unassigned__"
           onchange="mgrCbChange()"
-          ${activeManagers.size === 0 || activeManagers.has('__unassigned__') ? 'checked' : ''}>
+          ${showAll || (!noneSelected && activeManagers.has('__unassigned__')) ? 'checked' : ''}>
         <span style="color:var(--muted);font-style:italic">Unassigned</span>
       </label>
     </div>` : '';
@@ -3642,14 +3649,15 @@ document.addEventListener('click', function(e) {
 });
 
 function mgrAllToggle(cb) {
-  // If "All" is checked → clear individual selections
   const cbs = document.querySelectorAll('.mgr-cb');
   if (cb.checked) {
+    // "All" checked → clear filter, show everything
     activeManagers.clear();
     cbs.forEach(c => c.checked = true);
   } else {
-    // Uncheck all → effectively "none" — re-check all to avoid empty state
-    cb.checked = true; // keep "All" checked — can't have nothing selected
+    // "All" unchecked → deselect everything so user can pick individual managers
+    activeManagers = new Set(['__none_selected__']);
+    cbs.forEach(c => c.checked = false);
   }
   updateMgrFilterLabel();
   renderDashboard(); renderCustomers(); renderAlerts(); renderSegments(); renderCSMPerformance();
@@ -3659,12 +3667,16 @@ function mgrCbChange() {
   const cbs = [...document.querySelectorAll('.mgr-cb')];
   const checked = cbs.filter(c => c.checked).map(c => c.value);
   const allCb = document.getElementById('mgr-all');
-  if (checked.length === cbs.length || checked.length === 0) {
-    // All or none selected → show all
+  if (checked.length === cbs.length) {
+    // All selected → clear filter, show everything
     activeManagers.clear();
-    cbs.forEach(c => c.checked = true);
     if (allCb) allCb.checked = true;
+  } else if (checked.length === 0) {
+    // None selected → keep deselected state so user can pick
+    activeManagers = new Set(['__none_selected__']);
+    if (allCb) allCb.checked = false;
   } else {
+    // Some selected → filter to those
     activeManagers = new Set(checked);
     if (allCb) allCb.checked = false;
   }
@@ -3677,6 +3689,8 @@ function updateMgrFilterLabel() {
   if (!lbl) return;
   if (activeManagers.size === 0) {
     lbl.textContent = 'All Managers';
+  } else if (activeManagers.has('__none_selected__')) {
+    lbl.textContent = 'Select Managers…';
   } else if (activeManagers.size === 1) {
     const val = [...activeManagers][0];
     lbl.textContent = val === '__unassigned__' ? 'Unassigned' : val;
@@ -4042,7 +4056,7 @@ function _renderCustomers() {
     return `
       <tr class="${isSel?'selected':''}" data-id="${c.id}">
         <td class="cb-col"><input type="checkbox" ${isSel?'checked':''} onchange="toggleSelect('${c.id}',this.checked)" onclick="event.stopPropagation()"/></td>
-        <td style="cursor:pointer" onclick="openDetail('${c.id}')"><strong>${escHtml(c.name)}</strong>${(()=>{ if (!c.next_touch) return ''; const ntd = Math.round((new Date(c.next_touch)-new Date())/86400000); return ntd < 0 ? ' <span class="nt-badge nt-overdue" style="font-size:.62rem;padding:1px 5px">Touch overdue</span>' : ''; })()}</td>
+        <td style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')"><strong>${escHtml(c.name)}</strong>${(()=>{ if (!c.next_touch) return ''; const ntd = Math.round((new Date(c.next_touch)-new Date())/86400000); return ntd < 0 ? ' <span class="nt-badge nt-overdue" style="font-size:.62rem;padding:1px 5px">Touch overdue</span>' : ''; })()}</td>
         <td>${c.manager ? escHtml(c.manager) : '<span style="color:var(--muted);font-style:italic">—</span>'}</td>
         <td>${c.scoring_profile && c.scoring_profile !== 'Global Weights' ? `<span class="tag">${escHtml(c.scoring_profile)}</span>` : '<span style="color:var(--muted);font-style:italic;font-size:.75rem">Global</span>'}</td>
         <td>${scoreHTML(c)}</td>
@@ -4470,7 +4484,7 @@ function _renderPriorityList() {
       }
       return '<span style="color:var(--subtle)">—</span>';
     })();
-    return `<tr onclick="openDetail('${c.id}')">
+    return `<tr onclick="openDetail('${escHtml(c.id)}')">
       <td style="padding-left:14px">
         <div style="display:flex;align-items:center;gap:8px">
           <span class="p-rank ${statusRankCls[c.status]||'pr3'}">${i+1}</span>
@@ -9698,7 +9712,7 @@ function buildSegDrillHTML(tagName) {
       const contactCell = isOverdue
         ? `<span style="font-weight:700;color:var(--red)">${c.days}d ago</span> <span class="csm-overdue">OVERDUE</span>`
         : (c.days != null ? c.days + 'd ago' : '—');
-      return `<tr style="cursor:pointer" onclick="openDetail('${c.id}')">
+      return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
         <td><strong>${escHtml(c.name)}</strong></td>
         <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${c.score >= 65 ? 'var(--green)' : c.score >= 50 ? 'var(--amber)' : 'var(--red)'};background:${c.score >= 65 ? 'var(--green-l)' : c.score >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${c.score}</span></td>
         <td>${trendHTML}</td>
@@ -10993,7 +11007,7 @@ function drillCSM(mgrName) {
       const contactCell = isOverdue
         ? `<span style="font-weight:700;color:var(--red)">${c.days}d ago</span> <span class="csm-overdue">OVERDUE</span>`
         : (c.days != null ? c.days + 'd ago' : '—');
-      return `<tr style="cursor:pointer" onclick="openDetail('${c.id}')">
+      return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
         <td><strong>${escHtml(c.name)}</strong></td>
         <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${c.score>=65?'var(--green)':c.score>=50?'var(--amber)':'var(--red)'};background:${c.score>=65?'var(--green-l)':c.score>=50?'var(--amber-l)':'var(--red-l)'}">${c.score}</span></td>
         <td>${trendHTML}</td>
