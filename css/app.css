@@ -66,6 +66,14 @@ a{color:var(--blue);text-decoration:none}
 .nav-item:hover .nav-icon{background:rgba(255,255,255,.12);color:rgba(255,255,255,.85)}
 .nav-sep{height:1px;background:rgba(255,255,255,.08);margin:6px 4px}
 .nav-label{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.28);padding:8px 12px 3px}
+.nav-group{margin-bottom:2px}
+.nav-group-hd{display:flex;align-items:center;gap:6px;width:100%;padding:8px 12px 3px;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.28);background:none;border:none;cursor:pointer;transition:color .15s}
+.nav-group-hd:hover{color:rgba(255,255,255,.5)}
+.nav-group-chevron{flex-shrink:0;transition:transform .2s ease}
+.nav-group.open .nav-group-chevron{transform:rotate(0deg)}
+.nav-group:not(.open) .nav-group-chevron{transform:rotate(-90deg)}
+.nav-group-body{overflow:hidden;max-height:500px;transition:max-height .25s ease,opacity .2s ease;opacity:1}
+.nav-group:not(.open) .nav-group-body{max-height:0;opacity:0}
 .main{flex:1;overflow-x:hidden;padding:24px 28px 60px;min-width:0}
 
 /* VIEWS */

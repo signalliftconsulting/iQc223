@@ -1553,6 +1553,60 @@ function buildCadenceAlerts() {
 const VIEWS = ['dashboard','alerts','customers','segments','trends','csmperf','reports','score','csv','settings','automations','auditlog','users','clients','help'];
 const ADMIN_EMAILS = (_cfg && _cfg.ADMIN_EMAILS) || [];
 
+// ─── COLLAPSIBLE NAV GROUPS ─────────────────────────────────
+const NAV_GROUPS = {
+  main:     ['dashboard','alerts','customers','segments','trends','csmperf'],
+  automate: ['automations','reports'],
+  data:     ['score','csv'],
+  config:   ['settings','auditlog']
+};
+
+function toggleNavGroup(id) {
+  const grp = document.getElementById('ng-' + id);
+  if (!grp) return;
+  grp.classList.toggle('open');
+  _saveNavGroupState();
+}
+
+function _saveNavGroupState() {
+  const state = {};
+  Object.keys(NAV_GROUPS).forEach(id => {
+    const grp = document.getElementById('ng-' + id);
+    if (grp) state[id] = grp.classList.contains('open');
+  });
+  try { localStorage.setItem('iqc_nav_groups', JSON.stringify(state)); } catch(e) {}
+}
+
+function _restoreNavGroupState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('iqc_nav_groups'));
+    if (!saved) return; // default: all open (set in HTML)
+    Object.keys(NAV_GROUPS).forEach(id => {
+      const grp = document.getElementById('ng-' + id);
+      if (grp) {
+        if (saved[id] === false) grp.classList.remove('open');
+        else grp.classList.add('open');
+      }
+    });
+  } catch(e) {}
+}
+
+function _autoExpandGroupFor(v) {
+  for (const [groupId, views] of Object.entries(NAV_GROUPS)) {
+    if (views.includes(v)) {
+      const grp = document.getElementById('ng-' + groupId);
+      if (grp && !grp.classList.contains('open')) {
+        grp.classList.add('open');
+        _saveNavGroupState();
+      }
+      break;
+    }
+  }
+}
+
+// Restore on load
+_restoreNavGroupState();
+
 function isAdmin() {
   // Primary: server-fetched role from user_profiles (can't be spoofed via console)
   if (_userRole === 'admin') return true;
@@ -1561,6 +1615,9 @@ function isAdmin() {
 }
 
 function nav(v) {
+  // Auto-expand the group containing this view
+  _autoExpandGroupFor(v);
+
   VIEWS.forEach(id => {
     const view = document.getElementById('view-' + id);
     if (view) view.classList.remove('active');
