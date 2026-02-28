@@ -3116,7 +3116,8 @@ function clearSnoozed() {
 
 // Returns true if customer passes the active manager filter
 function passesManagerFilter(c) {
-  if (activeManagers.size === 0) return true;
+  if (activeManagers.size === 0) return true;             // empty = show all (default)
+  if (activeManagers.has('__none_selected__')) return false; // explicitly none selected
   if (!c.manager && activeManagers.has('__unassigned__')) return true;
   return activeManagers.has(c.manager || '');
 }
@@ -3184,6 +3185,10 @@ function refreshMgrDropdown() {
     </div>` : '';
 
   list.innerHTML = namedItems + unassignedItem;
+
+  // Sync the "All Managers" checkbox with actual state
+  const allCb = document.getElementById('mgr-all');
+  if (allCb) allCb.checked = showAll;
 
   updateMgrFilterLabel();
 }
