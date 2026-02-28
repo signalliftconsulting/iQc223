@@ -5,3 +5,7 @@ node_modules/
 dist/
 .ds_store
 js/config.js
+
+.dev.vars*
+!.dev.vars.example
+!.env.example
