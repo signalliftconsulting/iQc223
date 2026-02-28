@@ -367,7 +367,15 @@ function loadSettings() {
   } catch(e) {}
   try {
     const d = localStorage.getItem('iqc_dismissed');
-    if (d) dismissed = new Set(JSON.parse(d));
+    if (d) {
+      const parsed = JSON.parse(d);
+      // Migrate old Set format (array of strings) to Map format (alertId → score)
+      if (parsed.length && Array.isArray(parsed[0])) {
+        dismissed = new Map(parsed);
+      } else {
+        dismissed = new Map(parsed.map(id => [id, null]));
+      }
+    }
   } catch(e) {}
   try {
     const ac = localStorage.getItem('iqc_automations');
@@ -1663,7 +1671,7 @@ function renderBellDd() {
   const m = el('bell-dd-menu');
   if (!m) return;
   const all = buildAlerts();
-  const active = all.filter(a => !isSnoozed(a.id) && !dismissed.has(a.id));
+  const active = all.filter(a => !isSnoozed(a.id) && !isDismissed(a.id));
   if (!active.length) {
     m.innerHTML = `<div style="padding:14px 16px;font-size:.8rem;color:var(--muted);text-align:center">✓ All clear — no active alerts</div>`;
     return;
@@ -1864,7 +1872,7 @@ let _filterTier = null;
 function renderDashAlerts() {
   const wrap = el('dash-alerts-wrap');
   if (!wrap) return;
-  const alerts = buildAlerts().filter(a => !isSnoozed(a.id) && !dismissed.has(a.id)).slice(0, 5);
+  const alerts = buildAlerts().filter(a => !isSnoozed(a.id) && !isDismissed(a.id)).slice(0, 5);
   if (!alerts.length) {
     wrap.innerHTML = '<div style="font-size:.78rem;color:var(--muted);padding:6px 0;text-align:center">All clear — no active alerts</div>';
     return;
@@ -1881,7 +1889,7 @@ function renderDashAlerts() {
       </div>
       <button class="btn btn-xs btn-ghost" style="flex-shrink:0;padding:2px 7px;font-size:.66rem" onclick="event.stopPropagation();openDetail('${escHtml(a.cid)}')">→</button>
     </div>`;
-  }).join('') + `<div style="margin-top:8px;text-align:center"><button class="btn btn-xs btn-ghost" onclick="nav('alerts')" style="font-size:.72rem;color:var(--muted)">See all ${buildAlerts().filter(a=>!isSnoozed(a.id)&&!dismissed.has(a.id)).length} alerts →</button></div>`;
+  }).join('') + `<div style="margin-top:8px;text-align:center"><button class="btn btn-xs btn-ghost" onclick="nav('alerts')" style="font-size:.72rem;color:var(--muted)">See all ${buildAlerts().filter(a=>!isSnoozed(a.id)&&!isDismissed(a.id)).length} alerts →</button></div>`;
 }
 
 function el(id) { return document.getElementById(id); }
@@ -2461,8 +2469,9 @@ const ALERT_CATS = {
 // Severity order for sorting (lower = higher priority)
 const ALERT_SEV = { red:0, amber:1, blue:2, green:3 };
 
-// Dismissed alerts set (persisted in settings)
-let dismissed = new Set();
+// Dismissed alerts map: alertId → score at time of dismissal
+// Alert reappears if customer's score changes from when it was dismissed
+let dismissed = new Map();
 
 function buildAlerts() {
   const alerts = [];
@@ -2588,7 +2597,7 @@ function alertToggleSelect(aid, el) {
 }
 
 function alertsSelectAll() {
-  const all = buildAlerts().filter(a => !isSnoozed(a.id) && !dismissed.has(a.id));
+  const all = buildAlerts().filter(a => !isSnoozed(a.id) && !isDismissed(a.id));
   if (_selectedAlerts.size === all.length) {
     _selectedAlerts.clear();
   } else {
@@ -2634,7 +2643,11 @@ function bulkSnooze(days) {
 }
 
 function bulkDismiss() {
-  _selectedAlerts.forEach(aid => dismissed.add(aid));
+  _selectedAlerts.forEach(aid => {
+    const cid = aid.replace(/-[^-]+$/, '');
+    const c = customers.find(x => x.id === cid);
+    dismissed.set(aid, c ? c.score : null);
+  });
   const n = _selectedAlerts.size;
   _selectedAlerts.clear();
   saveSettings();
@@ -2647,7 +2660,7 @@ function bulkDismiss() {
 function renderAlerts() { try { _renderAlerts(); } catch(e) { console.error('renderAlerts error:', e); } }
 function _renderAlerts() {
   const all    = buildAlerts();
-  const active = all.filter(a => !isSnoozed(a.id) && !dismissed.has(a.id));
+  const active = all.filter(a => !isSnoozed(a.id) && !isDismissed(a.id));
   const snz    = all.filter(a =>  isSnoozed(a.id));
   const list   = el('alerts-list');
 
@@ -3145,9 +3158,22 @@ function snoozeAlert(aid, days=7) {
   toast(`Alert snoozed for ${days} day${days===1?'':'s'} ⏱`, 'default');
 }
 
+function isDismissed(aid) {
+  if (!dismissed.has(aid)) return false;
+  // Extract customer id from alert id (format: custId-alertType)
+  const cid = aid.replace(/-[^-]+$/, '');
+  const c = customers.find(x => x.id === cid);
+  if (!c) return false;
+  // Only stay dismissed if score hasn't changed
+  return c.score === dismissed.get(aid);
+}
+
 function dismissAlert(aid) {
   const ai = _alertAuditInfo(aid);
-  dismissed.add(aid);
+  // Store the customer's current score so alert reappears if score changes
+  const cid = aid.replace(/-[^-]+$/, '');
+  const c = customers.find(x => x.id === cid);
+  dismissed.set(aid, c ? c.score : null);
   saveSettings();
   logAudit('alert_dismissed', ai.custId, ai.custName, { summary: `Alert dismissed — ${ai.catLabel}` });
   renderAlerts();

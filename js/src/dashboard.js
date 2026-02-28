@@ -173,7 +173,7 @@ let _filterTier = null;
 function renderDashAlerts() {
   const wrap = el('dash-alerts-wrap');
   if (!wrap) return;
-  const alerts = buildAlerts().filter(a => !isSnoozed(a.id) && !dismissed.has(a.id)).slice(0, 5);
+  const alerts = buildAlerts().filter(a => !isSnoozed(a.id) && !isDismissed(a.id)).slice(0, 5);
   if (!alerts.length) {
     wrap.innerHTML = '<div style="font-size:.78rem;color:var(--muted);padding:6px 0;text-align:center">All clear — no active alerts</div>';
     return;
@@ -190,7 +190,7 @@ function renderDashAlerts() {
       </div>
       <button class="btn btn-xs btn-ghost" style="flex-shrink:0;padding:2px 7px;font-size:.66rem" onclick="event.stopPropagation();openDetail('${escHtml(a.cid)}')">→</button>
     </div>`;
-  }).join('') + `<div style="margin-top:8px;text-align:center"><button class="btn btn-xs btn-ghost" onclick="nav('alerts')" style="font-size:.72rem;color:var(--muted)">See all ${buildAlerts().filter(a=>!isSnoozed(a.id)&&!dismissed.has(a.id)).length} alerts →</button></div>`;
+  }).join('') + `<div style="margin-top:8px;text-align:center"><button class="btn btn-xs btn-ghost" onclick="nav('alerts')" style="font-size:.72rem;color:var(--muted)">See all ${buildAlerts().filter(a=>!isSnoozed(a.id)&&!isDismissed(a.id)).length} alerts →</button></div>`;
 }
 
 function el(id) { return document.getElementById(id); }

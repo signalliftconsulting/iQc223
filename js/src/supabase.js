@@ -55,7 +55,15 @@ function loadSettings() {
   } catch(e) {}
   try {
     const d = localStorage.getItem('iqc_dismissed');
-    if (d) dismissed = new Set(JSON.parse(d));
+    if (d) {
+      const parsed = JSON.parse(d);
+      // Migrate old Set format (array of strings) to Map format (alertId → score)
+      if (parsed.length && Array.isArray(parsed[0])) {
+        dismissed = new Map(parsed);
+      } else {
+        dismissed = new Map(parsed.map(id => [id, null]));
+      }
+    }
   } catch(e) {}
   try {
     const ac = localStorage.getItem('iqc_automations');

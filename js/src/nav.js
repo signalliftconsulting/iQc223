@@ -112,7 +112,7 @@ function renderBellDd() {
   const m = el('bell-dd-menu');
   if (!m) return;
   const all = buildAlerts();
-  const active = all.filter(a => !isSnoozed(a.id) && !dismissed.has(a.id));
+  const active = all.filter(a => !isSnoozed(a.id) && !isDismissed(a.id));
   if (!active.length) {
     m.innerHTML = `<div style="padding:14px 16px;font-size:.8rem;color:var(--muted);text-align:center">✓ All clear — no active alerts</div>`;
     return;
