@@ -3317,6 +3317,7 @@ function _renderAlerts() {
 
   list.innerHTML = html;
   renderAlertPanel(all, active, snz);
+  renderAlertBriefing(active, snz);
 }
 
 // ─── ALERT RIGHT PANEL ───────────────────────────────────────
@@ -3439,6 +3440,188 @@ function renderAlertPanel(all, active, snz) {
       actWrap.innerHTML = '<div style="font-size:.78rem;color:rgba(255,255,255,.6);text-align:center;padding:12px 0">All clear — no actions needed</div>';
     }
   }
+}
+
+// ════════════════════════════════════════════════════════════════
+// Alert Briefing Panel — Smart narrative overview + action list
+// ════════════════════════════════════════════════════════════════
+
+function _briefingNarrative(active, snz) {
+  const total = customers.filter(c => c.lifecycle !== 'churned');
+  if (!total.length) return '';
+  const n = total.length;
+  const critRisk   = total.filter(c => c.status === 'critical' || c.status === 'risk');
+  const watchAccts = total.filter(c => c.status === 'watch');
+  const healthy    = total.filter(c => c.status === 'healthy' || c.status === 'expand');
+  const healthPct  = Math.round((healthy.length / n) * 100);
+
+  // MRR at risk — only health-based critical/risk (matches MRR Exposure widget)
+  const riskMrr = critRisk.reduce((s, c) => s + (c.mrr || 0), 0);
+
+  // Average score
+  const avgScore = Math.round(total.reduce((s, c) => s + (c.score || 0), 0) / n);
+
+  // Alert counts by category
+  const renewals     = active.filter(a => a.cat === 'renewal');
+  const urgRenewals  = renewals.filter(a => a.type === 'red');
+  const cadenceRed   = active.filter(a => a.cat === 'cadence' && a.type === 'red');
+  const ticketAlerts = active.filter(a => a.cat === 'tickets');
+  const sentNeg      = active.filter(a => a.cat === 'sentiment' && (a.type === 'red' || a.type === 'amber'));
+  const expansions   = active.filter(a => a.cat === 'expansion');
+  const momentum     = active.filter(a => a.cat === 'momentum');
+
+  // Touched recently
+  const recentTouch = total.filter(c => c.days != null && c.days <= 14).length;
+  const touchPct    = Math.round((recentTouch / n) * 100);
+
+  // Customers without alerts
+  const alertCids  = new Set(active.map(a => a.cid));
+  const clearCount = total.filter(c => !alertCids.has(c.id)).length;
+  const clearPct   = Math.round((clearCount / n) * 100);
+
+  const lines = [];
+
+  // ── Opening: overall health assessment ──
+  if (critRisk.length === 0 && watchAccts.length === 0) {
+    if (n <= 3) {
+      lines.push(`Your ${n} active account${n > 1 ? 's are' : ' is'} all in good standing with an average health score of ${avgScore}.`);
+    } else {
+      lines.push(`Your portfolio is in strong shape — all ${n} accounts are healthy or growing, with an average score of ${avgScore}.`);
+    }
+  } else if (critRisk.length === 0) {
+    lines.push(`${healthy.length} of ${n} accounts (${healthPct}%) are healthy or growing. ${watchAccts.length} ${watchAccts.length === 1 ? 'is' : 'are'} in the watch zone but no accounts are at critical risk. Average score: ${avgScore}.`);
+  } else if (critRisk.length <= 2) {
+    const names = critRisk.slice(0, 2).map(c => c.name).join(' and ');
+    lines.push(`Most of your portfolio is stable, but <strong>${names}</strong> ${critRisk.length === 1 ? 'needs' : 'need'} immediate attention.`);
+    if (riskMrr > 0) lines.push(`That puts <strong>$${fmtNum(riskMrr)}</strong> in MRR at health-score risk.`);
+  } else {
+    lines.push(`<strong>${critRisk.length} accounts</strong> are in critical or at-risk health — <strong>$${fmtNum(riskMrr)}</strong> MRR is exposed. These should be your first priority today.`);
+  }
+
+  // ── Renewals ──
+  if (urgRenewals.length > 0) {
+    const renCids = new Set();
+    const renNames = [];
+    urgRenewals.forEach(a => { if (!renCids.has(a.cid)) { renCids.add(a.cid); const c = customers.find(x => x.id === a.cid); if (c) renNames.push(c.name); }});
+    if (renNames.length <= 2) {
+      lines.push(`<strong>${renNames.join(' and ')}</strong> ${renNames.length === 1 ? 'has a' : 'have'} renewal${renNames.length === 1 ? '' : 's'} due within 14 days — lock ${renNames.length === 1 ? 'this' : 'these'} in soon.`);
+    } else {
+      lines.push(`<strong>${urgRenewals.length} renewals</strong> are due within 14 days — get those conversations started.`);
+    }
+  } else if (renewals.length > 0) {
+    lines.push(`${renewals.length} renewal${renewals.length === 1 ? '' : 's'} upcoming in the next 60 days — none urgent yet.`);
+  }
+
+  // ── Cadence / outreach gaps ──
+  if (cadenceRed.length > 0) {
+    const cadCids = new Set();
+    const cadNames = [];
+    cadenceRed.forEach(a => { if (!cadCids.has(a.cid)) { cadCids.add(a.cid); const c = customers.find(x => x.id === a.cid); if (c) cadNames.push(c.name); }});
+    if (cadNames.length <= 2) {
+      lines.push(`<strong>${cadNames.join(' and ')}</strong> ${cadNames.length === 1 ? 'has' : 'have'} overdue check-ins — reach out before silence becomes a risk.`);
+    } else {
+      lines.push(`<strong>${cadenceRed.length} accounts</strong> have overdue check-ins — get those touchpoints scheduled.`);
+    }
+  }
+
+  // ── Tickets ──
+  if (ticketAlerts.length > 0) {
+    lines.push(`${ticketAlerts.length} account${ticketAlerts.length > 1 ? 's have' : ' has'} elevated support tickets — worth a proactive check-in.`);
+  }
+
+  // ── Sentiment ──
+  if (sentNeg.length > 0) {
+    lines.push(`${sentNeg.length} account${sentNeg.length > 1 ? 's' : ''} logged negative sentiment recently — follow up before it escalates.`);
+  }
+
+  // ── Declining momentum ──
+  if (momentum.length > 0) {
+    lines.push(`${momentum.length} account${momentum.length > 1 ? 's are' : ' is'} showing declining momentum scores.`);
+  }
+
+  // ── Positive / expansion ──
+  if (expansions.length > 0) {
+    lines.push(`On the bright side, <strong>${expansions.length} expansion</strong> opportunit${expansions.length === 1 ? 'y is' : 'ies are'} flagged — high-value accounts ready for growth conversations.`);
+  }
+
+  // ── Outreach / coverage ──
+  if (touchPct >= 70) {
+    lines.push(`Outreach coverage is strong — ${touchPct}% of accounts were touched in the last 14 days.`);
+  } else if (touchPct >= 40) {
+    lines.push(`${touchPct}% of accounts were touched in the last 14 days. Consider scheduling more check-ins this week.`);
+  } else if (touchPct > 0) {
+    lines.push(`Only ${touchPct}% of accounts have been contacted recently — outreach coverage could use attention.`);
+  }
+
+  // ── Snoozed ──
+  if (snz.length > 0) {
+    lines.push(`${snz.length} alert${snz.length > 1 ? 's are' : ' is'} snoozed — remember to circle back.`);
+  }
+
+  // ── All clear closing ──
+  if (active.length === 0 && critRisk.length === 0) {
+    lines.push(`No active alerts — a great time to focus on strategic outreach, expansion conversations, or getting ahead on renewals.`);
+  }
+
+  return lines.join(' ');
+}
+
+function renderAlertBriefing(active, snz) {
+  const wrap = el('alert-briefing');
+  if (!wrap) return;
+
+  // Hide if no customers loaded
+  if (!customers.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+
+  const total    = customers.filter(c => c.lifecycle !== 'churned');
+  const n        = total.length;
+  const healthy  = total.filter(c => c.status === 'healthy' || c.status === 'expand');
+  const alertCids = new Set(active.map(a => a.cid));
+  const clearPct  = n ? Math.round((total.filter(c => !alertCids.has(c.id)).length / n) * 100) : 0;
+  const recentTouch = total.filter(c => c.days != null && c.days <= 14).length;
+  const avgScore  = n ? Math.round(total.reduce((s, c) => s + (c.score || 0), 0) / n) : 0;
+  const expansions = active.filter(a => a.cat === 'expansion');
+
+  // Determine overall sentiment for accent color
+  const critRisk = total.filter(c => c.status === 'critical' || c.status === 'risk');
+  let accentCls = 'good';
+  if (critRisk.length >= 3) accentCls = 'critical';
+  else if (critRisk.length >= 1) accentCls = 'caution';
+  else if (active.filter(a => a.type === 'red' || a.type === 'amber').length > 0) accentCls = 'caution';
+
+  // ── Narrative ──
+  const narrative = _briefingNarrative(active, snz);
+
+  // ── Quick stats row ──
+  const stats = [
+    { icon: '💯', val: avgScore, lbl: 'Avg Score', cls: avgScore >= 65 ? 'stat-green' : avgScore >= 50 ? 'stat-amber' : 'stat-red' },
+    { icon: '💚', val: healthy.length + '/' + n, lbl: 'Healthy', cls: 'stat-green' },
+    { icon: '🔕', val: clearPct + '%', lbl: 'No Alerts', cls: clearPct >= 70 ? 'stat-green' : 'stat-amber' },
+    { icon: '📞', val: recentTouch, lbl: 'Touched <14d', cls: '' },
+    { icon: '🚀', val: expansions.length, lbl: 'Expansions', cls: expansions.length > 0 ? 'stat-green' : '' },
+  ];
+  const statsHtml = stats.map(s =>
+    `<div class="briefing-kpi ${s.cls}"><div class="briefing-kpi-val">${s.val}</div><div class="briefing-kpi-lbl">${s.lbl}</div></div>`
+  ).join('');
+
+  // ── Assemble ──
+  wrap.innerHTML = `
+    <div class="briefing-accent ${accentCls}"></div>
+    <div class="briefing-body">
+      <div class="briefing-narrative-row">
+        <div class="briefing-narrative">
+          <div class="alert-briefing-hd">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+            Portfolio Briefing
+          </div>
+          <p class="briefing-text">${narrative}</p>
+        </div>
+        <div class="briefing-stats-col">
+          ${statsHtml}
+        </div>
+      </div>
+    </div>`;
 }
 
 function tierChip(tier) {
