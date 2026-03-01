@@ -1146,7 +1146,7 @@ function reportEmailTab(which) {
           '<label style="font-size:.75rem;font-weight:600;color:var(--text)">Subject Prefix</label>' +
           '<input type="text" id="rem-sched-prefix" class="form-input" placeholder="[iQcadence Report]" value="' + escHtml(cfg.subject_prefix || '[iQcadence Report]') + '" style="font-size:.82rem"/>' +
           '<button class="btn btn-primary btn-sm" onclick="saveReportSchedule()" style="align-self:flex-start">Save Schedule</button>' +
-          '<p style="font-size:.7rem;color:var(--muted);font-style:italic;margin-top:2px">Note: Scheduled delivery requires server-side cron (coming soon). Use Send Now for immediate delivery.</p>' +
+          '<p style="font-size:.7rem;color:var(--muted);font-style:italic;margin-top:2px">Scheduled reports are sent automatically when the app is opened at or after the configured time.</p>' +
         '</div>' +
       '</div>';
   }
@@ -1221,5 +1221,65 @@ async function sendReportEmailTest() {
     toast('Test report sent to ' + email, 'success');
   } catch(err) {
     toast('Failed to send test: ' + (err.message || 'Unknown error'), 'error');
+  }
+}
+
+// ── Auto-send scheduled reports on app load ──
+async function checkScheduledReports() {
+  if (!automationsCfg.report_schedules || !currentUser) return;
+  const now = new Date();
+  for (const [key, cfg] of Object.entries(automationsCfg.report_schedules)) {
+    if (!cfg.enabled || !cfg.recipients) continue;
+
+    // Determine if this report is due
+    const lastSent = cfg.last_sent ? new Date(cfg.last_sent) : null;
+    let isDue = false;
+
+    if (!lastSent) {
+      // Never sent — due now
+      isDue = true;
+    } else if (cfg.frequency === 'daily') {
+      // Due if last sent was before today
+      const todayCutoff = new Date(now);
+      const [h, m] = (cfg.time || '09:00').split(':').map(Number);
+      todayCutoff.setHours(h, m, 0, 0);
+      isDue = lastSent < todayCutoff && now >= todayCutoff;
+    } else {
+      // Weekly: due if last sent was >6 days ago AND today matches the day + past the time
+      const dayNames = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+      const targetDay = dayNames.indexOf(cfg.day || 'monday');
+      const todayDay = now.getDay();
+      if (todayDay === targetDay) {
+        const [h, m] = (cfg.time || '09:00').split(':').map(Number);
+        const cutoff = new Date(now);
+        cutoff.setHours(h, m, 0, 0);
+        isDue = now >= cutoff && (!lastSent || (now - lastSent) > 6 * 24 * 60 * 60 * 1000);
+      }
+    }
+
+    if (!isDue) continue;
+
+    // Send the report
+    const def = EMAILABLE_REPORTS.find(r => r.key === key);
+    if (!def) continue;
+
+    try {
+      const { html, subject } = buildReportEmailPayload(key);
+      if (!html) continue;
+      const prefix = cfg.subject_prefix || '[iQcadence Report]';
+      const { data, error } = await sb.functions.invoke('send-webhook', {
+        body: { mode: 'email', recipients: cfg.recipients, subject: prefix + ' ' + subject,
+                html_body: html, event_type: 'report_scheduled_' + key, customer_id: null, customer_name: null }
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      // Update last_sent
+      cfg.last_sent = now.toISOString();
+      saveAutomationsCfg();
+      console.log('Scheduled report sent:', def.label, '->', cfg.recipients);
+    } catch(err) {
+      console.warn('Scheduled report failed:', key, err?.message || err);
+    }
   }
 }

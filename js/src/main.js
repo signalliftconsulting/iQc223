@@ -61,6 +61,8 @@
       refreshMgrDropdown();
       nav(restoreView);
       renderSettings();
+      // Check and send any due scheduled reports
+      if (typeof checkScheduledReports === 'function') setTimeout(checkScheduledReports, 3000);
     }
 
   } else {
