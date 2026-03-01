@@ -447,9 +447,23 @@ function _migrateHistory(history, currNps, currCsat) {
 }
 
 function fromRow(row) {
-  const fb = decodeFeedbackPair(row.nps);
+  // Separate columns (v129+) with backward compat for encoded "nps|csat" pair
+  let nps = null, csat = null;
+  if (row.csat != null) {
+    // New schema: separate columns
+    nps  = row.nps  != null ? Number(row.nps)  : null;
+    csat = Number(row.csat);
+  } else if (row.nps != null) {
+    // Old schema: encoded pair in nps column
+    const fb = decodeFeedbackPair(row.nps);
+    nps  = fb.nps;
+    csat = fb.csat;
+  }
+  if (nps != null && isNaN(nps)) nps = null;
+  if (csat != null && isNaN(csat)) csat = null;
+
   const history = tryParse(row.history, []);
-  _migrateHistory(history, fb.nps, fb.csat);
+  _migrateHistory(history, nps, csat);
   return {
     id:        row.id,
     name:      row.name      || '',
@@ -463,8 +477,8 @@ function fromRow(row) {
     logins:    row.logins    != null ? row.logins    : null,
     adoption:  row.adoption  != null ? row.adoption  : null,
     tickets:   row.tickets   != null ? row.tickets   : null,
-    nps:       fb.nps,
-    csat:      fb.csat,
+    nps,
+    csat,
     days:         row.days         != null ? row.days : null,
     _baseDays:    row.days         != null ? row.days : null,
     renewal_date: row.renewal_date || '',
@@ -501,7 +515,8 @@ function toRow(c) {
     logins:    c.logins     != null ? c.logins   : null,
     adoption:  c.adoption   != null ? c.adoption : null,
     tickets:   c.tickets    != null ? c.tickets  : null,
-    nps:       encodeFeedbackPair(c.nps, c.csat),
+    nps:       c.nps  != null ? c.nps  : null,
+    csat:      c.csat != null ? c.csat : null,
     days:         c._baseDays != null ? c._baseDays : (c.days != null ? c.days : null),
     renewal_date: c.renewal_date || '',
     renewal:      c.renewal      || 0,
