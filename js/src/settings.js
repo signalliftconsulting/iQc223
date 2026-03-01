@@ -73,7 +73,7 @@ function refreshProfileDropdown() {
 }
 
 function renderWeightRows() {
-  const keys = ['logins','adoption','tickets','nps','days','growth'];
+  const keys = ['logins','adoption','tickets','nps','csat','days','growth'];
   el('weight-rows').innerHTML = keys.map(k => `
     <div class="weight-row">
       <div class="weight-label">${WEIGHT_LABELS[k]}</div>
@@ -102,7 +102,7 @@ function updateWeightFromInput(key, val) {
 }
 
 function updateTotalBar() {
-  const keys = ['logins','adoption','tickets','nps','days','growth'];
+  const keys = ['logins','adoption','tickets','nps','csat','days','growth'];
   const total = keys.reduce((s,k) => s + parseInt(el('wr-'+k)?.value||0), 0);
   const fill  = el('total-fill');
   const lbl   = el('total-label');
@@ -113,7 +113,7 @@ function updateTotalBar() {
 }
 
 function saveWeights() {
-  const keys = ['logins','adoption','tickets','nps','days','growth'];
+  const keys = ['logins','adoption','tickets','nps','csat','days','growth'];
   const total = keys.reduce((s,k) => s + parseInt(el('wr-'+k)?.value||0), 0);
   if (total !== 100) { toast('Weights must total exactly 100%', 'error'); return; }
   const prev = { ...weights };
@@ -136,7 +136,7 @@ function saveWeights() {
 }
 
 function resetWeights() {
-  const keys = ['logins','adoption','tickets','nps','days','growth'];
+  const keys = ['logins','adoption','tickets','nps','csat','days','growth'];
   keys.forEach(k => {
     const input = el('wr-' + k);
     if (input) input.value = DEFAULT_WEIGHTS[k];
@@ -150,7 +150,7 @@ function resetWeights() {
 }
 
 function saveWeightsAsProfile() {
-  const keys = ['logins','adoption','tickets','nps','days','growth'];
+  const keys = ['logins','adoption','tickets','nps','csat','days','growth'];
   const total = keys.reduce((s,k) => s + parseInt(el('wr-'+k)?.value||0), 0);
   if (total !== 100) { toast('Weights must total 100% first', 'error'); return; }
   const sliderWeights = {};
@@ -169,7 +169,7 @@ function saveWeightsAsProfile() {
 }
 
 function rescoreAll() {
-  const keys = ['logins','adoption','tickets','nps','days','growth'];
+  const keys = ['logins','adoption','tickets','nps','csat','days','growth'];
   const total = keys.reduce((s,k) => s + parseInt(el('wr-'+k)?.value||0), 0);
   if (total !== 100) { toast('Save weights first (must total 100%)', 'error'); return; }
   let n = 0;
@@ -263,7 +263,7 @@ function previewProfile(idx) {
   editingProfileIdx = idx;
   const isGlobal = p.name === 'Global Weights';
   // Load profile weights into sliders (preview only — no save)
-  const keys = ['logins','adoption','tickets','nps','days','growth'];
+  const keys = ['logins','adoption','tickets','nps','csat','days','growth'];
   keys.forEach(k => {
     const input = el('wr-' + k);
     if (input) input.value = p.weights[k] ?? 0;
@@ -301,7 +301,7 @@ function updateEditingProfile() {
   if (editingProfileIdx < 0) return;
   const p = profiles[editingProfileIdx];
   if (!p) return;
-  const keys = ['logins','adoption','tickets','nps','days','growth'];
+  const keys = ['logins','adoption','tickets','nps','csat','days','growth'];
   const total = keys.reduce((s,k) => s + parseInt(el('wr-'+k)?.value||0), 0);
   if (total !== 100) { toast('Weights must total 100%', 'error'); return; }
   const newWeights = {};
@@ -359,10 +359,10 @@ function renderDataHealth() {
   if (!customers.length) { wrap.innerHTML = '<p style="font-size:.8rem;color:var(--muted)">No customer data loaded.</p>'; return; }
   const total = customers.length;
   let stale = 0, missing = 0;
-  const sigKeys = ['logins','adoption','tickets','nps','days'];
+  const sigKeys = ['logins','adoption','tickets','nps','csat','days'];
   customers.forEach(c => {
-    if (c.days >= 30) stale++;
-    const miss = sigKeys.filter(s => c[s] === null || c[s] === undefined || c[s] === 0 || c[s] === 'unknown');
+    if (c.days != null && c.days >= 30) stale++;
+    const miss = sigKeys.filter(s => c[s] === null || c[s] === undefined);
     if (miss.length >= 2) missing++;
   });
   const complete = total - missing;
@@ -388,14 +388,14 @@ function showDhDetail(type) {
   const body = el('dh-detail-body');
   if (!title || !body) return;
   const statusColors = { critical:'#ef4444', risk:'#f59e0b', watch:'#eab308', healthy:'#22c55e', expand:'#3b82f6' };
-  const sigKeys = ['logins','adoption','tickets','nps','days'];
+  const sigKeys = ['logins','adoption','tickets','nps','csat','days'];
   const sigLabels = { logins:'Logins/wk', adoption:'Adoption %', tickets:'Open Tickets', nps:'NPS', days:'Days Since Contact' };
 
   const tblStyle = 'style="min-width:0;width:100%"';
 
   if (type === 'stale') {
     title.textContent = 'Stale Accounts (30d+ since last contact)';
-    const rows = customers.filter(c => c.days >= 30).sort((a,b) => b.days - a.days);
+    const rows = customers.filter(c => c.days != null && c.days >= 30).sort((a,b) => (b.days||0) - (a.days||0));
     if (!rows.length) { body.innerHTML = '<p style="padding:12px;color:var(--muted)">No stale accounts found.</p>'; }
     else {
       body.innerHTML = `<table class="ct" ${tblStyle}><thead><tr><th>Customer</th><th>Score</th><th>Days</th><th>Logins/wk</th><th>Tier</th><th>MRR</th></tr></thead><tbody>${
@@ -404,8 +404,8 @@ function showDhDetail(type) {
           return `<tr>
             <td><a href="#" onclick="event.preventDefault();closeModal('dh-detail-modal');openDetail('${escHtml(c.id)}')" style="color:var(--blue);font-weight:700;text-decoration:none">${escHtml(c.name)}</a></td>
             <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${statusColors[st]||'#888'};margin-right:4px"></span>${c.score}</td>
-            <td style="font-weight:600;color:${c.days>=60?'#ef4444':c.days>=30?'#f59e0b':'inherit'}">${c.days}d</td>
-            <td>${c.logins}</td>
+            <td style="font-weight:600;color:${c.days != null && c.days>=60?'#ef4444':c.days != null && c.days>=30?'#f59e0b':'inherit'}">${c.days != null ? c.days+'d' : 'N/A'}</td>
+            <td>${c.logins != null ? c.logins : 'N/A'}</td>
             <td style="text-transform:uppercase;font-size:.72rem">${escHtml(c.tier)}</td>
             <td>$${fmtNum(c.mrr||0)}</td>
           </tr>`;
@@ -416,7 +416,7 @@ function showDhDetail(type) {
     title.textContent = 'Incomplete Signals (2+ missing)';
     const rows = [];
     customers.forEach(c => {
-      const miss = sigKeys.filter(s => c[s] === null || c[s] === undefined || c[s] === 0 || c[s] === 'unknown');
+      const miss = sigKeys.filter(s => c[s] === null || c[s] === undefined);
       if (miss.length >= 2) rows.push({ c, miss });
     });
     rows.sort((a,b) => b.miss.length - a.miss.length);
@@ -515,7 +515,7 @@ function renderProfiles() {
 
 // Render weight sliders inside the profile modal using the given weight values
 function renderProfileModalWeights(w) {
-  const keys = ['logins','adoption','tickets','nps','days','growth'];
+  const keys = ['logins','adoption','tickets','nps','csat','days','growth'];
   el('pm-weight-rows').innerHTML = keys.map(k => `
     <div class="weight-row">
       <div class="weight-label">${WEIGHT_LABELS[k]}</div>
@@ -527,7 +527,7 @@ function renderProfileModalWeights(w) {
 }
 
 function updateProfileModalTotal() {
-  const keys = ['logins','adoption','tickets','nps','days','growth'];
+  const keys = ['logins','adoption','tickets','nps','csat','days','growth'];
   const total = keys.reduce((s,k) => s + parseInt(el('pm-wr-'+k)?.value||0), 0);
   // Update percentage labels next to each slider
   keys.forEach(k => {
@@ -582,7 +582,7 @@ function confirmSaveProfile() {
   const duplicate = profiles.some((p, i) => p.name.toLowerCase() === name.toLowerCase() && i !== editIdx);
   if (duplicate) { toast(`A profile named "${name}" already exists`, 'error'); return; }
 
-  const keys  = ['logins','adoption','tickets','nps','days','growth'];
+  const keys  = ['logins','adoption','tickets','nps','csat','days','growth'];
   const total = keys.reduce((s,k) => s + parseInt(el('pm-wr-'+k)?.value||0), 0);
   if (total !== 100) { toast('Weights must total exactly 100%', 'error'); return; }
 
@@ -596,7 +596,7 @@ function confirmSaveProfile() {
     if (isGlobal) {
       weights = { ...profileWeights };
     }
-    const keys = ['logins','adoption','tickets','nps','days','growth'];
+    const keys = ['logins','adoption','tickets','nps','csat','days','growth'];
     const changed = keys.filter(k => (oldWeights[k]||0) !== profileWeights[k]).map(k => `${WEIGHT_LABELS[k]||k}: ${oldWeights[k]||0}→${profileWeights[k]}`);
     logAudit('profile_updated', null, '', { summary: `Profile "${name}" updated${changed.length ? ': ' + changed.join(', ') : ''}`, profile: name, weights: profileWeights });
     logConfigChange(`Profile "${name}" updated`);

@@ -19,7 +19,12 @@
     let hasCached = false;
     try {
       const cached = localStorage.getItem('iqc_customers_cache');
-      if (cached) { customers = JSON.parse(cached); hasCached = true; }
+      if (cached) {
+        customers = JSON.parse(cached);
+        // Backfill NPS/CSAT in old history signals (pre-v127 cache)
+        customers.forEach(c => { if (typeof _migrateHistory === 'function') _migrateHistory(c.history, c.nps, c.csat); });
+        hasCached = true;
+      }
     } catch(e) {}
 
     // Restore last active view (or default to dashboard)
@@ -39,6 +44,7 @@
       await loadCustomersFromSupabase();
       await resolveClientPlanTier();
     } catch(err) {
+      console.error('Supabase sync error:', err?.message || err);
       toast('Could not reach Supabase — showing cached data', 'warn');
     } finally {
       setLoading(false);
@@ -89,6 +95,7 @@
       await loadCustomersFromSupabase();
       await resolveClientPlanTier();
     } catch(err) {
+      console.error('Supabase sync error:', err?.message || err);
       toast('Could not reach Supabase — showing cached data', 'warn');
     } finally {
       setLoading(false);

@@ -177,7 +177,7 @@ const ALERT_TYPES = [
     desc: 'Fires when a customer\'s NPS changes to "detractor".',
     configFields: [] },
   { key: 'lifecycle_change', label: 'Lifecycle Change', shortLabel: 'Lifecycle Alert', icon: _aico(AUTO_ICONS.lifecycle_change),
-    desc: 'Fires when a customer\'s lifecycle transitions to "atrisk" or "churned".',
+    desc: 'Fires when a customer\'s lifecycle transitions to "At Risk" or "Churned".',
     configFields: [] },
   { key: 'rapid_score_drop', label: 'Rapid Score Drop', shortLabel: 'Rapid Drop', icon: _aico(AUTO_ICONS.rapid_score_drop),
     desc: 'Fires when a customer\'s score drops by more than the configured points in a single update.',
@@ -1414,14 +1414,14 @@ function snapshotCustomerStates() {
   _prevCustomerStates.clear();
   customers.forEach(c => {
     _prevCustomerStates.set(c.id, {
-      score: c.score, status: c.status, nps: c.nps,
+      score: c.score, status: c.status, nps: c.nps, csat: c.csat,
       lifecycle: c.lifecycle, renewal_date: c.renewal_date, days: c.days
     });
   });
 }
 
 function _snapFields(c) {
-  return { score: c.score, status: c.status, nps: c.nps, lifecycle: c.lifecycle, renewal_date: c.renewal_date, days: c.days };
+  return { score: c.score, status: c.status, nps: c.nps, csat: c.csat, lifecycle: c.lifecycle, renewal_date: c.renewal_date, days: c.days };
 }
 
 function checkWebhookTriggers(c) {
@@ -1481,9 +1481,15 @@ function checkWebhookTriggers(c) {
   }
 
   // 5. NPS detractor
-  if (prev && prev.nps !== 'detractor' && c.nps === 'detractor') {
+  if (prev && !npsIsDetractor(prev.nps) && npsIsDetractor(c.nps)) {
     triggeredEvents.push({ key: 'nps_detractor',
-      extra: { trigger: 'nps_detractor', previous_nps: prev.nps, current_nps: c.nps } });
+      extra: { trigger: 'nps_detractor', previous_nps: npsDisplay(prev.nps), current_nps: npsDisplay(c.nps) } });
+  }
+
+  // 5b. CSAT poor
+  if (prev && !csatIsPoor(prev.csat) && csatIsPoor(c.csat)) {
+    triggeredEvents.push({ key: 'nps_detractor',
+      extra: { trigger: 'csat_poor', previous_csat: csatDisplay(prev.csat), current_csat: csatDisplay(c.csat) } });
   }
 
   // 6. Lifecycle change to atrisk or churned
@@ -1541,7 +1547,8 @@ async function fireWebhook(eventType, url, customer, extra, overridePayload) {
       renewal_date:      customer.renewal_date || '',
       lifecycle:         customer.lifecycle || '',
       tags:              Array.isArray(customer.tags) ? customer.tags.join(',') : (customer.tags || ''),
-      nps:               customer.nps || ''
+      nps:               npsDisplay(customer.nps),
+      csat:              csatDisplay(customer.csat)
     },
     ...extra
   };
@@ -1591,8 +1598,8 @@ function buildSlackPayload(eventType, customer, extra) {
     ]},
     { type: 'section', fields: [
       { type: 'mrkdwn', text: `*Tier:*\n${c.tier || '—'}` },
-      { type: 'mrkdwn', text: `*Days Since Contact:*\n${c.days || 0}` },
-      { type: 'mrkdwn', text: `*NPS:*\n${c.nps || '—'}` },
+      { type: 'mrkdwn', text: `*Days Since Contact:*\n${c.days != null ? c.days : 'N/A'}` },
+      { type: 'mrkdwn', text: `*NPS:*\n${npsDisplay(c.nps)} · *CSAT:*\n${csatDisplay(c.csat)}` },
       { type: 'mrkdwn', text: `*Lifecycle:*\n${c.lifecycle || '—'}` }
     ]}
   ];
@@ -1651,8 +1658,9 @@ function buildTeamsPayload(eventType, customer, extra) {
     { title: 'MRR', value: '$' + (c.mrr||0).toLocaleString() },
     { title: 'CSM', value: c.manager || 'Unassigned' },
     { title: 'Tier', value: c.tier || '—' },
-    { title: 'Days Since Contact', value: String(c.days || 0) },
-    { title: 'NPS', value: c.nps || '—' },
+    { title: 'Days Since Contact', value: c.days != null ? String(c.days) : 'N/A' },
+    { title: 'NPS', value: npsDisplay(c.nps) },
+    { title: 'CSAT', value: csatDisplay(c.csat) },
     { title: 'Lifecycle', value: c.lifecycle || '—' }
   ];
 
@@ -1769,11 +1777,15 @@ function buildAlertEmailHTML(eventType, customer, extra) {
       </tr>
       <tr>
         <td style="padding:8px 12px;font-size:13px;color:#6b7280">Days Since Contact</td>
-        <td style="padding:8px 12px;font-size:13px;font-weight:600">${c.days || 0}</td>
+        <td style="padding:8px 12px;font-size:13px;font-weight:600">${c.days != null ? c.days : 'N/A'}</td>
       </tr>
       <tr style="background:#f9fafb">
         <td style="padding:8px 12px;font-size:13px;color:#6b7280">NPS</td>
-        <td style="padding:8px 12px;font-size:13px;font-weight:600">${escHtml(c.nps || '—')}</td>
+        <td style="padding:8px 12px;font-size:13px;font-weight:600">${escHtml(npsDisplay(c.nps))}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 12px;font-size:13px;color:#6b7280">CSAT</td>
+        <td style="padding:8px 12px;font-size:13px;font-weight:600">${escHtml(csatDisplay(c.csat))}</td>
       </tr>
       ${changeRows}
     </table>

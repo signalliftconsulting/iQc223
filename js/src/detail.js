@@ -2,6 +2,36 @@
 function rv(key, val) {
   document.getElementById('rv-' + key).textContent = val;
 }
+// Generic N/A toggle for logins, adoption, tickets, days
+function toggleSignalNA(key) {
+  const na = el('f-' + key + '-na').checked;
+  const inp = el('f-' + key);
+  inp.disabled = na; inp.style.opacity = na ? '.4' : '1';
+  const rvEl = el('rv-' + key);
+  if (rvEl) {
+    if (na) { rvEl.textContent = 'N/A'; rvEl.style.color = 'var(--subtle)'; }
+    else {
+      rvEl.style.color = '';
+      if (key === 'logins') rvEl.textContent = inp.value + ' days';
+      else if (key === 'adoption') rvEl.textContent = inp.value + '%';
+      else if (key === 'days') rvEl.textContent = inp.value + ' days';
+    }
+  }
+}
+function toggleNpsNA() {
+  const na = el('f-nps-na').checked;
+  const inp = el('f-nps');
+  inp.disabled = na; inp.style.opacity = na ? '.4' : '1';
+  el('rv-nps-label').textContent = na ? 'N/A' : npsDisplay(Number(inp.value));
+  el('rv-nps-label').style.color = na ? 'var(--subtle)' : '';
+}
+function toggleCsatNA() {
+  const na = el('f-csat-na').checked;
+  const inp = el('f-csat');
+  inp.disabled = na; inp.style.opacity = na ? '.4' : '1';
+  el('rv-csat-label').textContent = na ? 'N/A' : csatDisplay(Number(inp.value));
+  el('rv-csat-label').style.color = na ? 'var(--subtle)' : '';
+}
 
 function getFormData() {
   return {
@@ -13,11 +43,12 @@ function getFormData() {
     tier:     document.getElementById('f-tier').value,
     lifecycle:document.getElementById('f-lifecycle').value,
     tags:     document.getElementById('f-tags').value.split(',').map(t=>t.trim()).filter(Boolean),
-    logins:   parseInt(document.getElementById('f-logins').value)     || 0,
-    adoption: parseInt(document.getElementById('f-adoption').value)   || 0,
-    tickets:  parseInt(document.getElementById('f-tickets').value)    || 0,
-    nps:      document.getElementById('f-nps').value,
-    days:         parseInt(document.getElementById('f-days').value)   || 0,
+    logins:   el('f-logins-na').checked ? null : (parseInt(document.getElementById('f-logins').value) || 0),
+    adoption: el('f-adoption-na').checked ? null : (parseInt(document.getElementById('f-adoption').value) || 0),
+    tickets:  el('f-tickets-na').checked ? null : (parseInt(document.getElementById('f-tickets').value) || 0),
+    nps:      el('f-nps-na').checked ? null : parseInt(el('f-nps').value),
+    csat:     el('f-csat-na').checked ? null : parseInt(el('f-csat').value),
+    days:     el('f-days-na').checked ? null : (parseInt(document.getElementById('f-days').value) || 0),
     renewal_date: document.getElementById('f-renewal-date')?.value || '',
     renewal:      (function() {
       const d = document.getElementById('f-renewal-date')?.value;
@@ -52,10 +83,10 @@ function submitForm(e) {
   // ── Validation ──────────────────────────────────────────────
   if (!data.name) { toast('Customer name is required', 'error'); return; }
   if (data.mrr < 0)       { toast('MRR cannot be negative', 'error'); return; }
-  if (data.logins < 0 || data.logins > 30)   { toast('Logins must be between 0 and 30', 'error'); return; }
-  if (data.adoption < 0 || data.adoption > 100){ toast('Adoption must be between 0% and 100%', 'error'); return; }
-  if (data.tickets < 0)   { toast('Tickets cannot be negative', 'error'); return; }
-  if (data.days < 0)      { toast('Days since contact cannot be negative', 'error'); return; }
+  if (data.logins != null && (data.logins < 0 || data.logins > 30))   { toast('Logins must be between 0 and 30', 'error'); return; }
+  if (data.adoption != null && (data.adoption < 0 || data.adoption > 100)){ toast('Adoption must be between 0% and 100%', 'error'); return; }
+  if (data.tickets != null && data.tickets < 0)   { toast('Tickets cannot be negative', 'error'); return; }
+  if (data.days != null && data.days < 0)          { toast('Days since contact cannot be negative', 'error'); return; }
 
   // Resolve weights: per-customer profile overrides global weights
   const matchedProfile = data.profile ? profiles.find(p => p.name === data.profile) : null;
@@ -100,7 +131,8 @@ function showResult({ data, score, signals, status, rec, plays }) {
     { key:'logins_n',   label:'Login Frequency',    color:'var(--blue)' },
     { key:'adoption_n', label:'Feature Adoption',   color:'var(--green)' },
     { key:'tickets_n',  label:'Support Health',     color:'var(--red)' },
-    { key:'nps_n',      label:'NPS / CSAT',         color:'var(--purple)' },
+    { key:'nps_n',      label:'NPS (0–10)',         color:'var(--purple)' },
+    { key:'csat_n',     label:'CSAT (1–5)',         color:'#7c3aed' },
     { key:'days_n',     label:'Contact Recency',    color:'var(--teal)' },
     { key:'growth_n',   label:'Growth Signal',      color:'var(--green)' }
   ];
@@ -126,9 +158,12 @@ function buildHistorySnapshot(data) {
     adoption:  data.adoption  ?? null,
     tickets:   data.tickets   ?? null,
     nps:       data.nps       ?? null,
+    csat:      data.csat      ?? null,
     days:      data.days      ?? null,
     growth:    data.growth    ?? null,
     lifecycle: data.lifecycle ?? null,
+    mrr:       data.mrr       ?? null,
+    arr:       data.arr       ?? null,
   };
 }
 
@@ -170,9 +205,17 @@ function diffSnapshots(curr, prev) {
   // NPS
   if (curr.nps != null) {
     if (!prev || prev.nps == null) {
-      parts.push(`NPS: ${curr.nps}`);
+      parts.push(`NPS: ${npsDisplay(curr.nps)}`);
     } else if (curr.nps !== prev.nps) {
-      parts.push(`NPS changed: ${prev.nps}→${curr.nps}`);
+      parts.push(`NPS: ${npsDisplay(prev.nps)}→${npsDisplay(curr.nps)}`);
+    }
+  }
+  // CSAT
+  if (curr.csat != null) {
+    if (!prev || prev.csat == null) {
+      parts.push(`CSAT: ${csatDisplay(curr.csat)}`);
+    } else if (curr.csat !== prev.csat) {
+      parts.push(`CSAT: ${csatDisplay(prev.csat)}→${csatDisplay(curr.csat)}`);
     }
   }
 
@@ -223,6 +266,7 @@ function saveScore() {
         dupe.adoption        = data.adoption;
         dupe.tickets         = data.tickets;
         dupe.nps             = data.nps;
+        dupe.csat            = data.csat;
         dupe.days            = data.days;
         dupe._baseDays       = data.days;
         dupe.renewal         = data.renewal;
@@ -247,7 +291,8 @@ function saveScore() {
         logAudit('customer_scored', dupe.id, dupe.name, { score, status, summary: `Re-scored → ${score}/100 (${status}), MRR: $${dupe.mrr}, Tier: ${dupe.tier}` });
         pendingResult = null;
         resetForm();
-        nav('customers');
+        nav(_returnToPage || 'customers');
+        _returnToPage = '';
       }
     );
     return;
@@ -268,6 +313,7 @@ function saveScore() {
     adoption:        data.adoption,
     tickets:         data.tickets,
     nps:             data.nps,
+    csat:            data.csat,
     days:            data.days,
     _baseDays:       data.days,
     renewal:         data.renewal,
@@ -277,6 +323,7 @@ function saveScore() {
     status,
     notes:    data.note ? [{ text: data.note, date: new Date().toISOString() }] : [],
     history:  [{ score, date: new Date().toISOString(), signals: buildHistorySnapshot(data) }],
+    sentiment: [],
     created:  new Date().toISOString()
   };
   customers.unshift(cust);
@@ -292,17 +339,29 @@ function saveScore() {
   logAudit('customer_created', cust.id, cust.name, { score, status, summary: `New customer — Score: ${score}/100 (${status}), MRR: $${cust.mrr}, Tier: ${cust.tier}, Lifecycle: ${cust.lifecycle}` });
   pendingResult = null;
   resetForm();
-  nav('dashboard');
+  nav(_returnToPage || 'dashboard');
+  _returnToPage = '';
 }
 
 function resetForm() {
   document.getElementById('score-form').reset();
-  document.getElementById('rv-logins').textContent   = '10 days';
-  document.getElementById('rv-adoption').textContent = '50%';
-  document.getElementById('rv-days').textContent     = '14 days';
-  document.getElementById('f-logins').value   = 10;
-  document.getElementById('f-adoption').value = 50;
-  document.getElementById('f-days').value     = 14;
+  // Reset logins (active by default)
+  el('f-logins-na').checked = false; el('f-logins').value = 10; el('f-logins').disabled = false; el('f-logins').style.opacity = '1';
+  el('rv-logins').textContent = '10 days'; el('rv-logins').style.color = '';
+  // Reset adoption (active by default)
+  el('f-adoption-na').checked = false; el('f-adoption').value = 50; el('f-adoption').disabled = false; el('f-adoption').style.opacity = '1';
+  el('rv-adoption').textContent = '50%'; el('rv-adoption').style.color = '';
+  // Reset tickets (active by default)
+  el('f-tickets-na').checked = false; el('f-tickets').value = 1; el('f-tickets').disabled = false; el('f-tickets').style.opacity = '1';
+  // Reset days (active by default)
+  el('f-days-na').checked = false; el('f-days').value = 14; el('f-days').disabled = false; el('f-days').style.opacity = '1';
+  el('rv-days').textContent = '14 days'; el('rv-days').style.color = '';
+  // Reset NPS slider (default: 8, not N/A)
+  el('f-nps-na').checked = false; el('f-nps').value = 8; el('f-nps').disabled = false; el('f-nps').style.opacity = '1';
+  el('rv-nps-label').textContent = npsDisplay(8); el('rv-nps-label').style.color = '';
+  // Reset CSAT slider (default: N/A)
+  el('f-csat-na').checked = true; el('f-csat').value = 3; el('f-csat').disabled = true; el('f-csat').style.opacity = '.4';
+  el('rv-csat-label').textContent = 'N/A'; el('rv-csat-label').style.color = 'var(--subtle)';
   document.getElementById('result-card').style.display        = 'none';
   document.getElementById('result-placeholder').style.display = 'block';
   document.getElementById('form-title').textContent = 'Score a Customer';
@@ -364,11 +423,12 @@ function buildPrintHTML(name, score, status, rec, plays, data) {
     <h2>Signal Inputs</h2>
     <table>
       <tr><th>Signal</th><th>Value</th></tr>
-      <tr><td>Login Frequency (30d)</td><td>${data.logins} days</td></tr>
-      <tr><td>Feature Adoption</td><td>${data.adoption}%</td></tr>
-      <tr><td>Open Support Tickets</td><td>${data.tickets}</td></tr>
-      <tr><td>NPS / CSAT</td><td>${data.nps}</td></tr>
-      <tr><td>Days Since Contact</td><td>${data.days}</td></tr>
+      <tr><td>Login Frequency (30d)</td><td>${data.logins != null ? data.logins + ' days' : 'N/A'}</td></tr>
+      <tr><td>Feature Adoption</td><td>${data.adoption != null ? data.adoption + '%' : 'N/A'}</td></tr>
+      <tr><td>Open Support Tickets</td><td>${data.tickets != null ? data.tickets : 'N/A'}</td></tr>
+      <tr><td>NPS</td><td>${npsDisplay(data.nps)}</td></tr>
+      <tr><td>CSAT</td><td>${csatDisplay(data.csat)}</td></tr>
+      <tr><td>Days Since Contact</td><td>${data.days != null ? data.days + ' days' : 'N/A'}</td></tr>
       <tr><td>Growth Signal</td><td>${data.growth}</td></tr>
       <tr><td>Renewal Date</td><td>${data.renewal_date ? new Date(data.renewal_date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' (' + data.renewal + ' mo)' : '—'}</td></tr>
     </table>
@@ -407,7 +467,12 @@ function logSentiment() {
 function renderDetailSentiment() {
   const c = customers.find(x => x.id === detailId);
   if (!c) return;
-  const logs = c.sentiment || [];
+  // Parse sentiment the same way as latestSentiment() to avoid mismatches
+  let logs;
+  try { logs = Array.isArray(c.sentiment) ? c.sentiment : (typeof c.sentiment === 'string' ? JSON.parse(c.sentiment) : []); }
+  catch(e) { logs = []; }
+  // Sort newest-first by date (mixed unshift/push order can't be trusted)
+  logs.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   const icons = { positive:'😊', neutral:'😐', negative:'😟' };
   const labels = { positive:'Positive', neutral:'Neutral', negative:'Negative' };
 
@@ -428,6 +493,11 @@ function renderDetailSentiment() {
 function deleteSentiment(idx) {
   const c = customers.find(x => x.id === detailId);
   if (!c) return;
+  // Ensure sentiment is an array before splicing
+  if (!Array.isArray(c.sentiment)) {
+    try { c.sentiment = typeof c.sentiment === 'string' ? JSON.parse(c.sentiment) : []; }
+    catch(e) { c.sentiment = []; }
+  }
   c.sentiment.splice(idx,1);
   renderDetailSentiment();
   save(c).catch(e => console.error('Sentiment delete sync failed:', e));
@@ -437,7 +507,13 @@ function deleteSentiment(idx) {
 function latestSentiment(c) {
   try {
     const s = Array.isArray(c.sentiment) ? c.sentiment : (typeof c.sentiment === 'string' ? JSON.parse(c.sentiment) : []);
-    return s.length ? s[0] : null;
+    if (!s.length) return null;
+    // Find the entry with the most recent date (don't trust array order — unshift vs push)
+    let best = s[0];
+    for (let i = 1; i < s.length; i++) {
+      if (s[i].date && (!best.date || s[i].date > best.date)) best = s[i];
+    }
+    return best;
   } catch(e) { return null; }
 }
 
@@ -461,20 +537,94 @@ function openDetail(id) {
     else { qbrBtn.style.display = 'none'; }
   }
 
+  // Alert count badge on Alerts tab
+  const alertTab = el('dt-alerts');
+  if (alertTab) {
+    const cnt = buildAlerts().filter(a => a.cid === id && !isDismissed(a.id) && !isSnoozed(a.id)).length;
+    alertTab.textContent = cnt > 0 ? `Alerts (${cnt})` : 'Alerts';
+  }
+
   dtab('overview');
   openModal('detail-modal');
 }
 
 function dtab(which) {
-  ['overview','playbook','notes','sentiment','history'].forEach(t => {
+  ['overview','alerts','playbook','notes','sentiment','history'].forEach(t => {
     el('dt-'+t)?.classList.toggle('active', t===which);
     el('dp-'+t)?.classList.toggle('active', t===which);
   });
   if (which === 'overview')  renderDetailOverview();
+  if (which === 'alerts')    renderDetailAlerts();
   if (which === 'playbook')  { if (hasFeature('playbooks')) renderDetailPlaybook(); else el('dm-playbook').innerHTML = upgradeHTML('playbooks'); }
   if (which === 'notes')     renderDetailNotes();
   if (which === 'sentiment') { if (hasFeature('sentiment')) renderDetailSentiment(); else el('dm-sentiment-list').innerHTML = upgradeHTML('sentiment'); }
   if (which === 'history')   renderDetailHistory();
+}
+
+function renderDetailAlerts() {
+  const wrap = el('dm-alerts');
+  if (!wrap) return;
+  const c = customers.find(x => x.id === detailId);
+  if (!c) { wrap.innerHTML = ''; return; }
+
+  // Build all alerts and filter to this customer
+  const all = buildAlerts();
+  const mine = all.filter(a => a.cid === c.id);
+  const active = mine.filter(a => !isDismissed(a.id) && !isSnoozed(a.id));
+  const snzd   = mine.filter(a => isSnoozed(a.id));
+  const dism   = mine.filter(a => isDismissed(a.id) && !isSnoozed(a.id));
+
+  if (!mine.length) {
+    wrap.innerHTML = `<div style="text-align:center;padding:32px 16px;color:var(--muted);font-size:.85rem">
+      <div style="font-size:1.4rem;margin-bottom:6px">✅</div>
+      No active alerts for this customer</div>`;
+    return;
+  }
+
+  const sevColor = { red:'var(--red)', amber:'var(--amber)', blue:'var(--blue)', green:'var(--green)' };
+
+  function alertRow(a, state) {
+    const def = ALERT_CATS[a.cat] || ALERT_CATS.health;
+    const color = sevColor[a.type] || 'var(--muted)';
+    const opacity = state === 'dismissed' ? 'opacity:.45;' : state === 'snoozed' ? 'opacity:.6;' : '';
+    const badge = state === 'snoozed'
+      ? `<span style="font-size:.68rem;color:var(--amber);font-weight:600;margin-left:auto;white-space:nowrap">⏸ Snoozed</span>`
+      : state === 'dismissed'
+      ? `<span style="font-size:.68rem;color:var(--muted);font-weight:600;margin-left:auto;white-space:nowrap">Dismissed</span>`
+      : '';
+    const actions = state === 'snoozed'
+      ? `<button class="btn btn-xs btn-ghost" onclick="unsnooze('${escHtml(a.id)}');renderDetailAlerts()">Wake</button>`
+      : state !== 'dismissed'
+      ? `<button class="btn btn-xs btn-ghost" onclick="snoozeAlert('${escHtml(a.id)}',7);renderDetailAlerts()">Snooze 7d</button>
+         <button class="btn btn-xs btn-ghost" onclick="dismissAlert('${escHtml(a.id)}');renderDetailAlerts()">Dismiss</button>`
+      : '';
+    return `
+      <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:var(--r);border:1.5px solid ${color}22;background:${color}08;${opacity}">
+        <div style="color:${color};flex-shrink:0;margin-top:2px">${def.icon}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.82rem;font-weight:600;color:var(--text)">${def.label}</div>
+          <div style="font-size:.78rem;color:var(--subtle);margin-top:2px">${a.msg.replace(/<strong>.*?<\/strong>\s*/, '')}</div>
+          ${a.sub ? `<div style="font-size:.72rem;color:var(--muted);margin-top:3px">${escHtml(a.sub)}</div>` : ''}
+        </div>
+        ${badge}
+        <div style="display:flex;gap:4px;flex-shrink:0;align-items:center">${actions}</div>
+      </div>`;
+  }
+
+  let html = '';
+  if (active.length) {
+    html += `<div style="font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Active (${active.length})</div>`;
+    html += `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px">${active.map(a => alertRow(a, 'active')).join('')}</div>`;
+  }
+  if (snzd.length) {
+    html += `<div style="font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Snoozed (${snzd.length})</div>`;
+    html += `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px">${snzd.map(a => alertRow(a, 'snoozed')).join('')}</div>`;
+  }
+  if (dism.length) {
+    html += `<div style="font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Dismissed (${dism.length})</div>`;
+    html += `<div style="display:flex;flex-direction:column;gap:6px">${dism.map(a => alertRow(a, 'dismissed')).join('')}</div>`;
+  }
+  wrap.innerHTML = html;
 }
 
 function renderDetailOverview() {
@@ -640,13 +790,14 @@ function buildRingHTML(score, status) {
 
 function buildBreakdownHTML(signals, c) {
   const w = c ? getActiveWeights(c) : weights;
-  const total = (w.logins + w.adoption + w.tickets + w.nps + w.days + w.growth) || 100;
+  const total = (w.logins + w.adoption + w.tickets + (w.nps||0) + (w.csat||0) + w.days + w.growth) || 100;
   const defs = [
-    { key:'logins_n',   label:'Login Frequency', color:'var(--blue)',   weight:w.logins,   raw: c ? `${c.logins} logins/mo`  : '' },
-    { key:'adoption_n', label:'Feature Adoption', color:'var(--green)',  weight:w.adoption, raw: c ? `${c.adoption}% adopted`  : '' },
-    { key:'tickets_n',  label:'Support Health',   color:'var(--red)',    weight:w.tickets,  raw: c ? `${c.tickets} tickets`    : '' },
-    { key:'nps_n',      label:'NPS / CSAT',       color:'var(--purple)', weight:w.nps,      raw: c ? c.nps                     : '' },
-    { key:'days_n',     label:'Contact Recency',  color:'var(--teal)',   weight:w.days,     raw: c ? `${c.days}d ago`          : '' },
+    { key:'logins_n',   label:'Login Frequency', color:'var(--blue)',   weight:w.logins,   raw: c ? (c.logins != null ? `${c.logins} logins/mo` : 'N/A')  : '' },
+    { key:'adoption_n', label:'Feature Adoption', color:'var(--green)',  weight:w.adoption, raw: c ? (c.adoption != null ? `${c.adoption}% adopted` : 'N/A')  : '' },
+    { key:'tickets_n',  label:'Support Health',   color:'var(--red)',    weight:w.tickets,  raw: c ? (c.tickets != null ? `${c.tickets} tickets` : 'N/A')    : '' },
+    { key:'nps_n',      label:'NPS (0–10)',       color:'var(--purple)', weight:w.nps||0,   raw: c ? npsDisplay(c.nps)         : '' },
+    { key:'csat_n',     label:'CSAT (1–5)',       color:'#7c3aed',      weight:w.csat||0,  raw: c ? csatDisplay(c.csat)        : '' },
+    { key:'days_n',     label:'Contact Recency',  color:'var(--teal)',   weight:w.days,     raw: c ? (c.days != null ? `${c.days}d ago` : 'N/A')          : '' },
     { key:'growth_n',   label:'Growth Signal',    color:'var(--green)',  weight:w.growth,   raw: c ? c.growth                  : '' }
   ];
   return defs.map(d => `
@@ -821,12 +972,15 @@ function buildSparklineMini(c) {
   return buildSparkline(hist.map(h=>h.score), 72, 22);
 }
 
+let _returnToPage = '';
+
 function editCustomer(id) {
   const cid = id || detailId;
   if (!cid) return;
   const c = customers.find(x => x.id === cid);
   if (!c) return;
 
+  try { _returnToPage = localStorage.getItem('iqc_active_view') || 'dashboard'; } catch(e) { _returnToPage = 'dashboard'; }
   closeModal('detail-modal');
   nav('score');
   document.getElementById('form-title').textContent = 'Re-score: ' + c.name;
@@ -845,11 +999,24 @@ function editCustomer(id) {
   el('f-tier').value     = c.tier || 'mid';
   el('f-lifecycle').value= c.lifecycle || 'active';
   el('f-tags').value     = (c.tags||[]).join(', ');
-  el('f-logins').value   = c.logins;     rv('logins',   c.logins+'  days');
-  el('f-adoption').value = c.adoption;   rv('adoption', c.adoption+'%');
-  el('f-tickets').value  = c.tickets;
-  el('f-nps').value      = c.nps;
-  el('f-days').value     = c.days;       rv('days', c.days+' days');
+  // Login Frequency
+  if (c.logins != null) { el('f-logins-na').checked = false; el('f-logins').value = c.logins; el('f-logins').disabled = false; el('f-logins').style.opacity = '1'; rv('logins', c.logins + ' days'); el('rv-logins').style.color = ''; }
+  else { el('f-logins-na').checked = true; toggleSignalNA('logins'); }
+  // Feature Adoption
+  if (c.adoption != null) { el('f-adoption-na').checked = false; el('f-adoption').value = c.adoption; el('f-adoption').disabled = false; el('f-adoption').style.opacity = '1'; rv('adoption', c.adoption + '%'); el('rv-adoption').style.color = ''; }
+  else { el('f-adoption-na').checked = true; toggleSignalNA('adoption'); }
+  // Open Support Tickets
+  if (c.tickets != null) { el('f-tickets-na').checked = false; el('f-tickets').value = c.tickets; el('f-tickets').disabled = false; el('f-tickets').style.opacity = '1'; }
+  else { el('f-tickets-na').checked = true; toggleSignalNA('tickets'); }
+  // NPS slider
+  if (c.nps != null) { el('f-nps-na').checked = false; el('f-nps').value = c.nps; el('f-nps').disabled = false; el('f-nps').style.opacity = '1'; rv('nps-label', npsDisplay(c.nps)); el('rv-nps-label').style.color = ''; }
+  else { el('f-nps-na').checked = true; toggleNpsNA(); }
+  // CSAT slider
+  if (c.csat != null) { el('f-csat-na').checked = false; el('f-csat').value = c.csat; el('f-csat').disabled = false; el('f-csat').style.opacity = '1'; rv('csat-label', csatDisplay(c.csat)); el('rv-csat-label').style.color = ''; }
+  else { el('f-csat-na').checked = true; toggleCsatNA(); }
+  // Days Since Last Contact
+  if (c.days != null) { el('f-days-na').checked = false; el('f-days').value = c.days; el('f-days').disabled = false; el('f-days').style.opacity = '1'; rv('days', c.days + ' days'); el('rv-days').style.color = ''; }
+  else { el('f-days-na').checked = true; toggleSignalNA('days'); }
   if (el('f-renewal-date')) el('f-renewal-date').value = c.renewal_date || '';
   if (el('f-next-touch'))  el('f-next-touch').value  = c.next_touch   || '';
   el('f-growth').value   = c.growth || 'none';
@@ -874,7 +1041,7 @@ window.saveScore = function() {
     if (c && pendingResult) {
       const { data, score, status } = pendingResult;
       /* Capture before-state for audit diff */
-      const before = { name:c.name, manager:c.manager||'', score:c.score, status:c.status, mrr:c.mrr, arr:c.arr, tier:c.tier, lifecycle:c.lifecycle, logins:c.logins, adoption:c.adoption, tickets:c.tickets, nps:c.nps, days:c.days, growth:c.growth||'none', scoring_profile:c.scoring_profile||'' };
+      const before = { name:c.name, manager:c.manager||'', score:c.score, status:c.status, mrr:c.mrr, arr:c.arr, tier:c.tier, lifecycle:c.lifecycle, logins:c.logins, adoption:c.adoption, tickets:c.tickets, nps:c.nps, csat:c.csat, days:c.days, growth:c.growth||'none', scoring_profile:c.scoring_profile||'' };
       c.name            = data.name;
       c.manager         = data.manager || '';
       c.scoring_profile = data.profile || '';
@@ -884,6 +1051,7 @@ window.saveScore = function() {
       c.adoption        = data.adoption;
       c.tickets         = data.tickets;
       c.nps             = data.nps;
+      c.csat            = data.csat;
       c.days            = data.days;
       c._baseDays       = data.days;
       c.renewal         = data.renewal;
@@ -906,13 +1074,14 @@ window.saveScore = function() {
       save(c).then(() => { setLoading(false); toast('Updated: ' + c.name, 'success'); })
               .catch(() => { setLoading(false); toast('Updated locally — sync failed', 'warn'); });
       /* Build granular audit diff */
-      const after = { name:c.name, manager:c.manager, score, status, mrr:c.mrr, arr:c.arr, tier:c.tier, lifecycle:c.lifecycle, logins:c.logins, adoption:c.adoption, tickets:c.tickets, nps:c.nps, days:c.days, growth:c.growth||'none', scoring_profile:c.scoring_profile||'' };
+      const after = { name:c.name, manager:c.manager, score, status, mrr:c.mrr, arr:c.arr, tier:c.tier, lifecycle:c.lifecycle, logins:c.logins, adoption:c.adoption, tickets:c.tickets, nps:c.nps, csat:c.csat, days:c.days, growth:c.growth||'none', scoring_profile:c.scoring_profile||'' };
       const changes = Object.keys(after).filter(k => String(before[k]) !== String(after[k])).map(k => `${k}: ${before[k]} → ${after[k]}`);
       const summaryText = changes.length ? changes.join(', ') : 'Re-scored (no field changes)';
       logAudit('customer_updated', c.id, c.name, { score, status, summary: summaryText });
       pendingResult = null;
       resetForm();
-      nav('customers');
+      nav(_returnToPage || 'customers');
+      _returnToPage = '';
       return;
     }
   }
@@ -1010,11 +1179,12 @@ HEALTH SNAPSHOT
   Renewal:         ${c.renewal != null ? c.renewal + ' months' + (u ? ' — ' + u.label + ' urgency' : '') : '—'}
 
 SIGNAL BREAKDOWN
-  Login Frequency:    ${c.logins} / 30 days
-  Feature Adoption:   ${c.adoption}%
-  Open Tickets:       ${c.tickets}
-  NPS / CSAT:         ${c.nps}
-  Days Since Contact: ${c.days} days  (${cad.label})
+  Login Frequency:    ${c.logins != null ? c.logins + ' / 30 days' : 'N/A'}
+  Feature Adoption:   ${c.adoption != null ? c.adoption + '%' : 'N/A'}
+  Open Tickets:       ${c.tickets != null ? c.tickets : 'N/A'}
+  NPS:                ${npsDisplay(c.nps)}
+  CSAT:               ${csatDisplay(c.csat)}
+  Days Since Contact: ${c.days != null ? c.days + ' days' : 'N/A'}  (${cad.label})
   Growth Signal:      ${c.growth}
   Last Vibe Check:    ${sent ? sentLabels[sent.val] + ' — ' + fmtDate(sent.date) + (sent.note ? ' ("' + sent.note + '")' : '') : 'Not logged'}
 

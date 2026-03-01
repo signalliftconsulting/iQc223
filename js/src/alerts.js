@@ -11,15 +11,17 @@ const ALERT_ICONS = {
   tickets:   _ico('<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>'),
   expansion: _ico('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>'),
   snoozed:   _ico('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'),
+  engagement:_ico('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'),
 };
 const ALERT_CATS = {
-  health:    { label:'Health',    icon: ALERT_ICONS.health,    type:'red'   },
-  renewal:   { label:'Renewal',   icon: ALERT_ICONS.renewal,   type:'blue'  },
-  cadence:   { label:'Cadence',   icon: ALERT_ICONS.cadence,   type:'amber' },
-  sentiment: { label:'Sentiment', icon: ALERT_ICONS.sentiment, type:'amber' },
-  momentum:  { label:'Momentum',  icon: ALERT_ICONS.momentum,  type:'amber' },
-  tickets:   { label:'Support',   icon: ALERT_ICONS.tickets,   type:'red'   },
-  expansion: { label:'Expansion', icon: ALERT_ICONS.expansion, type:'green' },
+  health:     { label:'Health',     icon: ALERT_ICONS.health,     type:'red'   },
+  renewal:    { label:'Renewal',    icon: ALERT_ICONS.renewal,    type:'blue'  },
+  cadence:    { label:'Cadence',    icon: ALERT_ICONS.cadence,    type:'amber' },
+  sentiment:  { label:'Sentiment',  icon: ALERT_ICONS.sentiment,  type:'amber' },
+  momentum:   { label:'Momentum',   icon: ALERT_ICONS.momentum,   type:'amber' },
+  tickets:    { label:'Support',    icon: ALERT_ICONS.tickets,    type:'red'   },
+  engagement: { label:'Engagement', icon: ALERT_ICONS.engagement, type:'amber' },
+  expansion:  { label:'Expansion',  icon: ALERT_ICONS.expansion,  type:'green' },
 };
 
 // Severity order for sorting (lower = higher priority)
@@ -29,11 +31,17 @@ const ALERT_SEV = { red:0, amber:1, blue:2, green:3 };
 // Alert reappears if customer's score changes from when it was dismissed
 let dismissed = new Map();
 
+// MRR exposure bucket → Set of customer IDs (kept in sync with renderAlerts)
+let _mrrSeen = {};
+// Cached alert arrays for click-to-filter (refreshed each render)
+let _cachedActive = [];
+let _cachedSnoozed = [];
+
 function buildAlerts() {
   const alerts = [];
   const now = new Date();
   // Customer display snapshot — embedded in every alert for rich rendering
-  const snap = c => ({ _score:c.score, _status:c.status, _tier:c.tier, _manager:c.manager||'', _days:c.days||0 });
+  const snap = c => ({ _score:c.score, _status:c.status, _tier:c.tier, _manager:c.manager||'', _days:c.days != null ? c.days : 0, _mrr:c.mrr||0 });
 
   customers.forEach(c => {
     if (c.lifecycle === 'churned') return;
@@ -57,7 +65,19 @@ function buildAlerts() {
     if (signalOn(c,'tickets') && c.tickets >= 3)
       alerts.push({ id:c.id+'-tix', cid:c.id, cat:'tickets', type:'red',
         msg:`<strong>${escHtml(c.name)}</strong> <span>has ${c.tickets} open support tickets</span>`,
-        sub:`NPS: ${c.nps||'—'}`, ...snap(c) });
+        sub:`NPS: ${npsDisplay(c.nps)} · CSAT: ${csatDisplay(c.csat)}`, ...snap(c) });
+
+    // ── Low Logins (only if logins signal is active) ──
+    if (signalOn(c,'logins') && c.logins != null && c.logins < 5)
+      alerts.push({ id:c.id+'-logins', cid:c.id, cat:'engagement', type:'amber',
+        msg:`<strong>${escHtml(c.name)}</strong> <span>has low login frequency (${c.logins}/mo)</span>`,
+        sub:`Score ${c.score} · MRR $${fmtNum(c.mrr||0)}`, ...snap(c) });
+
+    // ── Low Adoption (only if adoption signal is active) ──
+    if (signalOn(c,'adoption') && c.adoption != null && c.adoption < 30)
+      alerts.push({ id:c.id+'-adopt', cid:c.id, cat:'engagement', type:'amber',
+        msg:`<strong>${escHtml(c.name)}</strong> <span>has low feature adoption (${c.adoption}%)</span>`,
+        sub:`Score ${c.score} · MRR $${fmtNum(c.mrr||0)}`, ...snap(c) });
 
     // ── Renewal (uses renewal_date for accurate countdown) ──
     if (c.renewal_date) {
@@ -82,22 +102,30 @@ function buildAlerts() {
         msg:`<strong>${escHtml(c.name)}</strong> <span>score is declining ↘</span>`,
         sub:`Score ${c.score}`, ...snap(c) });
 
-    // ── Sentiment ──
-    const sent = latestSentiment(c);
-    if (sent?.val === 'negative')
-      alerts.push({ id:c.id+'-sent', cid:c.id, cat:'sentiment', type:'amber',
-        msg:`<strong>${escHtml(c.name)}</strong> <span>last call logged as negative</span>`,
-        sub:`Sentiment: Negative`, ...snap(c) });
+    // ── Sentiment (only if sentiment feature is active + log exists) ──
+    if (hasFeature('sentiment')) {
+      const sent = latestSentiment(c);
+      if (sent?.val === 'negative')
+        alerts.push({ id:c.id+'-sent', cid:c.id, cat:'sentiment', type:'amber',
+          msg:`<strong>${escHtml(c.name)}</strong> <span>last call logged as negative</span>`,
+          sub:`Sentiment: Negative`, ...snap(c) });
+    }
 
     // ── NPS Detractor (only if NPS signal is active) ──
-    if (signalOn(c,'nps') && c.nps === 'detractor')
-      alerts.push({ id:c.id+'-nps', cid:c.id, cat:'tickets', type:'red',
-        msg:`<strong>${escHtml(c.name)}</strong> <span>is an NPS Detractor</span>`,
+    if (signalOn(c,'nps') && npsIsDetractor(c.nps))
+      alerts.push({ id:c.id+'-nps', cid:c.id, cat:'sentiment', type:'red',
+        msg:`<strong>${escHtml(c.name)}</strong> <span>is an NPS Detractor (${npsDisplay(c.nps)})</span>`,
+        sub:`Score ${c.score}`, ...snap(c) });
+
+    // ── CSAT Poor (only if CSAT signal is active) ──
+    if (signalOn(c,'csat') && csatIsPoor(c.csat))
+      alerts.push({ id:c.id+'-csat', cid:c.id, cat:'sentiment', type:'red',
+        msg:`<strong>${escHtml(c.name)}</strong> <span>has a poor CSAT rating (${csatDisplay(c.csat)})</span>`,
         sub:`Score ${c.score}`, ...snap(c) });
 
     // ── Expansion opportunity (only if growth signal is active + no recent touch) ──
     if (signalOn(c,'growth') && (c.status === 'expand' || c.status === 'healthy') && (c.mrr||0) >= 3000) {
-      const daysSince = c.days || 0;
+      const daysSince = c.days != null ? c.days : 0;
       if (!signalOn(c,'days') || daysSince >= 30)
         alerts.push({ id:c.id+'-exp', cid:c.id, cat:'expansion', type:'green',
           msg:`<strong>${escHtml(c.name)}</strong> <span>expansion opportunity — ${daysSince}d since last touch</span>`,
@@ -110,7 +138,7 @@ function buildAlerts() {
   const cadAlerts = buildCadenceAlerts();
   cadAlerts.forEach(a => {
     const c = customers.find(x => x.id === a.cid);
-    if (c) Object.assign(a, { _score:c.score, _status:c.status, _tier:c.tier, _manager:c.manager||'', _days:c.days||0 });
+    if (c) Object.assign(a, { _score:c.score, _status:c.status, _tier:c.tier, _manager:c.manager||'', _days:c.days != null ? c.days : 0, _mrr:c.mrr||0 });
   });
   alerts.push(...cadAlerts);
 
@@ -127,18 +155,22 @@ function buildAlerts() {
 
 // ─── MULTI-SELECT STATE ──────────────────────────────────────
 let _selectedAlerts = new Set();
-let _alertViewMode = 'category'; // 'category' | 'priority' | 'customer'
+let _alertViewMode = 'category'; // 'category' | 'priority' | 'customer' | 'table'
+let _alertTableFilter = null;    // { label: string, ids: Set<string> } — null = all alerted customers
+let _alertTblSort = { key: 'score', dir: 1 }; // 1=asc (worst first), -1=desc
 
 function setAlertView(mode) {
   _alertViewMode = mode;
-  ['cat','pri','cust'].forEach(k => {
+  if (mode !== 'table') _alertTableFilter = null; // clear table filter when leaving table view
+  const modeMap = { cat:'category', pri:'priority', cust:'customer', tbl:'table' };
+  ['cat','pri','cust','tbl'].forEach(k => {
     const btn = el('alert-view-' + k);
-    if (btn) btn.classList.toggle('active', mode === { cat:'category', pri:'priority', cust:'customer' }[k]);
+    if (btn) btn.classList.toggle('active', mode === modeMap[k]);
   });
   const searchBox = el('alert-cust-search');
   if (searchBox) {
-    searchBox.style.display = mode === 'customer' ? '' : 'none';
-    if (mode !== 'customer') searchBox.value = '';
+    searchBox.style.display = (mode === 'customer' || mode === 'table') ? '' : 'none';
+    if (mode !== 'customer' && mode !== 'table') searchBox.value = '';
   }
   renderAlerts();
 }
@@ -218,6 +250,8 @@ function _renderAlerts() {
   const all    = buildAlerts();
   const active = all.filter(a => !isSnoozed(a.id) && !isDismissed(a.id));
   const snz    = all.filter(a =>  isSnoozed(a.id));
+  _cachedActive = active;
+  _cachedSnoozed = snz;
   const list   = el('alerts-list');
 
   // Update sidebar badge + topbar bell badge (v86)
@@ -230,11 +264,12 @@ function _renderAlerts() {
 
   // Show/hide view toggle bar
   const viewBar = el('alert-view-bar');
-  if (viewBar) viewBar.style.display = (active.length || snz.length) ? 'flex' : 'none';
+  if (viewBar) viewBar.style.display = (active.length || snz.length || _alertTableFilter) ? 'flex' : 'none';
 
-  if (!active.length && !snz.length) {
+  if (!active.length && !snz.length && !(_alertViewMode === 'table' && _alertTableFilter)) {
     list.innerHTML = '<div class="empty-st"><div class="ei"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><h3>All clear!</h3><p>No alerts right now — all accounts are in good shape.</p></div>';
     renderAlertPanel(all, active, snz);
+    renderAlertBriefing(active, snz);
     return;
   }
 
@@ -309,9 +344,93 @@ function _renderAlerts() {
     } else if (custSearch) {
       html += `<div style="text-align:center;padding:28px 16px;color:var(--muted);font-size:.85rem">No customers matching "${escHtml(custSearch)}"</div>`;
     }
+  } else if (_alertViewMode === 'table') {
+    // ── Table view: customer table inline ──
+    const tblSearch = (el('alert-cust-search')?.value || '').trim().toLowerCase();
+    // Build customer list from filter or all alerted customers
+    const alertedIds = _alertTableFilter ? _alertTableFilter.ids : new Set(active.map(a => a.cid));
+    let tblList = customers.filter(c => alertedIds.has(c.id) && passesManagerFilter(c));
+    if (tblSearch) tblList = tblList.filter(c => c.name.toLowerCase().includes(tblSearch));
+    // Count alerts per customer
+    const alertCountMap = {};
+    active.forEach(a => { alertCountMap[a.cid] = (alertCountMap[a.cid]||0) + 1; });
+    // Sort by current sort key
+    const sk = _alertTblSort.key, sd = _alertTblSort.dir;
+    tblList.sort((a,b) => {
+      let va, vb;
+      if (sk === 'name')    { va = (a.name||'').toLowerCase(); vb = (b.name||'').toLowerCase(); return va < vb ? -sd : va > vb ? sd : 0; }
+      if (sk === 'score')   { va = a.score||0; vb = b.score||0; }
+      else if (sk === 'delta')   { va = getDelta7d(a); vb = getDelta7d(b); }
+      else if (sk === 'mrr')     { va = a.mrr||0; vb = b.mrr||0; }
+      else if (sk === 'days')    { va = a.days||0; vb = b.days||0; }
+      else if (sk === 'renewal') { va = a.renewal!=null?a.renewal:999; vb = b.renewal!=null?b.renewal:999; }
+      else if (sk === 'alerts')  { va = alertCountMap[a.id]||0; vb = alertCountMap[b.id]||0; }
+      else if (sk === 'tickets') { va = a.tickets||0; vb = b.tickets||0; }
+      else if (sk === 'status')  { const so = {critical:0,risk:1,watch:2,healthy:3,expand:4}; va = so[a.status]??5; vb = so[b.status]??5; }
+      else if (sk === 'manager') { va = (a.manager||'').toLowerCase(); vb = (b.manager||'').toLowerCase(); return va < vb ? -sd : va > vb ? sd : 0; }
+      else { va = 0; vb = 0; }
+      return (va - vb) * sd;
+    });
+
+    const filterLabel = _alertTableFilter ? _alertTableFilter.label : 'All Alerted Customers';
+    html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <span style="font-size:.78rem;font-weight:700;color:var(--text)">${escHtml(filterLabel)}</span>
+      <span style="font-size:.72rem;color:var(--muted)">${tblList.length} customer${tblList.length!==1?'s':''}</span>
+      ${_alertTableFilter ? `<button class="btn btn-xs btn-ghost" onclick="_alertTableFilter=null;renderAlerts()">✕ Clear filter</button>` : ''}
+    </div>`;
+
+    const _thSort = (key, label) => {
+      const active = sk === key;
+      const arrow = active ? (sd === 1 ? ' ▲' : ' ▼') : '';
+      return `<th class="alert-tbl-th${active?' active':''}" onclick="_alertTblSortBy('${key}')">${label}${arrow}</th>`;
+    };
+
+    if (tblList.length) {
+      html += `<div style="overflow-x:auto"><table class="ct" style="display:table;width:100%">
+        <thead><tr>
+          ${_thSort('name','Customer')}
+          ${_thSort('score','Score')}
+          ${_thSort('delta','Δ 7d')}
+          ${_thSort('status','Status')}
+          ${_thSort('mrr','MRR')}
+          ${_thSort('days','Last Contact')}
+          ${_thSort('renewal','Renewal')}
+          ${_thSort('alerts','Alerts')}
+          ${_thSort('tickets','Tickets')}
+          ${_thSort('manager','Manager')}
+        </tr></thead><tbody>` +
+        tblList.map(c => {
+          const cad = getCadenceStatus(c);
+          const cnt = alertCountMap[c.id] || 0;
+          const d7 = getDelta7d(c);
+          const d7Color = d7 > 0 ? '#16a34a' : d7 < 0 ? '#dc2626' : 'var(--muted)';
+          const d7Str = d7 > 0 ? '+'+d7 : d7 === 0 ? '—' : String(d7);
+          const renewalStr = c.renewal_date ? (() => {
+            const d = new Date(c.renewal_date);
+            const days = Math.round((d - new Date()) / 86400000);
+            return days <= 0 ? '<span style="color:#dc2626;font-weight:700">Overdue</span>'
+              : days <= 30 ? `<span style="color:#ea580c;font-weight:700">${days}d</span>`
+              : `<span style="color:var(--muted)">${days}d</span>`;
+          })() : '—';
+          return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
+            <td style="padding:8px 12px"><strong>${escHtml(c.name)}</strong></td>
+            <td style="padding:8px 12px">${scoreHTML(c)}</td>
+            <td style="padding:8px 12px;font-size:.78rem;font-weight:700;color:${d7Color}">${d7Str}</td>
+            <td style="padding:8px 12px">${badgeHTML(c.status)}</td>
+            <td style="padding:8px 12px">${c.mrr ? '$'+fmtNum(c.mrr) : '—'}</td>
+            <td style="padding:8px 12px"><span class="${cad.cls}">${cad.label.replace(/\\s*\\(\\d+d\\)/,'')}</span> <span style="font-size:.72rem;color:var(--muted)">${c.days != null ? c.days + 'd' : 'N/A'}</span></td>
+            <td style="padding:8px 12px">${renewalStr}</td>
+            <td style="padding:8px 12px"><span style="background:var(--red-l);color:var(--red);padding:2px 8px;border-radius:10px;font-size:.72rem;font-weight:700">${cnt}</span></td>
+            <td style="padding:8px 12px;color:${c.tickets != null && c.tickets > 0 ? '#dc2626' : 'var(--subtle)'};font-weight:${c.tickets != null && c.tickets > 0 ? '700' : '400'}">${c.tickets != null ? c.tickets : 'N/A'}</td>
+            <td style="padding:8px 12px;font-size:.82rem;color:var(--subtle)">${c.manager ? escHtml(c.manager) : '—'}</td>
+          </tr>`;
+        }).join('') + '</tbody></table></div>';
+    } else {
+      html += `<div style="text-align:center;padding:28px;color:var(--muted);font-size:.85rem">No matching customers</div>`;
+    }
   } else {
     // ── Category view (default) ──
-    const cats = ['health','tickets','renewal','cadence','momentum','sentiment','expansion'];
+    const cats = ['health','tickets','engagement','renewal','cadence','momentum','sentiment','expansion'];
     cats.forEach(cat => {
       const group = active.filter(a => a.cat === cat);
       if (!group.length) return;
@@ -321,8 +440,8 @@ function _renderAlerts() {
     });
   }
 
-  // Snoozed section (shown in both views)
-  if (snz.length) {
+  // Snoozed section (shown in alert card views, not table)
+  if (snz.length && _alertViewMode !== 'table') {
     html += `<div class="alert-group-hd" style="margin-top:20px">${ALERT_ICONS.snoozed} Snoozed <span style="font-weight:400;color:var(--subtle)">(${snz.length})</span></div>`;
     html += snz.map(a => alertItemHTML(a, true)).join('');
   }
@@ -342,7 +461,7 @@ function renderAlertPanel(all, active, snz) {
     const cell = el(id);
     if (!cell) return;
     cell.querySelector('.alert-kpi-val').textContent = val;
-    if (cls) { cell.className = 'alert-kpi-cell ' + cls; }
+    if (cls) { cell.className = 'alert-kpi-cell alert-kpi-click ' + cls; }
   }
   setKpi('akpi-total',    active.length,                active.length > 0 ? 'red' : '');
   setKpi('akpi-critical', critical,                     critical > 0 ? 'red' : '');
@@ -357,11 +476,14 @@ function renderAlertPanel(all, active, snz) {
       'Watch':            { color:'#fde68a', mrr:0 },
       'Renewal ≤60d':     { color:'#93c5fd', mrr:0 },
       'No Contact 60d+':  { color:'#c4b5fd', mrr:0 },
-      'Poor Sentiment':   { color:'#fda4af', mrr:0 }
+      'Poor Sentiment':   { color:'#fda4af', mrr:0 },
+      'Low Adoption':     { color:'#fdba74', mrr:0 },
+      'Low Logins':       { color:'#fcd34d', mrr:0 }
     };
     // Dedupe by customer (only count each customer once per bucket)
     const seen = {};
     Object.keys(mrrMap).forEach(k => seen[k] = new Set());
+    _mrrSeen = seen; // expose for click-to-filter
     // Alert-based buckets
     active.forEach(a => {
       const c = customers.find(x => x.id === a.cid);
@@ -370,43 +492,36 @@ function renderAlertPanel(all, active, snz) {
       else if (a.cat === 'health' && a.type === 'amber' && !seen['Watch'].has(c.id)) { seen['Watch'].add(c.id); mrrMap['Watch'].mrr += c.mrr||0; }
       if (a.cat === 'renewal' && !seen['Renewal ≤60d'].has(c.id)) { seen['Renewal ≤60d'].add(c.id); mrrMap['Renewal ≤60d'].mrr += c.mrr||0; }
     });
-    // Customer-based buckets: no contact 60d+, poor sentiment
-    customers.filter(c => c.lifecycle !== 'churned').forEach(c => {
-      if (c.days >= 60 && !seen['No Contact 60d+'].has(c.id)) { seen['No Contact 60d+'].add(c.id); mrrMap['No Contact 60d+'].mrr += c.mrr||0; }
+    // Customer-based buckets: no contact 60d+, poor sentiment, low adoption, low logins (respects manager filter)
+    customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c)).forEach(c => {
+      if (c.days != null && c.days >= 60 && !seen['No Contact 60d+'].has(c.id)) { seen['No Contact 60d+'].add(c.id); mrrMap['No Contact 60d+'].mrr += c.mrr||0; }
       const sent = latestSentiment(c);
       if (sent && sent.val === 'negative' && !seen['Poor Sentiment'].has(c.id)) { seen['Poor Sentiment'].add(c.id); mrrMap['Poor Sentiment'].mrr += c.mrr||0; }
+      if (signalOn(c,'adoption') && c.adoption != null && c.adoption < 30 && !seen['Low Adoption'].has(c.id)) { seen['Low Adoption'].add(c.id); mrrMap['Low Adoption'].mrr += c.mrr||0; }
+      if (signalOn(c,'logins') && c.logins != null && c.logins < 5 && !seen['Low Logins'].has(c.id)) { seen['Low Logins'].add(c.id); mrrMap['Low Logins'].mrr += c.mrr||0; }
     });
-    // Total uses unique customers across all buckets (no double-counting)
-    const allExposed = new Set();
-    Object.values(seen).forEach(s => s.forEach(id => allExposed.add(id)));
-    let totalMrr = 0;
-    allExposed.forEach(id => { const c = customers.find(x => x.id === id); if (c) totalMrr += c.mrr||0; });
     mrrWrap.innerHTML = Object.entries(mrrMap).map(([label, {color, mrr}]) => `
-      <div class="alert-mrr-row">
+      <div class="alert-mrr-row" style="cursor:pointer;border-radius:6px;padding:5px 6px;margin:2px -6px;transition:background .15s" onclick="filterByMrrBucket('${label}')" onmouseover="this.style.background='rgba(255,255,255,.08)'" onmouseout="this.style.background=''">
         <div class="alert-mrr-dot" style="background:${color}"></div>
         <div class="alert-mrr-label">${label}</div>
         <div class="alert-mrr-val">$${fmtNum(mrr)}</div>
-      </div>`).join('') +
-      `<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.2);display:flex;justify-content:space-between;font-size:.75rem">
-        <span style="color:rgba(255,255,255,.7);font-weight:600">Total Exposed MRR</span>
-        <span style="font-weight:800;color:#fff">$${fmtNum(totalMrr)}</span>
-      </div>`;
+      </div>`).join('');
   }
 
   // By category bars
   const catWrap = el('alert-cat-wrap');
   if (catWrap) {
-    const catOrder = ['health','tickets','renewal','cadence','momentum','sentiment','expansion'];
+    const catOrder = ['health','tickets','engagement','renewal','cadence','momentum','sentiment','expansion'];
     const catCounts = {};
     catOrder.forEach(c => catCounts[c] = 0);
     active.forEach(a => { if (catCounts[a.cat] !== undefined) catCounts[a.cat]++; });
     const maxCount = Math.max(1, ...Object.values(catCounts));
-    const catColors = { health:'#dc2626', tickets:'#ea580c', renewal:'#2563eb', cadence:'#d97706', momentum:'#d97706', sentiment:'#d97706', expansion:'#16a34a' };
+    const catColors = { health:'#dc2626', tickets:'#ea580c', engagement:'#f59e0b', renewal:'#2563eb', cadence:'#d97706', momentum:'#d97706', sentiment:'#d97706', expansion:'#16a34a' };
     catWrap.innerHTML = catOrder.filter(c => catCounts[c] > 0).map(c => {
       const def = ALERT_CATS[c];
       const pct = Math.round((catCounts[c] / maxCount) * 100);
       return `
-        <div class="alert-cat-row" onclick="document.getElementById('alert-grp-${c}')?.scrollIntoView({behavior:'smooth',block:'start'})">
+        <div class="alert-cat-row" onclick="filterByAlertCat('${c}')">
           <div class="alert-cat-meta">
             <span class="alert-cat-name">${def.icon} ${def.label}</span>
             <span class="alert-cat-count">${catCounts[c]}</span>
@@ -433,7 +548,10 @@ function renderAlertPanel(all, active, snz) {
       const c = customers.find(x => x.id === a.cid);
       if (!c) return;
       const nba = buildNextBestAction(c);
-      items.push({ cid: c.id, name: c.name, level: nba.level, action: nba.action, mrr: c.mrr||0 });
+      // MRR urgency boost: high-value accounts escalate warn → urgent
+      let level = nba.level;
+      if (level === 'warn' && (c.mrr||0) >= 10000) level = 'urgent';
+      items.push({ cid: c.id, name: c.name, level, action: nba.action, mrr: c.mrr||0 });
     });
 
     // Sort by urgency then by MRR desc
@@ -444,7 +562,7 @@ function renderAlertPanel(all, active, snz) {
         <div class="alert-action-row" onclick="openDetail('${escHtml(it.cid)}')">
           <div class="alert-action-dot" style="background:${urgColors[it.level]||'rgba(255,255,255,.4)'}"></div>
           <div class="alert-action-body">
-            <div class="alert-action-cust">${escHtml(it.name)}</div>
+            <div class="alert-action-cust">${escHtml(it.name)}${it.mrr ? ` <span style="font-weight:400;font-size:.7rem;color:rgba(255,255,255,.55)">$${fmtNum(it.mrr)} MRR</span>` : ''}</div>
             <div class="alert-action-text">${escHtml(it.action)}</div>
           </div>
         </div>`).join('');
@@ -454,11 +572,84 @@ function renderAlertPanel(all, active, snz) {
   }
 }
 
+// ─── Alert panel → Table filter (stays on alerts page) ──────
+function _alertTblSortBy(key) {
+  if (_alertTblSort.key === key) _alertTblSort.dir *= -1;
+  else { _alertTblSort.key = key; _alertTblSort.dir = key === 'name' || key === 'manager' ? 1 : -1; }
+  renderAlerts();
+}
+
+function _alertShowTable(label, ids) {
+  if (!ids || ids.size === 0) { toast('No customers in this bucket', 'warn'); return; }
+  _alertTableFilter = { label, ids: new Set(ids) };
+  _alertViewMode = 'table';
+  const modeMap = { cat:'category', pri:'priority', cust:'customer', tbl:'table' };
+  ['cat','pri','cust','tbl'].forEach(k => {
+    const btn = el('alert-view-' + k);
+    if (btn) btn.classList.toggle('active', 'table' === modeMap[k]);
+  });
+  const searchBox = el('alert-cust-search');
+  if (searchBox) { searchBox.style.display = ''; searchBox.value = ''; }
+  renderAlerts();
+}
+function filterByMrrBucket(label) {
+  _alertShowTable(label, _mrrSeen[label]);
+}
+function _smoothScrollWithOffset(target, offset) {
+  if (!target) return;
+  const y = target.getBoundingClientRect().top + window.scrollY - (offset || 20);
+  window.scrollTo({ top: y, behavior: 'smooth' });
+}
+function filterByAlertKpi(which) {
+  // Switch to category view and scroll to the relevant group
+  if (_alertViewMode !== 'category') setAlertView('category');
+  let scrollTo = null;
+  if (which === 'total')    scrollTo = 'alert-grp-health';
+  if (which === 'critical') scrollTo = 'alert-grp-health';
+  if (which === 'renewal')  scrollTo = 'alert-grp-renewal';
+  setTimeout(() => {
+    if (which === 'snoozed') {
+      const snzHd = document.querySelector('#alerts-list .alert-group-hd:last-of-type');
+      _smoothScrollWithOffset(snzHd);
+    } else if (scrollTo) {
+      _smoothScrollWithOffset(document.getElementById(scrollTo));
+    }
+  }, 50);
+}
+function filterByAlertCat(cat) {
+  if (_alertViewMode !== 'category') setAlertView('category');
+  setTimeout(() => {
+    _smoothScrollWithOffset(document.getElementById('alert-grp-' + cat));
+  }, 50);
+}
+function clearMrrExposureFilter() {
+  mrrExposureFilter = null;
+  renderCustomers();
+}
+
 // ════════════════════════════════════════════════════════════════
 // Alert Briefing Panel — Smart narrative overview + action list
 // ════════════════════════════════════════════════════════════════
 
+function _briefLink(c) {
+  return `<strong class="briefing-link" onclick="openDetail('${escHtml(c.id)}')">${escHtml(c.name)}</strong>`;
+}
+
+let _briefingGroups = [];
+function _briefGroupLink(text, items, tableLabel) {
+  const ids = new Set(items.map(x => x.cid || x.id));
+  if (!ids.size) return `<strong>${text}</strong>`;
+  const idx = _briefingGroups.length;
+  _briefingGroups.push({ label: tableLabel || text, ids });
+  return `<strong class="briefing-link" onclick="_briefShowGroup(${idx})">${text}</strong>`;
+}
+function _briefShowGroup(idx) {
+  const g = _briefingGroups[idx];
+  if (g) _alertShowTable(g.label, g.ids);
+}
+
 function _briefingNarrative(active, snz) {
+  _briefingGroups = [];
   const total = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
   if (!total.length) return '';
   const n = total.length;
@@ -467,203 +658,221 @@ function _briefingNarrative(active, snz) {
   const healthy    = total.filter(c => c.status === 'healthy' || c.status === 'expand');
   const healthPct  = Math.round((healthy.length / n) * 100);
 
-  // MRR at risk
+  // MRR
   const riskMrr   = critRisk.reduce((s, c) => s + (c.mrr || 0), 0);
   const totalMrr  = total.reduce((s, c) => s + (c.mrr || 0), 0);
   const riskMrrPct = totalMrr > 0 ? Math.round((riskMrr / totalMrr) * 100) : 0;
-
-  // Average score
   const avgScore = Math.round(total.reduce((s, c) => s + (c.score || 0), 0) / n);
 
-  // ── Week-over-week momentum ──
-  let improving = 0, declining = 0, stable = 0;
+  // Momentum — arrays for group linking
+  const improvingAccts = [], decliningAccts = [];
   let biggestDrop = null, biggestRise = null;
   total.forEach(c => {
     const d = getDelta7d(c);
-    if (d > 2) { improving++; if (!biggestRise || d > getDelta7d(biggestRise)) biggestRise = c; }
-    else if (d < -2) { declining++; if (!biggestDrop || d < getDelta7d(biggestDrop)) biggestDrop = c; }
-    else stable++;
+    if (d > 2) { improvingAccts.push(c); if (!biggestRise || d > getDelta7d(biggestRise)) biggestRise = c; }
+    else if (d < -2) { decliningAccts.push(c); if (!biggestDrop || d < getDelta7d(biggestDrop)) biggestDrop = c; }
   });
 
-  // Alert counts by category
+  // Alert buckets — split sentiment from NPS (both cat:'sentiment' but different alerts)
   const renewals     = active.filter(a => a.cat === 'renewal');
   const urgRenewals  = renewals.filter(a => a.type === 'red');
   const cadenceRed   = active.filter(a => a.cat === 'cadence' && a.type === 'red');
   const ticketAlerts = active.filter(a => a.cat === 'tickets');
-  const sentNeg      = active.filter(a => a.cat === 'sentiment' && (a.type === 'red' || a.type === 'amber'));
+  const sentNeg      = active.filter(a => a.id.endsWith('-sent'));
+  const npsDetract   = active.filter(a => a.id.endsWith('-nps') || a.id.endsWith('-csat'));
+  const engAlerts    = active.filter(a => a.cat === 'engagement');
   const expansions   = active.filter(a => a.cat === 'expansion');
-  const momentum     = active.filter(a => a.cat === 'momentum');
 
-  // Touched recently
+  // Touch & coverage
   const recentTouch  = total.filter(c => c.days != null && c.days <= 14).length;
   const touchPct     = Math.round((recentTouch / n) * 100);
   const ghosted      = total.filter(c => c.days != null && c.days > 30);
+  const alertCids    = new Set(active.map(a => a.cid));
+  const clearCount   = total.filter(c => !alertCids.has(c.id)).length;
 
-  // Customers without alerts
-  const alertCids  = new Set(active.map(a => a.cid));
-  const clearCount = total.filter(c => !alertCids.has(c.id)).length;
-
-  // ── Cross-signal: risky renewals (renewing soon AND unhealthy) ──
+  // Cross-signals
   const renewCids = new Set(renewals.map(a => a.cid));
-  const riskyRenewals = critRisk.filter(c => renewCids.has(c.id));
-
-  // ── Cross-signal: declining + no recent contact ──
+  const riskyRenewals   = critRisk.filter(c => renewCids.has(c.id));
   const silentDecliners = total.filter(c => getDelta7d(c) < -3 && c.days != null && c.days > 21);
+  const entAtRisk       = critRisk.filter(c => c.tier === 'enterprise');
+  const entMrrAtRisk    = entAtRisk.reduce((s, c) => s + (c.mrr || 0), 0);
+  const lowAdoption     = total.filter(c => c.adoption != null && c.adoption < 30 && (c.status === 'healthy' || c.status === 'expand'));
+  const lowLogins       = total.filter(c => c.logins != null && c.logins < 5);
 
-  // ── Tier concentration: enterprise accounts at risk ──
-  const entAtRisk = critRisk.filter(c => c.tier === 'enterprise');
-  const entMrrAtRisk = entAtRisk.reduce((s, c) => s + (c.mrr || 0), 0);
-
-  // ── Low adoption correlation ──
-  const lowAdoption = total.filter(c => c.adoption != null && c.adoption < 30 && (c.status === 'healthy' || c.status === 'expand'));
-
-  // Day-of-week awareness
-  const dow = new Date().getDay(); // 0=Sun ... 5=Fri
+  const dow   = new Date().getDay();
   const isMon = dow === 1;
   const isFri = dow === 5;
 
-  const lines = [];
+  // ── Build 3 sections ──
+  const working = [];    // What's Working (plain HTML strings)
+  const notWorking = []; // What Needs Attention (plain HTML strings)
+  const actions = [];    // What To Do — { text, items?, label? } for clickable rows
+  const _act = (text, items, label) => actions.push({ text, items: items || null, label: label || '' });
 
-  // ── Opening: overall health with momentum context ──
-  if (critRisk.length === 0 && watchAccts.length === 0) {
-    if (improving > declining) {
-      lines.push(`Your portfolio is trending up — all ${n} accounts are healthy or growing, average score ${avgScore}. ${improving} account${improving !== 1 ? 's' : ''} improved this week.`);
-    } else {
-      lines.push(`Portfolio looks solid — all ${n} accounts are in good standing, average score ${avgScore}.`);
-    }
-  } else if (critRisk.length === 0) {
-    lines.push(`${healthy.length} of ${n} accounts (${healthPct}%) are healthy or expanding. ${watchAccts.length} in the watch zone — ${declining > 0 ? 'keep an eye on declining trends' : 'holding steady for now'}.`);
-  } else if (critRisk.length <= 2) {
-    const names = critRisk.slice(0, 2).map(c => `<strong>${escHtml(c.name)}</strong> (${c.score})`).join(' and ');
-    lines.push(`${names} ${critRisk.length === 1 ? 'needs' : 'need'} immediate attention.`);
-    if (riskMrr > 0) {
-      lines.push(`That's <strong>$${fmtNum(riskMrr)}</strong> MRR at risk${riskMrrPct >= 20 ? ` — ${riskMrrPct}% of your portfolio revenue` : ''}.`);
-    }
-  } else {
-    lines.push(`<strong>${critRisk.length} accounts</strong> are critical or at-risk, exposing <strong>$${fmtNum(riskMrr)}</strong> MRR${riskMrrPct >= 15 ? ` (${riskMrrPct}% of portfolio)` : ''}. ${isMon ? 'Prioritize these to start the week strong.' : 'These should be today\'s top priority.'}`);
+  // ═══ WHAT'S WORKING ═══
+  if (healthy.length > 0) {
+    working.push(`${_briefGroupLink(healthy.length + '', healthy, 'Healthy / Expanding')} of ${n} accounts (${healthPct}%) are healthy or expanding`);
   }
-
-  // ── Cross-signal: renewals at risk (highest urgency) ──
-  if (riskyRenewals.length > 0) {
-    const rr = riskyRenewals.slice(0, 2);
-    const rrNames = rr.map(c => `<strong>${escHtml(c.name)}</strong>`).join(' and ');
-    const rrMrr = riskyRenewals.reduce((s, c) => s + (c.mrr || 0), 0);
-    lines.push(`⚠ ${rrNames} ${riskyRenewals.length === 1 ? 'is' : 'are'} both unhealthy AND renewing soon — $${fmtNum(rrMrr)} MRR at direct churn risk. ${riskyRenewals.length === 1 ? 'This needs' : 'These need'} an escalation plan.`);
-  } else if (urgRenewals.length > 0) {
-    // Regular urgent renewals
-    const renCids = new Set();
-    const renNames = [];
-    urgRenewals.forEach(a => { if (!renCids.has(a.cid)) { renCids.add(a.cid); const c = customers.find(x => x.id === a.cid); if (c) renNames.push(c.name); }});
-    if (renNames.length <= 2) {
-      lines.push(`<strong>${renNames.join(' and ')}</strong> ${renNames.length === 1 ? 'renews' : 'renew'} within 14 days — lock ${renNames.length === 1 ? 'this' : 'these'} in soon.`);
-    } else {
-      lines.push(`<strong>${urgRenewals.length} renewals</strong> due within 14 days — get conversations started.`);
-    }
-  } else if (renewals.length > 0) {
-    lines.push(`${renewals.length} renewal${renewals.length !== 1 ? 's' : ''} coming up in 60 days — none urgent yet, good time to prep.`);
-  }
-
-  // ── Enterprise tier at risk (high-value call-out) ──
-  if (entAtRisk.length > 0 && entMrrAtRisk > 0) {
-    lines.push(`${entAtRisk.length} enterprise account${entAtRisk.length !== 1 ? 's' : ''} at risk — <strong>$${fmtNum(entMrrAtRisk)}</strong> in high-value MRR needs exec-level attention.`);
-  }
-
-  // ── Cross-signal: silent decliners (declining + no contact) ──
-  if (silentDecliners.length > 0) {
-    const sd = silentDecliners.slice(0, 2);
-    const sdNames = sd.map(c => `<strong>${escHtml(c.name)}</strong>`).join(' and ');
-    if (silentDecliners.length <= 2) {
-      lines.push(`${sdNames} ${silentDecliners.length === 1 ? 'is' : 'are'} declining with no contact in 21+ days — the longer you wait, the harder the recovery.`);
-    } else {
-      lines.push(`<strong>${silentDecliners.length} accounts</strong> are declining with no recent contact — these gaps need closing before scores drop further.`);
+  if (improvingAccts.length > 0) {
+    working.push(`${_briefGroupLink(improvingAccts.length + '', improvingAccts, 'Improving This Week')} account${improvingAccts.length !== 1 ? 's' : ''} improving this week`);
+    if (biggestRise && getDelta7d(biggestRise) > 8) {
+      working.push(`Biggest gain: ${_briefLink(biggestRise)} +${getDelta7d(biggestRise)} pts`);
     }
   }
-
-  // ── Cadence / outreach gaps ──
-  if (cadenceRed.length > 0 && !silentDecliners.length) {
-    // Only show if we didn't already call out silent decliners
-    if (cadenceRed.length <= 3) {
-      const cadCids = new Set();
-      const cadNames = [];
-      cadenceRed.forEach(a => { if (!cadCids.has(a.cid)) { cadCids.add(a.cid); const c = customers.find(x => x.id === a.cid); if (c) cadNames.push(c.name); }});
-      lines.push(`<strong>${cadNames.join(', ')}</strong> ${cadNames.length === 1 ? 'has' : 'have'} overdue check-ins.`);
-    } else {
-      lines.push(`<strong>${cadenceRed.length} accounts</strong> have overdue check-ins — schedule those touchpoints.`);
-    }
+  if (touchPct >= 60) {
+    working.push(`Outreach coverage at ${touchPct}% — ${touchPct >= 80 ? 'excellent' : 'solid'}`);
   }
-
-  // ── Tickets + sentiment (combine if both present) ──
-  if (ticketAlerts.length > 0 && sentNeg.length > 0) {
-    lines.push(`${ticketAlerts.length} account${ticketAlerts.length !== 1 ? 's' : ''} with elevated tickets and ${sentNeg.length} with negative sentiment — a pattern worth investigating. Could indicate a product or support gap.`);
-  } else if (ticketAlerts.length > 0) {
-    lines.push(`${ticketAlerts.length} account${ticketAlerts.length !== 1 ? 's have' : ' has'} elevated support tickets — a proactive check-in can prevent escalation.`);
-  } else if (sentNeg.length > 0) {
-    lines.push(`${sentNeg.length} account${sentNeg.length !== 1 ? 's' : ''} logged negative sentiment — follow up before it compounds.`);
-  }
-
-  // ── Hidden risk: healthy accounts with low adoption ──
-  if (lowAdoption.length > 0) {
-    lines.push(`Watch: ${lowAdoption.length} "healthy" account${lowAdoption.length !== 1 ? 's have' : ' has'} adoption below 30% — scores may look good now, but low usage often predicts future churn.`);
-  }
-
-  // ── Declining momentum (only if not already covered by silent decliners) ──
-  if (momentum.length > 0 && declining > improving && !silentDecliners.length) {
-    lines.push(`${declining} account${declining !== 1 ? 's' : ''} declining this week vs ${improving} improving — momentum is tilting negative.`);
-  }
-
-  // ── Biggest mover call-out ──
-  if (biggestDrop && getDelta7d(biggestDrop) < -8) {
-    lines.push(`Biggest drop: <strong>${escHtml(biggestDrop.name)}</strong> fell ${Math.abs(getDelta7d(biggestDrop))} points this week${biggestDrop.status === 'critical' || biggestDrop.status === 'risk' ? ' and is now at risk' : ''}.`);
-  }
-  if (biggestRise && getDelta7d(biggestRise) > 8) {
-    lines.push(`Biggest gain: <strong>${escHtml(biggestRise.name)}</strong> climbed +${getDelta7d(biggestRise)} points — great momentum.`);
-  }
-
-  // ── Positive / expansion ──
   if (expansions.length > 0) {
-    const expMrr = expansions.reduce((s, a) => { const c = customers.find(x => x.id === a.cid); return s + (c?.mrr || 0); }, 0);
-    lines.push(`<strong>${expansions.length} expansion</strong> opportunit${expansions.length === 1 ? 'y' : 'ies'} flagged${expMrr > 0 ? ` across $${fmtNum(expMrr)} MRR` : ''} — these accounts are primed for growth conversations.`);
+    const expCusts = expansions.map(a => customers.find(x => x.id === a.cid)).filter(Boolean);
+    const expMrr = expCusts.reduce((s, c) => s + (c.mrr || 0), 0);
+    working.push(`${_briefGroupLink(expansions.length + '', expCusts, 'Expansion Opportunities')} expansion opportunit${expansions.length === 1 ? 'y' : 'ies'}${expMrr > 0 ? ` across $${fmtNum(expMrr)} MRR` : ''}`);
+  }
+  if (clearCount > 0 && clearCount >= n * 0.5) {
+    const clearAccts = total.filter(c => !alertCids.has(c.id));
+    working.push(`${_briefGroupLink(clearCount + '', clearAccts, 'No Alerts')} accounts have zero alerts`);
   }
 
-  // ── Outreach coverage ──
+  // ═══ WHAT NEEDS ATTENTION ═══
+  if (critRisk.length > 0) {
+    if (critRisk.length <= 3) {
+      const names = critRisk.map(c => `${_briefLink(c)} (${c.score})`).join(', ');
+      notWorking.push(`${names} — critical/at-risk, $${fmtNum(riskMrr)} MRR exposed${riskMrrPct >= 15 ? ` (${riskMrrPct}% of portfolio)` : ''}`);
+    } else {
+      notWorking.push(`${_briefGroupLink(critRisk.length + ' accounts', critRisk, 'Critical / At-Risk')} critical or at-risk — $${fmtNum(riskMrr)} MRR exposed${riskMrrPct >= 15 ? ` (${riskMrrPct}% of portfolio)` : ''}`);
+    }
+  }
+  if (riskyRenewals.length > 0) {
+    const rrMrr = riskyRenewals.reduce((s, c) => s + (c.mrr || 0), 0);
+    const rrNames = riskyRenewals.slice(0, 2).map(c => _briefLink(c)).join(', ');
+    const moreLink = riskyRenewals.length > 2 ? ` ${_briefGroupLink('+' + (riskyRenewals.length - 2) + ' more', riskyRenewals, 'At-Risk Renewals')}` : '';
+    notWorking.push(`⚠ ${rrNames}${moreLink} — unhealthy AND renewing soon, $${fmtNum(rrMrr)} MRR at direct churn risk`);
+  }
+  if (entAtRisk.length > 0 && entMrrAtRisk > 0) {
+    notWorking.push(`${_briefGroupLink(entAtRisk.length + ' enterprise account' + (entAtRisk.length !== 1 ? 's' : ''), entAtRisk, 'Enterprise At-Risk')} at risk — $${fmtNum(entMrrAtRisk)} high-value MRR`);
+  }
+  if (silentDecliners.length > 0) {
+    const sdNames = silentDecliners.slice(0, 2).map(c => _briefLink(c)).join(', ');
+    const moreLink = silentDecliners.length > 2 ? ` ${_briefGroupLink('+' + (silentDecliners.length - 2) + ' more', silentDecliners, 'Silent Decliners')}` : '';
+    notWorking.push(`${sdNames}${moreLink} — declining with no contact in 21+ days`);
+  }
+  if (decliningAccts.length > improvingAccts.length && decliningAccts.length > 0) {
+    notWorking.push(`Momentum tilting negative: ${_briefGroupLink(decliningAccts.length + ' declining', decliningAccts, 'Declining Accounts')} vs ${improvingAccts.length} improving`);
+    if (biggestDrop && getDelta7d(biggestDrop) < -8) {
+      notWorking.push(`Biggest drop: ${_briefLink(biggestDrop)} fell ${Math.abs(getDelta7d(biggestDrop))} pts${biggestDrop.status === 'critical' || biggestDrop.status === 'risk' ? ' — now at risk' : ''}`);
+    }
+  }
+  if (ticketAlerts.length > 0 && sentNeg.length > 0) {
+    const tixSentCusts = [...new Set([...ticketAlerts, ...sentNeg].map(a => a.cid))].map(id => customers.find(c => c.id === id)).filter(Boolean);
+    notWorking.push(`${_briefGroupLink(ticketAlerts.length + ' with elevated tickets', tixSentCusts, 'Tickets + Sentiment')} + ${sentNeg.length} negative sentiment — possible product/support gap`);
+  } else if (ticketAlerts.length > 0) {
+    const tixCusts = ticketAlerts.map(a => customers.find(c => c.id === a.cid)).filter(Boolean);
+    notWorking.push(`${_briefGroupLink(ticketAlerts.length + ' account' + (ticketAlerts.length !== 1 ? 's' : ''), tixCusts, 'Elevated Tickets')} with elevated support tickets`);
+  } else if (sentNeg.length > 0) {
+    const sentCusts = sentNeg.map(a => customers.find(c => c.id === a.cid)).filter(Boolean);
+    notWorking.push(`${_briefGroupLink(sentNeg.length + ' account' + (sentNeg.length !== 1 ? 's' : ''), sentCusts, 'Negative Sentiment')} logged negative sentiment`);
+  }
+  if (npsDetract.length > 0) {
+    const npsCusts = npsDetract.map(a => customers.find(c => c.id === a.cid)).filter(Boolean);
+    notWorking.push(`${_briefGroupLink(npsDetract.length + ' NPS detractor' + (npsDetract.length !== 1 ? 's' : ''), npsCusts, 'NPS Detractors')} on file`);
+  }
+  if (lowAdoption.length > 0) {
+    notWorking.push(`${_briefGroupLink(lowAdoption.length + ' "healthy" account' + (lowAdoption.length !== 1 ? 's' : ''), lowAdoption, 'Low Adoption')} with adoption &lt;30% — hidden churn risk`);
+  }
+  if (lowLogins.length > 0) {
+    const llMrr = lowLogins.reduce((s, c) => s + (c.mrr || 0), 0);
+    notWorking.push(`${_briefGroupLink(lowLogins.length + ' account' + (lowLogins.length !== 1 ? 's' : ''), lowLogins, 'Low Logins')} with &lt;5 logins/mo${llMrr > 0 ? ` — $${fmtNum(llMrr)} MRR at risk` : ''}`);
+  }
   if (ghosted.length > 0 && touchPct < 50) {
-    lines.push(`Only ${touchPct}% of accounts touched in 14 days, and <strong>${ghosted.length}</strong> haven't been contacted in over a month. ${isFri ? 'Consider blocking time Monday to close these gaps.' : 'Prioritize outreach this week.'}`);
-  } else if (touchPct >= 70) {
-    lines.push(`Outreach coverage is strong at ${touchPct}%. Keep it up.`);
-  } else if (touchPct >= 40) {
-    lines.push(`${touchPct}% of accounts touched recently — room to improve coverage.`);
+    notWorking.push(`Only ${touchPct}% touched in 14d, ${_briefGroupLink(ghosted.length + '', ghosted, 'Untouched 30+ Days')} untouched for 30+ days`);
   }
 
-  // ── Snoozed reminder ──
-  if (snz.length > 0) {
-    lines.push(`${snz.length} snoozed alert${snz.length !== 1 ? 's' : ''} — don't forget to circle back.`);
+  // ═══ WHAT TO DO ═══ (each row is clickable → opens table view)
+  if (riskyRenewals.length > 0) {
+    _act(`Build escalation plans for ${riskyRenewals.length} at-risk renewal${riskyRenewals.length !== 1 ? 's' : ''}`, riskyRenewals, 'At-Risk Renewals');
+  } else if (urgRenewals.length > 0) {
+    _act(`Lock in ${urgRenewals.length} renewal${urgRenewals.length !== 1 ? 's' : ''} due within 14 days`, urgRenewals, 'Urgent Renewals');
+  } else if (renewals.length > 0) {
+    _act(`Prep ${renewals.length} upcoming renewal${renewals.length !== 1 ? 's' : ''} (within 60d)`, renewals, 'Upcoming Renewals');
+  }
+  if (critRisk.length > 0 && !riskyRenewals.length) {
+    _act(`Prioritize outreach to ${critRisk.length} critical/at-risk account${critRisk.length !== 1 ? 's' : ''}`, critRisk, 'Critical / At-Risk');
+  }
+  if (silentDecliners.length > 0) {
+    _act(`Re-engage ${silentDecliners.length} silent decliner${silentDecliners.length !== 1 ? 's' : ''} before scores drop further`, silentDecliners, 'Silent Decliners');
+  }
+  if (cadenceRed.length > 0 && !silentDecliners.length) {
+    _act(`Schedule overdue check-ins for ${cadenceRed.length} account${cadenceRed.length !== 1 ? 's' : ''}`, cadenceRed, 'Overdue Check-ins');
+  }
+  if (ticketAlerts.length > 0) {
+    _act(`Proactive check-in on ${ticketAlerts.length} account${ticketAlerts.length !== 1 ? 's' : ''} with elevated tickets`, ticketAlerts, 'Elevated Tickets');
+  }
+  if (sentNeg.length > 0) {
+    _act(`Follow up on ${sentNeg.length} negative sentiment log${sentNeg.length !== 1 ? 's' : ''}`, sentNeg, 'Negative Sentiment');
+  }
+  if (npsDetract.length > 0) {
+    _act(`Address ${npsDetract.length} NPS detractor${npsDetract.length !== 1 ? 's' : ''} — schedule recovery calls`, npsDetract, 'NPS Detractors');
+  }
+  if (expansions.length > 0) {
+    _act(`Start growth conversations with ${expansions.length} expansion-ready account${expansions.length !== 1 ? 's' : ''}`, expansions, 'Expansion Opportunities');
+  }
+  if (lowAdoption.length > 0) {
+    _act(`Drive adoption for ${lowAdoption.length} under-utilized account${lowAdoption.length !== 1 ? 's' : ''}`, lowAdoption, 'Low Adoption');
+  }
+  if (lowLogins.length > 0) {
+    _act(`Investigate low login activity on ${lowLogins.length} account${lowLogins.length !== 1 ? 's' : ''} — schedule engagement calls`, lowLogins, 'Low Logins');
+  }
+  if (ghosted.length > 0 && touchPct < 50) {
+    _act(`${isFri ? 'Block time Monday to' : 'Prioritize'} outreach to ${ghosted.length} untouched account${ghosted.length !== 1 ? 's' : ''}`, ghosted, 'Untouched 30+ Days');
   }
 
-  // ── All clear closing ──
-  if (active.length === 0 && critRisk.length === 0) {
+  // All clear
+  if (!notWorking.length && !actions.length) {
     const suggestions = [];
-    if (expansions.length === 0 && total.some(c => c.status === 'expand'))
-      suggestions.push('expansion conversations');
-    if (renewals.length === 0)
-      suggestions.push('early renewal planning');
-    if (touchPct < 60)
-      suggestions.push('outreach to untouched accounts');
+    if (total.some(c => c.status === 'expand')) suggestions.push('expansion conversations');
+    if (renewals.length === 0) suggestions.push('early renewal planning');
+    if (touchPct < 60) suggestions.push('outreach to untouched accounts');
     suggestions.push('strategic QBR prep');
-    lines.push(`No active alerts — a great time to focus on ${suggestions.slice(0, 2).join(' or ')}.`);
+    _act(`No urgent items — focus on ${suggestions.slice(0, 2).join(' or ')}`);
   }
 
-  return lines.join(' ');
+  if (snz.length > 0) {
+    _act(`Circle back on ${snz.length} snoozed alert${snz.length !== 1 ? 's' : ''}`, snz, 'Snoozed Alerts');
+  }
+
+  // Build sectioned HTML
+  const sectionIcon = (icon, color) => `<span style="font-size:.72rem;margin-right:2px;color:${color}">${icon}</span>`;
+  let html = '';
+
+  if (working.length) {
+    html += `<div class="briefing-section"><div class="briefing-section-hd">${sectionIcon('✅','var(--green)')} What's Working</div><ul class="briefing-list good">${working.map(l => `<li>${l}</li>`).join('')}</ul></div>`;
+  }
+  if (notWorking.length) {
+    html += `<div class="briefing-section"><div class="briefing-section-hd">${sectionIcon('⚠','var(--amber)')} Needs Attention</div><ul class="briefing-list warn">${notWorking.map(l => `<li>${l}</li>`).join('')}</ul></div>`;
+  }
+  if (actions.length) {
+    const actionLis = actions.map(a => {
+      if (a.items && a.items.length) {
+        const ids = new Set(a.items.map(x => x.cid || x.id));
+        const idx = _briefingGroups.length;
+        _briefingGroups.push({ label: a.label, ids });
+        return `<li class="briefing-link-row" onclick="_briefShowGroup(${idx})">${a.text}</li>`;
+      }
+      return `<li>${a.text}</li>`;
+    }).join('');
+    html += `<div class="briefing-section"><div class="briefing-section-hd">${sectionIcon('📋','var(--blue)')} Action Items</div><ul class="briefing-list action">${actionLis}</ul></div>`;
+  }
+
+  return html;
 }
 
 function renderAlertBriefing(active, snz) {
   const wrap = el('alert-briefing');
   if (!wrap) return;
 
-  // Hide if no customers loaded
-  if (!customers.length) { wrap.style.display = 'none'; return; }
+  // Hide if no customers loaded or no manager selected
+  const total    = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
+  if (!customers.length || !total.length) { wrap.style.display = 'none'; return; }
   wrap.style.display = '';
-
-  const total    = customers.filter(c => c.lifecycle !== 'churned');
   const n        = total.length;
   const healthy  = total.filter(c => c.status === 'healthy' || c.status === 'expand');
   const alertCids = new Set(active.map(a => a.cid));
@@ -698,18 +907,12 @@ function renderAlertBriefing(active, snz) {
   wrap.innerHTML = `
     <div class="briefing-accent ${accentCls}"></div>
     <div class="briefing-body">
-      <div class="briefing-narrative-row">
-        <div class="briefing-narrative">
-          <div class="alert-briefing-hd">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
-            Portfolio Briefing
-          </div>
-          <p class="briefing-text">${narrative}</p>
-        </div>
-        <div class="briefing-stats-col">
-          ${statsHtml}
-        </div>
+      <div class="alert-briefing-hd">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+        Portfolio Briefing
       </div>
+      <div class="briefing-stats-row">${statsHtml}</div>
+      <div class="briefing-text">${narrative}</div>
     </div>`;
 }
 
@@ -734,10 +937,10 @@ function alertItemHTML(a, isSnzd) {
         <div class="alert-item__text">${a.msg}</div>
         <div class="alert-item__meta">
           <span class="alert-item__cat ${a.type}">${def.label}</span>
+          ${a._mrr != null ? `<span style="color:var(--subtle);font-weight:600">$${fmtNum(a._mrr)}</span>` : ''}
           ${tierChip(a._tier)}
           ${a._manager ? `<span class="alert-meta-csm">CSM: ${escHtml(a._manager)}</span>` : ''}
           ${a._days > 0 ? `<span class="alert-meta-days">${a._days}d since touch</span>` : ''}
-          ${a.sub ? `<span style="color:var(--subtle)">${escHtml(a.sub)}</span>` : ''}
         </div>
       </div>
       <div class="alert-item__actions">

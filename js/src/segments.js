@@ -547,14 +547,14 @@ function filterByTag(tag) {
 // Bulksheet export — import-compatible headers + current data, ready to re-upload
 function exportBulksheet() {
   const filtered = customers.filter(c => passesManagerFilter(c));
-  const hdr = 'name,manager,score,status,mrr,arr,tier,lifecycle,logins_30d,feature_adoption_pct,open_tickets,nps_category,days_since_contact,renewal_date,months_to_renewal,growth_signal,tags,since,next_touch,scoring_profile,note,sentiment,created';
+  const hdr = 'name,manager,score,status,mrr,arr,tier,lifecycle,logins_30d,feature_adoption_pct,open_tickets,nps,csat,days_since_contact,renewal_date,months_to_renewal,growth_signal,tags,since,next_touch,scoring_profile,note,sentiment,created';
   const rows = filtered.map(c => {
     const latestNote = (c.notes||[]).length ? c.notes[c.notes.length-1].text : '';
     const latestSent = (c.sentiment||[]).length ? c.sentiment[c.sentiment.length-1].val : '';
     return [
       c.name, c.manager||'', c.score, c.status,
       c.mrr||0, c.arr||0, c.tier||'mid', c.lifecycle||'active',
-      c.logins||0, c.adoption||0, c.tickets||0, c.nps||'unknown', c.days||0,
+      c.logins != null ? c.logins : '', c.adoption != null ? c.adoption : '', c.tickets != null ? c.tickets : '', c.nps != null ? c.nps : '', c.csat != null ? c.csat : '', c.days != null ? c.days : '',
       c.renewal_date||'', c.renewal||0, c.growth||'none',
       (c.tags||[]).join('|'), c.since||'', c.next_touch||'',
       c.scoring_profile||'Global Weights', latestNote, latestSent, c.created||''

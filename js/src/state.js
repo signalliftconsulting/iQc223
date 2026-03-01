@@ -1,7 +1,7 @@
 /* ============================================================
    IQcadence — CS Health Score — app.js
    ============================================================ */
-const APP_VERSION = 'v90';
+const APP_VERSION = 'v92';
 console.log('%c IQcadence ' + APP_VERSION + ' loaded ', 'background:#6366f1;color:#fff;font-weight:bold;padding:2px 8px;border-radius:4px');
 
 // ─── SUPABASE CLIENT ─────────────────────────────────────────
@@ -34,6 +34,7 @@ let trash          = [];        // soft-deleted customers
 let columnFilters  = {};        // per-column filter state (see COL_DEFS)
 let _openColFilterKey = null;   // key of currently open column filter dropdown
 let filterPresets  = [];        // saved filter presets [{ name, filterMode, columnFilters, sortKey, sortDir }]
+let mrrExposureFilter = null;   // { label: string, ids: Set<string> } — set by clicking MRR Exposure rows
 
 // ─── AUTOMATIONS STATE ──────────────────────────────────────
 let automationsCfg    = {};        // { api_key_prefix, webhooks: { type: { url, enabled, threshold? } } }
@@ -207,7 +208,8 @@ const DEFAULT_WEIGHTS = {
   logins:    25,
   adoption:  25,
   tickets:   20,
-  nps:       15,
+  nps:       10,
+  csat:       5,
   days:      10,
   growth:     5
 };
@@ -216,7 +218,8 @@ const WEIGHT_LABELS = {
   logins:   'Login Frequency (30d)',
   adoption: 'Feature Adoption %',
   tickets:  'Open Support Tickets',
-  nps:      'NPS / CSAT',
+  nps:      'NPS (0–10)',
+  csat:     'CSAT (1–5)',
   days:     'Days Since Contact',
   growth:   'Growth Signal'
 };

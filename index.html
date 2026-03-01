@@ -161,8 +161,10 @@ a{color:var(--blue);text-decoration:none}
 svg.sparkline{display:block}
 
 /* HEATMAP */
-.heatmap{overflow-x:auto}
+.heatmap{overflow-x:auto;overflow-y:auto;max-height:420px}
 .heatmap table{border-collapse:collapse;font-size:.72rem;width:100%}
+.heatmap thead{position:sticky;top:0;z-index:2}
+.heatmap thead th{background:var(--surface)}
 .heatmap th{padding:4px 7px;text-align:left;font-weight:600;color:var(--subtle);font-size:.67rem;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;transition:color .14s}
 .heatmap th:hover{color:var(--blue)}
 .heatmap td{padding:4px 7px;border-radius:3px;text-align:center;font-weight:700;min-width:48px}
@@ -230,6 +232,9 @@ svg.sparkline{display:block}
 .alert-meta-days{font-size:.68rem;color:var(--muted);white-space:nowrap}
 /* Alert KPI cells */
 .alert-kpi-cell{background:var(--bg);border-radius:12px;padding:18px 20px;border-left:4px solid var(--border)}
+.alert-kpi-click{cursor:pointer;transition:transform .15s,box-shadow .15s,background .15s}
+.alert-kpi-click:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.12)}
+.dash-kpi-card .alert-kpi-click:hover{background:rgba(255,255,255,.28);box-shadow:0 4px 14px rgba(0,0,0,.25)}
 .alert-kpi-cell.red{background:var(--red-l);border-left-color:#dc2626}
 .alert-kpi-cell.amber{background:var(--amber-l);border-left-color:#d97706}
 .alert-kpi-cell.blue{background:var(--blue-l);border-left-color:#2563eb}
@@ -286,13 +291,7 @@ svg.sparkline{display:block}
 .briefing-body{padding:20px 24px 18px}
 .alert-briefing-hd{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:7px}
 .alert-briefing-hd svg{opacity:.5}
-.briefing-narrative-row{display:flex;gap:28px;align-items:flex-start}
-@media(max-width:900px){.briefing-narrative-row{flex-direction:column;gap:16px}}
-.briefing-narrative{flex:1;min-width:0}
-.briefing-text{font-size:.84rem;line-height:1.65;color:var(--text);margin:0}
-.briefing-text strong{color:var(--text);font-weight:700}
-.briefing-stats-col{display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap}
-@media(max-width:900px){.briefing-stats-col{width:100%}}
+.briefing-stats-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
 .briefing-kpi{text-align:center;background:var(--bg);border-radius:10px;padding:10px 14px 8px;min-width:72px;border:1px solid transparent;transition:border-color .15s}
 .briefing-kpi:hover{border-color:var(--border)}
 .briefing-kpi-val{font-size:1.1rem;font-weight:800;color:var(--text);line-height:1.1}
@@ -300,6 +299,27 @@ svg.sparkline{display:block}
 .briefing-kpi.stat-green .briefing-kpi-val{color:var(--green)}
 .briefing-kpi.stat-amber .briefing-kpi-val{color:var(--amber)}
 .briefing-kpi.stat-red .briefing-kpi-val{color:var(--red)}
+.briefing-text{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin:0}
+@media(max-width:900px){.briefing-text{grid-template-columns:1fr;gap:12px}}
+.briefing-text strong{color:var(--text);font-weight:700}
+.briefing-section{min-width:0}
+.briefing-section-hd{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:5px;display:flex;align-items:center;gap:4px}
+.briefing-list{list-style:none;padding:0;margin:0}
+.briefing-list li{position:relative;padding:4px 0 4px 16px;font-size:.8rem;line-height:1.5;color:var(--text)}
+.briefing-list li::before{content:'';position:absolute;left:0;top:11px;width:6px;height:6px;border-radius:50%}
+.briefing-list.good li::before{background:var(--green)}
+.briefing-list.warn li::before{background:var(--amber)}
+.briefing-list.action li::before{background:var(--blue)}
+.briefing-list li strong{font-weight:700}
+.briefing-link{cursor:pointer;text-decoration:underline;text-decoration-color:color-mix(in srgb,currentColor 35%,transparent);text-underline-offset:2px;transition:color .15s,text-decoration-color .15s}
+.briefing-link:hover{color:var(--blue);text-decoration-color:var(--blue)}
+.briefing-link-row{cursor:pointer;transition:color .15s}
+.briefing-link-row:hover{color:var(--blue)}
+.briefing-link-row::before{transition:background .15s,transform .15s}
+.briefing-link-row:hover::before{background:var(--blue)!important;transform:scale(1.35)}
+.alert-tbl-th{padding:8px 12px;font-size:.72rem;font-weight:700;text-transform:uppercase;color:var(--muted);cursor:pointer;white-space:nowrap;user-select:none;transition:color .15s}
+.alert-tbl-th:hover{color:var(--text)}
+.alert-tbl-th.active{color:var(--blue)}
 
 /* CUSTOMER TABLE */
 .list-toolbar{display:flex;align-items:center;gap:7px;margin-bottom:14px;flex-wrap:wrap}
@@ -317,7 +337,7 @@ svg.sparkline{display:block}
 
 .ct{width:100%;min-width:1100px;border-collapse:collapse;font-size:.82rem}
 #table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
-#cust-scroll-wrap{max-height:520px;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+#cust-scroll-wrap{max-height:680px;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
 #cust-scroll-wrap::-webkit-scrollbar{width:6px;height:6px}
 #cust-scroll-wrap::-webkit-scrollbar-track{background:transparent}
 #cust-scroll-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
@@ -846,7 +866,7 @@ svg.sparkline{display:block}
 /* RESPONSIVE */
 @media(max-width:1300px){.dash-kpi-row{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:1100px){.dash-kpi-row{grid-template-columns:repeat(2,1fr)}.dash-main-row{grid-template-columns:1fr}}
-@media(max-width:900px){.sidebar{display:none}.charts-grid{grid-template-columns:1fr}.charts-left{grid-template-columns:1fr;grid-template-rows:auto}.charts-right{grid-template-rows:auto}.score-panel{grid-template-columns:1fr}#dash-bottom-grid{grid-template-columns:1fr}}
+@media(max-width:900px){.sidebar{display:none}.charts-grid{grid-template-columns:1fr}.charts-left{grid-template-columns:1fr;grid-template-rows:auto}.charts-right{grid-template-rows:auto}.score-panel{grid-template-columns:1fr}#dash-bottom-grid{grid-template-columns:1fr}.signals-grid{grid-template-columns:1fr!important}}
 @media(max-width:600px){.main{padding:14px 12px 48px}.fg{grid-column:1/-1}.fg{grid-template-columns:1fr}.stat-grid{grid-template-columns:1fr 1fr}h1{font-size:1.35rem}#dash-bottom-grid{grid-template-columns:1fr}.dash-kpi-row{grid-template-columns:1fr 1fr}}
 
 /* AUTH GATE */
@@ -967,11 +987,17 @@ td .sparkline{vertical-align:middle}
 .trend-legend{display:flex;gap:16px;padding:10px 4px 0;font-size:.78rem;color:var(--text);flex-wrap:wrap}
 .trend-legend-item{display:flex;align-items:center;gap:5px}
 .trend-legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.trend-legend-dash{width:16px;height:0;border-top:2.5px dashed;flex-shrink:0}
 .trend-tooltip{position:absolute;background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:8px 12px;font-size:.78rem;box-shadow:var(--sh);pointer-events:none;z-index:50;white-space:nowrap}
-.trend-controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+.trend-controls{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:16px}
 .trend-controls select,.trend-controls input{padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:var(--font);color:var(--text);background:var(--surface)}
-.trend-controls select{min-width:180px}
-.trend-controls input{min-width:200px}
+.trend-controls select{min-width:160px}
+.trend-controls input{min-width:180px}
+.trend-ctrl-group{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.trend-ctrl-label{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);white-space:nowrap}
+.trend-ctrl-vs{font-size:.75rem;font-style:italic;color:var(--subtle);padding:0 2px}
+.trend-ctrl-sep{width:1px;height:28px;background:var(--border);flex-shrink:0;align-self:center}
+.trend-ctrl-hint{font-weight:500;text-transform:none;letter-spacing:0;opacity:.7;font-size:.64rem}
 .trend-client-tags{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .trend-client-tag{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:.72rem;font-weight:600;background:var(--bg);color:var(--text);border:1px solid var(--border)}
 .trend-client-tag button{background:none;border:none;cursor:pointer;color:var(--subtle);font-size:.8rem;padding:0 0 0 2px;line-height:1}
@@ -1439,19 +1465,19 @@ td .sparkline{vertical-align:middle}
     <div class="dash-kpi-card dash-kpi-indigo">
       <div class="alert-panel-title">Alert Summary <span class="info-tip" data-tip="Overview of active alerts across your book. Includes critical/risk accounts, upcoming renewals, and snoozed items.">ⓘ</span></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px" id="alert-kpi-grid">
-        <div class="alert-kpi-cell" id="akpi-total">
+        <div class="alert-kpi-cell alert-kpi-click" id="akpi-total" onclick="filterByAlertKpi('total')">
           <div class="alert-kpi-val">—</div>
           <div class="alert-kpi-lbl">Total Active</div>
         </div>
-        <div class="alert-kpi-cell red" id="akpi-critical">
+        <div class="alert-kpi-cell red alert-kpi-click" id="akpi-critical" onclick="filterByAlertKpi('critical')">
           <div class="alert-kpi-val">—</div>
           <div class="alert-kpi-lbl">Critical / Risk</div>
         </div>
-        <div class="alert-kpi-cell blue" id="akpi-renewal">
+        <div class="alert-kpi-cell blue alert-kpi-click" id="akpi-renewal" onclick="filterByAlertKpi('renewal')">
           <div class="alert-kpi-val">—</div>
           <div class="alert-kpi-lbl">Renewing ≤60d</div>
         </div>
-        <div class="alert-kpi-cell amber" id="akpi-snoozed">
+        <div class="alert-kpi-cell amber alert-kpi-click" id="akpi-snoozed" onclick="filterByAlertKpi('snoozed')">
           <div class="alert-kpi-val">—</div>
           <div class="alert-kpi-lbl">Snoozed</div>
         </div>
@@ -1488,6 +1514,7 @@ td .sparkline{vertical-align:middle}
       <button class="alert-view-btn active" id="alert-view-cat" onclick="setAlertView('category')">By Category</button>
       <button class="alert-view-btn" id="alert-view-pri" onclick="setAlertView('priority')">By Priority</button>
       <button class="alert-view-btn" id="alert-view-cust" onclick="setAlertView('customer')">By Customer</button>
+      <button class="alert-view-btn" id="alert-view-tbl" onclick="setAlertView('table')">Table</button>
     </div>
     <input type="text" id="alert-cust-search" placeholder="Search customer…" oninput="renderAlerts()" autocomplete="off" style="display:none;padding:5px 12px;font-size:.78rem;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);width:200px;outline:none;transition:border-color .15s">
   </div>
@@ -1602,16 +1629,49 @@ td .sparkline{vertical-align:middle}
   <!-- KPI summary row -->
   <div class="dash-kpi-row" id="trend-kpi-row"></div>
 
-  <!-- Filter controls -->
+  <!-- Metric + filter controls -->
   <div class="trend-controls">
-    <select id="trend-csm-overlay" onchange="setTrendCsmOverlay(this.value)">
-      <option value="">No CSM Overlay</option>
-    </select>
-    <div style="position:relative;flex:0 0 auto">
-      <input type="text" id="trend-client-search" placeholder="Add client overlay…" oninput="trendClientAutocomplete()" onfocus="trendClientAutocomplete()">
-      <div class="trend-autocomplete" id="trend-client-ac"></div>
+    <div class="trend-ctrl-group">
+      <span class="trend-ctrl-label">Metric</span>
+      <select id="trend-metric-1" onchange="setTrendMetric(1,this.value)">
+        <option value="score" selected>Health Score</option>
+        <option value="logins">Logins</option>
+        <option value="adoption">Adoption %</option>
+        <option value="nps">NPS Score</option>
+        <option value="csat">CSAT Score</option>
+        <option value="tickets">Open Tickets</option>
+        <option value="days">Days Since Contact</option>
+
+        <option value="mrr">Total MRR</option>
+        <option value="arr">Total ARR</option>
+      </select>
+      <span class="trend-ctrl-vs">vs</span>
+      <select id="trend-metric-2" onchange="setTrendMetric(2,this.value)">
+        <option value="" selected>+ Overlay Metric</option>
+        <option value="score">Health Score</option>
+        <option value="logins">Logins</option>
+        <option value="adoption">Adoption %</option>
+        <option value="nps">NPS Score</option>
+        <option value="csat">CSAT Score</option>
+        <option value="tickets">Open Tickets</option>
+        <option value="days">Days Since Contact</option>
+
+        <option value="mrr">Total MRR</option>
+        <option value="arr">Total ARR</option>
+      </select>
     </div>
-    <div class="trend-client-tags" id="trend-client-tags"></div>
+    <div class="trend-ctrl-sep"></div>
+    <div class="trend-ctrl-group">
+      <span class="trend-ctrl-label">Breakdown <span class="trend-ctrl-hint">(primary metric)</span></span>
+      <select id="trend-csm-overlay" onchange="setTrendCsmOverlay(this.value)">
+        <option value="">No CSM Overlay</option>
+      </select>
+      <div style="position:relative;flex:0 0 auto">
+        <input type="text" id="trend-client-search" placeholder="Add client overlay…" oninput="trendClientAutocomplete()" onfocus="trendClientAutocomplete()">
+        <div class="trend-autocomplete" id="trend-client-ac"></div>
+      </div>
+      <div class="trend-client-tags" id="trend-client-tags"></div>
+    </div>
   </div>
 
   <!-- Main chart -->
@@ -1691,14 +1751,23 @@ td .sparkline{vertical-align:middle}
           <div class="field"><label>Tags <span style="font-weight:400;color:var(--subtle);font-size:.7rem">comma-separated</span></label><input type="text" id="f-tags" placeholder="power-user, renewal-soon"/></div>
           <!-- Section: Signals -->
           <div class="form-section full"><div class="form-section-label">Health Signals</div></div>
-          <div class="field full"><label>Login Frequency <span style="font-weight:400;color:var(--subtle);font-size:.7rem">last 30 days — 0=never, 30=daily</span></label><div class="range-row"><input type="range" id="f-logins" min="0" max="30" value="10" oninput="rv('logins',this.value+' days')"/><span class="rv" id="rv-logins">10 days</span></div></div>
-          <div class="field full"><label>Feature Adoption <span style="font-weight:400;color:var(--subtle);font-size:.7rem">0=nothing used, 100=power user</span></label><div class="range-row"><input type="range" id="f-adoption" min="0" max="100" value="50" oninput="rv('adoption',this.value+'%')"/><span class="rv" id="rv-adoption">50%</span></div></div>
-          <div class="field"><label>Open Support Tickets</label><input type="number" id="f-tickets" min="0" max="99" value="1"/></div>
-          <div class="field"><label>NPS / CSAT</label><select id="f-nps"><option value="unknown">Unknown</option><option value="detractor">Detractor (0–6)</option><option value="passive">Passive (7–8)</option><option value="promoter" selected>Promoter (9–10)</option></select></div>
-          <div class="field full"><label>Days Since Last Contact</label><div class="range-row"><input type="range" id="f-days" min="0" max="180" value="14" oninput="rv('days',this.value+' days')"/><span class="rv" id="rv-days">14 days</span></div></div>
-          <div class="field"><label>Renewal Date</label><input type="date" id="f-renewal-date"/></div>
-          <div class="field"><label>Next Scheduled Touch</label><input type="date" id="f-next-touch" style="width:100%"/></div>
-          <div class="field"><label>Growth Signal</label><select id="f-growth"><option value="none">None / Flat</option><option value="mild">Mild (seats/features added)</option><option value="strong">Strong (upgrade conversations)</option></select></div>
+          <div class="full signals-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px 24px;align-items:start">
+            <!-- LEFT: Sliders -->
+            <div style="display:flex;flex-direction:column;gap:14px">
+              <div class="field"><label>Login Frequency <span style="font-weight:400;color:var(--subtle);font-size:.7rem">0=never, 30=daily</span></label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:.75rem;cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-logins-na" onchange="toggleSignalNA('logins')" style="accent-color:var(--blue)"/> N/A</label><input type="range" id="f-logins" min="0" max="30" value="10" oninput="rv('logins',this.value+' days')" style="flex:1"/><span class="rv" id="rv-logins" style="min-width:52px">10 days</span></div></div>
+              <div class="field"><label>Feature Adoption <span style="font-weight:400;color:var(--subtle);font-size:.7rem">0–100%</span></label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:.75rem;cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-adoption-na" onchange="toggleSignalNA('adoption')" style="accent-color:var(--blue)"/> N/A</label><input type="range" id="f-adoption" min="0" max="100" value="50" oninput="rv('adoption',this.value+'%')" style="flex:1"/><span class="rv" id="rv-adoption" style="min-width:36px">50%</span></div></div>
+              <div class="field"><label>NPS <span style="font-weight:400;color:var(--subtle);font-size:.7rem">0–10 scale</span></label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:.75rem;cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-nps-na" onchange="toggleNpsNA()" style="accent-color:var(--blue)"/> N/A</label><input type="range" id="f-nps" min="0" max="10" value="8" oninput="rv('nps-label',npsDisplay(Number(this.value)))" style="flex:1"/><span class="rv" id="rv-nps-label" style="min-width:90px">8 — Passive</span></div></div>
+              <div class="field"><label>CSAT <span style="font-weight:400;color:var(--subtle);font-size:.7rem">1–5 scale</span></label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:.75rem;cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-csat-na" checked onchange="toggleCsatNA()" style="accent-color:var(--blue)"/> N/A</label><input type="range" id="f-csat" min="1" max="5" value="3" disabled oninput="rv('csat-label',csatDisplay(Number(this.value)))" style="flex:1;opacity:.4"/><span class="rv" id="rv-csat-label" style="min-width:90px;color:var(--subtle)">N/A</span></div></div>
+              <div class="field"><label>Days Since Last Contact <span style="font-weight:400;color:var(--subtle);font-size:.7rem">days</span></label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:.75rem;cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-days-na" onchange="toggleSignalNA('days')" style="accent-color:var(--blue)"/> N/A</label><input type="range" id="f-days" min="0" max="180" value="14" oninput="rv('days',this.value+' days')" style="flex:1"/><span class="rv" id="rv-days" style="min-width:52px">14 days</span></div></div>
+            </div>
+            <!-- RIGHT: Discrete inputs -->
+            <div style="display:flex;flex-direction:column;gap:14px">
+              <div class="field"><label>Open Support Tickets</label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:.75rem;cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-tickets-na" onchange="toggleSignalNA('tickets')" style="accent-color:var(--blue)"/> N/A</label><input type="number" id="f-tickets" min="0" max="99" value="1" style="flex:1"/></div></div>
+              <div class="field"><label>Growth Signal</label><select id="f-growth"><option value="none">None / Flat</option><option value="mild">Mild (seats/features added)</option><option value="strong">Strong (upgrade conversations)</option></select></div>
+              <div class="field"><label>Renewal Date</label><input type="date" id="f-renewal-date"/></div>
+              <div class="field"><label>Next Scheduled Touch</label><input type="date" id="f-next-touch" style="width:100%"/></div>
+            </div>
+          </div>
           <!-- Section: Note -->
           <div class="form-section full"><div class="form-section-label">Notes</div></div>
           <div class="field full"><label>Note <span style="font-weight:400;color:var(--subtle);font-size:.7rem">optional</span></label><textarea id="f-note" placeholder="Quick context note…"></textarea></div>
@@ -1788,7 +1857,7 @@ td .sparkline{vertical-align:middle}
     </div>
     <div id="csv-prev-wrap" style="display:none;margin-top:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:7px">
-        <div><strong id="csv-count">0 rows ready</strong><p style="font-size:.75rem;margin-top:1px;color:var(--red)" id="csv-err"></p></div>
+        <div><strong id="csv-count">0 rows ready</strong><span id="csv-import-breakdown" style="font-size:.78rem;margin-left:10px"></span><p style="font-size:.75rem;margin-top:1px;color:var(--red)" id="csv-err"></p></div>
         <div style="display:flex;gap:7px">
           <button class="btn btn-ghost btn-sm" onclick="clearCSV()">Clear</button>
           <button class="btn btn-primary btn-sm" onclick="importCSV()">Import All</button>
@@ -2816,12 +2885,14 @@ td .sparkline{vertical-align:middle}
     </div>
     <div class="dtab-row">
       <button class="dtab active" id="dt-overview"  onclick="dtab('overview')">Overview</button>
+      <button class="dtab" id="dt-alerts"            onclick="dtab('alerts')">Alerts</button>
       <button class="dtab" id="dt-playbook"          onclick="dtab('playbook')">Playbook</button>
       <button class="dtab" id="dt-notes"             onclick="dtab('notes')">Notes</button>
       <button class="dtab" id="dt-sentiment"         onclick="dtab('sentiment')">Sentiment</button>
       <button class="dtab" id="dt-history"           onclick="dtab('history')">History</button>
     </div>
     <div class="dtab-pane active" id="dp-overview"><div id="dm-overview"></div></div>
+    <div class="dtab-pane" id="dp-alerts"><div id="dm-alerts"></div></div>
     <div class="dtab-pane" id="dp-playbook"><div id="dm-playbook"></div></div>
     <div class="dtab-pane" id="dp-notes">
       <div id="dm-notes-list"></div>
@@ -2976,6 +3047,6 @@ td .sparkline{vertical-align:middle}
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=93"></script>
+<script src="js/app.js?v=128"></script>
 </body>
 </html>

@@ -39,7 +39,8 @@ const APP_FIELDS = {
   logins:          { label:'Logins (30d)',  required:false },
   adoption:        { label:'Adoption %',   required:false },
   tickets:         { label:'Open Tickets', required:false },
-  nps:             { label:'NPS Category', required:false },
+  nps:             { label:'NPS (0–10)',   required:false },
+  csat:            { label:'CSAT (1–5)',  required:false },
   days:            { label:'Days Since Contact', required:false },
   renewal_date:    { label:'Renewal Date', required:false },
   renewal:         { label:'Months to Renewal',  required:false },
@@ -62,7 +63,8 @@ const FIELD_ALIASES = {
   logins:          ['logins','logins_30d','login_frequency','login frequency','logins 30d'],
   adoption:        ['adoption','feature_adoption_pct','feature adoption','adoption %','adoption pct'],
   tickets:         ['tickets','open_tickets','support tickets','open tickets','support_tickets'],
-  nps:             ['nps','nps_category','csat','nps/csat','nps category'],
+  nps:             ['nps','nps_score','nps_category','nps/csat','nps category'],
+  csat:            ['csat','csat_score','satisfaction','customer satisfaction'],
   days:            ['days','days_since_contact','days since contact','last contact'],
   renewal_date:    ['renewal_date','renewal date','renews on','renews'],
   renewal:         ['renewal','months_to_renewal','months to renewal','renewal months'],
@@ -167,18 +169,28 @@ function applyMapping() {
   });
   if (mapping.name < 0) { toast('Customer Name column is required', 'error'); return; }
 
-  const npsMap = {
-    promoter:['promoter','9','10','9-10'],
-    passive:['passive','7','8','7-8'],
-    detractor:['detractor','0','1','2','3','4','5','6','0-6']
-  };
   const growMap = { strong:['strong'], mild:['mild'], none:['none','flat',''] };
 
   const parsed = csvRows.map((row,ri) => {
     const get = (f, def='') => mapping[f]>=0 ? (row[mapping[f]]||'').trim() : def;
-    const npsRaw = get('nps','unknown').toLowerCase();
-    let nps = 'unknown';
-    Object.entries(npsMap).forEach(([k,vs])=>{ if(vs.includes(npsRaw)) nps=k; });
+    // NPS: accept numeric 0-10, legacy categories, or encoded formats
+    const npsRaw = get('nps','').trim();
+    let nps = null;
+    if (npsRaw && npsRaw !== 'unknown' && npsRaw !== 'N/A') {
+      const num = parseFloat(npsRaw);
+      if (!isNaN(num)) { nps = Math.max(0, Math.min(10, Math.round(num))); }
+      else {
+        const legacy = { promoter:10, passive:7, detractor:3 };
+        if (legacy[npsRaw.toLowerCase()] !== undefined) nps = legacy[npsRaw.toLowerCase()];
+      }
+    }
+    // CSAT: accept numeric 1-5
+    const csatRaw = get('csat','').trim();
+    let csat = null;
+    if (csatRaw && csatRaw !== 'unknown' && csatRaw !== 'N/A') {
+      const num = parseFloat(csatRaw);
+      if (!isNaN(num)) { csat = Math.max(1, Math.min(5, Math.round(num))); }
+    }
     const growRaw = get('growth','none').toLowerCase();
     let growth = 'none';
     Object.entries(growMap).forEach(([k,vs])=>{ if(vs.includes(growRaw)) growth=k; });
@@ -192,11 +204,12 @@ function applyMapping() {
       manager:         get('manager',''),
       mrr:             parseFloat(get('mrr')) || 0,
       arr:             parseFloat(get('arr')) || 0,
-      logins:          parseInt(get('logins'))|| 0,
-      adoption:        parseInt(get('adoption'))|| 0,
-      tickets:         parseInt(get('tickets'))|| 0,
+      logins:          get('logins').trim() !== '' ? (parseInt(get('logins')) || 0) : null,
+      adoption:        get('adoption').trim() !== '' ? (parseInt(get('adoption')) || 0) : null,
+      tickets:         get('tickets').trim() !== '' ? (parseInt(get('tickets')) || 0) : null,
       nps,
-      days:            parseInt(get('days'))  || 0,
+      csat,
+      days:            get('days').trim() !== '' ? (parseInt(get('days')) || 0) : null,
       renewal_date:    normalizeDate(get('renewal_date','')),
       renewal:         parseInt(get('renewal'))|| 0,
       growth,
@@ -211,28 +224,38 @@ function applyMapping() {
     };
   }).filter(r => r.name);
 
-  // Show preview
+  // Show preview — count new vs updates
+  const _updateCount = parsed.filter(r => customers.some(c => c.name.toLowerCase() === r.name.toLowerCase())).length;
+  const _newCount = parsed.length - _updateCount;
+
   el('csv-map-wrap').style.display  = 'none';
   el('csv-prev-wrap').style.display = 'block';
   el('csv-count').textContent       = `${parsed.length} rows ready to import`;
+  el('csv-import-breakdown').innerHTML = `<span style="color:var(--green);font-weight:600">${_newCount} new</span> · <span style="color:var(--blue,#2563eb);font-weight:600">${_updateCount} update${_updateCount!==1?'s':''}</span>`;
   el('csv-err').textContent         = csvRows.length - parsed.length > 0
     ? `${csvRows.length - parsed.length} rows skipped (missing name)`
     : '';
 
   el('csv-prev').innerHTML = `
     <table>
-      <thead><tr><th>Name</th><th>Score</th><th>MRR</th><th>NPS</th><th>Tier</th></tr></thead>
+      <thead><tr><th></th><th>Name</th><th>Score</th><th>MRR</th><th>NPS</th><th>CSAT</th><th>Tier</th></tr></thead>
       <tbody>${parsed.slice(0,8).map(r => {
         const {score} = calcScore(r);
+        const isUpdate = customers.some(c => c.name.toLowerCase() === r.name.toLowerCase());
+        const tag = isUpdate
+          ? '<span style="font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:8px;background:rgba(37,99,235,.12);color:#2563eb">UPDATE</span>'
+          : '<span style="font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:8px;background:rgba(22,163,74,.12);color:#16a34a">NEW</span>';
         return `<tr>
+          <td>${tag}</td>
           <td>${escHtml(r.name)}</td>
           <td><strong>${score}</strong></td>
           <td>${r.mrr?'$'+fmtNum(r.mrr):'—'}</td>
-          <td>${r.nps}</td>
+          <td>${r.nps != null ? r.nps : '—'}</td>
+          <td>${r.csat != null ? r.csat : '—'}</td>
           <td>${r.tier}</td>
         </tr>`;
       }).join('')}
-      ${parsed.length>8?`<tr><td colspan="5" style="color:var(--muted);font-style:italic">…and ${parsed.length-8} more</td></tr>`:''}
+      ${parsed.length>8?`<tr><td colspan="7" style="color:var(--muted);font-style:italic">…and ${parsed.length-8} more</td></tr>`:''}
       </tbody>
     </table>`;
 
@@ -262,7 +285,7 @@ async function importCSV() {
     const dupe = customers.find(c => c.name.toLowerCase() === r.name.toLowerCase());
     if (dupe) {
       Object.assign(dupe, { ...r, score, status });
-      dupe._baseDays = dupe.days || 0;
+      dupe._baseDays = dupe.days != null ? dupe.days : null;
       dupe.history = dupe.history || [];
       dupe.history.push({ score, date: now });
       // Append note if provided
@@ -282,7 +305,7 @@ async function importCSV() {
       const newCust = {
         id: crypto.randomUUID(),
         ...r, score, status,
-        _baseDays: r.days || 0,
+        _baseDays: r.days != null ? r.days : null,
         notes,
         sentiment,
         history: [{ score, date: now }],
@@ -325,25 +348,26 @@ function clearCSV() {
 }
 
 function dlTemplate() {
-  const hdr = 'name,manager,mrr,arr,logins_30d,feature_adoption_pct,open_tickets,nps_category,days_since_contact,renewal_date,months_to_renewal,growth_signal,tier,tags,lifecycle,customer_since,next_touch,scoring_profile,note,sentiment';
+  const hdr = 'name,manager,mrr,arr,logins_30d,feature_adoption_pct,open_tickets,nps,csat,days_since_contact,renewal_date,months_to_renewal,growth_signal,tier,tags,lifecycle,customer_since,next_touch,scoring_profile,note,sentiment';
   const sample = [
-    'Acme Corp,Jane Smith,5000,60000,22,75,1,promoter,7,2026-09-15,8,strong,mid,"power-user,renewal-soon",active,2024-01-10,2026-03-01,Global Weights,Great engagement,positive',
-    'Beta Inc,Marcus Lee,1200,14400,8,40,3,passive,25,2026-05-01,3,none,smb,,onboarding,2025-11-01,,Global Weights,Needs onboarding help,neutral',
-    'Gamma LLC,Jane Smith,12000,144000,28,90,0,promoter,3,2027-01-20,11,strong,enterprise,enterprise-plan,active,2023-06-15,2026-03-10,Global Weights,,positive'
+    'Acme Corp,Jane Smith,5000,60000,22,75,1,9,4,7,2026-09-15,8,strong,mid,"power-user,renewal-soon",active,2024-01-10,2026-03-01,Global Weights,Great engagement,positive',
+    'Beta Inc,Marcus Lee,1200,14400,8,40,3,5,,25,2026-05-01,3,none,smb,,onboarding,2025-11-01,,Global Weights,Needs onboarding help,neutral',
+    'Gamma LLC,Jane Smith,12000,144000,28,90,0,10,5,3,2027-01-20,11,strong,enterprise,enterprise-plan,active,2023-06-15,2026-03-10,Global Weights,,positive'
   ].join('\n');
   dlText(hdr + '\n' + sample, 'cs-health-template.csv', 'text/csv');
 }
 
 function exportCSV() {
   const filtered = customers.filter(c => passesManagerFilter(c));
-  const hdr = 'name,manager,score,status,mrr,arr,tier,lifecycle,logins,adoption,tickets,nps,days,renewal_date,renewal,growth,tags,since,next_touch,scoring_profile,note,sentiment,created';
+  const hdr = 'name,manager,score,status,mrr,arr,tier,lifecycle,logins,adoption,tickets,nps,csat,days,renewal_date,renewal,growth,tags,since,next_touch,scoring_profile,note,sentiment,created';
   const rows = filtered.map(c => {
     const latestNote = (c.notes||[]).length ? c.notes[c.notes.length-1].text : '';
-    const latestSent = (c.sentiment||[]).length ? c.sentiment[c.sentiment.length-1].val : '';
+    const ls = latestSentiment(c);
+    const latestSent = ls ? ls.val : '';
     return [
       c.name, c.manager||'', c.score, c.status,
       c.mrr||0, c.arr||0, c.tier||'mid', c.lifecycle||'active',
-      c.logins, c.adoption, c.tickets, c.nps, c.days,
+      c.logins != null ? c.logins : '', c.adoption != null ? c.adoption : '', c.tickets != null ? c.tickets : '', c.nps != null ? c.nps : '', c.csat != null ? c.csat : '', c.days != null ? c.days : '',
       c.renewal_date||'', c.renewal||0, c.growth||'none',
       (c.tags||[]).join('|'), c.since||'', c.next_touch||'',
       c.scoring_profile||'Global Weights', latestNote, latestSent, c.created||''

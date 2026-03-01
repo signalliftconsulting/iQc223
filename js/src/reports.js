@@ -125,7 +125,7 @@ function renderReporting() {
 
 // ── Report: Score History Export (Solo) ──
 function exportScoreHistory() {
-  const hdr = 'customer_name,manager,tier,mrr,tags,date,score,status,logins,adoption,tickets,nps,days_since_contact,growth,lifecycle';
+  const hdr = 'customer_name,manager,tier,mrr,tags,date,score,status,logins,adoption,tickets,nps,csat,days_since_contact,growth,lifecycle';
   const rows = [];
   customers.forEach(c => {
     (c.history || []).forEach(h => {
@@ -134,7 +134,7 @@ function exportScoreHistory() {
       rows.push(csvRow([
         c.name, c.manager || '', c.tier || '', c.mrr || 0, (c.tags || []).join('|'),
         h.date || '', h.score || 0, st,
-        s.logins ?? '', s.adoption ?? '', s.tickets ?? '', s.nps ?? '',
+        s.logins ?? '', s.adoption ?? '', s.tickets ?? '', s.nps ?? '', s.csat ?? '',
         s.days ?? '', s.growth ?? '', s.lifecycle ?? ''
       ]));
     });
@@ -650,8 +650,11 @@ function printChurnRiskReport() {
     const delta = getDelta7d(c);
     if (delta < 0) risk += Math.min(20, Math.abs(delta) * 2);
     // NPS detractor (0-15 pts)
-    if (c.nps === 'detractor') risk += 15;
-    else if (c.nps === 'passive') risk += 5;
+    if (npsIsDetractor(c.nps)) risk += 15;
+    else if (!npsIsPromoter(c.nps) && c.nps != null) risk += 5;
+    // CSAT poor (0-10 pts)
+    if (csatIsPoor(c.csat)) risk += 10;
+    else if (!csatIsGood(c.csat) && c.csat != null) risk += 3;
     // Low engagement: logins (0-10 pts)
     if ((c.logins || 0) <= 2) risk += 10;
     else if ((c.logins || 0) <= 5) risk += 5;
@@ -680,7 +683,7 @@ function printChurnRiskReport() {
     '<h2>Risk Distribution</h2>' +
     svgRiskBands(scored) +
     '<h2>All Accounts Ranked by Churn Risk</h2>' +
-    '<table><tr><th>#</th><th>Customer</th><th>Risk Score</th><th>Health</th><th>7d Trend</th><th style="text-align:right">MRR</th><th style="text-align:right">Est. ARR</th><th>NPS</th><th>Renewal</th></tr>' +
+    '<table><tr><th>#</th><th>Customer</th><th>Risk Score</th><th>Health</th><th>7d Trend</th><th style="text-align:right">MRR</th><th style="text-align:right">Est. ARR</th><th>NPS</th><th>CSAT</th><th>Renewal</th></tr>' +
     scored.map((r, i) => {
       const c = r.c;
       const delta = getDelta7d(c);
@@ -692,7 +695,8 @@ function printChurnRiskReport() {
         '<td style="font-weight:700;color:' + STATUS_COLOR[c.status] + '">' + c.score + '</td>' +
         '<td style="color:' + trendColor + ';font-weight:600">' + trendStr + '</td>' +
         '<td style="text-align:right">$' + fmtNum(c.mrr || 0) + '</td><td style="text-align:right">$' + fmtNum(r.impact) + '</td>' +
-        '<td>' + (c.nps || '\u2014') + '</td>' +
+        '<td>' + npsDisplay(c.nps) + '</td>' +
+        '<td>' + csatDisplay(c.csat) + '</td>' +
         '<td>' + (c.renewal_date ? fmtDate(c.renewal_date) : '\u2014') + '</td></tr>';
     }).join('') +
     '</table>' + rptFooter();
@@ -703,11 +707,11 @@ function printChurnRiskReport() {
 function csvRow(vals) { return vals.map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(','); }
 
 // Standard customer columns for pivot-table-ready CSVs
-const CSV_CUST_HDR = 'name,manager,score,status,status_label,tier,lifecycle,mrr,arr,logins,adoption,tickets,nps,days_since_contact,growth,renewal_date,renewal_months,tags,since,next_touch,trend_7d';
+const CSV_CUST_HDR = 'name,manager,score,status,status_label,tier,lifecycle,mrr,arr,logins,adoption,tickets,nps,csat,days_since_contact,growth,renewal_date,renewal_months,tags,since,next_touch,trend_7d';
 function csvCustCols(c) {
   return [c.name, c.manager || '', c.score, c.status, STATUS_LABEL[c.status] || c.status,
     c.tier || '', c.lifecycle || '', c.mrr || 0, (c.mrr || 0) * 12,
-    c.logins ?? '', c.adoption ?? '', c.tickets ?? '', c.nps || '',
+    c.logins ?? '', c.adoption ?? '', c.tickets ?? '', c.nps ?? '', c.csat ?? '',
     c.days ?? '', c.growth || '', c.renewal_date || '', c.renewal ?? '',
     (c.tags || []).join('|'), c.since || '', c.next_touch || '', getDelta7d(c)];
 }
@@ -848,17 +852,18 @@ function exportChurnRiskCSV() {
     const healthPts = Math.round((100 - c.score) * 0.3);
     const delta = getDelta7d(c);
     const trendPts = delta < 0 ? Math.min(20, Math.abs(delta) * 2) : 0;
-    const npsPts = c.nps === 'detractor' ? 15 : c.nps === 'passive' ? 5 : 0;
+    const npsPts = npsIsDetractor(c.nps) ? 15 : (!npsIsPromoter(c.nps) && c.nps != null) ? 5 : 0;
+    const csatPts = csatIsPoor(c.csat) ? 10 : (!csatIsGood(c.csat) && c.csat != null) ? 3 : 0;
     const loginPts = (c.logins || 0) <= 2 ? 10 : (c.logins || 0) <= 5 ? 5 : 0;
     const adoptPts = (c.adoption || 0) < 30 ? 10 : (c.adoption || 0) < 50 ? 5 : 0;
     const engagePts = loginPts + adoptPts;
     const ticketPts = (c.tickets || 0) >= 5 ? 5 : 0;
     const renewPts = (c.renewal != null && c.renewal <= 2) ? 10 : (c.renewal != null && c.renewal <= 4) ? 5 : 0;
-    const risk = Math.min(100, healthPts + trendPts + npsPts + engagePts + ticketPts + renewPts);
-    return { c, risk, delta, impact: (c.mrr || 0) * 12, healthPts, trendPts, npsPts, engagePts, ticketPts, renewPts };
+    const risk = Math.min(100, healthPts + trendPts + npsPts + csatPts + engagePts + ticketPts + renewPts);
+    return { c, risk, delta, impact: (c.mrr || 0) * 12, healthPts, trendPts, npsPts, csatPts, engagePts, ticketPts, renewPts };
   }).sort((a, b) => b.risk - a.risk);
-  const hdr = CSV_CUST_HDR + ',risk_score,est_arr_impact,risk_health_pts,risk_trend_pts,risk_nps_pts,risk_engagement_pts,risk_tickets_pts,risk_renewal_pts';
-  const rows = scored.map(r => csvRow([...csvCustCols(r.c), r.risk, r.impact, r.healthPts, r.trendPts, r.npsPts, r.engagePts, r.ticketPts, r.renewPts]));
+  const hdr = CSV_CUST_HDR + ',risk_score,est_arr_impact,risk_health_pts,risk_trend_pts,risk_nps_pts,risk_csat_pts,risk_engagement_pts,risk_tickets_pts,risk_renewal_pts';
+  const rows = scored.map(r => csvRow([...csvCustCols(r.c), r.risk, r.impact, r.healthPts, r.trendPts, r.npsPts, r.csatPts, r.engagePts, r.ticketPts, r.renewPts]));
   dlText(hdr + '\n' + rows.join('\n'), 'churn-risk-report.csv', 'text/csv');
   toast('Churn risk report exported (' + scored.length + ' accounts)', 'success');
 }
@@ -869,7 +874,7 @@ function printCustomerHealth() {
   if (!active.length) { toast('No customers found', 'warn'); return; }
   const sorted = [...active].sort((a, b) => a.score - b.score);
   let html = rptHeader('Customer Health Report', 'Generated ' + rptDateStr() + ' &middot; ' + active.length + ' accounts') +
-    '<table><tr><th>Customer</th><th>Manager</th><th>Score</th><th>Status</th><th>Tier</th><th style="text-align:right">MRR</th><th>Logins</th><th>Adoption</th><th>Tickets</th><th>NPS</th></tr>' +
+    '<table><tr><th>Customer</th><th>Manager</th><th>Score</th><th>Status</th><th>Tier</th><th style="text-align:right">MRR</th><th>Logins</th><th>Adoption</th><th>Tickets</th><th>NPS</th><th>CSAT</th></tr>' +
     sorted.map(c =>
       '<tr><td><strong>' + escHtml(c.name) + '</strong></td><td>' + escHtml(c.manager || '\u2014') + '</td>' +
       '<td style="font-weight:700;color:' + STATUS_COLOR[c.status] + '">' + c.score + '</td>' +
@@ -877,7 +882,7 @@ function printCustomerHealth() {
       '<td>' + (c.tier === 'smb' ? 'SMB' : c.tier === 'mid' ? 'Mid' : c.tier === 'enterprise' ? 'Ent' : c.tier || '\u2014') + '</td>' +
       '<td style="text-align:right">$' + fmtNum(c.mrr || 0) + '</td>' +
       '<td>' + (c.logins ?? '\u2014') + '</td><td>' + (c.adoption ?? '\u2014') + '%</td>' +
-      '<td>' + (c.tickets ?? '\u2014') + '</td><td>' + (c.nps || '\u2014') + '</td></tr>'
+      '<td>' + (c.tickets ?? '\u2014') + '</td><td>' + npsDisplay(c.nps) + '</td><td>' + csatDisplay(c.csat) + '</td></tr>'
     ).join('') +
     '</table>' + rptFooter();
   rptPrint(html);

@@ -325,24 +325,25 @@ function renderHeatmap(active) {
   }
 
   // Sort
-  const npsOrder = { promoter:3, passive:2, unknown:1, detractor:0 };
+  // NPS/CSAT sort uses normalized 0-100
   const growOrder = { strong:2, mild:1, none:0 };
   const sorted = [...active].sort((a, b) => {
     let av, bv;
     switch (dashHeatSort.key) {
       case 'name':    av = a.name;     bv = b.name;     break;
       case 'score':   av = a.score;    bv = b.score;    break;
-      case 'logins':  av = a.logins;   bv = b.logins;   break;
-      case 'adoption':av = a.adoption; bv = b.adoption; break;
-      case 'tickets': av = a.tickets;  bv = b.tickets;  break;
-      case 'nps':     av = npsOrder[a.nps]||0; bv = npsOrder[b.nps]||0; break;
-      case 'days':    av = a.days;     bv = b.days;     break;
+      case 'logins':  av = a.logins != null ? a.logins : -1;   bv = b.logins != null ? b.logins : -1;   break;
+      case 'adoption':av = a.adoption != null ? a.adoption : -1; bv = b.adoption != null ? b.adoption : -1; break;
+      case 'tickets': av = a.tickets != null ? a.tickets : -1;  bv = b.tickets != null ? b.tickets : -1;  break;
+      case 'nps':     av = npsNormalized(a.nps); bv = npsNormalized(b.nps); break;
+      case 'csat':    av = csatNormalized(a.csat); bv = csatNormalized(b.csat); break;
+      case 'days':    av = a.days != null ? a.days : -1;     bv = b.days != null ? b.days : -1;     break;
       case 'growth':  av = growOrder[a.growth]||0; bv = growOrder[b.growth]||0; break;
       default:        av = a.score;    bv = b.score;
     }
     if (typeof av === 'string') return av.localeCompare(bv) * dashHeatSort.dir;
     return (av - bv) * dashHeatSort.dir;
-  }).slice(0, 15);
+  });
 
   const hmColor = (v, inv) => {
     const n = inv ? 100 - v : v;
@@ -366,23 +367,26 @@ function renderHeatmap(active) {
       ${thHeat('adoption','Adoption')}
       ${thHeat('tickets', 'Tickets')}
       ${thHeat('nps',     'NPS')}
+      ${thHeat('csat',    'CSAT')}
       ${thHeat('days',    'Last Cont.')}
       ${thHeat('growth',  'Growth')}
     </tr></thead>
     <tbody>${sorted.map(c => {
-      const loginPct  = Math.round((c.logins/30)*100);
-      const ticketPct = Math.max(0,100-c.tickets*20);
-      const npsPct    = {unknown:50,detractor:0,passive:65,promoter:100}[c.nps]||50;
-      const daysPct   = Math.max(0,100-(c.days/180)*100);
+      const loginPct  = c.logins != null ? Math.round((c.logins/30)*100) : 50;
+      const ticketPct = c.tickets != null ? Math.max(0,100-c.tickets*20) : 50;
+      const npsPct    = npsNormalized(c.nps);
+      const csatPct   = csatNormalized(c.csat);
+      const daysPct   = c.days != null ? Math.max(0,100-(c.days/180)*100) : 50;
       const growPct   = {none:25,mild:65,strong:100}[c.growth]||25;
       return `<tr>
         <td class="nc" style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">${c.name}</td>
         <td class="${hmColor(c.score,false)}">${c.score}</td>
-        <td class="${hmColor(loginPct,false)}">${c.logins}d</td>
-        <td class="${hmColor(c.adoption,false)}">${c.adoption}%</td>
-        <td class="${hmColor(ticketPct,false)}">${c.tickets}</td>
-        <td class="${hmColor(npsPct,false)}">${c.nps}</td>
-        <td class="${hmColor(daysPct,false)}">${c.days}d</td>
+        <td class="${hmColor(loginPct,false)}">${c.logins != null ? c.logins+'d' : '<span style="color:var(--subtle)">N/A</span>'}</td>
+        <td class="${hmColor(c.adoption != null ? c.adoption : 50,false)}">${c.adoption != null ? c.adoption+'%' : '<span style="color:var(--subtle)">N/A</span>'}</td>
+        <td class="${hmColor(ticketPct,false)}">${c.tickets != null ? c.tickets : '<span style="color:var(--subtle)">N/A</span>'}</td>
+        <td class="${hmColor(npsPct,false)}">${npsDisplay(c.nps)}</td>
+        <td class="${hmColor(csatPct,false)}">${csatDisplay(c.csat)}</td>
+        <td class="${hmColor(daysPct,false)}">${c.days != null ? c.days+'d' : '<span style="color:var(--subtle)">N/A</span>'}</td>
         <td class="${hmColor(growPct,false)}">${c.growth}</td>
       </tr>`;
     }).join('')}</tbody></table>`;
@@ -572,19 +576,29 @@ function renderRenewalPipeline(active) {
     });
     const mrr    = grp.reduce((s,c)=>s+(c.mrr||0),0);
     const atRisk = grp.filter(c=>c.status==='critical'||c.status==='risk').length;
-    return { ...b, count:grp.length, mrr, atRisk };
+    return { ...b, count:grp.length, mrr, atRisk, ids: grp.map(c=>c.id) };
   });
   wrap.innerHTML = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
     ${rows.map(r => {
       const riskBadge = r.atRisk ? `<span style="color:${r.color};font-size:.68rem;font-weight:700">⚠ ${r.atRisk} at risk</span>` : '';
       const countText = r.count ? `${r.count} acct${r.count!==1?'s':''}` : `<span style="color:var(--subtle)">—</span>`;
-      return `<div style="border-left:3px solid ${r.color};background:${r.bg};border-radius:6px;padding:9px 12px">
+      const clickable = r.count > 0;
+      return `<div style="border-left:3px solid ${r.color};background:${r.bg};border-radius:6px;padding:9px 12px;${clickable?'cursor:pointer;transition:transform .15s,box-shadow .15s':''}" ${clickable?`onclick="filterRenewalBucket('Renewal ${r.label}',${JSON.stringify(r.ids)})" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,.1)'" onmouseout="this.style.transform='';this.style.boxShadow=''"`:''}>
         <div style="font-size:.65rem;font-weight:700;color:${r.color};text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${r.label}</div>
         <div style="font-size:1.05rem;font-weight:800;color:#1e293b;margin-bottom:2px">${r.mrr ? '$'+fmtNum(r.mrr) : '—'}</div>
         <div style="font-size:.7rem;color:var(--muted);display:flex;gap:5px;align-items:center;flex-wrap:wrap">${countText}${r.atRisk?' · ':''}${riskBadge}</div>
       </div>`;
     }).join('')}
   </div>`;
+}
+
+// Navigate to customers tab filtered to a renewal pipeline bucket
+function filterRenewalBucket(label, ids) {
+  if (!ids || !ids.length) return;
+  mrrExposureFilter = { label, ids: new Set(ids) };
+  sortKey = 'renewal';
+  sortDir = 1;
+  nav('customers');
 }
 
 // Navigate to customers page pre-filtered to all improvers or all decliners this week
@@ -601,60 +615,124 @@ function showAllDelta(direction) {
 function calcPriorityScore(c) {
   try {
     let score = 0;
-    // Health risk — more weight for lower scores
+    const mrrK = (c.mrr || 0) / 1000; // MRR in thousands
+
+    // ── Health risk — more weight for lower scores ──
     score += Math.max(0, 100 - c.score) * 0.35;
-    // Renewal urgency
+
+    // ── Renewal urgency ──
     const u = getRenewalUrgency(c);
     if (u) score += u.score * 0.30;
-    // Last touch cadence — overdue contact is urgent regardless of health
+
+    // ── Last touch cadence ──
     const cad = getCadenceStatus(c);
     if (cad.status === 'overdue') score += 35;
     else if (cad.status === 'warn') score += 15;
-    // Declining momentum
+
+    // ── Momentum — MRR-weighted: large declining accounts surface faster ──
     const mom = getMomentum(c);
-    if (mom === 'dn') score += 20;
-    // High MRR accounts always matter more
-    if (c.mrr > 5000)  score += 10;
-    if (c.mrr > 15000) score += 10;
-    // Negative sentiment
+    if (mom === 'dn') score += 20 + Math.min(15, Math.round(mrrK * 0.3));
+
+    // ── MRR impact — logarithmic scale so large accounts always rise ──
+    // $1K→+5  $5K→+13  $10K→+17  $25K→+23  $50K→+28  $100K+→+33
+    if (mrrK > 0) score += Math.min(33, Math.round(Math.log2(mrrK + 1) * 5));
+
+    // ── Large account score shift — even "healthy" accounts that drop need attention ──
+    const delta7 = getDelta7d(c);
+    if (delta7 <= -5 && mrrK >= 5) {
+      // Bigger drop + bigger MRR = more urgency
+      score += Math.min(25, Math.round(Math.abs(delta7) * 0.8 + mrrK * 0.15));
+    }
+
+    // ── Negative sentiment ──
     const sent = latestSentiment(c);
     if (sent?.val === 'negative') score += 15;
-    // Expansion opportunity — bump healthy/expanding accounts with high MRR up
+
+    // ── Low engagement — logins & adoption ──
+    if (c.logins != null && c.logins < 5) score += 12;
+    if (c.adoption != null && c.adoption < 30) score += 10;
+
+    // ── NPS / CSAT ──
+    if (npsIsDetractor(c.nps)) score += 15;
+    if (csatIsPoor(c.csat)) score += 12;
+
+    // ── Multiple risk signals compound — accounts with 3+ issues are emergencies ──
+    let riskSignals = 0;
+    if (c.status === 'critical' || c.status === 'risk') riskSignals++;
+    if (mom === 'dn') riskSignals++;
+    if (cad.status === 'overdue') riskSignals++;
+    if (u?.level === 'critical' || u?.level === 'high') riskSignals++;
+    if (sent?.val === 'negative') riskSignals++;
+    if (c.tickets >= 3) riskSignals++;
+    if (c.logins != null && c.logins < 5) riskSignals++;
+    if (c.adoption != null && c.adoption < 30) riskSignals++;
+    if (npsIsDetractor(c.nps)) riskSignals++;
+    if (csatIsPoor(c.csat)) riskSignals++;
+    if (riskSignals >= 3) score += 15; // compound risk bonus
+
+    // ── Expansion opportunity ──
     if (c.status === 'expand' && c.growth === 'strong') score += 12;
-    if (c.status === 'expand' && c.mrr > 5000)          score += 8;
+    if (c.status === 'expand' && mrrK > 5)              score += 8;
+
     return Math.round(score);
   } catch(e) { return 0; }
 }
 
 function buildPriorityReasons(c) {
   const reasons = [];
-  const cad  = getCadenceStatus(c);
-  const u    = getRenewalUrgency(c);
-  const mom  = getMomentum(c);
-  const sent = latestSentiment(c);
+  const cad    = getCadenceStatus(c);
+  const u      = getRenewalUrgency(c);
+  const mom    = getMomentum(c);
+  const sent   = latestSentiment(c);
+  const delta7 = getDelta7d(c);
+  const mrrK   = (c.mrr || 0) / 1000;
 
   // ── Negative / urgent signals first ──
   if (c.status === 'critical')                reasons.push('Critical health');
   else if (c.status === 'risk')               reasons.push('At risk score');
   else if (c.status === 'watch')              reasons.push('Score needs monitoring');
 
-  if (cad.status === 'overdue')               reasons.push(`No contact in ${c.days}d`);
-  else if (cad.status === 'warn')             reasons.push(`Touch overdue (${c.days}d)`);
+  if (cad.status === 'overdue')               reasons.push(c.days != null ? `No contact in ${c.days}d` : 'Contact overdue');
+  else if (cad.status === 'warn')             reasons.push(c.days != null ? `Touch overdue (${c.days}d)` : 'Touch overdue');
 
   if (u?.level === 'critical')               reasons.push(`Renewal in ${c.renewal}mo — urgent`);
   else if (u?.level === 'high')              reasons.push(`Renewal in ${c.renewal}mo`);
 
   if (mom === 'dn')                          reasons.push('Score declining');
   if (sent?.val === 'negative')              reasons.push('Negative sentiment');
+  if (c.tickets >= 3)                        reasons.push(`${c.tickets} open tickets`);
+  if (npsIsDetractor(c.nps))                 reasons.push(`NPS detractor (${npsDisplay(c.nps)})`);
+  if (csatIsPoor(c.csat))                    reasons.push(`Poor CSAT (${csatDisplay(c.csat)})`);
+  if (c.logins != null && c.logins < 5)     reasons.push(`Low logins (${c.logins}/mo)`);
+  if (c.adoption != null && c.adoption < 30) reasons.push(`Low adoption (${c.adoption}%)`);
+
+  // ── Large account shift — surface even for healthy accounts ──
+  if (delta7 <= -5 && mrrK >= 5 && reasons.length < 2) {
+    reasons.push(`Dropped ${Math.abs(delta7)}pts this week · $${fmtNum(c.mrr)} MRR`);
+  }
+
+  // ── Compound risk ──
+  let riskSignals = 0;
+  if (c.status === 'critical' || c.status === 'risk') riskSignals++;
+  if (mom === 'dn') riskSignals++;
+  if (cad.status === 'overdue') riskSignals++;
+  if (u?.level === 'critical' || u?.level === 'high') riskSignals++;
+  if (sent?.val === 'negative') riskSignals++;
+  if (c.tickets >= 3) riskSignals++;
+  if (c.logins != null && c.logins < 5) riskSignals++;
+  if (c.adoption != null && c.adoption < 30) riskSignals++;
+  if (npsIsDetractor(c.nps)) riskSignals++;
+  if (csatIsPoor(c.csat)) riskSignals++;
+  if (riskSignals >= 3 && reasons.length < 3) reasons.push('Multiple risk signals');
 
   // ── Positive signals for healthy/expansion ──
   if (!reasons.length) {
     if (c.status === 'expand' && c.growth === 'strong') reasons.push('Expansion ready');
     else if (c.status === 'expand')                     reasons.push('High health · expansion candidate');
-    else if (c.status === 'healthy' && c.mrr > 10000)  reasons.push('High-value healthy account');
+    else if (c.status === 'healthy' && mrrK > 10)       reasons.push('High-value healthy account');
     else if (c.status === 'healthy')                    reasons.push('Healthy · maintain cadence');
     if (u?.level === 'medium')                          reasons.push(`Renewal in ${c.renewal}mo`);
-    if (c.mrr > 10000 && !reasons.length)              reasons.push('High MRR account');
+    if (mrrK > 10 && !reasons.length)                   reasons.push('High MRR account');
   }
 
   // ── Fallback ──

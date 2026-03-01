@@ -161,6 +161,7 @@ function updateMgrFilterLabel() {
 // ─── CUSTOMERS LIST ─────────────────────────────────────────
 function setFilter(f) {
   filterMode = f;
+  mrrExposureFilter = null; // clear MRR drill-down when switching status chips
   // Clear any delta filter + sort when switching via status chips
   delete columnFilters['_delta'];
   if (sortKey === '_delta') { sortKey = 'score'; sortDir = -1; }
@@ -214,7 +215,8 @@ function renderFilterPills() {
   const bar = document.getElementById('filter-pill-bar');
   if (!bar) return;
   const keys = Object.keys(columnFilters);
-  if (!keys.length) { bar.style.display = 'none'; return; }
+  const hasMrr = mrrExposureFilter && mrrExposureFilter.ids;
+  if (!keys.length && !hasMrr) { bar.style.display = 'none'; return; }
 
   bar.innerHTML = keys.map(key => {
     const f = columnFilters[key];
@@ -237,6 +239,11 @@ function renderFilterPills() {
 
     return `<span class="filter-pill" onclick="openColFilterFromPill('${key}',this)">${label}: ${summary}<button class="filter-pill-x" onclick="event.stopPropagation();clearColFilter('${key}')" title="Remove filter">✕</button></span>`;
   }).join('');
+
+  // MRR Exposure pill
+  if (hasMrr) {
+    bar.innerHTML = `<span class="filter-pill" style="background:rgba(99,102,241,.25);border-color:rgba(99,102,241,.5)">MRR Exposure: ${mrrExposureFilter.label}<button class="filter-pill-x" onclick="event.stopPropagation();clearMrrExposureFilter()" title="Remove filter">✕</button></span>` + bar.innerHTML;
+  }
 
   bar.style.display = 'flex';
 }
@@ -407,7 +414,7 @@ function applyColumnFilters(list) {
           v = Math.floor((Date.now() - new Date(c.since)) / (1000*60*60*24*30.44));
           break;
         }
-        case 'days':    v = c.days || 0; break;
+        case 'days':    v = c.days != null ? c.days : 999; break;
         case 'renewal': v = c.renewal || 0; break;
         case 'next_touch': {
           if (!c.next_touch) { v = 9999; break; }
@@ -452,12 +459,13 @@ function _renderCustomers() {
   if (filterMode === 'trash') {
     if (trashWrap)  trashWrap.style.display  = '';
     if (tableCard)  tableCard.style.display  = 'none';
-    if (bulkBar)    bulkBar.style.display    = 'none';
+    if (bulkBar)    { bulkBar.classList.remove('show'); bulkBar.style.display = ''; }
     renderTrash();
     return;
   }
   if (trashWrap) trashWrap.style.display = 'none';
   if (tableCard) tableCard.style.display = '';
+  if (bulkBar)   bulkBar.style.display = '';  // clear any inline override from trash mode
 
   const q = (el('search-input') ? el('search-input').value.toLowerCase() : '');
   let list = customers.filter(c => {
@@ -470,13 +478,18 @@ function _renderCustomers() {
     return c.name.toLowerCase().includes(q) || (c.tags||[]).some(t=>t.toLowerCase().includes(q));
   });
 
+  // MRR Exposure click-through filter
+  if (mrrExposureFilter && mrrExposureFilter.ids) {
+    list = list.filter(c => mrrExposureFilter.ids.has(c.id));
+  }
+
   // Column filters (stack on top of global filters)
   list = applyColumnFilters(list);
 
   // Sort
   list.sort((a,b) => {
-    let av = sortKey==='_delta'?getDelta7d(a): sortKey==='_trend'?getDelta7d(a): sortKey==='_momentum'?getMomentum(a): sortKey==='status'?(a.status||''): sortKey==='lifecycle'?(a.lifecycle||''): sortKey==='tags'?(a.tags||[]).join(', '): sortKey==='name'?a.name: sortKey==='manager'?(a.manager||'zzz'): sortKey==='profile'?(a.scoring_profile||'zzz'): sortKey==='score'?a.score: sortKey==='mrr'?a.mrr||0: sortKey==='arr'?(a.arr||(a.mrr*12)||0): sortKey==='since'?(a.since||'9999'): sortKey==='days'?a.days: sortKey==='renewal'?a.renewal||99: sortKey==='next_touch'?(a.next_touch||'9999'):0;
-    let bv = sortKey==='_delta'?getDelta7d(b): sortKey==='_trend'?getDelta7d(b): sortKey==='_momentum'?getMomentum(b): sortKey==='status'?(b.status||''): sortKey==='lifecycle'?(b.lifecycle||''): sortKey==='tags'?(b.tags||[]).join(', '): sortKey==='name'?b.name: sortKey==='manager'?(b.manager||'zzz'): sortKey==='profile'?(b.scoring_profile||'zzz'): sortKey==='score'?b.score: sortKey==='mrr'?b.mrr||0: sortKey==='arr'?(b.arr||(b.mrr*12)||0): sortKey==='since'?(b.since||'9999'): sortKey==='days'?b.days: sortKey==='renewal'?b.renewal||99: sortKey==='next_touch'?(b.next_touch||'9999'):0;
+    let av = sortKey==='_delta'?getDelta7d(a): sortKey==='_trend'?getDelta7d(a): sortKey==='_momentum'?getMomentum(a): sortKey==='status'?(a.status||''): sortKey==='lifecycle'?(a.lifecycle||''): sortKey==='tags'?(a.tags||[]).join(', '): sortKey==='name'?a.name: sortKey==='manager'?(a.manager||'zzz'): sortKey==='profile'?(a.scoring_profile||'zzz'): sortKey==='score'?a.score: sortKey==='mrr'?a.mrr||0: sortKey==='arr'?(a.arr||(a.mrr*12)||0): sortKey==='since'?(a.since||'9999'): sortKey==='days'?(a.days != null ? a.days : 999): sortKey==='renewal'?a.renewal||99: sortKey==='next_touch'?(a.next_touch||'9999'):0;
+    let bv = sortKey==='_delta'?getDelta7d(b): sortKey==='_trend'?getDelta7d(b): sortKey==='_momentum'?getMomentum(b): sortKey==='status'?(b.status||''): sortKey==='lifecycle'?(b.lifecycle||''): sortKey==='tags'?(b.tags||[]).join(', '): sortKey==='name'?b.name: sortKey==='manager'?(b.manager||'zzz'): sortKey==='profile'?(b.scoring_profile||'zzz'): sortKey==='score'?b.score: sortKey==='mrr'?b.mrr||0: sortKey==='arr'?(b.arr||(b.mrr*12)||0): sortKey==='since'?(b.since||'9999'): sortKey==='days'?(b.days != null ? b.days : 999): sortKey==='renewal'?b.renewal||99: sortKey==='next_touch'?(b.next_touch||'9999'):0;
     if (typeof av === 'string') return av.localeCompare(bv) * sortDir;
     return (av - bv) * sortDir;
   });
@@ -534,7 +547,7 @@ function _renderCustomers() {
           const yrs = Math.floor(months/12), rem = months%12;
           return rem ? `${yrs}y ${rem}mo` : `${yrs}y`;
         })()}</td>
-        <td><div class="ct-two-line"><span class="${cad.cls}">${cad.label.replace(/\s*\(\d+d\)/,'')}</span><span class="ct-sub">${c.days}d ago</span></div></td>
+        <td><div class="ct-two-line"><span class="${cad.cls}">${cad.label.replace(/\s*\(\d+d\)/,'')}</span><span class="ct-sub">${c.days != null ? c.days + 'd ago' : 'N/A'}</span></div></td>
         <td>${(()=>{
           if (c.renewal_date) {
             const d = new Date(c.renewal_date);
@@ -675,12 +688,20 @@ function toggleSelect(id, checked) {
 }
 
 function toggleSelectAll(checked) {
-  const q = el('search-input') ? el('search-input').value.toLowerCase() : '';
-  const list = customers.filter(c => {
+  const q = (el('search-input') ? el('search-input').value.toLowerCase() : '');
+  let list = customers.filter(c => {
     if (filterMode==='churned') return c.lifecycle==='churned';
     if (filterMode==='all')    return c.lifecycle!=='churned';
     return c.status===filterMode && c.lifecycle!=='churned';
-  }).filter(c => passesManagerFilter(c)).filter(c => !q || c.name.toLowerCase().includes(q) || (c.tags||[]).some(t=>t.toLowerCase().includes(q)));
+  }).filter(c => passesManagerFilter(c)).filter(c => {
+    if (_filterTier && c.tier !== _filterTier) return false;
+    if (!q) return true;
+    return c.name.toLowerCase().includes(q) || (c.tags||[]).some(t=>t.toLowerCase().includes(q));
+  });
+  if (mrrExposureFilter && mrrExposureFilter.ids) {
+    list = list.filter(c => mrrExposureFilter.ids.has(c.id));
+  }
+  list = applyColumnFilters(list);
   if (checked) list.forEach(c => selectedIds.add(c.id));
   else         selectedIds.clear();
   updateBulkBar();
