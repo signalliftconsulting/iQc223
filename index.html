@@ -3026,6 +3026,17 @@ td .sparkline{vertical-align:middle}
 <div id="col-filter-portal" class="col-filter-menu"></div>
 <div id="alert-filter-portal" class="col-filter-menu"></div>
 
+<!-- REPORT EMAIL MODAL -->
+<div class="modal-bg" id="report-email-modal" onclick="if(event.target===this)closeModal('report-email-modal')">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-hd">
+      <h2 id="rem-title">Email Report</h2>
+      <button class="modal-close" onclick="closeModal('report-email-modal')">&#10005;</button>
+    </div>
+    <div class="modal-bd" id="rem-body"></div>
+  </div>
+</div>
+
 <!-- DIGEST MODAL (v86) -->
 <div class="modal-bg" id="digest-modal" onclick="if(event.target===this)closeModal('digest-modal')">
   <div class="modal" style="max-width:660px">
@@ -3047,6 +3058,6 @@ td .sparkline{vertical-align:middle}
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=130"></script>
+<script src="js/app.js?v=131"></script>
 </body>
 </html>

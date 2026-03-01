@@ -12,7 +12,8 @@ function renderReporting() {
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
       actions:[
         { label:'Print / PDF', cls:'btn-primary', fn:'printCustomerHealth()' },
-        { label:'Export CSV', cls:'btn-outline', fn:'exportCSV()' }
+        { label:'Export CSV', cls:'btn-outline', fn:'exportCSV()' },
+        { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('customer_health')" }
       ]
     },
     { section:'all', tier:'starter', featureKey:'reports_basic',
@@ -27,7 +28,8 @@ function renderReporting() {
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
       actions:[
         { label:'Print / PDF', cls:'btn-primary', fn:'printPortfolioSummary()' },
-        { label:'Export CSV', cls:'btn-outline', fn:'exportPortfolioCSV()' }
+        { label:'Export CSV', cls:'btn-outline', fn:'exportPortfolioCSV()' },
+        { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('portfolio_summary')" }
       ]
     },
     { section:'all', tier:'starter', featureKey:'reports_basic',
@@ -37,7 +39,8 @@ function renderReporting() {
       actions:[
         { label:'Print / PDF', cls:'btn-primary', fn:'printDigestReport()' },
         { label:'Download HTML', cls:'btn-outline', fn:'downloadDigestHTML()' },
-        { label:'Copy HTML', cls:'btn-outline', fn:'copyDigestHTML()' }
+        { label:'Copy HTML', cls:'btn-outline', fn:'copyDigestHTML()' },
+        { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('weekly_digest')" }
       ]
     },
     { section:'all', tier:'starter', featureKey:'reports_basic',
@@ -46,7 +49,8 @@ function renderReporting() {
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
       actions:[
         { label:'Print / PDF', cls:'btn-primary', fn:'printAtRiskReport()' },
-        { label:'Export CSV', cls:'btn-outline', fn:'exportAtRiskCSV()' }
+        { label:'Export CSV', cls:'btn-outline', fn:'exportAtRiskCSV()' },
+        { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('at_risk')" }
       ]
     },
     { section:'all', tier:'starter', featureKey:'reports_basic',
@@ -55,7 +59,8 @@ function renderReporting() {
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
       actions:[
         { label:'Print / PDF', cls:'btn-primary', fn:'printRenewalForecast()' },
-        { label:'Export CSV', cls:'btn-outline', fn:'exportRenewalCSV()' }
+        { label:'Export CSV', cls:'btn-outline', fn:'exportRenewalCSV()' },
+        { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('renewal_forecast')" }
       ]
     },
     { section:'all', tier:'starter', featureKey:'reports_basic',
@@ -64,7 +69,8 @@ function renderReporting() {
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
       actions:[
         { label:'Print / PDF', cls:'btn-primary', fn:'printTrendReport()' },
-        { label:'Export CSV', cls:'btn-outline', fn:'exportTrendCSV()' }
+        { label:'Export CSV', cls:'btn-outline', fn:'exportTrendCSV()' },
+        { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('trend_report')" }
       ]
     },
     { section:'all', tier:'starter', featureKey:'reports_basic',
@@ -73,7 +79,8 @@ function renderReporting() {
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
       actions:[
         { label:'Print / PDF', cls:'btn-primary', fn:'printChurnRiskReport()' },
-        { label:'Export CSV', cls:'btn-outline', fn:'exportChurnRiskCSV()' }
+        { label:'Export CSV', cls:'btn-outline', fn:'exportChurnRiskCSV()' },
+        { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('churn_risk')" }
       ]
     },
     // Gated reports
@@ -83,7 +90,8 @@ function renderReporting() {
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
       actions:[
         { label:'Print / PDF', cls:'btn-primary', fn:'printSegmentAnalysis()' },
-        { label:'Export CSV', cls:'btn-outline', fn:'exportSegmentCSV()' }
+        { label:'Export CSV', cls:'btn-outline', fn:'exportSegmentCSV()' },
+        { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('segment_analysis')" }
       ]
     },
     { section:'all', tier:'pro', featureKey:'report_csmperf',
@@ -92,7 +100,8 @@ function renderReporting() {
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
       actions:[
         { label:'Print / PDF', cls:'btn-primary', fn:'printCSMReport()' },
-        { label:'Export CSV', cls:'btn-outline', fn:'exportCSMReportCSV()' }
+        { label:'Export CSV', cls:'btn-outline', fn:'exportCSMReportCSV()' },
+        { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('csm_performance')" }
       ]
     },
   ];
@@ -357,7 +366,7 @@ function svgMiniBar(items) {
 }
 
 // ── Report: Portfolio Health Summary (Team) ──
-function printPortfolioSummary() {
+function buildPortfolioSummaryHTML() {
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
   const total = active.length;
   const avg = total ? Math.round(active.reduce((s, c) => s + c.score, 0) / total) : 0;
@@ -409,14 +418,15 @@ function printPortfolioSummary() {
       '</table>';
   }
   html += rptFooter();
-  rptPrint(html);
+  return html;
 }
+function printPortfolioSummary() { const h = buildPortfolioSummaryHTML(); if (h) rptPrint(h); else toast('No data','warn'); }
 
 // ── Report: At-Risk Report (Team) ──
-function printAtRiskReport() {
+function buildAtRiskReportHTML() {
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
   const atRisk = active.filter(c => c.status === 'critical' || c.status === 'risk').sort((a, b) => (b.mrr || 0) - (a.mrr || 0));
-  if (!atRisk.length) { toast('No at-risk customers found', 'success'); return; }
+  if (!atRisk.length) return '';
   const totalRiskMRR = atRisk.reduce((s, c) => s + (c.mrr || 0), 0);
 
   const critCount = atRisk.filter(c => c.status === 'critical').length;
@@ -449,8 +459,9 @@ function printAtRiskReport() {
         '<td>' + (c.renewal_date ? fmtDate(c.renewal_date) : '\u2014') + '</td></tr>';
     }).join('') +
     '</table>' + rptFooter();
-  rptPrint(html);
+  return html;
 }
+function printAtRiskReport() { const h = buildAtRiskReportHTML(); if (h) rptPrint(h); else toast('No at-risk customers found','success'); }
 
 function exportAtRiskCSV() {
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
@@ -463,7 +474,7 @@ function exportAtRiskCSV() {
 }
 
 // ── Report: Renewal Forecast (Team) ──
-function printRenewalForecast() {
+function buildRenewalForecastHTML() {
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c) && c.renewal_date);
   const now = new Date(); now.setHours(0, 0, 0, 0);
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
@@ -508,14 +519,15 @@ function printRenewalForecast() {
   });
 
   html += rptFooter();
-  rptPrint(html);
+  return html;
 }
+function printRenewalForecast() { rptPrint(buildRenewalForecastHTML()); }
 
 // ── Report: CSM Performance (Growth) ──
-function printCSMReport() {
+function buildCSMReportHTML() {
   const active = customers.filter(c => c.lifecycle !== 'churned');
   const managers = [...new Set(active.map(c => c.manager || '').filter(Boolean))].sort();
-  if (!managers.length) { toast('No managers found', 'warn'); return; }
+  if (!managers.length) return '';
 
   const mgrData = managers.map(m => {
     const grp = active.filter(c => c.manager === m);
@@ -539,13 +551,14 @@ function printCSMReport() {
       return '<tr><td><strong>' + escHtml(m.manager) + '</strong></td><td>' + m.count + '</td><td style="font-weight:700">' + m.avgScore + '</td><td>' + m.atRisk + '</td><td style="color:' + riskColor + ';font-weight:600">' + m.riskPct + '%</td><td style="text-align:right">$' + fmtNum(m.mrr) + '</td><td>' + m.avgDays + 'd</td></tr>';
     }).join('') +
     '</table>' + rptFooter();
-  rptPrint(html);
+  return html;
 }
+function printCSMReport() { const h = buildCSMReportHTML(); if (h) rptPrint(h); else toast('No managers found','warn'); }
 
 // ── Report: Segment Analysis (Growth) ──
-function printSegmentAnalysis() {
+function buildSegmentAnalysisHTML() {
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
-  if (!active.length) { toast('No customers found', 'warn'); return; }
+  if (!active.length) return '';
 
   function segTable(label, groups) {
     let chart = svgMiniBar(groups.map(g => ({label: g.label.length > 14 ? g.label.slice(0, 12) + '\u2026' : g.label, value: g.avg})));
@@ -584,11 +597,12 @@ function printSegmentAnalysis() {
     segTable('By Lifecycle', byLifecycle) +
     (byTag.length ? segTable('By Tag', byTag) : '') +
     rptFooter();
-  rptPrint(html);
+  return html;
 }
+function printSegmentAnalysis() { const h = buildSegmentAnalysisHTML(); if (h) rptPrint(h); else toast('No customers found','warn'); }
 
 // ── Report: Trend Report (Growth) ──
-function printTrendReport() {
+function buildTrendReportHTML() {
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
   const now = new Date();
   const d90ago = new Date(now); d90ago.setDate(d90ago.getDate() - 90);
@@ -606,7 +620,7 @@ function printTrendReport() {
   });
 
   const dates = Object.keys(dateMap).sort();
-  if (!dates.length) { toast('No score history in the last 90 days', 'warn'); return; }
+  if (!dates.length) return '';
 
   const rows = dates.map(d => {
     const scores = dateMap[d];
@@ -633,13 +647,14 @@ function printTrendReport() {
     '<table><tr><th>Date</th><th>Scores Recorded</th><th style="text-align:right">Avg Score</th></tr>' +
     rows.map(r => '<tr><td>' + r.date + '</td><td>' + r.entries + '</td><td style="text-align:right;font-weight:700">' + r.avg + '</td></tr>').join('') +
     '</table>' + rptFooter();
-  rptPrint(html);
+  return html;
 }
+function printTrendReport() { const h = buildTrendReportHTML(); if (h) rptPrint(h); else toast('No score history in the last 90 days','warn'); }
 
 // ── Report: Churn Risk Report (Growth) ──
-function printChurnRiskReport() {
+function buildChurnRiskReportHTML() {
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
-  if (!active.length) { toast('No customers found', 'warn'); return; }
+  if (!active.length) return '';
 
   // Compute composite churn risk score (0-100, higher = more at risk)
   const scored = active.map(c => {
@@ -700,8 +715,9 @@ function printChurnRiskReport() {
         '<td>' + (c.renewal_date ? fmtDate(c.renewal_date) : '\u2014') + '</td></tr>';
     }).join('') +
     '</table>' + rptFooter();
-  rptPrint(html);
+  return html;
 }
+function printChurnRiskReport() { const h = buildChurnRiskReportHTML(); if (h) rptPrint(h); else toast('No customers found','warn'); }
 
 // ── CSV helpers ──
 function csvRow(vals) { return vals.map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(','); }
@@ -869,9 +885,9 @@ function exportChurnRiskCSV() {
 }
 
 // ── Print: Customer Health (all customers table) ──
-function printCustomerHealth() {
+function buildCustomerHealthHTML() {
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
-  if (!active.length) { toast('No customers found', 'warn'); return; }
+  if (!active.length) return '';
   const sorted = [...active].sort((a, b) => a.score - b.score);
   let html = rptHeader('Customer Health Report', 'Generated ' + rptDateStr() + ' &middot; ' + active.length + ' accounts') +
     '<table><tr><th>Customer</th><th>Manager</th><th>Score</th><th>Status</th><th>Tier</th><th style="text-align:right">MRR</th><th>Logins</th><th>Adoption</th><th>Tickets</th><th>NPS</th><th>CSAT</th></tr>' +
@@ -885,8 +901,9 @@ function printCustomerHealth() {
       '<td>' + (c.tickets ?? '\u2014') + '</td><td>' + npsDisplay(c.nps) + '</td><td>' + csatDisplay(c.csat) + '</td></tr>'
     ).join('') +
     '</table>' + rptFooter();
-  rptPrint(html);
+  return html;
 }
+function printCustomerHealth() { const h = buildCustomerHealthHTML(); if (h) rptPrint(h); else toast('No customers found','warn'); }
 
 // ── Print: Weekly Digest (formatted for PDF) ──
 function printDigestReport() {
@@ -1011,4 +1028,198 @@ function downloadDigestHTML() {
   a.click();
   URL.revokeObjectURL(a.href);
   toast('Digest downloaded','success');
+}
+
+// ─── REPORT EMAIL / SCHEDULING ────────────────────────────────
+
+const EMAILABLE_REPORTS = [
+  { key:'weekly_digest',      label:'Weekly Health Digest',       builder: () => buildDigestHTML() },
+  { key:'customer_health',    label:'Customer Health Report',     builder: () => buildCustomerHealthHTML() },
+  { key:'portfolio_summary',  label:'Portfolio Health Summary',   builder: () => buildPortfolioSummaryHTML() },
+  { key:'at_risk',            label:'At-Risk Report',             builder: () => buildAtRiskReportHTML() },
+  { key:'renewal_forecast',   label:'Renewal Forecast Report',    builder: () => buildRenewalForecastHTML() },
+  { key:'trend_report',       label:'Trend Report (90d)',         builder: () => buildTrendReportHTML() },
+  { key:'churn_risk',         label:'Churn Risk Report',          builder: () => buildChurnRiskReportHTML() },
+  { key:'segment_analysis',   label:'Segment Analysis Report',    builder: () => buildSegmentAnalysisHTML() },
+  { key:'csm_performance',    label:'CSM Performance Report',     builder: () => buildCSMReportHTML() },
+];
+
+function wrapReportForEmail(innerHtml) {
+  return '<!DOCTYPE html><html><head><meta charset="utf-8"></head>' +
+    '<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif;background:#f3f4f6">' +
+    '<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:24px 16px">' +
+    '<table width="620" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1)">' +
+    '<tr><td style="padding:20px 24px">' + rptPrintCSS() + innerHtml + '</td></tr>' +
+    '<tr><td style="padding:0 24px 16px;font-size:11px;color:#9ca3af;text-align:center">' +
+    'iQcadence CS Health Score &middot; ' + rptDateStr() +
+    '</td></tr></table></td></tr></table></body></html>';
+}
+
+function buildReportEmailPayload(reportKey) {
+  const def = EMAILABLE_REPORTS.find(r => r.key === reportKey);
+  if (!def) return { html: null, subject: '' };
+  const inner = def.builder();
+  if (!inner) return { html: null, subject: '' };
+  // Digest is already email-styled, others need the email wrapper with print CSS
+  const html = reportKey === 'weekly_digest'
+    ? '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:20px;background:#f1f5f9">' + inner + '</body></html>'
+    : wrapReportForEmail(inner);
+  return { html, subject: def.label + ' — ' + rptDateStr() };
+}
+
+function _getReportScheduleCfg(reportKey) {
+  if (!automationsCfg.report_schedules) automationsCfg.report_schedules = {};
+  if (!automationsCfg.report_schedules[reportKey]) {
+    automationsCfg.report_schedules[reportKey] = {
+      enabled: false, frequency: 'weekly', day: 'monday', time: '09:00',
+      recipients: '', subject_prefix: '[iQcadence Report]'
+    };
+  }
+  return automationsCfg.report_schedules[reportKey];
+}
+
+let _remKey = null; // currently open report key in the email modal
+
+function openReportEmailPanel(reportKey) {
+  _remKey = reportKey;
+  const def = EMAILABLE_REPORTS.find(r => r.key === reportKey);
+  const title = el('rem-title');
+  if (title) title.textContent = 'Email: ' + (def ? def.label : reportKey);
+
+  // Pre-fill recipients from alert email config if available
+  const cfg = _getReportScheduleCfg(reportKey);
+  if (!cfg.recipients && automationsCfg.channels?.email?.recipients) {
+    cfg.recipients = automationsCfg.channels.email.recipients;
+  }
+
+  reportEmailTab('send');
+  openModal('report-email-modal');
+}
+
+function reportEmailTab(which) {
+  const body = el('rem-body');
+  if (!body || !_remKey) return;
+  const cfg = _getReportScheduleCfg(_remKey);
+
+  const tabHtml = '<div class="dtab-row" style="margin-bottom:14px">' +
+    '<button class="dtab' + (which === 'send' ? ' active' : '') + '" onclick="reportEmailTab(\'send\')">Send Now</button>' +
+    '<button class="dtab' + (which === 'schedule' ? ' active' : '') + '" onclick="reportEmailTab(\'schedule\')">Schedule</button>' +
+  '</div>';
+
+  if (which === 'send') {
+    body.innerHTML = tabHtml +
+      '<div style="display:flex;flex-direction:column;gap:10px">' +
+        '<label style="font-size:.75rem;font-weight:600;color:var(--text)">Recipients <span style="font-weight:400;color:var(--muted)">(comma-separated emails)</span></label>' +
+        '<input type="text" id="rem-recipients" class="form-input" placeholder="team@company.com, manager@company.com" value="' + escHtml(cfg.recipients || '') + '" style="font-size:.82rem"/>' +
+        '<label style="font-size:.75rem;font-weight:600;color:var(--text)">Subject Prefix</label>' +
+        '<input type="text" id="rem-prefix" class="form-input" placeholder="[iQcadence Report]" value="' + escHtml(cfg.subject_prefix || '[iQcadence Report]') + '" style="font-size:.82rem"/>' +
+        '<div style="display:flex;gap:8px;margin-top:4px">' +
+          '<button class="btn btn-primary btn-sm" onclick="sendReportEmailNow()">Send Now</button>' +
+          '<button class="btn btn-outline btn-sm" onclick="sendReportEmailTest()">Send Test to Me</button>' +
+        '</div>' +
+        '<p style="font-size:.7rem;color:var(--muted);margin-top:4px">Send Now delivers the report to all listed recipients. Send Test sends only to your email.</p>' +
+      '</div>';
+  } else {
+    const days = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+    body.innerHTML = tabHtml +
+      '<div style="display:flex;flex-direction:column;gap:10px">' +
+        '<div style="display:flex;align-items:center;gap:10px">' +
+          '<label style="font-size:.82rem;font-weight:600;color:var(--text)">Enable scheduled delivery</label>' +
+          '<label class="toggle-switch" style="margin-left:auto"><input type="checkbox" id="rem-sched-enabled" ' + (cfg.enabled ? 'checked' : '') + ' onchange="toggleReportSchedule()"/><span class="toggle-slider"></span></label>' +
+        '</div>' +
+        '<div id="rem-sched-opts" style="' + (cfg.enabled ? '' : 'opacity:.5;pointer-events:none;') + 'display:flex;flex-direction:column;gap:10px">' +
+          '<label style="font-size:.75rem;font-weight:600;color:var(--text)">Frequency</label>' +
+          '<div style="display:flex;gap:8px">' +
+            '<label style="font-size:.82rem;display:flex;align-items:center;gap:4px"><input type="radio" name="rem-freq" value="daily" ' + (cfg.frequency === 'daily' ? 'checked' : '') + '/> Daily</label>' +
+            '<label style="font-size:.82rem;display:flex;align-items:center;gap:4px"><input type="radio" name="rem-freq" value="weekly" ' + (cfg.frequency !== 'daily' ? 'checked' : '') + '/> Weekly</label>' +
+          '</div>' +
+          '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
+            '<div><label style="font-size:.75rem;font-weight:600;color:var(--text)">Day</label>' +
+              '<select id="rem-sched-day" class="form-input" style="font-size:.82rem;margin-top:4px">' +
+                days.map(d => '<option value="' + d + '"' + (cfg.day === d ? ' selected' : '') + '>' + d.charAt(0).toUpperCase() + d.slice(1) + '</option>').join('') +
+              '</select></div>' +
+            '<div><label style="font-size:.75rem;font-weight:600;color:var(--text)">Time</label>' +
+              '<input type="time" id="rem-sched-time" class="form-input" value="' + (cfg.time || '09:00') + '" style="font-size:.82rem;margin-top:4px"/></div>' +
+          '</div>' +
+          '<label style="font-size:.75rem;font-weight:600;color:var(--text)">Recipients</label>' +
+          '<input type="text" id="rem-sched-recip" class="form-input" placeholder="team@company.com" value="' + escHtml(cfg.recipients || '') + '" style="font-size:.82rem"/>' +
+          '<label style="font-size:.75rem;font-weight:600;color:var(--text)">Subject Prefix</label>' +
+          '<input type="text" id="rem-sched-prefix" class="form-input" placeholder="[iQcadence Report]" value="' + escHtml(cfg.subject_prefix || '[iQcadence Report]') + '" style="font-size:.82rem"/>' +
+          '<button class="btn btn-primary btn-sm" onclick="saveReportSchedule()" style="align-self:flex-start">Save Schedule</button>' +
+          '<p style="font-size:.7rem;color:var(--muted);font-style:italic;margin-top:2px">Note: Scheduled delivery requires server-side cron (coming soon). Use Send Now for immediate delivery.</p>' +
+        '</div>' +
+      '</div>';
+  }
+}
+
+function toggleReportSchedule() {
+  const opts = el('rem-sched-opts');
+  const cb = el('rem-sched-enabled');
+  if (opts) opts.style.opacity = cb?.checked ? '' : '.5';
+  if (opts) opts.style.pointerEvents = cb?.checked ? '' : 'none';
+}
+
+function saveReportSchedule() {
+  if (!_remKey) return;
+  const cfg = _getReportScheduleCfg(_remKey);
+  cfg.enabled = !!el('rem-sched-enabled')?.checked;
+  cfg.frequency = document.querySelector('input[name="rem-freq"]:checked')?.value || 'weekly';
+  cfg.day = el('rem-sched-day')?.value || 'monday';
+  cfg.time = el('rem-sched-time')?.value || '09:00';
+  cfg.recipients = (el('rem-sched-recip')?.value || '').trim();
+  cfg.subject_prefix = (el('rem-sched-prefix')?.value || '[iQcadence Report]').trim();
+  saveAutomationsCfg();
+  toast('Report schedule saved', 'success');
+}
+
+async function sendReportEmailNow() {
+  if (!_remKey) return;
+  const recipients = (el('rem-recipients')?.value || '').trim();
+  if (!recipients) { toast('Enter at least one email address', 'warn'); return; }
+
+  // Persist recipients to config
+  const cfg = _getReportScheduleCfg(_remKey);
+  cfg.recipients = recipients;
+  cfg.subject_prefix = (el('rem-prefix')?.value || '[iQcadence Report]').trim();
+  saveAutomationsCfg();
+
+  const { html, subject } = buildReportEmailPayload(_remKey);
+  if (!html) { toast('Could not generate report — no data', 'error'); return; }
+  const prefix = cfg.subject_prefix || '[iQcadence Report]';
+
+  try {
+    toast('Sending report...', 'default');
+    const { data, error } = await sb.functions.invoke('send-webhook', {
+      body: { mode: 'email', recipients, subject: prefix + ' ' + subject, html_body: html,
+              event_type: 'report_' + _remKey, customer_id: null, customer_name: null }
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    toast('Report sent to ' + recipients.split(',').length + ' recipient(s)', 'success');
+  } catch(err) {
+    toast('Failed to send: ' + (err.message || 'Unknown error'), 'error');
+  }
+}
+
+async function sendReportEmailTest() {
+  if (!_remKey || !currentUser) return;
+  const email = currentUser.email;
+  if (!email) { toast('No email on current user', 'error'); return; }
+
+  const { html, subject } = buildReportEmailPayload(_remKey);
+  if (!html) { toast('Could not generate report — no data', 'error'); return; }
+  const prefix = (el('rem-prefix')?.value || '[iQcadence Report]').trim();
+
+  try {
+    toast('Sending test to ' + email + '...', 'default');
+    const { data, error } = await sb.functions.invoke('send-webhook', {
+      body: { mode: 'email', recipients: email, subject: prefix + ' ' + subject + ' (TEST)',
+              html_body: html, event_type: 'report_test_' + _remKey, customer_id: null, customer_name: null }
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    toast('Test report sent to ' + email, 'success');
+  } catch(err) {
+    toast('Failed to send test: ' + (err.message || 'Unknown error'), 'error');
+  }
 }

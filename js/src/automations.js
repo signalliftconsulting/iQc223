@@ -63,6 +63,10 @@ function migrateAutomationsCfg() {
   if (!automationsCfg.manager_scope) {
     automationsCfg.manager_scope = { mode: 'all', managers: [] };
   }
+  // Ensure report_schedules exists
+  if (!automationsCfg.report_schedules) {
+    automationsCfg.report_schedules = {};
+  }
 }
 
 // ── Help search ──
