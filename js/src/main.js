@@ -21,8 +21,17 @@
       const cached = localStorage.getItem('iqc_customers_cache');
       if (cached) {
         customers = JSON.parse(cached);
-        // Backfill NPS/CSAT in old history signals (pre-v127 cache)
-        customers.forEach(c => { if (typeof _migrateHistory === 'function') _migrateHistory(c.history, c.nps, c.csat); });
+        // Migrate cached data from older versions
+        customers.forEach(c => {
+          // Decode encoded "nps|csat" pair from old cache (pre-v128)
+          if (typeof c.nps === 'string' && c.nps.includes('|')) {
+            const fb = decodeFeedbackPair(c.nps);
+            c.nps = fb.nps;
+            c.csat = fb.csat;
+          }
+          // Backfill NPS/CSAT in old history signals (pre-v127)
+          if (typeof _migrateHistory === 'function') _migrateHistory(c.history, c.nps, c.csat);
+        });
         hasCached = true;
       }
     } catch(e) {}
