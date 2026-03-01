@@ -750,19 +750,24 @@ async function atCreate(c) { return save(c); }
 // ─── DEMO DATA ───────────────────────────────────────────────
 
 const _DEMO_PREFIXES = [
-  'Apex','Atlas','Beacon','Blue','Bolt','Bridge','Bright','Cedar','Cipher','Cirrus',
-  'Cobalt','Core','Crest','Crown','Dash','Drift','Edge','Ember','Falcon','Flux',
-  'Forge','Frost','Grid','Harbor','Helix','Iron','Jade','Kite','Lumen','Maple',
-  'Mesa','Nexus','Noble','Nova','Onyx','Orbit','Pave','Peak','Prism','Pulse',
-  'Quartz','Raven','Ridge','Sage','Scale','Signal','Silver','Slate','Spark','Spire',
-  'Steel','Stone','Storm','Summit','Swift','Terra','Tide','Timber','Torch','Trace',
-  'Vantage','Vault','Vector','Vertex','Vista','Vortex','Wave','Zenith'
+  'Apex','Aquila','Arc','Atlas','Aura','Beacon','Blue','Bolt','Bridge','Bright',
+  'Canyon','Cedar','Cipher','Cirrus','Clarity','Cobalt','Core','Crest','Crown','Cypress',
+  'Dash','Delta','Drift','Dune','Echo','Edge','Elm','Ember','Equinox','Evergreen',
+  'Falcon','Fern','Flint','Flux','Forge','Frost','Granite','Grid','Grove','Harbor',
+  'Haven','Helix','Horizon','Indigo','Iron','Ivory','Jade','Juniper','Keystone','Kite',
+  'Lantern','Lark','Lattice','Lumen','Lynx','Maple','Marina','Meridian','Mesa','Mica',
+  'Mosaic','Nimbus','Nexus','Noble','North','Nova','Oak','Onyx','Orbit','Osprey',
+  'Pave','Peak','Pine','Pinnacle','Prism','Pulse','Quartz','Raven','Redwood','Ridge',
+  'Ripple','Sage','Scale','Sequoia','Signal','Silver','Skyline','Slate','Spark','Spire',
+  'Steel','Stone','Storm','Strand','Summit','Swift','Tallow','Terra','Tide','Timber',
+  'Torch','Trace','Trident','Vantage','Vault','Vector','Vertex','Vine','Vista','Vortex',
+  'Walden','Wave','Willow','Zenith'
 ];
 const _DEMO_SUFFIXES = [
-  'AI','Analytics','Cloud','Connect','Data','Digital','Dynamics','Flow','Group','HQ',
-  'Hub','Insights','Intelligence','IO','Labs','Logic','Metrics','Networks','Ops',
-  'Platform','Point','Pulse','Shift','Soft','Solutions','Stack','Studio','Systems',
-  'Tech','Ware','Works'
+  'AI','Analytics','Cloud','Co','Connect','Creative','Data','Digital','Dynamics','Flow',
+  'Global','Group','HQ','Hub','Industries','Insights','Intelligence','IO','Labs','Logic',
+  'Media','Metrics','Networks','Ops','Partners','Platform','Point','Pulse','Shift','Soft',
+  'Solutions','Stack','Studio','Systems','Tech','Ventures','Ware','Works'
 ];
 const _DEMO_CSMS = ['Sarah Mitchell','James Chen','Maria Rodriguez','David Kim','Rachel Foster','Anil Patel'];
 const _DEMO_NOTES = [
@@ -915,17 +920,15 @@ function _dPick(arr,t){
 }
 
 function _generateDemoNames(count) {
-  const used = new Set();
-  const names = [];
-  const shuffled = [..._DEMO_PREFIXES].sort(() => Math.random()-0.5);
-  for (let i = 0; i < shuffled.length && names.length < count; i++) {
-    const suf = _DEMO_SUFFIXES[Math.floor(Math.random()*_DEMO_SUFFIXES.length)];
-    const n = shuffled[i] + ' ' + suf;
-    if (!used.has(n)) { used.add(n); names.push(n); }
+  // Build all possible combinations, shuffle, and pick the first `count`
+  const combos = [];
+  for (const p of _DEMO_PREFIXES) for (const s of _DEMO_SUFFIXES) combos.push(p + ' ' + s);
+  // Fisher-Yates shuffle
+  for (let i = combos.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [combos[i], combos[j]] = [combos[j], combos[i]];
   }
-  let extra = 1;
-  while (names.length < count) { names.push('Company ' + (extra++)); }
-  return names;
+  return combos.slice(0, count);
 }
 
 function _generateDemoSignals(traj, dayIdx, totalDays) {
