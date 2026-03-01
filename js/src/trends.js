@@ -166,7 +166,7 @@ function renderTrends() {
         <span class="dash-kpi-label">Trend Direction</span>
       </div>
       <div class="dash-kpi-num" style="font-size:1.5rem">${trendDir}</div>
-      <div class="dash-kpi-sub">${active.length} active account${active.length !== 1 ? 's' : ''}</div>
+      <div class="dash-kpi-sub">across ${active.length} active account${active.length !== 1 ? 's' : ''}</div>
     </div>
     <div class="dash-kpi-card dash-kpi-teal">
       <div class="dash-kpi-top">
