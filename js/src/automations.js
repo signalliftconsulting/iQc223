@@ -1856,4 +1856,3 @@ async function fireEmailAlert(eventType, customer, extra, emailCfg) {
   if (data?.error) throw new Error(data.error);
 }
 
-

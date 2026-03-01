@@ -282,6 +282,88 @@ svg.sparkline{display:block}
 .snooze-dd__item{display:block;width:100%;padding:7px 14px;font-size:.8rem;font-family:var(--font);text-align:left;background:none;border:none;cursor:pointer;color:var(--text)}
 .snooze-dd__item:hover{background:var(--bg)}
 
+/* HOME BASE */
+.hb-pulse-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+.hb-pulse-card{border-radius:var(--rlg);padding:20px 20px 18px;cursor:pointer;transition:transform .15s,box-shadow .15s;position:relative;overflow:hidden;color:#fff}
+.hb-pulse-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.hb-pulse-card.hb-blue{background:linear-gradient(135deg,#2563eb 0%,#3b82f6 100%)}
+.hb-pulse-card.hb-red{background:linear-gradient(135deg,#dc2626 0%,#ef4444 100%)}
+.hb-pulse-card.hb-amber{background:linear-gradient(135deg,#d97706 0%,#f59e0b 100%)}
+.hb-pulse-card.hb-purple{background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%)}
+.hb-pulse-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.hb-pulse-icon{width:36px;height:36px;border-radius:9px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hb-pulse-icon svg{stroke:#fff}
+.hb-pulse-label{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.85)}
+.hb-pulse-value{font-size:2.2rem;font-weight:800;line-height:1;letter-spacing:-.04em;color:#fff}
+.hb-pulse-bottom{display:flex;align-items:center;gap:10px;margin-top:8px}
+.hb-pulse-delta{font-size:.78rem;font-weight:700;color:rgba(255,255,255,.9)}
+.hb-pulse-sub{font-size:.72rem;color:rgba(255,255,255,.6);font-weight:500}
+@media(max-width:900px){.hb-pulse-row{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:500px){.hb-pulse-row{grid-template-columns:1fr}}
+
+.hb-section-hd{font-size:.88rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--subtle);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.hb-section-hd::before{content:'';display:inline-block;width:3px;height:14px;border-radius:2px;background:var(--blue);flex-shrink:0}
+.hb-section-hd .hb-count{font-weight:500;font-size:.82rem;color:var(--muted);text-transform:none;letter-spacing:0}
+
+.hb-snap-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;margin-bottom:22px}
+.hb-snap-card{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;cursor:pointer;transition:box-shadow .15s,transform .15s,border-color .15s}
+.hb-snap-card:hover{box-shadow:var(--shm);transform:translateY(-1px);border-color:var(--blue-m)}
+.hb-snap-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hb-snap-icon svg{stroke:currentColor}
+.hb-snap-body{flex:1;min-width:0}
+.hb-snap-title{font-size:.82rem;font-weight:700;color:var(--text);margin-bottom:2px}
+.hb-snap-detail{font-size:.73rem;color:var(--muted);line-height:1.5}
+.hb-snap-detail strong{color:var(--text);font-weight:700}
+.hb-snap-arrow{flex-shrink:0;color:var(--subtle);transition:color .15s,transform .15s}
+.hb-snap-card:hover .hb-snap-arrow{color:var(--blue);transform:translateX(2px)}
+@media(max-width:600px){.hb-snap-grid{grid-template-columns:1fr}}
+
+.hb-insights-wrap{display:flex;flex-direction:column;gap:8px}
+.hb-insight-card{display:flex;gap:14px;padding:14px 18px;background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--blue);border-radius:var(--r);transition:box-shadow .15s,background .15s}
+.hb-insight-card:hover{box-shadow:var(--shm);background:#fafbfc}
+.hb-insight-card.hb-cat-risk{border-left-color:var(--red)}
+.hb-insight-card.hb-cat-trend{border-left-color:var(--blue)}
+.hb-insight-card.hb-cat-renewal{border-left-color:var(--purple)}
+.hb-insight-card.hb-cat-workload{border-left-color:var(--amber)}
+.hb-insight-card.hb-cat-opportunity{border-left-color:var(--green)}
+.hb-insight-card.hb-cat-engagement{border-left-color:var(--teal)}
+.hb-insight-card.hb-p1{background:var(--red-l)}
+.hb-insight-card.hb-p1:hover{background:#fde8e8}
+.hb-insight-card.hb-p2{background:var(--amber-l)}
+.hb-insight-card.hb-p2:hover{background:#fef3d6}
+.hb-insight-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hb-insight-icon.ic-trend{background:var(--blue-l);color:var(--blue)}
+.hb-insight-icon.ic-risk{background:var(--red-l);color:var(--red)}
+.hb-insight-icon.ic-renewal{background:var(--purple-l);color:var(--purple)}
+.hb-insight-icon.ic-workload{background:var(--amber-l);color:var(--amber)}
+.hb-insight-icon.ic-opportunity{background:var(--green-l);color:var(--green)}
+.hb-insight-icon.ic-engagement{background:var(--teal-l);color:var(--teal)}
+.hb-insight-icon svg{stroke:currentColor}
+.hb-insight-body{flex:1;min-width:0}
+.hb-insight-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.hb-insight-cat{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:2px 7px;border-radius:4px;white-space:nowrap}
+.hb-insight-title{font-size:.86rem;font-weight:700;color:var(--text)}
+.hb-insight-detail{font-size:.8rem;color:var(--muted);line-height:1.55}
+.hb-insight-action{background:none;border:none;color:var(--blue);font-size:.76rem;font-weight:600;cursor:pointer;padding:0;margin-top:6px;font-family:var(--font)}
+.hb-insight-action:hover{text-decoration:underline}
+
+.hb-empty{text-align:center;padding:32px 20px;color:var(--muted)}
+.hb-empty svg{margin-bottom:10px;opacity:.4}
+.hb-empty p{font-size:.84rem;max-width:340px;margin:0 auto;line-height:1.6}
+
+.hb-focus-list{display:flex;flex-direction:column}
+.hb-focus-item{display:flex;align-items:center;gap:14px;padding:13px 16px;border-bottom:1px dashed var(--border);cursor:pointer;transition:background .12s,box-shadow .12s}
+.hb-focus-item:last-child{border-bottom:none}
+.hb-focus-item:hover{background:var(--bg);box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.hb-focus-rank{width:26px;height:26px;border-radius:50%;background:var(--bg);border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:800;color:var(--muted);flex-shrink:0}
+.hb-focus-body{flex:1;min-width:0}
+.hb-focus-name{font-size:.86rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px}
+.hb-focus-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.hb-focus-reason{font-size:.76rem;color:var(--muted);margin-top:2px;padding-left:13px}
+.hb-focus-meta{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.hb-focus-mrr{font-size:.78rem;font-weight:700;color:var(--text)}
+.hb-focus-score{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:800;color:#fff;flex-shrink:0}
+
 /* ALERT BRIEFING PANEL */
 .alert-briefing{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);margin-bottom:18px;overflow:hidden;position:relative;box-shadow:0 1px 4px rgba(0,0,0,.04)}
 .briefing-accent{height:4px;width:100%}
@@ -1149,7 +1231,8 @@ td .sparkline{vertical-align:middle}
   <div class="nav-group open" id="ng-main">
     <button class="nav-group-hd" onclick="toggleNavGroup('main')"><svg class="nav-group-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>Main</button>
     <div class="nav-group-body">
-      <button class="nav-item active" id="ni-dashboard" onclick="nav('dashboard')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>Dashboard</button>
+      <button class="nav-item active" id="ni-homebase" onclick="nav('homebase')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>Home Base</button>
+      <button class="nav-item" id="ni-dashboard" onclick="nav('dashboard')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>Dashboard</button>
       <button class="nav-item" id="ni-alerts" onclick="nav('alerts')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>Alerts<span id="alert-badge" style="margin-left:auto;background:var(--red);color:#fff;font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:100px;display:none"></span></button>
       <button class="nav-item" id="ni-customers" onclick="nav('customers')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>Customers</button>
       <button class="nav-item" id="ni-segments" onclick="nav('segments')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>Segments</button>
@@ -1190,8 +1273,22 @@ td .sparkline{vertical-align:middle}
 <!-- MAIN -->
 <main class="main">
 
+<!-- ═══════════════ HOME BASE ═══════════════ -->
+<div class="view active" id="view-homebase">
+  <div class="page-hd">
+    <div>
+      <h1>Home Base</h1>
+      <p>Your portfolio at a glance — strategic insights &amp; priorities</p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn btn-sm btn-ghost" onclick="renderHomeBase()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Refresh</button>
+    </div>
+  </div>
+  <div id="homebase-wrap"></div>
+</div>
+
 <!-- ═══════════════ DASHBOARD ═══════════════ -->
-<div class="view active" id="view-dashboard">
+<div class="view" id="view-dashboard">
   <div class="page-hd">
     <div>
       <h1>Dashboard</h1>
@@ -1729,7 +1826,16 @@ td .sparkline{vertical-align:middle}
   <div class="page-hd">
     <div><h1>Reports</h1><p>Export data, generate printable reports, and analyze your portfolio.</p></div>
   </div>
-  <div id="reports-wrap"></div>
+  <div class="dtab-row" style="margin-bottom:18px">
+    <button class="dtab active" id="rpt-tab-templates" onclick="reportsTab('templates')">Report Templates</button>
+    <button class="dtab" id="rpt-tab-schedules" onclick="reportsTab('schedules')">Scheduled Reports</button>
+  </div>
+  <div class="dtab-pane active" id="rpt-pane-templates">
+    <div id="reports-wrap"></div>
+  </div>
+  <div class="dtab-pane" id="rpt-pane-schedules">
+    <div id="scheduled-reports-container"></div>
+  </div>
 </div><!-- /reports -->
 
 <!-- ═══════════════ SCORE CUSTOMER ═══════════════ -->
@@ -3058,6 +3164,6 @@ td .sparkline{vertical-align:middle}
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=131"></script>
+<script src="js/app.js?v=137"></script>
 </body>
 </html>

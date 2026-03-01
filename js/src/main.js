@@ -38,7 +38,7 @@
 
     // Restore last active view (or default to dashboard)
     const savedView = localStorage.getItem('iqc_active_view');
-    const restoreView = savedView && VIEWS.includes(savedView) ? savedView : 'dashboard';
+    const restoreView = savedView && VIEWS.includes(savedView) ? savedView : 'homebase';
 
     refreshLiveScores();
     refreshMgrDropdown();

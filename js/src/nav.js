@@ -1,10 +1,10 @@
 // ─── NAVIGATION ─────────────────────────────────────────────
-const VIEWS = ['dashboard','alerts','customers','segments','trends','csmperf','reports','score','csv','settings','automations','auditlog','users','clients','help'];
+const VIEWS = ['homebase','dashboard','alerts','customers','segments','trends','csmperf','reports','score','csv','settings','automations','auditlog','users','clients','help'];
 const ADMIN_EMAILS = (_cfg && _cfg.ADMIN_EMAILS) || [];
 
 // ─── COLLAPSIBLE NAV GROUPS ─────────────────────────────────
 const NAV_GROUPS = {
-  main:     ['dashboard','alerts','customers','segments','trends','csmperf'],
+  main:     ['homebase','dashboard','alerts','customers','segments','trends','csmperf'],
   automate: ['automations','reports'],
   data:     ['score','csv'],
   config:   ['settings','auditlog']
@@ -87,6 +87,7 @@ function nav(v) {
     document.getElementById('form-title').textContent = 'Score a Customer';
   }
 
+  if (v === 'homebase')  renderHomeBase();
   if (v === 'dashboard') renderDashboard();
   if (v === 'alerts')    renderAlerts();
   if (v === 'customers') renderCustomers();

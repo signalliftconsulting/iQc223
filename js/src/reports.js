@@ -1146,7 +1146,7 @@ function reportEmailTab(which) {
           '<label style="font-size:.75rem;font-weight:600;color:var(--text)">Subject Prefix</label>' +
           '<input type="text" id="rem-sched-prefix" class="form-input" placeholder="[iQcadence Report]" value="' + escHtml(cfg.subject_prefix || '[iQcadence Report]') + '" style="font-size:.82rem"/>' +
           '<button class="btn btn-primary btn-sm" onclick="saveReportSchedule()" style="align-self:flex-start">Save Schedule</button>' +
-          '<p style="font-size:.7rem;color:var(--muted);font-style:italic;margin-top:2px">Scheduled reports are sent automatically when the app is opened at or after the configured time.</p>' +
+          '<p style="font-size:.7rem;color:var(--muted);font-style:italic;margin-top:2px">Scheduled reports are sent automatically by the server at the configured time, even if the app is not open.</p>' +
         '</div>' +
       '</div>';
   }
@@ -1282,4 +1282,187 @@ async function checkScheduledReports() {
       console.warn('Scheduled report failed:', key, err?.message || err);
     }
   }
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// REPORTS PAGE TABS — Report Templates / Scheduled Reports
+// ═══════════════════════════════════════════════════════════════
+
+function reportsTab(which) {
+  ['templates','schedules'].forEach(t => {
+    el('rpt-tab-'+t)?.classList.toggle('active', t === which);
+    el('rpt-pane-'+t)?.classList.toggle('active', t === which);
+  });
+  if (which === 'schedules') renderScheduledReports();
+}
+
+// ── Scheduled Reports Table ──
+
+let _schedEditKey = null;
+
+function renderScheduledReports() {
+  const container = el('scheduled-reports-container');
+  if (!container) return;
+
+  const schedules = automationsCfg.report_schedules || {};
+  const dayLabel = d => d ? d.charAt(0).toUpperCase() + d.slice(1) : '';
+
+  // Show only reports that have been configured (have recipients)
+  const configured = EMAILABLE_REPORTS.filter(r => {
+    const cfg = schedules[r.key];
+    return cfg && cfg.recipients;
+  });
+
+  if (!configured.length) {
+    container.innerHTML =
+      '<div style="text-align:center;padding:40px 20px">' +
+        '<div style="font-size:2rem;margin-bottom:8px">\u{1F4E7}</div>' +
+        '<p style="font-size:.92rem;color:var(--text);font-weight:600;margin-bottom:4px">No report schedules configured</p>' +
+        '<p style="font-size:.82rem;color:var(--muted)">Switch to <strong>Report Templates</strong> and click the <strong>Email</strong> button on any report to set up a schedule.</p>' +
+      '</div>';
+    return;
+  }
+
+  const editSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+  const checkSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+
+  const theadCols =
+    '<th>Report</th>' +
+    '<th>Status</th>' +
+    '<th>Frequency</th>' +
+    '<th>Day / Time</th>' +
+    '<th>Recipients</th>' +
+    '<th>Last Sent</th>' +
+    '<th style="width:80px">Actions</th>';
+
+  const rows = configured.map(r => {
+    const cfg = schedules[r.key] || {};
+    const isEditing = _schedEditKey === r.key;
+
+    const enabledHtml = '<label class="toggle-switch"><input type="checkbox" ' +
+      (cfg.enabled ? 'checked' : '') +
+      ' onchange="toggleSchedEnabled(\'' + r.key + '\', this.checked)"/><span class="toggle-slider"></span></label>';
+
+    const freqText = (cfg.frequency === 'daily' ? 'Daily' : 'Weekly');
+    const dayTimeText = cfg.frequency === 'daily'
+      ? (cfg.time || '09:00')
+      : dayLabel(cfg.day || 'monday') + ' @ ' + (cfg.time || '09:00');
+
+    const recipText = (cfg.recipients || '').length > 30
+      ? escHtml(cfg.recipients.substring(0, 28)) + '&hellip;'
+      : escHtml(cfg.recipients || '\u2014');
+
+    const lastSentText = cfg.last_sent
+      ? new Date(cfg.last_sent).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+      : '\u2014';
+
+    let inlineEditHtml = '';
+    if (isEditing) {
+      const days = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+      inlineEditHtml = '<tr><td colspan="7" style="padding:0 12px 10px">' +
+        '<div class="summary-inline-edit">' +
+          '<div class="inline-field">' +
+            '<label>Frequency</label>' +
+            '<div style="display:flex;gap:10px">' +
+              '<label style="font-size:.82rem;display:flex;align-items:center;gap:4px"><input type="radio" name="sched-freq-' + r.key + '" value="daily" ' + (cfg.frequency === 'daily' ? 'checked' : '') + '/> Daily</label>' +
+              '<label style="font-size:.82rem;display:flex;align-items:center;gap:4px"><input type="radio" name="sched-freq-' + r.key + '" value="weekly" ' + (cfg.frequency !== 'daily' ? 'checked' : '') + '/> Weekly</label>' +
+            '</div>' +
+          '</div>' +
+          '<div class="inline-field">' +
+            '<label>Day</label>' +
+            '<select id="sched-day-' + r.key + '" class="form-input" style="font-size:.82rem;max-width:160px">' +
+              days.map(d => '<option value="' + d + '"' + (cfg.day === d ? ' selected' : '') + '>' + dayLabel(d) + '</option>').join('') +
+            '</select>' +
+          '</div>' +
+          '<div class="inline-field">' +
+            '<label>Time</label>' +
+            '<input type="time" id="sched-time-' + r.key + '" class="form-input" value="' + (cfg.time || '09:00') + '" style="font-size:.82rem;max-width:140px"/>' +
+          '</div>' +
+          '<div class="inline-field">' +
+            '<label>Recipients</label>' +
+            '<input type="text" id="sched-recip-' + r.key + '" class="form-input" placeholder="team@company.com" value="' + escHtml(cfg.recipients || '') + '" style="font-size:.82rem;flex:1"/>' +
+          '</div>' +
+          '<div class="inline-field">' +
+            '<label>Subject Prefix</label>' +
+            '<input type="text" id="sched-prefix-' + r.key + '" class="form-input" placeholder="[iQcadence Report]" value="' + escHtml(cfg.subject_prefix || '[iQcadence Report]') + '" style="font-size:.82rem;flex:1"/>' +
+          '</div>' +
+          '<div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">' +
+            '<button class="btn btn-xs btn-ghost" style="color:var(--red)" onclick="removeReportSchedule(\'' + r.key + '\')">Remove Schedule</button>' +
+            '<button class="btn btn-xs btn-primary" onclick="saveSchedInline(\'' + r.key + '\')">Save</button>' +
+            '<button class="btn btn-xs btn-ghost" onclick="closeSchedInlineEdit()" style="color:var(--blue)">Done</button>' +
+          '</div>' +
+        '</div>' +
+      '</td></tr>';
+    }
+
+    return '<tr class="' + (isEditing ? 'editing' : '') + (!cfg.enabled ? ' sched-disabled' : '') + '">' +
+      '<td><strong>' + escHtml(r.label) + '</strong></td>' +
+      '<td>' + enabledHtml + '</td>' +
+      '<td style="font-size:.82rem">' + freqText + '</td>' +
+      '<td style="font-size:.82rem;color:var(--muted)">' + dayTimeText + '</td>' +
+      '<td style="font-size:.82rem;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis" title="' + escHtml(cfg.recipients || '') + '">' + recipText + '</td>' +
+      '<td style="font-size:.78rem;color:var(--muted)">' + lastSentText + '</td>' +
+      '<td>' +
+        '<button class="btn btn-xs btn-ghost" onclick="toggleSchedInlineEdit(\'' + r.key + '\')" title="' + (isEditing ? 'Close' : 'Edit') + '">' + (isEditing ? checkSvg : editSvg) + '</button>' +
+      '</td></tr>' +
+      inlineEditHtml;
+  }).join('');
+
+  container.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">' +
+      '<h3 style="margin:0;font-size:1rem;font-weight:700;color:var(--text)">Scheduled Reports</h3>' +
+      '<span style="font-size:.78rem;color:var(--muted)">' + configured.filter(r => (schedules[r.key] || {}).enabled).length + ' of ' + configured.length + ' active</span>' +
+    '</div>' +
+    '<table class="alert-summary-table">' +
+      '<thead><tr>' + theadCols + '</tr></thead>' +
+      '<tbody>' + rows + '</tbody>' +
+    '</table>' +
+    '<p style="font-size:.72rem;color:var(--muted);margin-top:12px;font-style:italic">To add a new schedule, switch to Report Templates and click the Email button on any report.</p>';
+}
+
+function toggleSchedInlineEdit(reportKey) {
+  _schedEditKey = (_schedEditKey === reportKey) ? null : reportKey;
+  renderScheduledReports();
+}
+
+function closeSchedInlineEdit() {
+  _schedEditKey = null;
+  renderScheduledReports();
+}
+
+function toggleSchedEnabled(reportKey, enabled) {
+  if (!automationsCfg.report_schedules) automationsCfg.report_schedules = {};
+  if (!automationsCfg.report_schedules[reportKey]) return;
+  automationsCfg.report_schedules[reportKey].enabled = enabled;
+  saveAutomationsCfg();
+  renderScheduledReports();
+}
+
+function saveSchedInline(reportKey) {
+  if (!automationsCfg.report_schedules) automationsCfg.report_schedules = {};
+  const cfg = automationsCfg.report_schedules[reportKey];
+  if (!cfg) return;
+
+  const freqRadio = document.querySelector('input[name="sched-freq-' + reportKey + '"]:checked');
+  cfg.frequency = freqRadio ? freqRadio.value : 'weekly';
+  cfg.day = el('sched-day-' + reportKey)?.value || 'monday';
+  cfg.time = el('sched-time-' + reportKey)?.value || '09:00';
+  cfg.recipients = (el('sched-recip-' + reportKey)?.value || '').trim();
+  cfg.subject_prefix = (el('sched-prefix-' + reportKey)?.value || '[iQcadence Report]').trim();
+
+  saveAutomationsCfg();
+  _schedEditKey = null;
+  renderScheduledReports();
+  toast('Report schedule saved', 'success');
+}
+
+function removeReportSchedule(reportKey) {
+  if (!automationsCfg.report_schedules || !automationsCfg.report_schedules[reportKey]) return;
+  automationsCfg.report_schedules[reportKey].enabled = false;
+  automationsCfg.report_schedules[reportKey].recipients = '';
+  saveAutomationsCfg();
+  _schedEditKey = null;
+  renderScheduledReports();
+  toast('Report schedule removed', 'success');
 }
