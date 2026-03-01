@@ -10183,29 +10183,22 @@ function filterByTag(tag) {
   renderCustomers();
 }
 
-// Bulksheet export — mirrors the visible customer table columns
+// Bulksheet export — all editable/importable fields (excludes auto-derived: score, status, created)
 function exportBulksheet() {
   const filtered = customers.filter(c => passesManagerFilter(c));
-  const hdr = 'Customer,Manager,Profile,Score,Momentum,Status,Stage,MRR,ARR,Tenure,Last Contact (days),Renewal Date,Months to Renewal,Next Touch,Tags';
+  const hdr = 'name,manager,scoring_profile,mrr,arr,tier,lifecycle,logins_30d,feature_adoption_pct,open_tickets,nps,csat,days_since_contact,renewal_date,months_to_renewal,growth_signal,tags,since,next_touch,note,sentiment';
   const rows = filtered.map(c => {
-    const mom = typeof getMomentum === 'function' ? getMomentum(c) : '';
-    const momLabel = mom > 0 ? 'Improving' : mom < 0 ? 'Declining' : 'Flat';
-    // Tenure as readable string
-    let tenure = '';
-    if (c.since) {
-      const ms = new Date() - new Date(c.since);
-      const months = Math.floor(ms / (1000*60*60*24*30.44));
-      if (months < 1) tenure = 'New';
-      else if (months < 12) tenure = months + 'mo';
-      else { const yrs = Math.floor(months/12), rem = months%12; tenure = rem ? `${yrs}y ${rem}mo` : `${yrs}y`; }
-    }
+    const latestNote = (c.notes||[]).length ? c.notes[c.notes.length-1].text : '';
+    const latestSent = (c.sentiment||[]).length ? c.sentiment[c.sentiment.length-1].val : '';
     return [
-      c.name, c.manager||'', c.scoring_profile||'Global Weights', c.score, momLabel,
-      c.status, c.lifecycle||'active',
-      c.mrr||0, c.arr||(c.mrr*12)||0,
-      tenure, c.days != null ? c.days : '',
-      c.renewal_date||'', c.renewal||0, c.next_touch||'',
-      (c.tags||[]).join('|')
+      c.name, c.manager||'', c.scoring_profile||'Global Weights',
+      c.mrr||0, c.arr||(c.mrr*12)||0, c.tier||'mid', c.lifecycle||'active',
+      c.logins != null ? c.logins : '', c.adoption != null ? c.adoption : '',
+      c.tickets != null ? c.tickets : '', c.nps != null ? c.nps : '',
+      c.csat != null ? c.csat : '', c.days != null ? c.days : '',
+      c.renewal_date||'', c.renewal||0, c.growth||'none',
+      (c.tags||[]).join('|'), c.since||'', c.next_touch||'',
+      latestNote, latestSent
     ].map(v => `"${String(v).replace(/"/g,'""')}"`)
     .join(',');
   });
