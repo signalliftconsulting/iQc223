@@ -10183,20 +10183,29 @@ function filterByTag(tag) {
   renderCustomers();
 }
 
-// Bulksheet export — import-compatible headers + current data, ready to re-upload
+// Bulksheet export — mirrors the visible customer table columns
 function exportBulksheet() {
   const filtered = customers.filter(c => passesManagerFilter(c));
-  const hdr = 'name,manager,score,status,mrr,arr,tier,lifecycle,logins_30d,feature_adoption_pct,open_tickets,nps,csat,days_since_contact,renewal_date,months_to_renewal,growth_signal,tags,since,next_touch,scoring_profile,note,sentiment,created';
+  const hdr = 'Customer,Manager,Profile,Score,Momentum,Status,Stage,MRR,ARR,Tenure,Last Contact (days),Renewal Date,Months to Renewal,Next Touch,Tags';
   const rows = filtered.map(c => {
-    const latestNote = (c.notes||[]).length ? c.notes[c.notes.length-1].text : '';
-    const latestSent = (c.sentiment||[]).length ? c.sentiment[c.sentiment.length-1].val : '';
+    const mom = typeof getMomentum === 'function' ? getMomentum(c) : '';
+    const momLabel = mom > 0 ? 'Improving' : mom < 0 ? 'Declining' : 'Flat';
+    // Tenure as readable string
+    let tenure = '';
+    if (c.since) {
+      const ms = new Date() - new Date(c.since);
+      const months = Math.floor(ms / (1000*60*60*24*30.44));
+      if (months < 1) tenure = 'New';
+      else if (months < 12) tenure = months + 'mo';
+      else { const yrs = Math.floor(months/12), rem = months%12; tenure = rem ? `${yrs}y ${rem}mo` : `${yrs}y`; }
+    }
     return [
-      c.name, c.manager||'', c.score, c.status,
-      c.mrr||0, c.arr||0, c.tier||'mid', c.lifecycle||'active',
-      c.logins != null ? c.logins : '', c.adoption != null ? c.adoption : '', c.tickets != null ? c.tickets : '', c.nps != null ? c.nps : '', c.csat != null ? c.csat : '', c.days != null ? c.days : '',
-      c.renewal_date||'', c.renewal||0, c.growth||'none',
-      (c.tags||[]).join('|'), c.since||'', c.next_touch||'',
-      c.scoring_profile||'Global Weights', latestNote, latestSent, c.created||''
+      c.name, c.manager||'', c.scoring_profile||'Global Weights', c.score, momLabel,
+      c.status, c.lifecycle||'active',
+      c.mrr||0, c.arr||(c.mrr*12)||0,
+      tenure, c.days != null ? c.days : '',
+      c.renewal_date||'', c.renewal||0, c.next_touch||'',
+      (c.tags||[]).join('|')
     ].map(v => `"${String(v).replace(/"/g,'""')}"`)
     .join(',');
   });
