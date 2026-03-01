@@ -547,7 +547,7 @@ function filterByTag(tag) {
 // Bulksheet export — all editable/importable fields (excludes auto-derived: score, status, created)
 function exportBulksheet() {
   const filtered = customers.filter(c => passesManagerFilter(c));
-  const hdr = 'name,manager,scoring_profile,mrr,arr,tier,lifecycle,logins_30d,feature_adoption_pct,open_tickets,nps,csat,days_since_contact,renewal_date,months_to_renewal,growth_signal,tags,since,next_touch,note,sentiment';
+  const hdr = 'name,manager,scoring_profile,mrr,arr,tier,lifecycle,logins_30d,feature_adoption_pct,open_tickets,nps,csat,days_since_contact,renewal_date,months_to_renewal,growth_signal,tags,since,next_touch,sentiment,note';
   const rows = filtered.map(c => {
     const latestNote = (c.notes||[]).length ? c.notes[c.notes.length-1].text : '';
     const latestSent = (c.sentiment||[]).length ? c.sentiment[c.sentiment.length-1].val : '';
@@ -559,7 +559,7 @@ function exportBulksheet() {
       c.csat != null ? c.csat : '', c.days != null ? c.days : '',
       c.renewal_date||'', c.renewal||0, c.growth||'none',
       (c.tags||[]).join('|'), c.since||'', c.next_touch||'',
-      latestNote, latestSent
+      latestSent, latestNote
     ].map(v => `"${String(v).replace(/"/g,'""')}"`)
     .join(',');
   });
