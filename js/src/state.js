@@ -179,7 +179,6 @@ const COL_DEFS = [
   { key:'manager',   label:'Manager',      ftype:'text',   sortKey:'manager' },
   { key:'profile',   label:'Profile',      ftype:'enum',   sortKey:'profile', enumFn:()=>profiles.map(p=>p.name) },
   { key:'score',     label:'Score',        ftype:'number', sortKey:'score' },
-  { key:'_spark',    label:'Trend',        ftype:null,     sortKey:'_trend' },
   { key:'_momentum', label:'Momentum',     ftype:'enum',   sortKey:'_momentum',  enumVals:['up','dn','flat','new'] },
   { key:'status',    label:'Status',       ftype:'enum',   sortKey:'status',     enumVals:['critical','risk','watch','healthy','expand'] },
   { key:'lifecycle', label:'Stage',        ftype:'enum',   sortKey:'lifecycle',  enumVals:['onboarding','active','atrisk','won','churned'] },

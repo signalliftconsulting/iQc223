@@ -185,7 +185,6 @@ const COL_DEFS = [
   { key:'manager',   label:'Manager',      ftype:'text',   sortKey:'manager' },
   { key:'profile',   label:'Profile',      ftype:'enum',   sortKey:'profile', enumFn:()=>profiles.map(p=>p.name) },
   { key:'score',     label:'Score',        ftype:'number', sortKey:'score' },
-  { key:'_spark',    label:'Trend',        ftype:null,     sortKey:'_trend' },
   { key:'_momentum', label:'Momentum',     ftype:'enum',   sortKey:'_momentum',  enumVals:['up','dn','flat','new'] },
   { key:'status',    label:'Status',       ftype:'enum',   sortKey:'status',     enumVals:['critical','risk','watch','healthy','expand'] },
   { key:'lifecycle', label:'Stage',        ftype:'enum',   sortKey:'lifecycle',  enumVals:['onboarding','active','atrisk','won','churned'] },
@@ -204,7 +203,7 @@ const ENUM_DISPLAY = {
   up:'Improving', dn:'Declining', flat:'Flat', new:'New',
 };
 
-// Dashboard-specific sort state (heatmap + recent table)
+// Heatmap sort state
 let dashHeatSort  = { key: 'score', dir: 1 };  // 1=asc (worst first default)
 let detailId   = null;
 let pendingResult = null; // last scored result not yet saved
@@ -307,7 +306,7 @@ document.addEventListener('keydown', e => {
     return;
   }
   // Number shortcuts for nav (1-6)
-  const navMap = { '1':'homebase','2':'alerts','3':'customers','4':'score','5':'csv','6':'settings' };
+  const navMap = { '1':'dashboard','2':'alerts','3':'customers','4':'score','5':'csv','6':'settings' };
   if (!e.metaKey && !e.ctrlKey && !e.altKey && navMap[e.key]) {
     nav(navMap[e.key]);
   }
@@ -1753,6 +1752,7 @@ function getMomentum(c) {
 
 function momentumHTML(c) {
   const m = getMomentum(c);
+  const diff = (c.history && c.history.length >= 2) ? getDelta7d(c) : 0;
   const svgUp   = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>`;
   const svgDn   = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>`;
   const svgFlat = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
@@ -1764,7 +1764,8 @@ function momentumHTML(c) {
     new:  { cls:'new',  icon:svgNew,  label:'New' }
   };
   const { cls, icon, label } = map[m];
-  return `<span class="momentum ${cls}">${icon} ${label}</span>`;
+  const delta = m === 'up' ? ` +${diff}` : m === 'dn' ? ` ${diff}` : '';
+  return `<span class="momentum ${cls}">${icon} ${label}${delta}</span>`;
 }
 
 // ─── RENEWAL URGENCY ─────────────────────────────────────────
@@ -1999,6 +2000,7 @@ function renderBellDd() {
 // Home Base = "Here's what the data is telling you" (narrative, pattern-based).
 
 let _hbPeriodDays = 7; // comparison period: 7, 14, or 30
+
 function setInsightFilter(label, ids) {
   if (!ids || !ids.length) return;
   insightFilter = { label: label, ids: new Set(ids) };
@@ -2178,8 +2180,76 @@ function _renderHomeBase() {
   const topRiskMgr = Object.entries(mgrRisk).sort((a,b) => b[1] - a[1])[0];
   const mgrConcentrated = topRiskMgr && atRiskMRR > 0 && topRiskMgr[1] / atRiskMRR > 0.4;
 
+  // ── Day-over-day / short-term trend analysis for briefing ──
+  // Uses same approach as _insightDayOverDay: compare last two history entries per account
+  const _dodBriefing = (() => {
+    const dodPairs = [];
+    active.forEach(c => {
+      const hist = (c.history || []).filter(h => h.date)
+        .sort((a,b) => new Date(b.date) - new Date(a.date)); // newest first
+      if (hist.length < 2) return;
+      const latest = hist[0];
+      const prev   = hist[1];
+      // Normalize to calendar days (timezone-safe: both shifted same way)
+      const d1 = new Date(latest.date); d1.setHours(0,0,0,0);
+      const d2 = new Date(prev.date);   d2.setHours(0,0,0,0);
+      const dayGap = Math.round((d1 - d2) / 86400000);
+      if (dayGap < 1 || dayGap > 3) return;
+      const delta = latest.score - prev.score;
+      dodPairs.push({ c, delta, from: prev.score, to: latest.score, prevSignals: prev.signals, currSignals: latest.signals, dayGap });
+    });
+
+    if (!dodPairs.length) return null;
+
+    const avgDelta = Math.round(dodPairs.reduce((s,p) => s + p.delta, 0) / dodPairs.length * 10) / 10;
+    const droppers = dodPairs.filter(p => p.delta <= -5).sort((a,b) => a.delta - b.delta);
+
+    // Aggregate signal changes across droppers to explain WHY
+    const signalChanges = { logins: 0, adoption: 0, tickets: 0, nps: 0, csat: 0, days: 0 };
+    const signalCounts  = { logins: 0, adoption: 0, tickets: 0, nps: 0, csat: 0, days: 0 };
+    droppers.slice(0, 10).forEach(p => {
+      const curr = p.currSignals || {}, prev = p.prevSignals || {};
+      if (curr.logins != null && prev.logins != null)     { signalChanges.logins   += curr.logins - prev.logins;     signalCounts.logins++; }
+      if (curr.adoption != null && prev.adoption != null) { signalChanges.adoption += curr.adoption - prev.adoption; signalCounts.adoption++; }
+      if (curr.tickets != null && prev.tickets != null)   { signalChanges.tickets  += curr.tickets - prev.tickets;   signalCounts.tickets++; }
+      if (curr.nps != null && prev.nps != null)           { signalChanges.nps      += curr.nps - prev.nps;           signalCounts.nps++; }
+      if (curr.csat != null && prev.csat != null)         { signalChanges.csat     += curr.csat - prev.csat;         signalCounts.csat++; }
+      if (curr.days != null && prev.days != null)         { signalChanges.days     += curr.days - prev.days;         signalCounts.days++; }
+    });
+    const reasons = [];
+    if (signalCounts.logins && signalChanges.logins / signalCounts.logins < -2)    reasons.push(`logins dropped avg ${Math.abs(Math.round(signalChanges.logins / signalCounts.logins * 10) / 10)}/mo`);
+    if (signalCounts.adoption && signalChanges.adoption / signalCounts.adoption < -3) reasons.push(`adoption fell avg ${Math.abs(Math.round(signalChanges.adoption / signalCounts.adoption))}%`);
+    if (signalCounts.tickets && signalChanges.tickets / signalCounts.tickets > 0.5)  reasons.push(`tickets rose avg +${(signalChanges.tickets / signalCounts.tickets).toFixed(1)}`);
+    if (signalCounts.nps && signalChanges.nps / signalCounts.nps < -0.5)            reasons.push(`NPS declined avg ${(signalChanges.nps / signalCounts.nps).toFixed(1)}`);
+    if (signalCounts.csat && signalChanges.csat / signalCounts.csat < -0.2)         reasons.push(`CSAT dropped avg ${Math.abs((signalChanges.csat / signalCounts.csat).toFixed(1))}`);
+    if (signalCounts.days && signalChanges.days / signalCounts.days > 3)            reasons.push(`contact gaps widened avg +${Math.round(signalChanges.days / signalCounts.days)}d`);
+
+    return { avgDelta, droppers: droppers.length, topDroppers: droppers.slice(0, 3), reasons, total: dodPairs.length };
+  })();
+
+  // Also compute 7-day delta for the briefing
+  const _weekDelta = (() => {
+    const deltas = withHist.map(c => getDeltaPeriod(c)).filter(d => d !== 0);
+    if (!deltas.length) return null;
+    return Math.round(deltas.reduce((s,d) => s+d, 0) / deltas.length * 10) / 10;
+  })();
+
   // Build prioritized insight pool (max 2-3 signals)
   const signals = [];
+
+  // Day-over-day trend callout (highest priority when significant)
+  if (_dodBriefing && _dodBriefing.avgDelta <= -2) {
+    const d = _dodBriefing;
+    let text = `Portfolio avg score dropped ${Math.abs(d.avgDelta)} pts day-over-day across ${d.total} accounts`;
+    if (d.droppers > 0) text += ` \u2014 ${d.droppers} fell 5+ pts`;
+    if (d.topDroppers.length) text += ` (${d.topDroppers.map(p => p.c.name + ' ' + p.delta).join(', ')})`;
+    text += '.';
+    if (d.reasons.length) text += ` Key drivers: ${d.reasons.join(', ')}.`;
+    else if (d.droppers > 0) text += ' Review recent signal changes to identify the cause.';
+    signals.push({ p: 0, text });
+  } else if (_weekDelta !== null && _weekDelta <= -3) {
+    signals.push({ p: 1, text: `Portfolio avg score is trending down ${Math.abs(_weekDelta)} pts over the selected period.` });
+  }
 
   // Silent decliners — early warning, high value
   if (silentDecliners.length >= 2) {
@@ -2348,8 +2418,8 @@ function _renderHomeBase() {
 
   // ── Most Improved / Biggest Drops (moved from Dashboard) ──
   html += '<div class="hb-movers-grid">';
-  html += '<div class="card" style="padding:16px 20px"><div class="card-hd" style="margin-bottom:8px"><div class="hb-section-hd" style="margin-bottom:0">Most Improved</div></div><div id="wins-wrap"></div></div>';
-  html += '<div class="card" style="padding:16px 20px"><div class="card-hd" style="margin-bottom:8px"><div class="hb-section-hd" style="margin-bottom:0">Biggest Drops</div></div><div id="drops-wrap"></div></div>';
+  html += '<div class="card" style="padding:16px 20px"><div class="card-hd" style="margin-bottom:8px"><div class="hb-section-hd" style="margin-bottom:0">Most Improved <span style="font-weight:500;font-size:.72rem;color:var(--muted)">7d</span></div></div><div id="wins-wrap"></div></div>';
+  html += '<div class="card" style="padding:16px 20px"><div class="card-hd" style="margin-bottom:8px"><div class="hb-section-hd" style="margin-bottom:0">Biggest Drops <span style="font-weight:500;font-size:.72rem;color:var(--muted)">7d</span></div></div><div id="drops-wrap"></div></div>';
   html += '</div>';
 
   // ── This Week's Focus ──
@@ -2577,6 +2647,7 @@ function _statusColor(status) {
 function _generateInsights(active, now, cutoff) {
   const insights = [];
   const generators = [
+    _insightDayOverDay,
     _insightPortfolioMomentum,
     _insightWinLossBalance,
     _insightBestWorstWeek,
@@ -2936,8 +3007,8 @@ function _insightContactGaps(active) {
   let extra = '';
   if (enterprise.length > 0) extra += `, including ${enterprise.length} Enterprise`;
   if (atRiskStale.length > 0) extra += ` and ${atRiskStale.length} at-risk`;
-  const staleIds = JSON.stringify(stale.map(c => c.id));
 
+  const staleIds = JSON.stringify(stale.map(c => c.id));
   return {
     category: 'Workload',
     priority: atRiskStale.length > 2 ? 2 : 3,
@@ -3037,8 +3108,8 @@ function _insightAdoptionCorrelation(active) {
 
   if (riskRate <= overallRiskRate + 10) return null;
 
-  const laIds = JSON.stringify(lowAdoption.map(c => c.id));
   const multiplier = (riskRate / Math.max(overallRiskRate, 1)).toFixed(1);
+  const laIds = JSON.stringify(lowAdoption.map(c => c.id));
 
   return {
     category: 'Engagement',
@@ -3065,6 +3136,64 @@ function _insightTicketSpike(active) {
     title: `${highTickets.length} accounts have 5+ open tickets`,
     detail: `These accounts have elevated ticket volume (portfolio avg: ${avgTickets}). High ticket counts often precede health declines — review for patterns.`,
     action: { label: 'View Customers', fn: `setInsightFilter('${highTickets.length} accounts with 5+ tickets',${JSON.stringify(highTickets.map(c=>c.id))})` }
+  };
+}
+
+// ── INSIGHT: Day-over-Day Drop Detection ──
+function _insightDayOverDay(active) {
+  const dodDroppers = [];
+  const dodAll = [];
+
+  active.forEach(c => {
+    const hist = (c.history || []).filter(h => h.date)
+      .sort((a,b) => new Date(b.date) - new Date(a.date)); // newest first
+    if (hist.length < 2) return;
+
+    const latest = hist[0];
+    const prev   = hist[1];
+    // Only compare if the two most recent entries are on different calendar days
+    const d1 = new Date(latest.date); d1.setHours(0,0,0,0);
+    const d2 = new Date(prev.date);   d2.setHours(0,0,0,0);
+    const dayGap = Math.round((d1 - d2) / 86400000);
+    if (dayGap < 1 || dayGap > 3) return; // adjacent days only (allow weekend gap)
+
+    const delta = latest.score - prev.score;
+    dodAll.push({ c, delta, from: prev.score, to: latest.score });
+    if (delta <= -8) dodDroppers.push({ c, delta, from: prev.score, to: latest.score });
+  });
+
+  if (!dodAll.length) return null;
+
+  const avgDoD = Math.round(dodAll.reduce((s,d) => s + d.delta, 0) / dodAll.length * 10) / 10;
+
+  // Only fire if significant: portfolio avg drop ≥ 3 OR ≥ 2 accounts dropped ≥ 8
+  if (avgDoD > -3 && dodDroppers.length < 2) return null;
+
+  // Sort droppers by biggest drop
+  dodDroppers.sort((a,b) => a.delta - b.delta);
+  const top3 = dodDroppers.slice(0, 3);
+  const detailParts = top3.map(d =>
+    `${d.c.name} fell ${Math.abs(d.delta)} pts (${d.from}\u2009→\u2009${d.to})`
+  );
+
+  const title = dodDroppers.length >= 2
+    ? `Significant overnight drop \u2014 ${dodDroppers.length} account${dodDroppers.length !== 1 ? 's' : ''} fell 8+ pts`
+    : `Portfolio dropped ${Math.abs(avgDoD)} pts day-over-day`;
+
+  const detail = detailParts.length
+    ? detailParts.join(', ') + '. Review signal changes to understand the cause.'
+    : `Average portfolio score fell ${Math.abs(avgDoD)} pts from the prior day. Check for broad signal changes.`;
+
+  const ids = dodDroppers.map(d => d.c.id);
+
+  return {
+    category: 'Trend',
+    priority: 1,
+    title,
+    detail,
+    action: ids.length
+      ? { label: 'View Affected Accounts', fn: `setInsightFilter('DoD significant drops',${JSON.stringify(ids)})` }
+      : { label: 'View 1-Day Trend', fn: "setTrendRange('1d');nav('trends')" }
   };
 }
 
@@ -3252,26 +3381,12 @@ function renderWins(active) {
   const wrap = el('wins-wrap');
   if (!wrap) return;
 
-  const weekAgo = new Date();
-  weekAgo.setDate(weekAgo.getDate() - 7);
-
-  // Find accounts with history entries in the last 7 days that improved
+  // Use getDelta7d() as single source of truth (matches detail panel & customers table)
   const wins = [];
   active.forEach(c => {
     if (!c.history || c.history.length < 2) return;
-    // Find the most recent score from the last 7 days
-    const recent = [...c.history]
-      .filter(h => new Date(h.date) >= weekAgo)
-      .sort((a,b) => new Date(b.date) - new Date(a.date));
-    if (!recent.length) return;
-    // Compare to the score just before this week
-    const beforeWeek = [...c.history]
-      .filter(h => new Date(h.date) < weekAgo)
-      .sort((a,b) => new Date(b.date) - new Date(a.date));
-    const prevScore = beforeWeek.length ? beforeWeek[0].score : c.history[0].score;
-    const newScore  = recent[0].score;
-    const delta     = newScore - prevScore;
-    if (delta > 0) wins.push({ c, delta, newScore, prevScore });
+    const delta = getDelta7d(c);
+    if (delta > 0) wins.push({ c, delta, newScore: c.score });
   });
 
   if (!wins.length) {
@@ -3310,23 +3425,12 @@ function renderDrops(active) {
   const wrap = el('drops-wrap');
   if (!wrap) return;
 
-  const weekAgo = new Date();
-  weekAgo.setDate(weekAgo.getDate() - 7);
-
+  // Use getDelta7d() as single source of truth (matches detail panel & customers table)
   const drops = [];
   active.forEach(c => {
     if (!c.history || c.history.length < 2) return;
-    const recent = [...c.history]
-      .filter(h => new Date(h.date) >= weekAgo)
-      .sort((a,b) => new Date(b.date) - new Date(a.date));
-    if (!recent.length) return;
-    const beforeWeek = [...c.history]
-      .filter(h => new Date(h.date) < weekAgo)
-      .sort((a,b) => new Date(b.date) - new Date(a.date));
-    const prevScore = beforeWeek.length ? beforeWeek[0].score : c.history[0].score;
-    const newScore  = recent[0].score;
-    const delta     = newScore - prevScore;
-    if (delta < 0) drops.push({ c, delta, newScore, prevScore });
+    const delta = getDelta7d(c);
+    if (delta < 0) drops.push({ c, delta, newScore: c.score });
   });
 
   if (!drops.length) {
@@ -3362,8 +3466,6 @@ function renderDrops(active) {
   }).join('') + dropsSeeAll;
 }
 
-// ─── ALERTS ─────────────────────────────────────────────────
-
 // Compute a customer's 7-day score delta (used for See All filtering + sorting)
 function getDelta7d(c) {
   const weekAgo = new Date();
@@ -3378,7 +3480,7 @@ function getDelta7d(c) {
   return recent[0].score - prev;
 }
 
-// ─── RENEWAL PIPELINE WIDGET ─────────────────────────────────────────────────
+// ─── RENEWAL PIPELINE WIDGET ─────────────────────────────────
 function renderRenewalPipeline(active) {
   const wrap = el('renewal-pipeline-wrap');
   if (!wrap) return;
@@ -3433,215 +3535,6 @@ function showAllDelta(direction) {
   sortKey = '_delta';
   sortDir = direction === 'up' ? -1 : 1; // improvements desc, drops asc
   nav('customers');
-}
-
-// ─── PRIORITY LIST ───────────────────────────────────────────
-function calcPriorityScore(c) {
-  try {
-    let score = 0;
-    const mrrK = (c.mrr || 0) / 1000; // MRR in thousands
-
-    // ── Health risk — more weight for lower scores ──
-    score += Math.max(0, 100 - c.score) * 0.35;
-
-    // ── Renewal urgency ──
-    const u = getRenewalUrgency(c);
-    if (u) score += u.score * 0.30;
-
-    // ── Last touch cadence ──
-    const cad = getCadenceStatus(c);
-    if (cad.status === 'overdue') score += 35;
-    else if (cad.status === 'warn') score += 15;
-
-    // ── Momentum — MRR-weighted: large declining accounts surface faster ──
-    const mom = getMomentum(c);
-    if (mom === 'dn') score += 20 + Math.min(15, Math.round(mrrK * 0.3));
-
-    // ── MRR impact — logarithmic scale so large accounts always rise ──
-    // $1K→+5  $5K→+13  $10K→+17  $25K→+23  $50K→+28  $100K+→+33
-    if (mrrK > 0) score += Math.min(33, Math.round(Math.log2(mrrK + 1) * 5));
-
-    // ── Large account score shift — even "healthy" accounts that drop need attention ──
-    const delta7 = getDelta7d(c);
-    if (delta7 <= -5 && mrrK >= 5) {
-      // Bigger drop + bigger MRR = more urgency
-      score += Math.min(25, Math.round(Math.abs(delta7) * 0.8 + mrrK * 0.15));
-    }
-
-    // ── Negative sentiment ──
-    const sent = latestSentiment(c);
-    if (sent?.val === 'negative') score += 15;
-
-    // ── Low engagement — logins & adoption ──
-    if (c.logins != null && c.logins < 5) score += 12;
-    if (c.adoption != null && c.adoption < 30) score += 10;
-
-    // ── NPS / CSAT ──
-    if (npsIsDetractor(c.nps)) score += 15;
-    if (csatIsPoor(c.csat)) score += 12;
-
-    // ── Multiple risk signals compound — accounts with 3+ issues are emergencies ──
-    let riskSignals = 0;
-    if (c.status === 'critical' || c.status === 'risk') riskSignals++;
-    if (mom === 'dn') riskSignals++;
-    if (cad.status === 'overdue') riskSignals++;
-    if (u?.level === 'critical' || u?.level === 'high') riskSignals++;
-    if (sent?.val === 'negative') riskSignals++;
-    if (c.tickets >= 3) riskSignals++;
-    if (c.logins != null && c.logins < 5) riskSignals++;
-    if (c.adoption != null && c.adoption < 30) riskSignals++;
-    if (npsIsDetractor(c.nps)) riskSignals++;
-    if (csatIsPoor(c.csat)) riskSignals++;
-    if (riskSignals >= 3) score += 15; // compound risk bonus
-
-    // ── Expansion opportunity ──
-    if (c.status === 'expand' && c.growth === 'strong') score += 12;
-    if (c.status === 'expand' && mrrK > 5)              score += 8;
-
-    return Math.round(score);
-  } catch(e) { return 0; }
-}
-
-function buildPriorityReasons(c) {
-  const reasons = [];
-  const cad    = getCadenceStatus(c);
-  const u      = getRenewalUrgency(c);
-  const mom    = getMomentum(c);
-  const sent   = latestSentiment(c);
-  const delta7 = getDelta7d(c);
-  const mrrK   = (c.mrr || 0) / 1000;
-
-  // ── Negative / urgent signals first ──
-  if (c.status === 'critical')                reasons.push('Critical health');
-  else if (c.status === 'risk')               reasons.push('At risk score');
-  else if (c.status === 'watch')              reasons.push('Score needs monitoring');
-
-  if (cad.status === 'overdue')               reasons.push(c.days != null ? `No contact in ${c.days}d` : 'Contact overdue');
-  else if (cad.status === 'warn')             reasons.push(c.days != null ? `Touch overdue (${c.days}d)` : 'Touch overdue');
-
-  if (u?.level === 'critical')               reasons.push(`Renewal in ${c.renewal}mo — urgent`);
-  else if (u?.level === 'high')              reasons.push(`Renewal in ${c.renewal}mo`);
-
-  if (mom === 'dn')                          reasons.push('Score declining');
-  if (sent?.val === 'negative')              reasons.push('Negative sentiment');
-  if (c.tickets >= 3)                        reasons.push(`${c.tickets} open tickets`);
-  if (npsIsDetractor(c.nps))                 reasons.push(`NPS detractor (${npsDisplay(c.nps)})`);
-  if (csatIsPoor(c.csat))                    reasons.push(`Poor CSAT (${csatDisplay(c.csat)})`);
-  if (c.logins != null && c.logins < 5)     reasons.push(`Low logins (${c.logins}/mo)`);
-  if (c.adoption != null && c.adoption < 30) reasons.push(`Low adoption (${c.adoption}%)`);
-
-  // ── Large account shift — surface even for healthy accounts ──
-  if (delta7 <= -5 && mrrK >= 5 && reasons.length < 2) {
-    reasons.push(`Dropped ${Math.abs(delta7)}pts this week · $${fmtNum(c.mrr)} MRR`);
-  }
-
-  // ── Compound risk ──
-  let riskSignals = 0;
-  if (c.status === 'critical' || c.status === 'risk') riskSignals++;
-  if (mom === 'dn') riskSignals++;
-  if (cad.status === 'overdue') riskSignals++;
-  if (u?.level === 'critical' || u?.level === 'high') riskSignals++;
-  if (sent?.val === 'negative') riskSignals++;
-  if (c.tickets >= 3) riskSignals++;
-  if (c.logins != null && c.logins < 5) riskSignals++;
-  if (c.adoption != null && c.adoption < 30) riskSignals++;
-  if (npsIsDetractor(c.nps)) riskSignals++;
-  if (csatIsPoor(c.csat)) riskSignals++;
-  if (riskSignals >= 3 && reasons.length < 3) reasons.push('Multiple risk signals');
-
-  // ── Positive signals for healthy/expansion ──
-  if (!reasons.length) {
-    if (c.status === 'expand' && c.growth === 'strong') reasons.push('Expansion ready');
-    else if (c.status === 'expand')                     reasons.push('High health · expansion candidate');
-    else if (c.status === 'healthy' && mrrK > 10)       reasons.push('High-value healthy account');
-    else if (c.status === 'healthy')                    reasons.push('Healthy · maintain cadence');
-    if (u?.level === 'medium')                          reasons.push(`Renewal in ${c.renewal}mo`);
-    if (mrrK > 10 && !reasons.length)                   reasons.push('High MRR account');
-  }
-
-  // ── Fallback ──
-  if (!reasons.length) reasons.push('Scheduled check-in due');
-
-  return reasons.slice(0, 2).join(' · ');
-}
-
-function renderPriorityList() { try { _renderPriorityList(); } catch(e) { console.error('renderPriorityList error:', e); } }
-function _renderPriorityList() {
-  // Support both old (priority-list-wrap) and new (priority-table-wrap) element IDs
-  const wrap = el('priority-table-wrap') || el('priority-list-wrap');
-  if (!wrap) return;
-  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
-  if (!active.length) {
-    wrap.innerHTML = '<p style="font-size:.82rem;color:var(--muted);text-align:center;padding:28px 0">No customers yet. Score your first customer to see priority recommendations.</p>';
-    return;
-  }
-  const ranked = [...active]
-    .map(c => ({ c, pri: calcPriorityScore(c) }))
-    .sort((a,b) => b.pri - a.pri)
-    .slice(0, 10);
-
-  const statusRankCls = { critical:'pr-critical', risk:'pr1', watch:'pr-watch', healthy:'pr2', expand:'pr-expand' };
-
-  const rows = ranked.map(({ c }, i) => {
-    const urg = getRenewalUrgency(c);
-    const urgColor = { Critical:'var(--red)', High:'var(--amber)', Medium:'var(--blue)', Low:'var(--subtle)', '':'var(--subtle)' }[urg] || 'var(--subtle)';
-    const growth = c.growth === 'up' ? '<span style="color:var(--green);font-weight:700">Up</span>'
-                 : c.growth === 'dn' ? '<span style="color:var(--red);font-weight:700">Down</span>'
-                 : '<span style="color:var(--subtle)">Flat</span>';
-    const lastTouch = c.days != null ? (c.days === 0 ? 'Today' : `${c.days}d ago`) : '—';
-    const renewalStr = (() => {
-      if (c.renewal_date) {
-        const d = new Date(c.renewal_date);
-        const today = new Date(); today.setHours(0,0,0,0);
-        const days = Math.round((d - today) / 86400000);
-        const col = days < 0 ? '#dc2626' : days <= 30 ? '#ea580c' : days <= 90 ? '#d97706' : 'var(--muted)';
-        const lbl = days < 0 ? 'Overdue' : days === 0 ? 'Today' : `${days}d`;
-        return `<span style="color:${col};font-weight:700">${lbl}</span>`;
-      }
-      if (c.renewal != null && c.renewal >= 0) {
-        const urgColor2 = urg?.level === 'critical' ? '#dc2626' : urg?.level === 'high' ? '#ea580c' : 'var(--muted)';
-        return `<span style="color:${urgColor2};font-weight:700">${c.renewal}mo</span>`;
-      }
-      return '<span style="color:var(--subtle)">—</span>';
-    })();
-    return `<tr onclick="openDetail('${escHtml(c.id)}')">
-      <td style="padding-left:14px">
-        <div style="display:flex;align-items:center;gap:8px">
-          <span class="p-rank ${statusRankCls[c.status]||'pr3'}">${i+1}</span>
-          <div>
-            <div style="font-weight:700;font-size:.83rem">${escHtml(c.name)}</div>
-            <div style="font-size:.68rem;color:var(--muted);margin-top:1px">${buildPriorityReasons(c)}</div>
-          </div>
-        </div>
-      </td>
-      <td>${scoreHTML(c)}</td>
-      <td style="font-weight:700">${c.mrr ? '$'+fmtNum(c.mrr) : '—'}</td>
-      <td>${renewalStr}</td>
-      <td>${growth}</td>
-      <td style="font-size:.73rem;color:var(--muted)">${lastTouch}</td>
-      <td style="font-size:.73rem;color:var(--muted)">${escHtml(c.manager||'—')}</td>
-      <td>
-        <div class="qa-btns">
-          <button class="btn btn-xs btn-ghost" title="Open account" onclick="event.stopPropagation();openDetail('${escHtml(c.id)}')">Open</button>
-          <button class="btn btn-xs btn-outline" title="Log a touch" onclick="event.stopPropagation();openDetail('${escHtml(c.id)}');setTimeout(()=>el('note-text')?.focus(),400)">Log</button>
-        </div>
-      </td>
-    </tr>`;
-  }).join('');
-
-  wrap.innerHTML = `<table class="ptbl">
-    <thead><tr>
-      <th style="padding-left:14px">Account</th>
-      <th>Health</th>
-      <th>MRR</th>
-      <th>Renewal</th>
-      <th>Growth</th>
-      <th>Last Touch</th>
-      <th>Owner</th>
-      <th></th>
-    </tr></thead>
-    <tbody>${rows}</tbody>
-  </table>`;
 }
 
 
@@ -3909,6 +3802,7 @@ function bulkSnooze(days) {
   saveSettings();
   logAudit('bulk_snooze', null, '', { summary: `${n} alert${n===1?'':'s'} snoozed for ${days}d` });
   renderAlerts();
+
   toast(`${n} alert${n===1?'':'s'} snoozed for ${days} day${days===1?'':'s'}`, 'default');
 }
 
@@ -3923,6 +3817,7 @@ function bulkDismiss() {
   saveSettings();
   logAudit('bulk_dismiss', null, '', { summary: `${n} alert${n===1?'':'s'} dismissed` });
   renderAlerts();
+
   toast(`${n} alert${n===1?'':'s'} dismissed`, 'default');
 }
 
@@ -4711,6 +4606,7 @@ function snoozeAlert(aid, days=7) {
   saveSettings();
   logAudit('alert_snoozed', ai.custId, ai.custName, { summary: `Alert snoozed for ${days}d — ${ai.catLabel}` });
   renderAlerts();
+
   toast(`Alert snoozed for ${days} day${days===1?'':'s'} ⏱`, 'default');
 }
 
@@ -4733,6 +4629,7 @@ function dismissAlert(aid) {
   saveSettings();
   logAudit('alert_dismissed', ai.custId, ai.custName, { summary: `Alert dismissed — ${ai.catLabel}` });
   renderAlerts();
+
   toast('Alert dismissed', 'default');
 }
 
@@ -4742,6 +4639,7 @@ function unsnooze(aid) {
   saveSettings();
   logAudit('alert_unsnoozed', ai.custId, ai.custName, { summary: `Alert unsnoozed — ${ai.catLabel}` });
   renderAlerts();
+
 }
 
 function clearSnoozed() {
@@ -4749,6 +4647,7 @@ function clearSnoozed() {
   saveSettings();
   logAudit('alerts_cleared', null, '', { summary: 'All snoozed alerts cleared' });
   renderAlerts();
+
   toast('Snoozed alerts cleared', 'success');
 }
 
@@ -5272,8 +5171,8 @@ function _renderCustomers() {
 
   // Sort
   list.sort((a,b) => {
-    let av = sortKey==='_delta'?getDelta7d(a): sortKey==='_trend'?getDelta7d(a): sortKey==='_momentum'?getMomentum(a): sortKey==='status'?(a.status||''): sortKey==='lifecycle'?(a.lifecycle||''): sortKey==='tags'?(a.tags||[]).join(', '): sortKey==='name'?a.name: sortKey==='manager'?(a.manager||'zzz'): sortKey==='profile'?(a.scoring_profile||'zzz'): sortKey==='score'?a.score: sortKey==='mrr'?a.mrr||0: sortKey==='arr'?(a.arr||(a.mrr*12)||0): sortKey==='since'?(a.since||'9999'): sortKey==='days'?(a.days != null ? a.days : 999): sortKey==='renewal'?a.renewal||99: sortKey==='next_touch'?(a.next_touch||'9999'):0;
-    let bv = sortKey==='_delta'?getDelta7d(b): sortKey==='_trend'?getDelta7d(b): sortKey==='_momentum'?getMomentum(b): sortKey==='status'?(b.status||''): sortKey==='lifecycle'?(b.lifecycle||''): sortKey==='tags'?(b.tags||[]).join(', '): sortKey==='name'?b.name: sortKey==='manager'?(b.manager||'zzz'): sortKey==='profile'?(b.scoring_profile||'zzz'): sortKey==='score'?b.score: sortKey==='mrr'?b.mrr||0: sortKey==='arr'?(b.arr||(b.mrr*12)||0): sortKey==='since'?(b.since||'9999'): sortKey==='days'?(b.days != null ? b.days : 999): sortKey==='renewal'?b.renewal||99: sortKey==='next_touch'?(b.next_touch||'9999'):0;
+    let av = sortKey==='_delta'?getDelta7d(a): sortKey==='_momentum'?getMomentum(a): sortKey==='status'?(a.status||''): sortKey==='lifecycle'?(a.lifecycle||''): sortKey==='tags'?(a.tags||[]).join(', '): sortKey==='name'?a.name: sortKey==='manager'?(a.manager||'zzz'): sortKey==='profile'?(a.scoring_profile||'zzz'): sortKey==='score'?a.score: sortKey==='mrr'?a.mrr||0: sortKey==='arr'?(a.arr||(a.mrr*12)||0): sortKey==='since'?(a.since||'9999'): sortKey==='days'?(a.days != null ? a.days : 999): sortKey==='renewal'?a.renewal||99: sortKey==='next_touch'?(a.next_touch||'9999'):0;
+    let bv = sortKey==='_delta'?getDelta7d(b): sortKey==='_momentum'?getMomentum(b): sortKey==='status'?(b.status||''): sortKey==='lifecycle'?(b.lifecycle||''): sortKey==='tags'?(b.tags||[]).join(', '): sortKey==='name'?b.name: sortKey==='manager'?(b.manager||'zzz'): sortKey==='profile'?(b.scoring_profile||'zzz'): sortKey==='score'?b.score: sortKey==='mrr'?b.mrr||0: sortKey==='arr'?(b.arr||(b.mrr*12)||0): sortKey==='since'?(b.since||'9999'): sortKey==='days'?(b.days != null ? b.days : 999): sortKey==='renewal'?b.renewal||99: sortKey==='next_touch'?(b.next_touch||'9999'):0;
     if (typeof av === 'string') return av.localeCompare(bv) * sortDir;
     return (av - bv) * sortDir;
   });
@@ -5316,7 +5215,6 @@ function _renderCustomers() {
         <td>${c.manager ? escHtml(c.manager) : '<span style="color:var(--muted);font-style:italic">—</span>'}</td>
         <td>${c.scoring_profile && c.scoring_profile !== 'Global Weights' ? `<span class="tag">${escHtml(c.scoring_profile)}</span>` : '<span style="color:var(--muted);font-style:italic;font-size:.75rem">Global</span>'}</td>
         <td>${scoreHTML(c)}</td>
-        <td style="padding:4px 8px">${buildSparklineMini(c)}</td>
         <td>${momentumHTML(c)}</td>
         <td>${badgeHTML(c.status)}</td>
         <td>${lifecycleBadge(c.lifecycle)}</td>
@@ -5409,7 +5307,7 @@ async function saveInlineNextTouch(custId, val) {
   if (!c) return;
   const oldVal = c.next_touch || '';
 
-  // If old next_touch is today or past, promote it to last_contact_date before setting new one
+  // If old next_touch is in the past, promote it to last_contact_date before setting new one
   if (oldVal) {
     const oldDate = new Date(oldVal);
     const today = new Date(); today.setHours(0,0,0,0);
@@ -5480,8 +5378,8 @@ function scoreDelta(c) {
 
 function deltaHTML(delta) {
   if (delta === null) return '<span class="delta-eq">—</span>';
-  if (delta > 0)  return `<span class="delta-up">▲ ${delta}</span>`;
-  if (delta < 0)  return `<span class="delta-dn">▼ ${Math.abs(delta)}</span>`;
+  if (delta > 0)  return `<span class="delta-up">▲ +${delta} <small style="font-weight:500;color:var(--muted)">7v7 days</small></span>`;
+  if (delta < 0)  return `<span class="delta-dn">▼ ${delta} <small style="font-weight:500;color:var(--muted)">7v7 days</small></span>`;
   return '<span class="delta-eq">→ 0</span>';
 }
 
@@ -5564,7 +5462,6 @@ function bulkRescore() {
     clearSelection();
     toast(`Re-scored ${n} customer${n!==1?'s':''} (${changed.length} changed)`, 'success');
     renderCustomers();
-    if (changed.length) pauseSync(120000);
     changed.forEach(c => save(c).catch(()=>{}));
   });
 }
@@ -5732,7 +5629,6 @@ function rescoreAllFromToolbar() {
     renderAlerts();
     toast(`Re-scored ${n} customer${n !== 1 ? 's' : ''}`, 'success');
     if (changed.length) {
-      pauseSync(120000); // pause silentSync for 2 min while saves complete
       setLoading(true);
       Promise.all(changed.map(c => atUpdate(c).catch(() => {}))).finally(() => setLoading(false));
     }
@@ -6081,7 +5977,7 @@ function saveScore() {
   logAudit('customer_created', cust.id, cust.name, { score, status, summary: `New customer — Score: ${score}/100 (${status}), MRR: $${cust.mrr}, Tier: ${cust.tier}, Lifecycle: ${cust.lifecycle}` });
   pendingResult = null;
   resetForm();
-  nav(_returnToPage || 'homebase');
+  nav(_returnToPage || 'dashboard');
   _returnToPage = '';
 }
 
@@ -6749,7 +6645,7 @@ function editCustomer(id) {
   const c = customers.find(x => x.id === cid);
   if (!c) return;
 
-  try { _returnToPage = localStorage.getItem('iqc_active_view') || 'homebase'; } catch(e) { _returnToPage = 'homebase'; }
+  try { _returnToPage = localStorage.getItem('iqc_active_view') || 'dashboard'; } catch(e) { _returnToPage = 'dashboard'; }
   closeModal('detail-modal');
   nav('score');
   document.getElementById('form-title').textContent = 'Re-score: ' + c.name;
@@ -7130,7 +7026,7 @@ function saveWeights() {
   logAudit('weights_updated', null, '', { summary: `Global weights changed: ${changed.join(', ')}`, weights: { ...weights } });
   rescoreByProfile('Global Weights');
   filterMode = 'all';
-  renderHomeBase();
+
   renderCustomers();
   renderAlerts();
   renderProfiles();
@@ -7194,7 +7090,7 @@ function rescoreAll() {
     }
   });
   filterMode = 'all';
-  renderHomeBase();
+
   renderCustomers();
   renderAlerts();
   if (n > 0) {
@@ -7492,7 +7388,7 @@ function resetAllDefaults() {
     renderWeightRows();
     renderProfiles();
     renderScoreDistribution();
-    renderHomeBase();
+  
     renderCustomers();
     renderAlerts();
     toast('All settings reset to defaults', 'warn');
@@ -7667,7 +7563,7 @@ function loadProfile(idx) {
   saveSettings();
   logAudit('profile_loaded', null, '', { summary: `Loaded profile "${p.name}" as global weights`, profile: p.name });
   renderWeightRows();
-  renderHomeBase();
+
   renderCustomers();
   toast(`Loaded profile: ${p.name}`, 'success');
 }
@@ -7723,7 +7619,7 @@ function restoreBackup(e) {
           toast('Backup restored!', 'success');
           logAudit('backup_restored', null, '', { summary: `Backup restored from ${fmtDate(data.exported)} (${data.customers.length} customers)` });
           logConfigChange('Backup restored from file');
-          renderHomeBase();
+        
           renderSettings();
         } catch(err) {
           toast('Restore finished — some records may not have synced', 'warn');
@@ -11787,7 +11683,7 @@ function renderTrends() {
     days = Math.ceil((cutoff - jan1) / 86400000);
     cutoff.setTime(jan1.getTime());
   } else {
-    days = { '7d': 7, '30d': 30, '90d': 90, '6m': 180, '1y': 365, '2y': 730 }[range] || 30;
+    days = { '1d': 1, '7d': 7, '30d': 30, '90d': 90, '6m': 180, '1y': 365, '2y': 730 }[range] || 30;
     cutoff.setDate(cutoff.getDate() - days);
   }
   cutoff.setHours(0,0,0,0);
@@ -11990,9 +11886,15 @@ function renderTrends() {
 
   // ── Top Movers — build data, then render with current sort ──
   _trendMovers = active.map(c => {
-    const hist = (c.history || []).filter(h => h.date && new Date(h.date) >= cutoff).sort((a,b) => a.date.localeCompare(b.date));
-    const startScore = hist.length ? hist[0].score : c.score;
-    const delta = c.score - startScore;
+    const allHist = (c.history || []).filter(h => h.date).sort((a,b) => a.date.localeCompare(b.date));
+    const inRange    = allHist.filter(h => new Date(h.date) >= cutoff);
+    const beforeRange = allHist.filter(h => new Date(h.date) < cutoff);
+    // Use latest entry before range as baseline (matches getDelta7d logic)
+    const baseline = beforeRange.length ? beforeRange[beforeRange.length - 1].score
+                   : inRange.length     ? inRange[0].score
+                   : c.score;
+    const endScore = inRange.length ? inRange[inRange.length - 1].score : c.score;
+    const delta = endScore - baseline;
     return { name: c.name, score: c.score, delta, absDelta: Math.abs(delta), status: c.status, mrr: c.mrr || 0, manager: c.manager || '—', tickets: c.tickets != null ? c.tickets : 0, logins: c.logins, adoption: c.adoption, id: c.id };
   });
   renderTrendMovers();
@@ -12601,28 +12503,60 @@ function renderCSMWorkload(mgrList) {
   const maxMRR      = Math.max(...list.map(m => m.totalMRR), 1);
   const avgAccounts = Math.round(list.reduce((s,m) => s + m.count, 0) / list.length);
 
+  // Tier MRR breakdown per CSM
+  const tierColors = { enterprise: 'var(--purple)', mid: 'var(--blue)', smb: 'var(--teal)' };
+  const tierLabels = { enterprise: 'Enterprise', mid: 'Mid-Market', smb: 'SMB' };
+
   wrap.innerHTML = `
     <div style="padding:10px 16px 4px;display:flex;gap:16px;font-size:.68rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">
       <span style="flex:0 0 110px">CSM</span>
       <span style="flex:1">Accounts</span>
-      <span style="flex:1">MRR</span>
+      <span style="flex:1">MRR by Tier</span>
     </div>
     ${list.sort((a,b) => b.count - a.count).map(m => {
       const accPct = Math.round((m.count / maxAccounts) * 100);
       const mrrPct = Math.round((m.totalMRR / maxMRR) * 100);
       const overloaded = m.count > avgAccounts * 1.4;
-      const accColor = overloaded ? 'var(--amber)' : 'var(--blue)';
+      const accColor = overloaded ? 'var(--amber)' : '#4f46e5';
+      // Tier MRR breakdown
+      const tierMRR = {};
+      m.accs.forEach(c => {
+        const t = (c.tier || 'smb').toLowerCase();
+        tierMRR[t] = (tierMRR[t] || 0) + (c.mrr || 0);
+      });
+      const mTotal = m.totalMRR || 1;
+      const entPct = Math.round((tierMRR.enterprise || 0) / mTotal * 100);
+      const midPct = Math.round((tierMRR.mid || 0) / mTotal * 100);
+      const smbPct = Math.max(0, 100 - entPct - midPct);
+      const tierTitle = [
+        tierMRR.enterprise ? 'Enterprise $' + fmtNum(tierMRR.enterprise) : '',
+        tierMRR.mid ? 'Mid-Market $' + fmtNum(tierMRR.mid) : '',
+        tierMRR.smb ? 'SMB $' + fmtNum(tierMRR.smb) : ''
+      ].filter(Boolean).join(' · ');
       return `<div class="csm-workload-row">
         <div class="csm-workload-name">${escHtml(m.name)}</div>
         <div style="flex:1;display:flex;align-items:center;gap:8px">
           <div class="csm-workload-bar"><div class="csm-workload-fill" style="width:${accPct}%;background:${accColor}">${m.count}</div></div>
         </div>
         <div style="flex:1;display:flex;align-items:center;gap:8px">
-          <div class="csm-workload-bar"><div class="csm-workload-fill" style="width:${mrrPct}%;background:var(--teal)">$${fmtNum(m.totalMRR)}</div></div>
+          <div class="csm-workload-bar" style="position:relative;overflow:hidden" title="${tierTitle}">
+            <div style="display:flex;width:${mrrPct}%;height:100%;border-radius:inherit">
+              ${entPct ? `<span style="width:${entPct}%;background:#1e293b;min-width:0"></span>` : ''}
+              ${midPct ? `<span style="width:${midPct}%;background:#ea580c;min-width:0"></span>` : ''}
+              ${smbPct ? `<span style="width:${smbPct}%;background:var(--teal);min-width:0"></span>` : ''}
+            </div>
+            <span style="position:absolute;inset:0;display:flex;align-items:center;padding:0 8px;font-size:.68rem;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.3)">$${fmtNum(m.totalMRR)}</span>
+          </div>
         </div>
       </div>`;
     }).join('')}
-    <div style="padding:8px 16px;font-size:.68rem;color:var(--subtle)">Average: ${avgAccounts} accounts per CSM${list.some(m => m.count > avgAccounts * 1.4) ? ' · <span style="color:var(--amber);font-weight:700">Amber bars indicate overloaded CSMs</span>' : ''}</div>
+    <div style="padding:8px 16px;font-size:.68rem;color:var(--subtle);display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <span>Average: ${avgAccounts} accounts per CSM</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:#1e293b"></span>Enterprise</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:#ea580c"></span>Mid-Market</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:var(--teal)"></span>SMB</span>
+      ${list.some(m => m.count > avgAccounts * 1.4) ? '<span style="color:var(--amber);font-weight:700">Amber bars = overloaded</span>' : ''}
+    </div>
   `;
 }
 
@@ -13272,8 +13206,8 @@ const APP_FIELDS = {
   next_touch:        { label:'Next Touch Date',    required:false },
   last_contact_date: { label:'Last Contact Date',  required:false },
   scoring_profile:   { label:'Scoring Profile',    required:false },
-  note:              { label:'Note',               required:false },
-  sentiment:         { label:'Sentiment',          required:false }
+  note:            { label:'Note',            required:false },
+  sentiment:       { label:'Sentiment',       required:false }
 };
 
 const FIELD_ALIASES = {
@@ -14209,7 +14143,7 @@ async function ensureUserProfile(user) {
       }
     } catch(e) {}
 
-    // Restore last active view (or default to homebase)
+    // Restore last active view (or default to dashboard)
     const savedView = localStorage.getItem('iqc_active_view');
     const restoreView = savedView && VIEWS.includes(savedView) ? savedView : 'homebase';
 

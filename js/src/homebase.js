@@ -184,8 +184,76 @@ function _renderHomeBase() {
   const topRiskMgr = Object.entries(mgrRisk).sort((a,b) => b[1] - a[1])[0];
   const mgrConcentrated = topRiskMgr && atRiskMRR > 0 && topRiskMgr[1] / atRiskMRR > 0.4;
 
+  // ── Day-over-day / short-term trend analysis for briefing ──
+  // Uses same approach as _insightDayOverDay: compare last two history entries per account
+  const _dodBriefing = (() => {
+    const dodPairs = [];
+    active.forEach(c => {
+      const hist = (c.history || []).filter(h => h.date)
+        .sort((a,b) => new Date(b.date) - new Date(a.date)); // newest first
+      if (hist.length < 2) return;
+      const latest = hist[0];
+      const prev   = hist[1];
+      // Normalize to calendar days (timezone-safe: both shifted same way)
+      const d1 = new Date(latest.date); d1.setHours(0,0,0,0);
+      const d2 = new Date(prev.date);   d2.setHours(0,0,0,0);
+      const dayGap = Math.round((d1 - d2) / 86400000);
+      if (dayGap < 1 || dayGap > 3) return;
+      const delta = latest.score - prev.score;
+      dodPairs.push({ c, delta, from: prev.score, to: latest.score, prevSignals: prev.signals, currSignals: latest.signals, dayGap });
+    });
+
+    if (!dodPairs.length) return null;
+
+    const avgDelta = Math.round(dodPairs.reduce((s,p) => s + p.delta, 0) / dodPairs.length * 10) / 10;
+    const droppers = dodPairs.filter(p => p.delta <= -5).sort((a,b) => a.delta - b.delta);
+
+    // Aggregate signal changes across droppers to explain WHY
+    const signalChanges = { logins: 0, adoption: 0, tickets: 0, nps: 0, csat: 0, days: 0 };
+    const signalCounts  = { logins: 0, adoption: 0, tickets: 0, nps: 0, csat: 0, days: 0 };
+    droppers.slice(0, 10).forEach(p => {
+      const curr = p.currSignals || {}, prev = p.prevSignals || {};
+      if (curr.logins != null && prev.logins != null)     { signalChanges.logins   += curr.logins - prev.logins;     signalCounts.logins++; }
+      if (curr.adoption != null && prev.adoption != null) { signalChanges.adoption += curr.adoption - prev.adoption; signalCounts.adoption++; }
+      if (curr.tickets != null && prev.tickets != null)   { signalChanges.tickets  += curr.tickets - prev.tickets;   signalCounts.tickets++; }
+      if (curr.nps != null && prev.nps != null)           { signalChanges.nps      += curr.nps - prev.nps;           signalCounts.nps++; }
+      if (curr.csat != null && prev.csat != null)         { signalChanges.csat     += curr.csat - prev.csat;         signalCounts.csat++; }
+      if (curr.days != null && prev.days != null)         { signalChanges.days     += curr.days - prev.days;         signalCounts.days++; }
+    });
+    const reasons = [];
+    if (signalCounts.logins && signalChanges.logins / signalCounts.logins < -2)    reasons.push(`logins dropped avg ${Math.abs(Math.round(signalChanges.logins / signalCounts.logins * 10) / 10)}/mo`);
+    if (signalCounts.adoption && signalChanges.adoption / signalCounts.adoption < -3) reasons.push(`adoption fell avg ${Math.abs(Math.round(signalChanges.adoption / signalCounts.adoption))}%`);
+    if (signalCounts.tickets && signalChanges.tickets / signalCounts.tickets > 0.5)  reasons.push(`tickets rose avg +${(signalChanges.tickets / signalCounts.tickets).toFixed(1)}`);
+    if (signalCounts.nps && signalChanges.nps / signalCounts.nps < -0.5)            reasons.push(`NPS declined avg ${(signalChanges.nps / signalCounts.nps).toFixed(1)}`);
+    if (signalCounts.csat && signalChanges.csat / signalCounts.csat < -0.2)         reasons.push(`CSAT dropped avg ${Math.abs((signalChanges.csat / signalCounts.csat).toFixed(1))}`);
+    if (signalCounts.days && signalChanges.days / signalCounts.days > 3)            reasons.push(`contact gaps widened avg +${Math.round(signalChanges.days / signalCounts.days)}d`);
+
+    return { avgDelta, droppers: droppers.length, topDroppers: droppers.slice(0, 3), reasons, total: dodPairs.length };
+  })();
+
+  // Also compute 7-day delta for the briefing
+  const _weekDelta = (() => {
+    const deltas = withHist.map(c => getDeltaPeriod(c)).filter(d => d !== 0);
+    if (!deltas.length) return null;
+    return Math.round(deltas.reduce((s,d) => s+d, 0) / deltas.length * 10) / 10;
+  })();
+
   // Build prioritized insight pool (max 2-3 signals)
   const signals = [];
+
+  // Day-over-day trend callout (highest priority when significant)
+  if (_dodBriefing && _dodBriefing.avgDelta <= -2) {
+    const d = _dodBriefing;
+    let text = `Portfolio avg score dropped ${Math.abs(d.avgDelta)} pts day-over-day across ${d.total} accounts`;
+    if (d.droppers > 0) text += ` \u2014 ${d.droppers} fell 5+ pts`;
+    if (d.topDroppers.length) text += ` (${d.topDroppers.map(p => p.c.name + ' ' + p.delta).join(', ')})`;
+    text += '.';
+    if (d.reasons.length) text += ` Key drivers: ${d.reasons.join(', ')}.`;
+    else if (d.droppers > 0) text += ' Review recent signal changes to identify the cause.';
+    signals.push({ p: 0, text });
+  } else if (_weekDelta !== null && _weekDelta <= -3) {
+    signals.push({ p: 1, text: `Portfolio avg score is trending down ${Math.abs(_weekDelta)} pts over the selected period.` });
+  }
 
   // Silent decliners — early warning, high value
   if (silentDecliners.length >= 2) {
@@ -354,8 +422,8 @@ function _renderHomeBase() {
 
   // ── Most Improved / Biggest Drops (moved from Dashboard) ──
   html += '<div class="hb-movers-grid">';
-  html += '<div class="card" style="padding:16px 20px"><div class="card-hd" style="margin-bottom:8px"><div class="hb-section-hd" style="margin-bottom:0">Most Improved</div></div><div id="wins-wrap"></div></div>';
-  html += '<div class="card" style="padding:16px 20px"><div class="card-hd" style="margin-bottom:8px"><div class="hb-section-hd" style="margin-bottom:0">Biggest Drops</div></div><div id="drops-wrap"></div></div>';
+  html += '<div class="card" style="padding:16px 20px"><div class="card-hd" style="margin-bottom:8px"><div class="hb-section-hd" style="margin-bottom:0">Most Improved <span style="font-weight:500;font-size:.72rem;color:var(--muted)">7d</span></div></div><div id="wins-wrap"></div></div>';
+  html += '<div class="card" style="padding:16px 20px"><div class="card-hd" style="margin-bottom:8px"><div class="hb-section-hd" style="margin-bottom:0">Biggest Drops <span style="font-weight:500;font-size:.72rem;color:var(--muted)">7d</span></div></div><div id="drops-wrap"></div></div>';
   html += '</div>';
 
   // ── This Week's Focus ──
@@ -583,6 +651,7 @@ function _statusColor(status) {
 function _generateInsights(active, now, cutoff) {
   const insights = [];
   const generators = [
+    _insightDayOverDay,
     _insightPortfolioMomentum,
     _insightWinLossBalance,
     _insightBestWorstWeek,
@@ -1071,6 +1140,64 @@ function _insightTicketSpike(active) {
     title: `${highTickets.length} accounts have 5+ open tickets`,
     detail: `These accounts have elevated ticket volume (portfolio avg: ${avgTickets}). High ticket counts often precede health declines — review for patterns.`,
     action: { label: 'View Customers', fn: `setInsightFilter('${highTickets.length} accounts with 5+ tickets',${JSON.stringify(highTickets.map(c=>c.id))})` }
+  };
+}
+
+// ── INSIGHT: Day-over-Day Drop Detection ──
+function _insightDayOverDay(active) {
+  const dodDroppers = [];
+  const dodAll = [];
+
+  active.forEach(c => {
+    const hist = (c.history || []).filter(h => h.date)
+      .sort((a,b) => new Date(b.date) - new Date(a.date)); // newest first
+    if (hist.length < 2) return;
+
+    const latest = hist[0];
+    const prev   = hist[1];
+    // Only compare if the two most recent entries are on different calendar days
+    const d1 = new Date(latest.date); d1.setHours(0,0,0,0);
+    const d2 = new Date(prev.date);   d2.setHours(0,0,0,0);
+    const dayGap = Math.round((d1 - d2) / 86400000);
+    if (dayGap < 1 || dayGap > 3) return; // adjacent days only (allow weekend gap)
+
+    const delta = latest.score - prev.score;
+    dodAll.push({ c, delta, from: prev.score, to: latest.score });
+    if (delta <= -8) dodDroppers.push({ c, delta, from: prev.score, to: latest.score });
+  });
+
+  if (!dodAll.length) return null;
+
+  const avgDoD = Math.round(dodAll.reduce((s,d) => s + d.delta, 0) / dodAll.length * 10) / 10;
+
+  // Only fire if significant: portfolio avg drop ≥ 3 OR ≥ 2 accounts dropped ≥ 8
+  if (avgDoD > -3 && dodDroppers.length < 2) return null;
+
+  // Sort droppers by biggest drop
+  dodDroppers.sort((a,b) => a.delta - b.delta);
+  const top3 = dodDroppers.slice(0, 3);
+  const detailParts = top3.map(d =>
+    `${d.c.name} fell ${Math.abs(d.delta)} pts (${d.from}\u2009→\u2009${d.to})`
+  );
+
+  const title = dodDroppers.length >= 2
+    ? `Significant overnight drop \u2014 ${dodDroppers.length} account${dodDroppers.length !== 1 ? 's' : ''} fell 8+ pts`
+    : `Portfolio dropped ${Math.abs(avgDoD)} pts day-over-day`;
+
+  const detail = detailParts.length
+    ? detailParts.join(', ') + '. Review signal changes to understand the cause.'
+    : `Average portfolio score fell ${Math.abs(avgDoD)} pts from the prior day. Check for broad signal changes.`;
+
+  const ids = dodDroppers.map(d => d.c.id);
+
+  return {
+    category: 'Trend',
+    priority: 1,
+    title,
+    detail,
+    action: ids.length
+      ? { label: 'View Affected Accounts', fn: `setInsightFilter('DoD significant drops',${JSON.stringify(ids)})` }
+      : { label: 'View 1-Day Trend', fn: "setTrendRange('1d');nav('trends')" }
   };
 }
 

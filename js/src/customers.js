@@ -497,8 +497,8 @@ function _renderCustomers() {
 
   // Sort
   list.sort((a,b) => {
-    let av = sortKey==='_delta'?getDelta7d(a): sortKey==='_trend'?getDelta7d(a): sortKey==='_momentum'?getMomentum(a): sortKey==='status'?(a.status||''): sortKey==='lifecycle'?(a.lifecycle||''): sortKey==='tags'?(a.tags||[]).join(', '): sortKey==='name'?a.name: sortKey==='manager'?(a.manager||'zzz'): sortKey==='profile'?(a.scoring_profile||'zzz'): sortKey==='score'?a.score: sortKey==='mrr'?a.mrr||0: sortKey==='arr'?(a.arr||(a.mrr*12)||0): sortKey==='since'?(a.since||'9999'): sortKey==='days'?(a.days != null ? a.days : 999): sortKey==='renewal'?a.renewal||99: sortKey==='next_touch'?(a.next_touch||'9999'):0;
-    let bv = sortKey==='_delta'?getDelta7d(b): sortKey==='_trend'?getDelta7d(b): sortKey==='_momentum'?getMomentum(b): sortKey==='status'?(b.status||''): sortKey==='lifecycle'?(b.lifecycle||''): sortKey==='tags'?(b.tags||[]).join(', '): sortKey==='name'?b.name: sortKey==='manager'?(b.manager||'zzz'): sortKey==='profile'?(b.scoring_profile||'zzz'): sortKey==='score'?b.score: sortKey==='mrr'?b.mrr||0: sortKey==='arr'?(b.arr||(b.mrr*12)||0): sortKey==='since'?(b.since||'9999'): sortKey==='days'?(b.days != null ? b.days : 999): sortKey==='renewal'?b.renewal||99: sortKey==='next_touch'?(b.next_touch||'9999'):0;
+    let av = sortKey==='_delta'?getDelta7d(a): sortKey==='_momentum'?getMomentum(a): sortKey==='status'?(a.status||''): sortKey==='lifecycle'?(a.lifecycle||''): sortKey==='tags'?(a.tags||[]).join(', '): sortKey==='name'?a.name: sortKey==='manager'?(a.manager||'zzz'): sortKey==='profile'?(a.scoring_profile||'zzz'): sortKey==='score'?a.score: sortKey==='mrr'?a.mrr||0: sortKey==='arr'?(a.arr||(a.mrr*12)||0): sortKey==='since'?(a.since||'9999'): sortKey==='days'?(a.days != null ? a.days : 999): sortKey==='renewal'?a.renewal||99: sortKey==='next_touch'?(a.next_touch||'9999'):0;
+    let bv = sortKey==='_delta'?getDelta7d(b): sortKey==='_momentum'?getMomentum(b): sortKey==='status'?(b.status||''): sortKey==='lifecycle'?(b.lifecycle||''): sortKey==='tags'?(b.tags||[]).join(', '): sortKey==='name'?b.name: sortKey==='manager'?(b.manager||'zzz'): sortKey==='profile'?(b.scoring_profile||'zzz'): sortKey==='score'?b.score: sortKey==='mrr'?b.mrr||0: sortKey==='arr'?(b.arr||(b.mrr*12)||0): sortKey==='since'?(b.since||'9999'): sortKey==='days'?(b.days != null ? b.days : 999): sortKey==='renewal'?b.renewal||99: sortKey==='next_touch'?(b.next_touch||'9999'):0;
     if (typeof av === 'string') return av.localeCompare(bv) * sortDir;
     return (av - bv) * sortDir;
   });
@@ -541,7 +541,6 @@ function _renderCustomers() {
         <td>${c.manager ? escHtml(c.manager) : '<span style="color:var(--muted);font-style:italic">—</span>'}</td>
         <td>${c.scoring_profile && c.scoring_profile !== 'Global Weights' ? `<span class="tag">${escHtml(c.scoring_profile)}</span>` : '<span style="color:var(--muted);font-style:italic;font-size:.75rem">Global</span>'}</td>
         <td>${scoreHTML(c)}</td>
-        <td style="padding:4px 8px">${buildSparklineMini(c)}</td>
         <td>${momentumHTML(c)}</td>
         <td>${badgeHTML(c.status)}</td>
         <td>${lifecycleBadge(c.lifecycle)}</td>
@@ -705,8 +704,8 @@ function scoreDelta(c) {
 
 function deltaHTML(delta) {
   if (delta === null) return '<span class="delta-eq">—</span>';
-  if (delta > 0)  return `<span class="delta-up">▲ ${delta}</span>`;
-  if (delta < 0)  return `<span class="delta-dn">▼ ${Math.abs(delta)}</span>`;
+  if (delta > 0)  return `<span class="delta-up">▲ +${delta} <small style="font-weight:500;color:var(--muted)">7v7 days</small></span>`;
+  if (delta < 0)  return `<span class="delta-dn">▼ ${delta} <small style="font-weight:500;color:var(--muted)">7v7 days</small></span>`;
   return '<span class="delta-eq">→ 0</span>';
 }
 

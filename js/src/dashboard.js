@@ -94,26 +94,12 @@ function renderWins(active) {
   const wrap = el('wins-wrap');
   if (!wrap) return;
 
-  const weekAgo = new Date();
-  weekAgo.setDate(weekAgo.getDate() - 7);
-
-  // Find accounts with history entries in the last 7 days that improved
+  // Use getDelta7d() as single source of truth (matches detail panel & customers table)
   const wins = [];
   active.forEach(c => {
     if (!c.history || c.history.length < 2) return;
-    // Find the most recent score from the last 7 days
-    const recent = [...c.history]
-      .filter(h => new Date(h.date) >= weekAgo)
-      .sort((a,b) => new Date(b.date) - new Date(a.date));
-    if (!recent.length) return;
-    // Compare to the score just before this week
-    const beforeWeek = [...c.history]
-      .filter(h => new Date(h.date) < weekAgo)
-      .sort((a,b) => new Date(b.date) - new Date(a.date));
-    const prevScore = beforeWeek.length ? beforeWeek[0].score : c.history[0].score;
-    const newScore  = recent[0].score;
-    const delta     = newScore - prevScore;
-    if (delta > 0) wins.push({ c, delta, newScore, prevScore });
+    const delta = getDelta7d(c);
+    if (delta > 0) wins.push({ c, delta, newScore: c.score });
   });
 
   if (!wins.length) {
@@ -152,23 +138,12 @@ function renderDrops(active) {
   const wrap = el('drops-wrap');
   if (!wrap) return;
 
-  const weekAgo = new Date();
-  weekAgo.setDate(weekAgo.getDate() - 7);
-
+  // Use getDelta7d() as single source of truth (matches detail panel & customers table)
   const drops = [];
   active.forEach(c => {
     if (!c.history || c.history.length < 2) return;
-    const recent = [...c.history]
-      .filter(h => new Date(h.date) >= weekAgo)
-      .sort((a,b) => new Date(b.date) - new Date(a.date));
-    if (!recent.length) return;
-    const beforeWeek = [...c.history]
-      .filter(h => new Date(h.date) < weekAgo)
-      .sort((a,b) => new Date(b.date) - new Date(a.date));
-    const prevScore = beforeWeek.length ? beforeWeek[0].score : c.history[0].score;
-    const newScore  = recent[0].score;
-    const delta     = newScore - prevScore;
-    if (delta < 0) drops.push({ c, delta, newScore, prevScore });
+    const delta = getDelta7d(c);
+    if (delta < 0) drops.push({ c, delta, newScore: c.score });
   });
 
   if (!drops.length) {

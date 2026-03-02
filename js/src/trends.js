@@ -92,7 +92,7 @@ function renderTrends() {
     days = Math.ceil((cutoff - jan1) / 86400000);
     cutoff.setTime(jan1.getTime());
   } else {
-    days = { '7d': 7, '30d': 30, '90d': 90, '6m': 180, '1y': 365, '2y': 730 }[range] || 30;
+    days = { '1d': 1, '7d': 7, '30d': 30, '90d': 90, '6m': 180, '1y': 365, '2y': 730 }[range] || 30;
     cutoff.setDate(cutoff.getDate() - days);
   }
   cutoff.setHours(0,0,0,0);
@@ -295,9 +295,15 @@ function renderTrends() {
 
   // ── Top Movers — build data, then render with current sort ──
   _trendMovers = active.map(c => {
-    const hist = (c.history || []).filter(h => h.date && new Date(h.date) >= cutoff).sort((a,b) => a.date.localeCompare(b.date));
-    const startScore = hist.length ? hist[0].score : c.score;
-    const delta = c.score - startScore;
+    const allHist = (c.history || []).filter(h => h.date).sort((a,b) => a.date.localeCompare(b.date));
+    const inRange    = allHist.filter(h => new Date(h.date) >= cutoff);
+    const beforeRange = allHist.filter(h => new Date(h.date) < cutoff);
+    // Use latest entry before range as baseline (matches getDelta7d logic)
+    const baseline = beforeRange.length ? beforeRange[beforeRange.length - 1].score
+                   : inRange.length     ? inRange[0].score
+                   : c.score;
+    const endScore = inRange.length ? inRange[inRange.length - 1].score : c.score;
+    const delta = endScore - baseline;
     return { name: c.name, score: c.score, delta, absDelta: Math.abs(delta), status: c.status, mrr: c.mrr || 0, manager: c.manager || '—', tickets: c.tickets != null ? c.tickets : 0, logins: c.logins, adoption: c.adoption, id: c.id };
   });
   renderTrendMovers();

@@ -398,6 +398,7 @@ function getMomentum(c) {
 
 function momentumHTML(c) {
   const m = getMomentum(c);
+  const diff = (c.history && c.history.length >= 2) ? getDelta7d(c) : 0;
   const svgUp   = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>`;
   const svgDn   = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>`;
   const svgFlat = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
@@ -409,7 +410,8 @@ function momentumHTML(c) {
     new:  { cls:'new',  icon:svgNew,  label:'New' }
   };
   const { cls, icon, label } = map[m];
-  return `<span class="momentum ${cls}">${icon} ${label}</span>`;
+  const delta = m === 'up' ? ` +${diff}` : m === 'dn' ? ` ${diff}` : '';
+  return `<span class="momentum ${cls}">${icon} ${label}${delta}</span>`;
 }
 
 // ─── RENEWAL URGENCY ─────────────────────────────────────────
