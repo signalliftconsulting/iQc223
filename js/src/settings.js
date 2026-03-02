@@ -124,7 +124,7 @@ function saveWeights() {
   logAudit('weights_updated', null, '', { summary: `Global weights changed: ${changed.join(', ')}`, weights: { ...weights } });
   rescoreByProfile('Global Weights');
   filterMode = 'all';
-  renderDashboard();
+
   renderCustomers();
   renderAlerts();
   renderProfiles();
@@ -188,7 +188,7 @@ function rescoreAll() {
     }
   });
   filterMode = 'all';
-  renderDashboard();
+
   renderCustomers();
   renderAlerts();
   if (n > 0) {
@@ -199,6 +199,7 @@ function rescoreAll() {
   renderScoreDistribution();
   toast(`Re-scored ${n} customer${n!==1?'s':''}`, 'success');
   if (changed.length) {
+    pauseSync(120000); // pause silentSync for 2 min while saves complete
     setLoading(true);
     Promise.all(changed.map(c => atUpdate(c).catch(()=>{}))).finally(() => setLoading(false));
   }
@@ -485,7 +486,7 @@ function resetAllDefaults() {
     renderWeightRows();
     renderProfiles();
     renderScoreDistribution();
-    renderDashboard();
+  
     renderCustomers();
     renderAlerts();
     toast('All settings reset to defaults', 'warn');
@@ -645,7 +646,8 @@ function rescoreByProfile(profileName) {
     }
   });
   if (changed.length) {
-    renderDashboard(); renderCustomers(); renderAlerts();
+    pauseSync(120000); // pause silentSync for 2 min while saves complete
+    renderHomeBase(); renderCustomers(); renderAlerts();
     toast(`Re-scored ${changed.length} customer${changed.length!==1?'s':''} on "${profileName}"`, 'success');
     setLoading(true);
     Promise.all(changed.map(c => atUpdate(c).catch(()=>{}))).finally(() => setLoading(false));
@@ -659,7 +661,7 @@ function loadProfile(idx) {
   saveSettings();
   logAudit('profile_loaded', null, '', { summary: `Loaded profile "${p.name}" as global weights`, profile: p.name });
   renderWeightRows();
-  renderDashboard();
+
   renderCustomers();
   toast(`Loaded profile: ${p.name}`, 'success');
 }
@@ -715,7 +717,7 @@ function restoreBackup(e) {
           toast('Backup restored!', 'success');
           logAudit('backup_restored', null, '', { summary: `Backup restored from ${fmtDate(data.exported)} (${data.customers.length} customers)` });
           logConfigChange('Backup restored from file');
-          renderDashboard();
+        
           renderSettings();
         } catch(err) {
           toast('Restore finished — some records may not have synced', 'warn');

@@ -96,7 +96,7 @@
     hideAuthGate();
     updateUserUI(currentUser);
     ensureUserProfile(currentUser);
-    nav('dashboard');
+    nav('homebase');
     renderSettings();
     startPolling();
 
@@ -111,7 +111,7 @@
     } finally {
       setLoading(false);
       refreshMgrDropdown();
-      nav('dashboard');
+      nav('homebase');
       renderSettings();
     }
   });

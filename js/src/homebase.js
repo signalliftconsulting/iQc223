@@ -5,6 +5,20 @@
 
 let _hbPeriodDays = 7; // comparison period: 7, 14, or 30
 
+function setInsightFilter(label, ids) {
+  if (!ids || !ids.length) return;
+  insightFilter = { label: label, ids: new Set(ids) };
+  mrrExposureFilter = null;
+  filterMode = 'all';
+  columnFilters = {};
+  nav('customers');
+  const _m = document.querySelector('main.main'); if (_m) _m.scrollTop = 0; else window.scrollTo(0, 0);
+}
+function clearInsightFilter() {
+  insightFilter = null;
+  renderCustomers();
+}
+
 // ── SVG Icon Library ──
 const _hbSvg = {
   // Pulse KPI icons (18x18, white stroke for gradient cards)
@@ -126,15 +140,173 @@ function _renderHomeBase() {
   // ── Build page snapshots ──
   const snapshots = _buildPageSnapshots(active, now, cutoff, atRisk, atRiskMRR, total, avgScore, renewals30);
 
+  // ── Extra KPI values ──
+  const watch   = active.filter(c => c.status === 'watch');
+  const healthy = active.filter(c => c.status === 'healthy');
+  const expand  = active.filter(c => c.status === 'expand');
+  const totalMRR = active.reduce((s,c) => s + (c.mrr || 0), 0);
+  const renewMRR = renewals30.reduce((s,c) => s + (c.mrr || 0), 0);
+  const expMRR   = expand.reduce((s,c) => s + (c.mrr || 0), 0);
+
   // ── Render ──
   let html = '';
 
-  // Pulse KPI row — gradient cards
-  html += '<div class="hb-pulse-row">';
-  html += _pulseCard(_hbSvg.pulse, 'Avg Health Score', avgScore, deltaArrow(avgDelta, false), `vs ${_hbPeriodDays}d ago`, 'hb-blue');
-  html += _pulseCard(_hbSvg.alertTri, 'At-Risk Accounts', atRisk.length, deltaArrow(atRiskDelta, true), `of ${total} total`, 'hb-red');
-  html += _pulseCard(_hbSvg.dollar, 'MRR at Risk', '$' + fmtNum(atRiskMRR), deltaArrowMRR(mrrDelta), atRisk.length + ' accounts', 'hb-amber');
-  html += _pulseCard(_hbSvg.calendar, 'Renewals (30d)', renewals30.length, '', renewalsAtRisk.length + ' at risk', 'hb-purple');
+  // Welcome banner
+  const hour = now.getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const userName = currentUser?.email ? currentUser.email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : '';
+  const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+  const healthyCount = active.filter(c => c.status === 'healthy' || c.status === 'expand').length;
+  const healthyPct = total ? Math.round(healthyCount / total * 100) : 0;
+  const improving = withHist.filter(c => getDeltaPeriod(c) > 2).length;
+  const declining = withHist.filter(c => getDeltaPeriod(c) < -2).length;
+  const mgrLabel = mgrFilterAll ? '' : (activeManagers.size === 1 ? ` for ${[...activeManagers][0]}` : ` across ${activeManagers.size} managers`);
+
+  // ── Deep-signal analysis for briefing ──
+  // Silent decliners: were healthy/expand, now dropping fast
+  const silentDecliners = withHist.filter(c => {
+    const prev = getScoreAtCutoff(c);
+    return prev !== null && prev >= (thresholds?.healthy || 65) && getDeltaPeriod(c) < -5;
+  });
+  // Contact gaps: no contact in 30+ days
+  const contactGap = active.filter(c => (c.days || 0) >= 30);
+  const contactGapHighVal = contactGap.filter(c => (c.mrr || 0) >= 5000);
+  // Biggest single at-risk account
+  const biggestRisk = atRisk.length ? atRisk.reduce((a, b) => (b.mrr || 0) > (a.mrr || 0) ? b : a) : null;
+  // NPS detractors
+  const detractors = active.filter(c => c.nps !== null && c.nps !== undefined && c.nps <= 6);
+  // Low adoption
+  const lowAdoption = active.filter(c => (c.adoption || 0) < 30 && (c.mrr || 0) > 0);
+  // Manager concentration: does one CSM hold >40% of at-risk MRR?
+  const mgrRisk = {};
+  atRisk.forEach(c => { const m = c.manager || 'Unassigned'; mgrRisk[m] = (mgrRisk[m] || 0) + (c.mrr || 0); });
+  const topRiskMgr = Object.entries(mgrRisk).sort((a,b) => b[1] - a[1])[0];
+  const mgrConcentrated = topRiskMgr && atRiskMRR > 0 && topRiskMgr[1] / atRiskMRR > 0.4;
+
+  // Build prioritized insight pool (max 2-3 signals)
+  const signals = [];
+
+  // Silent decliners — early warning, high value
+  if (silentDecliners.length >= 2) {
+    signals.push({ p: 1, text: `${silentDecliners.length} previously healthy accounts are now declining. Early intervention could prevent churn.` });
+  } else if (silentDecliners.length === 1) {
+    signals.push({ p: 1, text: `${silentDecliners[0].name} was healthy but is now declining and may need a check-in.` });
+  }
+  // Contact gap on high-value accounts
+  if (contactGapHighVal.length > 0) {
+    const gapMRR = contactGapHighVal.reduce((s,c) => s + (c.mrr||0), 0);
+    signals.push({ p: 2, text: `${contactGapHighVal.length} high-value account${contactGapHighVal.length > 1 ? 's' : ''} ($${fmtNum(gapMRR)} MRR) haven't been contacted in 30+ days.` });
+  } else if (contactGap.length > 5) {
+    signals.push({ p: 3, text: `${contactGap.length} accounts have gone 30+ days without contact.` });
+  }
+  // Manager concentration risk
+  if (mgrConcentrated && mgrFilterAll) {
+    const pct = Math.round(topRiskMgr[1] / atRiskMRR * 100);
+    signals.push({ p: 2, text: `${pct}% of at-risk MRR sits under ${topRiskMgr[0]}, creating concentrated exposure.` });
+  }
+  // Biggest single risk
+  if (biggestRisk && biggestRisk.mrr >= 10000) {
+    signals.push({ p: 3, text: `Largest at-risk account is ${biggestRisk.name} at $${fmtNum(biggestRisk.mrr)}/mo.` });
+  }
+  // NPS detractors
+  if (detractors.length >= 3) {
+    signals.push({ p: 4, text: `${detractors.length} accounts have NPS scores of 6 or below, which may signal softening sentiment.` });
+  }
+  // Low adoption
+  if (lowAdoption.length >= 5) {
+    signals.push({ p: 4, text: `${lowAdoption.length} accounts are below 30% feature adoption, a leading indicator of churn.` });
+  }
+  // Momentum (fallback if nothing else fires)
+  if (declining > improving + 5) signals.push({ p: 5, text: `Net momentum is negative, with more accounts declining than improving this period.` });
+  else if (improving > declining + 5) signals.push({ p: 5, text: `Positive momentum this period, with ${improving} accounts trending upward.` });
+
+  // Pick top 2-3 by priority
+  signals.sort((a,b) => a.p - b.p);
+  const topSignals = signals.slice(0, 3);
+
+  // Opening line
+  let opener = '';
+  if (healthyPct >= 80) opener = `Portfolio${mgrLabel} is strong at ${healthyPct}% healthy.`;
+  else if (healthyPct >= 60) opener = `Portfolio${mgrLabel} is at ${healthyPct}% healthy, stable with room to improve.`;
+  else if (healthyPct >= 40) opener = `Portfolio${mgrLabel} is at ${healthyPct}% healthy, below target.`;
+  else opener = `Portfolio${mgrLabel} needs attention at only ${healthyPct}% healthy.`;
+
+  const summaryText = opener + (topSignals.length ? ' ' + topSignals.map(s => s.text).join(' ') : '');
+
+  html += '<div class="hb-welcome">';
+  html += `<div class="hb-greeting">${greeting}${userName ? ', ' + escHtml(userName) : ''}</div>`;
+  html += `<div class="hb-date">${dateStr}</div>`;
+  html += `<div class="hb-summary">${summaryText}</div>`;
+  html += '</div>';
+
+  // ── 5 KPI Cards Row (from Dashboard) ──
+  const _kpiIcon = (svg) => `<div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${svg}</div>`;
+  const _kpiSvg = {
+    people: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    alert:  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+    cal:    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+    trend:  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
+    dollar: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>'
+  };
+
+  // Health bar segment widths
+  const hbPct = (arr) => total ? (arr.length / total * 100).toFixed(1) + '%' : '0%';
+
+  html += '<div class="dash-kpi-row">';
+
+  // Card 1: Book Health
+  html += `<div class="dash-kpi-card dash-kpi-blue" onclick="nav('customers');setFilter('all')">
+    <div class="dash-kpi-top">${_kpiIcon(_kpiSvg.people)}<span class="dash-kpi-label">Book Health</span></div>
+    <div class="dash-kpi-num">${total}</div>
+    <div class="dash-kpi-sub">Total active accounts</div>
+    <div class="dash-health-bar">
+      <div class="dash-health-seg" style="background:#dc2626;width:${hbPct(critical)}" title="Critical"></div>
+      <div class="dash-health-seg" style="background:#ea580c;width:${hbPct(risk)}" title="At Risk"></div>
+      <div class="dash-health-seg" style="background:#d97706;width:${hbPct(watch)}" title="Watch"></div>
+      <div class="dash-health-seg" style="background:#16a34a;width:${hbPct(healthy)}" title="Healthy"></div>
+      <div class="dash-health-seg" style="background:#0891b2;width:${hbPct(expand)}" title="Expansion"></div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+      <span class="dash-kpi-pill red">${atRisk.length} At Risk</span>
+      <span class="dash-kpi-pill amber">${watch.length} Watch</span>
+      <span class="dash-kpi-pill green">${healthy.length} Healthy</span>
+      <span class="dash-kpi-pill teal">${expand.length} Exp.</span>
+    </div>
+  </div>`;
+
+  // Card 2: Revenue at Risk
+  html += `<div class="dash-kpi-card dash-kpi-red" onclick="nav('customers');setFilter('risk')">
+    <div class="dash-kpi-top">${_kpiIcon(_kpiSvg.alert)}<span class="dash-kpi-label">Revenue at Risk</span></div>
+    <div class="dash-kpi-num">$${fmtNum(atRiskMRR)}</div>
+    <div class="dash-kpi-sub">MRR in At Risk accounts</div>
+    <div style="margin-top:10px"><span class="dash-kpi-pill red">${atRisk.length} account${atRisk.length !== 1 ? 's' : ''}</span></div>
+  </div>`;
+
+  // Card 3: Upcoming Renewals
+  html += `<div class="dash-kpi-card dash-kpi-teal" onclick="nav('alerts')">
+    <div class="dash-kpi-top">${_kpiIcon(_kpiSvg.cal)}<span class="dash-kpi-label">Upcoming Renewals</span></div>
+    <div class="dash-kpi-num">${renewals30.length}</div>
+    <div class="dash-kpi-sub">Due in next 30 days</div>
+    <div style="margin-top:10px"><span class="dash-kpi-pill teal">${renewMRR ? '$' + fmtNum(renewMRR) + ' at stake' : 'None due'}</span></div>
+  </div>`;
+
+  // Card 4: Expansion Opportunity
+  html += `<div class="dash-kpi-card dash-kpi-green" onclick="nav('customers');setFilter('expand')">
+    <div class="dash-kpi-top">${_kpiIcon(_kpiSvg.trend)}<span class="dash-kpi-label">Expansion Opportunity</span></div>
+    <div class="dash-kpi-num">$${fmtNum(Math.round(expMRR * 0.2))}</div>
+    <div class="dash-kpi-sub">Est. upsell potential (20%)</div>
+    <div style="margin-top:10px"><span class="dash-kpi-pill green">${expand.length} account${expand.length !== 1 ? 's' : ''} ready</span></div>
+  </div>`;
+
+  // Card 5: Total MRR
+  html += `<div class="dash-kpi-card dash-kpi-purple" onclick="nav('customers');setFilter('all')">
+    <div class="dash-kpi-top">${_kpiIcon(_kpiSvg.dollar)}<span class="dash-kpi-label">Total MRR</span></div>
+    <div class="dash-kpi-num">$${fmtNum(totalMRR)}</div>
+    <div class="dash-kpi-sub">All active accounts</div>
+    <div style="margin-top:10px"><span class="dash-kpi-pill" style="background:rgba(255,255,255,.2);color:#fff">Avg score ${avgScore}</span></div>
+  </div>`;
+
   html += '</div>';
 
   // ── Page Snapshots (quick-glance per tab) ──
@@ -151,8 +323,14 @@ function _renderHomeBase() {
   });
   html += '</div>';
 
+  // ── Renewal Pipeline (moved from Dashboard) ──
+  html += '<div class="card" style="margin-bottom:20px;padding:16px 20px">';
+  html += '<div class="card-hd" style="margin-bottom:12px"><div class="hb-section-hd" style="margin-bottom:0">Renewal Pipeline</div></div>';
+  html += '<div id="renewal-pipeline-wrap"></div>';
+  html += '</div>';
+
   // ── Insights section ──
-  html += '<div class="card" style="margin-bottom:20px;padding-bottom:8px">';
+  html += '<div class="hb-section hb-section-tinted" style="margin-bottom:16px;padding-bottom:8px">';
   html += '<div class="card-hd" style="margin-bottom:12px">';
   html += '<div class="hb-section-hd" style="margin-bottom:0">Insights' + (insights.length ? ` <span class="hb-count">(${insights.length})</span>` : '') + '</div>';
   html += '<div style="display:flex;align-items:center;gap:8px">';
@@ -174,8 +352,14 @@ function _renderHomeBase() {
   }
   html += '</div>';
 
+  // ── Most Improved / Biggest Drops (moved from Dashboard) ──
+  html += '<div class="hb-movers-grid">';
+  html += '<div class="card" style="padding:16px 20px"><div class="card-hd" style="margin-bottom:8px"><div class="hb-section-hd" style="margin-bottom:0">Most Improved</div></div><div id="wins-wrap"></div></div>';
+  html += '<div class="card" style="padding:16px 20px"><div class="card-hd" style="margin-bottom:8px"><div class="hb-section-hd" style="margin-bottom:0">Biggest Drops</div></div><div id="drops-wrap"></div></div>';
+  html += '</div>';
+
   // ── This Week's Focus ──
-  html += '<div class="card">';
+  html += '<div class="hb-section hb-section-warm" style="margin-bottom:16px">';
   html += '<div class="card-hd" style="margin-bottom:12px">';
   html += `<div class="hb-section-hd" style="margin-bottom:0">This Week's Focus <span class="hb-count">(${focusList.length})</span></div>`;
   html += '</div>';
@@ -202,7 +386,22 @@ function _renderHomeBase() {
   }
   html += '</div>';
 
+  // ── Signal Heatmap (moved from Dashboard) ──
+  html += '<div class="card" style="padding:16px 20px">';
+  html += '<div class="card-hd" style="margin-bottom:12px"><div class="hb-section-hd" style="margin-bottom:0">Signal Heatmap</div></div>';
+  html += '<div id="heatmap-wrap" class="heatmap"></div>';
+  html += '</div>';
+
   wrap.innerHTML = html;
+
+  // ── Render moved Dashboard widgets into their containers ──
+  if (typeof renderRenewalPipeline === 'function') {
+    if (typeof hasFeature === 'function' && hasFeature('renewal_pipeline')) renderRenewalPipeline(active);
+    else if (el('renewal-pipeline-wrap')) el('renewal-pipeline-wrap').innerHTML = typeof upgradeHTML === 'function' ? upgradeHTML('renewal_pipeline') : '';
+  }
+  if (typeof renderWins === 'function') renderWins(active);
+  if (typeof renderDrops === 'function') renderDrops(active);
+  if (typeof renderHeatmap === 'function') renderHeatmap(active);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -302,7 +501,7 @@ function _buildPageSnapshots(active, now, cutoff, atRisk, atRiskMRR, total, avgS
     let direction = 'stable';
     if (improving > declining + 2) direction = 'trending up';
     else if (declining > improving + 2) direction = 'trending down';
-    let detail = `Avg score <strong>${avgScore}</strong> · ${direction} over ${_hbPeriodDays}d`;
+    let detail = `Portfolio ${direction} over ${_hbPeriodDays}d`;
     if (improving > 0 || declining > 0) {
       detail += `<br>${improving} up, ${declining} down`;
       // Add biggest mover
@@ -472,6 +671,9 @@ function _insightWinLossBalance(active, now, cutoff) {
   if (Math.abs(net) < 2) return null;
 
   const good = net > 0;
+  const allTrending = [...declining, ...improving];
+  const focusIds = JSON.stringify(allTrending.map(c => c.id));
+  const focusLabel = `${declining.length} declining + ${improving.length} improving accounts`;
   return {
     category: 'Trend',
     priority: good ? 4 : 2,
@@ -481,7 +683,7 @@ function _insightWinLossBalance(active, now, cutoff) {
     detail: good
       ? `Net positive momentum — ${ratio.toFixed(1)}x more accounts gaining health than losing it this period.`
       : `Net negative momentum — more accounts losing health than gaining. Review declining accounts for patterns.`,
-    action: { label: 'View Customers', fn: "nav('customers');setFilter('all')" }
+    action: { label: 'View Customers', fn: `setInsightFilter('${focusLabel}',${focusIds})` }
   };
 }
 
@@ -638,13 +840,14 @@ function _insightEmergingRisk(active) {
   });
 
   if (earlyWarning.length < 2) return null;
+  const ewIds = JSON.stringify(earlyWarning.map(c => c.id));
 
   return {
     category: 'Risk',
     priority: 2,
     title: `${earlyWarning.length} healthy accounts showing early warning signals`,
     detail: `These accounts are scored healthy but have 2+ concerning metrics (low logins, low adoption, high tickets, or NPS detractor). They may be at risk of decline.`,
-    action: { label: 'View Customers', fn: "nav('customers');setFilter('healthy')" }
+    action: { label: 'View Customers', fn: `setInsightFilter('${earlyWarning.length} accounts with early warnings',${ewIds})` }
   };
 }
 
@@ -667,6 +870,7 @@ function _insightMrrAtRiskDelta(active, now, cutoff) {
   if (Math.abs(delta) < 1000) return null;
 
   const increased = delta > 0;
+  const arIds = JSON.stringify(atRisk.map(c => c.id));
   return {
     category: 'Risk',
     priority: increased ? 1 : 4,
@@ -676,7 +880,7 @@ function _insightMrrAtRiskDelta(active, now, cutoff) {
     detail: increased
       ? `Revenue exposure grew from $${fmtNum(prevMRR)} to $${fmtNum(currentMRR)}. New accounts entered the risk zone — review before they escalate.`
       : `Revenue exposure shrank from $${fmtNum(prevMRR)} to $${fmtNum(currentMRR)}. Recovery efforts are paying off.`,
-    action: { label: 'View Dashboard', fn: "nav('dashboard')" }
+    action: { label: 'View Customers', fn: `setInsightFilter('${atRisk.length} at-risk accounts',${arIds})` }
   };
 }
 
@@ -694,13 +898,14 @@ function _insightRenewalReadiness(active, now) {
   const gap = overallAvg - avgRenewScore;
 
   if (gap < 5) return null;
+  const rrIds = JSON.stringify(next30.map(c => c.id));
 
   return {
     category: 'Renewal',
     priority: gap > 15 ? 1 : 2,
     title: `Upcoming renewals score ${avgRenewScore} vs portfolio avg ${overallAvg}`,
     detail: `${next30.length} accounts renewing in the next 30 days have an average score ${gap} points below your portfolio average. Proactive outreach recommended.`,
-    action: { label: 'View Dashboard', fn: "nav('dashboard')" }
+    action: { label: 'View Customers', fn: `setInsightFilter('${next30.length} upcoming renewals',${rrIds})` }
   };
 }
 
@@ -715,13 +920,14 @@ function _insightRenewalRisk(active, now) {
   if (atRiskRenewals.length < 1 || next30.length < 2) return null;
 
   const renewMRR = atRiskRenewals.reduce((s,c) => s + (c.mrr || 0), 0);
+  const rrIds = JSON.stringify(atRiskRenewals.map(c => c.id));
 
   return {
     category: 'Renewal',
     priority: 1,
     title: `${atRiskRenewals.length} of ${next30.length} upcoming renewals are at-risk`,
     detail: `$${fmtNum(renewMRR)} MRR is at risk among accounts renewing in the next 30 days. These need immediate attention.`,
-    action: { label: 'View Customers', fn: "nav('customers');setFilter('risk')" }
+    action: { label: 'View Customers', fn: `setInsightFilter('${atRiskRenewals.length} at-risk renewals',${rrIds})` }
   };
 }
 
@@ -737,12 +943,13 @@ function _insightContactGaps(active) {
   if (enterprise.length > 0) extra += `, including ${enterprise.length} Enterprise`;
   if (atRiskStale.length > 0) extra += ` and ${atRiskStale.length} at-risk`;
 
+  const staleIds = JSON.stringify(stale.map(c => c.id));
   return {
     category: 'Workload',
     priority: atRiskStale.length > 2 ? 2 : 3,
     title: `${stale.length} accounts not contacted in 30+ days`,
     detail: `${stale.length} accounts have gone over 30 days without contact${extra}. Regular touchpoints reduce churn risk.`,
-    action: { label: 'View Customers', fn: "nav('customers')" }
+    action: { label: 'View Customers', fn: `setInsightFilter('${stale.length} accounts with no contact 30+ days',${staleIds})` }
   };
 }
 
@@ -789,13 +996,14 @@ function _insightExpansionReady(active) {
 
   if (strongEngagement.length < 2) return null;
   const totalMRR = strongEngagement.reduce((s,c) => s + (c.mrr || 0), 0);
+  const seIds = JSON.stringify(strongEngagement.map(c => c.id));
 
   return {
     category: 'Opportunity',
     priority: 3,
     title: `${strongEngagement.length} accounts ready for expansion`,
     detail: `${strongEngagement.length} Expand-status accounts have strong engagement signals (high logins, adoption, and NPS). Combined MRR: $${fmtNum(totalMRR)} — upsell candidates.`,
-    action: { label: 'View Customers', fn: "nav('customers');setFilter('expand')" }
+    action: { label: 'View Customers', fn: `setInsightFilter('${strongEngagement.length} expansion-ready accounts',${seIds})` }
   };
 }
 
@@ -809,13 +1017,14 @@ function _insightPositiveMovers(active, now, cutoff) {
   });
 
   if (movedUp.length < 1) return null;
+  const muIds = JSON.stringify(movedUp.map(c => c.id));
 
   return {
     category: 'Opportunity',
     priority: 4,
     title: `${movedUp.length} account${movedUp.length > 1 ? 's' : ''} improved to Healthy this period`,
     detail: `${movedUp.map(c => c.name).slice(0, 4).join(', ')}${movedUp.length > 4 ? ' +' + (movedUp.length - 4) + ' more' : ''} moved out of Watch/Risk into Healthy or Expand status.`,
-    action: { label: 'View Customers', fn: "nav('customers');setFilter('healthy')" }
+    action: { label: 'View Customers', fn: `setInsightFilter('${movedUp.length} recently improved accounts',${muIds})` }
   };
 }
 
@@ -835,13 +1044,14 @@ function _insightAdoptionCorrelation(active) {
   if (riskRate <= overallRiskRate + 10) return null;
 
   const multiplier = (riskRate / Math.max(overallRiskRate, 1)).toFixed(1);
+  const laIds = JSON.stringify(lowAdoption.map(c => c.id));
 
   return {
     category: 'Engagement',
     priority: 3,
     title: `Low adoption accounts are ${multiplier}x more likely to be at-risk`,
     detail: `${lowAdoption.length} accounts with <30% adoption have a ${riskRate}% at-risk rate vs ${overallRiskRate}% overall. Driving adoption could prevent future churn.`,
-    action: { label: 'View Customers', fn: "nav('customers')" }
+    action: { label: 'View Customers', fn: `setInsightFilter('${lowAdoption.length} low-adoption accounts',${laIds})` }
   };
 }
 
@@ -860,7 +1070,7 @@ function _insightTicketSpike(active) {
     priority: highTickets.some(c => c.status === 'critical' || c.status === 'risk') ? 2 : 3,
     title: `${highTickets.length} accounts have 5+ open tickets`,
     detail: `These accounts have elevated ticket volume (portfolio avg: ${avgTickets}). High ticket counts often precede health declines — review for patterns.`,
-    action: { label: 'View Customers', fn: "nav('customers')" }
+    action: { label: 'View Customers', fn: `setInsightFilter('${highTickets.length} accounts with 5+ tickets',${JSON.stringify(highTickets.map(c=>c.id))})` }
   };
 }
 
@@ -946,7 +1156,7 @@ function _renderInsightCard(ins) {
         <span class="hb-insight-title">${escHtml(ins.title)}</span>
       </div>
       <div class="hb-insight-detail">${escHtml(ins.detail)}</div>
-      ${ins.action ? `<button class="hb-insight-action" onclick="${ins.action.fn}">${ins.action.label} →</button>` : ''}
+      ${ins.action ? `<button class="hb-insight-action" onclick="${ins.action.fn.replace(/"/g,'&quot;')}">${ins.action.label} →</button>` : ''}
     </div>
   </div>`;
 }

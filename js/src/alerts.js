@@ -155,9 +155,18 @@ function buildAlerts() {
 
 // ─── MULTI-SELECT STATE ──────────────────────────────────────
 let _selectedAlerts = new Set();
+let _lastClickedAlert = null;
 let _alertViewMode = 'category'; // 'category' | 'priority' | 'customer' | 'table'
 let _alertTableFilter = null;    // { label: string, ids: Set<string> } — null = all alerted customers
 let _alertTblSort = { key: 'score', dir: 1 }; // 1=asc (worst first), -1=desc
+
+function toggleAlertGroup(hd) {
+  const body = hd.nextElementSibling;
+  if (!body || !body.classList.contains('alert-group-body')) return;
+  const isHidden = getComputedStyle(body).display === 'none';
+  body.style.display = isHidden ? 'block' : 'none';
+  hd.classList.toggle('alert-grp-open', isHidden);
+}
 
 function setAlertView(mode) {
   _alertViewMode = mode;
@@ -175,11 +184,35 @@ function setAlertView(mode) {
   renderAlerts();
 }
 
-function alertToggleSelect(aid, el) {
+function alertToggleSelect(aid, el, ev) {
+  // Shift+click range selection
+  if (ev && ev.shiftKey && _lastClickedAlert && _lastClickedAlert !== aid) {
+    const allChecks = [...document.querySelectorAll('#alerts-list .alert-item__check')];
+    const ids = allChecks.map(cb => {
+      const m = cb.getAttribute('onclick')?.match(/alertToggleSelect\('([^']+)'/);
+      return m ? m[1] : null;
+    }).filter(Boolean);
+    const startIdx = ids.indexOf(_lastClickedAlert);
+    const endIdx = ids.indexOf(aid);
+    if (startIdx !== -1 && endIdx !== -1) {
+      const lo = Math.min(startIdx, endIdx);
+      const hi = Math.max(startIdx, endIdx);
+      for (let i = lo; i <= hi; i++) {
+        _selectedAlerts.add(ids[i]);
+        const row = document.getElementById('alert-row-' + ids[i]);
+        if (row) row.classList.add('selected');
+        if (allChecks[i]) allChecks[i].checked = true;
+      }
+      _lastClickedAlert = aid;
+      _updateAlertBulkBar();
+      return;
+    }
+  }
+  // Normal toggle
   if (_selectedAlerts.has(aid)) _selectedAlerts.delete(aid);
   else _selectedAlerts.add(aid);
+  _lastClickedAlert = aid;
   _updateAlertBulkBar();
-  // toggle .selected on row
   const row = document.getElementById('alert-row-'+aid);
   if (row) row.classList.toggle('selected', _selectedAlerts.has(aid));
 }
@@ -214,6 +247,9 @@ function _updateAlertBulkBar() {
 }
 
 function toggleBulkSnoozeDd() {
+  document.querySelectorAll('.snooze-dd__menu').forEach(m => {
+    if (m.id !== 'bulk-snooze-menu') m.classList.remove('open');
+  });
   el('bulk-snooze-menu')?.classList.toggle('open');
 }
 
@@ -226,7 +262,7 @@ function bulkSnooze(days) {
   saveSettings();
   logAudit('bulk_snooze', null, '', { summary: `${n} alert${n===1?'':'s'} snoozed for ${days}d` });
   renderAlerts();
-  renderDashboard();
+
   toast(`${n} alert${n===1?'':'s'} snoozed for ${days} day${days===1?'':'s'}`, 'default');
 }
 
@@ -241,7 +277,7 @@ function bulkDismiss() {
   saveSettings();
   logAudit('bulk_dismiss', null, '', { summary: `${n} alert${n===1?'':'s'} dismissed` });
   renderAlerts();
-  renderDashboard();
+
   toast(`${n} alert${n===1?'':'s'} dismissed`, 'default');
 }
 
@@ -299,8 +335,8 @@ function _renderAlerts() {
     ['red','amber','blue','green'].forEach(sev => {
       const group = groups[sev];
       if (!group || !group.length) return;
-      html += `<div class="alert-priority-hd"><div class="alert-priority-dot" style="background:${sevColors[sev]}"></div>${sevLabels[sev]} <span style="font-weight:400;color:var(--subtle)">(${group.length})</span></div>`;
-      html += group.map(a => alertItemHTML(a, false)).join('');
+      html += `<div class="alert-priority-hd" onclick="toggleAlertGroup(this)"><div class="alert-priority-dot" style="background:${sevColors[sev]}"></div>${sevLabels[sev]} <span style="font-weight:400;color:var(--subtle)">(${group.length})</span></div>`;
+      html += `<div class="alert-group-body">${group.map(a => alertItemHTML(a, false)).join('')}</div>`;
     });
   } else if (_alertViewMode === 'customer') {
     // ── Customer view: group by customer, sorted by worst score ──
@@ -330,16 +366,16 @@ function _renderAlerts() {
     if (custList.length) {
       custList.forEach(([cid, data]) => {
         const scoreColor = STATUS_COLOR[data.status] || '#94a3b8';
-        html += `<div class="alert-group-hd" style="cursor:pointer" onclick="openDetail('${escHtml(cid)}')">
+        html += `<div class="alert-group-hd" onclick="toggleAlertGroup(this)">
           <span class="alert-score-circle" style="background:${scoreColor};width:26px;height:26px;font-size:.65rem;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-weight:800">${data.score}</span>
-          ${escHtml(data.name)}
+          <span style="cursor:pointer" onclick="event.stopPropagation();openDetail('${escHtml(cid)}')">${escHtml(data.name)}</span>
           ${data.mrr ? `<span style="font-weight:400;color:var(--subtle);font-size:.75rem">$${fmtNum(data.mrr)} MRR</span>` : ''}
           <span style="font-weight:400;color:var(--subtle)">(${data.alerts.length} alert${data.alerts.length !== 1 ? 's' : ''})</span>
         </div>`;
         // Sort alerts within customer by severity
         const sevOrd = { red:0, amber:1, blue:2, green:3 };
         data.alerts.sort((a,b) => (sevOrd[a.type]??9) - (sevOrd[b.type]??9));
-        html += data.alerts.map(a => alertItemHTML(a, false)).join('');
+        html += `<div class="alert-group-body">${data.alerts.map(a => alertItemHTML(a, false)).join('')}</div>`;
       });
     } else if (custSearch) {
       html += `<div style="text-align:center;padding:28px 16px;color:var(--muted);font-size:.85rem">No customers matching "${escHtml(custSearch)}"</div>`;
@@ -435,20 +471,39 @@ function _renderAlerts() {
       const group = active.filter(a => a.cat === cat);
       if (!group.length) return;
       const def = ALERT_CATS[cat];
-      html += `<div class="alert-group-hd" id="alert-grp-${cat}">${def.icon} ${def.label} <span style="font-weight:400;color:var(--subtle)">(${group.length})</span></div>`;
-      html += group.map(a => alertItemHTML(a, false)).join('');
+      html += `<div class="alert-group-hd" id="alert-grp-${cat}" onclick="toggleAlertGroup(this)">${def.icon} ${def.label} <span style="font-weight:400;color:var(--subtle)">(${group.length})</span></div>`;
+      html += `<div class="alert-group-body">${group.map(a => alertItemHTML(a, false)).join('')}</div>`;
     });
   }
 
   // Snoozed section (shown in alert card views, not table)
   if (snz.length && _alertViewMode !== 'table') {
-    html += `<div class="alert-group-hd" style="margin-top:20px">${ALERT_ICONS.snoozed} Snoozed <span style="font-weight:400;color:var(--subtle)">(${snz.length})</span></div>`;
-    html += snz.map(a => alertItemHTML(a, true)).join('');
+    html += `<div class="alert-group-hd" style="margin-top:20px" onclick="toggleAlertGroup(this)">${ALERT_ICONS.snoozed} Snoozed <span style="font-weight:400;color:var(--subtle)">(${snz.length})</span></div>`;
+    html += `<div class="alert-group-body">${snz.map(a => alertItemHTML(a, true)).join('')}</div>`;
   }
 
+  // Remember which groups are expanded before re-render
+  const openGroups = new Set();
+  list.querySelectorAll('.alert-group-hd.alert-grp-open, .alert-priority-hd.alert-grp-open').forEach(hd => {
+    openGroups.add(hd.id || hd.textContent.replace(/\s+/g,' ').trim().split('(')[0].trim());
+  });
+
   list.innerHTML = html;
+
+  // Restore expanded groups
+  if (openGroups.size) {
+    list.querySelectorAll('.alert-group-hd, .alert-priority-hd').forEach(hd => {
+      const key = hd.id || hd.textContent.replace(/\s+/g,' ').trim().split('(')[0].trim();
+      if (openGroups.has(key)) toggleAlertGroup(hd);
+    });
+  }
+
   renderAlertPanel(all, active, snz);
   renderAlertBriefing(active, snz);
+
+  // Show/hide "View Snoozed" button
+  const vsBtn = el('alerts-view-snoozed-btn');
+  if (vsBtn) vsBtn.style.display = snz.length > 0 ? '' : 'none';
 }
 
 // ─── ALERT RIGHT PANEL ───────────────────────────────────────
@@ -591,14 +646,22 @@ function _alertShowTable(label, ids) {
   const searchBox = el('alert-cust-search');
   if (searchBox) { searchBox.style.display = ''; searchBox.value = ''; }
   renderAlerts();
+  const list = el('alerts-list');
+  if (list) _smoothScrollWithOffset(list, 10);
 }
 function filterByMrrBucket(label) {
   _alertShowTable(label, _mrrSeen[label]);
 }
 function _smoothScrollWithOffset(target, offset) {
   if (!target) return;
-  const y = target.getBoundingClientRect().top + window.scrollY - (offset || 20);
-  window.scrollTo({ top: y, behavior: 'smooth' });
+  const main = document.querySelector('main.main');
+  if (main && main.scrollHeight > main.clientHeight) {
+    const y = target.getBoundingClientRect().top - main.getBoundingClientRect().top + main.scrollTop - (offset || 20);
+    main.scrollTo({ top: y, behavior: 'smooth' });
+  } else {
+    const y = target.getBoundingClientRect().top + window.scrollY - (offset || 20);
+    window.scrollTo({ top: y, behavior: 'smooth' });
+  }
 }
 function filterByAlertKpi(which) {
   // Switch to category view and scroll to the relevant group
@@ -931,7 +994,7 @@ function alertItemHTML(a, isSnzd) {
   return `
     <div class="alert-item ${a.type} ${isSnzd?'snoozed':''} ${sel?'selected':''}" id="alert-row-${escHtml(a.id)}" onclick="openDetail('${escHtml(a.cid)}')">
       <div class="alert-score-circle" style="background:${scoreColor}">${scoreVal}</div>
-      <input type="checkbox" class="alert-item__check" ${sel?'checked':''} onclick="event.stopPropagation();alertToggleSelect('${escHtml(a.id)}',this)" title="Select">
+      <input type="checkbox" class="alert-item__check" ${sel?'checked':''} onclick="event.stopPropagation();alertToggleSelect('${escHtml(a.id)}',this,event)" title="Select">
       <div class="alert-item__icon">${def.icon}</div>
       <div class="alert-item__body">
         <div class="alert-item__text">${a.msg}</div>
@@ -970,6 +1033,19 @@ document.addEventListener('click', () => {
   document.querySelectorAll('.snooze-dd__menu.open').forEach(m => m.classList.remove('open'));
 });
 
+// Sticky bar shadow when scrolled
+(function() {
+  const bar = document.getElementById('alert-sticky-bar');
+  if (!bar) return;
+  const sentinel = document.createElement('div');
+  sentinel.style.cssText = 'height:1px;margin:0;padding:0;visibility:hidden;pointer-events:none';
+  bar.parentElement.insertBefore(sentinel, bar);
+  const obs = new IntersectionObserver(([e]) => {
+    bar.classList.toggle('stuck', !e.isIntersecting);
+  }, { threshold: [1] });
+  obs.observe(sentinel);
+})();
+
 function isSnoozed(aid) {
   if (!snoozed.has(aid)) return false;
   const expiry = snoozed.get(aid);
@@ -990,7 +1066,7 @@ function snoozeAlert(aid, days=7) {
   saveSettings();
   logAudit('alert_snoozed', ai.custId, ai.custName, { summary: `Alert snoozed for ${days}d — ${ai.catLabel}` });
   renderAlerts();
-  renderDashboard();
+
   toast(`Alert snoozed for ${days} day${days===1?'':'s'} ⏱`, 'default');
 }
 
@@ -1013,7 +1089,7 @@ function dismissAlert(aid) {
   saveSettings();
   logAudit('alert_dismissed', ai.custId, ai.custName, { summary: `Alert dismissed — ${ai.catLabel}` });
   renderAlerts();
-  renderDashboard();
+
   toast('Alert dismissed', 'default');
 }
 
@@ -1023,7 +1099,7 @@ function unsnooze(aid) {
   saveSettings();
   logAudit('alert_unsnoozed', ai.custId, ai.custName, { summary: `Alert unsnoozed — ${ai.catLabel}` });
   renderAlerts();
-  renderDashboard();
+
 }
 
 function clearSnoozed() {
@@ -1031,6 +1107,26 @@ function clearSnoozed() {
   saveSettings();
   logAudit('alerts_cleared', null, '', { summary: 'All snoozed alerts cleared' });
   renderAlerts();
-  renderDashboard();
+
   toast('Snoozed alerts cleared', 'success');
+}
+
+function viewSnoozedAlerts() {
+  // Switch to category view if in table mode (snoozed section only shows in card views)
+  if (_alertViewMode === 'table') setAlertView('category');
+  setTimeout(() => {
+    // Find the snoozed group header and expand + scroll to it
+    const headers = document.querySelectorAll('#alerts-list .alert-group-hd');
+    for (const hd of headers) {
+      if (hd.textContent.includes('Snoozed')) {
+        // Expand if collapsed
+        const body = hd.nextElementSibling;
+        if (body && body.classList.contains('alert-group-body') && getComputedStyle(body).display === 'none') {
+          toggleAlertGroup(hd);
+        }
+        _smoothScrollWithOffset(hd);
+        return;
+      }
+    }
+  }, 50);
 }

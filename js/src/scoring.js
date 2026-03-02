@@ -129,18 +129,48 @@ function getLastScoredDate(c) {
 // Returns effective days since contact, accounting for time elapsed since last scored
 function getEffectiveDays(c) {
   if (c.days == null && c._baseDays == null) return null; // N/A
+  // If last_contact_date exists, calculate directly from it (exact, no drift)
+  if (c.last_contact_date) {
+    var lcd = new Date(c.last_contact_date);
+    if (!isNaN(lcd.getTime())) {
+      return Math.max(0, Math.floor((Date.now() - lcd.getTime()) / 86400000));
+    }
+  }
+  // Fallback: existing _baseDays + elapsed approach
   var base = c._baseDays != null ? c._baseDays : (c.days || 0);
   var lastScored = getLastScoredDate(c);
   var elapsed = Math.max(0, Math.floor((Date.now() - lastScored.getTime()) / 86400000));
   return base + elapsed;
 }
 
+// Auto-promote past next_touch to last_contact_date
+// Returns true if a transition occurred (caller should persist)
+function applyNextTouchTransition(c) {
+  if (!c.next_touch) return false;
+  var ntDate = new Date(c.next_touch);
+  if (isNaN(ntDate.getTime())) return false;
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (ntDate >= today) return false; // still in the future or today
+  // Promote: next_touch becomes last_contact_date
+  c.last_contact_date = c.next_touch;
+  c.next_touch = '';
+  // Recalculate days from the new last_contact_date
+  var daysSince = Math.max(0, Math.floor((Date.now() - ntDate.getTime()) / 86400000));
+  c.days = daysSince;
+  c._baseDays = daysSince;
+  return true;
+}
+
 // Recalculate all customer scores using dynamic effective days
 function refreshLiveScores() {
+  var transitioned = [];
   customers.forEach(function(c) {
     if (c.lifecycle === 'churned') return;
+    // Auto-promote past next_touch → last_contact_date
+    if (applyNextTouchTransition(c)) transitioned.push(c);
     var effDays = getEffectiveDays(c);
-    if (effDays === c.days) return;
+    if (effDays === c.days && !transitioned.includes(c)) return;
     var data = { logins: c.logins, adoption: c.adoption,
       tickets: c.tickets, nps: c.nps, csat: c.csat,
       days: effDays, growth: c.growth || 'none' };
@@ -150,6 +180,10 @@ function refreshLiveScores() {
     c.score  = result.score;
     c.status = getStatus(result.score);
   });
+  // Persist transitioned customers (fire-and-forget)
+  if (transitioned.length && typeof save === 'function') {
+    transitioned.forEach(function(c) { save(c).catch(function(){}); });
+  }
 }
 
 function makeRec(score, data) {
@@ -355,20 +389,10 @@ function buildNextBestAction(c) {
 // Looks at the last 3 history points to classify trajectory
 function getMomentum(c) {
   if (!c.history || c.history.length < 2) return 'new';
-  const hist = c.history;
-  if (hist.length === 2) {
-    const diff = hist[1].score - hist[0].score;
-    if (diff >= 5)  return 'up';
-    if (diff <= -5) return 'dn';
-    return 'flat';
-  }
-  // Use last 3 points — compare trend direction
-  const pts = hist.slice(-3).map(h => h.score);
-  const avg1 = (pts[0] + pts[1]) / 2;
-  const avg2 = pts[2];
-  const diff = avg2 - avg1;
-  if (diff >= 5)  return 'up';
-  if (diff <= -5) return 'dn';
+  // Use 7-day delta for consistency with trend sparkline and insights
+  const diff = getDelta7d(c);
+  if (diff >= 3)  return 'up';
+  if (diff <= -3) return 'dn';
   return 'flat';
 }
 

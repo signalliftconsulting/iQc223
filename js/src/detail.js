@@ -699,8 +699,19 @@ function renderDetailOverview() {
         </div>
       </div>
     </div>
-    <!-- Signals row: cadence + urgency + sentiment -->
+    <!-- Signals row: last contact + cadence + urgency + sentiment -->
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:10px 12px;background:var(--bg);border-radius:var(--r);border:1px solid var(--border)">
+      <div style="flex:1;min-width:110px">
+        <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:3px">Last Contact</div>
+        ${(()=>{
+          if (c.last_contact_date) {
+            const lcd = new Date(c.last_contact_date);
+            const daysAgo = Math.max(0, Math.floor((Date.now() - lcd.getTime()) / 86400000));
+            return `<span style="font-size:.78rem;font-weight:600">${lcd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span> <span style="font-size:.7rem;color:var(--muted)">(${daysAgo}d ago)</span>`;
+          }
+          return '<span style="font-size:.75rem;color:var(--muted)">—</span>';
+        })()}
+      </div>
       <div style="flex:1;min-width:110px">
         <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:3px">Check-in</div>
         <span class="${cad.cls}">${cad.label}</span>
@@ -751,7 +762,23 @@ async function saveDetailInline() {
   }
   if (tierInput) c.tier      = tierInput.value;
   if (lcInput)   c.lifecycle = lcInput.value;
-  if (ntInput)   c.next_touch = ntInput.value || null;
+  if (ntInput) {
+    const newNt = ntInput.value || '';
+    const oldNt = c.next_touch || '';
+    // If old next_touch is today or past, promote it to last_contact_date
+    if (oldNt && oldNt !== newNt) {
+      const oldDate = new Date(oldNt);
+      const today = new Date(); today.setHours(0,0,0,0);
+      if (oldDate <= today) {
+        c.last_contact_date = oldNt;
+        // Recalculate days from last_contact_date
+        const daysSince = Math.max(0, Math.floor((Date.now() - oldDate.getTime()) / 86400000));
+        c.days = daysSince;
+        c._baseDays = daysSince;
+      }
+    }
+    c.next_touch = newNt;
+  }
   if (tagsInput) {
     c.tags = tagsInput.value.split(',').map(t => t.trim()).filter(Boolean);
   }
@@ -1054,6 +1081,8 @@ window.saveScore = function() {
       c.csat            = data.csat;
       c.days            = data.days;
       c._baseDays       = data.days;
+      // If user manually changed days slider, clear last_contact_date (user override)
+      if (data.days != null && c.last_contact_date) { c.last_contact_date = ''; }
       c.renewal         = data.renewal;
       c.renewal_date    = data.renewal_date || '';
       c.next_touch      = (el('f-next-touch') ? el('f-next-touch').value : '') || '';

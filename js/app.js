@@ -41,6 +41,8 @@ let columnFilters  = {};        // per-column filter state (see COL_DEFS)
 let _openColFilterKey = null;   // key of currently open column filter dropdown
 let filterPresets  = [];        // saved filter presets [{ name, filterMode, columnFilters, sortKey, sortDir }]
 let mrrExposureFilter = null;   // { label: string, ids: Set<string> } — set by clicking MRR Exposure rows
+let _filterTier       = null;   // tier filter for customers table (set by segment click-through)
+let insightFilter     = null;   // { label: string, ids: Set<string> } — set by insight card click-through
 
 // ─── AUTOMATIONS STATE ──────────────────────────────────────
 let automationsCfg    = {};        // { api_key_prefix, webhooks: { type: { url, enabled, threshold? } } }
@@ -204,7 +206,6 @@ const ENUM_DISPLAY = {
 
 // Dashboard-specific sort state (heatmap + recent table)
 let dashHeatSort  = { key: 'score', dir: 1 };  // 1=asc (worst first default)
-let dashRecentSort= { key: 'created', dir: -1 };
 let detailId   = null;
 let pendingResult = null; // last scored result not yet saved
 let csvRows    = null;    // parsed CSV rows pending import
@@ -306,7 +307,7 @@ document.addEventListener('keydown', e => {
     return;
   }
   // Number shortcuts for nav (1-6)
-  const navMap = { '1':'dashboard','2':'alerts','3':'customers','4':'score','5':'csv','6':'settings' };
+  const navMap = { '1':'homebase','2':'alerts','3':'customers','4':'score','5':'csv','6':'settings' };
   if (!e.metaKey && !e.ctrlKey && !e.altKey && navMap[e.key]) {
     nav(navMap[e.key]);
   }
@@ -494,8 +495,9 @@ function fromRow(row) {
     scoring_profile: row.scoring_profile || '',
     deleted_at:      row.deleted_at      || null,
     created:         row.created_at      || new Date().toISOString(),
-    next_touch:      row.next_touch      || '',
-    playbook_checks: tryParse(row.playbook_checks, {})
+    next_touch:        row.next_touch        || '',
+    playbook_checks:   tryParse(row.playbook_checks, {}),
+    last_contact_date: row.last_contact_date || ''
   };
 }
 
@@ -529,8 +531,9 @@ function toRow(c) {
     scoring_profile: c.scoring_profile || '',
     deleted_at:      c.deleted_at      || null,
     created_at:      c.created         || new Date().toISOString(),
-    next_touch:      c.next_touch      || '',
-    playbook_checks: JSON.stringify(c.playbook_checks || {})
+    next_touch:        c.next_touch        || '',
+    playbook_checks:   JSON.stringify(c.playbook_checks || {}),
+    last_contact_date: c.last_contact_date || ''
   };
 }
 
@@ -1056,6 +1059,14 @@ function _generateDemoCustomer(name, index, now) {
     next_touch = ntDate.toISOString().slice(0,10);
   }
 
+  // Last contact date — derive from days since contact for ~60% of active customers
+  let last_contact_date = '';
+  if (lifecycle !== 'churned' && lastSig.days != null && lastSig.days > 0 && Math.random() < 0.60) {
+    const lcd = new Date(now);
+    lcd.setDate(lcd.getDate() - lastSig.days);
+    last_contact_date = lcd.toISOString().slice(0,10);
+  }
+
   return {
     id:              crypto.randomUUID(),
     name,
@@ -1085,7 +1096,8 @@ function _generateDemoCustomer(name, index, now) {
     deleted_at:      null,
     created,
     next_touch,
-    playbook_checks: {}
+    playbook_checks: {},
+    last_contact_date
   };
 }
 
@@ -1162,10 +1174,16 @@ async function seedDemoData() {
 
 // ─── AUTO-REFRESH ────────────────────────────────────────────
 let _pollTimer = null;
+let _syncPauseUntil = 0; // pause silentSync after bulk operations (e.g. rescoreAll)
+
+// Call after bulk saves to prevent silentSync from overwriting local data
+// while Supabase writes are still in flight
+function pauseSync(ms) { _syncPauseUntil = Date.now() + (ms || 120000); }
 
 // Silent background sync — never shows the loading overlay
 async function silentSync() {
   if (!currentUser) return;
+  if (Date.now() < _syncPauseUntil) return; // skip while bulk saves are in flight
   try {
     // Respect the active client context — if admin switched to a specific client,
     // reload that client's data instead of the admin's own
@@ -1176,7 +1194,7 @@ async function silentSync() {
     }
     refreshMgrDropdown();
     const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
-    if (active === 'dashboard') renderDashboard();
+    if (active === 'homebase')  renderHomeBase();
     if (active === 'customers') renderCustomers();
     if (active === 'alerts')    renderAlerts();
   } catch(e) { /* silent */ }
@@ -1466,18 +1484,48 @@ function getLastScoredDate(c) {
 // Returns effective days since contact, accounting for time elapsed since last scored
 function getEffectiveDays(c) {
   if (c.days == null && c._baseDays == null) return null; // N/A
+  // If last_contact_date exists, calculate directly from it (exact, no drift)
+  if (c.last_contact_date) {
+    var lcd = new Date(c.last_contact_date);
+    if (!isNaN(lcd.getTime())) {
+      return Math.max(0, Math.floor((Date.now() - lcd.getTime()) / 86400000));
+    }
+  }
+  // Fallback: existing _baseDays + elapsed approach
   var base = c._baseDays != null ? c._baseDays : (c.days || 0);
   var lastScored = getLastScoredDate(c);
   var elapsed = Math.max(0, Math.floor((Date.now() - lastScored.getTime()) / 86400000));
   return base + elapsed;
 }
 
+// Auto-promote past next_touch to last_contact_date
+// Returns true if a transition occurred (caller should persist)
+function applyNextTouchTransition(c) {
+  if (!c.next_touch) return false;
+  var ntDate = new Date(c.next_touch);
+  if (isNaN(ntDate.getTime())) return false;
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (ntDate >= today) return false; // still in the future or today
+  // Promote: next_touch becomes last_contact_date
+  c.last_contact_date = c.next_touch;
+  c.next_touch = '';
+  // Recalculate days from the new last_contact_date
+  var daysSince = Math.max(0, Math.floor((Date.now() - ntDate.getTime()) / 86400000));
+  c.days = daysSince;
+  c._baseDays = daysSince;
+  return true;
+}
+
 // Recalculate all customer scores using dynamic effective days
 function refreshLiveScores() {
+  var transitioned = [];
   customers.forEach(function(c) {
     if (c.lifecycle === 'churned') return;
+    // Auto-promote past next_touch → last_contact_date
+    if (applyNextTouchTransition(c)) transitioned.push(c);
     var effDays = getEffectiveDays(c);
-    if (effDays === c.days) return;
+    if (effDays === c.days && !transitioned.includes(c)) return;
     var data = { logins: c.logins, adoption: c.adoption,
       tickets: c.tickets, nps: c.nps, csat: c.csat,
       days: effDays, growth: c.growth || 'none' };
@@ -1487,6 +1535,10 @@ function refreshLiveScores() {
     c.score  = result.score;
     c.status = getStatus(result.score);
   });
+  // Persist transitioned customers (fire-and-forget)
+  if (transitioned.length && typeof save === 'function') {
+    transitioned.forEach(function(c) { save(c).catch(function(){}); });
+  }
 }
 
 function makeRec(score, data) {
@@ -1692,20 +1744,10 @@ function buildNextBestAction(c) {
 // Looks at the last 3 history points to classify trajectory
 function getMomentum(c) {
   if (!c.history || c.history.length < 2) return 'new';
-  const hist = c.history;
-  if (hist.length === 2) {
-    const diff = hist[1].score - hist[0].score;
-    if (diff >= 5)  return 'up';
-    if (diff <= -5) return 'dn';
-    return 'flat';
-  }
-  // Use last 3 points — compare trend direction
-  const pts = hist.slice(-3).map(h => h.score);
-  const avg1 = (pts[0] + pts[1]) / 2;
-  const avg2 = pts[2];
-  const diff = avg2 - avg1;
-  if (diff >= 5)  return 'up';
-  if (diff <= -5) return 'dn';
+  // Use 7-day delta for consistency with trend sparkline and insights
+  const diff = getDelta7d(c);
+  if (diff >= 3)  return 'up';
+  if (diff <= -3) return 'dn';
   return 'flat';
 }
 
@@ -1806,12 +1848,12 @@ function buildCadenceAlerts() {
 }
 
 // ─── NAVIGATION ─────────────────────────────────────────────
-const VIEWS = ['homebase','dashboard','alerts','customers','segments','trends','csmperf','reports','score','csv','settings','automations','auditlog','users','clients','help'];
+const VIEWS = ['homebase','alerts','customers','segments','trends','csmperf','reports','score','csv','settings','automations','auditlog','users','clients','help'];
 const ADMIN_EMAILS = (_cfg && _cfg.ADMIN_EMAILS) || [];
 
 // ─── COLLAPSIBLE NAV GROUPS ─────────────────────────────────
 const NAV_GROUPS = {
-  main:     ['homebase','dashboard','alerts','customers','segments','trends','csmperf'],
+  main:     ['alerts','customers','segments','trends','csmperf'],
   automate: ['automations','reports'],
   data:     ['score','csv'],
   config:   ['settings','auditlog']
@@ -1885,6 +1927,9 @@ function nav(v) {
   });
   const target = document.getElementById('view-' + v);
   if (target) target.classList.add('active');
+  // Scroll main area to top on page change
+  const _mainEl = document.querySelector('main.main');
+  if (_mainEl) _mainEl.scrollTop = 0;
   const ni = document.getElementById('ni-' + v);
   if (ni) ni.classList.add('active');
 
@@ -1895,7 +1940,6 @@ function nav(v) {
   }
 
   if (v === 'homebase')  renderHomeBase();
-  if (v === 'dashboard') renderDashboard();
   if (v === 'alerts')    renderAlerts();
   if (v === 'customers') renderCustomers();
   if (v === 'segments')  { if (!hasFeature('segments')) { el('seg-kpi-row').innerHTML = ''; el('seg-cards-wrap').innerHTML = upgradeHTML('segments'); el('seg-table-wrap').innerHTML = ''; el('seg-insights-wrap').innerHTML = ''; } else renderSegments(); }
@@ -1955,6 +1999,19 @@ function renderBellDd() {
 // Home Base = "Here's what the data is telling you" (narrative, pattern-based).
 
 let _hbPeriodDays = 7; // comparison period: 7, 14, or 30
+function setInsightFilter(label, ids) {
+  if (!ids || !ids.length) return;
+  insightFilter = { label: label, ids: new Set(ids) };
+  mrrExposureFilter = null;
+  filterMode = 'all';
+  columnFilters = {};
+  nav('customers');
+  const _m = document.querySelector('main.main'); if (_m) _m.scrollTop = 0; else window.scrollTo(0, 0);
+}
+function clearInsightFilter() {
+  insightFilter = null;
+  renderCustomers();
+}
 
 // ── SVG Icon Library ──
 const _hbSvg = {
@@ -2077,15 +2134,173 @@ function _renderHomeBase() {
   // ── Build page snapshots ──
   const snapshots = _buildPageSnapshots(active, now, cutoff, atRisk, atRiskMRR, total, avgScore, renewals30);
 
+  // ── Extra KPI values ──
+  const watch   = active.filter(c => c.status === 'watch');
+  const healthy = active.filter(c => c.status === 'healthy');
+  const expand  = active.filter(c => c.status === 'expand');
+  const totalMRR = active.reduce((s,c) => s + (c.mrr || 0), 0);
+  const renewMRR = renewals30.reduce((s,c) => s + (c.mrr || 0), 0);
+  const expMRR   = expand.reduce((s,c) => s + (c.mrr || 0), 0);
+
   // ── Render ──
   let html = '';
 
-  // Pulse KPI row — gradient cards
-  html += '<div class="hb-pulse-row">';
-  html += _pulseCard(_hbSvg.pulse, 'Avg Health Score', avgScore, deltaArrow(avgDelta, false), `vs ${_hbPeriodDays}d ago`, 'hb-blue');
-  html += _pulseCard(_hbSvg.alertTri, 'At-Risk Accounts', atRisk.length, deltaArrow(atRiskDelta, true), `of ${total} total`, 'hb-red');
-  html += _pulseCard(_hbSvg.dollar, 'MRR at Risk', '$' + fmtNum(atRiskMRR), deltaArrowMRR(mrrDelta), atRisk.length + ' accounts', 'hb-amber');
-  html += _pulseCard(_hbSvg.calendar, 'Renewals (30d)', renewals30.length, '', renewalsAtRisk.length + ' at risk', 'hb-purple');
+  // Welcome banner
+  const hour = now.getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const userName = currentUser?.email ? currentUser.email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : '';
+  const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+  const healthyCount = active.filter(c => c.status === 'healthy' || c.status === 'expand').length;
+  const healthyPct = total ? Math.round(healthyCount / total * 100) : 0;
+  const improving = withHist.filter(c => getDeltaPeriod(c) > 2).length;
+  const declining = withHist.filter(c => getDeltaPeriod(c) < -2).length;
+  const mgrLabel = mgrFilterAll ? '' : (activeManagers.size === 1 ? ` for ${[...activeManagers][0]}` : ` across ${activeManagers.size} managers`);
+
+  // ── Deep-signal analysis for briefing ──
+  // Silent decliners: were healthy/expand, now dropping fast
+  const silentDecliners = withHist.filter(c => {
+    const prev = getScoreAtCutoff(c);
+    return prev !== null && prev >= (thresholds?.healthy || 65) && getDeltaPeriod(c) < -5;
+  });
+  // Contact gaps: no contact in 30+ days
+  const contactGap = active.filter(c => (c.days || 0) >= 30);
+  const contactGapHighVal = contactGap.filter(c => (c.mrr || 0) >= 5000);
+  // Biggest single at-risk account
+  const biggestRisk = atRisk.length ? atRisk.reduce((a, b) => (b.mrr || 0) > (a.mrr || 0) ? b : a) : null;
+  // NPS detractors
+  const detractors = active.filter(c => c.nps !== null && c.nps !== undefined && c.nps <= 6);
+  // Low adoption
+  const lowAdoption = active.filter(c => (c.adoption || 0) < 30 && (c.mrr || 0) > 0);
+  // Manager concentration: does one CSM hold >40% of at-risk MRR?
+  const mgrRisk = {};
+  atRisk.forEach(c => { const m = c.manager || 'Unassigned'; mgrRisk[m] = (mgrRisk[m] || 0) + (c.mrr || 0); });
+  const topRiskMgr = Object.entries(mgrRisk).sort((a,b) => b[1] - a[1])[0];
+  const mgrConcentrated = topRiskMgr && atRiskMRR > 0 && topRiskMgr[1] / atRiskMRR > 0.4;
+
+  // Build prioritized insight pool (max 2-3 signals)
+  const signals = [];
+
+  // Silent decliners — early warning, high value
+  if (silentDecliners.length >= 2) {
+    signals.push({ p: 1, text: `${silentDecliners.length} previously healthy accounts are now declining. Early intervention could prevent churn.` });
+  } else if (silentDecliners.length === 1) {
+    signals.push({ p: 1, text: `${silentDecliners[0].name} was healthy but is now declining and may need a check-in.` });
+  }
+  // Contact gap on high-value accounts
+  if (contactGapHighVal.length > 0) {
+    const gapMRR = contactGapHighVal.reduce((s,c) => s + (c.mrr||0), 0);
+    signals.push({ p: 2, text: `${contactGapHighVal.length} high-value account${contactGapHighVal.length > 1 ? 's' : ''} ($${fmtNum(gapMRR)} MRR) haven't been contacted in 30+ days.` });
+  } else if (contactGap.length > 5) {
+    signals.push({ p: 3, text: `${contactGap.length} accounts have gone 30+ days without contact.` });
+  }
+  // Manager concentration risk
+  if (mgrConcentrated && mgrFilterAll) {
+    const pct = Math.round(topRiskMgr[1] / atRiskMRR * 100);
+    signals.push({ p: 2, text: `${pct}% of at-risk MRR sits under ${topRiskMgr[0]}, creating concentrated exposure.` });
+  }
+  // Biggest single risk
+  if (biggestRisk && biggestRisk.mrr >= 10000) {
+    signals.push({ p: 3, text: `Largest at-risk account is ${biggestRisk.name} at $${fmtNum(biggestRisk.mrr)}/mo.` });
+  }
+  // NPS detractors
+  if (detractors.length >= 3) {
+    signals.push({ p: 4, text: `${detractors.length} accounts have NPS scores of 6 or below, which may signal softening sentiment.` });
+  }
+  // Low adoption
+  if (lowAdoption.length >= 5) {
+    signals.push({ p: 4, text: `${lowAdoption.length} accounts are below 30% feature adoption, a leading indicator of churn.` });
+  }
+  // Momentum (fallback if nothing else fires)
+  if (declining > improving + 5) signals.push({ p: 5, text: `Net momentum is negative, with more accounts declining than improving this period.` });
+  else if (improving > declining + 5) signals.push({ p: 5, text: `Positive momentum this period, with ${improving} accounts trending upward.` });
+
+  // Pick top 2-3 by priority
+  signals.sort((a,b) => a.p - b.p);
+  const topSignals = signals.slice(0, 3);
+
+  // Opening line
+  let opener = '';
+  if (healthyPct >= 80) opener = `Portfolio${mgrLabel} is strong at ${healthyPct}% healthy.`;
+  else if (healthyPct >= 60) opener = `Portfolio${mgrLabel} is at ${healthyPct}% healthy, stable with room to improve.`;
+  else if (healthyPct >= 40) opener = `Portfolio${mgrLabel} is at ${healthyPct}% healthy, below target.`;
+  else opener = `Portfolio${mgrLabel} needs attention at only ${healthyPct}% healthy.`;
+
+  const summaryText = opener + (topSignals.length ? ' ' + topSignals.map(s => s.text).join(' ') : '');
+
+  html += '<div class="hb-welcome">';
+  html += `<div class="hb-greeting">${greeting}${userName ? ', ' + escHtml(userName) : ''}</div>`;
+  html += `<div class="hb-date">${dateStr}</div>`;
+  html += `<div class="hb-summary">${summaryText}</div>`;
+  html += '</div>';
+
+  // ── 5 KPI Cards Row (from Dashboard) ──
+  const _kpiIcon = (svg) => `<div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${svg}</div>`;
+  const _kpiSvg = {
+    people: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    alert:  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+    cal:    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+    trend:  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
+    dollar: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>'
+  };
+
+  // Health bar segment widths
+  const hbPct = (arr) => total ? (arr.length / total * 100).toFixed(1) + '%' : '0%';
+
+  html += '<div class="dash-kpi-row">';
+
+  // Card 1: Book Health
+  html += `<div class="dash-kpi-card dash-kpi-blue" onclick="nav('customers');setFilter('all')">
+    <div class="dash-kpi-top">${_kpiIcon(_kpiSvg.people)}<span class="dash-kpi-label">Book Health</span></div>
+    <div class="dash-kpi-num">${total}</div>
+    <div class="dash-kpi-sub">Total active accounts</div>
+    <div class="dash-health-bar">
+      <div class="dash-health-seg" style="background:#dc2626;width:${hbPct(critical)}" title="Critical"></div>
+      <div class="dash-health-seg" style="background:#ea580c;width:${hbPct(risk)}" title="At Risk"></div>
+      <div class="dash-health-seg" style="background:#d97706;width:${hbPct(watch)}" title="Watch"></div>
+      <div class="dash-health-seg" style="background:#16a34a;width:${hbPct(healthy)}" title="Healthy"></div>
+      <div class="dash-health-seg" style="background:#0891b2;width:${hbPct(expand)}" title="Expansion"></div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+      <span class="dash-kpi-pill red">${atRisk.length} At Risk</span>
+      <span class="dash-kpi-pill amber">${watch.length} Watch</span>
+      <span class="dash-kpi-pill green">${healthy.length} Healthy</span>
+      <span class="dash-kpi-pill teal">${expand.length} Exp.</span>
+    </div>
+  </div>`;
+
+  // Card 2: Revenue at Risk
+  html += `<div class="dash-kpi-card dash-kpi-red" onclick="nav('customers');setFilter('risk')">
+    <div class="dash-kpi-top">${_kpiIcon(_kpiSvg.alert)}<span class="dash-kpi-label">Revenue at Risk</span></div>
+    <div class="dash-kpi-num">$${fmtNum(atRiskMRR)}</div>
+    <div class="dash-kpi-sub">MRR in At Risk accounts</div>
+    <div style="margin-top:10px"><span class="dash-kpi-pill red">${atRisk.length} account${atRisk.length !== 1 ? 's' : ''}</span></div>
+  </div>`;
+
+  // Card 3: Upcoming Renewals
+  html += `<div class="dash-kpi-card dash-kpi-teal" onclick="nav('alerts')">
+    <div class="dash-kpi-top">${_kpiIcon(_kpiSvg.cal)}<span class="dash-kpi-label">Upcoming Renewals</span></div>
+    <div class="dash-kpi-num">${renewals30.length}</div>
+    <div class="dash-kpi-sub">Due in next 30 days</div>
+    <div style="margin-top:10px"><span class="dash-kpi-pill teal">${renewMRR ? '$' + fmtNum(renewMRR) + ' at stake' : 'None due'}</span></div>
+  </div>`;
+
+  // Card 4: Expansion Opportunity
+  html += `<div class="dash-kpi-card dash-kpi-green" onclick="nav('customers');setFilter('expand')">
+    <div class="dash-kpi-top">${_kpiIcon(_kpiSvg.trend)}<span class="dash-kpi-label">Expansion Opportunity</span></div>
+    <div class="dash-kpi-num">$${fmtNum(Math.round(expMRR * 0.2))}</div>
+    <div class="dash-kpi-sub">Est. upsell potential (20%)</div>
+    <div style="margin-top:10px"><span class="dash-kpi-pill green">${expand.length} account${expand.length !== 1 ? 's' : ''} ready</span></div>
+  </div>`;
+
+  // Card 5: Total MRR
+  html += `<div class="dash-kpi-card dash-kpi-purple" onclick="nav('customers');setFilter('all')">
+    <div class="dash-kpi-top">${_kpiIcon(_kpiSvg.dollar)}<span class="dash-kpi-label">Total MRR</span></div>
+    <div class="dash-kpi-num">$${fmtNum(totalMRR)}</div>
+    <div class="dash-kpi-sub">All active accounts</div>
+    <div style="margin-top:10px"><span class="dash-kpi-pill" style="background:rgba(255,255,255,.2);color:#fff">Avg score ${avgScore}</span></div>
+  </div>`;
+
   html += '</div>';
 
   // ── Page Snapshots (quick-glance per tab) ──
@@ -2102,8 +2317,14 @@ function _renderHomeBase() {
   });
   html += '</div>';
 
+  // ── Renewal Pipeline (moved from Dashboard) ──
+  html += '<div class="card" style="margin-bottom:20px;padding:16px 20px">';
+  html += '<div class="card-hd" style="margin-bottom:12px"><div class="hb-section-hd" style="margin-bottom:0">Renewal Pipeline</div></div>';
+  html += '<div id="renewal-pipeline-wrap"></div>';
+  html += '</div>';
+
   // ── Insights section ──
-  html += '<div class="card" style="margin-bottom:20px;padding-bottom:8px">';
+  html += '<div class="hb-section hb-section-tinted" style="margin-bottom:16px;padding-bottom:8px">';
   html += '<div class="card-hd" style="margin-bottom:12px">';
   html += '<div class="hb-section-hd" style="margin-bottom:0">Insights' + (insights.length ? ` <span class="hb-count">(${insights.length})</span>` : '') + '</div>';
   html += '<div style="display:flex;align-items:center;gap:8px">';
@@ -2125,8 +2346,14 @@ function _renderHomeBase() {
   }
   html += '</div>';
 
+  // ── Most Improved / Biggest Drops (moved from Dashboard) ──
+  html += '<div class="hb-movers-grid">';
+  html += '<div class="card" style="padding:16px 20px"><div class="card-hd" style="margin-bottom:8px"><div class="hb-section-hd" style="margin-bottom:0">Most Improved</div></div><div id="wins-wrap"></div></div>';
+  html += '<div class="card" style="padding:16px 20px"><div class="card-hd" style="margin-bottom:8px"><div class="hb-section-hd" style="margin-bottom:0">Biggest Drops</div></div><div id="drops-wrap"></div></div>';
+  html += '</div>';
+
   // ── This Week's Focus ──
-  html += '<div class="card">';
+  html += '<div class="hb-section hb-section-warm" style="margin-bottom:16px">';
   html += '<div class="card-hd" style="margin-bottom:12px">';
   html += `<div class="hb-section-hd" style="margin-bottom:0">This Week's Focus <span class="hb-count">(${focusList.length})</span></div>`;
   html += '</div>';
@@ -2153,7 +2380,22 @@ function _renderHomeBase() {
   }
   html += '</div>';
 
+  // ── Signal Heatmap (moved from Dashboard) ──
+  html += '<div class="card" style="padding:16px 20px">';
+  html += '<div class="card-hd" style="margin-bottom:12px"><div class="hb-section-hd" style="margin-bottom:0">Signal Heatmap</div></div>';
+  html += '<div id="heatmap-wrap" class="heatmap"></div>';
+  html += '</div>';
+
   wrap.innerHTML = html;
+
+  // ── Render moved Dashboard widgets into their containers ──
+  if (typeof renderRenewalPipeline === 'function') {
+    if (typeof hasFeature === 'function' && hasFeature('renewal_pipeline')) renderRenewalPipeline(active);
+    else if (el('renewal-pipeline-wrap')) el('renewal-pipeline-wrap').innerHTML = typeof upgradeHTML === 'function' ? upgradeHTML('renewal_pipeline') : '';
+  }
+  if (typeof renderWins === 'function') renderWins(active);
+  if (typeof renderDrops === 'function') renderDrops(active);
+  if (typeof renderHeatmap === 'function') renderHeatmap(active);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2253,7 +2495,7 @@ function _buildPageSnapshots(active, now, cutoff, atRisk, atRiskMRR, total, avgS
     let direction = 'stable';
     if (improving > declining + 2) direction = 'trending up';
     else if (declining > improving + 2) direction = 'trending down';
-    let detail = `Avg score <strong>${avgScore}</strong> · ${direction} over ${_hbPeriodDays}d`;
+    let detail = `Portfolio ${direction} over ${_hbPeriodDays}d`;
     if (improving > 0 || declining > 0) {
       detail += `<br>${improving} up, ${declining} down`;
       // Add biggest mover
@@ -2423,6 +2665,9 @@ function _insightWinLossBalance(active, now, cutoff) {
   if (Math.abs(net) < 2) return null;
 
   const good = net > 0;
+  const allTrending = [...declining, ...improving];
+  const focusIds = JSON.stringify(allTrending.map(c => c.id));
+  const focusLabel = `${declining.length} declining + ${improving.length} improving accounts`;
   return {
     category: 'Trend',
     priority: good ? 4 : 2,
@@ -2432,7 +2677,7 @@ function _insightWinLossBalance(active, now, cutoff) {
     detail: good
       ? `Net positive momentum — ${ratio.toFixed(1)}x more accounts gaining health than losing it this period.`
       : `Net negative momentum — more accounts losing health than gaining. Review declining accounts for patterns.`,
-    action: { label: 'View Customers', fn: "nav('customers');setFilter('all')" }
+    action: { label: 'View Customers', fn: `setInsightFilter('${focusLabel}',${focusIds})` }
   };
 }
 
@@ -2589,13 +2834,14 @@ function _insightEmergingRisk(active) {
   });
 
   if (earlyWarning.length < 2) return null;
+  const ewIds = JSON.stringify(earlyWarning.map(c => c.id));
 
   return {
     category: 'Risk',
     priority: 2,
     title: `${earlyWarning.length} healthy accounts showing early warning signals`,
     detail: `These accounts are scored healthy but have 2+ concerning metrics (low logins, low adoption, high tickets, or NPS detractor). They may be at risk of decline.`,
-    action: { label: 'View Customers', fn: "nav('customers');setFilter('healthy')" }
+    action: { label: 'View Customers', fn: `setInsightFilter('${earlyWarning.length} accounts with early warnings',${ewIds})` }
   };
 }
 
@@ -2618,6 +2864,7 @@ function _insightMrrAtRiskDelta(active, now, cutoff) {
   if (Math.abs(delta) < 1000) return null;
 
   const increased = delta > 0;
+  const arIds = JSON.stringify(atRisk.map(c => c.id));
   return {
     category: 'Risk',
     priority: increased ? 1 : 4,
@@ -2627,7 +2874,7 @@ function _insightMrrAtRiskDelta(active, now, cutoff) {
     detail: increased
       ? `Revenue exposure grew from $${fmtNum(prevMRR)} to $${fmtNum(currentMRR)}. New accounts entered the risk zone — review before they escalate.`
       : `Revenue exposure shrank from $${fmtNum(prevMRR)} to $${fmtNum(currentMRR)}. Recovery efforts are paying off.`,
-    action: { label: 'View Dashboard', fn: "nav('dashboard')" }
+    action: { label: 'View Customers', fn: `setInsightFilter('${atRisk.length} at-risk accounts',${arIds})` }
   };
 }
 
@@ -2645,13 +2892,14 @@ function _insightRenewalReadiness(active, now) {
   const gap = overallAvg - avgRenewScore;
 
   if (gap < 5) return null;
+  const rrIds = JSON.stringify(next30.map(c => c.id));
 
   return {
     category: 'Renewal',
     priority: gap > 15 ? 1 : 2,
     title: `Upcoming renewals score ${avgRenewScore} vs portfolio avg ${overallAvg}`,
     detail: `${next30.length} accounts renewing in the next 30 days have an average score ${gap} points below your portfolio average. Proactive outreach recommended.`,
-    action: { label: 'View Dashboard', fn: "nav('dashboard')" }
+    action: { label: 'View Customers', fn: `setInsightFilter('${next30.length} upcoming renewals',${rrIds})` }
   };
 }
 
@@ -2666,13 +2914,14 @@ function _insightRenewalRisk(active, now) {
   if (atRiskRenewals.length < 1 || next30.length < 2) return null;
 
   const renewMRR = atRiskRenewals.reduce((s,c) => s + (c.mrr || 0), 0);
+  const rrIds = JSON.stringify(atRiskRenewals.map(c => c.id));
 
   return {
     category: 'Renewal',
     priority: 1,
     title: `${atRiskRenewals.length} of ${next30.length} upcoming renewals are at-risk`,
     detail: `$${fmtNum(renewMRR)} MRR is at risk among accounts renewing in the next 30 days. These need immediate attention.`,
-    action: { label: 'View Customers', fn: "nav('customers');setFilter('risk')" }
+    action: { label: 'View Customers', fn: `setInsightFilter('${atRiskRenewals.length} at-risk renewals',${rrIds})` }
   };
 }
 
@@ -2687,13 +2936,14 @@ function _insightContactGaps(active) {
   let extra = '';
   if (enterprise.length > 0) extra += `, including ${enterprise.length} Enterprise`;
   if (atRiskStale.length > 0) extra += ` and ${atRiskStale.length} at-risk`;
+  const staleIds = JSON.stringify(stale.map(c => c.id));
 
   return {
     category: 'Workload',
     priority: atRiskStale.length > 2 ? 2 : 3,
     title: `${stale.length} accounts not contacted in 30+ days`,
     detail: `${stale.length} accounts have gone over 30 days without contact${extra}. Regular touchpoints reduce churn risk.`,
-    action: { label: 'View Customers', fn: "nav('customers')" }
+    action: { label: 'View Customers', fn: `setInsightFilter('${stale.length} accounts with no contact 30+ days',${staleIds})` }
   };
 }
 
@@ -2740,13 +2990,14 @@ function _insightExpansionReady(active) {
 
   if (strongEngagement.length < 2) return null;
   const totalMRR = strongEngagement.reduce((s,c) => s + (c.mrr || 0), 0);
+  const seIds = JSON.stringify(strongEngagement.map(c => c.id));
 
   return {
     category: 'Opportunity',
     priority: 3,
     title: `${strongEngagement.length} accounts ready for expansion`,
     detail: `${strongEngagement.length} Expand-status accounts have strong engagement signals (high logins, adoption, and NPS). Combined MRR: $${fmtNum(totalMRR)} — upsell candidates.`,
-    action: { label: 'View Customers', fn: "nav('customers');setFilter('expand')" }
+    action: { label: 'View Customers', fn: `setInsightFilter('${strongEngagement.length} expansion-ready accounts',${seIds})` }
   };
 }
 
@@ -2760,13 +3011,14 @@ function _insightPositiveMovers(active, now, cutoff) {
   });
 
   if (movedUp.length < 1) return null;
+  const muIds = JSON.stringify(movedUp.map(c => c.id));
 
   return {
     category: 'Opportunity',
     priority: 4,
     title: `${movedUp.length} account${movedUp.length > 1 ? 's' : ''} improved to Healthy this period`,
     detail: `${movedUp.map(c => c.name).slice(0, 4).join(', ')}${movedUp.length > 4 ? ' +' + (movedUp.length - 4) + ' more' : ''} moved out of Watch/Risk into Healthy or Expand status.`,
-    action: { label: 'View Customers', fn: "nav('customers');setFilter('healthy')" }
+    action: { label: 'View Customers', fn: `setInsightFilter('${movedUp.length} recently improved accounts',${muIds})` }
   };
 }
 
@@ -2785,6 +3037,7 @@ function _insightAdoptionCorrelation(active) {
 
   if (riskRate <= overallRiskRate + 10) return null;
 
+  const laIds = JSON.stringify(lowAdoption.map(c => c.id));
   const multiplier = (riskRate / Math.max(overallRiskRate, 1)).toFixed(1);
 
   return {
@@ -2792,7 +3045,7 @@ function _insightAdoptionCorrelation(active) {
     priority: 3,
     title: `Low adoption accounts are ${multiplier}x more likely to be at-risk`,
     detail: `${lowAdoption.length} accounts with <30% adoption have a ${riskRate}% at-risk rate vs ${overallRiskRate}% overall. Driving adoption could prevent future churn.`,
-    action: { label: 'View Customers', fn: "nav('customers')" }
+    action: { label: 'View Customers', fn: `setInsightFilter('${lowAdoption.length} low-adoption accounts',${laIds})` }
   };
 }
 
@@ -2811,7 +3064,7 @@ function _insightTicketSpike(active) {
     priority: highTickets.some(c => c.status === 'critical' || c.status === 'risk') ? 2 : 3,
     title: `${highTickets.length} accounts have 5+ open tickets`,
     detail: `These accounts have elevated ticket volume (portfolio avg: ${avgTickets}). High ticket counts often precede health declines — review for patterns.`,
-    action: { label: 'View Customers', fn: "nav('customers')" }
+    action: { label: 'View Customers', fn: `setInsightFilter('${highTickets.length} accounts with 5+ tickets',${JSON.stringify(highTickets.map(c=>c.id))})` }
   };
 }
 
@@ -2897,206 +3150,13 @@ function _renderInsightCard(ins) {
         <span class="hb-insight-title">${escHtml(ins.title)}</span>
       </div>
       <div class="hb-insight-detail">${escHtml(ins.detail)}</div>
-      ${ins.action ? `<button class="hb-insight-action" onclick="${ins.action.fn}">${ins.action.label} →</button>` : ''}
+      ${ins.action ? `<button class="hb-insight-action" onclick="${ins.action.fn.replace(/"/g,'&quot;')}">${ins.action.label} →</button>` : ''}
     </div>
   </div>`;
 }
 
 
-// ─── DASHBOARD ──────────────────────────────────────────────
-function renderDashboard() { try { _renderDashboard(); } catch(e) { console.error('renderDashboard error:', e); } }
-function _renderDashboard() {
-  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
-  // 5-band grouping
-  const critical= active.filter(c => c.status === 'critical');
-  const risk    = active.filter(c => c.status === 'risk');
-  const watch   = active.filter(c => c.status === 'watch');
-  const healthy = active.filter(c => c.status === 'healthy');
-  const expand  = active.filter(c => c.status === 'expand');
-  const total   = active.length;
-  const avg     = total ? Math.round(active.reduce((s,c)=>s+c.score,0)/total) : null;
-  const totalMRR= active.reduce((s,c)=>s+(c.mrr||0),0);
-  const atRiskAll = [...critical, ...risk]; // combined "at risk" for KPI card 2
-
-  // ── Hidden compat spans ──
-  el('kpi-risk').textContent    = risk.length + critical.length;
-  el('kpi-healthy').textContent = healthy.length;
-  el('kpi-expand').textContent  = expand.length;
-  el('kpi-avg').textContent     = avg !== null ? avg : '—';
-  el('kpi-mrr').textContent     = '$' + fmtNum(totalMRR);
-
-  const riskMRR = atRiskAll.reduce((s,c)=>s+(c.mrr||0),0);
-  el('kpi-risk-mrr').textContent = riskMRR ? `$${fmtNum(riskMRR)} MRR at risk` : '';
-
-  // ── KPI Card: Total MRR ──
-  if (el('kpi-total-mrr'))    el('kpi-total-mrr').textContent    = '$' + fmtNum(totalMRR);
-  if (el('kpi-avg-score-pill')) el('kpi-avg-score-pill').textContent = avg !== null ? `Avg score ${avg}` : 'Avg score —';
-
-  // ── KPI Card 1: Book Health — 5-segment bar ──
-  el('kpi-total').textContent = total;
-  ['critical','risk','watch','healthy','expand'].forEach(st => {
-    const seg = el('hbar-' + st);
-    const grp = active.filter(c => c.status === st);
-    if (seg) seg.style.width = total ? (grp.length / total * 100).toFixed(1) + '%' : '0%';
-  });
-  el('kpi-risk-pct').textContent    = (critical.length + risk.length) + ' At Risk';
-  if (el('kpi-watch-pct'))   el('kpi-watch-pct').textContent   = watch.length   + ' Watch';
-  el('kpi-healthy-pct').textContent = healthy.length + ' Healthy';
-  el('kpi-expand-pct').textContent  = expand.length  + ' Expansion';
-
-  // ── KPI Card 2: Revenue at Risk (critical + risk combined) ──
-  el('kpi-risk-mrr-big').textContent = '$' + fmtNum(riskMRR);
-  el('kpi-risk-count').textContent   = atRiskAll.length + (atRiskAll.length === 1 ? ' account' : ' accounts');
-
-  // ── KPI Card 3: Renewals ──
-  const renewSoon = active.filter(c => c.renewal != null && c.renewal >= 0 && c.renewal <= 1);
-  const renewMRR  = renewSoon.reduce((s,c)=>s+(c.mrr||0),0);
-  el('kpi-renewals').textContent     = renewSoon.length;
-  const renewPill = el('kpi-renewals-mrr');
-  if (renewPill) renewPill.textContent = renewMRR ? '$' + fmtNum(renewMRR) + ' at stake' : 'None due';
-
-  // ── KPI Card 4: Expansion ──
-  const expMRR  = expand.reduce((s,c)=>s+(c.mrr||0),0);
-  el('exp-arpu').textContent  = '$' + fmtNum(Math.round(expMRR * 0.2));
-  el('exp-count').textContent = expand.length + (expand.length === 1 ? ' account ready' : ' accounts ready');
-  el('exp-mrr').textContent   = '$' + fmtNum(expMRR);
-
-  // ── Alert badge (sidebar nav + topbar bell) ──
-  const alertCount = buildAlerts().filter(a => !isSnoozed(a.id)).length;
-  const ab = el('alert-badge');
-  if (ab) { if (alertCount > 0) { ab.textContent = alertCount; ab.style.display = ''; } else ab.style.display = 'none'; }
-  const bb2 = el('bell-badge');
-  if (bb2) { if (alertCount > 0) { bb2.textContent = alertCount; bb2.style.display = ''; } else bb2.style.display = 'none'; }
-
-  // ── Render sub-sections ──
-  renderDonut(critical.length, risk.length, watch.length, healthy.length, expand.length, total);
-  renderDistChart(active);
-  renderMrrChart(critical, risk, watch, healthy, expand);
-  renderSegChart(active);
-  renderHeatmap(active);
-  renderRecent(active);
-  renderWins(active);
-  renderDrops(active);
-
-  // Gated dashboard widgets
-  const rpWrap = el('renewal-pipeline-wrap');
-  if (rpWrap) { if (hasFeature('renewal_pipeline')) renderRenewalPipeline(active); else rpWrap.innerHTML = upgradeHTML('renewal_pipeline'); }
-  renderSegCards(active);
-  renderDashAlerts();
-  const plWrap = el('priority-table-wrap');
-  if (plWrap) { if (hasFeature('priority_list')) renderPriorityList(); else plWrap.innerHTML = upgradeHTML('priority_list'); }
-}
-
-// ─── SEGMENT CARDS ───────────────────────────────────────────
-function renderSegCards(active) {
-  const wrap = el('seg-cards');
-  if (!wrap) return;
-
-  const tiers = [
-    { key:'smb',        label:'SMB',         cls:'smb', color:'#7c3aed' },
-    { key:'mid',        label:'Mid-Market',  cls:'mid', color:'#2563eb' },
-    { key:'enterprise', label:'Enterprise',  cls:'ent', color:'#0891b2' },
-  ];
-
-  wrap.innerHTML = tiers.map(t => {
-    const accs   = active.filter(c => c.tier === t.key);
-    const count  = accs.length;
-    if (!count) return `
-      <div class="seg-card ${t.cls}" onclick="nav('customers');setFilter('all')">
-        <div class="seg-card__label">${t.label}</div>
-        <div class="seg-card__num">0</div>
-        <div class="seg-card__sub">No accounts</div>
-      </div>`;
-
-    const totalMRR = accs.reduce((s,c) => s + (c.mrr||0), 0);
-    const avgScore = Math.round(accs.reduce((s,c) => s + c.score, 0) / count);
-    const atRisk   = accs.filter(c => c.status === 'critical' || c.status === 'risk').length;
-    const expand   = accs.filter(c => c.status === 'expand').length;
-
-    // Mini health bar counts
-    const bands = ['critical','risk','watch','healthy','expand'];
-    const bandColors = { critical:'#dc2626', risk:'#ea580c', watch:'#d97706', healthy:'#16a34a', expand:'#0891b2' };
-    const healthBar = bands.map(st => {
-      const n = accs.filter(c => c.status === st).length;
-      const w = count ? (n/count*100).toFixed(1) : 0;
-      return `<div class="seg-health-seg" style="width:${w}%;background:${bandColors[st]};min-width:${n?2:0}px"></div>`;
-    }).join('');
-
-    // Score color
-    const scoreColor = avgScore >= 80 ? '#0891b2' : avgScore >= 65 ? '#16a34a' : avgScore >= 50 ? '#d97706' : avgScore >= 25 ? '#ea580c' : '#dc2626';
-
-    return `
-      <div class="seg-card ${t.cls}" onclick="filterByTier('${t.key}')">
-        <div class="seg-card__label">${t.label}</div>
-        <div style="display:flex;align-items:flex-end;gap:10px">
-          <div>
-            <div class="seg-card__num">${count}</div>
-            <div class="seg-card__sub">${count === 1 ? 'account' : 'accounts'}</div>
-          </div>
-          <div style="margin-bottom:4px;font-size:1.3rem;font-weight:800;color:${scoreColor}">${avgScore}</div>
-          <div style="margin-bottom:4px;font-size:.65rem;color:var(--muted)">avg score</div>
-        </div>
-        <div class="seg-health-bar">${healthBar}</div>
-        <div class="seg-card__divider"></div>
-        <div class="seg-card__row">
-          <span class="seg-card__row-label">Total MRR</span>
-          <span class="seg-card__row-val">$${fmtNum(totalMRR)}</span>
-        </div>
-        <div class="seg-card__row">
-          <span class="seg-card__row-label">At Risk</span>
-          <span class="seg-card__row-val" style="color:${atRisk ? '#ea580c' : 'var(--muted)'}">${atRisk} ${atRisk === 1 ? 'account' : 'accounts'}</span>
-        </div>
-        <div class="seg-card__row">
-          <span class="seg-card__row-label">Expansion</span>
-          <span class="seg-card__row-val" style="color:${expand ? '#0891b2' : 'var(--muted)'}">${expand} ${expand === 1 ? 'account' : 'accounts'}</span>
-        </div>
-      </div>`;
-  }).join('');
-}
-
-function filterByTier(tier) {
-  // Navigate to customers and filter by tier
-  nav('customers');
-  // Set a tier filter using the existing search box as a fallback,
-  // or just show all and let them see it — best UX is to filter the list
-  filterMode = 'all';
-  const search = el('search-input');
-  if (search) { search.value = ''; }
-  // Filter customers by tier directly
-  const tbody = el('cust-tbody');
-  if (!tbody) return;
-  // Re-render with tier filter applied via a temporary override
-  _filterTier = tier;
-  renderCustomers();
-  _filterTier = null;
-}
-
-// Tier filter override (set temporarily by filterByTier)
-let _filterTier = null;
-
-// ─── DASHBOARD ALERTS SIDEBAR ────────────────────────────────
-function renderDashAlerts() {
-  const wrap = el('dash-alerts-wrap');
-  if (!wrap) return;
-  const alerts = buildAlerts().filter(a => !isSnoozed(a.id) && !isDismissed(a.id)).slice(0, 5);
-  if (!alerts.length) {
-    wrap.innerHTML = '<div style="font-size:.78rem;color:var(--muted);padding:6px 0;text-align:center">All clear — no active alerts</div>';
-    return;
-  }
-  wrap.innerHTML = alerts.map(a => {
-    const def = ALERT_CATS[a.cat] || ALERT_CATS.health;
-    const cust = customers.find(x => x.id === a.cid);
-    return `
-    <div class="dash-alert-item ${a.type}" onclick="openDetail('${escHtml(a.cid)}')">
-      <div class="dash-alert-item__icon">${def.icon}</div>
-      <div class="dash-alert-item__body">
-        <div class="dash-alert-item__text"><strong>${escHtml(cust?.name||'')}</strong> — ${def.label}</div>
-        <div class="dash-alert-item__sub">${escHtml(a.sub||'')}</div>
-      </div>
-      <button class="btn btn-xs btn-ghost" style="flex-shrink:0;padding:2px 7px;font-size:.66rem" onclick="event.stopPropagation();openDetail('${escHtml(a.cid)}')">→</button>
-    </div>`;
-  }).join('') + `<div style="margin-top:8px;text-align:center"><button class="btn btn-xs btn-ghost" onclick="nav('alerts')" style="font-size:.72rem;color:var(--muted)">See all ${buildAlerts().filter(a=>!isSnoozed(a.id)&&!isDismissed(a.id)).length} alerts →</button></div>`;
-}
+// ─── DASHBOARD WIDGETS (kept for Home Base) ─────────────────
 
 function el(id) { return document.getElementById(id); }
 function fmtNum(n) {
@@ -3105,132 +3165,22 @@ function fmtNum(n) {
   return n.toLocaleString();
 }
 
-// Donut chart — 5 bands
-function renderDonut(nCrit, nRisk, nWatch, nHealthy, nExpand, total) {
-  const circ = 2 * Math.PI * 46;
-  const arc = n => total ? (n / total) * circ : 0;
-
-  const bands = [
-    { id:'dn-critical', n:nCrit,    color:'#dc2626' },
-    { id:'dn-risk',     n:nRisk,    color:'#ea580c' },
-    { id:'dn-watch',    n:nWatch,   color:'#d97706' },
-    { id:'dn-healthy',  n:nHealthy, color:'#16a34a' },
-    { id:'dn-expand',   n:nExpand,  color:'#0891b2' },
-  ];
-
-  let offset = 0;
-  bands.forEach(b => {
-    const a = arc(b.n);
-    const el = document.getElementById(b.id);
-    if (!el) return;
-    el.style.stroke           = b.color;
-    el.style.strokeDasharray  = `${a} ${circ - a}`;
-    el.style.strokeDashoffset = circ - offset;
-    el.style.transform        = 'rotate(-90deg)';
-    el.style.transformOrigin  = 'center';
-    offset += a;
-  });
-
-  document.getElementById('dn-num').textContent         = total;
-  document.getElementById('leg-critical').textContent   = nCrit;
-  document.getElementById('leg-risk').textContent       = nRisk;
-  document.getElementById('leg-watch').textContent      = nWatch;
-  document.getElementById('leg-healthy').textContent    = nHealthy;
-  document.getElementById('leg-expand').textContent     = nExpand;
-}
-
-// Score distribution bar chart
-function renderDistChart(active) {
-  const buckets = [
-    { label:'0–24',  min:0,  max:24,  color:'#dc2626' },  // Critical — red
-    { label:'25–49', min:25, max:49,  color:'#ea580c' },  // At Risk  — orange
-    { label:'50–64', min:50, max:64,  color:'#d97706' },  // Watch    — amber
-    { label:'65–79', min:65, max:79,  color:'#16a34a' },  // Healthy  — green
-    { label:'80–100',min:80, max:100, color:'#0891b2' },  // Expansion — teal
-  ];
-  const counts = buckets.map(b => ({
-    ...b,
-    count: active.filter(c => c.score >= b.min && c.score <= b.max).length
-  }));
-  const max = Math.max(...counts.map(b=>b.count), 1);
-  el('dist-chart').innerHTML = counts.map(b => `
-    <div class="bar-row">
-      <div class="bar-row__label">${b.label}</div>
-      <div class="bar-track">
-        <div class="bar-fill" style="width:${(b.count/max)*100}%;background:${b.color}">
-          ${b.count > 0 ? `<span class="bar-fill-lbl">${b.count}</span>` : ''}
-        </div>
-      </div>
-      <div class="bar-row__val">${b.count}</div>
-    </div>`).join('');
-}
-
-// MRR by status bar chart — 5 bands
-function renderMrrChart(critical, risk, watch, healthy, expand) {
-  const mrr = arr => arr.reduce((s,c)=>s+(c.mrr||0),0);
-  const rows = [
-    { label:'Critical',  val:mrr(critical), color:'#dc2626' },
-    { label:'At Risk',   val:mrr(risk),     color:'#ea580c' },
-    { label:'Watch',     val:mrr(watch),    color:'#d97706' },
-    { label:'Healthy',   val:mrr(healthy),  color:'#16a34a' },
-    { label:'Expansion', val:mrr(expand),   color:'#0891b2' },
-  ];
-  const maxV = Math.max(...rows.map(r=>r.val), 1);
-  el('mrr-chart').innerHTML = rows.map(r => `
-    <div class="bar-row">
-      <div class="bar-row__label">${r.label}</div>
-      <div class="bar-track">
-        <div class="bar-fill" style="width:${(r.val/maxV)*100}%;background:${r.color}">
-          ${r.val > 0 ? `<span class="bar-fill-lbl">$${fmtNum(r.val)}</span>` : ''}
-        </div>
-      </div>
-      <div class="bar-row__val">$${fmtNum(r.val)}</div>
-    </div>`).join('');
-}
-
-// Segment avg score bar chart
-function renderSegChart(active) {
-  const segs = ['smb','mid','enterprise'];
-  const segLabels = { smb:'SMB', mid:'Mid-Market', enterprise:'Enterprise' };
-  const segColors = { smb:'#2563eb', mid:'#7c3aed', enterprise:'#0891b2' };
-  const rows = segs.map(s => {
-    const group = active.filter(c => c.tier === s);
-    const avg   = group.length ? Math.round(group.reduce((a,c)=>a+c.score,0)/group.length) : null;
-    return { label: segLabels[s], avg, count: group.length, color: segColors[s] };
-  }).filter(r => r.count > 0);
-
-  if (!rows.length) {
-    el('seg-chart').innerHTML = '<div style="color:var(--subtle);font-size:.78rem;padding:12px 0">No customers yet</div>';
-    return;
-  }
-  el('seg-chart').innerHTML = rows.map(r => `
-    <div class="bar-row">
-      <div class="bar-row__label">${r.label}</div>
-      <div class="bar-track">
-        <div class="bar-fill" style="width:${r.avg}%;background:${r.color}">
-          ${r.avg >= 20 ? `<span class="bar-fill-lbl">${r.avg}</span>` : ''}
-        </div>
-      </div>
-      <div class="bar-row__val">${r.avg}<span style="font-size:.66rem;color:var(--muted);margin-left:3px">(${r.count})</span></div>
-    </div>`).join('');
-}
-
-// Signal heatmap
+// ─── SIGNAL HEATMAP ─────────────────────────────────────────
 function dashHeatSortBy(key) {
   if (dashHeatSort.key === key) dashHeatSort.dir *= -1;
   else { dashHeatSort.key = key; dashHeatSort.dir = key === 'name' ? 1 : -1; }
-  renderHeatmap(customers.filter(c => c.lifecycle !== 'churned'));
+  renderHeatmap(customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c)));
 }
 
 function renderHeatmap(active) {
   const wrap = el('heatmap-wrap');
+  if (!wrap) return;
   if (!active.length) {
     wrap.innerHTML = '<div style="color:var(--subtle);font-size:.8rem;padding:16px 0;text-align:center">No customers yet</div>';
     return;
   }
 
-  // Sort
-  // NPS/CSAT sort uses normalized 0-100
+  // Sort — NPS/CSAT sort uses normalized 0-100
   const growOrder = { strong:2, mild:1, none:0 };
   const sorted = [...active].sort((a, b) => {
     let av, bv;
@@ -3295,37 +3245,6 @@ function renderHeatmap(active) {
         <td class="${hmColor(growPct,false)}">${c.growth}</td>
       </tr>`;
     }).join('')}</tbody></table>`;
-}
-
-// Recent table
-function dashRecentSortBy(key) {
-  if (dashRecentSort.key === key) dashRecentSort.dir *= -1;
-  else {
-    dashRecentSort.key = key;
-    // Default direction: name → asc, everything else → desc
-    dashRecentSort.dir = key === 'name' ? 1 : -1;
-  }
-  renderRecent(customers.filter(c => c.lifecycle !== 'churned'));
-}
-
-function renderRecent(active) {
-  const wrap = el('recent-wrap');
-  if (!wrap) return;
-  if (!active.length) {
-    wrap.innerHTML = '<div style="font-size:.78rem;color:var(--muted);padding:6px 0;text-align:center">No customers yet</div>';
-    return;
-  }
-  // Show most recently scored (by created date), top 5
-  const sorted = [...active]
-    .sort((a,b) => new Date(b.created||0) - new Date(a.created||0))
-    .slice(0, 5);
-
-  wrap.innerHTML = sorted.map(c => `
-    <div class="dash-recent-item" onclick="openDetail('${escHtml(c.id)}')">
-      ${scoreHTML(c)}
-      <span class="dash-recent-name">${escHtml(c.name)}</span>
-      <span class="dash-recent-meta">${fmtDate(c.created)}</span>
-    </div>`).join('');
 }
 
 // ─── THIS WEEK'S WINS ────────────────────────────────────────
@@ -3883,9 +3802,18 @@ function buildAlerts() {
 
 // ─── MULTI-SELECT STATE ──────────────────────────────────────
 let _selectedAlerts = new Set();
+let _lastClickedAlert = null;
 let _alertViewMode = 'category'; // 'category' | 'priority' | 'customer' | 'table'
 let _alertTableFilter = null;    // { label: string, ids: Set<string> } — null = all alerted customers
 let _alertTblSort = { key: 'score', dir: 1 }; // 1=asc (worst first), -1=desc
+
+function toggleAlertGroup(hd) {
+  const body = hd.nextElementSibling;
+  if (!body || !body.classList.contains('alert-group-body')) return;
+  const isHidden = getComputedStyle(body).display === 'none';
+  body.style.display = isHidden ? 'block' : 'none';
+  hd.classList.toggle('alert-grp-open', isHidden);
+}
 
 function setAlertView(mode) {
   _alertViewMode = mode;
@@ -3903,11 +3831,35 @@ function setAlertView(mode) {
   renderAlerts();
 }
 
-function alertToggleSelect(aid, el) {
+function alertToggleSelect(aid, el, ev) {
+  // Shift+click range selection
+  if (ev && ev.shiftKey && _lastClickedAlert && _lastClickedAlert !== aid) {
+    const allChecks = [...document.querySelectorAll('#alerts-list .alert-item__check')];
+    const ids = allChecks.map(cb => {
+      const m = cb.getAttribute('onclick')?.match(/alertToggleSelect\('([^']+)'/);
+      return m ? m[1] : null;
+    }).filter(Boolean);
+    const startIdx = ids.indexOf(_lastClickedAlert);
+    const endIdx = ids.indexOf(aid);
+    if (startIdx !== -1 && endIdx !== -1) {
+      const lo = Math.min(startIdx, endIdx);
+      const hi = Math.max(startIdx, endIdx);
+      for (let i = lo; i <= hi; i++) {
+        _selectedAlerts.add(ids[i]);
+        const row = document.getElementById('alert-row-' + ids[i]);
+        if (row) row.classList.add('selected');
+        if (allChecks[i]) allChecks[i].checked = true;
+      }
+      _lastClickedAlert = aid;
+      _updateAlertBulkBar();
+      return;
+    }
+  }
+  // Normal toggle
   if (_selectedAlerts.has(aid)) _selectedAlerts.delete(aid);
   else _selectedAlerts.add(aid);
+  _lastClickedAlert = aid;
   _updateAlertBulkBar();
-  // toggle .selected on row
   const row = document.getElementById('alert-row-'+aid);
   if (row) row.classList.toggle('selected', _selectedAlerts.has(aid));
 }
@@ -3942,6 +3894,9 @@ function _updateAlertBulkBar() {
 }
 
 function toggleBulkSnoozeDd() {
+  document.querySelectorAll('.snooze-dd__menu').forEach(m => {
+    if (m.id !== 'bulk-snooze-menu') m.classList.remove('open');
+  });
   el('bulk-snooze-menu')?.classList.toggle('open');
 }
 
@@ -3954,7 +3909,6 @@ function bulkSnooze(days) {
   saveSettings();
   logAudit('bulk_snooze', null, '', { summary: `${n} alert${n===1?'':'s'} snoozed for ${days}d` });
   renderAlerts();
-  renderDashboard();
   toast(`${n} alert${n===1?'':'s'} snoozed for ${days} day${days===1?'':'s'}`, 'default');
 }
 
@@ -3969,7 +3923,6 @@ function bulkDismiss() {
   saveSettings();
   logAudit('bulk_dismiss', null, '', { summary: `${n} alert${n===1?'':'s'} dismissed` });
   renderAlerts();
-  renderDashboard();
   toast(`${n} alert${n===1?'':'s'} dismissed`, 'default');
 }
 
@@ -4027,8 +3980,8 @@ function _renderAlerts() {
     ['red','amber','blue','green'].forEach(sev => {
       const group = groups[sev];
       if (!group || !group.length) return;
-      html += `<div class="alert-priority-hd"><div class="alert-priority-dot" style="background:${sevColors[sev]}"></div>${sevLabels[sev]} <span style="font-weight:400;color:var(--subtle)">(${group.length})</span></div>`;
-      html += group.map(a => alertItemHTML(a, false)).join('');
+      html += `<div class="alert-priority-hd" onclick="toggleAlertGroup(this)"><div class="alert-priority-dot" style="background:${sevColors[sev]}"></div>${sevLabels[sev]} <span style="font-weight:400;color:var(--subtle)">(${group.length})</span></div>`;
+      html += `<div class="alert-group-body">${group.map(a => alertItemHTML(a, false)).join('')}</div>`;
     });
   } else if (_alertViewMode === 'customer') {
     // ── Customer view: group by customer, sorted by worst score ──
@@ -4058,16 +4011,16 @@ function _renderAlerts() {
     if (custList.length) {
       custList.forEach(([cid, data]) => {
         const scoreColor = STATUS_COLOR[data.status] || '#94a3b8';
-        html += `<div class="alert-group-hd" style="cursor:pointer" onclick="openDetail('${escHtml(cid)}')">
+        html += `<div class="alert-group-hd" onclick="toggleAlertGroup(this)">
           <span class="alert-score-circle" style="background:${scoreColor};width:26px;height:26px;font-size:.65rem;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-weight:800">${data.score}</span>
-          ${escHtml(data.name)}
+          <span style="cursor:pointer" onclick="event.stopPropagation();openDetail('${escHtml(cid)}')">${escHtml(data.name)}</span>
           ${data.mrr ? `<span style="font-weight:400;color:var(--subtle);font-size:.75rem">$${fmtNum(data.mrr)} MRR</span>` : ''}
           <span style="font-weight:400;color:var(--subtle)">(${data.alerts.length} alert${data.alerts.length !== 1 ? 's' : ''})</span>
         </div>`;
         // Sort alerts within customer by severity
         const sevOrd = { red:0, amber:1, blue:2, green:3 };
         data.alerts.sort((a,b) => (sevOrd[a.type]??9) - (sevOrd[b.type]??9));
-        html += data.alerts.map(a => alertItemHTML(a, false)).join('');
+        html += `<div class="alert-group-body">${data.alerts.map(a => alertItemHTML(a, false)).join('')}</div>`;
       });
     } else if (custSearch) {
       html += `<div style="text-align:center;padding:28px 16px;color:var(--muted);font-size:.85rem">No customers matching "${escHtml(custSearch)}"</div>`;
@@ -4163,20 +4116,39 @@ function _renderAlerts() {
       const group = active.filter(a => a.cat === cat);
       if (!group.length) return;
       const def = ALERT_CATS[cat];
-      html += `<div class="alert-group-hd" id="alert-grp-${cat}">${def.icon} ${def.label} <span style="font-weight:400;color:var(--subtle)">(${group.length})</span></div>`;
-      html += group.map(a => alertItemHTML(a, false)).join('');
+      html += `<div class="alert-group-hd" id="alert-grp-${cat}" onclick="toggleAlertGroup(this)">${def.icon} ${def.label} <span style="font-weight:400;color:var(--subtle)">(${group.length})</span></div>`;
+      html += `<div class="alert-group-body">${group.map(a => alertItemHTML(a, false)).join('')}</div>`;
     });
   }
 
   // Snoozed section (shown in alert card views, not table)
   if (snz.length && _alertViewMode !== 'table') {
-    html += `<div class="alert-group-hd" style="margin-top:20px">${ALERT_ICONS.snoozed} Snoozed <span style="font-weight:400;color:var(--subtle)">(${snz.length})</span></div>`;
-    html += snz.map(a => alertItemHTML(a, true)).join('');
+    html += `<div class="alert-group-hd" style="margin-top:20px" onclick="toggleAlertGroup(this)">${ALERT_ICONS.snoozed} Snoozed <span style="font-weight:400;color:var(--subtle)">(${snz.length})</span></div>`;
+    html += `<div class="alert-group-body">${snz.map(a => alertItemHTML(a, true)).join('')}</div>`;
   }
 
+  // Remember which groups are expanded before re-render
+  const openGroups = new Set();
+  list.querySelectorAll('.alert-group-hd.alert-grp-open, .alert-priority-hd.alert-grp-open').forEach(hd => {
+    openGroups.add(hd.id || hd.textContent.replace(/\s+/g,' ').trim().split('(')[0].trim());
+  });
+
   list.innerHTML = html;
+
+  // Restore expanded groups
+  if (openGroups.size) {
+    list.querySelectorAll('.alert-group-hd, .alert-priority-hd').forEach(hd => {
+      const key = hd.id || hd.textContent.replace(/\s+/g,' ').trim().split('(')[0].trim();
+      if (openGroups.has(key)) toggleAlertGroup(hd);
+    });
+  }
+
   renderAlertPanel(all, active, snz);
   renderAlertBriefing(active, snz);
+
+  // Show/hide "View Snoozed" button
+  const vsBtn = el('alerts-view-snoozed-btn');
+  if (vsBtn) vsBtn.style.display = snz.length > 0 ? '' : 'none';
 }
 
 // ─── ALERT RIGHT PANEL ───────────────────────────────────────
@@ -4319,14 +4291,22 @@ function _alertShowTable(label, ids) {
   const searchBox = el('alert-cust-search');
   if (searchBox) { searchBox.style.display = ''; searchBox.value = ''; }
   renderAlerts();
+  const list = el('alerts-list');
+  if (list) _smoothScrollWithOffset(list, 10);
 }
 function filterByMrrBucket(label) {
   _alertShowTable(label, _mrrSeen[label]);
 }
 function _smoothScrollWithOffset(target, offset) {
   if (!target) return;
-  const y = target.getBoundingClientRect().top + window.scrollY - (offset || 20);
-  window.scrollTo({ top: y, behavior: 'smooth' });
+  const main = document.querySelector('main.main');
+  if (main && main.scrollHeight > main.clientHeight) {
+    const y = target.getBoundingClientRect().top - main.getBoundingClientRect().top + main.scrollTop - (offset || 20);
+    main.scrollTo({ top: y, behavior: 'smooth' });
+  } else {
+    const y = target.getBoundingClientRect().top + window.scrollY - (offset || 20);
+    window.scrollTo({ top: y, behavior: 'smooth' });
+  }
 }
 function filterByAlertKpi(which) {
   // Switch to category view and scroll to the relevant group
@@ -4659,7 +4639,7 @@ function alertItemHTML(a, isSnzd) {
   return `
     <div class="alert-item ${a.type} ${isSnzd?'snoozed':''} ${sel?'selected':''}" id="alert-row-${escHtml(a.id)}" onclick="openDetail('${escHtml(a.cid)}')">
       <div class="alert-score-circle" style="background:${scoreColor}">${scoreVal}</div>
-      <input type="checkbox" class="alert-item__check" ${sel?'checked':''} onclick="event.stopPropagation();alertToggleSelect('${escHtml(a.id)}',this)" title="Select">
+      <input type="checkbox" class="alert-item__check" ${sel?'checked':''} onclick="event.stopPropagation();alertToggleSelect('${escHtml(a.id)}',this,event)" title="Select">
       <div class="alert-item__icon">${def.icon}</div>
       <div class="alert-item__body">
         <div class="alert-item__text">${a.msg}</div>
@@ -4698,6 +4678,19 @@ document.addEventListener('click', () => {
   document.querySelectorAll('.snooze-dd__menu.open').forEach(m => m.classList.remove('open'));
 });
 
+// Sticky bar shadow when scrolled
+(function() {
+  const bar = document.getElementById('alert-sticky-bar');
+  if (!bar) return;
+  const sentinel = document.createElement('div');
+  sentinel.style.cssText = 'height:1px;margin:0;padding:0;visibility:hidden;pointer-events:none';
+  bar.parentElement.insertBefore(sentinel, bar);
+  const obs = new IntersectionObserver(([e]) => {
+    bar.classList.toggle('stuck', !e.isIntersecting);
+  }, { threshold: [1] });
+  obs.observe(sentinel);
+})();
+
 function isSnoozed(aid) {
   if (!snoozed.has(aid)) return false;
   const expiry = snoozed.get(aid);
@@ -4718,7 +4711,6 @@ function snoozeAlert(aid, days=7) {
   saveSettings();
   logAudit('alert_snoozed', ai.custId, ai.custName, { summary: `Alert snoozed for ${days}d — ${ai.catLabel}` });
   renderAlerts();
-  renderDashboard();
   toast(`Alert snoozed for ${days} day${days===1?'':'s'} ⏱`, 'default');
 }
 
@@ -4741,7 +4733,6 @@ function dismissAlert(aid) {
   saveSettings();
   logAudit('alert_dismissed', ai.custId, ai.custName, { summary: `Alert dismissed — ${ai.catLabel}` });
   renderAlerts();
-  renderDashboard();
   toast('Alert dismissed', 'default');
 }
 
@@ -4751,7 +4742,6 @@ function unsnooze(aid) {
   saveSettings();
   logAudit('alert_unsnoozed', ai.custId, ai.custName, { summary: `Alert unsnoozed — ${ai.catLabel}` });
   renderAlerts();
-  renderDashboard();
 }
 
 function clearSnoozed() {
@@ -4759,8 +4749,27 @@ function clearSnoozed() {
   saveSettings();
   logAudit('alerts_cleared', null, '', { summary: 'All snoozed alerts cleared' });
   renderAlerts();
-  renderDashboard();
   toast('Snoozed alerts cleared', 'success');
+}
+
+function viewSnoozedAlerts() {
+  // Switch to category view if in table mode (snoozed section only shows in card views)
+  if (_alertViewMode === 'table') setAlertView('category');
+  setTimeout(() => {
+    // Find the snoozed group header and expand + scroll to it
+    const headers = document.querySelectorAll('#alerts-list .alert-group-hd');
+    for (const hd of headers) {
+      if (hd.textContent.includes('Snoozed')) {
+        // Expand if collapsed
+        const body = hd.nextElementSibling;
+        if (body && body.classList.contains('alert-group-body') && getComputedStyle(body).display === 'none') {
+          toggleAlertGroup(hd);
+        }
+        _smoothScrollWithOffset(hd);
+        return;
+      }
+    }
+  }, 50);
 }
 
 
@@ -4885,7 +4894,7 @@ function mgrAllToggle(cb) {
     cbs.forEach(c => c.checked = false);
   }
   updateMgrFilterLabel();
-  renderDashboard(); renderCustomers(); renderAlerts(); renderSegments(); renderCSMPerformance();
+  renderHomeBase(); renderCustomers(); renderAlerts(); renderSegments(); renderCSMPerformance(); renderTrends();
 }
 
 function mgrCbChange() {
@@ -4906,7 +4915,7 @@ function mgrCbChange() {
     if (allCb) allCb.checked = false;
   }
   updateMgrFilterLabel();
-  renderDashboard(); renderCustomers(); renderAlerts(); renderSegments(); renderCSMPerformance();
+  renderHomeBase(); renderCustomers(); renderAlerts(); renderSegments(); renderCSMPerformance(); renderTrends();
 }
 
 function updateMgrFilterLabel() {
@@ -4982,7 +4991,8 @@ function renderFilterPills() {
   if (!bar) return;
   const keys = Object.keys(columnFilters);
   const hasMrr = mrrExposureFilter && mrrExposureFilter.ids;
-  if (!keys.length && !hasMrr) { bar.style.display = 'none'; return; }
+  const hasInsight = insightFilter && insightFilter.ids;
+  if (!keys.length && !hasMrr && !hasInsight) { bar.style.display = 'none'; return; }
 
   bar.innerHTML = keys.map(key => {
     const f = columnFilters[key];
@@ -5009,6 +5019,10 @@ function renderFilterPills() {
   // MRR Exposure pill
   if (hasMrr) {
     bar.innerHTML = `<span class="filter-pill" style="background:rgba(99,102,241,.25);border-color:rgba(99,102,241,.5)">MRR Exposure: ${mrrExposureFilter.label}<button class="filter-pill-x" onclick="event.stopPropagation();clearMrrExposureFilter()" title="Remove filter">✕</button></span>` + bar.innerHTML;
+  }
+  // Insight filter pill
+  if (insightFilter && insightFilter.ids) {
+    bar.innerHTML = `<span class="filter-pill" style="background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.4)">Insight: ${escHtml(insightFilter.label)}<button class="filter-pill-x" onclick="event.stopPropagation();clearInsightFilter()" title="Remove filter">✕</button></span>` + bar.innerHTML;
   }
 
   bar.style.display = 'flex';
@@ -5248,6 +5262,10 @@ function _renderCustomers() {
   if (mrrExposureFilter && mrrExposureFilter.ids) {
     list = list.filter(c => mrrExposureFilter.ids.has(c.id));
   }
+  // Insight click-through filter
+  if (insightFilter && insightFilter.ids) {
+    list = list.filter(c => insightFilter.ids.has(c.id));
+  }
 
   // Column filters (stack on top of global filters)
   list = applyColumnFilters(list);
@@ -5390,10 +5408,34 @@ async function saveInlineNextTouch(custId, val) {
   const c = customers.find(x => x.id === custId);
   if (!c) return;
   const oldVal = c.next_touch || '';
+
+  // If old next_touch is today or past, promote it to last_contact_date before setting new one
+  if (oldVal) {
+    const oldDate = new Date(oldVal);
+    const today = new Date(); today.setHours(0,0,0,0);
+    if (oldDate <= today) {
+      c.last_contact_date = oldVal;
+    }
+  }
+
   c.next_touch = val || '';
+  // Recalculate days from last_contact_date if it exists
+  if (c.last_contact_date) {
+    const lcd = new Date(c.last_contact_date);
+    if (!isNaN(lcd.getTime())) {
+      const daysSince = Math.max(0, Math.floor((Date.now() - lcd.getTime()) / 86400000));
+      c.days = daysSince;
+      c._baseDays = daysSince;
+    }
+  }
+
   // Persist to Supabase
   const row = toRow(c);
-  const { error } = await sb.from('customers').update({ next_touch: row.next_touch }).eq('id', c.id);
+  const { error } = await sb.from('customers').update({
+    next_touch: row.next_touch,
+    last_contact_date: row.last_contact_date,
+    days: row.days
+  }).eq('id', c.id);
   if (error) {
     console.warn('Failed to save next_touch:', error.message);
     c.next_touch = oldVal; // rollback
@@ -5433,9 +5475,7 @@ function lifecycleBadge(lc) {
 
 function scoreDelta(c) {
   if (!c.history || c.history.length < 2) return null;
-  const last  = c.history[c.history.length-1].score;
-  const prev  = c.history[c.history.length-2].score;
-  return last - prev;
+  return getDelta7d(c);
 }
 
 function deltaHTML(delta) {
@@ -5524,6 +5564,7 @@ function bulkRescore() {
     clearSelection();
     toast(`Re-scored ${n} customer${n!==1?'s':''} (${changed.length} changed)`, 'success');
     renderCustomers();
+    if (changed.length) pauseSync(120000);
     changed.forEach(c => save(c).catch(()=>{}));
   });
 }
@@ -5686,11 +5727,12 @@ function rescoreAllFromToolbar() {
         n++;
       }
     });
-    renderDashboard();
+    renderHomeBase();
     renderCustomers();
     renderAlerts();
     toast(`Re-scored ${n} customer${n !== 1 ? 's' : ''}`, 'success');
     if (changed.length) {
+      pauseSync(120000); // pause silentSync for 2 min while saves complete
       setLoading(true);
       Promise.all(changed.map(c => atUpdate(c).catch(() => {}))).finally(() => setLoading(false));
     }
@@ -6039,7 +6081,7 @@ function saveScore() {
   logAudit('customer_created', cust.id, cust.name, { score, status, summary: `New customer — Score: ${score}/100 (${status}), MRR: $${cust.mrr}, Tier: ${cust.tier}, Lifecycle: ${cust.lifecycle}` });
   pendingResult = null;
   resetForm();
-  nav(_returnToPage || 'dashboard');
+  nav(_returnToPage || 'homebase');
   _returnToPage = '';
 }
 
@@ -6399,8 +6441,19 @@ function renderDetailOverview() {
         </div>
       </div>
     </div>
-    <!-- Signals row: cadence + urgency + sentiment -->
+    <!-- Signals row: last contact + cadence + urgency + sentiment -->
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:10px 12px;background:var(--bg);border-radius:var(--r);border:1px solid var(--border)">
+      <div style="flex:1;min-width:110px">
+        <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:3px">Last Contact</div>
+        ${(()=>{
+          if (c.last_contact_date) {
+            const lcd = new Date(c.last_contact_date);
+            const daysAgo = Math.max(0, Math.floor((Date.now() - lcd.getTime()) / 86400000));
+            return `<span style="font-size:.78rem;font-weight:600">${lcd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span> <span style="font-size:.7rem;color:var(--muted)">(${daysAgo}d ago)</span>`;
+          }
+          return '<span style="font-size:.75rem;color:var(--muted)">—</span>';
+        })()}
+      </div>
       <div style="flex:1;min-width:110px">
         <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:3px">Check-in</div>
         <span class="${cad.cls}">${cad.label}</span>
@@ -6451,7 +6504,23 @@ async function saveDetailInline() {
   }
   if (tierInput) c.tier      = tierInput.value;
   if (lcInput)   c.lifecycle = lcInput.value;
-  if (ntInput)   c.next_touch = ntInput.value || null;
+  if (ntInput) {
+    const newNt = ntInput.value || '';
+    const oldNt = c.next_touch || '';
+    // If old next_touch is today or past, promote it to last_contact_date
+    if (oldNt && oldNt !== newNt) {
+      const oldDate = new Date(oldNt);
+      const today = new Date(); today.setHours(0,0,0,0);
+      if (oldDate <= today) {
+        c.last_contact_date = oldNt;
+        // Recalculate days from last_contact_date
+        const daysSince = Math.max(0, Math.floor((Date.now() - oldDate.getTime()) / 86400000));
+        c.days = daysSince;
+        c._baseDays = daysSince;
+      }
+    }
+    c.next_touch = newNt;
+  }
   if (tagsInput) {
     c.tags = tagsInput.value.split(',').map(t => t.trim()).filter(Boolean);
   }
@@ -6680,7 +6749,7 @@ function editCustomer(id) {
   const c = customers.find(x => x.id === cid);
   if (!c) return;
 
-  try { _returnToPage = localStorage.getItem('iqc_active_view') || 'dashboard'; } catch(e) { _returnToPage = 'dashboard'; }
+  try { _returnToPage = localStorage.getItem('iqc_active_view') || 'homebase'; } catch(e) { _returnToPage = 'homebase'; }
   closeModal('detail-modal');
   nav('score');
   document.getElementById('form-title').textContent = 'Re-score: ' + c.name;
@@ -6754,6 +6823,8 @@ window.saveScore = function() {
       c.csat            = data.csat;
       c.days            = data.days;
       c._baseDays       = data.days;
+      // If user manually changed days slider, clear last_contact_date (user override)
+      if (data.days != null && c.last_contact_date) { c.last_contact_date = ''; }
       c.renewal         = data.renewal;
       c.renewal_date    = data.renewal_date || '';
       c.next_touch      = (el('f-next-touch') ? el('f-next-touch').value : '') || '';
@@ -7059,7 +7130,7 @@ function saveWeights() {
   logAudit('weights_updated', null, '', { summary: `Global weights changed: ${changed.join(', ')}`, weights: { ...weights } });
   rescoreByProfile('Global Weights');
   filterMode = 'all';
-  renderDashboard();
+  renderHomeBase();
   renderCustomers();
   renderAlerts();
   renderProfiles();
@@ -7123,7 +7194,7 @@ function rescoreAll() {
     }
   });
   filterMode = 'all';
-  renderDashboard();
+  renderHomeBase();
   renderCustomers();
   renderAlerts();
   if (n > 0) {
@@ -7134,6 +7205,7 @@ function rescoreAll() {
   renderScoreDistribution();
   toast(`Re-scored ${n} customer${n!==1?'s':''}`, 'success');
   if (changed.length) {
+    pauseSync(120000); // pause silentSync for 2 min while saves complete
     setLoading(true);
     Promise.all(changed.map(c => atUpdate(c).catch(()=>{}))).finally(() => setLoading(false));
   }
@@ -7420,7 +7492,7 @@ function resetAllDefaults() {
     renderWeightRows();
     renderProfiles();
     renderScoreDistribution();
-    renderDashboard();
+    renderHomeBase();
     renderCustomers();
     renderAlerts();
     toast('All settings reset to defaults', 'warn');
@@ -7580,7 +7652,8 @@ function rescoreByProfile(profileName) {
     }
   });
   if (changed.length) {
-    renderDashboard(); renderCustomers(); renderAlerts();
+    pauseSync(120000); // pause silentSync for 2 min while saves complete
+    renderHomeBase(); renderCustomers(); renderAlerts();
     toast(`Re-scored ${changed.length} customer${changed.length!==1?'s':''} on "${profileName}"`, 'success');
     setLoading(true);
     Promise.all(changed.map(c => atUpdate(c).catch(()=>{}))).finally(() => setLoading(false));
@@ -7594,7 +7667,7 @@ function loadProfile(idx) {
   saveSettings();
   logAudit('profile_loaded', null, '', { summary: `Loaded profile "${p.name}" as global weights`, profile: p.name });
   renderWeightRows();
-  renderDashboard();
+  renderHomeBase();
   renderCustomers();
   toast(`Loaded profile: ${p.name}`, 'success');
 }
@@ -7650,7 +7723,7 @@ function restoreBackup(e) {
           toast('Backup restored!', 'success');
           logAudit('backup_restored', null, '', { summary: `Backup restored from ${fmtDate(data.exported)} (${data.customers.length} customers)` });
           logConfigChange('Backup restored from file');
-          renderDashboard();
+          renderHomeBase();
           renderSettings();
         } catch(err) {
           toast('Restore finished — some records may not have synced', 'warn');
@@ -11752,17 +11825,30 @@ function renderTrends() {
 
   const portfolioData = aggregateByDay(active, m1);
 
-  // ── KPIs (always based on health score) ──
+  // ── KPIs (range-aware, based on health score) ──
   const currentAvg = active.length ? Math.round(active.reduce((s,c) => s + (c.score||0), 0) / active.length) : 0;
+
+  // Range-aware delta: compare current score to score N days ago
+  function _getDeltaNd(c, n) {
+    const ago = new Date(); ago.setDate(ago.getDate() - n);
+    const hist = (c.history || []).slice().sort((a,b) => new Date(b.date) - new Date(a.date));
+    const recent = hist.filter(h => new Date(h.date) >= ago);
+    if (!recent.length) return 0;
+    const before = hist.filter(h => new Date(h.date) < ago);
+    const prev = before.length ? before[0].score : hist[hist.length - 1].score;
+    return recent[0].score - prev;
+  }
+
   let improving = 0, declining = 0;
   active.forEach(c => {
-    const d = getDelta7d(c);
+    const d = _getDeltaNd(c, days);
     if (d > 0) improving++;
     else if (d < 0) declining++;
   });
-  const avgDelta7 = active.length ? (active.reduce((s,c) => s + getDelta7d(c), 0) / active.length) : 0;
-  const trendDir = avgDelta7 > 0.5 ? 'Improving' : avgDelta7 < -0.5 ? 'Declining' : 'Stable';
-  const trendDirColor = avgDelta7 > 0.5 ? 'dash-kpi-green' : avgDelta7 < -0.5 ? 'dash-kpi-red' : 'dash-kpi-blue';
+  const avgDelta = active.length ? (active.reduce((s,c) => s + _getDeltaNd(c, days), 0) / active.length) : 0;
+  const trendDir = avgDelta > 0.5 ? 'Improving' : avgDelta < -0.5 ? 'Declining' : 'Stable';
+  const trendDirColor = avgDelta > 0.5 ? 'dash-kpi-green' : avgDelta < -0.5 ? 'dash-kpi-red' : 'dash-kpi-blue';
+  const rangeLabel = range === 'ytd' ? 'YTD' : range;
 
   const _ti = (path) => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
   const tIcons = {
@@ -11780,7 +11866,7 @@ function renderTrends() {
         <span class="dash-kpi-label">Portfolio Avg Score</span>
       </div>
       <div class="dash-kpi-num">${currentAvg}</div>
-      <div class="dash-kpi-sub">${avgDelta7 >= 0 ? '+' : ''}${avgDelta7.toFixed(1)} avg 7d change</div>
+      <div class="dash-kpi-sub">${avgDelta >= 0 ? '+' : ''}${avgDelta.toFixed(1)} avg ${rangeLabel} change</div>
     </div>
     <div class="dash-kpi-card ${trendDirColor}">
       <div class="dash-kpi-top">
@@ -13183,10 +13269,11 @@ const APP_FIELDS = {
   tags:            { label:'Tags',          required:false },
   lifecycle:       { label:'Lifecycle',     required:false },
   since:           { label:'Customer Since', required:false },
-  next_touch:      { label:'Next Touch Date', required:false },
-  scoring_profile: { label:'Scoring Profile', required:false },
-  note:            { label:'Note',            required:false },
-  sentiment:       { label:'Sentiment',       required:false }
+  next_touch:        { label:'Next Touch Date',    required:false },
+  last_contact_date: { label:'Last Contact Date',  required:false },
+  scoring_profile:   { label:'Scoring Profile',    required:false },
+  note:              { label:'Note',               required:false },
+  sentiment:         { label:'Sentiment',          required:false }
 };
 
 const FIELD_ALIASES = {
@@ -13207,8 +13294,9 @@ const FIELD_ALIASES = {
   tags:            ['tags','labels','tag'],
   lifecycle:       ['lifecycle','stage','lifecycle stage','status'],
   since:           ['since','customer since','customer_since','start date','start_date','joined'],
-  next_touch:      ['next_touch','next touch','next contact','next_contact','scheduled touch'],
-  scoring_profile: ['scoring_profile','scoring profile','profile','score profile'],
+  next_touch:        ['next_touch','next touch','next contact','next_contact','scheduled touch'],
+  last_contact_date: ['last_contact_date','last contact date','last_contact','last touch date'],
+  scoring_profile:   ['scoring_profile','scoring profile','profile','score profile'],
   note:            ['note','notes','comment','comments'],
   sentiment:       ['sentiment','sentiment value','customer sentiment']
 };
@@ -13351,8 +13439,9 @@ function applyMapping() {
       tags:            get('tags').split(/[,|]/).map(t=>t.trim()).filter(Boolean),
       lifecycle:       ['onboarding','active','atrisk','won','churned'].includes(get('lifecycle','active').toLowerCase()) ? get('lifecycle','active').toLowerCase() : 'active',
       since:           normalizeDate(get('since','')),
-      next_touch:      normalizeDate(get('next_touch','')),
-      scoring_profile: get('scoring_profile',''),
+      next_touch:        normalizeDate(get('next_touch','')),
+      last_contact_date: normalizeDate(get('last_contact_date','')),
+      scoring_profile:   get('scoring_profile',''),
       _note:           get('note',''),
       _sentiment:      sentVal
     };
@@ -13482,7 +13571,7 @@ function clearCSV() {
 }
 
 function dlTemplate() {
-  const hdr = 'name,manager,mrr,arr,logins_30d,feature_adoption_pct,open_tickets,nps,csat,days_since_contact,renewal_date,months_to_renewal,growth_signal,tier,tags,lifecycle,customer_since,next_touch,scoring_profile,note,sentiment';
+  const hdr = 'name,manager,mrr,arr,logins_30d,feature_adoption_pct,open_tickets,nps,csat,days_since_contact,renewal_date,months_to_renewal,growth_signal,tier,tags,lifecycle,customer_since,next_touch,last_contact_date,scoring_profile,note,sentiment';
   const sample = [
     'Acme Corp,Jane Smith,5000,60000,22,75,1,9,4,7,2026-09-15,8,strong,mid,"power-user,renewal-soon",active,2024-01-10,2026-03-01,Global Weights,Great engagement,positive',
     'Beta Inc,Marcus Lee,1200,14400,8,40,3,5,,25,2026-05-01,3,none,smb,,onboarding,2025-11-01,,Global Weights,Needs onboarding help,neutral',
@@ -13493,7 +13582,7 @@ function dlTemplate() {
 
 function exportCSV() {
   const filtered = customers.filter(c => passesManagerFilter(c));
-  const hdr = 'name,manager,score,status,mrr,arr,tier,lifecycle,logins,adoption,tickets,nps,csat,days,renewal_date,renewal,growth,tags,since,next_touch,scoring_profile,note,sentiment,created';
+  const hdr = 'name,manager,score,status,mrr,arr,tier,lifecycle,logins,adoption,tickets,nps,csat,days,renewal_date,renewal,growth,tags,since,next_touch,last_contact_date,scoring_profile,note,sentiment,created';
   const rows = filtered.map(c => {
     const latestNote = (c.notes||[]).length ? c.notes[c.notes.length-1].text : '';
     const ls = latestSentiment(c);
@@ -13504,6 +13593,7 @@ function exportCSV() {
       c.logins != null ? c.logins : '', c.adoption != null ? c.adoption : '', c.tickets != null ? c.tickets : '', c.nps != null ? c.nps : '', c.csat != null ? c.csat : '', c.days != null ? c.days : '',
       c.renewal_date||'', c.renewal||0, c.growth||'none',
       (c.tags||[]).join('|'), c.since||'', c.next_touch||'',
+      c.last_contact_date||'',
       c.scoring_profile||'Global Weights', latestNote, latestSent, c.created||''
     ].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');
   });
@@ -13596,7 +13686,7 @@ async function clientRadioChange(radio) {
   mgrFilterAll = true;
   activeManagers.clear();
   refreshMgrDropdown();
-  renderDashboard();
+  renderHomeBase();
   renderCustomers();
   renderAlerts();
 }
@@ -13643,7 +13733,7 @@ async function loadClientCustomers(clientId, silent) {
 }
 
 async function renderClients() {
-  if (!isAdmin()) { nav('dashboard'); return; }
+  if (!isAdmin()) { nav('homebase'); return; }
   await loadAdminClients();
 
   const loading = document.getElementById('clients-loading');
@@ -13805,7 +13895,7 @@ async function adminDeleteClient(id, name) {
 // Deleting users: removes from user_profiles + calls Supabase admin delete (requires service key — we soft-delete via profile flag).
 
 async function renderUsers() {
-  if (!isAdmin()) { nav('dashboard'); return; }
+  if (!isAdmin()) { nav('homebase'); return; }
 
   const loading = el('users-loading');
   const table   = el('users-table');
@@ -14119,7 +14209,7 @@ async function ensureUserProfile(user) {
       }
     } catch(e) {}
 
-    // Restore last active view (or default to dashboard)
+    // Restore last active view (or default to homebase)
     const savedView = localStorage.getItem('iqc_active_view');
     const restoreView = savedView && VIEWS.includes(savedView) ? savedView : 'homebase';
 
@@ -14179,7 +14269,7 @@ async function ensureUserProfile(user) {
     hideAuthGate();
     updateUserUI(currentUser);
     ensureUserProfile(currentUser);
-    nav('dashboard');
+    nav('homebase');
     renderSettings();
     startPolling();
 
@@ -14194,7 +14284,7 @@ async function ensureUserProfile(user) {
     } finally {
       setLoading(false);
       refreshMgrDropdown();
-      nav('dashboard');
+      nav('homebase');
       renderSettings();
     }
   });

@@ -74,7 +74,7 @@ async function clientRadioChange(radio) {
   mgrFilterAll = true;
   activeManagers.clear();
   refreshMgrDropdown();
-  renderDashboard();
+  renderHomeBase();
   renderCustomers();
   renderAlerts();
 }
@@ -121,7 +121,7 @@ async function loadClientCustomers(clientId, silent) {
 }
 
 async function renderClients() {
-  if (!isAdmin()) { nav('dashboard'); return; }
+  if (!isAdmin()) { nav('homebase'); return; }
   await loadAdminClients();
 
   const loading = document.getElementById('clients-loading');
@@ -283,7 +283,7 @@ async function adminDeleteClient(id, name) {
 // Deleting users: removes from user_profiles + calls Supabase admin delete (requires service key — we soft-delete via profile flag).
 
 async function renderUsers() {
-  if (!isAdmin()) { nav('dashboard'); return; }
+  if (!isAdmin()) { nav('homebase'); return; }
 
   const loading = el('users-loading');
   const table   = el('users-table');

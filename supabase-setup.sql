@@ -171,9 +171,17 @@ CREATE TABLE IF NOT EXISTS customers (
   scoring_profile TEXT DEFAULT '',
   deleted_at      TIMESTAMPTZ DEFAULT NULL,
   created_at      TIMESTAMPTZ DEFAULT NOW(),
-  next_touch      TEXT DEFAULT '',
-  playbook_checks TEXT DEFAULT '{}'
+  next_touch        TEXT DEFAULT '',
+  playbook_checks   TEXT DEFAULT '{}',
+  last_contact_date TEXT DEFAULT ''
 );
+
+-- Add last_contact_date column (safe to re-run)
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='customers' AND column_name='last_contact_date') THEN
+    ALTER TABLE customers ADD COLUMN last_contact_date TEXT DEFAULT '';
+  END IF;
+END $$;
 
 ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
 

@@ -119,7 +119,7 @@ function mgrAllToggle(cb) {
     cbs.forEach(c => c.checked = false);
   }
   updateMgrFilterLabel();
-  renderDashboard(); renderCustomers(); renderAlerts(); renderSegments(); renderCSMPerformance();
+  renderHomeBase(); renderCustomers(); renderAlerts(); renderSegments(); renderCSMPerformance(); renderTrends();
 }
 
 function mgrCbChange() {
@@ -140,7 +140,7 @@ function mgrCbChange() {
     if (allCb) allCb.checked = false;
   }
   updateMgrFilterLabel();
-  renderDashboard(); renderCustomers(); renderAlerts(); renderSegments(); renderCSMPerformance();
+  renderHomeBase(); renderCustomers(); renderAlerts(); renderSegments(); renderCSMPerformance(); renderTrends();
 }
 
 function updateMgrFilterLabel() {
@@ -216,7 +216,8 @@ function renderFilterPills() {
   if (!bar) return;
   const keys = Object.keys(columnFilters);
   const hasMrr = mrrExposureFilter && mrrExposureFilter.ids;
-  if (!keys.length && !hasMrr) { bar.style.display = 'none'; return; }
+  const hasInsight = insightFilter && insightFilter.ids;
+  if (!keys.length && !hasMrr && !hasInsight) { bar.style.display = 'none'; return; }
 
   bar.innerHTML = keys.map(key => {
     const f = columnFilters[key];
@@ -243,6 +244,10 @@ function renderFilterPills() {
   // MRR Exposure pill
   if (hasMrr) {
     bar.innerHTML = `<span class="filter-pill" style="background:rgba(99,102,241,.25);border-color:rgba(99,102,241,.5)">MRR Exposure: ${mrrExposureFilter.label}<button class="filter-pill-x" onclick="event.stopPropagation();clearMrrExposureFilter()" title="Remove filter">✕</button></span>` + bar.innerHTML;
+  }
+  // Insight filter pill
+  if (insightFilter && insightFilter.ids) {
+    bar.innerHTML = `<span class="filter-pill" style="background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.4)">Insight: ${escHtml(insightFilter.label)}<button class="filter-pill-x" onclick="event.stopPropagation();clearInsightFilter()" title="Remove filter">✕</button></span>` + bar.innerHTML;
   }
 
   bar.style.display = 'flex';
@@ -482,6 +487,10 @@ function _renderCustomers() {
   if (mrrExposureFilter && mrrExposureFilter.ids) {
     list = list.filter(c => mrrExposureFilter.ids.has(c.id));
   }
+  // Insight click-through filter
+  if (insightFilter && insightFilter.ids) {
+    list = list.filter(c => insightFilter.ids.has(c.id));
+  }
 
   // Column filters (stack on top of global filters)
   list = applyColumnFilters(list);
@@ -624,10 +633,34 @@ async function saveInlineNextTouch(custId, val) {
   const c = customers.find(x => x.id === custId);
   if (!c) return;
   const oldVal = c.next_touch || '';
+
+  // If old next_touch is in the past, promote it to last_contact_date before setting new one
+  if (oldVal) {
+    const oldDate = new Date(oldVal);
+    const today = new Date(); today.setHours(0,0,0,0);
+    if (oldDate <= today) {
+      c.last_contact_date = oldVal;
+    }
+  }
+
   c.next_touch = val || '';
+  // Recalculate days from last_contact_date if it exists
+  if (c.last_contact_date) {
+    const lcd = new Date(c.last_contact_date);
+    if (!isNaN(lcd.getTime())) {
+      const daysSince = Math.max(0, Math.floor((Date.now() - lcd.getTime()) / 86400000));
+      c.days = daysSince;
+      c._baseDays = daysSince;
+    }
+  }
+
   // Persist to Supabase
   const row = toRow(c);
-  const { error } = await sb.from('customers').update({ next_touch: row.next_touch }).eq('id', c.id);
+  const { error } = await sb.from('customers').update({
+    next_touch: row.next_touch,
+    last_contact_date: row.last_contact_date,
+    days: row.days
+  }).eq('id', c.id);
   if (error) {
     console.warn('Failed to save next_touch:', error.message);
     c.next_touch = oldVal; // rollback
@@ -667,9 +700,7 @@ function lifecycleBadge(lc) {
 
 function scoreDelta(c) {
   if (!c.history || c.history.length < 2) return null;
-  const last  = c.history[c.history.length-1].score;
-  const prev  = c.history[c.history.length-2].score;
-  return last - prev;
+  return getDelta7d(c);
 }
 
 function deltaHTML(delta) {
@@ -920,7 +951,7 @@ function rescoreAllFromToolbar() {
         n++;
       }
     });
-    renderDashboard();
+    renderHomeBase();
     renderCustomers();
     renderAlerts();
     toast(`Re-scored ${n} customer${n !== 1 ? 's' : ''}`, 'success');

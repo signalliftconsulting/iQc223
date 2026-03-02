@@ -1,10 +1,10 @@
 // ─── NAVIGATION ─────────────────────────────────────────────
-const VIEWS = ['homebase','dashboard','alerts','customers','segments','trends','csmperf','reports','score','csv','settings','automations','auditlog','users','clients','help'];
+const VIEWS = ['homebase','alerts','customers','segments','trends','csmperf','reports','score','csv','settings','automations','auditlog','users','clients','help'];
 const ADMIN_EMAILS = (_cfg && _cfg.ADMIN_EMAILS) || [];
 
 // ─── COLLAPSIBLE NAV GROUPS ─────────────────────────────────
 const NAV_GROUPS = {
-  main:     ['homebase','dashboard','alerts','customers','segments','trends','csmperf'],
+  main:     ['alerts','customers','segments','trends','csmperf'],
   automate: ['automations','reports'],
   data:     ['score','csv'],
   config:   ['settings','auditlog']
@@ -78,6 +78,9 @@ function nav(v) {
   });
   const target = document.getElementById('view-' + v);
   if (target) target.classList.add('active');
+  // Scroll main area to top on page change
+  const _mainEl = document.querySelector('main.main');
+  if (_mainEl) _mainEl.scrollTop = 0;
   const ni = document.getElementById('ni-' + v);
   if (ni) ni.classList.add('active');
 
@@ -88,7 +91,6 @@ function nav(v) {
   }
 
   if (v === 'homebase')  renderHomeBase();
-  if (v === 'dashboard') renderDashboard();
   if (v === 'alerts')    renderAlerts();
   if (v === 'customers') renderCustomers();
   if (v === 'segments')  { if (!hasFeature('segments')) { el('seg-kpi-row').innerHTML = ''; el('seg-cards-wrap').innerHTML = upgradeHTML('segments'); el('seg-table-wrap').innerHTML = ''; el('seg-insights-wrap').innerHTML = ''; } else renderSegments(); }

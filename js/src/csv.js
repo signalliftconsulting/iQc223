@@ -49,8 +49,9 @@ const APP_FIELDS = {
   tags:            { label:'Tags',          required:false },
   lifecycle:       { label:'Lifecycle',     required:false },
   since:           { label:'Customer Since', required:false },
-  next_touch:      { label:'Next Touch Date', required:false },
-  scoring_profile: { label:'Scoring Profile', required:false },
+  next_touch:        { label:'Next Touch Date',    required:false },
+  last_contact_date: { label:'Last Contact Date',  required:false },
+  scoring_profile:   { label:'Scoring Profile',    required:false },
   note:            { label:'Note',            required:false },
   sentiment:       { label:'Sentiment',       required:false }
 };
@@ -73,8 +74,9 @@ const FIELD_ALIASES = {
   tags:            ['tags','labels','tag'],
   lifecycle:       ['lifecycle','stage','lifecycle stage','status'],
   since:           ['since','customer since','customer_since','start date','start_date','joined'],
-  next_touch:      ['next_touch','next touch','next contact','next_contact','scheduled touch'],
-  scoring_profile: ['scoring_profile','scoring profile','profile','score profile'],
+  next_touch:        ['next_touch','next touch','next contact','next_contact','scheduled touch'],
+  last_contact_date: ['last_contact_date','last contact date','last_contact','last touch date'],
+  scoring_profile:   ['scoring_profile','scoring profile','profile','score profile'],
   note:            ['note','notes','comment','comments'],
   sentiment:       ['sentiment','sentiment value','customer sentiment']
 };
@@ -217,8 +219,9 @@ function applyMapping() {
       tags:            get('tags').split(/[,|]/).map(t=>t.trim()).filter(Boolean),
       lifecycle:       ['onboarding','active','atrisk','won','churned'].includes(get('lifecycle','active').toLowerCase()) ? get('lifecycle','active').toLowerCase() : 'active',
       since:           normalizeDate(get('since','')),
-      next_touch:      normalizeDate(get('next_touch','')),
-      scoring_profile: get('scoring_profile',''),
+      next_touch:        normalizeDate(get('next_touch','')),
+      last_contact_date: normalizeDate(get('last_contact_date','')),
+      scoring_profile:   get('scoring_profile',''),
       _note:           get('note',''),
       _sentiment:      sentVal
     };
@@ -348,7 +351,7 @@ function clearCSV() {
 }
 
 function dlTemplate() {
-  const hdr = 'name,manager,mrr,arr,logins_30d,feature_adoption_pct,open_tickets,nps,csat,days_since_contact,renewal_date,months_to_renewal,growth_signal,tier,tags,lifecycle,customer_since,next_touch,scoring_profile,note,sentiment';
+  const hdr = 'name,manager,mrr,arr,logins_30d,feature_adoption_pct,open_tickets,nps,csat,days_since_contact,renewal_date,months_to_renewal,growth_signal,tier,tags,lifecycle,customer_since,next_touch,last_contact_date,scoring_profile,note,sentiment';
   const sample = [
     'Acme Corp,Jane Smith,5000,60000,22,75,1,9,4,7,2026-09-15,8,strong,mid,"power-user,renewal-soon",active,2024-01-10,2026-03-01,Global Weights,Great engagement,positive',
     'Beta Inc,Marcus Lee,1200,14400,8,40,3,5,,25,2026-05-01,3,none,smb,,onboarding,2025-11-01,,Global Weights,Needs onboarding help,neutral',
@@ -359,7 +362,7 @@ function dlTemplate() {
 
 function exportCSV() {
   const filtered = customers.filter(c => passesManagerFilter(c));
-  const hdr = 'name,manager,score,status,mrr,arr,tier,lifecycle,logins,adoption,tickets,nps,csat,days,renewal_date,renewal,growth,tags,since,next_touch,scoring_profile,note,sentiment,created';
+  const hdr = 'name,manager,score,status,mrr,arr,tier,lifecycle,logins,adoption,tickets,nps,csat,days,renewal_date,renewal,growth,tags,since,next_touch,last_contact_date,scoring_profile,note,sentiment,created';
   const rows = filtered.map(c => {
     const latestNote = (c.notes||[]).length ? c.notes[c.notes.length-1].text : '';
     const ls = latestSentiment(c);
@@ -370,6 +373,7 @@ function exportCSV() {
       c.logins != null ? c.logins : '', c.adoption != null ? c.adoption : '', c.tickets != null ? c.tickets : '', c.nps != null ? c.nps : '', c.csat != null ? c.csat : '', c.days != null ? c.days : '',
       c.renewal_date||'', c.renewal||0, c.growth||'none',
       (c.tags||[]).join('|'), c.since||'', c.next_touch||'',
+      c.last_contact_date||'',
       c.scoring_profile||'Global Weights', latestNote, latestSent, c.created||''
     ].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',');
   });

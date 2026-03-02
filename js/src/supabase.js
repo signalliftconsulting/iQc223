@@ -179,8 +179,9 @@ function fromRow(row) {
     scoring_profile: row.scoring_profile || '',
     deleted_at:      row.deleted_at      || null,
     created:         row.created_at      || new Date().toISOString(),
-    next_touch:      row.next_touch      || '',
-    playbook_checks: tryParse(row.playbook_checks, {})
+    next_touch:        row.next_touch        || '',
+    playbook_checks:   tryParse(row.playbook_checks, {}),
+    last_contact_date: row.last_contact_date || ''
   };
 }
 
@@ -214,8 +215,9 @@ function toRow(c) {
     scoring_profile: c.scoring_profile || '',
     deleted_at:      c.deleted_at      || null,
     created_at:      c.created         || new Date().toISOString(),
-    next_touch:      c.next_touch      || '',
-    playbook_checks: JSON.stringify(c.playbook_checks || {})
+    next_touch:        c.next_touch        || '',
+    playbook_checks:   JSON.stringify(c.playbook_checks || {}),
+    last_contact_date: c.last_contact_date || ''
   };
 }
 
@@ -741,6 +743,14 @@ function _generateDemoCustomer(name, index, now) {
     next_touch = ntDate.toISOString().slice(0,10);
   }
 
+  // Last contact date — derive from days since contact for ~60% of active customers
+  let last_contact_date = '';
+  if (lifecycle !== 'churned' && lastSig.days != null && lastSig.days > 0 && Math.random() < 0.60) {
+    const lcd = new Date(now);
+    lcd.setDate(lcd.getDate() - lastSig.days);
+    last_contact_date = lcd.toISOString().slice(0,10);
+  }
+
   return {
     id:              crypto.randomUUID(),
     name,
@@ -770,7 +780,8 @@ function _generateDemoCustomer(name, index, now) {
     deleted_at:      null,
     created,
     next_touch,
-    playbook_checks: {}
+    playbook_checks: {},
+    last_contact_date
   };
 }
 
@@ -847,10 +858,16 @@ async function seedDemoData() {
 
 // ─── AUTO-REFRESH ────────────────────────────────────────────
 let _pollTimer = null;
+let _syncPauseUntil = 0; // pause silentSync after bulk operations (e.g. rescoreAll)
+
+// Call after bulk saves to prevent silentSync from overwriting local data
+// while Supabase writes are still in flight
+function pauseSync(ms) { _syncPauseUntil = Date.now() + (ms || 120000); }
 
 // Silent background sync — never shows the loading overlay
 async function silentSync() {
   if (!currentUser) return;
+  if (Date.now() < _syncPauseUntil) return; // skip while bulk saves are in flight
   try {
     // Respect the active client context — if admin switched to a specific client,
     // reload that client's data instead of the admin's own
@@ -861,7 +878,7 @@ async function silentSync() {
     }
     refreshMgrDropdown();
     const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
-    if (active === 'dashboard') renderDashboard();
+    if (active === 'homebase')  renderHomeBase();
     if (active === 'customers') renderCustomers();
     if (active === 'alerts')    renderAlerts();
   } catch(e) { /* silent */ }

@@ -25,7 +25,7 @@
   --font:'Inter',system-ui,-apple-system,sans-serif;
 }
 html{font-size:16px}
-body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 h1{font-size:1.6rem;font-weight:800;line-height:1.2;letter-spacing:-.02em}
 h2{font-size:1.05rem;font-weight:700;line-height:1.3;letter-spacing:-.01em}
 h3{font-size:.9rem;font-weight:700}
@@ -56,7 +56,7 @@ a{color:var(--blue);text-decoration:none}
 .mgr-filter__sep{height:1px;background:var(--border);margin:4px 0}
 
 /* LAYOUT */
-.shell{display:flex;min-height:calc(100vh - 56px)}
+.shell{display:flex;height:calc(100vh - 56px)}
 .sidebar{width:214px;flex-shrink:0;background:#0f172a;border-right:none;padding:12px 8px;display:flex;flex-direction:column;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto;box-shadow:2px 0 12px rgba(0,0,0,.15)}
 .nav-item{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:.835rem;font-weight:600;color:rgba(255,255,255,.55);cursor:pointer;border:none;background:none;width:100%;text-align:left;transition:color .15s,background .15s;border-radius:8px;margin-bottom:1px}
 .nav-item:hover{color:rgba(255,255,255,.9);background:rgba(255,255,255,.08)}
@@ -74,7 +74,7 @@ a{color:var(--blue);text-decoration:none}
 .nav-group:not(.open) .nav-group-chevron{transform:rotate(-90deg)}
 .nav-group-body{overflow:hidden;max-height:500px;transition:max-height .3s ease,opacity .2s ease;opacity:1}
 .nav-group:not(.open) .nav-group-body{max-height:0;opacity:0;pointer-events:none}
-.main{flex:1;overflow-x:hidden;padding:24px 28px 60px;min-width:0}
+.main{flex:1;overflow-x:hidden;overflow-y:auto;padding:24px 28px 60px;min-width:0}
 
 /* VIEWS */
 .view{display:none}.view.active{display:block;animation:fadeIn .2s ease}
@@ -192,9 +192,13 @@ svg.sparkline{display:block}
 .alert-item__cat.green{background:var(--green-m);color:#14532d}
 .alert-item__actions{display:flex;gap:5px;flex-shrink:0}
 /* Alert group heading */
-.alert-group-hd{font-size:.88rem;font-weight:700;letter-spacing:.02em;color:var(--text);margin:22px 0 10px;display:flex;align-items:center;gap:7px;padding-bottom:6px;border-bottom:2px solid var(--border)}
+.alert-group-hd{font-size:.88rem;font-weight:700;letter-spacing:.02em;color:var(--text);margin:22px 0 0;display:flex;align-items:center;gap:7px;padding:8px 6px;border-bottom:2px solid var(--border);cursor:pointer;border-radius:var(--r) var(--r) 0 0;transition:background .15s}
 .alert-group-hd:first-child{margin-top:0}
+.alert-group-hd:hover{background:color-mix(in srgb, var(--blue) 5%, transparent)}
 .alert-group-hd svg{opacity:.7;flex-shrink:0}
+.alert-group-hd::after{content:'▸';margin-left:auto;color:var(--subtle);font-size:.8rem;transition:transform .2s}
+.alert-grp-open::after{transform:rotate(90deg)}
+.alert-group-body{display:none;padding-top:6px;margin-bottom:8px}
 .alert-item__icon{display:flex;align-items:center;justify-content:center;width:22px;flex-shrink:0;opacity:.7}
 /* Alerts page — top panels + full-width list */
 .alerts-top-panels{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
@@ -270,10 +274,15 @@ svg.sparkline{display:block}
 .alert-view-btn:hover{color:var(--text)}
 .alert-view-btn.active{background:var(--blue);color:#fff}
 /* Priority group headers */
-.alert-priority-hd{font-size:.88rem;font-weight:700;letter-spacing:.02em;color:var(--text);margin:22px 0 10px;display:flex;align-items:center;gap:7px;padding-bottom:6px;border-bottom:2px solid var(--border)}
+.alert-priority-hd{font-size:.88rem;font-weight:700;letter-spacing:.02em;color:var(--text);margin:22px 0 0;display:flex;align-items:center;gap:7px;padding:8px 6px;border-bottom:2px solid var(--border);cursor:pointer;border-radius:var(--r) var(--r) 0 0;transition:background .15s}
+.alert-priority-hd:hover{background:color-mix(in srgb, var(--blue) 5%, transparent)}
+.alert-priority-hd::after{content:'▸';margin-left:auto;color:var(--subtle);font-size:.8rem;transition:transform .2s}
+.alert-priority-hd.alert-grp-open::after{transform:rotate(90deg)}
 .alert-priority-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 /* Bulk action bar */
-.alert-bulk-bar{display:none;align-items:center;gap:8px;background:var(--blue-l);border:1px solid var(--blue-m);border-radius:var(--r);padding:8px 14px;margin-bottom:12px;font-size:.82rem;font-weight:600;color:var(--blue)}
+.alert-sticky-bar{position:sticky;top:-30px;z-index:90;background:var(--bg);padding:36px 2px 6px;margin:-10px -2px 8px;border-bottom:1px solid transparent;transition:border-color .2s,box-shadow .2s}
+.alert-sticky-bar.stuck{border-bottom-color:var(--border);box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.alert-bulk-bar{display:none;align-items:center;gap:8px;background:var(--blue-l);border:1px solid var(--blue-m);border-radius:var(--r);padding:8px 14px;margin-bottom:4px;font-size:.82rem;font-weight:600;color:var(--blue)}
 .alert-bulk-bar.visible{display:flex}
 /* Snooze dropdown */
 .snooze-dd{position:relative;display:inline-block}
@@ -283,44 +292,56 @@ svg.sparkline{display:block}
 .snooze-dd__item:hover{background:var(--bg)}
 
 /* HOME BASE */
-.hb-pulse-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
-.hb-pulse-card{border-radius:var(--rlg);padding:20px 20px 18px;cursor:pointer;transition:transform .15s,box-shadow .15s;position:relative;overflow:hidden;color:#fff}
-.hb-pulse-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.18)}
-.hb-pulse-card.hb-blue{background:linear-gradient(135deg,#2563eb 0%,#3b82f6 100%)}
-.hb-pulse-card.hb-red{background:linear-gradient(135deg,#dc2626 0%,#ef4444 100%)}
-.hb-pulse-card.hb-amber{background:linear-gradient(135deg,#d97706 0%,#f59e0b 100%)}
-.hb-pulse-card.hb-purple{background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%)}
-.hb-pulse-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
-.hb-pulse-icon{width:36px;height:36px;border-radius:9px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.hb-pulse-icon svg{stroke:#fff}
-.hb-pulse-label{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.85)}
-.hb-pulse-value{font-size:2.2rem;font-weight:800;line-height:1;letter-spacing:-.04em;color:#fff}
-.hb-pulse-bottom{display:flex;align-items:center;gap:10px;margin-top:8px}
-.hb-pulse-delta{font-size:.78rem;font-weight:700;color:rgba(255,255,255,.9)}
-.hb-pulse-sub{font-size:.72rem;color:rgba(255,255,255,.6);font-weight:500}
-@media(max-width:900px){.hb-pulse-row{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:500px){.hb-pulse-row{grid-template-columns:1fr}}
+/* Home Base Welcome Banner */
+.hb-welcome{background:linear-gradient(135deg,#f0f4ff 0%,#f5f0ff 50%,#f0faff 100%);border:1px solid color-mix(in srgb,var(--blue) 15%,var(--border));border-radius:var(--rlg);padding:28px 28px 22px;margin-bottom:20px;position:relative;overflow:hidden}
+.hb-welcome::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--blue),var(--purple),var(--teal));opacity:.85}
+.hb-welcome::after{content:'';position:absolute;top:-40px;right:-40px;width:180px;height:180px;background:radial-gradient(circle,rgba(37,99,235,.06) 0%,transparent 70%);border-radius:50%;pointer-events:none}
+.hb-greeting{font-size:1.5rem;font-weight:800;color:var(--text);letter-spacing:-.02em;line-height:1.2}
+.hb-date{font-size:.78rem;color:var(--muted);font-weight:500;margin-top:4px}
+.hb-summary{font-size:.88rem;color:var(--text);opacity:.75;line-height:1.6;margin-top:12px;max-width:680px}
+.hb-summary strong{color:var(--text);font-weight:700}
+.hb-stats-bar{display:flex;gap:6px;flex-wrap:wrap;margin-top:16px}
+.hb-stat{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:8px 14px;transition:border-color .15s,box-shadow .15s}
+.hb-stat:hover{border-color:var(--blue-m);box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.hb-stat-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hb-stat-icon svg{stroke:currentColor}
+.hb-stat-val{font-size:1.05rem;font-weight:800;color:var(--text);line-height:1}
+.hb-stat-lbl{font-size:.62rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.hb-stat-delta{font-size:.68rem;font-weight:700;margin-left:2px}
+.hb-stat-delta .up{color:var(--green)}
+.hb-stat-delta .down{color:var(--red)}
+@media(max-width:600px){.hb-welcome{padding:20px 18px 16px}.hb-greeting{font-size:1.2rem}.hb-welcome::after{display:none}}
 
-.hb-section-hd{font-size:.88rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--subtle);margin-bottom:16px;display:flex;align-items:center;gap:8px}
-.hb-section-hd::before{content:'';display:inline-block;width:3px;height:14px;border-radius:2px;background:var(--blue);flex-shrink:0}
+.hb-movers-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+@media(max-width:700px){.hb-movers-grid{grid-template-columns:1fr}}
+.hb-section{padding:20px;border-radius:var(--rlg)}
+.hb-section-tinted{background:var(--bg);border:1px solid transparent}
+.hb-section-warm{background:linear-gradient(135deg,#fffbf5 0%,#fff8f0 100%);border:1px solid #fde8d0}
+#homebase-wrap .card{margin-bottom:16px}
+#homebase-wrap .dash-kpi-row{margin-bottom:16px}
+
+.hb-section-hd{font-size:.82rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.hb-section-hd::before{content:'';display:inline-block;width:4px;height:16px;border-radius:3px;background:linear-gradient(180deg,var(--blue),var(--purple));flex-shrink:0}
 .hb-section-hd .hb-count{font-weight:500;font-size:.82rem;color:var(--muted);text-transform:none;letter-spacing:0}
 
-.hb-snap-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;margin-bottom:22px}
-.hb-snap-card{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;cursor:pointer;transition:box-shadow .15s,transform .15s,border-color .15s}
-.hb-snap-card:hover{box-shadow:var(--shm);transform:translateY(-1px);border-color:var(--blue-m)}
+.hb-snap-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:22px}
+@media(max-width:1200px){.hb-snap-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:800px){.hb-snap-grid{grid-template-columns:repeat(2,1fr)}}
+.hb-snap-card{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:14px 16px;cursor:pointer;transition:box-shadow .18s,transform .18s,border-color .18s}
+.hb-snap-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.07);transform:translateY(-2px);border-color:var(--blue-m)}
 .hb-snap-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .hb-snap-icon svg{stroke:currentColor}
 .hb-snap-body{flex:1;min-width:0}
-.hb-snap-title{font-size:.82rem;font-weight:700;color:var(--text);margin-bottom:2px}
-.hb-snap-detail{font-size:.73rem;color:var(--muted);line-height:1.5}
+.hb-snap-title{font-size:.84rem;font-weight:700;color:var(--text);margin-bottom:3px}
+.hb-snap-detail{font-size:.74rem;color:var(--muted);line-height:1.55}
 .hb-snap-detail strong{color:var(--text);font-weight:700}
 .hb-snap-arrow{flex-shrink:0;color:var(--subtle);transition:color .15s,transform .15s}
-.hb-snap-card:hover .hb-snap-arrow{color:var(--blue);transform:translateX(2px)}
-@media(max-width:600px){.hb-snap-grid{grid-template-columns:1fr}}
+.hb-snap-card:hover .hb-snap-arrow{color:var(--blue);transform:translateX(3px)}
+@media(max-width:600px){.hb-snap-grid{grid-template-columns:1fr}.hb-snap-card{gap:14px;padding:14px 16px}}
 
 .hb-insights-wrap{display:flex;flex-direction:column;gap:8px}
-.hb-insight-card{display:flex;gap:14px;padding:14px 18px;background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--blue);border-radius:var(--r);transition:box-shadow .15s,background .15s}
-.hb-insight-card:hover{box-shadow:var(--shm);background:#fafbfc}
+.hb-insight-card{display:flex;gap:14px;padding:14px 18px;background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--blue);border-radius:var(--r);transition:box-shadow .15s,background .15s,border-left-color .15s}
+.hb-insight-card:hover{box-shadow:0 2px 12px rgba(0,0,0,.06);background:var(--surface)}
 .hb-insight-card.hb-cat-risk{border-left-color:var(--red)}
 .hb-insight-card.hb-cat-trend{border-left-color:var(--blue)}
 .hb-insight-card.hb-cat-renewal{border-left-color:var(--purple)}
@@ -352,10 +373,10 @@ svg.sparkline{display:block}
 .hb-empty p{font-size:.84rem;max-width:340px;margin:0 auto;line-height:1.6}
 
 .hb-focus-list{display:flex;flex-direction:column}
-.hb-focus-item{display:flex;align-items:center;gap:14px;padding:13px 16px;border-bottom:1px dashed var(--border);cursor:pointer;transition:background .12s,box-shadow .12s}
-.hb-focus-item:last-child{border-bottom:none}
-.hb-focus-item:hover{background:var(--bg);box-shadow:0 2px 8px rgba(0,0,0,.04)}
-.hb-focus-rank{width:26px;height:26px;border-radius:50%;background:var(--bg);border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:800;color:var(--muted);flex-shrink:0}
+.hb-focus-item{display:flex;align-items:center;gap:14px;padding:12px 16px;margin-bottom:4px;border-radius:var(--r);cursor:pointer;transition:background .12s,box-shadow .12s}
+.hb-focus-item:last-child{margin-bottom:0}
+.hb-focus-item:hover{background:rgba(255,255,255,.8);box-shadow:0 2px 8px rgba(0,0,0,.05)}
+.hb-focus-rank{width:24px;height:24px;border-radius:8px;background:var(--blue-l);border:none;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:800;color:var(--blue);flex-shrink:0}
 .hb-focus-body{flex:1;min-width:0}
 .hb-focus-name{font-size:.86rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px}
 .hb-focus-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
@@ -612,6 +633,10 @@ svg.sparkline{display:block}
 .dtab-row{display:flex;gap:3px;background:var(--border);border-radius:var(--r);padding:3px;margin-bottom:16px;width:fit-content}
 .dtab{padding:5px 12px;border-radius:7px;border:none;background:transparent;font-size:.78rem;font-weight:600;color:var(--muted);cursor:pointer;transition:all .13s}
 .dtab.active{background:var(--surface);color:var(--text);box-shadow:var(--sh)}
+.trend-range-bar{background:color-mix(in srgb, var(--blue) 12%, var(--border));border:1.5px solid color-mix(in srgb, var(--blue) 25%, transparent);padding:4px}
+.trend-range-bar .dtab{padding:6px 14px;font-size:.82rem;font-weight:700}
+.trend-range-bar .dtab.active{background:var(--blue);color:#fff;box-shadow:0 2px 6px rgba(59,130,246,.3)}
+.trend-range-bar .dtab:not(.active):hover{background:color-mix(in srgb, var(--blue) 10%, transparent)}
 .dtab-pane{display:none}.dtab-pane.active{display:block}
 
 /* TOGGLE SWITCH */
@@ -902,42 +927,7 @@ svg.sparkline{display:block}
 .dash-health-bar{display:flex;height:7px;border-radius:100px;overflow:hidden;gap:2px;margin-top:10px}
 .dash-health-seg{border-radius:100px;transition:width .6s cubic-bezier(.4,0,.2,1);min-width:0}
 
-/* ─── DASHBOARD MAIN ROW ────────────────────────────────────── */
-.dash-main-row{display:grid;grid-template-columns:1fr 320px;gap:16px;margin-bottom:20px;align-items:start}
-.dash-priority-panel{padding:20px 22px 0}
-.priority-table-wrap,#priority-table-wrap{padding-bottom:20px}
-.dash-sidebar{display:flex;flex-direction:column;gap:0}
-
-/* Priority table (in dashboard) */
-.ptbl{width:100%;border-collapse:collapse;font-size:.8rem}
-.ptbl th{text-align:left;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);padding:0 10px 8px;border-bottom:1.5px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none;transition:color .13s}
-.ptbl th:hover{color:var(--blue)}
-.ptbl td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
-.ptbl tr:last-child td{border-bottom:none}
-.ptbl tbody tr{cursor:pointer;transition:background .1s}
-.ptbl tbody tr:hover{background:var(--bg)}
-.ptbl .qa-btns{display:flex;gap:4px;opacity:0;transition:opacity .15s}
-.ptbl tbody tr:hover .qa-btns{opacity:1}
-.p-rank{width:22px;height:22px;border-radius:6px;background:var(--blue);color:#fff;font-size:.68rem;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
-.p-rank.pr-critical{background:#dc2626}.p-rank.pr1{background:#ea580c}.p-rank.pr-watch{background:var(--amber)}.p-rank.pr2{background:var(--green)}.p-rank.pr3{background:var(--blue)}.p-rank.pr-expand{background:var(--teal)}
-
-/* Dash alerts compact */
-.dash-alert-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;margin-bottom:5px;cursor:pointer;transition:background .12s;border-left:3px solid var(--red);background:var(--red-l)}
-.dash-alert-item:hover{filter:brightness(.97)}
-.dash-alert-item.amber{border-left-color:var(--amber);background:var(--amber-l)}
-.dash-alert-item.blue{border-left-color:var(--blue);background:var(--blue-l)}
-.dash-alert-item.green{border-left-color:var(--green);background:var(--green-l)}
-.dash-alert-item__icon{font-size:.85rem;flex-shrink:0}
-.dash-alert-item__body{flex:1;min-width:0}
-.dash-alert-item__text{font-size:.75rem;color:var(--text);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dash-alert-item__sub{font-size:.67rem;color:var(--muted);margin-top:1px}
-
-/* Dash recent compact */
-.dash-recent-item{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
-.dash-recent-item:last-child{border-bottom:none}
-.dash-recent-item:hover .dash-recent-name{color:var(--blue)}
-.dash-recent-name{font-size:.82rem;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dash-recent-meta{font-size:.7rem;color:var(--muted);white-space:nowrap}
+/* Win/Drop + See All (used by Home Base movers) */
 .win-item{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
 .win-item:last-child{border-bottom:none}
 .win-item:hover .win-name{color:var(--blue)}
@@ -947,9 +937,9 @@ svg.sparkline{display:block}
 
 /* RESPONSIVE */
 @media(max-width:1300px){.dash-kpi-row{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:1100px){.dash-kpi-row{grid-template-columns:repeat(2,1fr)}.dash-main-row{grid-template-columns:1fr}}
-@media(max-width:900px){.sidebar{display:none}.charts-grid{grid-template-columns:1fr}.charts-left{grid-template-columns:1fr;grid-template-rows:auto}.charts-right{grid-template-rows:auto}.score-panel{grid-template-columns:1fr}#dash-bottom-grid{grid-template-columns:1fr}.signals-grid{grid-template-columns:1fr!important}}
-@media(max-width:600px){.main{padding:14px 12px 48px}.fg{grid-column:1/-1}.fg{grid-template-columns:1fr}.stat-grid{grid-template-columns:1fr 1fr}h1{font-size:1.35rem}#dash-bottom-grid{grid-template-columns:1fr}.dash-kpi-row{grid-template-columns:1fr 1fr}}
+@media(max-width:1100px){.dash-kpi-row{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:900px){.sidebar{display:none}.charts-grid{grid-template-columns:1fr}.charts-left{grid-template-columns:1fr;grid-template-rows:auto}.charts-right{grid-template-rows:auto}.score-panel{grid-template-columns:1fr}.signals-grid{grid-template-columns:1fr!important}}
+@media(max-width:600px){.main{padding:14px 12px 48px}.fg{grid-column:1/-1}.fg{grid-template-columns:1fr}.stat-grid{grid-template-columns:1fr 1fr}h1{font-size:1.35rem}.dash-kpi-row{grid-template-columns:1fr 1fr}}
 
 /* AUTH GATE */
 #auth-gate{position:fixed;inset:0;background:linear-gradient(135deg,#f0f4f8 0%,#e8eef5 100%);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}
@@ -1228,11 +1218,10 @@ td .sparkline{vertical-align:middle}
 <div class="shell">
 <!-- SIDEBAR -->
 <nav class="sidebar">
+  <button class="nav-item active" id="ni-homebase" onclick="nav('homebase')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>Home Base</button>
   <div class="nav-group open" id="ng-main">
     <button class="nav-group-hd" onclick="toggleNavGroup('main')"><svg class="nav-group-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>Main</button>
     <div class="nav-group-body">
-      <button class="nav-item active" id="ni-homebase" onclick="nav('homebase')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>Home Base</button>
-      <button class="nav-item" id="ni-dashboard" onclick="nav('dashboard')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>Dashboard</button>
       <button class="nav-item" id="ni-alerts" onclick="nav('alerts')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>Alerts<span id="alert-badge" style="margin-left:auto;background:var(--red);color:#fff;font-size:.6rem;font-weight:700;padding:1px 6px;border-radius:100px;display:none"></span></button>
       <button class="nav-item" id="ni-customers" onclick="nav('customers')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>Customers</button>
       <button class="nav-item" id="ni-segments" onclick="nav('segments')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>Segments</button>
@@ -1287,272 +1276,12 @@ td .sparkline{vertical-align:middle}
   <div id="homebase-wrap"></div>
 </div>
 
-<!-- ═══════════════ DASHBOARD ═══════════════ -->
-<div class="view" id="view-dashboard">
-  <div class="page-hd">
-    <div>
-      <h1>Dashboard</h1>
-      <p id="dash-subtitle">Customer health overview</p>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <div class="snooze-dd" id="export-dd-dash">
-        <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation();toggleExportDd('dash')">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Export ▾
-        </button>
-        <div class="snooze-dd__menu" id="export-menu-dash">
-          <button class="snooze-dd__item" onclick="exportCSV();toggleExportDd('dash')">Export Data</button>
-          <button class="snooze-dd__item" onclick="exportBulksheet();toggleExportDd('dash')">Export Bulksheet</button>
-        </div>
-      </div>
-      <button class="btn btn-sm btn-primary" onclick="nav('score')">+ Score Customer</button>
-    </div>
-  </div>
-
-  <!-- ROW 1: KPI Cards (4 big) -->
-  <div class="dash-kpi-row">
-
-    <!-- Health Distribution -->
-    <div class="dash-kpi-card dash-kpi-blue" onclick="nav('customers');setFilter('all')">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        </div>
-        <span class="dash-kpi-label">Book Health <span class="info-tip tip-below" data-tip="Total active accounts and their health distribution across the 5 score bands (Critical → Expansion).">ⓘ</span></span>
-      </div>
-      <div class="dash-kpi-num" id="kpi-total">0</div>
-      <div class="dash-kpi-sub">Total active accounts</div>
-      <div class="dash-health-bar" id="kpi-health-bar">
-        <div class="dash-health-seg" id="hbar-critical" style="background:#dc2626" title="Critical"></div>
-        <div class="dash-health-seg" id="hbar-risk"     style="background:#ea580c" title="At Risk"></div>
-        <div class="dash-health-seg" id="hbar-watch"    style="background:#d97706" title="Watch"></div>
-        <div class="dash-health-seg" id="hbar-healthy"  style="background:#16a34a" title="Healthy"></div>
-        <div class="dash-health-seg" id="hbar-expand"   style="background:#0891b2" title="Expansion"></div>
-      </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-        <span class="dash-kpi-pill red"    id="kpi-risk-pct">0 At Risk</span>
-        <span class="dash-kpi-pill amber"  id="kpi-watch-pct">0 Watch</span>
-        <span class="dash-kpi-pill green"  id="kpi-healthy-pct">0 Healthy</span>
-        <span class="dash-kpi-pill teal"   id="kpi-expand-pct">0 Exp.</span>
-      </div>
-    </div>
-
-    <!-- Revenue at Risk -->
-    <div class="dash-kpi-card dash-kpi-red" onclick="nav('customers');setFilter('risk')">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        </div>
-        <span class="dash-kpi-label">Revenue at Risk <span class="info-tip tip-below" data-tip="Combined MRR of all At Risk and Critical accounts based on their latest health score.">ⓘ</span></span>
-      </div>
-      <div class="dash-kpi-num" id="kpi-risk-mrr-big">$0</div>
-      <div class="dash-kpi-sub">MRR in At Risk accounts</div>
-      <div style="margin-top:10px"><span class="dash-kpi-pill red" id="kpi-risk-count">0 accounts</span></div>
-    </div>
-
-    <!-- Renewals -->
-    <div class="dash-kpi-card dash-kpi-teal" onclick="nav('alerts')">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        </div>
-        <span class="dash-kpi-label">Upcoming Renewals <span class="info-tip tip-below" data-tip="Accounts with a renewal date within the next 30 days. Click to see renewal alerts.">ⓘ</span></span>
-      </div>
-      <div class="dash-kpi-num" id="kpi-renewals">0</div>
-      <div class="dash-kpi-sub">Due in next 30 days</div>
-      <div style="margin-top:10px"><span class="dash-kpi-pill teal" id="kpi-renewals-mrr">$0 at stake</span></div>
-    </div>
-
-    <!-- Expansion Opportunity -->
-    <div class="dash-kpi-card dash-kpi-green" id="exp-callout" onclick="nav('customers');setFilter('expand')">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-        </div>
-        <span class="dash-kpi-label">Expansion Opportunity <span class="info-tip tip-below" data-tip="Estimated upsell potential (20% of MRR) for accounts currently in Expansion health.">ⓘ</span></span>
-      </div>
-      <div class="dash-kpi-num" id="exp-arpu">$0</div>
-      <div class="dash-kpi-sub">Est. upsell potential (20%)</div>
-      <div style="margin-top:10px"><span class="dash-kpi-pill green" id="exp-count">0 accounts ready</span></div>
-    </div>
-
-    <!-- Total MRR -->
-    <div class="dash-kpi-card dash-kpi-purple" onclick="nav('customers');setFilter('all')">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        </div>
-        <span class="dash-kpi-label">Total MRR <span class="info-tip tip-below" data-tip="Sum of monthly recurring revenue across all active (non-churned) accounts.">ⓘ</span></span>
-      </div>
-      <div class="dash-kpi-num" id="kpi-total-mrr">$0</div>
-      <div class="dash-kpi-sub">All active accounts</div>
-      <div style="margin-top:10px"><span class="dash-kpi-pill" style="background:rgba(255,255,255,.2);color:#fff" id="kpi-avg-score-pill">Avg score —</span></div>
-    </div>
-
-  </div><!-- /kpi row -->
-
-  <!-- Renewal Pipeline -->
-  <div class="card" style="margin-top:16px;padding:16px 20px">
-    <div class="card-hd" style="margin-bottom:12px">
-      <h2>Renewal Pipeline <span class="info-tip" data-tip="MRR at stake by renewal window. Only accounts with a renewal date set are included.">ⓘ</span></h2>
-      <span style="font-size:.7rem;color:var(--muted)">Next 90 days</span>
-    </div>
-    <div id="renewal-pipeline-wrap"></div>
-  </div>
-
-  <!-- ROW 2: Priority Table (wide) + Right Sidebar -->
-  <div class="dash-main-row">
-
-    <!-- Priority Accounts Table -->
-    <div class="card dash-priority-panel">
-      <div class="card-hd" style="margin-bottom:14px">
-        <div>
-          <h2>Priority Accounts <span class="info-tip" data-tip="Ranked by urgency: weighted combination of health status, days until renewal, and MRR exposure.">ⓘ</span></h2>
-          <p style="font-size:.73rem;margin-top:2px;color:var(--muted)">Sorted by urgency — At Risk · close to renewal · high MRR</p>
-        </div>
-        <button class="btn btn-sm btn-outline" onclick="nav('customers');setFilter('risk')">View All At Risk →</button>
-      </div>
-      <div id="priority-table-wrap"></div>
-    </div>
-
-    <!-- Right sidebar -->
-    <div class="dash-sidebar">
-
-      <!-- Alerts card -->
-      <div class="card" style="margin-bottom:16px">
-        <div class="card-hd" style="margin-bottom:10px">
-          <h2>Alerts <span class="info-tip" data-tip="Recent alerts for accounts needing attention. Includes health drops, upcoming renewals, and overdue contacts.">ⓘ</span></h2>
-          <button class="btn btn-xs btn-ghost" onclick="nav('alerts')">See all →</button>
-        </div>
-        <div id="dash-alerts-wrap"></div>
-      </div>
-
-      <!-- Recently Scored -->
-      <div class="card" style="margin-top:16px">
-        <div class="card-hd" style="margin-bottom:10px">
-          <h2>Recently Scored <span class="info-tip" data-tip="Accounts most recently scored or re-scored, showing their latest health score and status.">ⓘ</span></h2>
-        </div>
-        <div id="recent-wrap"></div>
-      </div>
-
-    </div>
-  </div><!-- /main row -->
-
-  <!-- ROW 3: charts (left 2/3) + wins/drops (right 1/3) -->
-  <div class="charts-grid" style="margin-top:20px">
-
-    <!-- Left: 3 charts in a 2-col inner grid, 3rd spans full width -->
-    <div class="charts-left">
-      <div class="chart-card">
-        <div class="chart-title">Status Breakdown <span class="info-tip" data-tip="Count of active accounts in each of the 5 health bands based on their current score.">ⓘ</span></div>
-        <div class="donut-wrap">
-          <svg width="100" height="100" viewBox="0 0 120 120">
-            <circle cx="60" cy="60" r="46" fill="none" stroke="var(--border)" stroke-width="16"/>
-            <circle id="dn-critical" cx="60" cy="60" r="46" fill="none" stroke-width="16" stroke-linecap="butt"/>
-            <circle id="dn-risk"     cx="60" cy="60" r="46" fill="none" stroke-width="16" stroke-linecap="butt"/>
-            <circle id="dn-watch"    cx="60" cy="60" r="46" fill="none" stroke-width="16" stroke-linecap="butt"/>
-            <circle id="dn-healthy"  cx="60" cy="60" r="46" fill="none" stroke-width="16" stroke-linecap="butt"/>
-            <circle id="dn-expand"   cx="60" cy="60" r="46" fill="none" stroke-width="16" stroke-linecap="butt"/>
-            <text x="60" y="56" text-anchor="middle" font-size="20" font-weight="800" fill="var(--text)" font-family="Inter,system-ui,sans-serif" id="dn-num">0</text>
-            <text x="60" y="70" text-anchor="middle" font-size="8" fill="var(--muted)" font-family="Inter,system-ui,sans-serif">total</text>
-          </svg>
-          <div class="donut-legend">
-            <div class="legend-item"><div class="legend-dot" style="background:#dc2626"></div><span class="legend-label">Critical</span><span class="legend-val" id="leg-critical">0</span></div>
-            <div class="legend-item"><div class="legend-dot" style="background:#ea580c"></div><span class="legend-label">At Risk</span><span class="legend-val" id="leg-risk">0</span></div>
-            <div class="legend-item"><div class="legend-dot" style="background:#d97706"></div><span class="legend-label">Watch</span><span class="legend-val" id="leg-watch">0</span></div>
-            <div class="legend-item"><div class="legend-dot" style="background:#16a34a"></div><span class="legend-label">Healthy</span><span class="legend-val" id="leg-healthy">0</span></div>
-            <div class="legend-item"><div class="legend-dot" style="background:#0891b2"></div><span class="legend-label">Expansion</span><span class="legend-val" id="leg-expand">0</span></div>
-          </div>
-        </div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-title">Score Distribution <span class="info-tip" data-tip="Histogram of health scores (0–100) across all active accounts, grouped by band.">ⓘ</span></div>
-        <div class="bar-chart" id="dist-chart"></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-title">MRR by Health Status <span class="info-tip" data-tip="Total MRR contributed by accounts in each health band. Larger bars = more revenue at that status.">ⓘ</span></div>
-        <div class="bar-chart" id="mrr-chart"></div>
-      </div>
-      <div class="chart-card">
-        <div class="chart-title">Score by Segment <span class="info-tip" data-tip="Average health score per customer tier (SMB, Mid-Market, Enterprise).">ⓘ</span></div>
-        <div class="bar-chart" id="seg-chart"></div>
-      </div>
-    </div>
-
-    <!-- Right: Most Improved + Biggest Drops stacked -->
-    <div class="charts-right">
-      <div class="chart-card">
-        <div class="card-hd" style="margin-bottom:10px">
-          <h2 style="font-size:.85rem;display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>Most Improved <span class="info-tip" data-tip="Accounts with the largest positive health score change in the last 7 days, sorted best to worst.">ⓘ</span></h2>
-          <span style="font-size:.7rem;color:var(--muted)">This week</span>
-        </div>
-        <div id="wins-wrap"></div>
-      </div>
-      <div class="chart-card">
-        <div class="card-hd" style="margin-bottom:10px">
-          <h2 style="font-size:.85rem;display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>Biggest Drops <span class="info-tip" data-tip="Accounts with the largest negative health score change in the last 7 days, sorted worst first.">ⓘ</span></h2>
-          <span style="font-size:.7rem;color:var(--muted)">This week</span>
-        </div>
-        <div id="drops-wrap"></div>
-      </div>
-    </div>
-
-  </div>
-
-
-  <!-- Segment View -->
-  <div style="margin-top:20px">
-    <div style="font-size:.88rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--subtle);margin-bottom:12px">Book by Tier</div>
-    <div class="seg-cards" id="seg-cards"></div>
-  </div>
-
-  <!-- Signal Heatmap (detail, below fold) -->
-  <div class="card" style="margin-top:20px">
-    <div class="card-hd">
-      <h2>Signal Heatmap <span class="info-tip" data-tip="Per-signal view of every active account. Sorted by health score, worst first. Click column headers to re-sort.">ⓘ</span></h2>
-      <div style="display:flex;align-items:center;gap:10px">
-        <span style="font-size:.74rem;color:var(--subtle);font-weight:500" id="heat-subtitle">Sorted by score · worst first</span>
-      </div>
-    </div>
-    <div class="heatmap" id="heatmap-wrap"><div style="color:var(--subtle);font-size:.8rem;padding:16px 0;text-align:center">No customers yet</div></div>
-  </div>
-
-  <!-- hidden KPI ids kept for JS compat -->
-  <span id="kpi-healthy" style="display:none">0</span>
-  <span id="kpi-expand"  style="display:none">0</span>
-  <span id="kpi-avg"     style="display:none">0</span>
-  <span id="kpi-mrr"     style="display:none">$0</span>
-  <span id="kpi-risk"    style="display:none">0</span>
-  <span id="kpi-risk-mrr" style="display:none"></span>
-  <span id="kpi-renewals-mrr" style="display:none"></span>
-  <span id="exp-mrr"     style="display:none">$0</span>
-
-</div><!-- /dashboard -->
+<!-- Dashboard removed — widgets moved to Home Base -->
 
 <!-- ═══════════════ ALERTS ═══════════════ -->
 <div class="view" id="view-alerts">
   <div class="page-hd">
     <div><h1>Alerts</h1><p>Accounts that need your attention</p></div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <button class="btn btn-sm btn-ghost" id="alerts-select-all-btn" onclick="alertsSelectAll()">Select All</button>
-      <button class="btn btn-sm btn-ghost" onclick="clearSnoozed()">Clear Snoozed</button>
-    </div>
-  </div>
-  <!-- Bulk action bar -->
-  <div class="alert-bulk-bar" id="alert-bulk-bar">
-    <span id="alert-bulk-count">0 selected</span>
-    <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
-      <div class="snooze-dd" id="bulk-snooze-dd">
-        <button class="btn btn-sm btn-outline" onclick="toggleBulkSnoozeDd()">Snooze ▾</button>
-        <div class="snooze-dd__menu" id="bulk-snooze-menu">
-          <button class="snooze-dd__item" onclick="bulkSnooze(1)">Snooze 1 day</button>
-          <button class="snooze-dd__item" onclick="bulkSnooze(7)">Snooze 7 days</button>
-          <button class="snooze-dd__item" onclick="bulkSnooze(30)">Snooze 30 days</button>
-        </div>
-      </div>
-      <button class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red)" onclick="bulkDismiss()">Dismiss</button>
-      <button class="btn btn-sm btn-ghost" onclick="alertsClearSelection()">✕ Cancel</button>
-    </div>
   </div>
 
   <!-- 4 stat widgets across the top -->
@@ -1604,16 +1333,41 @@ td .sparkline{vertical-align:middle}
   <!-- Alert Briefing Panel -->
   <div id="alert-briefing" class="alert-briefing" style="display:none"></div>
 
-  <!-- Alert list view toggle -->
-  <div id="alert-view-bar" style="display:none;margin-bottom:14px;display:flex;align-items:center;gap:8px">
-    <span style="font-size:.75rem;font-weight:600;color:var(--muted)">View:</span>
-    <div class="alert-view-toggle">
-      <button class="alert-view-btn active" id="alert-view-cat" onclick="setAlertView('category')">By Category</button>
-      <button class="alert-view-btn" id="alert-view-pri" onclick="setAlertView('priority')">By Priority</button>
-      <button class="alert-view-btn" id="alert-view-cust" onclick="setAlertView('customer')">By Customer</button>
-      <button class="alert-view-btn" id="alert-view-tbl" onclick="setAlertView('table')">Table</button>
+  <!-- Sticky toolbar: view toggle + action buttons -->
+  <div class="alert-sticky-bar" id="alert-sticky-bar">
+    <!-- Alert list view toggle -->
+    <div id="alert-view-bar" style="display:none;margin-bottom:8px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:.75rem;font-weight:600;color:var(--muted)">View:</span>
+      <div class="alert-view-toggle">
+        <button class="alert-view-btn active" id="alert-view-cat" onclick="setAlertView('category')">By Category</button>
+        <button class="alert-view-btn" id="alert-view-pri" onclick="setAlertView('priority')">By Priority</button>
+        <button class="alert-view-btn" id="alert-view-cust" onclick="setAlertView('customer')">By Customer</button>
+        <button class="alert-view-btn" id="alert-view-tbl" onclick="setAlertView('table')">Table</button>
+      </div>
+      <input type="text" id="alert-cust-search" placeholder="Search customer…" oninput="renderAlerts()" autocomplete="off" style="display:none;padding:5px 12px;font-size:.78rem;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);width:200px;outline:none;transition:border-color .15s">
     </div>
-    <input type="text" id="alert-cust-search" placeholder="Search customer…" oninput="renderAlerts()" autocomplete="off" style="display:none;padding:5px 12px;font-size:.78rem;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);width:200px;outline:none;transition:border-color .15s">
+
+    <!-- Select / Snooze / Dismiss controls -->
+    <div style="display:flex;align-items:center;gap:8px">
+      <button class="btn btn-sm btn-ghost" id="alerts-select-all-btn" onclick="alertsSelectAll()">Select All</button>
+      <button class="btn btn-sm btn-ghost" id="alerts-view-snoozed-btn" onclick="viewSnoozedAlerts()" style="display:none">View Snoozed</button>
+      <button class="btn btn-sm btn-ghost" onclick="clearSnoozed()">Clear Snoozed</button>
+    </div>
+    <div class="alert-bulk-bar" id="alert-bulk-bar">
+      <span id="alert-bulk-count">0 selected</span>
+      <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+        <div class="snooze-dd" id="bulk-snooze-dd">
+          <button class="btn btn-sm btn-outline" onclick="event.stopPropagation();toggleBulkSnoozeDd()">Snooze ▾</button>
+          <div class="snooze-dd__menu" id="bulk-snooze-menu">
+            <button class="snooze-dd__item" onclick="bulkSnooze(1)">Snooze 1 day</button>
+            <button class="snooze-dd__item" onclick="bulkSnooze(7)">Snooze 7 days</button>
+            <button class="snooze-dd__item" onclick="bulkSnooze(30)">Snooze 30 days</button>
+          </div>
+        </div>
+        <button class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red)" onclick="bulkDismiss()">Dismiss</button>
+        <button class="btn btn-sm btn-ghost" onclick="alertsClearSelection()">✕ Cancel</button>
+      </div>
+    </div>
   </div>
 
   <!-- Full-width alert list -->
@@ -1712,7 +1466,12 @@ td .sparkline{vertical-align:middle}
 <div class="view" id="view-trends">
   <div class="page-hd">
     <div><h1>Trends</h1><p>Portfolio health over time</p></div>
-    <div class="dtab-row" id="trend-range-row" style="margin:0">
+  </div>
+
+  <!-- Date range selector -->
+  <div id="trend-range-row" style="display:flex;align-items:center;gap:12px;margin:0 0 18px">
+    <span style="font-size:.82rem;font-weight:700;color:var(--text);letter-spacing:.02em;white-space:nowrap">Date Range</span>
+    <div class="dtab-row trend-range-bar" style="margin:0">
       <button class="dtab" data-range="7d" onclick="setTrendRange('7d')">7 Days</button>
       <button class="dtab active" data-range="30d" onclick="setTrendRange('30d')">30 Days</button>
       <button class="dtab" data-range="90d" onclick="setTrendRange('90d')">90 Days</button>
@@ -2962,10 +2721,9 @@ td .sparkline{vertical-align:middle}
 
 </div>
 
+<footer class="footer">IQcadence CS Health Score · v86b · Data stored securely in your account</footer>
 </main>
 </div><!-- /shell -->
-
-<footer class="footer">IQcadence CS Health Score · v86b · Data stored securely in your account</footer>
 
 <!-- TOAST -->
 <div class="toast-wrap" id="tw"></div>
@@ -3164,6 +2922,6 @@ td .sparkline{vertical-align:middle}
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=137"></script>
+<script src="js/app.js?v=163"></script>
 </body>
 </html>

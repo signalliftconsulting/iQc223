@@ -130,17 +130,30 @@ function renderTrends() {
 
   const portfolioData = aggregateByDay(active, m1);
 
-  // ── KPIs (always based on health score) ──
+  // ── KPIs (range-aware, based on health score) ──
   const currentAvg = active.length ? Math.round(active.reduce((s,c) => s + (c.score||0), 0) / active.length) : 0;
+
+  // Range-aware delta: compare current score to score N days ago
+  function _getDeltaNd(c, n) {
+    const ago = new Date(); ago.setDate(ago.getDate() - n);
+    const hist = (c.history || []).slice().sort((a,b) => new Date(b.date) - new Date(a.date));
+    const recent = hist.filter(h => new Date(h.date) >= ago);
+    if (!recent.length) return 0;
+    const before = hist.filter(h => new Date(h.date) < ago);
+    const prev = before.length ? before[0].score : hist[hist.length - 1].score;
+    return recent[0].score - prev;
+  }
+
   let improving = 0, declining = 0;
   active.forEach(c => {
-    const d = getDelta7d(c);
+    const d = _getDeltaNd(c, days);
     if (d > 0) improving++;
     else if (d < 0) declining++;
   });
-  const avgDelta7 = active.length ? (active.reduce((s,c) => s + getDelta7d(c), 0) / active.length) : 0;
-  const trendDir = avgDelta7 > 0.5 ? 'Improving' : avgDelta7 < -0.5 ? 'Declining' : 'Stable';
-  const trendDirColor = avgDelta7 > 0.5 ? 'dash-kpi-green' : avgDelta7 < -0.5 ? 'dash-kpi-red' : 'dash-kpi-blue';
+  const avgDelta = active.length ? (active.reduce((s,c) => s + _getDeltaNd(c, days), 0) / active.length) : 0;
+  const trendDir = avgDelta > 0.5 ? 'Improving' : avgDelta < -0.5 ? 'Declining' : 'Stable';
+  const trendDirColor = avgDelta > 0.5 ? 'dash-kpi-green' : avgDelta < -0.5 ? 'dash-kpi-red' : 'dash-kpi-blue';
+  const rangeLabel = range === 'ytd' ? 'YTD' : range;
 
   const _ti = (path) => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
   const tIcons = {
@@ -158,7 +171,7 @@ function renderTrends() {
         <span class="dash-kpi-label">Portfolio Avg Score</span>
       </div>
       <div class="dash-kpi-num">${currentAvg}</div>
-      <div class="dash-kpi-sub">${avgDelta7 >= 0 ? '+' : ''}${avgDelta7.toFixed(1)} avg 7d change</div>
+      <div class="dash-kpi-sub">${avgDelta >= 0 ? '+' : ''}${avgDelta.toFixed(1)} avg ${rangeLabel} change</div>
     </div>
     <div class="dash-kpi-card ${trendDirColor}">
       <div class="dash-kpi-top">

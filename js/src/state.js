@@ -35,6 +35,8 @@ let columnFilters  = {};        // per-column filter state (see COL_DEFS)
 let _openColFilterKey = null;   // key of currently open column filter dropdown
 let filterPresets  = [];        // saved filter presets [{ name, filterMode, columnFilters, sortKey, sortDir }]
 let mrrExposureFilter = null;   // { label: string, ids: Set<string> } — set by clicking MRR Exposure rows
+let _filterTier       = null;   // tier filter for customers table (set by segment click-through)
+let insightFilter     = null;   // { label: string, ids: Set<string> } — set by insight card click-through
 
 // ─── AUTOMATIONS STATE ──────────────────────────────────────
 let automationsCfg    = {};        // { api_key_prefix, webhooks: { type: { url, enabled, threshold? } } }
@@ -196,9 +198,8 @@ const ENUM_DISPLAY = {
   up:'Improving', dn:'Declining', flat:'Flat', new:'New',
 };
 
-// Dashboard-specific sort state (heatmap + recent table)
+// Heatmap sort state
 let dashHeatSort  = { key: 'score', dir: 1 };  // 1=asc (worst first default)
-let dashRecentSort= { key: 'created', dir: -1 };
 let detailId   = null;
 let pendingResult = null; // last scored result not yet saved
 let csvRows    = null;    // parsed CSV rows pending import
