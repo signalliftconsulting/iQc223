@@ -11691,32 +11691,70 @@ function renderTrends() {
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
 
   // ── Aggregate portfolio data by day (supports any metric) ──
+  // For avg metrics: forward-fills each customer's last known value so every
+  // account contributes to every day, giving a true portfolio average.
   function aggregateByDay(custs, metricKey) {
     const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
     const isSumMetric = cfg.agg === 'sum';
-    const dayMap = {};
-    custs.forEach(c => {
-      (c.history || []).forEach(h => {
-        if (!h.date) return;
-        const d = new Date(h.date);
-        if (d < cutoff) return;
-        const val = cfg.val(h, c);
-        if (val == null || typeof val !== 'number' || isNaN(val)) return;
-        const key = d.toISOString().slice(0,10);
-        if (!dayMap[key]) dayMap[key] = { total: 0, count: 0, seen: isSumMetric ? new Set() : null };
-        // For sum metrics using current customer values (mrr/arr), only count each customer once per day
-        if (isSumMetric) {
+
+    if (isSumMetric) {
+      // Sum metrics (MRR/ARR): original per-entry logic — count each customer once per day
+      const dayMap = {};
+      custs.forEach(c => {
+        (c.history || []).forEach(h => {
+          if (!h.date) return;
+          const d = new Date(h.date);
+          if (d < cutoff) return;
+          const val = cfg.val(h, c);
+          if (val == null || typeof val !== 'number' || isNaN(val)) return;
+          const key = d.toISOString().slice(0,10);
+          if (!dayMap[key]) dayMap[key] = { total: 0, count: 0, seen: new Set() };
           if (dayMap[key].seen.has(c.id)) return;
           dayMap[key].seen.add(c.id);
-        }
-        dayMap[key].total += val;
-        dayMap[key].count += 1;
+          dayMap[key].total += val;
+          dayMap[key].count += 1;
+        });
       });
+      return Object.entries(dayMap)
+        .map(([date, v]) => ({ date, avg: v.total }))
+        .filter(p => !isNaN(p.avg))
+        .sort((a, b) => a.date.localeCompare(b.date));
+    }
+
+    // Avg metrics: forward-fill so every customer is represented every day
+    // 1. Collect all unique dates in range and per-customer date→value maps
+    const allDates = new Set();
+    const custData = []; // { dateMap: { 'YYYY-MM-DD': value }, sortedDates: [...] }
+    custs.forEach(c => {
+      const dateMap = {};
+      (c.history || []).forEach(h => {
+        if (!h.date) return;
+        const val = cfg.val(h, c);
+        if (val == null || typeof val !== 'number' || isNaN(val)) return;
+        const key = new Date(h.date).toISOString().slice(0,10);
+        dateMap[key] = val; // latest value wins if multiple entries on same day
+      });
+      const sortedDates = Object.keys(dateMap).sort();
+      if (sortedDates.length) {
+        custData.push({ dateMap, sortedDates });
+        sortedDates.forEach(d => { if (d >= cutoff.toISOString().slice(0,10)) allDates.add(d); });
+      }
     });
-    return Object.entries(dayMap)
-      .map(([date, v]) => ({ date, avg: isSumMetric ? v.total : (v.count ? v.total / v.count : 0) }))
-      .filter(p => !isNaN(p.avg))
-      .sort((a, b) => a.date.localeCompare(b.date));
+
+    // 2. For each date, forward-fill each customer's last known value
+    const dates = [...allDates].sort();
+    return dates.map(date => {
+      let total = 0, count = 0;
+      custData.forEach(cd => {
+        // Find the most recent value at or before this date
+        let val = null;
+        for (let i = cd.sortedDates.length - 1; i >= 0; i--) {
+          if (cd.sortedDates[i] <= date) { val = cd.dateMap[cd.sortedDates[i]]; break; }
+        }
+        if (val !== null) { total += val; count++; }
+      });
+      return { date, avg: count ? total / count : 0 };
+    }).filter(p => p.avg > 0);
   }
 
   const portfolioData = aggregateByDay(active, m1);
