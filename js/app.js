@@ -12531,6 +12531,9 @@ function renderCSMPerformance() {
 }
 
 /* ─── WORKLOAD BALANCE ─────────────────────────────────────────── */
+const TIER_COLORS = { enterprise: 'var(--blue)', mid: 'var(--purple)', smb: 'var(--teal)' };
+const TIER_LABELS = { enterprise: 'Enterprise', mid: 'Mid-Market', smb: 'SMB' };
+
 function renderCSMWorkload(mgrList) {
   const wrap = el('csm-workload-wrap');
   if (!wrap) return;
@@ -12541,9 +12544,8 @@ function renderCSMWorkload(mgrList) {
   const maxMRR      = Math.max(...list.map(m => m.totalMRR), 1);
   const avgAccounts = Math.round(list.reduce((s,m) => s + m.count, 0) / list.length);
 
-  // Tier MRR breakdown per CSM
-  const tierColors = { enterprise: 'var(--purple)', mid: 'var(--blue)', smb: 'var(--teal)' };
-  const tierLabels = { enterprise: 'Enterprise', mid: 'Mid-Market', smb: 'SMB' };
+  // Detect which tiers are actually present
+  const activeTiers = ['enterprise','mid','smb'].filter(t => list.some(m => m.accs.some(c => (c.tier || 'smb') === t)));
 
   wrap.innerHTML = `
     <div style="padding:10px 16px 4px;display:flex;gap:16px;font-size:.68rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">
@@ -12553,16 +12555,13 @@ function renderCSMWorkload(mgrList) {
     </div>
     ${list.sort((a,b) => b.count - a.count).map(m => {
       const accPct = Math.round((m.count / maxAccounts) * 100);
-      const mrrPct = Math.round((m.totalMRR / maxMRR) * 100);
       const overloaded = m.count > avgAccounts * 1.4;
-      const accColor = overloaded ? 'var(--amber)' : '#4f46e5';
+      const accColor = overloaded ? 'var(--red)' : 'var(--blue)';
       // Tier MRR breakdown
       const tierMRR = {};
-      m.accs.forEach(c => {
-        const t = (c.tier || 'smb').toLowerCase();
-        tierMRR[t] = (tierMRR[t] || 0) + (c.mrr || 0);
-      });
+      m.accs.forEach(c => { const t = (c.tier || 'smb').toLowerCase(); tierMRR[t] = (tierMRR[t] || 0) + (c.mrr || 0); });
       const mTotal = m.totalMRR || 1;
+      const mrrPct = Math.round((m.totalMRR / maxMRR) * 100);
       const entPct = Math.round((tierMRR.enterprise || 0) / mTotal * 100);
       const midPct = Math.round((tierMRR.mid || 0) / mTotal * 100);
       const smbPct = Math.max(0, 100 - entPct - midPct);
@@ -12579,8 +12578,8 @@ function renderCSMWorkload(mgrList) {
         <div style="flex:1;display:flex;align-items:center;gap:8px">
           <div class="csm-workload-bar" style="position:relative;overflow:hidden" title="${tierTitle}">
             <div style="display:flex;width:${mrrPct}%;height:100%;border-radius:inherit">
-              ${entPct ? `<span style="width:${entPct}%;background:#1e293b;min-width:0"></span>` : ''}
-              ${midPct ? `<span style="width:${midPct}%;background:#ea580c;min-width:0"></span>` : ''}
+              ${entPct ? `<span style="width:${entPct}%;background:var(--blue);min-width:0"></span>` : ''}
+              ${midPct ? `<span style="width:${midPct}%;background:var(--purple);min-width:0"></span>` : ''}
               ${smbPct ? `<span style="width:${smbPct}%;background:var(--teal);min-width:0"></span>` : ''}
             </div>
             <span style="position:absolute;inset:0;display:flex;align-items:center;padding:0 8px;font-size:.68rem;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.3)">$${fmtNum(m.totalMRR)}</span>
@@ -12590,10 +12589,8 @@ function renderCSMWorkload(mgrList) {
     }).join('')}
     <div style="padding:8px 16px;font-size:.68rem;color:var(--subtle);display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <span>Average: ${avgAccounts} accounts per CSM</span>
-      <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:#1e293b"></span>Enterprise</span>
-      <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:#ea580c"></span>Mid-Market</span>
-      <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:var(--teal)"></span>SMB</span>
-      ${list.some(m => m.count > avgAccounts * 1.4) ? '<span style="color:var(--amber);font-weight:700">Amber bars = overloaded</span>' : ''}
+      ${list.some(m => m.count > avgAccounts * 1.4) ? '<span style="color:var(--red);font-weight:700">Red bars = overloaded</span>' : ''}
+      <span style="margin-left:auto;display:flex;gap:10px">${activeTiers.map(t => `<span style="display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:2px;background:${TIER_COLORS[t]}"></span>${TIER_LABELS[t]}</span>`).join('')}</span>
     </div>
   `;
 }
