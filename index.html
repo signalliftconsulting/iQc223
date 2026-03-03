@@ -1092,6 +1092,51 @@ td .sparkline{vertical-align:middle}
 .help-steps{counter-reset:step;list-style:none;padding-left:0}
 .help-steps li{counter-increment:step;padding-left:32px;position:relative;margin-bottom:12px}
 .help-steps li::before{content:counter(step);position:absolute;left:0;top:0;width:22px;height:22px;border-radius:50%;background:var(--blue);color:#fff;font-size:.72rem;font-weight:700;display:flex;align-items:center;justify-content:center}
+/* CALENDAR */
+.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px}
+.cal-nav{display:flex;align-items:center;gap:6px}
+.cal-month-label{font-size:1.15rem;font-weight:800;letter-spacing:-.02em;min-width:200px;text-align:center;margin:0}
+.cal-legend{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.cal-legend-item{display:flex;align-items:center;gap:5px;font-size:.72rem;font-weight:600;color:var(--muted)}
+.cal-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.cal-dot--renewal{background:var(--purple)}
+.cal-dot--touch{background:var(--blue)}
+.cal-dot--overdue{background:var(--red)}
+.cal-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}
+.cal-stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 20px;box-shadow:var(--sh);position:relative;overflow:hidden}
+.cal-stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent-color,var(--blue))}
+.cal-stat-num{font-size:1.8rem;font-weight:800;letter-spacing:-.03em;line-height:1;color:var(--text)}
+.cal-stat-label{font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-top:4px}
+.cal-grid-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);box-shadow:var(--sh);overflow:hidden}
+.cal-grid{width:100%;border-collapse:collapse;table-layout:fixed}
+.cal-grid thead th{padding:10px 4px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);text-align:center;background:var(--bg);border-bottom:1px solid var(--border)}
+.cal-cell{height:100px;vertical-align:top;padding:6px 8px;border:1px solid var(--border);cursor:pointer;transition:background .12s}
+.cal-cell:hover{background:var(--bg)}
+.cal-cell--empty{background:var(--bg);opacity:.4;cursor:default}
+.cal-cell--empty:hover{background:var(--bg)}
+.cal-cell--today{background:var(--blue-l);border-color:var(--blue-m)}
+.cal-cell--today:hover{background:color-mix(in srgb,var(--blue-l) 80%,var(--bg))}
+.cal-day-num{font-size:.78rem;font-weight:700;color:var(--text);margin-bottom:4px}
+.cal-cell--today .cal-day-num{color:var(--blue);font-weight:800}
+.cal-pills{display:flex;flex-direction:column;gap:2px}
+.cal-pill{display:inline-block;padding:1px 6px;border-radius:4px;font-size:.6rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.cal-pill--renewal{background:var(--purple-l);color:var(--purple);border:1px solid var(--purple-m)}
+.cal-pill--touch{background:var(--blue-l);color:var(--blue);border:1px solid var(--blue-m)}
+.cal-pill--overdue{background:var(--red-l);color:var(--red);border:1px solid var(--red-m)}
+.cal-popover{position:absolute;width:300px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);box-shadow:var(--shlg);z-index:100;animation:fadeIn .15s ease}
+.cal-popover-hd{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);font-size:.82rem;font-weight:700;color:var(--text)}
+.cal-popover-close{background:none;border:none;cursor:pointer;color:var(--muted);font-size:.9rem;padding:0 2px}
+.cal-popover-close:hover{color:var(--text)}
+.cal-popover-body{padding:6px 0;max-height:240px;overflow-y:auto}
+.cal-popover-item{display:flex;align-items:flex-start;gap:10px;padding:8px 14px;cursor:pointer;transition:background .12s}
+.cal-popover-item:hover{background:var(--bg)}
+.cal-popover-type-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px}
+.cal-popover-info{flex:1;min-width:0}
+.cal-popover-name{font-size:.82rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cal-popover-meta{font-size:.68rem;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:2px}
+.cal-popover-tag{font-weight:700;text-transform:uppercase;font-size:.58rem;letter-spacing:.04em}
+@media(max-width:900px){.cal-stats{grid-template-columns:1fr}.cal-cell{height:80px;padding:4px 5px}.cal-pill{font-size:.55rem}}
+@media(max-width:600px){.cal-header{flex-direction:column;align-items:flex-start}.cal-legend{gap:10px}}
 </style>
 </head>
 <body>
@@ -1228,6 +1273,7 @@ td .sparkline{vertical-align:middle}
       <button class="nav-item" id="ni-segments" onclick="nav('segments')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>Segments</button>
       <button class="nav-item" id="ni-trends" onclick="nav('trends')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>Trends</button>
       <button class="nav-item" id="ni-csmperf" onclick="nav('csmperf')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg></span>CSM Performance</button>
+      <button class="nav-item" id="ni-calendar" onclick="nav('calendar')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>Calendar</button>
     </div>
   </div>
   <div class="nav-group open" id="ng-automate">
@@ -1583,6 +1629,20 @@ td .sparkline{vertical-align:middle}
     </div>
   </div>
 </div><!-- /csmperf -->
+
+<!-- ═══════════════ CALENDAR ═══════════════ -->
+<div class="view" id="view-calendar">
+  <div class="page-hd">
+    <div>
+      <h1>Calendar</h1>
+      <p>Upcoming renewals, scheduled touches &amp; overdue contacts</p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn btn-sm btn-ghost" onclick="renderCalendar()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Refresh</button>
+    </div>
+  </div>
+  <div id="calendar-wrap" style="position:relative"></div>
+</div><!-- /calendar -->
 
 <!-- ═══════════════ REPORTS ═══════════════ -->
 <div class="view" id="view-reports">
@@ -2940,6 +3000,6 @@ td .sparkline{vertical-align:middle}
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=193"></script>
+<script src="js/app.js?v=194"></script>
 </body>
 </html>

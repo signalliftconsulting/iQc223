@@ -119,7 +119,7 @@ function mgrAllToggle(cb) {
     cbs.forEach(c => c.checked = false);
   }
   updateMgrFilterLabel();
-  renderHomeBase(); renderCustomers(); renderAlerts(); renderSegments(); renderCSMPerformance(); renderTrends();
+  renderHomeBase(); renderCustomers(); renderAlerts(); renderSegments(); renderCSMPerformance(); renderTrends(); renderCalendar();
 }
 
 function mgrCbChange() {
@@ -140,7 +140,7 @@ function mgrCbChange() {
     if (allCb) allCb.checked = false;
   }
   updateMgrFilterLabel();
-  renderHomeBase(); renderCustomers(); renderAlerts(); renderSegments(); renderCSMPerformance(); renderTrends();
+  renderHomeBase(); renderCustomers(); renderAlerts(); renderSegments(); renderCSMPerformance(); renderTrends(); renderCalendar();
 }
 
 function updateMgrFilterLabel() {

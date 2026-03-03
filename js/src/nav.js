@@ -1,10 +1,10 @@
 // ─── NAVIGATION ─────────────────────────────────────────────
-const VIEWS = ['homebase','alerts','customers','segments','trends','csmperf','reports','score','csv','settings','automations','auditlog','users','clients','help'];
+const VIEWS = ['homebase','alerts','customers','segments','trends','csmperf','calendar','reports','score','csv','settings','automations','auditlog','users','clients','help'];
 const ADMIN_EMAILS = (_cfg && _cfg.ADMIN_EMAILS) || [];
 
 // ─── COLLAPSIBLE NAV GROUPS ─────────────────────────────────
 const NAV_GROUPS = {
-  main:     ['alerts','customers','segments','trends','csmperf'],
+  main:     ['alerts','customers','segments','trends','csmperf','calendar'],
   automate: ['automations','reports'],
   data:     ['score','csv'],
   config:   ['settings','auditlog']
@@ -96,6 +96,7 @@ function nav(v) {
   if (v === 'segments')  { if (!hasFeature('segments')) { el('seg-kpi-row').innerHTML = ''; el('seg-cards-wrap').innerHTML = upgradeHTML('segments'); el('seg-table-wrap').innerHTML = ''; el('seg-insights-wrap').innerHTML = ''; } else renderSegments(); }
   if (v === 'trends')    renderTrends();
   if (v === 'csmperf')   { if (!hasFeature('csm_performance')) { el('csmperf-wrap').innerHTML = upgradeHTML('csm_performance'); el('csmperf-stats').innerHTML = ''; } else renderCSMPerformance(); }
+  if (v === 'calendar')  renderCalendar();
   if (v === 'settings')  renderSettings();
   if (v === 'auditlog')  { if (!hasFeature('audit_log')) { el('audit-loading').style.display='none'; document.getElementById('audit-table').style.display='none'; document.getElementById('audit-empty').innerHTML = upgradeHTML('audit_log'); document.getElementById('audit-empty').style.display='block'; } else { loadAuditLog(); renderConfigHistory(); } }
   if (v === 'reports')     renderReporting();

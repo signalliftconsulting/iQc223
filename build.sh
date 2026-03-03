@@ -29,6 +29,7 @@ FILES=(
   segments.js
   trends.js
   csm.js
+  calendar.js
   audit.js
   csv.js
   admin.js
