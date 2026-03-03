@@ -4540,7 +4540,14 @@ function filterByAlertKpi(which) {
 function filterByAlertCat(cat) {
   if (_alertViewMode !== 'category') setAlertView('category');
   setTimeout(() => {
-    _smoothScrollWithOffset(document.getElementById('alert-grp-' + cat));
+    const hd = document.getElementById('alert-grp-' + cat);
+    if (hd) {
+      const body = hd.nextElementSibling;
+      if (body && body.classList.contains('alert-group-body') && getComputedStyle(body).display === 'none') {
+        toggleAlertGroup(hd);
+      }
+      _smoothScrollWithOffset(hd);
+    }
   }, 50);
 }
 function clearMrrExposureFilter() {
