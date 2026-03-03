@@ -1502,19 +1502,11 @@ td .sparkline{vertical-align:middle}
       <button class="btn btn-sm btn-ghost" id="seg-toggle-untagged" onclick="toggleHideUntagged()">Hide Untagged</button>
     </div>
   </div>
-  <!-- Gradient KPI summary -->
-  <div class="dash-kpi-row" id="seg-kpi-row"></div>
-  <!-- Enriched segment card grid + expand panel -->
-  <div id="seg-cards-wrap"></div>
-  <!-- Segment comparison table -->
-  <div class="card" style="margin-top:16px">
-    <div class="card-hd"><h2>Segment Comparison <span class="info-tip" data-tip="Side-by-side view of all segments with key metrics. Click column headers to sort.">ⓘ</span></h2><p style="font-size:.72rem;color:var(--muted);margin-top:2px">All segments side-by-side — click headers to sort</p></div>
+  <div id="seg-kpi-row" style="display:none"></div>
+  <div id="seg-cards-wrap" style="display:none"></div>
+  <div id="seg-insights-wrap" style="display:none"></div>
+  <div class="card">
     <div id="seg-table-wrap"></div>
-  </div>
-  <!-- Segment insights -->
-  <div class="card" style="margin-top:16px">
-    <div class="card-hd"><h2>Segment Insights <span class="info-tip" data-tip="Auto-generated priorities based on risk levels, declining trends, overdue contacts, and upcoming renewals.">ⓘ</span></h2><p style="font-size:.72rem;color:var(--muted);margin-top:2px">Auto-generated priorities &amp; highlights</p></div>
-    <div id="seg-insights-wrap"></div>
   </div>
 </div><!-- /segments -->
 
@@ -3009,6 +3001,6 @@ td .sparkline{vertical-align:middle}
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=195"></script>
+<script src="js/app.js?v=196"></script>
 </body>
 </html>
