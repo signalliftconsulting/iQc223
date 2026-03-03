@@ -9188,14 +9188,15 @@ function reportEmailTab(which) {
         '<p style="font-size:.7rem;color:var(--muted);margin-top:4px">Send Now delivers the report to all listed recipients. Send Test sends only to your email.</p>' +
       '</div>';
   } else {
+    const schedOn = cfg.enabled !== false; // default on when opening schedule tab
     const days = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
     body.innerHTML = tabHtml +
       '<div style="display:flex;flex-direction:column;gap:10px">' +
         '<div style="display:flex;align-items:center;gap:10px">' +
           '<label style="font-size:.82rem;font-weight:600;color:var(--text)">Enable scheduled delivery</label>' +
-          '<label class="toggle-switch" style="margin-left:auto"><input type="checkbox" id="rem-sched-enabled" ' + (cfg.enabled ? 'checked' : '') + ' onchange="toggleReportSchedule()"/><span class="toggle-slider"></span></label>' +
+          '<label class="toggle-switch" style="margin-left:auto"><input type="checkbox" id="rem-sched-enabled" ' + (schedOn ? 'checked' : '') + ' onchange="toggleReportSchedule()"/><span class="toggle-slider"></span></label>' +
         '</div>' +
-        '<div id="rem-sched-opts" style="' + (cfg.enabled ? '' : 'opacity:.5;pointer-events:none;') + 'display:flex;flex-direction:column;gap:10px">' +
+        '<div id="rem-sched-opts" style="' + (schedOn ? '' : 'opacity:.5;pointer-events:none;') + 'display:flex;flex-direction:column;gap:10px">' +
           '<label style="font-size:.75rem;font-weight:600;color:var(--text)">Frequency</label>' +
           '<div style="display:flex;gap:8px">' +
             '<label style="font-size:.82rem;display:flex;align-items:center;gap:4px"><input type="radio" name="rem-freq" value="daily" ' + (cfg.frequency === 'daily' ? 'checked' : '') + '/> Daily</label>' +
