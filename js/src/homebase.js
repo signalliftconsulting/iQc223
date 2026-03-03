@@ -658,6 +658,7 @@ function _generateInsights(active, now, cutoff) {
     _insightTierDivergence,
     _insightRiskConcentration,
     _insightEmergingRisk,
+    _insightQuietAccounts,
     _insightMrrAtRiskDelta,
     _insightRenewalReadiness,
     _insightRenewalRisk,
@@ -1201,6 +1202,26 @@ function _insightDayOverDay(active) {
   };
 }
 
+// ── INSIGHT: Quiet Accounts (zero activity across all signals) ──
+function _insightQuietAccounts(active) {
+  const quiet = active.filter(c => isQuietAccount(c));
+  if (quiet.length < 1) return null;
+  const sorted = [...quiet].sort((a, b) => (b.mrr || 0) - (a.mrr || 0));
+  const totalMRR = sorted.reduce((s, c) => s + (c.mrr || 0), 0);
+  const top3 = sorted.slice(0, 3);
+  const topNames = top3.map(c => c.name).join(', ');
+  const moreCount = quiet.length - top3.length;
+  const moreStr = moreCount > 0 ? ` +${moreCount} more` : '';
+  const quietIds = quiet.map(c => c.id);
+  return {
+    category: 'Risk',
+    priority: quiet.length >= 3 ? 1 : 2,
+    title: `${quiet.length} account${quiet.length !== 1 ? 's' : ''} have gone completely quiet`,
+    detail: `Zero logins, zero tickets, and no CSM contact for ${QUIET_THRESHOLD_DAYS}+ days. Total MRR at risk: $${fmtNum(totalMRR)}. Top: ${topNames}${moreStr}.`,
+    action: { label: 'View Quiet Accounts', fn: `setInsightFilter('${quiet.length} quiet accounts',${JSON.stringify(quietIds)})` }
+  };
+}
+
 // ═══════════════════════════════════════════════════════════════
 // THIS WEEK'S FOCUS — Top 5 urgent accounts
 // ═══════════════════════════════════════════════════════════════
@@ -1241,6 +1262,12 @@ function _buildFocusList(active, now) {
     if (npsIsDetractor(c.nps)) {
       urgency += 10;
       reasons.push('NPS detractor');
+    }
+
+    if (isQuietAccount(c)) {
+      const qDays = getQuietDays(c);
+      urgency += Math.min(qDays / 2, 20);
+      reasons.push(`completely quiet ${qDays}d`);
     }
 
     if (c.mrr > 0) urgency += Math.min(c.mrr / 1000, 10);

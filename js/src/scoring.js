@@ -453,6 +453,23 @@ function getCadenceStatus(c) {
   return                                { status:'ok',      label:`On Track (${c.days}d)`, cls:'cadence-ok' };
 }
 
+// ─── QUIET ACCOUNT DETECTION ──────────────────────────────────
+// "Quiet" = zero activity across ALL channels: no logins, no tickets, no CSM contact.
+const QUIET_THRESHOLD_DAYS = 14;
+
+function isQuietAccount(c) {
+  if (c.lifecycle === 'churned' || c.lifecycle === 'won') return false;
+  if (c.logins != null && c.logins > 0) return false;
+  if (c.tickets != null && c.tickets > 0) return false;
+  const effDays = getEffectiveDays(c);
+  if (effDays == null || effDays < QUIET_THRESHOLD_DAYS) return false;
+  return true;
+}
+
+function getQuietDays(c) {
+  return getEffectiveDays(c) || 0;
+}
+
 // Add cadence alerts to the alerts builder
 function buildCadenceAlerts() {
   const alerts = [];

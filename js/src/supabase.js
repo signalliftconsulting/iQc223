@@ -856,9 +856,247 @@ async function seedDemoData() {
   toast('Demo data seeded — 150 customers for ' + targetEmail, 'success');
 }
 
+// ─── EXAMPLE CLIENT SEED ─────────────────────────────────────
+// Curated 42-customer demo for the 'Example' client.
+// Run from console: seedExampleData()
+async function seedExampleData() {
+  if (!isAdmin()) { console.error('Must be logged in as admin'); return; }
+
+  // 1. Find 'Example' client
+  console.log('1/4 — Finding Example client…');
+  const { data: clients } = await sb.from('clients').select('id, name');
+  const exClient = (clients || []).find(c => c.name.toLowerCase() === 'example');
+  if (!exClient) { console.error("No client named 'Example'. Create it in Settings → Clients first."); return; }
+
+  // 2. Find a user assigned to that client
+  const { data: profiles } = await sb.from('user_profiles').select('user_id, email').eq('client_id', exClient.id);
+  if (!profiles || !profiles.length) { console.error('No users assigned to Example client.'); return; }
+  const targetUser = profiles[0];
+  console.log('   Client:', exClient.name, '(' + exClient.id + ')');
+  console.log('   Target user:', targetUser.email);
+
+  // 3. Delete existing customers for ALL users in this client
+  console.log('2/4 — Clearing existing data…');
+  for (const p of profiles) {
+    await sb.from('customers').delete().eq('user_id', p.user_id);
+  }
+  console.log('   Old data cleared.');
+
+  // 4. Generate curated customers
+  console.log('3/4 — Generating 42 curated customers…');
+  const now = Date.now();
+  const CSMS = ['Alex Thompson', 'Jordan Lee', 'Sam Patel'];
+
+  // Company definitions: [name, tier, mrr, trajKey, csmIndex, tenureMonths, renewalMonths, extraTags]
+  const COMPANIES = [
+    // Alex Thompson — 18 accounts (senior CSM, biggest book)
+    ['Meridian Health Systems',  'enterprise', 42000, 'stable-healthy',  0, 28, 4, ['power-user']],
+    ['Cascade Financial Group',  'enterprise', 38000, 'declining',       0, 22, 2, ['renewal-soon']],
+    ['Northpoint Logistics',     'enterprise', 35000, 'recovered',       0, 30, 8, ['save-success']],
+    ['TrueVista Analytics',      'mid',        12000, 'stable-healthy',  0, 18, 6, []],
+    ['Bridgewell Partners',      'mid',        9500,  'improving',       0, 14, 10, []],
+    ['Silverlake Media',         'mid',        8000,  'volatile',        0, 20, 3, []],
+    ['Redtail Software',         'mid',        7200,  'slow-decline',    0, 24, 5, []],
+    ['Horizon Biotech',          'mid',        6800,  'stable-healthy',  0, 16, 7, []],
+    ['Crestline Manufacturing',  'smb',        3200,  'declining',       0, 12, 1, ['churn-risk']],
+    ['Oakridge Consulting',      'smb',        2800,  'stable-healthy',  0, 10, 9, []],
+    ['Pinecrest Digital',        'smb',        2400,  'improving',       0, 8, 11, []],
+    ['Evergreen Solutions',      'smb',        2100,  'onboarding',      0, 2, 12, ['onboarding']],
+    ['Daybreak Education',       'smb',        1800,  'stable-low',      0, 18, 4, []],
+    ['Summit Trail Co',          'smb',        1500,  'recovered',       0, 15, 6, ['save-success']],
+    ['Lantern Group',            'smb',        1200,  'churned',         0, 20, -3, ['churned']],
+    ['CloudNine Ventures',       'mid',        5500,  'seasonal',        0, 22, 5, []],
+    ['RapidEdge Tech',           'smb',        2600,  'volatile',        0, 11, 8, []],
+    ['Vanguard Ops',             'mid',        7800,  'stable-healthy',  0, 26, 7, ['upsell-candidate']],
+
+    // Jordan Lee — 14 accounts (mid-level CSM)
+    ['Atlas Robotics',           'enterprise', 48000, 'stable-healthy',  1, 32, 6, ['power-user','upsell-candidate']],
+    ['Pacific Coast Insurance',  'enterprise', 31000, 'slow-decline',    1, 26, 3, []],
+    ['Ironbridge Capital',       'mid',        14000, 'improving',       1, 12, 9, []],
+    ['Zenith Pharma',            'mid',        11000, 'stable-healthy',  1, 20, 5, []],
+    ['Wavefront Digital',        'mid',        9000,  'declining',       1, 16, 2, ['renewal-soon']],
+    ['Copperline Industries',    'mid',        7500,  'recovered',       1, 24, 7, ['save-success']],
+    ['Beacon Aerospace',         'mid',        6200,  'volatile',        1, 18, 4, []],
+    ['Keystone Learning',        'smb',        3400,  'stable-healthy',  1, 14, 10, []],
+    ['Frostbyte Gaming',         'smb',        2900,  'improving',       1, 6, 12, []],
+    ['Driftwood Creative',       'smb',        2200,  'onboarding',      1, 1, 13, ['onboarding']],
+    ['Mosaic Healthcare',        'smb',        1900,  'stable-low',      1, 22, 3, []],
+    ['Terraverde Foods',         'smb',        1600,  'churned',         1, 16, -2, ['churned']],
+    ['Nexus Sports',             'mid',        8200,  'seasonal',        1, 20, 8, []],
+    ['Prism Dynamics',           'mid',        5800,  'stable-healthy',  1, 15, 6, []],
+
+    // Sam Patel — 10 accounts (newer CSM, smaller book, more onboarding)
+    ['Granite Peak Energy',      'enterprise', 52000, 'stable-healthy',  2, 34, 5, ['power-user','case-study']],
+    ['Stratos Telecom',          'mid',        13000, 'declining',       2, 20, 1, ['renewal-soon','churn-risk']],
+    ['Blueshift Labs',           'mid',        10500, 'improving',       2, 10, 8, []],
+    ['Helix Genomics',           'mid',        8500,  'onboarding',      2, 2, 14, ['onboarding']],
+    ['Lakeshore Realty',         'smb',        3100,  'volatile',        2, 16, 6, []],
+    ['Timberline Outdoors',      'smb',        2500,  'stable-healthy',  2, 12, 9, []],
+    ['Sagebrush Marketing',      'smb',        2000,  'slow-decline',    2, 18, 4, []],
+    ['Ironclad Security',        'mid',        6500,  'recovered',       2, 22, 7, ['save-success']],
+    ['Coral Bay Resorts',        'smb',        1800,  'onboarding',      2, 1, 14, ['onboarding']],
+    ['Nightfall Studios',        'smb',        1400,  'stable-low',      2, 14, 3, []]
+  ];
+
+  const exCustomers = COMPANIES.map(([name, tier, mrr, trajKey, csmIdx, tenureMo, renewMo, extraTags], i) => {
+    // Generate realistic history using existing trajectory engine
+    const history = _generateDemoHistory(trajKey, now);
+    const last = history[history.length - 1];
+    const lastSig = last.signals;
+
+    // Lifecycle from trajectory
+    let lifecycle = _DEMO_TRAJECTORIES[trajKey].lifecycle;
+    if (trajKey === 'stable-healthy' && last.score >= 88 && Math.random() < 0.15) lifecycle = 'won';
+
+    // Renewal date
+    const renDate = new Date(now);
+    if (lifecycle === 'churned') {
+      renDate.setMonth(renDate.getMonth() + renewMo); // renewMo is negative for churned
+    } else {
+      renDate.setMonth(renDate.getMonth() + renewMo);
+    }
+    renDate.setDate(1 + Math.floor(Math.random() * 27));
+    const renewal_date = renDate.toISOString().slice(0,10);
+    const renewal = Math.max(0, Math.round((renDate - new Date(now)) / (1000*60*60*24*30.44)));
+
+    // Tenure
+    const sinceDate = new Date(now);
+    sinceDate.setMonth(sinceDate.getMonth() - tenureMo);
+    const since = sinceDate.toISOString().slice(0,10);
+    const created = new Date(sinceDate.getTime() - Math.floor(Math.random()*14)*86400000).toISOString();
+
+    // Tags
+    const tags = [...extraTags];
+    if (lifecycle !== 'churned' && renewal <= 2 && !tags.includes('renewal-soon')) tags.push('renewal-soon');
+    if (last.score >= 85 && lastSig.growth === 'strong' && !tags.includes('upsell-candidate')) tags.push('upsell-candidate');
+    if (last.score < 30 && !tags.includes('churn-risk')) tags.push('churn-risk');
+
+    // Notes — ~50% get notes, weighted toward troubled/important accounts
+    const notes = [];
+    const notePool = [
+      'QBR went well — champion engaged, discussing expansion next quarter.',
+      'Escalation raised around ticket response times. Eng team investigating.',
+      'Onboarding progressing well. Primary users trained on core workflows.',
+      'NPS follow-up complete. Concern around missing analytics features.',
+      'Renewed early with 8% uplift. Very satisfied with recent improvements.',
+      'Exec sponsor left the company — identifying new stakeholder.',
+      'Usage dipped after team restructuring. Scheduled re-enablement session.',
+      'Expansion discussion planned for next month. Multi-seat opportunity.',
+      'Integration issues flagged — coordinating with product team.',
+      'Strong advocate — asked about case study and referral program.',
+      'Training session delivered to 12 new users. Adoption climbing.',
+      'Competitor mentioned in renewal convo — need to reinforce value.',
+      'Budget review coming up — prepared ROI deck for champion.',
+      'New VP of Ops introduced. Scheduling exec alignment call.',
+      'Feature request submitted for API webhooks — product reviewing.'
+    ];
+    if (Math.random() < 0.50 || ['declining','slow-decline','churned','recovered'].includes(trajKey)) {
+      notes.push({ text: notePool[i % notePool.length], date: new Date(now - Math.floor(Math.random()*20)*86400000).toISOString() });
+      if (Math.random() < 0.40) {
+        notes.push({ text: notePool[(i + 7) % notePool.length], date: new Date(now - Math.floor(25 + Math.random()*40)*86400000).toISOString() });
+      }
+    }
+
+    // Sentiment — ~45% get entries
+    const sentiment = [];
+    const sentPool = [
+      { val:'negative', note:'Expressed frustration with slow support response.' },
+      { val:'negative', note:'Unhappy with recent UX changes. Wants rollback option.' },
+      { val:'negative', note:'Budget pressure — may reduce seats at renewal.' },
+      { val:'positive', note:'Very happy with Q4 release. Praised the team publicly.' },
+      { val:'positive', note:'Referred two new prospects. Strong internal advocate.' },
+      { val:'neutral',  note:'Routine check-in. Stable, no major concerns.' },
+      { val:'positive', note:'Hit their KPIs using our platform. Potential case study.' },
+      { val:'neutral',  note:'Team change in progress. Monitoring for impact.' }
+    ];
+    if (Math.random() < 0.45) {
+      let pick = sentPool[i % sentPool.length];
+      if (['declining','churned','slow-decline'].includes(trajKey) && pick.val === 'positive') pick = sentPool[0];
+      if (['stable-healthy','improving'].includes(trajKey) && pick.val === 'negative') pick = sentPool[3];
+      sentiment.push({ val: pick.val, note: pick.note, date: new Date(now - Math.floor(Math.random()*15)*86400000).toISOString() });
+      if (Math.random() < 0.30) {
+        const pick2 = sentPool[(i + 4) % sentPool.length];
+        sentiment.push({ val: pick2.val, note: pick2.note, date: new Date(now - Math.floor(30 + Math.random()*30)*86400000).toISOString() });
+      }
+    }
+
+    // Next touch — 50% of active
+    let next_touch = '';
+    if (lifecycle !== 'churned' && Math.random() < 0.50) {
+      const ntDate = new Date(now);
+      ntDate.setDate(ntDate.getDate() + 1 + Math.floor(Math.random() * 18));
+      next_touch = ntDate.toISOString().slice(0,10);
+    }
+
+    // Last contact date — 70% of active
+    let last_contact_date = '';
+    if (lifecycle !== 'churned' && lastSig.days != null && lastSig.days > 0 && Math.random() < 0.70) {
+      const lcd = new Date(now);
+      lcd.setDate(lcd.getDate() - lastSig.days);
+      last_contact_date = lcd.toISOString().slice(0,10);
+    }
+
+    return {
+      id:              crypto.randomUUID(),
+      name,
+      score:           last.score,
+      status:          getStatus(last.score),
+      mrr,
+      arr:             mrr * 12,
+      since,
+      tier,
+      lifecycle,
+      logins:          lastSig.logins,
+      adoption:        lastSig.adoption,
+      tickets:         lastSig.tickets,
+      nps:             lastSig.nps,
+      csat:            lastSig.csat,
+      days:            lastSig.days,
+      _baseDays:       lastSig.days,
+      renewal_date,
+      renewal,
+      growth:          lastSig.growth,
+      tags,
+      notes,
+      history,
+      sentiment,
+      manager:         CSMS[csmIdx],
+      scoring_profile: '',
+      deleted_at:      lifecycle === 'churned' ? null : null,
+      created,
+      next_touch,
+      playbook_checks: {},
+      last_contact_date
+    };
+  });
+
+  // 5. Push to Supabase
+  console.log('4/4 — Pushing 42 customers to Supabase…');
+  const rows = exCustomers.map(c => {
+    const row = toRow(c);
+    row.user_id = targetUser.user_id;
+    return row;
+  });
+
+  let inserted = 0;
+  for (let i = 0; i < rows.length; i += 25) {
+    const chunk = rows.slice(i, i + 25);
+    const { error } = await sb.from('customers').upsert(chunk, { onConflict: 'id' });
+    if (error) { console.error('Insert error at chunk', i, error.message); return; }
+    inserted += chunk.length;
+    console.log('   ' + inserted + '/' + rows.length + ' rows…');
+  }
+
+  console.log('✓ Done! 42 customers seeded under Example client (' + exClient.id + ')');
+  console.log('CSM distribution: Alex Thompson (18), Jordan Lee (14), Sam Patel (10)');
+  toast('Example data seeded — 42 customers across 3 CSMs', 'success');
+}
+
 // ─── AUTO-REFRESH ────────────────────────────────────────────
 let _pollTimer = null;
 let _syncPauseUntil = 0; // pause silentSync after bulk operations (e.g. rescoreAll)
+let _lastSyncTime = 0;   // track last successful sync to avoid redundant reloads
+let _syncInProgress = false;
 
 // Call after bulk saves to prevent silentSync from overwriting local data
 // while Supabase writes are still in flight
@@ -868,7 +1106,14 @@ function pauseSync(ms) { _syncPauseUntil = Date.now() + (ms || 120000); }
 async function silentSync() {
   if (!currentUser) return;
   if (Date.now() < _syncPauseUntil) return; // skip while bulk saves are in flight
+  if (_syncInProgress) return; // prevent concurrent syncs
+  // Skip if data was synced within the last 30 seconds
+  if (Date.now() - _lastSyncTime < 30000) return;
+  _syncInProgress = true;
   try {
+    // Snapshot current state to detect if data actually changed
+    const prevHash = customers.length + '|' + customers.reduce((s,c) => s + c.score, 0);
+
     // Respect the active client context — if admin switched to a specific client,
     // reload that client's data instead of the admin's own
     if (isAdmin() && activeClientId !== '__own__') {
@@ -876,12 +1121,19 @@ async function silentSync() {
     } else {
       await loadCustomersFromSupabase();
     }
-    refreshMgrDropdown();
-    const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
-    if (active === 'homebase')  renderHomeBase();
-    if (active === 'customers') renderCustomers();
-    if (active === 'alerts')    renderAlerts();
+    _lastSyncTime = Date.now();
+
+    // Only re-render if data actually changed
+    const newHash = customers.length + '|' + customers.reduce((s,c) => s + c.score, 0);
+    if (newHash !== prevHash) {
+      refreshMgrDropdown();
+      const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
+      if (active === 'homebase')  renderHomeBase();
+      if (active === 'customers') renderCustomers();
+      if (active === 'alerts')    renderAlerts();
+    }
   } catch(e) { /* silent */ }
+  _syncInProgress = false;
 }
 
 function startPolling() {
@@ -893,11 +1145,11 @@ function stopPolling() {
   if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
 }
 
-// Refresh data when user returns to the tab (no spinner, debounced)
+// Refresh data when user returns to the tab (no spinner, debounced 3s)
 let _visibilityTimer = null;
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && currentUser) {
     clearTimeout(_visibilityTimer);
-    _visibilityTimer = setTimeout(silentSync, 1000);
+    _visibilityTimer = setTimeout(silentSync, 3000);
   }
 });

@@ -12,6 +12,7 @@ const ALERT_ICONS = {
   expansion: _ico('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>'),
   snoozed:   _ico('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'),
   engagement:_ico('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'),
+  quiet:     _ico('<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>'),
 };
 const ALERT_CATS = {
   health:     { label:'Health',     icon: ALERT_ICONS.health,     type:'red'   },
@@ -21,6 +22,7 @@ const ALERT_CATS = {
   momentum:   { label:'Momentum',   icon: ALERT_ICONS.momentum,   type:'amber' },
   tickets:    { label:'Support',    icon: ALERT_ICONS.tickets,    type:'red'   },
   engagement: { label:'Engagement', icon: ALERT_ICONS.engagement, type:'amber' },
+  quiet:      { label:'Quiet',      icon: ALERT_ICONS.quiet,      type:'amber' },
   expansion:  { label:'Expansion',  icon: ALERT_ICONS.expansion,  type:'green' },
 };
 
@@ -130,6 +132,15 @@ function buildAlerts() {
         alerts.push({ id:c.id+'-exp', cid:c.id, cat:'expansion', type:'green',
           msg:`<strong>${escHtml(c.name)}</strong> <span>expansion opportunity — ${daysSince}d since last touch</span>`,
           sub:`MRR $${fmtNum(c.mrr||0)} · Score ${c.score}`, ...snap(c) });
+    }
+
+    // ── Quiet Account (zero activity across all signals) ──
+    if (isQuietAccount(c)) {
+      const qDays = getQuietDays(c);
+      const qType = qDays >= 30 ? 'red' : 'amber';
+      alerts.push({ id:c.id+'-quiet', cid:c.id, cat:'quiet', type:qType,
+        msg:`<strong>${escHtml(c.name)}</strong> <span>has gone completely quiet — ${qDays} days, zero activity</span>`,
+        sub:`No logins · No tickets · No contact · MRR $${fmtNum(c.mrr||0)}`, ...snap(c) });
     }
   });
 
@@ -466,7 +477,7 @@ function _renderAlerts() {
     }
   } else {
     // ── Category view (default) ──
-    const cats = ['health','tickets','engagement','renewal','cadence','momentum','sentiment','expansion'];
+    const cats = ['health','tickets','quiet','engagement','renewal','cadence','momentum','sentiment','expansion'];
     cats.forEach(cat => {
       const group = active.filter(a => a.cat === cat);
       if (!group.length) return;
@@ -533,7 +544,8 @@ function renderAlertPanel(all, active, snz) {
       'No Contact 60d+':  { color:'#c4b5fd', mrr:0 },
       'Poor Sentiment':   { color:'#fda4af', mrr:0 },
       'Low Adoption':     { color:'#fdba74', mrr:0 },
-      'Low Logins':       { color:'#fcd34d', mrr:0 }
+      'Low Logins':       { color:'#fcd34d', mrr:0 },
+      'Quiet Accounts':   { color:'#8b5cf6', mrr:0 }
     };
     // Dedupe by customer (only count each customer once per bucket)
     const seen = {};
@@ -554,6 +566,7 @@ function renderAlertPanel(all, active, snz) {
       if (sent && sent.val === 'negative' && !seen['Poor Sentiment'].has(c.id)) { seen['Poor Sentiment'].add(c.id); mrrMap['Poor Sentiment'].mrr += c.mrr||0; }
       if (signalOn(c,'adoption') && c.adoption != null && c.adoption < 30 && !seen['Low Adoption'].has(c.id)) { seen['Low Adoption'].add(c.id); mrrMap['Low Adoption'].mrr += c.mrr||0; }
       if (signalOn(c,'logins') && c.logins != null && c.logins < 5 && !seen['Low Logins'].has(c.id)) { seen['Low Logins'].add(c.id); mrrMap['Low Logins'].mrr += c.mrr||0; }
+      if (isQuietAccount(c) && !seen['Quiet Accounts'].has(c.id)) { seen['Quiet Accounts'].add(c.id); mrrMap['Quiet Accounts'].mrr += c.mrr||0; }
     });
     mrrWrap.innerHTML = Object.entries(mrrMap).map(([label, {color, mrr}]) => `
       <div class="alert-mrr-row" style="cursor:pointer;border-radius:6px;padding:5px 6px;margin:2px -6px;transition:background .15s" onclick="filterByMrrBucket('${label}')" onmouseover="this.style.background='rgba(255,255,255,.08)'" onmouseout="this.style.background=''">
@@ -566,12 +579,12 @@ function renderAlertPanel(all, active, snz) {
   // By category bars
   const catWrap = el('alert-cat-wrap');
   if (catWrap) {
-    const catOrder = ['health','tickets','engagement','renewal','cadence','momentum','sentiment','expansion'];
+    const catOrder = ['health','tickets','quiet','engagement','renewal','cadence','momentum','sentiment','expansion'];
     const catCounts = {};
     catOrder.forEach(c => catCounts[c] = 0);
     active.forEach(a => { if (catCounts[a.cat] !== undefined) catCounts[a.cat]++; });
     const maxCount = Math.max(1, ...Object.values(catCounts));
-    const catColors = { health:'#dc2626', tickets:'#ea580c', engagement:'#f59e0b', renewal:'#2563eb', cadence:'#d97706', momentum:'#d97706', sentiment:'#d97706', expansion:'#16a34a' };
+    const catColors = { health:'#dc2626', tickets:'#ea580c', quiet:'#8b5cf6', engagement:'#f59e0b', renewal:'#2563eb', cadence:'#d97706', momentum:'#d97706', sentiment:'#d97706', expansion:'#16a34a' };
     catWrap.innerHTML = catOrder.filter(c => catCounts[c] > 0).map(c => {
       const def = ALERT_CATS[c];
       const pct = Math.round((catCounts[c] / maxCount) * 100);
@@ -761,6 +774,8 @@ function _briefingNarrative(active, snz) {
   const entMrrAtRisk    = entAtRisk.reduce((s, c) => s + (c.mrr || 0), 0);
   const lowAdoption     = total.filter(c => c.adoption != null && c.adoption < 30 && (c.status === 'healthy' || c.status === 'expand'));
   const lowLogins       = total.filter(c => c.logins != null && c.logins < 5);
+  const quietAccts      = total.filter(c => isQuietAccount(c));
+  const quietMrr        = quietAccts.reduce((s, c) => s + (c.mrr || 0), 0);
 
   const dow   = new Date().getDay();
   const isMon = dow === 1;
@@ -845,6 +860,9 @@ function _briefingNarrative(active, snz) {
     const llMrr = lowLogins.reduce((s, c) => s + (c.mrr || 0), 0);
     notWorking.push(`${_briefGroupLink(lowLogins.length + ' account' + (lowLogins.length !== 1 ? 's' : ''), lowLogins, 'Low Logins')} with &lt;5 logins/mo${llMrr > 0 ? ` — $${fmtNum(llMrr)} MRR at risk` : ''}`);
   }
+  if (quietAccts.length > 0) {
+    notWorking.push(`${_briefGroupLink(quietAccts.length + ' account' + (quietAccts.length !== 1 ? 's' : ''), quietAccts, 'Quiet Accounts')} completely dark — zero logins, tickets, and contact${quietMrr > 0 ? ` ($${fmtNum(quietMrr)} MRR)` : ''}`);
+  }
   if (ghosted.length > 0 && touchPct < 50) {
     notWorking.push(`Only ${touchPct}% touched in 14d, ${_briefGroupLink(ghosted.length + '', ghosted, 'Untouched 30+ Days')} untouched for 30+ days`);
   }
@@ -883,6 +901,9 @@ function _briefingNarrative(active, snz) {
   }
   if (lowLogins.length > 0) {
     _act(`Investigate low login activity on ${lowLogins.length} account${lowLogins.length !== 1 ? 's' : ''} — schedule engagement calls`, lowLogins, 'Low Logins');
+  }
+  if (quietAccts.length > 0) {
+    _act(`Investigate ${quietAccts.length} quiet account${quietAccts.length !== 1 ? 's' : ''} — no activity detected anywhere`, quietAccts, 'Quiet Accounts');
   }
   if (ghosted.length > 0 && touchPct < 50) {
     _act(`${isFri ? 'Block time Monday to' : 'Prioritize'} outreach to ${ghosted.length} untouched account${ghosted.length !== 1 ? 's' : ''}`, ghosted, 'Untouched 30+ Days');

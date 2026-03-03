@@ -241,7 +241,7 @@ function renderCSMWorkload(mgrList) {
     ${list.sort((a,b) => b.count - a.count).map(m => {
       const accPct = Math.round((m.count / maxAccounts) * 100);
       const overloaded = m.count > avgAccounts * 1.4;
-      const accColor = overloaded ? 'var(--red)' : 'var(--blue)';
+      const accColor = overloaded ? 'var(--red)' : 'var(--green)';
       // Tier MRR breakdown
       const tierMRR = {};
       m.accs.forEach(c => { const t = (c.tier || 'smb').toLowerCase(); tierMRR[t] = (tierMRR[t] || 0) + (c.mrr || 0); });

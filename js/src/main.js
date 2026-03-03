@@ -92,7 +92,14 @@
       return;
     }
 
-    // Fresh sign-in only
+    // SIGNED_IN can fire on token refresh after expiry — if we already have data,
+    // treat it like TOKEN_REFRESHED (silent sync, no overlay)
+    if (customers.length > 0) {
+      silentSync();
+      return;
+    }
+
+    // Fresh sign-in only (no existing data loaded)
     hideAuthGate();
     updateUserUI(currentUser);
     ensureUserProfile(currentUser);
