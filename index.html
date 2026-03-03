@@ -1102,7 +1102,9 @@ td .sparkline{vertical-align:middle}
 .cal-dot--renewal{background:var(--purple)}
 .cal-dot--touch{background:var(--blue)}
 .cal-dot--overdue{background:var(--red)}
-.cal-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}
+.cal-dot--past-completed{background:var(--green)}
+.cal-dot--past-missed{background:var(--red)}
+.cal-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
 .cal-stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 20px;box-shadow:var(--sh);position:relative;overflow:hidden}
 .cal-stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent-color,var(--blue))}
 .cal-stat-num{font-size:1.8rem;font-weight:800;letter-spacing:-.03em;line-height:1;color:var(--text)}
@@ -1123,7 +1125,9 @@ td .sparkline{vertical-align:middle}
 .cal-pill--renewal{background:var(--purple-l);color:var(--purple);border:1px solid var(--purple-m)}
 .cal-pill--touch{background:var(--blue-l);color:var(--blue);border:1px solid var(--blue-m)}
 .cal-pill--overdue{background:var(--red-l);color:var(--red);border:1px solid var(--red-m)}
-.cal-popover{position:absolute;width:300px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);box-shadow:var(--shlg);z-index:100;animation:fadeIn .15s ease}
+.cal-pill--past-completed{background:var(--green-l);color:var(--green);border:1px solid var(--green-m)}
+.cal-pill--past-missed{background:var(--red-l);color:var(--red);border:1px solid var(--red-m);text-decoration:line-through}
+.cal-popover{position:absolute;width:320px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);box-shadow:var(--shlg);z-index:100;animation:fadeIn .15s ease}
 .cal-popover-hd{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);font-size:.82rem;font-weight:700;color:var(--text)}
 .cal-popover-close{background:none;border:none;cursor:pointer;color:var(--muted);font-size:.9rem;padding:0 2px}
 .cal-popover-close:hover{color:var(--text)}
@@ -1135,7 +1139,12 @@ td .sparkline{vertical-align:middle}
 .cal-popover-name{font-size:.82rem;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cal-popover-meta{font-size:.68rem;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:2px}
 .cal-popover-tag{font-weight:700;text-transform:uppercase;font-size:.58rem;letter-spacing:.04em}
-@media(max-width:900px){.cal-stats{grid-template-columns:1fr}.cal-cell{height:80px;padding:4px 5px}.cal-pill{font-size:.55rem}}
+.cal-popover-actions{display:flex;flex-direction:column;gap:4px;margin-left:auto;flex-shrink:0}
+.cal-pop-btn{background:none;border:1px solid var(--border);border-radius:4px;padding:3px 5px;cursor:pointer;color:var(--muted);transition:all .12s;display:flex;align-items:center;justify-content:center}
+.cal-pop-btn:hover{background:var(--bg);color:var(--text);border-color:var(--text)}
+.cal-pop-btn--del:hover{color:var(--red);border-color:var(--red)}
+@media(max-width:900px){.cal-stats{grid-template-columns:repeat(2,1fr)}.cal-cell{height:80px;padding:4px 5px}.cal-pill{font-size:.55rem}}
+@media(max-width:500px){.cal-stats{grid-template-columns:1fr}}
 @media(max-width:600px){.cal-header{flex-direction:column;align-items:flex-start}.cal-legend{gap:10px}}
 </style>
 </head>
@@ -3000,6 +3009,6 @@ td .sparkline{vertical-align:middle}
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=194"></script>
+<script src="js/app.js?v=195"></script>
 </body>
 </html>

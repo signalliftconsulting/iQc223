@@ -766,13 +766,16 @@ async function saveDetailInline() {
   if (ntInput) {
     const newNt = ntInput.value || '';
     const oldNt = c.next_touch || '';
-    // If old next_touch is today or past, promote it to last_contact_date
+    // Archive old next_touch to touch_history before overwriting
     if (oldNt && oldNt !== newNt) {
+      if (!c.touch_history) c.touch_history = [];
+      c.touch_history.push({ date: oldNt, status: 'completed' });
+
+      // If old next_touch is today or past, promote it to last_contact_date
       const oldDate = new Date(oldNt);
       const today = new Date(); today.setHours(0,0,0,0);
       if (oldDate <= today) {
         c.last_contact_date = oldNt;
-        // Recalculate days from last_contact_date
         const daysSince = Math.max(0, Math.floor((Date.now() - oldDate.getTime()) / 86400000));
         c.days = daysSince;
         c._baseDays = daysSince;

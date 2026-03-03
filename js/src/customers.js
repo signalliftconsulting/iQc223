@@ -633,8 +633,12 @@ async function saveInlineNextTouch(custId, val) {
   if (!c) return;
   const oldVal = c.next_touch || '';
 
-  // If old next_touch is in the past, promote it to last_contact_date before setting new one
+  // Archive old next_touch to touch_history before overwriting
   if (oldVal) {
+    if (!c.touch_history) c.touch_history = [];
+    c.touch_history.push({ date: oldVal, status: 'completed' });
+
+    // Also promote to last_contact_date if in the past
     const oldDate = new Date(oldVal);
     const today = new Date(); today.setHours(0,0,0,0);
     if (oldDate <= today) {
@@ -658,7 +662,8 @@ async function saveInlineNextTouch(custId, val) {
   const { error } = await sb.from('customers').update({
     next_touch: row.next_touch,
     last_contact_date: row.last_contact_date,
-    days: row.days
+    days: row.days,
+    touch_history: row.touch_history
   }).eq('id', c.id);
   if (error) {
     console.warn('Failed to save next_touch:', error.message);

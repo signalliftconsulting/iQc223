@@ -496,7 +496,8 @@ function fromRow(row) {
     created:         row.created_at      || new Date().toISOString(),
     next_touch:        row.next_touch        || '',
     playbook_checks:   tryParse(row.playbook_checks, {}),
-    last_contact_date: row.last_contact_date || ''
+    last_contact_date: row.last_contact_date || '',
+    touch_history:     tryParse(row.touch_history, [])
   };
 }
 
@@ -532,7 +533,8 @@ function toRow(c) {
     created_at:      c.created         || new Date().toISOString(),
     next_touch:        c.next_touch        || '',
     playbook_checks:   JSON.stringify(c.playbook_checks || {}),
-    last_contact_date: c.last_contact_date || ''
+    last_contact_date: c.last_contact_date || '',
+    touch_history:     JSON.stringify(c.touch_history || [])
   };
 }
 
@@ -1357,6 +1359,21 @@ async function seedExampleData() {
       last_contact_date = lcd.toISOString().slice(0,10);
     }
 
+    // Touch history — past calls for accounts with tenure > 3 months
+    const touch_history = [];
+    if (lifecycle !== 'churned' && tenureMo > 3) {
+      const numPast = 2 + Math.floor(Math.random() * Math.min(4, Math.floor(tenureMo / 3)));
+      for (let ti = 0; ti < numPast; ti++) {
+        const daysAgo = 14 + Math.floor(Math.random() * Math.min(tenureDays - 14, 300));
+        const thDate = new Date(now - daysAgo * 86400000);
+        touch_history.push({
+          date: thDate.toISOString().slice(0,10),
+          status: Math.random() < 0.85 ? 'completed' : 'missed'
+        });
+      }
+      touch_history.sort((a, b) => a.date.localeCompare(b.date));
+    }
+
     return {
       id:              crypto.randomUUID(),
       name,
@@ -1387,7 +1404,8 @@ async function seedExampleData() {
       created,
       next_touch,
       playbook_checks: {},
-      last_contact_date
+      last_contact_date,
+      touch_history
     };
   });
 
@@ -5661,8 +5679,12 @@ async function saveInlineNextTouch(custId, val) {
   if (!c) return;
   const oldVal = c.next_touch || '';
 
-  // If old next_touch is in the past, promote it to last_contact_date before setting new one
+  // Archive old next_touch to touch_history before overwriting
   if (oldVal) {
+    if (!c.touch_history) c.touch_history = [];
+    c.touch_history.push({ date: oldVal, status: 'completed' });
+
+    // Also promote to last_contact_date if in the past
     const oldDate = new Date(oldVal);
     const today = new Date(); today.setHours(0,0,0,0);
     if (oldDate <= today) {
@@ -5686,7 +5708,8 @@ async function saveInlineNextTouch(custId, val) {
   const { error } = await sb.from('customers').update({
     next_touch: row.next_touch,
     last_contact_date: row.last_contact_date,
-    days: row.days
+    days: row.days,
+    touch_history: row.touch_history
   }).eq('id', c.id);
   if (error) {
     console.warn('Failed to save next_touch:', error.message);
@@ -6758,13 +6781,16 @@ async function saveDetailInline() {
   if (ntInput) {
     const newNt = ntInput.value || '';
     const oldNt = c.next_touch || '';
-    // If old next_touch is today or past, promote it to last_contact_date
+    // Archive old next_touch to touch_history before overwriting
     if (oldNt && oldNt !== newNt) {
+      if (!c.touch_history) c.touch_history = [];
+      c.touch_history.push({ date: oldNt, status: 'completed' });
+
+      // If old next_touch is today or past, promote it to last_contact_date
       const oldDate = new Date(oldNt);
       const today = new Date(); today.setHours(0,0,0,0);
       if (oldDate <= today) {
         c.last_contact_date = oldNt;
-        // Recalculate days from last_contact_date
         const daysSince = Math.max(0, Math.floor((Date.now() - oldDate.getTime()) / 86400000));
         c.days = daysSince;
         c._baseDays = daysSince;
@@ -13360,6 +13386,19 @@ function _renderCalendar() {
         events.push({ date: todayStr, type: 'overdue', customer: c, daysSince: daysSince });
       }
     }
+    // Past touches from touch_history
+    if (c.touch_history && c.touch_history.length) {
+      c.touch_history.forEach(function(th, idx) {
+        if (th.date) {
+          events.push({
+            date: th.date.slice(0,10),
+            type: th.status === 'missed' ? 'past-missed' : 'past-completed',
+            customer: c,
+            histIdx: idx
+          });
+        }
+      });
+    }
   });
 
   // Build events-by-date map for this month
@@ -13373,9 +13412,10 @@ function _renderCalendar() {
   });
 
   // Stat counts for this month
-  const renewalCount = events.filter(e => e.type === 'renewal' && e.date.startsWith(monthPrefix)).length;
-  const touchCount   = events.filter(e => e.type === 'touch'   && e.date.startsWith(monthPrefix)).length;
-  const overdueCount = events.filter(e => e.type === 'overdue').length;
+  const renewalCount    = events.filter(e => e.type === 'renewal'        && e.date.startsWith(monthPrefix)).length;
+  const touchCount      = events.filter(e => e.type === 'touch'          && e.date.startsWith(monthPrefix)).length;
+  const overdueCount    = events.filter(e => e.type === 'overdue').length;
+  const pastTouchCount  = events.filter(e => (e.type === 'past-completed' || e.type === 'past-missed') && e.date.startsWith(monthPrefix)).length;
 
   const monthLabel = firstDay.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
@@ -13393,8 +13433,10 @@ function _renderCalendar() {
     '</div>' +
     '<div class="cal-legend">' +
       '<span class="cal-legend-item"><span class="cal-dot cal-dot--renewal"></span>Renewal</span>' +
-      '<span class="cal-legend-item"><span class="cal-dot cal-dot--touch"></span>Scheduled Touch</span>' +
-      '<span class="cal-legend-item"><span class="cal-dot cal-dot--overdue"></span>Overdue Contact</span>' +
+      '<span class="cal-legend-item"><span class="cal-dot cal-dot--touch"></span>Scheduled</span>' +
+      '<span class="cal-legend-item"><span class="cal-dot cal-dot--past-completed"></span>Completed</span>' +
+      '<span class="cal-legend-item"><span class="cal-dot cal-dot--past-missed"></span>Missed</span>' +
+      '<span class="cal-legend-item"><span class="cal-dot cal-dot--overdue"></span>Overdue</span>' +
     '</div>' +
   '</div>';
 
@@ -13406,11 +13448,15 @@ function _renderCalendar() {
     '</div>' +
     '<div class="cal-stat-card" style="--accent-color:var(--blue)">' +
       '<div class="cal-stat-num">' + touchCount + '</div>' +
-      '<div class="cal-stat-label">Scheduled Touches</div>' +
+      '<div class="cal-stat-label">Scheduled</div>' +
+    '</div>' +
+    '<div class="cal-stat-card" style="--accent-color:var(--green)">' +
+      '<div class="cal-stat-num">' + pastTouchCount + '</div>' +
+      '<div class="cal-stat-label">Past Touches</div>' +
     '</div>' +
     '<div class="cal-stat-card" style="--accent-color:var(--red)">' +
       '<div class="cal-stat-num">' + overdueCount + '</div>' +
-      '<div class="cal-stat-label">Overdue Contacts</div>' +
+      '<div class="cal-stat-label">Overdue</div>' +
     '</div>' +
   '</div>';
 
@@ -13443,21 +13489,22 @@ function _renderCalendar() {
           html += '<div class="cal-pills">';
           var maxPills = 3;
           if (dayEvents.length <= maxPills) {
-            // Few events — show customer names
             dayEvents.forEach(function(ev) {
               html += '<span class="cal-pill cal-pill--' + ev.type + '">' + escHtml(ev.customer.name) + '</span>';
             });
           } else {
-            // Many events — group by type with counts
-            var byType = { renewal: [], touch: [], overdue: [] };
-            dayEvents.forEach(function(ev) { byType[ev.type].push(ev); });
+            var byType = {};
+            dayEvents.forEach(function(ev) {
+              if (!byType[ev.type]) byType[ev.type] = [];
+              byType[ev.type].push(ev);
+            });
             var pillCount = 0;
-            ['renewal', 'touch', 'overdue'].forEach(function(type) {
-              if (byType[type].length && pillCount < maxPills) {
-                var label = type === 'renewal' ? 'Renewal' : type === 'touch' ? 'Touch' : 'Overdue';
+            var typeLabels = { renewal:'Renewal', touch:'Touch', 'past-completed':'Done', 'past-missed':'Missed', overdue:'Overdue' };
+            ['renewal', 'touch', 'past-completed', 'past-missed', 'overdue'].forEach(function(type) {
+              if (byType[type] && byType[type].length && pillCount < maxPills) {
                 var count = byType[type].length;
                 html += '<span class="cal-pill cal-pill--' + type + '">' +
-                  count + ' ' + label + (count > 1 ? 's' : '') + '</span>';
+                  count + ' ' + typeLabels[type] + '</span>';
                 pillCount++;
               }
             });
@@ -13503,7 +13550,6 @@ function calShowPopover(cellEl, dateStr) {
   var pop = el('cal-popover');
   if (!pop) return;
 
-  // Toggle off if same date
   if (pop.style.display !== 'none' && pop.dataset.date === dateStr) {
     calClosePopover();
     return;
@@ -13527,13 +13573,31 @@ function calShowPopover(cellEl, dateStr) {
         evts.push({ type: 'overdue', customer: c, daysSince: daysSince });
       }
     }
+    // Past touches
+    if (c.touch_history && c.touch_history.length) {
+      c.touch_history.forEach(function(th, idx) {
+        if (th.date && th.date.slice(0,10) === dateStr) {
+          evts.push({
+            type: th.status === 'missed' ? 'past-missed' : 'past-completed',
+            customer: c,
+            histIdx: idx
+          });
+        }
+      });
+    }
   });
 
   if (!evts.length) { calClosePopover(); return; }
 
   var dateLabel = new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-  var typeLabel = { renewal: 'Renewal', touch: 'Scheduled Touch', overdue: 'Overdue Contact' };
-  var typeColor = { renewal: 'var(--purple)', touch: 'var(--blue)', overdue: 'var(--red)' };
+  var typeLabel = {
+    renewal: 'Renewal', touch: 'Scheduled Touch', overdue: 'Overdue Contact',
+    'past-completed': 'Completed', 'past-missed': 'Missed / Cancelled'
+  };
+  var typeColor = {
+    renewal: 'var(--purple)', touch: 'var(--blue)', overdue: 'var(--red)',
+    'past-completed': 'var(--green)', 'past-missed': 'var(--red)'
+  };
   var statusDot = { critical:'var(--red)', risk:'var(--amber)', watch:'var(--amber)', healthy:'var(--green)', expand:'var(--blue)' };
 
   var h = '<div class="cal-popover-hd">' + dateLabel +
@@ -13542,18 +13606,38 @@ function calShowPopover(cellEl, dateStr) {
 
   evts.forEach(function(ev) {
     var c = ev.customer;
-    h += '<div class="cal-popover-item" onclick="calClosePopover();openDetail(\'' + escHtml(c.id) + '\')">' +
-      '<span class="cal-popover-type-dot" style="background:' + typeColor[ev.type] + '"></span>' +
-      '<div class="cal-popover-info">' +
-        '<div class="cal-popover-name">' + escHtml(c.name) + '</div>' +
-        '<div class="cal-popover-meta">' +
-          '<span class="cal-popover-tag" style="color:' + typeColor[ev.type] + '">' + typeLabel[ev.type] + '</span>' +
-          (ev.daysSince ? '<span>' + ev.daysSince + 'd since contact</span>' : '') +
-          (c.manager ? '<span>' + escHtml(c.manager) + '</span>' : '') +
-          '<span style="display:inline-flex;align-items:center;gap:3px"><span style="width:6px;height:6px;border-radius:50%;background:' + (statusDot[c.status] || 'var(--muted)') + '"></span>' + c.score + '</span>' +
-        '</div>' +
-      '</div>' +
-    '</div>';
+    var isPast = (ev.type === 'past-completed' || ev.type === 'past-missed');
+
+    h += '<div class="cal-popover-item">';
+    h += '<span class="cal-popover-type-dot" style="background:' + typeColor[ev.type] + '"></span>';
+    h += '<div class="cal-popover-info" style="cursor:pointer" onclick="calClosePopover();openDetail(\'' + escHtml(c.id) + '\')">';
+    h += '<div class="cal-popover-name">' + escHtml(c.name) + '</div>';
+    h += '<div class="cal-popover-meta">';
+    h += '<span class="cal-popover-tag" style="color:' + typeColor[ev.type] + '">' + typeLabel[ev.type] + '</span>';
+    if (ev.daysSince) h += '<span>' + ev.daysSince + 'd since contact</span>';
+    if (c.manager) h += '<span>' + escHtml(c.manager) + '</span>';
+    h += '<span style="display:inline-flex;align-items:center;gap:3px"><span style="width:6px;height:6px;border-radius:50%;background:' + (statusDot[c.status] || 'var(--muted)') + '"></span>' + c.score + '</span>';
+    h += '</div></div>';
+
+    // Actions for past touches: toggle status + remove
+    if (isPast) {
+      var toggleTo = ev.type === 'past-completed' ? 'missed' : 'completed';
+      var toggleLabel = ev.type === 'past-completed' ? 'Mark missed' : 'Mark completed';
+      h += '<div class="cal-popover-actions">';
+      h += '<button class="cal-pop-btn" title="' + toggleLabel + '" onclick="event.stopPropagation();calToggleTouchStatus(\'' + escHtml(c.id) + '\',' + ev.histIdx + ',\'' + toggleTo + '\')">';
+      if (toggleTo === 'missed') {
+        h += '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+      } else {
+        h += '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
+      }
+      h += '</button>';
+      h += '<button class="cal-pop-btn cal-pop-btn--del" title="Remove" onclick="event.stopPropagation();calRemoveTouch(\'' + escHtml(c.id) + '\',' + ev.histIdx + ')">';
+      h += '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+      h += '</button>';
+      h += '</div>';
+    }
+
+    h += '</div>';
   });
 
   h += '</div>';
@@ -13575,6 +13659,33 @@ function calShowPopover(cellEl, dateStr) {
 function calClosePopover() {
   var pop = el('cal-popover');
   if (pop) { pop.style.display = 'none'; pop.dataset.date = ''; }
+}
+
+// ── Touch history actions ──
+async function calToggleTouchStatus(custId, histIdx, newStatus) {
+  var c = customers.find(function(x) { return x.id === custId; });
+  if (!c || !c.touch_history || !c.touch_history[histIdx]) return;
+  c.touch_history[histIdx].status = newStatus;
+  var { error } = await sb.from('customers').update({
+    touch_history: JSON.stringify(c.touch_history)
+  }).eq('id', c.id);
+  if (error) {
+    toast('Failed to update — ' + error.message, 'error');
+  }
+  renderCalendar();
+}
+
+async function calRemoveTouch(custId, histIdx) {
+  var c = customers.find(function(x) { return x.id === custId; });
+  if (!c || !c.touch_history || !c.touch_history[histIdx]) return;
+  c.touch_history.splice(histIdx, 1);
+  var { error } = await sb.from('customers').update({
+    touch_history: JSON.stringify(c.touch_history)
+  }).eq('id', c.id);
+  if (error) {
+    toast('Failed to remove — ' + error.message, 'error');
+  }
+  renderCalendar();
 }
 
 document.addEventListener('click', function(e) {

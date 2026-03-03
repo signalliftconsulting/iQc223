@@ -181,7 +181,8 @@ function fromRow(row) {
     created:         row.created_at      || new Date().toISOString(),
     next_touch:        row.next_touch        || '',
     playbook_checks:   tryParse(row.playbook_checks, {}),
-    last_contact_date: row.last_contact_date || ''
+    last_contact_date: row.last_contact_date || '',
+    touch_history:     tryParse(row.touch_history, [])
   };
 }
 
@@ -217,7 +218,8 @@ function toRow(c) {
     created_at:      c.created         || new Date().toISOString(),
     next_touch:        c.next_touch        || '',
     playbook_checks:   JSON.stringify(c.playbook_checks || {}),
-    last_contact_date: c.last_contact_date || ''
+    last_contact_date: c.last_contact_date || '',
+    touch_history:     JSON.stringify(c.touch_history || [])
   };
 }
 
@@ -1042,6 +1044,21 @@ async function seedExampleData() {
       last_contact_date = lcd.toISOString().slice(0,10);
     }
 
+    // Touch history — past calls for accounts with tenure > 3 months
+    const touch_history = [];
+    if (lifecycle !== 'churned' && tenureMo > 3) {
+      const numPast = 2 + Math.floor(Math.random() * Math.min(4, Math.floor(tenureMo / 3)));
+      for (let ti = 0; ti < numPast; ti++) {
+        const daysAgo = 14 + Math.floor(Math.random() * Math.min(tenureDays - 14, 300));
+        const thDate = new Date(now - daysAgo * 86400000);
+        touch_history.push({
+          date: thDate.toISOString().slice(0,10),
+          status: Math.random() < 0.85 ? 'completed' : 'missed'
+        });
+      }
+      touch_history.sort((a, b) => a.date.localeCompare(b.date));
+    }
+
     return {
       id:              crypto.randomUUID(),
       name,
@@ -1072,7 +1089,8 @@ async function seedExampleData() {
       created,
       next_touch,
       playbook_checks: {},
-      last_contact_date
+      last_contact_date,
+      touch_history
     };
   });
 

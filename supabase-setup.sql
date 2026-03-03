@@ -183,6 +183,13 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- Add touch_history column (safe to re-run)
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='customers' AND column_name='touch_history') THEN
+    ALTER TABLE customers ADD COLUMN touch_history TEXT DEFAULT '[]';
+  END IF;
+END $$;
+
 ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
 
 -- Each user sees only their own customers
