@@ -4529,11 +4529,20 @@ function filterByAlertKpi(which) {
   if (which === 'critical') scrollTo = 'alert-grp-health';
   if (which === 'renewal')  scrollTo = 'alert-grp-renewal';
   setTimeout(() => {
+    const stickyBar = document.getElementById('alert-sticky-bar');
+    const barH = stickyBar ? stickyBar.offsetHeight : 0;
     if (which === 'snoozed') {
       const snzHd = document.querySelector('#alerts-list .alert-group-hd:last-of-type');
-      _smoothScrollWithOffset(snzHd);
+      _smoothScrollWithOffset(snzHd, barH + 12);
     } else if (scrollTo) {
-      _smoothScrollWithOffset(document.getElementById(scrollTo));
+      const hd = document.getElementById(scrollTo);
+      if (hd) {
+        const body = hd.nextElementSibling;
+        if (body && body.classList.contains('alert-group-body') && getComputedStyle(body).display === 'none') {
+          toggleAlertGroup(hd);
+        }
+        _smoothScrollWithOffset(hd, barH + 12);
+      }
     }
   }, 50);
 }
@@ -4546,7 +4555,9 @@ function filterByAlertCat(cat) {
       if (body && body.classList.contains('alert-group-body') && getComputedStyle(body).display === 'none') {
         toggleAlertGroup(hd);
       }
-      _smoothScrollWithOffset(hd);
+      const stickyBar = document.getElementById('alert-sticky-bar');
+      const barH = stickyBar ? stickyBar.offsetHeight : 0;
+      _smoothScrollWithOffset(hd, barH + 12);
     }
   }, 50);
 }
