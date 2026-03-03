@@ -883,7 +883,6 @@ async function seedExampleData() {
   console.log('   Old data cleared.');
 
   // 4. Generate curated customers
-  console.log('3/4 — Generating ' + COMPANIES.length + ' curated customers…');
   const now = Date.now();
   const CSMS = ['Alex Thompson', 'Jordan Lee', 'Sam Patel'];
 
@@ -938,6 +937,7 @@ async function seedExampleData() {
     ['Nightfall Studios',        'smb',        1400,  'stable-low',      2, 14, 3, ['media']]
   ];
 
+  console.log('3/4 — Generating ' + COMPANIES.length + ' curated customers…');
   const exCustomers = COMPANIES.map(([name, tier, mrr, trajKey, csmIdx, tenureMo, renewMo, extraTags], i) => {
     // Generate realistic history using existing trajectory engine
     const history = _generateDemoHistory(trajKey, now);
