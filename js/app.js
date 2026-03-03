@@ -6030,7 +6030,7 @@ function getFormData() {
     tickets:  el('f-tickets-na').checked ? null : (parseInt(document.getElementById('f-tickets').value) || 0),
     nps:      el('f-nps-na').checked ? null : parseInt(el('f-nps').value),
     csat:     el('f-csat-na').checked ? null : parseInt(el('f-csat').value),
-    days:     el('f-days-na').checked ? null : (parseInt(document.getElementById('f-days').value) || 0),
+    days:     el('f-days').value !== '' ? parseInt(el('f-days').value) : null,
     renewal_date: document.getElementById('f-renewal-date')?.value || '',
     renewal:      (function() {
       const d = document.getElementById('f-renewal-date')?.value;
@@ -6335,9 +6335,10 @@ function resetForm() {
   el('rv-adoption').textContent = '50%'; el('rv-adoption').style.color = '';
   // Reset tickets (active by default)
   el('f-tickets-na').checked = false; el('f-tickets').value = 1; el('f-tickets').disabled = false; el('f-tickets').style.opacity = '1';
-  // Reset days (active by default)
-  el('f-days-na').checked = false; el('f-days').value = 14; el('f-days').disabled = false; el('f-days').style.opacity = '1';
-  el('rv-days').textContent = '14 days'; el('rv-days').style.color = '';
+  // Reset days (read-only, auto-tracked)
+  el('f-days').value = '';
+  const daysDisp = el('rv-days-display');
+  if (daysDisp) { daysDisp.textContent = 'Will track from first scheduled call'; daysDisp.style.color = 'var(--subtle)'; }
   // Reset NPS slider (default: 8, not N/A)
   el('f-nps-na').checked = false; el('f-nps').value = 8; el('f-nps').disabled = false; el('f-nps').style.opacity = '1';
   el('rv-nps-label').textContent = npsDisplay(8); el('rv-nps-label').style.color = '';
@@ -7023,9 +7024,24 @@ function editCustomer(id) {
   // CSAT slider
   if (c.csat != null) { el('f-csat-na').checked = false; el('f-csat').value = c.csat; el('f-csat').disabled = false; el('f-csat').style.opacity = '1'; rv('csat-label', csatDisplay(c.csat)); el('rv-csat-label').style.color = ''; }
   else { el('f-csat-na').checked = true; toggleCsatNA(); }
-  // Days Since Last Contact
-  if (c.days != null) { el('f-days-na').checked = false; el('f-days').value = c.days; el('f-days').disabled = false; el('f-days').style.opacity = '1'; rv('days', c.days + ' days'); el('rv-days').style.color = ''; }
-  else { el('f-days-na').checked = true; toggleSignalNA('days'); }
+  // Days Since Last Contact (read-only, auto-tracked)
+  const daysDisp = el('rv-days-display');
+  if (daysDisp) {
+    if (c.last_contact_date) {
+      const lcd = new Date(c.last_contact_date);
+      const daysAgo = Math.max(0, Math.floor((Date.now() - lcd.getTime()) / 86400000));
+      const dateStr = lcd.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+      daysDisp.innerHTML = `<span>${daysAgo} days</span> <span style="font-weight:400;font-size:.75rem;color:var(--muted)">since ${dateStr}</span>`;
+      daysDisp.style.color = daysAgo > 30 ? 'var(--red)' : daysAgo > 14 ? 'var(--amber)' : 'var(--green)';
+    } else if (c.days != null) {
+      daysDisp.innerHTML = `<span>${c.days} days</span> <span style="font-weight:400;font-size:.75rem;color:var(--muted)">(no contact date tracked)</span>`;
+      daysDisp.style.color = c.days > 30 ? 'var(--red)' : c.days > 14 ? 'var(--amber)' : '';
+    } else {
+      daysDisp.textContent = 'N/A';
+      daysDisp.style.color = 'var(--subtle)';
+    }
+  }
+  if (el('f-days')) el('f-days').value = c.days != null ? c.days : '';
   if (el('f-renewal-date')) el('f-renewal-date').value = c.renewal_date || '';
   if (el('f-next-touch'))  el('f-next-touch').value  = c.next_touch   || '';
   el('f-growth').value   = c.growth || 'none';
@@ -7063,8 +7079,6 @@ window.saveScore = function() {
       c.csat            = data.csat;
       c.days            = data.days;
       c._baseDays       = data.days;
-      // If user manually changed days slider, clear last_contact_date (user override)
-      if (data.days != null && c.last_contact_date) { c.last_contact_date = ''; }
       c.renewal         = data.renewal;
       c.renewal_date    = data.renewal_date || '';
       c.next_touch      = (el('f-next-touch') ? el('f-next-touch').value : '') || '';
