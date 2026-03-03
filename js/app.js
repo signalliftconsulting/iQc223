@@ -1205,52 +1205,52 @@ async function seedExampleData() {
   // Company definitions: [name, tier, mrr, trajKey, csmIndex, tenureMonths, renewalMonths, extraTags]
   const COMPANIES = [
     // Alex Thompson — 22 accounts (overloaded senior CSM, biggest book, showing strain)
-    ['Meridian Health Systems',  'enterprise', 42000, 'stable-healthy',  0, 28, 4, ['power-user']],
-    ['Cascade Financial Group',  'enterprise', 38000, 'declining',       0, 22, 2, ['renewal-soon']],
-    ['Northpoint Logistics',     'enterprise', 35000, 'slow-decline',    0, 30, 3, []],
-    ['TrueVista Analytics',      'mid',        12000, 'volatile',        0, 18, 6, []],
-    ['Bridgewell Partners',      'mid',        9500,  'improving',       0, 14, 10, []],
-    ['Silverlake Media',         'mid',        8000,  'declining',       0, 20, 3, ['churn-risk']],
-    ['Redtail Software',         'mid',        7200,  'slow-decline',    0, 24, 5, []],
-    ['Horizon Biotech',          'mid',        6800,  'recovered',       0, 16, 7, ['save-success']],
-    ['Crestline Manufacturing',  'smb',        3200,  'declining',       0, 12, 1, ['churn-risk']],
-    ['Oakridge Consulting',      'smb',        2800,  'stable-healthy',  0, 10, 9, []],
-    ['Pinecrest Digital',        'smb',        2400,  'volatile',        0, 8, 11, []],
-    ['Evergreen Solutions',      'smb',        2100,  'onboarding',      0, 2, 12, ['onboarding']],
-    ['Daybreak Education',       'smb',        1800,  'stable-low',      0, 18, 4, []],
-    ['Summit Trail Co',          'smb',        1500,  'improving',       0, 15, 6, []],
-    ['Lantern Group',            'smb',        1200,  'churned',         0, 20, -3, ['churned']],
-    ['CloudNine Ventures',       'mid',        5500,  'seasonal',        0, 22, 5, []],
-    ['RapidEdge Tech',           'smb',        2600,  'declining',       0, 11, 8, []],
-    ['Vanguard Ops',             'mid',        7800,  'stable-healthy',  0, 26, 7, ['upsell-candidate']],
-    ['Lionsgate Supply',         'mid',        6400,  'slow-decline',    0, 19, 4, []],
-    ['Wrenfield Analytics',      'smb',        1900,  'stable-low',      0, 13, 9, []],
-    ['Copper Basin Tech',        'smb',        2200,  'onboarding',      0, 1, 13, ['onboarding']],
-    ['Greystone Partners',       'mid',        8800,  'volatile',        0, 25, 2, ['renewal-soon']],
+    ['Meridian Health Systems',  'enterprise', 42000, 'stable-healthy',  0, 28, 4, ['healthcare']],
+    ['Cascade Financial Group',  'enterprise', 38000, 'declining',       0, 22, 2, ['financial-services']],
+    ['Northpoint Logistics',     'enterprise', 35000, 'slow-decline',    0, 30, 3, ['logistics']],
+    ['TrueVista Analytics',      'mid',        12000, 'volatile',        0, 18, 6, ['technology']],
+    ['Bridgewell Partners',      'mid',        9500,  'improving',       0, 14, 10, ['financial-services']],
+    ['Silverlake Media',         'mid',        8000,  'declining',       0, 20, 3, ['media']],
+    ['Redtail Software',         'mid',        7200,  'slow-decline',    0, 24, 5, ['technology']],
+    ['Horizon Biotech',          'mid',        6800,  'recovered',       0, 16, 7, ['healthcare']],
+    ['Crestline Manufacturing',  'smb',        3200,  'declining',       0, 12, 1, ['manufacturing']],
+    ['Oakridge Consulting',      'smb',        2800,  'stable-healthy',  0, 10, 9, ['professional-services']],
+    ['Pinecrest Digital',        'smb',        2400,  'volatile',        0, 8, 11, ['technology']],
+    ['Evergreen Solutions',      'smb',        2100,  'onboarding',      0, 2, 12, ['professional-services']],
+    ['Daybreak Education',       'smb',        1800,  'stable-low',      0, 18, 4, ['education']],
+    ['Summit Trail Co',          'smb',        1500,  'improving',       0, 15, 6, ['retail']],
+    ['Lantern Group',            'smb',        1200,  'churned',         0, 20, -3, ['media']],
+    ['CloudNine Ventures',       'mid',        5500,  'seasonal',        0, 22, 5, ['financial-services']],
+    ['RapidEdge Tech',           'smb',        2600,  'declining',       0, 11, 8, ['technology']],
+    ['Vanguard Ops',             'mid',        7800,  'stable-healthy',  0, 26, 7, ['logistics']],
+    ['Lionsgate Supply',         'mid',        6400,  'slow-decline',    0, 19, 4, ['retail']],
+    ['Wrenfield Analytics',      'smb',        1900,  'stable-low',      0, 13, 9, ['technology']],
+    ['Copper Basin Tech',        'smb',        2200,  'onboarding',      0, 1, 13, ['technology']],
+    ['Greystone Partners',       'mid',        8800,  'volatile',        0, 25, 2, ['financial-services']],
 
     // Jordan Lee — 12 accounts (solid mid-level CSM, balanced book)
-    ['Atlas Robotics',           'enterprise', 48000, 'stable-healthy',  1, 32, 6, ['power-user','upsell-candidate']],
-    ['Pacific Coast Insurance',  'enterprise', 31000, 'recovered',       1, 26, 3, ['save-success']],
-    ['Ironbridge Capital',       'mid',        14000, 'improving',       1, 12, 9, []],
-    ['Zenith Pharma',            'mid',        11000, 'seasonal',        1, 20, 5, []],
-    ['Wavefront Digital',        'mid',        9000,  'declining',       1, 16, 2, ['renewal-soon']],
-    ['Copperline Industries',    'mid',        7500,  'stable-healthy',  1, 24, 7, []],
-    ['Beacon Aerospace',         'mid',        6200,  'volatile',        1, 18, 4, []],
-    ['Keystone Learning',        'smb',        3400,  'improving',       1, 14, 10, []],
-    ['Frostbyte Gaming',         'smb',        2900,  'stable-healthy',  1, 6, 12, []],
-    ['Driftwood Creative',       'smb',        2200,  'onboarding',      1, 1, 13, ['onboarding']],
-    ['Terraverde Foods',         'smb',        1600,  'churned',         1, 16, -2, ['churned']],
-    ['Prism Dynamics',           'mid',        5800,  'recovered',       1, 15, 6, ['save-success']],
+    ['Atlas Robotics',           'enterprise', 48000, 'stable-healthy',  1, 32, 6, ['manufacturing']],
+    ['Pacific Coast Insurance',  'enterprise', 31000, 'recovered',       1, 26, 3, ['insurance']],
+    ['Ironbridge Capital',       'mid',        14000, 'improving',       1, 12, 9, ['financial-services']],
+    ['Zenith Pharma',            'mid',        11000, 'seasonal',        1, 20, 5, ['healthcare']],
+    ['Wavefront Digital',        'mid',        9000,  'declining',       1, 16, 2, ['media']],
+    ['Copperline Industries',    'mid',        7500,  'stable-healthy',  1, 24, 7, ['manufacturing']],
+    ['Beacon Aerospace',         'mid',        6200,  'volatile',        1, 18, 4, ['aerospace']],
+    ['Keystone Learning',        'smb',        3400,  'improving',       1, 14, 10, ['education']],
+    ['Frostbyte Gaming',         'smb',        2900,  'stable-healthy',  1, 6, 12, ['media']],
+    ['Driftwood Creative',       'smb',        2200,  'onboarding',      1, 1, 13, ['media']],
+    ['Terraverde Foods',         'smb',        1600,  'churned',         1, 16, -2, ['food-beverage']],
+    ['Prism Dynamics',           'mid',        5800,  'recovered',       1, 15, 6, ['technology']],
 
     // Sam Patel — 8 accounts (newer CSM, smallest book, ramping up)
-    ['Granite Peak Energy',      'enterprise', 52000, 'stable-healthy',  2, 34, 5, ['power-user','case-study']],
-    ['Stratos Telecom',          'mid',        13000, 'declining',       2, 20, 1, ['renewal-soon','churn-risk']],
-    ['Blueshift Labs',           'mid',        10500, 'improving',       2, 10, 8, []],
-    ['Helix Genomics',           'mid',        8500,  'onboarding',      2, 2, 14, ['onboarding']],
-    ['Lakeshore Realty',         'smb',        3100,  'volatile',        2, 16, 6, []],
-    ['Timberline Outdoors',      'smb',        2500,  'recovered',       2, 12, 9, ['save-success']],
-    ['Ironclad Security',        'mid',        6500,  'seasonal',        2, 22, 7, []],
-    ['Nightfall Studios',        'smb',        1400,  'stable-low',      2, 14, 3, []]
+    ['Granite Peak Energy',      'enterprise', 52000, 'stable-healthy',  2, 34, 5, ['energy']],
+    ['Stratos Telecom',          'mid',        13000, 'declining',       2, 20, 1, ['telecom']],
+    ['Blueshift Labs',           'mid',        10500, 'improving',       2, 10, 8, ['technology']],
+    ['Helix Genomics',           'mid',        8500,  'onboarding',      2, 2, 14, ['healthcare']],
+    ['Lakeshore Realty',         'smb',        3100,  'volatile',        2, 16, 6, ['real-estate']],
+    ['Timberline Outdoors',      'smb',        2500,  'recovered',       2, 12, 9, ['retail']],
+    ['Ironclad Security',        'mid',        6500,  'seasonal',        2, 22, 7, ['technology']],
+    ['Nightfall Studios',        'smb',        1400,  'stable-low',      2, 14, 3, ['media']]
   ];
 
   const exCustomers = COMPANIES.map(([name, tier, mrr, trajKey, csmIdx, tenureMo, renewMo, extraTags], i) => {
@@ -1280,11 +1280,8 @@ async function seedExampleData() {
     const since = sinceDate.toISOString().slice(0,10);
     const created = new Date(sinceDate.getTime() - Math.floor(Math.random()*14)*86400000).toISOString();
 
-    // Tags
+    // Tags (industry-based)
     const tags = [...extraTags];
-    if (lifecycle !== 'churned' && renewal <= 2 && !tags.includes('renewal-soon')) tags.push('renewal-soon');
-    if (last.score >= 85 && lastSig.growth === 'strong' && !tags.includes('upsell-candidate')) tags.push('upsell-candidate');
-    if (last.score < 30 && !tags.includes('churn-risk')) tags.push('churn-risk');
 
     // Notes — ~50% get notes, weighted toward troubled/important accounts
     const notes = [];
