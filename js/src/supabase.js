@@ -856,21 +856,21 @@ async function seedDemoData() {
   toast('Demo data seeded — 150 customers for ' + targetEmail, 'success');
 }
 
-// ─── EXAMPLE CLIENT SEED ─────────────────────────────────────
-// Curated 42-customer demo for the 'Example' client.
+// ─── DEMO ACCOUNT SEED ──────────────────────────────────────
+// Curated 42-customer demo for the 'Demo Account' client.
 // Run from console: seedExampleData()
 async function seedExampleData() {
   if (!isAdmin()) { console.error('Must be logged in as admin'); return; }
 
-  // 1. Find 'Example' client
-  console.log('1/4 — Finding Example client…');
+  // 1. Find 'Demo Account' client
+  console.log('1/4 — Finding Demo Account client…');
   const { data: clients } = await sb.from('clients').select('id, name');
-  const exClient = (clients || []).find(c => c.name.toLowerCase() === 'example');
-  if (!exClient) { console.error("No client named 'Example'. Create it in Settings → Clients first."); return; }
+  const exClient = (clients || []).find(c => c.name.toLowerCase() === 'demo account');
+  if (!exClient) { console.error("No client named 'Demo Account'. Create it in Settings → Clients first."); return; }
 
   // 2. Find a user assigned to that client
   const { data: profiles } = await sb.from('user_profiles').select('user_id, email').eq('client_id', exClient.id);
-  if (!profiles || !profiles.length) { console.error('No users assigned to Example client.'); return; }
+  if (!profiles || !profiles.length) { console.error('No users assigned to Demo Account client.'); return; }
   const targetUser = profiles[0];
   console.log('   Client:', exClient.name, '(' + exClient.id + ')');
   console.log('   Target user:', targetUser.email);
@@ -1093,9 +1093,9 @@ async function seedExampleData() {
     console.log('   ' + inserted + '/' + rows.length + ' rows…');
   }
 
-  console.log('✓ Done! 42 customers seeded under Example client (' + exClient.id + ')');
+  console.log('✓ Done! 42 customers seeded under Demo Account (' + exClient.id + ')');
   console.log('CSM distribution: Alex Thompson (18), Jordan Lee (14), Sam Patel (10)');
-  toast('Example data seeded — 42 customers across 3 CSMs', 'success');
+  toast('Demo data seeded — 42 customers across 3 CSMs', 'success');
 }
 
 // ─── AUTO-REFRESH ────────────────────────────────────────────
