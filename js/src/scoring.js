@@ -367,8 +367,18 @@ function buildNextBestAction(c) {
   if (signalOn(c,'logins') && c.logins != null && c.logins < 5)
     return { level:'warn', action:`Investigate low logins (${c.logins}/mo)`, talk:`Only ${c.logins} logins this month is a red flag. Reach out: "I noticed your team's activity has dipped recently — is everything okay? Anything I can help unblock?"` };
 
-  if (status === 'watch')
-    return { level:'warn', action:'Check in — some warning signs', talk:`Score is in the Watch zone. Proactively reach out: "I wanted to check in and make sure everything is going well. Anything on your radar I should know about?"` };
+  if (status === 'watch') {
+    // Build a specific action based on which signals are actually weak
+    const watchSigns = [];
+    if (signalOn(c,'logins') && c.logins != null && c.logins < 10) watchSigns.push('logins at ' + c.logins + '/mo');
+    if (signalOn(c,'adoption') && c.adoption != null && c.adoption < 50) watchSigns.push('adoption at ' + c.adoption + '%');
+    if (signalOn(c,'tickets') && c.tickets != null && c.tickets >= 3) watchSigns.push(c.tickets + ' open tickets');
+    if (signalOn(c,'days') && c.days != null && c.days > 21) watchSigns.push('no contact in ' + c.days + 'd');
+    if (signalOn(c,'nps') && c.nps != null && c.nps <= 7) watchSigns.push('NPS ' + c.nps);
+    if (signalOn(c,'csat') && c.csat != null && c.csat <= 3) watchSigns.push('CSAT ' + csatDisplay(c.csat));
+    const signSummary = watchSigns.length ? watchSigns.slice(0, 2).join(', ') : 'mixed signals';
+    return { level:'warn', action:'Check in — ' + signSummary, talk:`Score is in the Watch zone (${signSummary}). Proactively reach out: "I wanted to check in and make sure everything is going well. Anything on your radar I should know about?"` };
+  }
 
   if (signalOn(c,'growth') && status === 'expand' && c.growth === 'strong')
     return { level:'expand', action:'Open the upsell conversation', talk:`Perfect timing for expansion. Say: "Your team's engagement has been really strong — have you thought about [next tier / additional seats]? Teams at your stage typically see [outcome] when they expand."` };
@@ -376,8 +386,10 @@ function buildNextBestAction(c) {
   if (c.renewal != null && c.renewal <= 3)
     return { level:'renew', action:'Start renewal conversation', talk:`Get ahead of the renewal while sentiment is positive: "Renewal is coming up — I'd love to get ahead of it and make sure everything is lined up on your end."` };
 
-  if (mom === 'dn')
-    return { level:'warn', action:'Investigate score decline', talk:`Score is trending down — dig into what changed. Ask: "I noticed some changes in your usage patterns recently — is there anything going on that I should know about?"` };
+  if (mom === 'dn') {
+    const drop = Math.abs(getDelta7d(c));
+    return { level:'warn', action:`Investigate score decline (−${drop} pts)`, talk:`Score dropped ${drop} points this week — dig into what changed. Ask: "I noticed some changes in your usage patterns recently — is there anything going on that I should know about?"` };
+  }
 
   if (status === 'expand')
     return { level:'expand', action:'Ask for a referral or case study', talk:`Happy, healthy customer — great time to ask: "You've had such a great experience — would you be open to a quick intro to a peer who might benefit? I'll make it easy for you."` };
