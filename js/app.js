@@ -11998,6 +11998,7 @@ const METRIC_CFG = {
   days:     { label:'Days Since Contact',  agg:'avg', fixed:null,    val: (h,c) => h.signals?.days,                    fmt: v => String(Math.round(v)),            axFmt: v => String(Math.round(v)) },
   mrr:      { label:'Total MRR',          agg:'sum', fixed:null,     val: (h,c) => c.mrr,                              fmt: v => '$'+fmtNum(Math.round(v)),       axFmt: v => { if(Math.abs(v)>=1e6) return '$'+(v/1e6).toFixed(1)+'M'; if(Math.abs(v)>=1e3) return '$'+Math.round(v/1e3)+'K'; return '$'+Math.round(v); } },
   arr:      { label:'Total ARR',          agg:'sum', fixed:null,     val: (h,c) => c.arr,                              fmt: v => '$'+fmtNum(Math.round(v)),       axFmt: v => { if(Math.abs(v)>=1e6) return '$'+(v/1e6).toFixed(1)+'M'; if(Math.abs(v)>=1e3) return '$'+Math.round(v/1e3)+'K'; return '$'+Math.round(v); } },
+  customers:{ label:'# Customers',        agg:'count', fixed:null,   val: (h,c) => 1,                                  fmt: v => String(Math.round(v)),            axFmt: v => String(Math.round(v)) },
 };
 
 function setTrendMetric(slot, key) {
@@ -12084,9 +12085,10 @@ function renderTrends() {
   function aggregateByDay(custs, metricKey) {
     const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
     const isSumMetric = cfg.agg === 'sum';
+    const isCountMetric = cfg.agg === 'count';
 
-    if (isSumMetric) {
-      // Sum metrics (MRR/ARR): original per-entry logic — count each customer once per day
+    if (isSumMetric || isCountMetric) {
+      // Sum/Count metrics: count each customer once per day
       const dayMap = {};
       custs.forEach(c => {
         (c.history || []).forEach(h => {
@@ -12104,7 +12106,7 @@ function renderTrends() {
         });
       });
       return Object.entries(dayMap)
-        .map(([date, v]) => ({ date, avg: v.total }))
+        .map(([date, v]) => ({ date, avg: isCountMetric ? v.count : v.total }))
         .filter(p => !isNaN(p.avg))
         .sort((a, b) => a.date.localeCompare(b.date));
     }
