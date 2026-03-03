@@ -1468,21 +1468,6 @@ td .sparkline{vertical-align:middle}
     <div><h1>Trends</h1><p>Portfolio health over time</p></div>
   </div>
 
-  <!-- Date range selector -->
-  <div id="trend-range-row" style="display:flex;align-items:center;gap:12px;margin:0 0 18px">
-    <span style="font-size:.82rem;font-weight:700;color:var(--text);letter-spacing:.02em;white-space:nowrap">Date Range</span>
-    <div class="dtab-row trend-range-bar" style="margin:0">
-      <button class="dtab" data-range="1d" onclick="setTrendRange('1d')">1 Day</button>
-      <button class="dtab" data-range="7d" onclick="setTrendRange('7d')">7 Days</button>
-      <button class="dtab active" data-range="30d" onclick="setTrendRange('30d')">30 Days</button>
-      <button class="dtab" data-range="90d" onclick="setTrendRange('90d')">90 Days</button>
-      <button class="dtab" data-range="6m" onclick="setTrendRange('6m')">6 Months</button>
-      <button class="dtab" data-range="1y" onclick="setTrendRange('1y')">1 Year</button>
-      <button class="dtab" data-range="2y" onclick="setTrendRange('2y')">2 Years</button>
-      <button class="dtab" data-range="ytd" onclick="setTrendRange('ytd')">YTD</button>
-    </div>
-  </div>
-
   <!-- KPI summary row -->
   <div class="dash-kpi-row" id="trend-kpi-row"></div>
 
@@ -1528,6 +1513,21 @@ td .sparkline{vertical-align:middle}
         <div class="trend-autocomplete" id="trend-client-ac"></div>
       </div>
       <div class="trend-client-tags" id="trend-client-tags"></div>
+    </div>
+  </div>
+
+  <!-- Date range selector -->
+  <div id="trend-range-row" style="display:flex;align-items:center;gap:12px;margin:0 0 18px">
+    <span style="font-size:.82rem;font-weight:700;color:var(--text);letter-spacing:.02em;white-space:nowrap">Date Range</span>
+    <div class="dtab-row trend-range-bar" style="margin:0">
+      <button class="dtab" data-range="1d" onclick="setTrendRange('1d')">1 Day</button>
+      <button class="dtab" data-range="7d" onclick="setTrendRange('7d')">7 Days</button>
+      <button class="dtab active" data-range="30d" onclick="setTrendRange('30d')">30 Days</button>
+      <button class="dtab" data-range="90d" onclick="setTrendRange('90d')">90 Days</button>
+      <button class="dtab" data-range="6m" onclick="setTrendRange('6m')">6 Months</button>
+      <button class="dtab" data-range="1y" onclick="setTrendRange('1y')">1 Year</button>
+      <button class="dtab" data-range="2y" onclick="setTrendRange('2y')">2 Years</button>
+      <button class="dtab" data-range="ytd" onclick="setTrendRange('ytd')">YTD</button>
     </div>
   </div>
 
@@ -2923,6 +2923,6 @@ td .sparkline{vertical-align:middle}
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=181"></script>
+<script src="js/app.js?v=183"></script>
 </body>
 </html>

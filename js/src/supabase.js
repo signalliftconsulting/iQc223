@@ -492,8 +492,8 @@ const _DEMO_TRAJECTORIES = {
     logins:[18,30], adoption:[65,95], tickets:[0,2], days:[2,15],
     npsOpts:[8,9,9,10,10], csatOpts:[4,4,5,5,5],
     growthOpts:['strong','strong','mild'],
-    lifecycle:'active', noise:0.08,
-    trend: (d,t) => 0.95 + 0.05 * Math.sin(d/t * Math.PI * 6) // slight wobble around 0.95
+    lifecycle:'active', noise:0.12,
+    trend: (d,t) => 0.82 + 0.18 * Math.sin(d/t * Math.PI * 6) // wobble around 0.82-1.0
   },
   'stable-low': {
     logins:[2,8], adoption:[12,35], tickets:[2,6], days:[30,70],
@@ -506,17 +506,17 @@ const _DEMO_TRAJECTORIES = {
     logins:[4,28], adoption:[15,88], tickets:[0,5], days:[5,45],
     npsOpts:[4,5,6,7,8,9], csatOpts:[2,2,3,3,4,5],
     growthOpts:['none','none','mild','strong'],
-    lifecycle:'active', noise:0.10,
-    // Slow start, accelerating improvement over 2 years
-    trend: (d,t) => { const p = d/t; return 0.15 + 0.80 * (p < 0.3 ? p*0.5/0.3 : 0.5 + 0.5*((p-0.3)/0.7)); }
+    lifecycle:'active', noise:0.12,
+    // Starts rough, accelerating improvement — more dramatic rise
+    trend: (d,t) => { const p = d/t; return 0.10 + 0.85 * (p < 0.3 ? p*0.35/0.3 : 0.35 + 0.65*((p-0.3)/0.7)); }
   },
   'declining': {
     logins:[4,26], adoption:[18,82], tickets:[0,6], days:[5,55],
     npsOpts:[9,8,7,6,5,4], csatOpts:[5,4,4,3,2,2],
     growthOpts:['strong','mild','none','none'],
-    lifecycle:'atrisk', noise:0.09,
-    // Gradual decline with a brief plateau in the middle
-    trend: (d,t) => { const p = d/t; return p < 0.4 ? 1.0 - 0.3*p/0.4 : p < 0.55 ? 0.7 : 0.7 - 0.55*(p-0.55)/0.45; }
+    lifecycle:'atrisk', noise:0.11,
+    // Steeper decline with a brief plateau in the middle
+    trend: (d,t) => { const p = d/t; return p < 0.35 ? 1.0 - 0.35*p/0.35 : p < 0.50 ? 0.65 : 0.65 - 0.55*(p-0.50)/0.50; }
   },
   'slow-decline': {
     logins:[3,22], adoption:[10,55], tickets:[1,7], days:[10,80],
@@ -530,9 +530,9 @@ const _DEMO_TRAJECTORIES = {
     logins:[4,28], adoption:[20,85], tickets:[0,6], days:[5,50],
     npsOpts:[3,5,7,9,10,6,4], csatOpts:[1,2,4,5,3,2,4],
     growthOpts:['none','mild','strong','none','mild'],
-    lifecycle:'active', noise:0.12,
-    // Multiple oscillations over 2 years
-    trend: (d,t) => 0.5 + 0.4 * Math.sin(d/t * Math.PI * 7) * Math.cos(d/t * Math.PI * 2.3)
+    lifecycle:'active', noise:0.15,
+    // Wide swings over 2 years
+    trend: (d,t) => 0.5 + 0.45 * Math.sin(d/t * Math.PI * 5) * Math.cos(d/t * Math.PI * 1.7)
   },
   'onboarding': {
     logins:[0,20], adoption:[2,55], tickets:[0,3], days:[3,18],
@@ -560,25 +560,25 @@ const _DEMO_TRAJECTORIES = {
     logins:[5,28], adoption:[15,85], tickets:[0,6], days:[5,50],
     npsOpts:[8,6,5,4,5,7,8,9], csatOpts:[4,3,2,2,3,3,4,5],
     growthOpts:['mild','none','none','mild','strong'],
-    lifecycle:'active', noise:0.10,
-    // V-shape: decline for 45%, bottom at 45-55%, recovery 55-100%
+    lifecycle:'active', noise:0.12,
+    // Deep V-shape: steep decline for 40%, hard bottom 40-55%, strong recovery 55-100%
     trend: (d,t) => {
       const p = d/t;
-      if (p < 0.45) return 0.85 - 0.60 * p / 0.45;
-      if (p < 0.55) return 0.25 + 0.05 * Math.sin((p-0.45)/0.1 * Math.PI);
-      return 0.25 + 0.65 * (p-0.55)/0.45;
+      if (p < 0.40) return 0.90 - 0.75 * p / 0.40;
+      if (p < 0.55) return 0.15 + 0.05 * Math.sin((p-0.40)/0.15 * Math.PI);
+      return 0.15 + 0.75 * (p-0.55)/0.45;
     }
   },
   'seasonal': {
     logins:[12,30], adoption:[50,92], tickets:[0,4], days:[3,25],
     npsOpts:[7,8,8,9,9,10], csatOpts:[3,4,4,5,5],
     growthOpts:['mild','strong','mild'],
-    lifecycle:'active', noise:0.08,
-    // Healthy baseline with 3 seasonal dips over 2 years
+    lifecycle:'active', noise:0.10,
+    // Pronounced seasonal dips — drops to ~55-60 then recovers
     trend: (d,t) => {
-      const base = 0.82;
-      const dip = 0.25 * Math.max(0, Math.sin(d/t * Math.PI * 3) - 0.4) / 0.6;
-      return base - dip + 0.08 * Math.sin(d/t * Math.PI * 11); // micro-wobble
+      const base = 0.80;
+      const dip = 0.35 * Math.max(0, Math.sin(d/t * Math.PI * 3) - 0.3) / 0.7;
+      return base - dip + 0.10 * Math.sin(d/t * Math.PI * 11);
     }
   }
 };
@@ -883,58 +883,58 @@ async function seedExampleData() {
   console.log('   Old data cleared.');
 
   // 4. Generate curated customers
-  console.log('3/4 — Generating 42 curated customers…');
+  console.log('3/4 — Generating ' + COMPANIES.length + ' curated customers…');
   const now = Date.now();
   const CSMS = ['Alex Thompson', 'Jordan Lee', 'Sam Patel'];
 
   // Company definitions: [name, tier, mrr, trajKey, csmIndex, tenureMonths, renewalMonths, extraTags]
   const COMPANIES = [
-    // Alex Thompson — 18 accounts (senior CSM, biggest book)
+    // Alex Thompson — 22 accounts (overloaded senior CSM, biggest book, showing strain)
     ['Meridian Health Systems',  'enterprise', 42000, 'stable-healthy',  0, 28, 4, ['power-user']],
     ['Cascade Financial Group',  'enterprise', 38000, 'declining',       0, 22, 2, ['renewal-soon']],
-    ['Northpoint Logistics',     'enterprise', 35000, 'recovered',       0, 30, 8, ['save-success']],
-    ['TrueVista Analytics',      'mid',        12000, 'stable-healthy',  0, 18, 6, []],
+    ['Northpoint Logistics',     'enterprise', 35000, 'slow-decline',    0, 30, 3, []],
+    ['TrueVista Analytics',      'mid',        12000, 'volatile',        0, 18, 6, []],
     ['Bridgewell Partners',      'mid',        9500,  'improving',       0, 14, 10, []],
-    ['Silverlake Media',         'mid',        8000,  'volatile',        0, 20, 3, []],
+    ['Silverlake Media',         'mid',        8000,  'declining',       0, 20, 3, ['churn-risk']],
     ['Redtail Software',         'mid',        7200,  'slow-decline',    0, 24, 5, []],
-    ['Horizon Biotech',          'mid',        6800,  'stable-healthy',  0, 16, 7, []],
+    ['Horizon Biotech',          'mid',        6800,  'recovered',       0, 16, 7, ['save-success']],
     ['Crestline Manufacturing',  'smb',        3200,  'declining',       0, 12, 1, ['churn-risk']],
     ['Oakridge Consulting',      'smb',        2800,  'stable-healthy',  0, 10, 9, []],
-    ['Pinecrest Digital',        'smb',        2400,  'improving',       0, 8, 11, []],
+    ['Pinecrest Digital',        'smb',        2400,  'volatile',        0, 8, 11, []],
     ['Evergreen Solutions',      'smb',        2100,  'onboarding',      0, 2, 12, ['onboarding']],
     ['Daybreak Education',       'smb',        1800,  'stable-low',      0, 18, 4, []],
-    ['Summit Trail Co',          'smb',        1500,  'recovered',       0, 15, 6, ['save-success']],
+    ['Summit Trail Co',          'smb',        1500,  'improving',       0, 15, 6, []],
     ['Lantern Group',            'smb',        1200,  'churned',         0, 20, -3, ['churned']],
     ['CloudNine Ventures',       'mid',        5500,  'seasonal',        0, 22, 5, []],
-    ['RapidEdge Tech',           'smb',        2600,  'volatile',        0, 11, 8, []],
+    ['RapidEdge Tech',           'smb',        2600,  'declining',       0, 11, 8, []],
     ['Vanguard Ops',             'mid',        7800,  'stable-healthy',  0, 26, 7, ['upsell-candidate']],
+    ['Lionsgate Supply',         'mid',        6400,  'slow-decline',    0, 19, 4, []],
+    ['Wrenfield Analytics',      'smb',        1900,  'stable-low',      0, 13, 9, []],
+    ['Copper Basin Tech',        'smb',        2200,  'onboarding',      0, 1, 13, ['onboarding']],
+    ['Greystone Partners',       'mid',        8800,  'volatile',        0, 25, 2, ['renewal-soon']],
 
-    // Jordan Lee — 14 accounts (mid-level CSM)
+    // Jordan Lee — 12 accounts (solid mid-level CSM, balanced book)
     ['Atlas Robotics',           'enterprise', 48000, 'stable-healthy',  1, 32, 6, ['power-user','upsell-candidate']],
-    ['Pacific Coast Insurance',  'enterprise', 31000, 'slow-decline',    1, 26, 3, []],
+    ['Pacific Coast Insurance',  'enterprise', 31000, 'recovered',       1, 26, 3, ['save-success']],
     ['Ironbridge Capital',       'mid',        14000, 'improving',       1, 12, 9, []],
-    ['Zenith Pharma',            'mid',        11000, 'stable-healthy',  1, 20, 5, []],
+    ['Zenith Pharma',            'mid',        11000, 'seasonal',        1, 20, 5, []],
     ['Wavefront Digital',        'mid',        9000,  'declining',       1, 16, 2, ['renewal-soon']],
-    ['Copperline Industries',    'mid',        7500,  'recovered',       1, 24, 7, ['save-success']],
+    ['Copperline Industries',    'mid',        7500,  'stable-healthy',  1, 24, 7, []],
     ['Beacon Aerospace',         'mid',        6200,  'volatile',        1, 18, 4, []],
-    ['Keystone Learning',        'smb',        3400,  'stable-healthy',  1, 14, 10, []],
-    ['Frostbyte Gaming',         'smb',        2900,  'improving',       1, 6, 12, []],
+    ['Keystone Learning',        'smb',        3400,  'improving',       1, 14, 10, []],
+    ['Frostbyte Gaming',         'smb',        2900,  'stable-healthy',  1, 6, 12, []],
     ['Driftwood Creative',       'smb',        2200,  'onboarding',      1, 1, 13, ['onboarding']],
-    ['Mosaic Healthcare',        'smb',        1900,  'stable-low',      1, 22, 3, []],
     ['Terraverde Foods',         'smb',        1600,  'churned',         1, 16, -2, ['churned']],
-    ['Nexus Sports',             'mid',        8200,  'seasonal',        1, 20, 8, []],
-    ['Prism Dynamics',           'mid',        5800,  'stable-healthy',  1, 15, 6, []],
+    ['Prism Dynamics',           'mid',        5800,  'recovered',       1, 15, 6, ['save-success']],
 
-    // Sam Patel — 10 accounts (newer CSM, smaller book, more onboarding)
+    // Sam Patel — 8 accounts (newer CSM, smallest book, ramping up)
     ['Granite Peak Energy',      'enterprise', 52000, 'stable-healthy',  2, 34, 5, ['power-user','case-study']],
     ['Stratos Telecom',          'mid',        13000, 'declining',       2, 20, 1, ['renewal-soon','churn-risk']],
     ['Blueshift Labs',           'mid',        10500, 'improving',       2, 10, 8, []],
     ['Helix Genomics',           'mid',        8500,  'onboarding',      2, 2, 14, ['onboarding']],
     ['Lakeshore Realty',         'smb',        3100,  'volatile',        2, 16, 6, []],
-    ['Timberline Outdoors',      'smb',        2500,  'stable-healthy',  2, 12, 9, []],
-    ['Sagebrush Marketing',      'smb',        2000,  'slow-decline',    2, 18, 4, []],
-    ['Ironclad Security',        'mid',        6500,  'recovered',       2, 22, 7, ['save-success']],
-    ['Coral Bay Resorts',        'smb',        1800,  'onboarding',      2, 1, 14, ['onboarding']],
+    ['Timberline Outdoors',      'smb',        2500,  'recovered',       2, 12, 9, ['save-success']],
+    ['Ironclad Security',        'mid',        6500,  'seasonal',        2, 22, 7, []],
     ['Nightfall Studios',        'smb',        1400,  'stable-low',      2, 14, 3, []]
   ];
 
@@ -1071,7 +1071,7 @@ async function seedExampleData() {
   });
 
   // 5. Push to Supabase
-  console.log('4/4 — Pushing 42 customers to Supabase…');
+  console.log('4/4 — Pushing ' + exCustomers.length + ' customers to Supabase…');
   const rows = exCustomers.map(c => {
     const row = toRow(c);
     row.user_id = targetUser.user_id;
