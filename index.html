@@ -1109,6 +1109,13 @@ td .sparkline{vertical-align:middle}
 .cal-stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent-color,var(--blue))}
 .cal-stat-num{font-size:1.8rem;font-weight:800;letter-spacing:-.03em;line-height:1;color:var(--text)}
 .cal-stat-label{font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-top:4px}
+.cal-filter-row{display:flex;align-items:center;gap:14px;margin-bottom:16px;flex-wrap:wrap}
+.cal-filter-select{padding:6px 10px;border:1px solid var(--border);border-radius:var(--rsm);font-size:.78rem;background:var(--surface);color:var(--text);min-width:200px}
+.cal-ctx-bar{display:flex;align-items:center;gap:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--rsm);padding:8px 16px}
+.cal-ctx-item{display:flex;flex-direction:column;gap:1px}
+.cal-ctx-label{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.cal-ctx-val{font-size:.82rem;font-weight:700;color:var(--text)}
+.cal-ctx-sep{width:1px;height:28px;background:var(--border)}
 .cal-grid-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);box-shadow:var(--sh);overflow:hidden}
 .cal-grid{width:100%;border-collapse:collapse;table-layout:fixed}
 .cal-grid thead th{padding:10px 4px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);text-align:center;background:var(--bg);border-bottom:1px solid var(--border)}
@@ -3001,6 +3008,6 @@ td .sparkline{vertical-align:middle}
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=196"></script>
+<script src="js/app.js?v=197"></script>
 </body>
 </html>

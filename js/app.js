@@ -13349,6 +13349,7 @@ function drillCSM(mgrName) {
 // ─── CALENDAR PAGE ──────────────────────────────────────────
 let _calYear  = new Date().getFullYear();
 let _calMonth = new Date().getMonth();
+let _calCustFilter = ''; // customer ID filter
 
 function renderCalendar() {
   try { _renderCalendar(); } catch(e) { console.error('renderCalendar error:', e); }
@@ -13368,7 +13369,8 @@ function _renderCalendar() {
   const today = new Date(); today.setHours(0,0,0,0);
 
   // Collect events from filtered customers
-  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
+  const allActive = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
+  const active = _calCustFilter ? allActive.filter(c => c.id === _calCustFilter) : allActive;
   const events = [];
 
   const todayStr = now.toISOString().slice(0, 10);
@@ -13439,6 +13441,40 @@ function _renderCalendar() {
       '<span class="cal-legend-item"><span class="cal-dot cal-dot--overdue"></span>Overdue</span>' +
     '</div>' +
   '</div>';
+
+  // ── Customer filter ──
+  var custOpts = allActive.slice().sort(function(a,b) { return a.name.localeCompare(b.name); });
+  html += '<div class="cal-filter-row">';
+  html += '<div class="cal-filter-select-wrap">';
+  html += '<select id="cal-cust-filter" class="cal-filter-select" onchange="calSetCustFilter(this.value)">';
+  html += '<option value="">All Customers</option>';
+  custOpts.forEach(function(c) {
+    html += '<option value="' + escHtml(c.id) + '"' + (c.id === _calCustFilter ? ' selected' : '') + '>' + escHtml(c.name) + '</option>';
+  });
+  html += '</select></div>';
+
+  // Context bar — show last/next call when a customer is selected
+  if (_calCustFilter) {
+    var fc = allActive.find(function(c) { return c.id === _calCustFilter; });
+    if (fc) {
+      var _fmtD = function(d) { return d ? new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) : '—'; };
+      // Find last past touch from history (most recent)
+      var lastTouch = '';
+      if (fc.touch_history && fc.touch_history.length) {
+        var sorted = fc.touch_history.slice().sort(function(a,b) { return b.date.localeCompare(a.date); });
+        lastTouch = sorted[0].date;
+      }
+      if (!lastTouch && fc.last_contact_date) lastTouch = fc.last_contact_date;
+      html += '<div class="cal-ctx-bar">';
+      html += '<span class="cal-ctx-item"><span class="cal-ctx-label">Last Call</span><span class="cal-ctx-val">' + _fmtD(lastTouch) + '</span></span>';
+      html += '<span class="cal-ctx-sep"></span>';
+      html += '<span class="cal-ctx-item"><span class="cal-ctx-label">Next Scheduled</span><span class="cal-ctx-val">' + _fmtD(fc.next_touch) + '</span></span>';
+      html += '<span class="cal-ctx-sep"></span>';
+      html += '<span class="cal-ctx-item"><span class="cal-ctx-label">Renewal</span><span class="cal-ctx-val">' + _fmtD(fc.renewal_date) + '</span></span>';
+      html += '</div>';
+    }
+  }
+  html += '</div>';
 
   // ── Stat cards ──
   html += '<div class="cal-stats">' +
@@ -13541,6 +13577,12 @@ function calNext() {
 function calToday() {
   _calYear  = new Date().getFullYear();
   _calMonth = new Date().getMonth();
+  calClosePopover();
+  renderCalendar();
+}
+
+function calSetCustFilter(val) {
+  _calCustFilter = val || '';
   calClosePopover();
   renderCalendar();
 }
