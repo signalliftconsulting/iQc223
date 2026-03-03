@@ -2902,6 +2902,20 @@ td .sparkline{vertical-align:middle}
   </div>
 </div>
 
+<!-- REPORT ACTIONS MODAL -->
+<div class="modal-bg" id="report-actions-modal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-hd">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div id="ram-icon"></div>
+        <h2 id="ram-title">Report</h2>
+      </div>
+      <button class="modal-close" onclick="closeModal('report-actions-modal')">&#10005;</button>
+    </div>
+    <div class="modal-bd" id="ram-body"></div>
+  </div>
+</div>
+
 <!-- DIGEST MODAL (v86) -->
 <div class="modal-bg" id="digest-modal" onclick="if(event.target===this)closeModal('digest-modal')">
   <div class="modal" style="max-width:660px">
@@ -2923,6 +2937,6 @@ td .sparkline{vertical-align:middle}
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=187"></script>
+<script src="js/app.js?v=188"></script>
 </body>
 </html>

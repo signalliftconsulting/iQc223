@@ -1,4 +1,6 @@
 // ─── REPORTS ────────────────────────────────────────────────
+let _reportDefs = [];
+
 function renderReporting() {
   const wrap = el('reports-wrap');
   if (!wrap) return;
@@ -106,11 +108,14 @@ function renderReporting() {
     },
   ];
 
+  _reportDefs = reports;
+
   const sections = [
     { key:'all', label:'Reports' },
   ];
 
   let html = '';
+  let idx = 0;
   sections.forEach(sec => {
     const secReports = reports.filter(r => r.section === sec.key);
     html += '<div class="rpt-section">' +
@@ -118,18 +123,33 @@ function renderReporting() {
       '<div class="rpt-grid">';
     secReports.forEach(r => {
       const locked = !hasFeature(r.featureKey);
-      html += '<div class="rpt-card' + (locked ? ' locked' : '') + '">' +
+      const rIdx = reports.indexOf(r);
+      html += '<div class="rpt-card' + (locked ? ' locked' : '') + '"' +
+        (locked ? '' : ' onclick="openReportActions(' + rIdx + ')" style="cursor:pointer"') + '>' +
         (locked ? '<div class="rpt-lock-overlay">' + lockSvg + ' ' + (PLAN_TIER_LABELS[r.tier] || r.tier) + '+ required</div>' : '') +
         '<div class="rpt-card__icon" style="background:' + r.iconBg + ';color:' + r.iconColor + '">' + r.icon + '</div>' +
         '<div class="rpt-card__title">' + r.title + '</div>' +
         '<div class="rpt-card__desc">' + r.desc + '</div>' +
-        '<div class="rpt-card__actions">' +
-          r.actions.map(a => '<button class="btn btn-sm ' + a.cls + '" onclick="' + a.fn + '"' + (locked ? ' disabled' : '') + '>' + a.label + '</button>').join('') +
-        '</div></div>';
+        '</div>';
     });
     html += '</div></div>';
   });
   wrap.innerHTML = html;
+}
+
+function openReportActions(idx) {
+  const r = _reportDefs[idx];
+  if (!r) return;
+  el('ram-icon').innerHTML = '<div class="rpt-card__icon" style="background:' + r.iconBg + ';color:' + r.iconColor + '">' + r.icon + '</div>';
+  el('ram-title').textContent = r.title;
+  let html = '<p style="font-size:.82rem;color:var(--muted);margin:0 0 16px">' + r.desc + '</p>';
+  html += '<div style="display:flex;flex-direction:column;gap:8px">';
+  r.actions.forEach(a => {
+    html += '<button class="btn ' + a.cls + '" style="width:100%;justify-content:center" onclick="closeModal(\'report-actions-modal\');' + a.fn + '">' + a.label + '</button>';
+  });
+  html += '</div>';
+  el('ram-body').innerHTML = html;
+  openModal('report-actions-modal');
 }
 
 // ── Report: Score History Export (Solo) ──
