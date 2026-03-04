@@ -19,7 +19,6 @@ FILES=(
   scoring.js
   nav.js
   homebase.js
-  dashboard.js
   alerts.js
   customers.js
   detail.js

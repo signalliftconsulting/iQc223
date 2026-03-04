@@ -217,7 +217,8 @@ function renderFilterPills() {
   const keys = Object.keys(columnFilters);
   const hasMrr = mrrExposureFilter && mrrExposureFilter.ids;
   const hasInsight = insightFilter && insightFilter.ids;
-  if (!keys.length && !hasMrr && !hasInsight) { bar.style.display = 'none'; return; }
+  const hasTier = !!_filterTier;
+  if (!keys.length && !hasMrr && !hasInsight && !hasTier) { bar.style.display = 'none'; return; }
 
   bar.innerHTML = keys.map(key => {
     const f = columnFilters[key];
@@ -248,6 +249,11 @@ function renderFilterPills() {
   // Insight filter pill
   if (insightFilter && insightFilter.ids) {
     bar.innerHTML = `<span class="filter-pill" style="background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.4)">Insight: ${escHtml(insightFilter.label)}<button class="filter-pill-x" onclick="event.stopPropagation();clearInsightFilter()" title="Remove filter">✕</button></span>` + bar.innerHTML;
+  }
+  // Tier filter pill
+  if (_filterTier) {
+    const tierLabel = _filterTier === 'enterprise' ? 'Enterprise' : _filterTier === 'mid' ? 'Mid-Market' : 'SMB';
+    bar.innerHTML = `<span class="filter-pill" style="background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.4)">Tier: ${tierLabel}<button class="filter-pill-x" onclick="event.stopPropagation();clearTierFilter()" title="Remove filter">✕</button></span>` + bar.innerHTML;
   }
 
   bar.style.display = 'flex';
@@ -497,8 +503,8 @@ function _renderCustomers() {
 
   // Sort
   list.sort((a,b) => {
-    let av = sortKey==='_delta'?getDelta7d(a): sortKey==='_momentum'?getMomentum(a): sortKey==='status'?(a.status||''): sortKey==='lifecycle'?(a.lifecycle||''): sortKey==='tags'?(a.tags||[]).join(', '): sortKey==='name'?a.name: sortKey==='manager'?(a.manager||'zzz'): sortKey==='profile'?(a.scoring_profile||'zzz'): sortKey==='score'?a.score: sortKey==='mrr'?a.mrr||0: sortKey==='arr'?(a.arr||(a.mrr*12)||0): sortKey==='since'?(a.since||'9999'): sortKey==='days'?(a.days != null ? a.days : 999): sortKey==='renewal'?a.renewal||99: sortKey==='next_touch'?(a.next_touch||'9999'):0;
-    let bv = sortKey==='_delta'?getDelta7d(b): sortKey==='_momentum'?getMomentum(b): sortKey==='status'?(b.status||''): sortKey==='lifecycle'?(b.lifecycle||''): sortKey==='tags'?(b.tags||[]).join(', '): sortKey==='name'?b.name: sortKey==='manager'?(b.manager||'zzz'): sortKey==='profile'?(b.scoring_profile||'zzz'): sortKey==='score'?b.score: sortKey==='mrr'?b.mrr||0: sortKey==='arr'?(b.arr||(b.mrr*12)||0): sortKey==='since'?(b.since||'9999'): sortKey==='days'?(b.days != null ? b.days : 999): sortKey==='renewal'?b.renewal||99: sortKey==='next_touch'?(b.next_touch||'9999'):0;
+    let av = sortKey==='_delta'?getDelta7d(a): sortKey==='_momentum'?getDelta7d(a): sortKey==='status'?(a.status||''): sortKey==='lifecycle'?(a.lifecycle||''): sortKey==='tags'?(a.tags||[]).join(', '): sortKey==='name'?a.name: sortKey==='manager'?(a.manager||'zzz'): sortKey==='profile'?(a.scoring_profile||'zzz'): sortKey==='score'?a.score: sortKey==='mrr'?a.mrr||0: sortKey==='arr'?(a.arr||(a.mrr*12)||0): sortKey==='since'?(a.since||'9999'): sortKey==='days'?(a.days != null ? a.days : 999): sortKey==='renewal'?a.renewal||99: sortKey==='next_touch'?(a.next_touch||'9999'):0;
+    let bv = sortKey==='_delta'?getDelta7d(b): sortKey==='_momentum'?getDelta7d(b): sortKey==='status'?(b.status||''): sortKey==='lifecycle'?(b.lifecycle||''): sortKey==='tags'?(b.tags||[]).join(', '): sortKey==='name'?b.name: sortKey==='manager'?(b.manager||'zzz'): sortKey==='profile'?(b.scoring_profile||'zzz'): sortKey==='score'?b.score: sortKey==='mrr'?b.mrr||0: sortKey==='arr'?(b.arr||(b.mrr*12)||0): sortKey==='since'?(b.since||'9999'): sortKey==='days'?(b.days != null ? b.days : 999): sortKey==='renewal'?b.renewal||99: sortKey==='next_touch'?(b.next_touch||'9999'):0;
     if (typeof av === 'string') return av.localeCompare(bv) * sortDir;
     return (av - bv) * sortDir;
   });

@@ -190,13 +190,37 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- Add next_touch_time column (safe to re-run)
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='customers' AND column_name='next_touch_time') THEN
+    ALTER TABLE customers ADD COLUMN next_touch_time TEXT DEFAULT '';
+  END IF;
+END $$;
+
+-- Add client_id column (safe to re-run) — customers now belong to a client, not a single user
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='customers' AND column_name='client_id') THEN
+    ALTER TABLE customers ADD COLUMN client_id UUID REFERENCES clients(id) ON DELETE SET NULL;
+  END IF;
+END $$;
+
+-- Make user_id nullable (now just an audit/created_by field)
+ALTER TABLE customers ALTER COLUMN user_id DROP NOT NULL;
+
 ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
 
--- Each user sees only their own customers
-CREATE POLICY "customers_owner" ON customers
+-- Helper function: returns current user's client_id for RLS
+-- SECURITY DEFINER so it can read user_profiles without triggering recursive RLS
+CREATE OR REPLACE FUNCTION get_my_client_id()
+RETURNS UUID AS $$
+  SELECT client_id FROM public.user_profiles WHERE user_id = auth.uid();
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+-- Users see all customers in their client
+CREATE POLICY "customers_client_member" ON customers
   FOR ALL
-  USING  (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+  USING  (client_id = get_my_client_id())
+  WITH CHECK (client_id = get_my_client_id());
 
 -- Admin can read/write all customers
 CREATE POLICY "customers_admin" ON customers
@@ -345,6 +369,7 @@ CREATE POLICY "api_keys_owner" ON api_keys
 -- 9. INDEXES
 -- ─────────────────────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_customers_user_id    ON customers(user_id);
+CREATE INDEX IF NOT EXISTS idx_customers_client_id  ON customers(client_id);
 CREATE INDEX IF NOT EXISTS idx_customers_deleted    ON customers(deleted_at);
 CREATE INDEX IF NOT EXISTS idx_user_profiles_client ON user_profiles(client_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id   ON audit_logs(user_id);
@@ -352,6 +377,17 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_created   ON audit_logs(created_at DES
 CREATE INDEX IF NOT EXISTS idx_webhook_events_user  ON webhook_events(user_id);
 CREATE INDEX IF NOT EXISTS idx_webhook_events_date  ON webhook_events(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_api_keys_hash        ON api_keys(key_hash);
+
+
+-- ─────────────────────────────────────────────────────────────────
+-- 10. BACKFILL: Populate client_id on existing customer rows
+-- Run this ONCE after deploying the schema changes above.
+-- ─────────────────────────────────────────────────────────────────
+UPDATE customers c
+SET client_id = (
+  SELECT up.client_id FROM user_profiles up WHERE up.user_id = c.user_id
+)
+WHERE c.client_id IS NULL AND c.user_id IS NOT NULL;
 
 
 -- ─────────────────────────────────────────────────────────────────

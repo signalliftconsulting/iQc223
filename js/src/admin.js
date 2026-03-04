@@ -90,24 +90,34 @@ function updateClientFilterLabel() {
   }
 }
 
-// Load all customers belonging to users assigned to a given client
+// Load all customers belonging to a given client (direct query by client_id)
+// Falls back to user_id lookup if client_id column doesn't exist yet
 async function loadClientCustomers(clientId, silent) {
   if (!silent) setLoading(true);
   try {
-    // Get all user_ids assigned to this client
-    const { data: profiles, error: pErr } = await sb.from('user_profiles')
-      .select('user_id').eq('client_id', clientId);
-    if (pErr) throw pErr;
-
-    const userIds = (profiles || []).map(p => p.user_id);
-    if (!userIds.length) { customers = []; trash = []; if (!silent) setLoading(false); return; }
-
-    // Load all customers for those users (active + soft-deleted)
-    const { data, error } = await sb.from('customers')
+    let data, error;
+    // Try direct client_id query first
+    ({ data, error } = await sb.from('customers')
       .select('*')
-      .in('user_id', userIds)
-      .order('created_at', { ascending: false });
-    if (error) throw error;
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false }));
+
+    if (error) {
+      // Fallback: find all user_ids in this client, then query by user_id
+      console.warn('client_id query unavailable, falling back to user lookup:', error.message);
+      const { data: profiles } = await sb.from('user_profiles').select('user_id').eq('client_id', clientId);
+      const uids = (profiles || []).map(p => p.user_id);
+      if (uids.length) {
+        ({ data, error } = await sb.from('customers')
+          .select('*')
+          .in('user_id', uids)
+          .order('created_at', { ascending: false }));
+        if (error) throw error;
+      } else {
+        data = [];
+      }
+    }
+
     const all = (data || []).map(fromRow);
     customers = all.filter(c => !c.deleted_at);
     trash     = all.filter(c =>  c.deleted_at);
@@ -148,21 +158,18 @@ async function renderClients() {
   const userCounts = {};
   profiles.forEach(p => { if (p.client_id) userCounts[p.client_id] = (userCounts[p.client_id]||0)+1; });
 
-  // Count customers per client (via user_profiles → customers)
+  // Count customers per client — try client_id first, fall back to user→client mapping
   const custCounts = {};
   let totalCustomers = 0;
   try {
-    // Get user_id → client_id mapping
-    const userToClient = {};
-    profiles.forEach(p => { if (p.client_id) userToClient[p.client_id] = userToClient[p.client_id] || []; });
-    // Profiles already have client_id; query customer counts grouped by user_id
-    const { data: custRows } = await sb.from('customers').select('user_id');
+    const { data: custRows, error: custErr } = await sb.from('customers').select('client_id, user_id');
     if (custRows) {
-      // Build user_id → client_id lookup
+      // Build user→client map for fallback
       const uidToClient = {};
       profiles.forEach(p => { if (p.client_id) uidToClient[p.user_id] = p.client_id; });
+
       custRows.forEach(r => {
-        const cid = uidToClient[r.user_id];
+        const cid = r.client_id || uidToClient[r.user_id] || null;
         if (cid) { custCounts[cid] = (custCounts[cid] || 0) + 1; }
         totalCustomers++;
       });
@@ -539,7 +546,7 @@ async function adminSaveEdit() {
 // Auto-register current user's profile on login (so admin can see them)
 async function ensureUserProfile(user) {
   try {
-    const { data } = await sb.from('user_profiles').select('user_id, role').eq('user_id', user.id).single();
+    const { data } = await sb.from('user_profiles').select('user_id, role, client_id').eq('user_id', user.id).single();
     if (!data) {
       // Not registered yet — create profile row
       await sb.from('user_profiles').insert({
@@ -550,9 +557,11 @@ async function ensureUserProfile(user) {
         created_at:    new Date().toISOString()
       });
       _userRole = 'user';
+      _userClientId = null;
     } else {
       // Store the server-fetched role (can't be spoofed from console)
       _userRole = data.role || 'user';
+      _userClientId = data.client_id || null;
     }
     // Re-apply admin UI now that role is confirmed from server
     updateUserUI(user);

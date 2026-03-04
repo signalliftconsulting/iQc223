@@ -33,6 +33,36 @@ function toggleCsatNA() {
   el('rv-csat-label').style.color = na ? 'var(--subtle)' : '';
 }
 
+// Gray out signals with zero weight in the selected scoring profile
+function applyProfileSignalState() {
+  var profName = el('f-profile') ? el('f-profile').value : '';
+  var prof = profName ? profiles.find(function(p) { return p.name === profName; }) : null;
+  var w = prof ? prof.weights : weights;
+  var signalFields = {
+    logins:  'f-logins',
+    adoption:'f-adoption',
+    tickets: 'f-tickets',
+    nps:     'f-nps',
+    csat:    'f-csat',
+    days:    'f-days',
+    growth:  'f-growth'
+  };
+  Object.keys(signalFields).forEach(function(key) {
+    var fieldEl = el(signalFields[key]);
+    if (!fieldEl) return;
+    var wrapper = fieldEl.closest('.field');
+    if (!wrapper) return;
+    var isOff = !(w[key] > 0);
+    wrapper.style.opacity = isOff ? '.35' : '';
+    wrapper.style.pointerEvents = isOff ? 'none' : '';
+    if (isOff) {
+      wrapper.title = 'Weight is 0 in this profile — not used in scoring';
+    } else {
+      wrapper.title = '';
+    }
+  });
+}
+
 function getFormData() {
   return {
     name:     document.getElementById('f-name').value.trim(),
@@ -125,23 +155,28 @@ function showResult({ data, score, signals, status, rec, plays }) {
   // Rec
   document.getElementById('score-rec').innerHTML = rec;
 
-  // Breakdown
+  // Breakdown — resolve weights for the selected profile
   const bd = document.getElementById('breakdown-wrap');
+  const profName = el('f-profile') ? el('f-profile').value : '';
+  const matchedProf = profName ? profiles.find(p => p.name === profName) : null;
+  const bw = matchedProf ? matchedProf.weights : weights;
   const signalDefs = [
-    { key:'logins_n',   label:'Login Frequency',    color:'var(--blue)' },
-    { key:'adoption_n', label:'Feature Adoption',   color:'var(--green)' },
-    { key:'tickets_n',  label:'Support Health',     color:'var(--red)' },
-    { key:'nps_n',      label:'NPS (0–10)',         color:'var(--purple)' },
-    { key:'csat_n',     label:'CSAT (1–5)',         color:'#7c3aed' },
-    { key:'days_n',     label:'Contact Recency',    color:'var(--teal)' },
-    { key:'growth_n',   label:'Growth Signal',      color:'var(--green)' }
+    { key:'logins_n',   wkey:'logins',   label:'Login Frequency',    color:'var(--blue)' },
+    { key:'adoption_n', wkey:'adoption', label:'Feature Adoption',   color:'var(--green)' },
+    { key:'tickets_n',  wkey:'tickets',  label:'Support Health',     color:'var(--red)' },
+    { key:'nps_n',      wkey:'nps',      label:'NPS (0–10)',         color:'var(--purple)' },
+    { key:'csat_n',     wkey:'csat',     label:'CSAT (1–5)',         color:'#7c3aed' },
+    { key:'days_n',     wkey:'days',     label:'Contact Recency',    color:'var(--teal)' },
+    { key:'growth_n',   wkey:'growth',   label:'Growth Signal',      color:'var(--green)' }
   ];
-  bd.innerHTML = signalDefs.map(s => `
-    <div class="bd-row">
-      <div class="bd-label">${s.label}</div>
-      <div class="bd-bar"><div class="bd-fill" style="width:${Math.round(signals[s.key])}%;background:${s.color}"></div></div>
-      <div class="bd-score">${Math.round(signals[s.key])}</div>
-    </div>`).join('');
+  bd.innerHTML = signalDefs.map(s => {
+    const off = !((bw[s.wkey] || 0) > 0);
+    return `<div class="bd-row${off ? ' bd-row--off' : ''}">
+      <div class="bd-label">${s.label}${off ? ' <span style="font-size:.65rem;color:var(--muted)">(off)</span>' : ''}</div>
+      <div class="bd-bar"><div class="bd-fill" style="width:${off ? 0 : Math.round(signals[s.key])}%;background:${s.color}"></div></div>
+      <div class="bd-score">${off ? '—' : Math.round(signals[s.key])}</div>
+    </div>`;
+  }).join('');
 
   // Playbook
   const pw = document.getElementById('playbook-wrap');
@@ -368,6 +403,7 @@ function resetForm() {
   document.getElementById('form-title').textContent = 'Score a Customer';
   pendingResult = null;
   document.getElementById('score-form').dataset.editId = '';
+  applyProfileSignalState();
 }
 
 function printReport() {
@@ -687,7 +723,10 @@ function renderDetailOverview() {
           </div>
           <div>
             <label style="display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:2px">Next Touch</label>
-            <input type="date" id="di-next-touch" value="${c.next_touch||''}" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;background:var(--bg);color:var(--text)" />
+            <div style="display:flex;gap:4px">
+              <input type="date" id="di-next-touch" value="${c.next_touch||''}" style="flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;background:var(--bg);color:var(--text)" />
+              <input type="time" id="di-next-touch-time" value="${c.next_touch_time||''}" style="width:90px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;background:var(--bg);color:var(--text)" />
+            </div>
           </div>
           <div style="grid-column:1/-1">
             <label style="display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:2px">Tags</label>
@@ -730,9 +769,10 @@ function renderDetailOverview() {
         ${(()=>{
           if (!c.next_touch) return '<span style="font-size:.75rem;color:var(--muted)">Not scheduled</span>';
           const ntDays = Math.round((new Date(c.next_touch) - new Date()) / 86400000);
-          if (ntDays < 0)  return `<span class="nt-badge nt-overdue">Overdue ${Math.abs(ntDays)}d</span>`;
-          if (ntDays === 0) return `<span class="nt-badge nt-today">Today</span>`;
-          return `<span class="nt-badge nt-ok">in ${ntDays}d</span>`;
+          const tDisp = c.next_touch_time ? ' at ' + fmtTime12(c.next_touch_time) : '';
+          if (ntDays < 0)  return `<span class="nt-badge nt-overdue">Overdue ${Math.abs(ntDays)}d${tDisp}</span>`;
+          if (ntDays === 0) return `<span class="nt-badge nt-today">Today${tDisp}</span>`;
+          return `<span class="nt-badge nt-ok">in ${ntDays}d${tDisp}</span>`;
         })()}
       </div>
     </div>
@@ -766,15 +806,16 @@ async function saveDetailInline() {
   if (ntInput) {
     const newNt = ntInput.value || '';
     const oldNt = c.next_touch || '';
-    // Archive old next_touch to touch_history before overwriting
+    const timeInput = document.getElementById('di-next-touch-time');
+    const newTime = timeInput ? timeInput.value || '' : '';
+    // Archive old next_touch only if it's today or past (actually happened)
+    // Future scheduled calls that get rescheduled are just replaced
     if (oldNt && oldNt !== newNt) {
-      if (!c.touch_history) c.touch_history = [];
-      c.touch_history.push({ date: oldNt, status: 'completed' });
-
-      // If old next_touch is today or past, promote it to last_contact_date
       const oldDate = new Date(oldNt);
       const today = new Date(); today.setHours(0,0,0,0);
       if (oldDate <= today) {
+        if (!c.touch_history) c.touch_history = [];
+        c.touch_history.push({ date: oldNt, status: 'completed', time: c.next_touch_time || '' });
         c.last_contact_date = oldNt;
         const daysSince = Math.max(0, Math.floor((Date.now() - oldDate.getTime()) / 86400000));
         c.days = daysSince;
@@ -782,6 +823,7 @@ async function saveDetailInline() {
       }
     }
     c.next_touch = newNt;
+    c.next_touch_time = newNt ? newTime : '';
   }
   if (tagsInput) {
     c.tags = tagsInput.value.split(',').map(t => t.trim()).filter(Boolean);
@@ -831,14 +873,16 @@ function buildBreakdownHTML(signals, c) {
     { key:'days_n',     label:'Contact Recency',  color:'var(--teal)',   weight:w.days,     raw: c ? (c.days != null ? `${c.days}d ago` : 'N/A')          : '' },
     { key:'growth_n',   label:'Growth Signal',    color:'var(--green)',  weight:w.growth,   raw: c ? c.growth                  : '' }
   ];
-  return defs.map(d => `
-    <div class="bd-row">
-      <div class="bd-label">${d.label}</div>
-      <div class="bd-weight">${Math.round((d.weight / total) * 100)}%</div>
-      <div class="bd-bar"><div class="bd-fill" style="width:${Math.round(signals[d.key])}%;background:${d.color}"></div></div>
-      <div class="bd-score">${Math.round(signals[d.key])}</div>
+  return defs.map(d => {
+    const off = !(d.weight > 0);
+    return `<div class="bd-row${off ? ' bd-row--off' : ''}">
+      <div class="bd-label">${d.label}${off ? ' <span style="font-size:.65rem;color:var(--muted)">(off)</span>' : ''}</div>
+      <div class="bd-weight">${off ? '—' : Math.round((d.weight / total) * 100) + '%'}</div>
+      <div class="bd-bar"><div class="bd-fill" style="width:${off ? 0 : Math.round(signals[d.key])}%;background:${d.color}"></div></div>
+      <div class="bd-score">${off ? '—' : Math.round(signals[d.key])}</div>
       ${d.raw ? `<div class="bd-raw">${d.raw}</div>` : ''}
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function renderDetailPlaybook() {
@@ -1065,8 +1109,10 @@ function editCustomer(id) {
   if (el('f-days')) el('f-days').value = c.days != null ? c.days : '';
   if (el('f-renewal-date')) el('f-renewal-date').value = c.renewal_date || '';
   if (el('f-next-touch'))  el('f-next-touch').value  = c.next_touch   || '';
+  if (el('f-next-touch-time')) el('f-next-touch-time').value = c.next_touch_time || '';
   el('f-growth').value   = c.growth || 'none';
   el('f-note').value     = '';
+  applyProfileSignalState();
 
   // Override saveScore to update in-place
   window._editMode = c.id;
@@ -1103,6 +1149,7 @@ window.saveScore = function() {
       c.renewal         = data.renewal;
       c.renewal_date    = data.renewal_date || '';
       c.next_touch      = (el('f-next-touch') ? el('f-next-touch').value : '') || '';
+      c.next_touch_time = c.next_touch ? (el('f-next-touch-time') ? el('f-next-touch-time').value : '') || '' : '';
       c.growth          = data.growth;
       c.mrr             = data.mrr;
       c.arr             = data.arr || (data.mrr * 12);

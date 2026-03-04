@@ -1,6 +1,6 @@
 // ─── PERSIST ────────────────────────────────────────────────
 // Settings (weights, thresholds, profiles, snoozed) stored in Supabase settings table.
-// Customers stored in Supabase customers table with RLS (each user sees only their own).
+// Customers stored in Supabase customers table with RLS (each client's users see their client's customers).
 
 function saveSettings() {
   // Also keep in localStorage as fast local cache
@@ -9,6 +9,11 @@ function saveSettings() {
   localStorage.setItem('iqc_profiles',   JSON.stringify(profiles));
   localStorage.setItem('iqc_snoozed',    JSON.stringify([...snoozed]));
   localStorage.setItem('iqc_dismissed',  JSON.stringify([...dismissed]));
+  localStorage.setItem('iqc_expansion',  JSON.stringify(expansionConfig));
+  localStorage.setItem('iqc_cadence',    JSON.stringify(cadenceConfig));
+  localStorage.setItem('iqc_renewal_windows', JSON.stringify(renewalWindows));
+  localStorage.setItem('iqc_quiet_days', String(quietDays));
+  localStorage.setItem('iqc_momentum_pts', String(momentumPts));
   // Sync to Supabase (fire and forget)
   if (currentUser) {
     sb.from('settings').upsert({
@@ -72,6 +77,31 @@ function loadSettings() {
   try {
     const fp = localStorage.getItem('iqc_filter_presets');
     if (fp) filterPresets = JSON.parse(fp);
+  } catch(e) {}
+  try {
+    const ex = localStorage.getItem('iqc_expansion');
+    if (ex) expansionConfig = { ...DEFAULT_EXPANSION, ...JSON.parse(ex) };
+  } catch(e) {}
+  try {
+    const cc = localStorage.getItem('iqc_cadence');
+    if (cc) {
+      const parsed = JSON.parse(cc);
+      ['enterprise','mid','smb'].forEach(t => {
+        if (parsed[t]) cadenceConfig[t] = { ...DEFAULT_CADENCE[t], ...parsed[t] };
+      });
+    }
+  } catch(e) {}
+  try {
+    const rw = localStorage.getItem('iqc_renewal_windows');
+    if (rw) renewalWindows = { ...DEFAULT_RENEWAL_WINDOWS, ...JSON.parse(rw) };
+  } catch(e) {}
+  try {
+    const qd = localStorage.getItem('iqc_quiet_days');
+    if (qd) quietDays = parseInt(qd) || DEFAULT_QUIET_DAYS;
+  } catch(e) {}
+  try {
+    const mp = localStorage.getItem('iqc_momentum_pts');
+    if (mp) momentumPts = parseInt(mp) || DEFAULT_MOMENTUM_PTS;
   } catch(e) {}
 }
 
@@ -180,15 +210,19 @@ function fromRow(row) {
     deleted_at:      row.deleted_at      || null,
     created:         row.created_at      || new Date().toISOString(),
     next_touch:        row.next_touch        || '',
+    next_touch_time:   row.next_touch_time   || '',
     playbook_checks:   tryParse(row.playbook_checks, {}),
     last_contact_date: row.last_contact_date || '',
     touch_history:     tryParse(row.touch_history, [])
   };
 }
 
+// Flag: set true once we confirm the customers table has a client_id column
+let _dbHasClientId = false;
+
 // Convert internal customer → Supabase row fields
 function toRow(c) {
-  return {
+  const row = {
     id:        c.id,
     user_id:   currentUser.id,
     name:      c.name,
@@ -217,56 +251,63 @@ function toRow(c) {
     deleted_at:      c.deleted_at      || null,
     created_at:      c.created         || new Date().toISOString(),
     next_touch:        c.next_touch        || '',
+    next_touch_time:   c.next_touch_time   || '',
     playbook_checks:   JSON.stringify(c.playbook_checks || {}),
     last_contact_date: c.last_contact_date || '',
     touch_history:     JSON.stringify(c.touch_history || [])
   };
+  // Only include client_id if the DB column exists (detected during load)
+  if (_dbHasClientId && _userClientId) row.client_id = _userClientId;
+  return row;
 }
 
-// Load all customers for current user from Supabase
-// Admin → own rows only (uses client filter dropdown for other clients)
-// Non-admin → all rows in their client (RLS + user_ids lookup)
+// Load all customers for current user's client from Supabase
+// Uses client_id for ownership — all users in the same client see the same customers
 // Active rows (deleted_at IS NULL) → customers[]
 // Soft-deleted rows (deleted_at IS NOT NULL) → trash[]
 async function loadCustomersFromSupabase() {
-  let query;
+  let data, error;
 
   if (isAdmin()) {
-    // Admin loads rows from ALL admin user IDs so all admins see the same data
-    const { data: adminProfiles } = await sb.from('user_profiles')
-      .select('user_id, role')
-      .eq('role', 'admin');
-    const adminIds = (adminProfiles || []).map(p => p.user_id);
-    if (!adminIds.includes(currentUser.id)) adminIds.push(currentUser.id);
-    query = sb.from('customers')
-      .select('*')
-      .in('user_id', adminIds)
-      .order('created_at', { ascending: false });
-  } else {
-    // Non-admin: load all customers from users in the same client
-    const { data: profiles } = await sb.from('user_profiles')
-      .select('user_id')
-      .eq('client_id',
-        // get this user's client_id first
-        (await sb.from('user_profiles')
-          .select('client_id')
-          .eq('user_id', currentUser.id)
-          .single()
-        ).data?.client_id || '__none__'
-      );
-    const userIds = (profiles || []).map(p => p.user_id);
-    if (!userIds.length) {
-      customers = []; trash = [];
-      localStorage.setItem('iqc_customers_cache', JSON.stringify(customers));
-      return;
+    // Admin: try client_id first, fall back to loading all
+    if (_userClientId) {
+      ({ data, error } = await sb.from('customers')
+        .select('*')
+        .eq('client_id', _userClientId)
+        .order('created_at', { ascending: false }));
+      if (!error) _dbHasClientId = true;
     }
-    query = sb.from('customers')
+    // If no client_id set, or client_id query failed (column may not exist yet), load all
+    if (!_userClientId || error) {
+      if (error) console.warn('client_id query unavailable, using fallback:', error.message);
+      ({ data, error } = await sb.from('customers')
+        .select('*')
+        .order('created_at', { ascending: false }));
+    }
+  } else if (_userClientId) {
+    // Non-admin with client: try client_id first
+    ({ data, error } = await sb.from('customers')
       .select('*')
-      .in('user_id', userIds)
-      .order('created_at', { ascending: false });
+      .eq('client_id', _userClientId)
+      .order('created_at', { ascending: false }));
+    if (!error) {
+      _dbHasClientId = true;
+    } else {
+      // Fall back to user_id if client_id column doesn't exist yet
+      console.warn('client_id query unavailable, falling back to user_id:', error.message);
+      ({ data, error } = await sb.from('customers')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false }));
+    }
+  } else {
+    // Non-admin without client: fall back to user_id
+    ({ data, error } = await sb.from('customers')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: false }));
   }
 
-  const { data, error } = await query;
   if (error) throw error;
   const all = (data || []).map(fromRow);
   customers = all.filter(c => !c.deleted_at);
@@ -331,13 +372,19 @@ async function save(c) {
   checkWebhookTriggers(c);
 }
 
+// Ownership filter helper — uses client_id if DB supports it, else user_id
+function _ownerEq(query) {
+  if (_dbHasClientId && _userClientId) return query.eq('client_id', _userClientId);
+  return query.eq('user_id', currentUser.id);
+}
+
 // atDelete(c) — SOFT delete: sets deleted_at, never removes the row
 async function atDelete(c) {
   if (!currentUser) return;
   const deletedAt = new Date().toISOString();
-  const { error } = await sb.from('customers')
-    .update({ deleted_at: deletedAt })
-    .eq('id', c.id).eq('user_id', currentUser.id);
+  const { error } = await _ownerEq(
+    sb.from('customers').update({ deleted_at: deletedAt }).eq('id', c.id)
+  );
   if (error) throw error;
 }
 
@@ -354,9 +401,9 @@ async function restoreCustomer(id) {
   renderCustomers();
   logAudit('customer_restored', c.id, c.name, { summary: `Restored from trash — Score: ${c.score}/100, MRR: $${c.mrr||0}` });
   toast(`${c.name} restored`, 'success');
-  const { error } = await sb.from('customers')
-    .update({ deleted_at: null })
-    .eq('id', id).eq('user_id', currentUser.id);
+  const { error } = await _ownerEq(
+    sb.from('customers').update({ deleted_at: null }).eq('id', id)
+  );
   if (error) toast('Restore sync failed', 'warn');
 }
 
@@ -370,7 +417,9 @@ async function hardDeleteCustomer(id) {
     renderTrash();
     logAudit('customer_hard_deleted', id, cName, { summary: 'Permanently removed from database' });
     toast(`${cName} permanently deleted`, 'warn');
-    const { error } = await sb.from('customers').delete().eq('id', id).eq('user_id', currentUser.id);
+    const { error } = await _ownerEq(
+      sb.from('customers').delete().eq('id', id)
+    );
     if (error) toast('Permanent delete sync failed', 'warn');
   });
 }
@@ -385,7 +434,7 @@ async function emptyTrash() {
     renderTrash();
     toast('Trash emptied', 'warn');
     await Promise.all(toNuke.map(c =>
-      sb.from('customers').delete().eq('id', c.id).eq('user_id', currentUser.id).catch(()=>{})
+      _ownerEq(sb.from('customers').delete().eq('id', c.id)).catch(()=>{})
     ));
   });
 }
@@ -739,10 +788,16 @@ function _generateDemoCustomer(name, index, now) {
 
   // Next scheduled touch (~40% of active customers)
   let next_touch = '';
+  let next_touch_time = '';
   if (lifecycle !== 'churned' && Math.random() < 0.40) {
     const ntDate = new Date(now);
     ntDate.setDate(ntDate.getDate() + 1 + Math.floor(Math.random() * 21));
     next_touch = ntDate.toISOString().slice(0,10);
+    if (Math.random() < 0.50) {
+      const hr = 8 + Math.floor(Math.random() * 10);
+      const mn = [0,15,30,45][Math.floor(Math.random()*4)];
+      next_touch_time = String(hr).padStart(2,'0') + ':' + String(mn).padStart(2,'0');
+    }
   }
 
   // Last contact date — derive from days since contact for ~60% of active customers
@@ -782,6 +837,7 @@ function _generateDemoCustomer(name, index, now) {
     deleted_at:      null,
     created,
     next_touch,
+    next_touch_time,
     playbook_checks: {},
     last_contact_date
   };
@@ -826,9 +882,9 @@ async function seedDemoData() {
   console.log('   Client ID:', prof.client_id);
   console.log('   Business:', prof.business_name || '(none)');
 
-  // 2. Delete existing customers for this user
-  console.log('2/4 — Deleting existing customers for ' + targetEmail + '…');
-  const { error: delErr } = await sb.from('customers').delete().eq('user_id', prof.user_id);
+  // 2. Delete existing customers for this client
+  console.log('2/4 — Deleting existing customers for client ' + prof.client_id + '…');
+  const { error: delErr } = await sb.from('customers').delete().eq('client_id', prof.client_id);
   if (delErr) { console.error('Delete error:', delErr.message); return; }
   console.log('   Old data cleared.');
 
@@ -840,7 +896,8 @@ async function seedDemoData() {
   console.log('4/4 — Pushing to Supabase (150 rows)…');
   const rows = customers.map(c => {
     const row = toRow(c);
-    row.user_id = prof.user_id; // assign to the target user
+    row.user_id = prof.user_id;       // audit: who seeded
+    row.client_id = prof.client_id;   // ownership: target client
     return row;
   });
 
@@ -877,11 +934,9 @@ async function seedExampleData() {
   console.log('   Client:', exClient.name, '(' + exClient.id + ')');
   console.log('   Target user:', targetUser.email);
 
-  // 3. Delete existing customers for ALL users in this client
+  // 3. Delete existing customers for this client
   console.log('2/4 — Clearing existing data…');
-  for (const p of profiles) {
-    await sb.from('customers').delete().eq('user_id', p.user_id);
-  }
+  await sb.from('customers').delete().eq('client_id', exClient.id);
   console.log('   Old data cleared.');
 
   // 4. Generate curated customers
@@ -1030,10 +1085,16 @@ async function seedExampleData() {
 
     // Next touch — 50% of active
     let next_touch = '';
+    let next_touch_time = '';
     if (lifecycle !== 'churned' && Math.random() < 0.50) {
       const ntDate = new Date(now);
       ntDate.setDate(ntDate.getDate() + 1 + Math.floor(Math.random() * 18));
       next_touch = ntDate.toISOString().slice(0,10);
+      if (Math.random() < 0.50) {
+        const hr = 8 + Math.floor(Math.random() * 10);
+        const mn = [0,15,30,45][Math.floor(Math.random()*4)];
+        next_touch_time = String(hr).padStart(2,'0') + ':' + String(mn).padStart(2,'0');
+      }
     }
 
     // Last contact date — 70% of active
@@ -1088,6 +1149,7 @@ async function seedExampleData() {
       deleted_at:      lifecycle === 'churned' ? null : null,
       created,
       next_touch,
+      next_touch_time,
       playbook_checks: {},
       last_contact_date,
       touch_history
@@ -1098,7 +1160,8 @@ async function seedExampleData() {
   console.log('4/4 — Pushing ' + exCustomers.length + ' customers to Supabase…');
   const rows = exCustomers.map(c => {
     const row = toRow(c);
-    row.user_id = targetUser.user_id;
+    row.user_id = targetUser.user_id;   // audit: who seeded
+    row.client_id = exClient.id;        // ownership: Demo Account client
     return row;
   });
 

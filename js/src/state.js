@@ -28,6 +28,7 @@ const SEG_UNTAGGED = '__untagged__';
 const SEG_UNTAGGED_LABEL = 'Untagged';
 function segDisplayLabel(tag) { return tag === SEG_UNTAGGED ? SEG_UNTAGGED_LABEL : tag; }
 let _userRole      = null;      // 'admin' | 'user' — fetched from user_profiles on login
+let _userClientId  = null;      // user's client_id — resolved from user_profiles on login
 let adminClients   = [];        // list of {id, name, notes} — admin only
 let activeClientId = '__own__'; // '__own__' = admin's own data, else client UUID
 let trash          = [];        // soft-deleted customers
@@ -130,16 +131,11 @@ async function resolveClientPlanTier() {
   } catch(e) {}
 
   try {
-    // Get user's client_id
-    const { data: profile } = await sb.from('user_profiles')
-      .select('client_id')
-      .eq('user_id', currentUser.id)
-      .single();
-    if (profile?.client_id) {
-      // Get client's plan_tier
+    // Use cached _userClientId (resolved during ensureUserProfile)
+    if (_userClientId) {
       const { data: client } = await sb.from('clients')
         .select('plan_tier')
-        .eq('id', profile.client_id)
+        .eq('id', _userClientId)
         .single();
       clientPlanTier = client?.plan_tier || 'starter';
     } else {
@@ -179,7 +175,7 @@ const COL_DEFS = [
   { key:'manager',   label:'Manager',      ftype:'text',   sortKey:'manager' },
   { key:'profile',   label:'Profile',      ftype:'enum',   sortKey:'profile', enumFn:()=>profiles.map(p=>p.name) },
   { key:'score',     label:'Score',        ftype:'number', sortKey:'score' },
-  { key:'_momentum', label:'Momentum',     ftype:'enum',   sortKey:'_momentum',  enumVals:['up','dn','flat','new'] },
+  { key:'_momentum', label:'Momentum (7d)', ftype:'enum',   sortKey:'_momentum',  enumVals:['up','dn','flat','new'] },
   { key:'status',    label:'Status',       ftype:'enum',   sortKey:'status',     enumVals:['critical','risk','watch','healthy','expand'] },
   { key:'lifecycle', label:'Stage',        ftype:'enum',   sortKey:'lifecycle',  enumVals:['onboarding','active','atrisk','won','churned'] },
   { key:'mrr',       label:'MRR',          ftype:'number', sortKey:'mrr' },
@@ -230,4 +226,28 @@ const DEFAULT_THRESHOLDS = { critical: 25, risk: 50, watch: 65, healthy: 80 };
 let weights    = { ...DEFAULT_WEIGHTS };
 let thresholds = { ...DEFAULT_THRESHOLDS };
 let profiles   = [];
+
+// Expansion estimate config: mode = 'pct' (percentage of MRR) or 'flat' (fixed $ per account)
+const DEFAULT_EXPANSION = { mode: 'pct', pct: 20, flat: 5000 };
+let expansionConfig = { ...DEFAULT_EXPANSION };
+
+// Contact cadence thresholds per tier (days)
+const DEFAULT_CADENCE = {
+  enterprise: { warn: 14, overdue: 30 },
+  mid:        { warn: 21, overdue: 45 },
+  smb:        { warn: 30, overdue: 60 }
+};
+let cadenceConfig = JSON.parse(JSON.stringify(DEFAULT_CADENCE));
+
+// Renewal alert windows (days out from renewal date)
+const DEFAULT_RENEWAL_WINDOWS = { critical: 14, warning: 30, upcoming: 60 };
+let renewalWindows = { ...DEFAULT_RENEWAL_WINDOWS };
+
+// Quiet account threshold (days with no logins before flagged)
+const DEFAULT_QUIET_DAYS = 14;
+let quietDays = DEFAULT_QUIET_DAYS;
+
+// Momentum sensitivity (score change over 7d to classify as improving/declining)
+const DEFAULT_MOMENTUM_PTS = 3;
+let momentumPts = DEFAULT_MOMENTUM_PTS;
 

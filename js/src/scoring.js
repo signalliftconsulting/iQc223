@@ -403,8 +403,8 @@ function getMomentum(c) {
   if (!c.history || c.history.length < 2) return 'new';
   // Use 7-day delta for consistency with trend sparkline and insights
   const diff = getDelta7d(c);
-  if (diff >= 3)  return 'up';
-  if (diff <= -3) return 'dn';
+  if (diff >= momentumPts)  return 'up';
+  if (diff <= -momentumPts) return 'dn';
   return 'flat';
 }
 
@@ -451,15 +451,13 @@ function urgencyHTML(c) {
 
 // ─── CADENCE TRACKER ─────────────────────────────────────────
 // Tier-based thresholds for days since last contact
-const CADENCE_THRESHOLDS = {
-  enterprise: { warn: 14, overdue: 30 },
-  mid:        { warn: 21, overdue: 45 },
-  smb:        { warn: 30, overdue: 60 }
-};
+// cadenceConfig is defined in state.js and configurable via Settings
+function getCadenceThresholds() { return cadenceConfig; }
 
 function getCadenceStatus(c) {
   if (c.days == null) return { status:'ok', label:'N/A', cls:'cadence-ok' };
-  const thres = CADENCE_THRESHOLDS[c.tier] || CADENCE_THRESHOLDS.mid;
+  const ct = getCadenceThresholds();
+  const thres = ct[c.tier] || ct.mid;
   if (c.days >= thres.overdue) return { status:'overdue', label:`Overdue (${c.days}d)`,  cls:'cadence-overdue' };
   if (c.days >= thres.warn)    return { status:'warn',    label:`Due Soon (${c.days}d)`, cls:'cadence-warn' };
   return                                { status:'ok',      label:`On Track (${c.days}d)`, cls:'cadence-ok' };
@@ -467,14 +465,14 @@ function getCadenceStatus(c) {
 
 // ─── QUIET ACCOUNT DETECTION ──────────────────────────────────
 // "Quiet" = zero activity across ALL channels: no logins, no tickets, no CSM contact.
-const QUIET_THRESHOLD_DAYS = 14;
+// quietDays is defined in state.js and configurable via Settings
 
 function isQuietAccount(c) {
   if (c.lifecycle === 'churned' || c.lifecycle === 'won') return false;
   if (c.logins != null && c.logins > 0) return false;
   if (c.tickets != null && c.tickets > 0) return false;
   const effDays = getEffectiveDays(c);
-  if (effDays == null || effDays < QUIET_THRESHOLD_DAYS) return false;
+  if (effDays == null || effDays < quietDays) return false;
   return true;
 }
 
@@ -509,7 +507,7 @@ function buildCadenceAlerts() {
         id: c.id+'-cadence',
         cid: c.id,
         type: 'red',
-        msg: `<strong>${c.name}</strong> <span>— check-in overdue! No contact in ${c.days} days (${(c.tier||'mid').toUpperCase()} SLA: ${CADENCE_THRESHOLDS[c.tier||'mid'].overdue}d)</span>`
+        msg: `<strong>${c.name}</strong> <span>— check-in overdue! No contact in ${c.days} days (${(c.tier||'mid').toUpperCase()} SLA: ${getCadenceThresholds()[c.tier||'mid'].overdue}d)</span>`
       });
     } else if (cad.status === 'warn') {
       alerts.push({

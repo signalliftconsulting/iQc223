@@ -85,6 +85,7 @@ async function authSignOut() {
   stopPolling();
   currentUser = null;
   _userRole   = null;
+  _userClientId = null;
   customers   = [];
   trash       = [];
   await sb.auth.signOut();

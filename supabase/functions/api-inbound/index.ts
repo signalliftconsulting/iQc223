@@ -99,6 +99,14 @@ serve(async (req) => {
     if (keyErr || !keyRow) throw new Error('Invalid API key');
     userId = keyRow.user_id;
 
+    // Resolve user's client_id for customer ownership
+    const { data: userProfile } = await serviceClient
+      .from('user_profiles')
+      .select('client_id')
+      .eq('user_id', userId)
+      .single();
+    const clientId = userProfile?.client_id || null;
+
     // ── Parse request body ──
     const body = await req.json();
     const { action, data } = body;
@@ -113,11 +121,11 @@ serve(async (req) => {
     if (action === 'upsert_account') {
       if (!data.name) throw new Error('Account name is required');
 
-      // Check if customer exists by name (case-insensitive)
+      // Check if customer exists by name (case-insensitive) within this client
       const { data: existing } = await serviceClient
         .from('customers')
         .select('*')
-        .eq('user_id', userId)
+        .eq('client_id', clientId)
         .ilike('name', data.name)
         .is('deleted_at', null)
         .limit(1);
@@ -125,6 +133,7 @@ serve(async (req) => {
       // Build row with only the provided fields (validated)
       const row: Record<string, any> = {
         user_id: userId,
+        client_id: clientId,
         name: validateString(data.name, 255, 'name'),
       };
       if (data.mrr != null)        row.mrr = validateNumber(data.mrr, 0, null, 'mrr');
@@ -177,11 +186,11 @@ serve(async (req) => {
         throw new Error('Invalid field: ' + data.field + '. Allowed: ' + allowedFields.join(', '));
       }
 
-      // Find customer by name
+      // Find customer by name within this client
       const { data: existing } = await serviceClient
         .from('customers')
         .select('id, score')
-        .eq('user_id', userId)
+        .eq('client_id', clientId)
         .ilike('name', data.name)
         .is('deleted_at', null)
         .limit(1);

@@ -35,7 +35,6 @@ const _hbSvg = {
   engagement: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
   // Empty states
   chartEmpty: '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
-  checkCircle: '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
 };
 
 // Category → icon key mapping
@@ -134,12 +133,6 @@ function _renderHomeBase() {
   // ── Generate insights ──
   const insights = _generateInsights(active, now, cutoff);
 
-  // ── Build Focus list ──
-  const focusList = _buildFocusList(active, now);
-
-  // ── Build page snapshots ──
-  const snapshots = _buildPageSnapshots(active, now, cutoff, atRisk, atRiskMRR, total, avgScore, renewals30);
-
   // ── Extra KPI values ──
   const watch   = active.filter(c => c.status === 'watch');
   const healthy = active.filter(c => c.status === 'healthy');
@@ -174,15 +167,6 @@ function _renderHomeBase() {
   const contactGapHighVal = contactGap.filter(c => (c.mrr || 0) >= 5000);
   // Biggest single at-risk account
   const biggestRisk = atRisk.length ? atRisk.reduce((a, b) => (b.mrr || 0) > (a.mrr || 0) ? b : a) : null;
-  // NPS detractors
-  const detractors = active.filter(c => c.nps !== null && c.nps !== undefined && c.nps <= 6);
-  // Low adoption
-  const lowAdoption = active.filter(c => (c.adoption || 0) < 30 && (c.mrr || 0) > 0);
-  // Manager concentration: does one CSM hold >40% of at-risk MRR?
-  const mgrRisk = {};
-  atRisk.forEach(c => { const m = c.manager || 'Unassigned'; mgrRisk[m] = (mgrRisk[m] || 0) + (c.mrr || 0); });
-  const topRiskMgr = Object.entries(mgrRisk).sort((a,b) => b[1] - a[1])[0];
-  const mgrConcentrated = topRiskMgr && atRiskMRR > 0 && topRiskMgr[1] / atRiskMRR > 0.4;
 
   // ── Day-over-day / short-term trend analysis for briefing ──
   // Uses same approach as _insightDayOverDay: compare last two history entries per account
@@ -231,81 +215,85 @@ function _renderHomeBase() {
     return { avgDelta, droppers: droppers.length, topDroppers: droppers.slice(0, 3), reasons, total: dodPairs.length };
   })();
 
-  // Also compute 7-day delta for the briefing
-  const _weekDelta = (() => {
-    const deltas = withHist.map(c => getDeltaPeriod(c)).filter(d => d !== 0);
-    if (!deltas.length) return null;
-    return Math.round(deltas.reduce((s,d) => s+d, 0) / deltas.length * 10) / 10;
+  // ── Build today's priorities (action-oriented, account-specific) ──
+  // Distinct from Insights section: briefing = "what to act on today", insights = "what the data tells you"
+  const _briefBullets = (() => {
+    const bs = [];
+    const _ids = arr => JSON.stringify(arr.map(c => c.id));
+
+    // 1. Overnight drops — what broke since yesterday?
+    if (_dodBriefing && _dodBriefing.avgDelta <= -2) {
+      const d = _dodBriefing;
+      let text = `Scores dropped ${Math.abs(d.avgDelta)} pts overnight across ${d.total} accounts`;
+      if (d.reasons.length) text += `, driven by ${d.reasons.slice(0,2).join(' and ')}`;
+      text += '.';
+      bs.push({ p: 0, text, action: "setTrendRange('1d');nav('trends')" });
+    }
+
+    // 2. Renewal + contact gap — who needs outreach NOW?
+    if (contactGapHighVal.length > 0) {
+      const gapWithRenewal = contactGapHighVal.filter(c => c.renewal != null && c.renewal <= 3);
+      if (gapWithRenewal.length > 0) {
+        const gapMRR = gapWithRenewal.reduce((s,c) => s + (c.mrr||0), 0);
+        if (gapWithRenewal.length === 1) {
+          bs.push({ p: 0, text: `${gapWithRenewal[0].name} ($${fmtNum(gapWithRenewal[0].mrr||0)}/mo) has a renewal coming up and no contact in 30+ days.`, action: `openDetail('${gapWithRenewal[0].id}')` });
+        } else {
+          bs.push({ p: 0, text: `${gapWithRenewal.length} high-value accounts ($${fmtNum(gapMRR)} MRR) have renewals in the next 90 days and no contact in 30+ days.`, action: `setInsightFilter('Renewal + no contact',${_ids(gapWithRenewal)})` });
+        }
+      } else {
+        const gapMRR = contactGapHighVal.reduce((s,c) => s + (c.mrr||0), 0);
+        bs.push({ p: 1, text: `${contactGapHighVal.length} high-value accounts ($${fmtNum(gapMRR)} MRR) haven't been contacted in 30+ days.`, action: `setInsightFilter('No contact 30d+',${_ids(contactGapHighVal)})` });
+      }
+    }
+
+    // 3. Biggest at-risk account — your #1 priority
+    if (biggestRisk && biggestRisk.mrr >= 5000) {
+      const brDelta = getDelta7d(biggestRisk);
+      if (brDelta < -5) {
+        bs.push({ p: 1, text: `${biggestRisk.name} ($${fmtNum(biggestRisk.mrr)}/mo) is your largest at-risk account and dropped ${Math.abs(brDelta)} pts this week.`, action: `openDetail('${biggestRisk.id}')` });
+      } else if (biggestRisk.days != null && biggestRisk.days >= 14) {
+        bs.push({ p: 1, text: `${biggestRisk.name} ($${fmtNum(biggestRisk.mrr)}/mo) is your largest at-risk account and hasn't been contacted in ${biggestRisk.days} days.`, action: `openDetail('${biggestRisk.id}')` });
+      }
+    }
+
+    // 4. Silent decliners — catch before they escalate
+    if (silentDecliners.length >= 2) {
+      const sdMRR = silentDecliners.reduce((s,c) => s + (c.mrr||0), 0);
+      bs.push({ p: 1, text: `${silentDecliners.length} accounts that were healthy last period are now declining, putting $${fmtNum(sdMRR)} MRR at risk of sliding into watch.`, action: `setInsightFilter('Declining from healthy',${_ids(silentDecliners)})` });
+    } else if (silentDecliners.length === 1) {
+      const sd = silentDecliners[0];
+      bs.push({ p: 1, text: `${sd.name} was healthy but has started declining. Worth a check-in before it escalates.`, action: `openDetail('${sd.id}')` });
+    }
+
+    bs.sort((a,b) => a.p - b.p);
+    return bs.slice(0, 4);
   })();
 
-  // Build prioritized insight pool (max 2-3 signals)
-  const signals = [];
-
-  // Day-over-day trend callout (highest priority when significant)
-  if (_dodBriefing && _dodBriefing.avgDelta <= -2) {
-    const d = _dodBriefing;
-    let text = `Portfolio avg score dropped ${Math.abs(d.avgDelta)} pts day-over-day across ${d.total} accounts`;
-    if (d.droppers > 0) text += ` \u2014 ${d.droppers} fell 5+ pts`;
-    if (d.topDroppers.length) text += ` (${d.topDroppers.map(p => p.c.name + ' ' + p.delta).join(', ')})`;
-    text += '.';
-    if (d.reasons.length) text += ` Key drivers: ${d.reasons.join(', ')}.`;
-    else if (d.droppers > 0) text += ' Review recent signal changes to identify the cause.';
-    signals.push({ p: 0, text });
-  } else if (_weekDelta !== null && _weekDelta <= -3) {
-    signals.push({ p: 1, text: `Portfolio avg score is trending down ${Math.abs(_weekDelta)} pts over the selected period.` });
+  // Build opener line
+  let _briefOpener = '';
+  if (_briefBullets.length && _briefBullets[0].p <= 1) {
+    if (atRisk.length === 0) _briefOpener = `Your book is clean with no at-risk accounts.`;
+    else if (atRiskMRR >= 50000) _briefOpener = `$${fmtNum(atRiskMRR)} in MRR is currently at risk across ${atRisk.length} accounts.`;
+    else _briefOpener = `${atRisk.length} account${atRisk.length !== 1 ? 's' : ''} ${atRisk.length !== 1 ? 'are' : 'is'} at risk today ($${fmtNum(atRiskMRR)} MRR).`;
+  } else if (healthyPct >= 80) {
+    _briefOpener = `Your portfolio is in strong shape at ${healthyPct}% healthy.`;
+  } else if (healthyPct >= 60) {
+    _briefOpener = `Portfolio health is holding at ${healthyPct}%. Here's what stands out.`;
+  } else {
+    _briefOpener = `Your book is running at ${healthyPct}% healthy with $${fmtNum(atRiskMRR)} MRR exposed.`;
   }
-
-  // Silent decliners — early warning, high value
-  if (silentDecliners.length >= 2) {
-    signals.push({ p: 1, text: `${silentDecliners.length} previously healthy accounts are now declining. Early intervention could prevent churn.` });
-  } else if (silentDecliners.length === 1) {
-    signals.push({ p: 1, text: `${silentDecliners[0].name} was healthy but is now declining and may need a check-in.` });
-  }
-  // Contact gap on high-value accounts
-  if (contactGapHighVal.length > 0) {
-    const gapMRR = contactGapHighVal.reduce((s,c) => s + (c.mrr||0), 0);
-    signals.push({ p: 2, text: `${contactGapHighVal.length} high-value account${contactGapHighVal.length > 1 ? 's' : ''} ($${fmtNum(gapMRR)} MRR) haven't been contacted in 30+ days.` });
-  } else if (contactGap.length > 5) {
-    signals.push({ p: 3, text: `${contactGap.length} accounts have gone 30+ days without contact.` });
-  }
-  // Manager concentration risk
-  if (mgrConcentrated && mgrFilterAll) {
-    const pct = Math.round(topRiskMgr[1] / atRiskMRR * 100);
-    signals.push({ p: 2, text: `${pct}% of at-risk MRR sits under ${topRiskMgr[0]}, creating concentrated exposure.` });
-  }
-  // Biggest single risk
-  if (biggestRisk && biggestRisk.mrr >= 10000) {
-    signals.push({ p: 3, text: `Largest at-risk account is ${biggestRisk.name} at $${fmtNum(biggestRisk.mrr)}/mo.` });
-  }
-  // NPS detractors
-  if (detractors.length >= 3) {
-    signals.push({ p: 4, text: `${detractors.length} accounts have NPS scores of 6 or below, which may signal softening sentiment.` });
-  }
-  // Low adoption
-  if (lowAdoption.length >= 5) {
-    signals.push({ p: 4, text: `${lowAdoption.length} accounts are below 30% feature adoption, a leading indicator of churn.` });
-  }
-  // Momentum (fallback if nothing else fires)
-  if (declining > improving + 5) signals.push({ p: 5, text: `Net momentum is negative, with more accounts declining than improving this period.` });
-  else if (improving > declining + 5) signals.push({ p: 5, text: `Positive momentum this period, with ${improving} accounts trending upward.` });
-
-  // Pick top 2-3 by priority
-  signals.sort((a,b) => a.p - b.p);
-  const topSignals = signals.slice(0, 3);
-
-  // Opening line
-  let opener = '';
-  if (healthyPct >= 80) opener = `Portfolio${mgrLabel} is strong at ${healthyPct}% healthy.`;
-  else if (healthyPct >= 60) opener = `Portfolio${mgrLabel} is at ${healthyPct}% healthy, stable with room to improve.`;
-  else if (healthyPct >= 40) opener = `Portfolio${mgrLabel} is at ${healthyPct}% healthy, below target.`;
-  else opener = `Portfolio${mgrLabel} needs attention at only ${healthyPct}% healthy.`;
-
-  const summaryText = opener + (topSignals.length ? ' ' + topSignals.map(s => s.text).join(' ') : '');
 
   html += '<div class="hb-welcome">';
   html += `<div class="hb-greeting">${greeting}${userName ? ', ' + escHtml(userName) : ''}</div>`;
   html += `<div class="hb-date">${dateStr}</div>`;
-  html += `<div class="hb-summary">${summaryText}</div>`;
+  html += `<div class="hb-summary">${_briefOpener}</div>`;
+  if (_briefBullets.length) {
+    html += '<ul class="hb-brief-list">';
+    _briefBullets.forEach(b => {
+      html += `<li class="hb-brief-item" onclick="${b.action.replace(/"/g,'&quot;')}">${b.text}</li>`;
+    });
+    html += '</ul>';
+  }
   html += '</div>';
 
   // ── 5 KPI Cards Row (from Dashboard) ──
@@ -360,10 +348,16 @@ function _renderHomeBase() {
   </div>`;
 
   // Card 4: Expansion Opportunity
+  const expEst = expansionConfig.mode === 'flat'
+    ? expand.length * expansionConfig.flat
+    : Math.round(expMRR * (expansionConfig.pct / 100));
+  const expSub = expansionConfig.mode === 'flat'
+    ? `Est. upsell potential ($${fmtNum(expansionConfig.flat)}/acct)`
+    : `Est. upsell potential (${expansionConfig.pct}%)`;
   html += `<div class="dash-kpi-card dash-kpi-green" onclick="nav('customers');setFilter('expand')">
     <div class="dash-kpi-top">${_kpiIcon(_kpiSvg.trend)}<span class="dash-kpi-label">Expansion Opportunity</span></div>
-    <div class="dash-kpi-num">$${fmtNum(Math.round(expMRR * 0.2))}</div>
-    <div class="dash-kpi-sub">Est. upsell potential (20%)</div>
+    <div class="dash-kpi-num">$${fmtNum(expEst)}</div>
+    <div class="dash-kpi-sub">${expSub}</div>
     <div style="margin-top:10px"><span class="dash-kpi-pill green">${expand.length} account${expand.length !== 1 ? 's' : ''} ready</span></div>
   </div>`;
 
@@ -377,20 +371,6 @@ function _renderHomeBase() {
 
   html += '</div>';
 
-  // ── Page Snapshots (quick-glance per tab) ──
-  html += '<div class="hb-snap-grid">';
-  snapshots.forEach(snap => {
-    html += `<div class="hb-snap-card" onclick="nav('${snap.view}')">
-      <div class="hb-snap-icon" style="background:${snap.iconBg};color:${snap.iconColor}">${snap.icon}</div>
-      <div class="hb-snap-body">
-        <div class="hb-snap-title">${snap.title}</div>
-        <div class="hb-snap-detail">${snap.detail}</div>
-      </div>
-      <svg class="hb-snap-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-    </div>`;
-  });
-  html += '</div>';
-
   // ── Renewal Pipeline (moved from Dashboard) ──
   html += '<div class="card" style="margin-bottom:20px;padding:16px 20px">';
   html += '<div class="card-hd" style="margin-bottom:12px"><div class="hb-section-hd" style="margin-bottom:0">Renewal Pipeline</div></div>';
@@ -399,7 +379,7 @@ function _renderHomeBase() {
 
   // ── Insights section ──
   html += '<div class="hb-section hb-section-tinted" style="margin-bottom:16px;padding-bottom:8px">';
-  html += '<div class="card-hd" style="margin-bottom:12px">';
+  html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">';
   html += '<div class="hb-section-hd" style="margin-bottom:0">Insights' + (insights.length ? ` <span class="hb-count">(${insights.length})</span>` : '') + '</div>';
   html += '<div style="display:flex;align-items:center;gap:8px">';
   html += `<select class="form-input" style="width:auto;padding:4px 10px;font-size:.76rem" onchange="_hbPeriodDays=+this.value;renderHomeBase()">
@@ -426,34 +406,6 @@ function _renderHomeBase() {
   html += '<div class="card" style="padding:16px 20px"><div class="card-hd" style="margin-bottom:8px"><div class="hb-section-hd" style="margin-bottom:0">Biggest Drops <span style="font-weight:500;font-size:.72rem;color:var(--muted)">7d</span></div></div><div id="drops-wrap"></div></div>';
   html += '</div>';
 
-  // ── This Week's Focus ──
-  html += '<div class="hb-section hb-section-warm" style="margin-bottom:16px">';
-  html += '<div class="card-hd" style="margin-bottom:12px">';
-  html += `<div class="hb-section-hd" style="margin-bottom:0">This Week's Focus <span class="hb-count">(${focusList.length})</span></div>`;
-  html += '</div>';
-
-  if (!focusList.length) {
-    html += `<div class="hb-empty">${_hbSvg.checkCircle}<p>All clear — no urgent items this week. Your portfolio is looking good.</p></div>`;
-  } else {
-    html += '<div class="hb-focus-list">';
-    focusList.forEach((f, i) => {
-      const dotColor = _statusColor(f.status);
-      html += `<div class="hb-focus-item" onclick="openDetail('${escHtml(f.id)}')">
-        <span class="hb-focus-rank">${i + 1}</span>
-        <div class="hb-focus-body">
-          <div class="hb-focus-name"><span class="hb-focus-dot" style="background:${dotColor}"></span>${escHtml(f.name)}</div>
-          <div class="hb-focus-reason">${escHtml(f.reason)}</div>
-        </div>
-        <div class="hb-focus-meta">
-          ${f.mrr ? '<span class="hb-focus-mrr">$' + fmtNum(f.mrr) + '</span>' : ''}
-          <span class="hb-focus-score" style="background:${dotColor}">${f.score}</span>
-        </div>
-      </div>`;
-    });
-    html += '</div>';
-  }
-  html += '</div>';
-
   // ── Signal Heatmap (moved from Dashboard) ──
   html += '<div class="card" style="padding:16px 20px">';
   html += '<div class="card-hd" style="margin-bottom:12px"><div class="hb-section-hd" style="margin-bottom:0">Signal Heatmap</div></div>';
@@ -470,158 +422,6 @@ function _renderHomeBase() {
   if (typeof renderWins === 'function') renderWins(active);
   if (typeof renderDrops === 'function') renderDrops(active);
   if (typeof renderHeatmap === 'function') renderHeatmap(active);
-}
-
-// ═══════════════════════════════════════════════════════════════
-// PAGE SNAPSHOTS — Quick-glance insight per main tab
-// ═══════════════════════════════════════════════════════════════
-
-function _buildPageSnapshots(active, now, cutoff, atRisk, atRiskMRR, total, avgScore, renewals30) {
-  const s = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">';
-  const snapshots = [];
-
-  // ── Alerts snapshot ──
-  try {
-    const allAlerts = typeof buildAlerts === 'function' ? buildAlerts() : [];
-    const activeAlerts = allAlerts.filter(a => !isSnoozed(a.id) && !isDismissed(a.id));
-    const redAlerts = activeAlerts.filter(a => a.type === 'red');
-    const amberAlerts = activeAlerts.filter(a => a.type === 'amber');
-    let detail = '';
-    if (!activeAlerts.length) {
-      detail = 'All clear — no active alerts. Focus on proactive outreach.';
-    } else {
-      const parts = [`<strong>${activeAlerts.length}</strong> active`];
-      if (redAlerts.length) parts.push(`${redAlerts.length} critical`);
-      if (amberAlerts.length) parts.push(`${amberAlerts.length} warning`);
-      detail = parts.join(' · ');
-      // Add top-priority context
-      const topAlert = activeAlerts[0];
-      if (topAlert) {
-        const cust = customers.find(x => x.id === topAlert.cid);
-        const shortMsg = topAlert.msg.replace(/<[^>]+>/g, '').substring(0, 50);
-        detail += `<br>Top: ${cust ? cust.name : shortMsg}`;
-      }
-    }
-    snapshots.push({
-      view: 'alerts', title: 'Alerts', detail,
-      icon: s + '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
-      iconBg: activeAlerts.length > 0 ? 'var(--red-l)' : 'var(--green-l)',
-      iconColor: activeAlerts.length > 0 ? 'var(--red)' : 'var(--green)'
-    });
-  } catch(e) {}
-
-  // ── Customers snapshot ──
-  try {
-    const healthy = active.filter(c => c.status === 'healthy' || c.status === 'expand');
-    const healthyPct = total ? Math.round(healthy.length / total * 100) : 0;
-    const totalMRR = active.reduce((s,c) => s + (c.mrr || 0), 0);
-    let detail = `<strong>${total}</strong> active · ${healthyPct}% healthy · $${fmtNum(totalMRR)} MRR`;
-    // Second line: movement or stale contacts
-    const withHist = active.filter(c => (c.history || []).length >= 1);
-    const improving = withHist.filter(c => _getDeltaPeriod(c, cutoff) > 2).length;
-    const declining = withHist.filter(c => _getDeltaPeriod(c, cutoff) < -2).length;
-    if (improving > 0 || declining > 0) {
-      detail += `<br>${improving} improving, ${declining} declining this period`;
-    } else {
-      const stale = active.filter(c => c.days != null && c.days > 30);
-      if (stale.length >= 3) detail += `<br>${stale.length} not contacted in 30+ days`;
-    }
-    snapshots.push({
-      view: 'customers', title: 'Customers', detail,
-      icon: s + '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
-      iconBg: 'var(--blue-l)', iconColor: 'var(--blue)'
-    });
-  } catch(e) {}
-
-  // ── Segments snapshot ──
-  try {
-    const tags = new Set();
-    active.forEach(c => (c.tags || []).forEach(t => tags.add(t)));
-    const tagCount = tags.size;
-    const atRiskPct = total ? Math.round(atRisk.length / total * 100) : 0;
-    const tiers = {};
-    active.forEach(c => {
-      const t = c.tier || 'Unknown';
-      if (!tiers[t]) tiers[t] = { total: 0, risk: 0 };
-      tiers[t].total++;
-      if (c.status === 'critical' || c.status === 'risk') tiers[t].risk++;
-    });
-    const tierList = Object.entries(tiers).filter(([,v]) => v.total >= 2).map(([k,v]) => ({
-      name: k, pct: Math.round(v.risk/v.total*100), total: v.total, risk: v.risk
-    }));
-    tierList.sort((a,b) => b.pct - a.pct);
-    let detail = `<strong>${tagCount}</strong> tags · ${Object.keys(tiers).length} tiers · ${atRiskPct}% at risk`;
-    if (tierList.length > 0 && tierList[0].pct > 0) {
-      detail += `<br>${tierList[0].name} highest risk at ${tierList[0].pct}%`;
-    }
-    snapshots.push({
-      view: 'segments', title: 'Segments', detail,
-      icon: s + '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
-      iconBg: 'var(--purple-l)', iconColor: 'var(--purple)'
-    });
-  } catch(e) {}
-
-  // ── Trends snapshot ──
-  try {
-    const withHist = active.filter(c => (c.history || []).length >= 1);
-    const improving = withHist.filter(c => _getDeltaPeriod(c, cutoff) > 2).length;
-    const declining = withHist.filter(c => _getDeltaPeriod(c, cutoff) < -2).length;
-    let direction = 'stable';
-    if (improving > declining + 2) direction = 'trending up';
-    else if (declining > improving + 2) direction = 'trending down';
-    let detail = `Portfolio ${direction} over ${_hbPeriodDays}d`;
-    if (improving > 0 || declining > 0) {
-      detail += `<br>${improving} up, ${declining} down`;
-      // Add biggest mover
-      let biggestDrop = null;
-      withHist.forEach(c => {
-        const d = _getDeltaPeriod(c, cutoff);
-        if (!biggestDrop || d < biggestDrop.delta) biggestDrop = { name: c.name, delta: d };
-      });
-      if (biggestDrop && biggestDrop.delta < -5) detail += ` · Biggest drop: ${biggestDrop.name}`;
-    }
-    snapshots.push({
-      view: 'trends', title: 'Trends', detail,
-      icon: s + '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
-      iconBg: improving >= declining ? 'var(--green-l)' : 'var(--amber-l)',
-      iconColor: improving >= declining ? 'var(--green)' : 'var(--amber)'
-    });
-  } catch(e) {}
-
-  // ── CSM Performance snapshot ──
-  try {
-    const byMgr = {};
-    active.forEach(c => {
-      const m = c.manager || 'Unassigned';
-      if (!byMgr[m]) byMgr[m] = { count: 0, risk: 0, mrr: 0, scoreSum: 0 };
-      byMgr[m].count++;
-      byMgr[m].scoreSum += c.score;
-      byMgr[m].mrr += (c.mrr || 0);
-      if (c.status === 'critical' || c.status === 'risk') byMgr[m].risk++;
-    });
-    const mgrs = Object.entries(byMgr).filter(([k]) => k !== 'Unassigned');
-    const csmCount = mgrs.length;
-    const riskMRR = atRisk.reduce((s,c) => s + (c.mrr || 0), 0);
-    let bestCsm = null, worstCsm = null;
-    mgrs.forEach(([name, data]) => {
-      const avg = Math.round(data.scoreSum / data.count);
-      if (!bestCsm || avg > bestCsm.avg) bestCsm = { name, avg };
-      if (!worstCsm || avg < worstCsm.avg) worstCsm = { name, avg };
-    });
-    let detail = `<strong>${csmCount}</strong> CSM${csmCount !== 1 ? 's' : ''} · $${fmtNum(riskMRR)} at risk`;
-    if (bestCsm && worstCsm && csmCount >= 2 && bestCsm.name !== worstCsm.name) {
-      detail += `<br>Top: ${bestCsm.name} (${bestCsm.avg}) · Low: ${worstCsm.name} (${worstCsm.avg})`;
-    } else if (bestCsm) {
-      detail += `<br>Top: ${bestCsm.name} (avg ${bestCsm.avg})`;
-    }
-    snapshots.push({
-      view: 'csmperf', title: 'CSM Performance', detail,
-      icon: s + '<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>',
-      iconBg: 'var(--teal-l)', iconColor: 'var(--teal)'
-    });
-  } catch(e) {}
-
-  return snapshots;
 }
 
 // ── Pulse KPI Card (gradient) ──
@@ -652,22 +452,17 @@ function _generateInsights(active, now, cutoff) {
   const insights = [];
   const generators = [
     _insightDayOverDay,
-    _insightPortfolioMomentum,
-    _insightWinLossBalance,
-    _insightBestWorstWeek,
     _insightTierDivergence,
     _insightRiskConcentration,
     _insightEmergingRisk,
     _insightQuietAccounts,
     _insightMrrAtRiskDelta,
     _insightRenewalReadiness,
-    _insightRenewalRisk,
-    _insightContactGaps,
-    _insightWorkloadBalance,
-    _insightExpansionReady,
-    _insightPositiveMovers,
+    _insightRenewalVelocity,
+    _insightContactImpact,
+    _insightSignalDivergence,
     _insightAdoptionCorrelation,
-    _insightTicketSpike
+    _insightRenewalClustering
   ];
 
   generators.forEach(gen => {
@@ -678,7 +473,7 @@ function _generateInsights(active, now, cutoff) {
   });
 
   insights.sort((a,b) => a.priority - b.priority);
-  return insights;
+  return insights.slice(0, 6);
 }
 
 // ── Helper: get delta for configurable period ──
@@ -705,128 +500,6 @@ function _getScoreNDaysAgo(c, daysAgo) {
   return best ? best.score : null;
 }
 
-// ── INSIGHT: Portfolio Momentum ──
-function _insightPortfolioMomentum(active, now, cutoff) {
-  const withHist = active.filter(c => (c.history || []).length >= 1);
-  if (withHist.length < 3) return null;
-
-  const deltas = withHist.map(c => _getDeltaPeriod(c, cutoff));
-  const avgDelta = Math.round(deltas.reduce((s,d) => s+d, 0) / deltas.length * 10) / 10;
-  if (Math.abs(avgDelta) < 1) return null;
-
-  const improving = avgDelta > 0;
-  return {
-    category: 'Trend',
-    priority: improving ? 3 : 1,
-    title: improving
-      ? `Portfolio health improved ${Math.abs(avgDelta)} pts this period`
-      : `Portfolio health declined ${Math.abs(avgDelta)} pts this period`,
-    detail: `Average score moved from ${Math.round(withHist.reduce((s,c) => { const prev = _getScoreNDaysAgo(c, _hbPeriodDays); return s + (prev !== null ? prev : c.score); }, 0) / withHist.length)} to ${Math.round(active.reduce((s,c) => s+c.score, 0) / active.length)} across ${withHist.length} accounts with history data.`,
-    action: { label: 'View Trends', fn: "nav('trends')" }
-  };
-}
-
-// ── INSIGHT: Win/Loss Balance ──
-function _insightWinLossBalance(active, now, cutoff) {
-  const withHist = active.filter(c => (c.history || []).length >= 1);
-  if (withHist.length < 3) return null;
-
-  const improving = withHist.filter(c => _getDeltaPeriod(c, cutoff) > 2);
-  const declining = withHist.filter(c => _getDeltaPeriod(c, cutoff) < -2);
-  if (improving.length === 0 && declining.length === 0) return null;
-
-  const ratio = improving.length / Math.max(declining.length, 1);
-  const net = improving.length - declining.length;
-
-  if (Math.abs(net) < 2) return null;
-
-  const good = net > 0;
-  const allTrending = [...declining, ...improving];
-  const focusIds = JSON.stringify(allTrending.map(c => c.id));
-  const focusLabel = `${declining.length} declining + ${improving.length} improving accounts`;
-  return {
-    category: 'Trend',
-    priority: good ? 4 : 2,
-    title: good
-      ? `${improving.length} accounts improving vs ${declining.length} declining`
-      : `${declining.length} accounts declining vs ${improving.length} improving`,
-    detail: good
-      ? `Net positive momentum — ${ratio.toFixed(1)}x more accounts gaining health than losing it this period.`
-      : `Net negative momentum — more accounts losing health than gaining. Review declining accounts for patterns.`,
-    action: { label: 'View Customers', fn: `setInsightFilter('${focusLabel}',${focusIds})` }
-  };
-}
-
-// ── INSIGHT: Best/Worst Week ──
-function _insightBestWorstWeek(active, now, cutoff) {
-  const withHist = active.filter(c => (c.history || []).length >= 2);
-  if (withHist.length < 5) return null;
-
-  const currentImprovers = withHist.filter(c => _getDeltaPeriod(c, cutoff) > 2).length;
-
-  const periods = [2, 3, 4].map(mult => {
-    const pCutoff = new Date(now);
-    pCutoff.setDate(pCutoff.getDate() - _hbPeriodDays * mult);
-    const pEnd = new Date(now);
-    pEnd.setDate(pEnd.getDate() - _hbPeriodDays * (mult - 1));
-    return withHist.filter(c => {
-      const hist = (c.history || []).filter(h => h.date).sort((a,b) => new Date(a.date) - new Date(b.date));
-      let atStart = null, atEnd = null;
-      for (const h of hist) {
-        if (new Date(h.date) <= pCutoff) atStart = h.score;
-        if (new Date(h.date) <= pEnd) atEnd = h.score;
-      }
-      if (atStart === null || atEnd === null) return false;
-      return (atEnd - atStart) > 2;
-    }).length;
-  });
-
-  if (!periods.length || periods.every(p => p === 0)) return null;
-
-  const maxPrev = Math.max(...periods);
-  const avgPrev = Math.round(periods.reduce((s,p) => s+p, 0) / periods.length);
-
-  if (currentImprovers > maxPrev && currentImprovers > 3) {
-    return {
-      category: 'Trend',
-      priority: 3,
-      title: `Best period for improvements in ${periods.length + 1} periods`,
-      detail: `${currentImprovers} accounts gained health this period vs avg ${avgPrev} in prior periods. Momentum is building.`,
-      action: { label: 'View Trends', fn: "nav('trends')" }
-    };
-  }
-
-  const currentDecliners = withHist.filter(c => _getDeltaPeriod(c, cutoff) < -2).length;
-  const prevDecliners = [2, 3, 4].map(mult => {
-    const pCutoff = new Date(now);
-    pCutoff.setDate(pCutoff.getDate() - _hbPeriodDays * mult);
-    const pEnd = new Date(now);
-    pEnd.setDate(pEnd.getDate() - _hbPeriodDays * (mult - 1));
-    return withHist.filter(c => {
-      const hist = (c.history || []).filter(h => h.date).sort((a,b) => new Date(a.date) - new Date(b.date));
-      let atStart = null, atEnd = null;
-      for (const h of hist) {
-        if (new Date(h.date) <= pCutoff) atStart = h.score;
-        if (new Date(h.date) <= pEnd) atEnd = h.score;
-      }
-      if (atStart === null || atEnd === null) return false;
-      return (atEnd - atStart) < -2;
-    }).length;
-  });
-  const maxPrevDec = Math.max(...prevDecliners);
-
-  if (currentDecliners > maxPrevDec && currentDecliners > 3) {
-    return {
-      category: 'Trend',
-      priority: 1,
-      title: `Worst period for declines in ${prevDecliners.length + 1} periods`,
-      detail: `${currentDecliners} accounts lost health this period — above the recent average. Investigate the pattern.`,
-      action: { label: 'View Trends', fn: "nav('trends')" }
-    };
-  }
-
-  return null;
-}
 
 // ── INSIGHT: Tier Divergence ──
 function _insightTierDivergence(active) {
@@ -979,122 +652,143 @@ function _insightRenewalReadiness(active, now) {
   };
 }
 
-// ── INSIGHT: Renewal Risk ──
-function _insightRenewalRisk(active, now) {
-  const next30 = active.filter(c => {
-    if (!c.renewal_date) return c.renewal != null && c.renewal >= 0 && c.renewal <= 1;
-    const diff = (new Date(c.renewal_date) - now) / 86400000;
-    return diff >= 0 && diff <= 30;
+// ── INSIGHT: Renewal Velocity (are renewal accounts declining faster than portfolio?) ──
+function _insightRenewalVelocity(active, now, cutoff) {
+  const next60 = active.filter(c => {
+    if (c.renewal_date) {
+      const diff = (new Date(c.renewal_date) - now) / 86400000;
+      return diff >= 0 && diff <= 60;
+    }
+    return c.renewal != null && c.renewal >= 0 && c.renewal <= 2;
   });
-  const atRiskRenewals = next30.filter(c => c.status === 'critical' || c.status === 'risk');
-  if (atRiskRenewals.length < 1 || next30.length < 2) return null;
+  if (next60.length < 3) return null;
 
-  const renewMRR = atRiskRenewals.reduce((s,c) => s + (c.mrr || 0), 0);
-  const rrIds = JSON.stringify(atRiskRenewals.map(c => c.id));
+  const withHist = active.filter(c => (c.history || []).length >= 1);
+  if (withHist.length < 5) return null;
+
+  // Avg delta for renewal cohort vs rest of portfolio
+  const renewWithHist = next60.filter(c => (c.history || []).length >= 1);
+  if (renewWithHist.length < 2) return null;
+
+  const renewAvgDelta = Math.round(renewWithHist.reduce((s,c) => s + _getDeltaPeriod(c, cutoff), 0) / renewWithHist.length * 10) / 10;
+  const nonRenew = withHist.filter(c => !next60.includes(c));
+  const portfolioAvgDelta = nonRenew.length
+    ? Math.round(nonRenew.reduce((s,c) => s + _getDeltaPeriod(c, cutoff), 0) / nonRenew.length * 10) / 10
+    : 0;
+
+  const gap = portfolioAvgDelta - renewAvgDelta; // positive = renewals declining faster
+  if (gap < 3) return null;
+
+  const renewMRR = next60.reduce((s,c) => s + (c.mrr || 0), 0);
+  const decliningRenewals = renewWithHist.filter(c => _getDeltaPeriod(c, cutoff) < -2);
 
   return {
     category: 'Renewal',
-    priority: 1,
-    title: `${atRiskRenewals.length} of ${next30.length} upcoming renewals are at-risk`,
-    detail: `$${fmtNum(renewMRR)} MRR is at risk among accounts renewing in the next 30 days. These need immediate attention.`,
-    action: { label: 'View Customers', fn: `setInsightFilter('${atRiskRenewals.length} at-risk renewals',${rrIds})` }
+    priority: gap > 8 ? 1 : 2,
+    title: `Renewal cohort declining ${Math.abs(renewAvgDelta)} pts vs portfolio ${portfolioAvgDelta > 0 ? '+' : ''}${portfolioAvgDelta}`,
+    detail: `${next60.length} accounts renewing in the next 60 days are losing health ${gap} pts faster than your portfolio average. ${decliningRenewals.length} are actively declining — $${fmtNum(renewMRR)} MRR at stake. Set up alerts to catch further drops early.`,
+    action: { label: 'Review Alerts', fn: "nav('alerts')" }
   };
 }
 
-// ── INSIGHT: Contact Gaps ──
-function _insightContactGaps(active) {
-  const stale = active.filter(c => c.days != null && c.days > 30);
-  if (stale.length < 3) return null;
+// ── INSIGHT: Contact Impact (does outreach correlate with better outcomes?) ──
+function _insightContactImpact(active, now, cutoff) {
+  const withDays = active.filter(c => c.days != null && (c.history || []).length >= 1);
+  if (withDays.length < 6) return null;
 
-  const enterprise = stale.filter(c => (c.tier || '').toLowerCase() === 'enterprise');
-  const atRiskStale = stale.filter(c => c.status === 'critical' || c.status === 'risk');
+  // Split into recently contacted (≤14 days) vs not contacted (>14 days)
+  const contacted   = withDays.filter(c => c.days <= 14);
+  const uncontacted = withDays.filter(c => c.days > 14);
+  if (contacted.length < 2 || uncontacted.length < 2) return null;
 
-  let extra = '';
-  if (enterprise.length > 0) extra += `, including ${enterprise.length} Enterprise`;
-  if (atRiskStale.length > 0) extra += ` and ${atRiskStale.length} at-risk`;
+  const contactedDelta   = Math.round(contacted.reduce((s,c) => s + _getDeltaPeriod(c, cutoff), 0) / contacted.length * 10) / 10;
+  const uncontactedDelta = Math.round(uncontacted.reduce((s,c) => s + _getDeltaPeriod(c, cutoff), 0) / uncontacted.length * 10) / 10;
 
-  const staleIds = JSON.stringify(stale.map(c => c.id));
-  return {
-    category: 'Workload',
-    priority: atRiskStale.length > 2 ? 2 : 3,
-    title: `${stale.length} accounts not contacted in 30+ days`,
-    detail: `${stale.length} accounts have gone over 30 days without contact${extra}. Regular touchpoints reduce churn risk.`,
-    action: { label: 'View Customers', fn: `setInsightFilter('${stale.length} accounts with no contact 30+ days',${staleIds})` }
-  };
+  const gap = contactedDelta - uncontactedDelta; // positive = contacted are doing better
+  if (Math.abs(gap) < 2) return null;
+
+  const outreachHelps = gap > 0;
+
+  // Find uncontacted accounts that are declining — prime outreach candidates
+  const neglectedDecliners = uncontacted
+    .filter(c => _getDeltaPeriod(c, cutoff) < -2)
+    .sort((a,b) => (b.mrr || 0) - (a.mrr || 0));
+  const ndIds = JSON.stringify(neglectedDecliners.map(c => c.id));
+
+  if (outreachHelps) {
+    return {
+      category: 'Engagement',
+      priority: neglectedDecliners.length >= 3 ? 2 : 3,
+      title: `Contacted accounts trending ${contactedDelta > 0 ? '+' : ''}${contactedDelta} pts vs ${uncontactedDelta > 0 ? '+' : ''}${uncontactedDelta} for uncontacted`,
+      detail: `Accounts with recent CSM contact (≤14 days) are outperforming uncontacted ones by ${gap} pts this period. ${neglectedDecliners.length} uncontacted account${neglectedDecliners.length !== 1 ? 's are' : ' is'} actively declining — outreach could reverse the trend.`,
+      action: neglectedDecliners.length
+        ? { label: 'View Declining Uncontacted', fn: `setInsightFilter('${neglectedDecliners.length} declining uncontacted',${ndIds})` }
+        : { label: 'View Customers', fn: "nav('customers')" }
+    };
+  } else {
+    // Unusual: uncontacted are doing better — maybe over-contact or wrong accounts contacted
+    return {
+      category: 'Engagement',
+      priority: 3,
+      title: `Uncontacted accounts outperforming contacted ones by ${Math.abs(gap)} pts`,
+      detail: `Contacted accounts averaged ${contactedDelta > 0 ? '+' : ''}${contactedDelta} pts vs ${uncontactedDelta > 0 ? '+' : ''}${uncontactedDelta} for uncontacted. This may indicate outreach is focused on the wrong accounts or low-touch accounts are self-sufficient.`,
+      action: { label: 'Review Book', fn: "nav('customers')" }
+    };
+  }
 }
 
-// ── INSIGHT: Workload Balance ──
-function _insightWorkloadBalance(active) {
-  const byMgr = {};
-  active.forEach(c => {
-    const m = c.manager || 'Unassigned';
-    if (!byMgr[m]) byMgr[m] = 0;
-    byMgr[m]++;
-  });
-  const mgrs = Object.entries(byMgr).filter(([k]) => k !== 'Unassigned');
-  if (mgrs.length < 2) return null;
+// ── INSIGHT: Signal Divergence (usage vs sentiment moving in opposite directions) ──
+function _insightSignalDivergence(active) {
+  // Find accounts where usage signals and sentiment signals are moving in opposite directions
+  // This is a classic early warning: high usage + dropping sentiment = frustration
+  // Or: low usage + good sentiment = disengagement risk (they like it but don't use it)
 
-  mgrs.sort((a,b) => b[1] - a[1]);
-  const highest = mgrs[0];
-  const lowest = mgrs[mgrs.length - 1];
-  const ratio = highest[1] / Math.max(lowest[1], 1);
+  const divergent = active.filter(c => {
+    const highUsage = (c.logins != null && c.logins >= 10) || (c.adoption != null && c.adoption >= 50);
+    const lowSentiment = npsIsDetractor(c.nps) || (c.csat != null && c.csat < 3) || (c.tickets != null && c.tickets >= 5);
+    const lowUsage = (c.logins != null && c.logins < 3) || (c.adoption != null && c.adoption < 20);
+    const highSentiment = npsIsPromoter(c.nps) || (c.csat != null && c.csat >= 4);
 
-  if (ratio < 2.5 || highest[1] - lowest[1] < 5) return null;
+    // Must have data on both dimensions
+    const hasUsage = c.logins != null || c.adoption != null;
+    const hasSentiment = c.nps != null || c.csat != null || c.tickets != null;
+    if (!hasUsage || !hasSentiment) return false;
 
-  return {
-    category: 'Workload',
-    priority: 4,
-    title: `CSM workload imbalance: ${highest[0]} has ${highest[1]} accounts`,
-    detail: `${highest[0]} manages ${highest[1]} accounts vs ${lowest[0]} with ${lowest[1]} — a ${ratio.toFixed(1)}x difference. Consider rebalancing for better coverage.`,
-    action: { label: 'View CSM Performance', fn: "nav('csmperf')" }
-  };
-}
-
-// ── INSIGHT: Expansion Ready ──
-function _insightExpansionReady(active) {
-  const expanding = active.filter(c => c.status === 'expand');
-  if (expanding.length < 2) return null;
-
-  const strongEngagement = expanding.filter(c => {
-    const signals = [
-      c.logins != null && c.logins >= 15,
-      c.adoption != null && c.adoption >= 60,
-      npsIsPromoter(c.nps)
-    ].filter(Boolean).length;
-    return signals >= 2;
-  });
-
-  if (strongEngagement.length < 2) return null;
-  const totalMRR = strongEngagement.reduce((s,c) => s + (c.mrr || 0), 0);
-  const seIds = JSON.stringify(strongEngagement.map(c => c.id));
-
-  return {
-    category: 'Opportunity',
-    priority: 3,
-    title: `${strongEngagement.length} accounts ready for expansion`,
-    detail: `${strongEngagement.length} Expand-status accounts have strong engagement signals (high logins, adoption, and NPS). Combined MRR: $${fmtNum(totalMRR)} — upsell candidates.`,
-    action: { label: 'View Customers', fn: `setInsightFilter('${strongEngagement.length} expansion-ready accounts',${seIds})` }
-  };
-}
-
-// ── INSIGHT: Positive Movers ──
-function _insightPositiveMovers(active, now, cutoff) {
-  const movedUp = active.filter(c => {
-    const prev = _getScoreNDaysAgo(c, _hbPeriodDays);
-    if (prev === null) return false;
-    const prevStatus = getStatus(prev);
-    return (prevStatus === 'watch' || prevStatus === 'risk') && (c.status === 'healthy' || c.status === 'expand');
+    // Flag 1: Using the product a lot but unhappy (frustration pattern)
+    if (highUsage && lowSentiment) { c._divergeType = 'frustration'; return true; }
+    // Flag 2: Not using it much but say they like it (disengagement risk)
+    if (lowUsage && highSentiment) { c._divergeType = 'disengaging'; return true; }
+    return false;
   });
 
-  if (movedUp.length < 1) return null;
-  const muIds = JSON.stringify(movedUp.map(c => c.id));
+  if (divergent.length < 2) return null;
+
+  const frustrated = divergent.filter(c => c._divergeType === 'frustration');
+  const disengaging = divergent.filter(c => c._divergeType === 'disengaging');
+  const frustratedMRR = frustrated.reduce((s,c) => s + (c.mrr || 0), 0);
+  const divIds = JSON.stringify(divergent.map(c => c.id));
+
+  // Clean up temp property
+  divergent.forEach(c => delete c._divergeType);
+
+  let title, detail;
+  if (frustrated.length >= 2 && frustrated.length >= disengaging.length) {
+    title = `${frustrated.length} high-usage accounts showing negative sentiment`;
+    detail = `These accounts are actively using the product but showing frustration signals (low NPS, high tickets, or low CSAT). $${fmtNum(frustratedMRR)} MRR. When usage is high but sentiment is low, churn often follows once an alternative appears.`;
+  } else if (disengaging.length >= 2) {
+    title = `${disengaging.length} accounts show positive sentiment but low engagement`;
+    detail = `These accounts report satisfaction but have low login/adoption numbers. Positive sentiment without active usage often precedes quiet churn — they like the idea but aren't embedded in it.`;
+  } else {
+    title = `${divergent.length} accounts have usage-sentiment divergence`;
+    detail = `${frustrated.length} show high usage with negative sentiment (frustration risk), ${disengaging.length} show low usage with positive sentiment (disengagement risk). Both patterns warrant investigation.`;
+  }
 
   return {
-    category: 'Opportunity',
-    priority: 4,
-    title: `${movedUp.length} account${movedUp.length > 1 ? 's' : ''} improved to Healthy this period`,
-    detail: `${movedUp.map(c => c.name).slice(0, 4).join(', ')}${movedUp.length > 4 ? ' +' + (movedUp.length - 4) + ' more' : ''} moved out of Watch/Risk into Healthy or Expand status.`,
-    action: { label: 'View Customers', fn: `setInsightFilter('${movedUp.length} recently improved accounts',${muIds})` }
+    category: 'Risk',
+    priority: frustrated.length >= 2 ? 2 : 3,
+    title,
+    detail,
+    action: { label: 'View Divergent Accounts', fn: `setInsightFilter('${divergent.length} signal-divergent accounts',${divIds})` }
   };
 }
 
@@ -1125,22 +819,70 @@ function _insightAdoptionCorrelation(active) {
   };
 }
 
-// ── INSIGHT: Ticket Spike ──
-function _insightTicketSpike(active) {
-  const highTickets = active.filter(c => c.tickets != null && c.tickets >= 5);
-  if (highTickets.length < 2) return null;
+// ── INSIGHT: Renewal Clustering (are renewals bunched, creating workload risk?) ──
+function _insightRenewalClustering(active, now) {
+  // Analyze renewal date distribution over next 90 days
+  // Detect if renewals cluster in narrow windows — creating attention-dilution risk
+  const withRenewal = active.filter(c => {
+    if (c.renewal_date) {
+      const diff = (new Date(c.renewal_date) - now) / 86400000;
+      return diff >= 0 && diff <= 90;
+    }
+    return c.renewal != null && c.renewal >= 0 && c.renewal <= 3;
+  });
+  if (withRenewal.length < 5) return null;
 
-  const withTickets = active.filter(c => c.tickets != null);
-  if (withTickets.length < 5) return null;
+  // Bucket into 2-week windows (6 buckets for 90 days)
+  const buckets = [0,0,0,0,0,0];
+  const bucketMRR = [0,0,0,0,0,0];
+  const bucketAccts = [[],[],[],[],[],[]];
+  withRenewal.forEach(c => {
+    let days;
+    if (c.renewal_date) {
+      days = Math.max(0, Math.round((new Date(c.renewal_date) - now) / 86400000));
+    } else {
+      days = Math.max(0, Math.round((c.renewal || 0) * 30));
+    }
+    const bucket = Math.min(Math.floor(days / 15), 5);
+    buckets[bucket]++;
+    bucketMRR[bucket] += (c.mrr || 0);
+    bucketAccts[bucket].push(c);
+  });
 
-  const avgTickets = Math.round(withTickets.reduce((s,c) => s + c.tickets, 0) / withTickets.length * 10) / 10;
+  // Find the peak bucket
+  let peakIdx = 0;
+  for (let i = 1; i < buckets.length; i++) {
+    if (buckets[i] > buckets[peakIdx]) peakIdx = i;
+  }
+
+  const peakCount = buckets[peakIdx];
+  const peakPct = Math.round(peakCount / withRenewal.length * 100);
+  const peakMRR = bucketMRR[peakIdx];
+
+  // Only fire if meaningful concentration (>40% in one window)
+  if (peakPct < 40 || peakCount < 3) return null;
+
+  // Also check if consecutive windows are heavy (clustering across 4 weeks)
+  const adjacentIdx = peakIdx < 5 ? peakIdx + 1 : peakIdx - 1;
+  const clusterCount = peakCount + (buckets[adjacentIdx] || 0);
+  const clusterPct = Math.round(clusterCount / withRenewal.length * 100);
+  const clusterMRR = peakMRR + (bucketMRR[adjacentIdx] || 0);
+
+  const windowStart = peakIdx * 15;
+  const windowEnd = windowStart + 14;
+  const dtFmt = { month: 'short', day: 'numeric' };
+  const startDate = new Date(now.getTime() + windowStart * 86400000);
+  const endDate = new Date(now.getTime() + windowEnd * 86400000);
+  const windowLabel = windowStart === 0
+    ? `next 2 weeks (${startDate.toLocaleDateString('en-US', dtFmt)} – ${endDate.toLocaleDateString('en-US', dtFmt)})`
+    : `${startDate.toLocaleDateString('en-US', dtFmt)} – ${endDate.toLocaleDateString('en-US', dtFmt)}`;
 
   return {
-    category: 'Engagement',
-    priority: highTickets.some(c => c.status === 'critical' || c.status === 'risk') ? 2 : 3,
-    title: `${highTickets.length} accounts have 5+ open tickets`,
-    detail: `These accounts have elevated ticket volume (portfolio avg: ${avgTickets}). High ticket counts often precede health declines — review for patterns.`,
-    action: { label: 'View Customers', fn: `setInsightFilter('${highTickets.length} accounts with 5+ tickets',${JSON.stringify(highTickets.map(c=>c.id))})` }
+    category: 'Renewal',
+    priority: peakPct >= 50 ? 2 : 3,
+    title: `${peakPct}% of renewals clustered in ${windowLabel}`,
+    detail: `${peakCount} of ${withRenewal.length} upcoming renewals ($${fmtNum(peakMRR)} MRR) fall in a single 2-week window. ${clusterPct > peakPct ? `Including the adjacent window, ${clusterPct}% ($${fmtNum(clusterMRR)} MRR) land in a 4-week span. ` : ''}Clustering creates attention-dilution risk — plan outreach cadence now.`,
+    action: { label: 'View Calendar', fn: "nav('calendar')" }
   };
 }
 
@@ -1222,68 +964,6 @@ function _insightQuietAccounts(active) {
   };
 }
 
-// ═══════════════════════════════════════════════════════════════
-// THIS WEEK'S FOCUS — Top 5 urgent accounts
-// ═══════════════════════════════════════════════════════════════
-
-function _buildFocusList(active, now) {
-  const scored = active.map(c => {
-    let urgency = 0;
-    let reasons = [];
-
-    if (c.status === 'critical') { urgency += 40; reasons.push('critical status'); }
-    else if (c.status === 'risk') { urgency += 25; reasons.push('at-risk'); }
-
-    let renewDays = null;
-    if (c.renewal_date) {
-      renewDays = Math.round((new Date(c.renewal_date) - now) / 86400000);
-    } else if (c.renewal != null) {
-      renewDays = Math.round(c.renewal * 30);
-    }
-    if (renewDays != null && renewDays >= 0 && renewDays <= 30) {
-      urgency += 30 - renewDays;
-      reasons.push(`renewal in ${renewDays}d`);
-    }
-
-    const delta = getDelta7d(c);
-    if (delta < -10) { urgency += 20; reasons.push(`score dropped ${Math.abs(delta)}pts`); }
-    else if (delta < -5) { urgency += 10; reasons.push(`score dropped ${Math.abs(delta)}pts`); }
-
-    if (c.days != null && c.days > 30) {
-      urgency += Math.min(c.days / 3, 15);
-      reasons.push(`no contact ${c.days} days`);
-    }
-
-    if (c.tickets != null && c.tickets >= 5) {
-      urgency += c.tickets * 2;
-      reasons.push(`${c.tickets} open tickets`);
-    }
-
-    if (npsIsDetractor(c.nps)) {
-      urgency += 10;
-      reasons.push('NPS detractor');
-    }
-
-    if (isQuietAccount(c)) {
-      const qDays = getQuietDays(c);
-      urgency += Math.min(qDays / 2, 20);
-      reasons.push(`completely quiet ${qDays}d`);
-    }
-
-    if (c.mrr > 0) urgency += Math.min(c.mrr / 1000, 10);
-
-    return {
-      id: c.id, name: c.name, score: c.score, status: c.status,
-      mrr: c.mrr, urgency, reason: reasons.slice(0, 3).join(', ')
-    };
-  });
-
-  return scored
-    .filter(s => s.urgency > 10)
-    .sort((a,b) => b.urgency - a.urgency)
-    .slice(0, 5);
-}
-
 // ── Render a single insight card ──
 function _renderInsightCard(ins) {
   const catColors = {
@@ -1313,4 +993,250 @@ function _renderInsightCard(ins) {
       ${ins.action ? `<button class="hb-insight-action" onclick="${ins.action.fn.replace(/"/g,'&quot;')}">${ins.action.label} →</button>` : ''}
     </div>
   </div>`;
+}
+
+// ─── HOME BASE WIDGETS ──────────────────────────────────────
+// Signal heatmap, wins/drops, renewal pipeline — all called by renderHomeBase()
+
+// ─── SIGNAL HEATMAP ─────────────────────────────────────────
+function dashHeatSortBy(key) {
+  if (dashHeatSort.key === key) dashHeatSort.dir *= -1;
+  else { dashHeatSort.key = key; dashHeatSort.dir = key === 'name' ? 1 : -1; }
+  renderHeatmap(customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c)));
+}
+
+function renderHeatmap(active) {
+  const wrap = el('heatmap-wrap');
+  if (!wrap) return;
+  if (!active.length) {
+    wrap.innerHTML = '<div style="color:var(--subtle);font-size:.8rem;padding:16px 0;text-align:center">No customers yet</div>';
+    return;
+  }
+
+  // Sort — NPS/CSAT sort uses normalized 0-100
+  const growOrder = { strong:2, mild:1, none:0 };
+  const sorted = [...active].sort((a, b) => {
+    let av, bv;
+    switch (dashHeatSort.key) {
+      case 'name':    av = a.name;     bv = b.name;     break;
+      case 'score':   av = a.score;    bv = b.score;    break;
+      case 'logins':  av = a.logins != null ? a.logins : -1;   bv = b.logins != null ? b.logins : -1;   break;
+      case 'adoption':av = a.adoption != null ? a.adoption : -1; bv = b.adoption != null ? b.adoption : -1; break;
+      case 'tickets': av = a.tickets != null ? a.tickets : -1;  bv = b.tickets != null ? b.tickets : -1;  break;
+      case 'nps':     av = npsNormalized(a.nps); bv = npsNormalized(b.nps); break;
+      case 'csat':    av = csatNormalized(a.csat); bv = csatNormalized(b.csat); break;
+      case 'days':    av = a.days != null ? a.days : -1;     bv = b.days != null ? b.days : -1;     break;
+      case 'growth':  av = growOrder[a.growth]||0; bv = growOrder[b.growth]||0; break;
+      default:        av = a.score;    bv = b.score;
+    }
+    if (typeof av === 'string') return av.localeCompare(bv) * dashHeatSort.dir;
+    return (av - bv) * dashHeatSort.dir;
+  });
+
+  const hmColor = (v, inv) => {
+    const n = inv ? 100 - v : v;
+    if (n < 50) return 'hm-r';
+    if (n < 80) return 'hm-y';
+    return 'hm-g';
+  };
+
+  // Header helper — shows sort arrow on active column
+  const thHeat = (key, label) => {
+    const isActive = dashHeatSort.key === key;
+    const arrow    = isActive ? (dashHeatSort.dir === 1 ? ' ↑' : ' ↓') : '';
+    return `<th onclick="dashHeatSortBy('${key}')" style="cursor:pointer;user-select:none;${isActive?'color:var(--blue)':''}" title="Sort by ${label}">${label}${arrow}</th>`;
+  };
+
+  wrap.innerHTML = `<table>
+    <thead><tr>
+      ${thHeat('name',    'Customer')}
+      ${thHeat('score',   'Score')}
+      ${thHeat('logins',  'Logins')}
+      ${thHeat('adoption','Adoption')}
+      ${thHeat('tickets', 'Tickets')}
+      ${thHeat('nps',     'NPS')}
+      ${thHeat('csat',    'CSAT')}
+      ${thHeat('days',    'Last Cont.')}
+      ${thHeat('growth',  'Growth')}
+    </tr></thead>
+    <tbody>${sorted.map(c => {
+      const loginPct  = c.logins != null ? Math.round((c.logins/30)*100) : 50;
+      const ticketPct = c.tickets != null ? Math.max(0,100-c.tickets*20) : 50;
+      const npsPct    = npsNormalized(c.nps);
+      const csatPct   = csatNormalized(c.csat);
+      const daysPct   = c.days != null ? Math.max(0,100-(c.days/180)*100) : 50;
+      const growPct   = {none:25,mild:65,strong:100}[c.growth]||25;
+      return `<tr>
+        <td class="nc" style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">${c.name}</td>
+        <td class="${hmColor(c.score,false)}">${c.score}</td>
+        <td class="${hmColor(loginPct,false)}">${c.logins != null ? c.logins+'d' : '<span style="color:var(--subtle)">N/A</span>'}</td>
+        <td class="${hmColor(c.adoption != null ? c.adoption : 50,false)}">${c.adoption != null ? c.adoption+'%' : '<span style="color:var(--subtle)">N/A</span>'}</td>
+        <td class="${hmColor(ticketPct,false)}">${c.tickets != null ? c.tickets : '<span style="color:var(--subtle)">N/A</span>'}</td>
+        <td class="${hmColor(npsPct,false)}">${npsDisplay(c.nps)}</td>
+        <td class="${hmColor(csatPct,false)}">${csatDisplay(c.csat)}</td>
+        <td class="${hmColor(daysPct,false)}">${c.days != null ? c.days+'d' : '<span style="color:var(--subtle)">N/A</span>'}</td>
+        <td class="${hmColor(growPct,false)}">${c.growth}</td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+}
+
+// ─── THIS WEEK'S WINS ────────────────────────────────────────
+function renderWins(active) {
+  const wrap = el('wins-wrap');
+  if (!wrap) return;
+
+  // Use getDelta7d() as single source of truth (matches detail panel & customers table)
+  const wins = [];
+  active.forEach(c => {
+    if (!c.history || c.history.length < 2) return;
+    const delta = getDelta7d(c);
+    if (delta > 0) wins.push({ c, delta, newScore: c.score });
+  });
+
+  if (!wins.length) {
+    wrap.innerHTML = '<div style="font-size:.78rem;color:var(--muted);padding:6px 0;text-align:center">No score improvements this week yet</div>';
+    return;
+  }
+
+  // Sort by biggest improvement, show top 3 with "See all" link
+  wins.sort((a,b) => b.delta - a.delta);
+  const winsTotal = wins.length;
+  const top = wins.slice(0, 3);
+  const winsSeeAll = winsTotal > 3
+    ? `<div class="widget-see-all" onclick="showAllDelta('up')">See all ${winsTotal} →</div>`
+    : '';
+
+  wrap.innerHTML = top.map(({ c, delta, newScore }) => {
+    const st = getStatus(newScore);
+    const badgeColor = STATUS_COLOR[st] || '#16a34a';
+    const badgeBg    = { critical:'#fef2f2', risk:'#fff7ed', watch:'#fffbeb', healthy:'#f0fdf4', expand:'#ecfeff' }[st] || '#f0fdf4';
+    return `
+    <div class="win-item" onclick="openDetail('${escHtml(c.id)}')">
+      <div style="width:32px;height:32px;border-radius:50%;background:${badgeBg};border:2px solid ${badgeColor};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <span style="font-size:.72rem;font-weight:800;color:${badgeColor}">${newScore}</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="win-name">${escHtml(c.name)}</div>
+        <div style="font-size:.68rem;color:var(--muted)">${STATUS_LABEL[st]}</div>
+      </div>
+      <span class="win-delta" style="display:flex;align-items:center;gap:3px"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>+${delta}</span>
+    </div>`;
+  }).join('') + winsSeeAll;
+}
+
+// ─── BIGGEST DROPS ───────────────────────────────────────────
+function renderDrops(active) {
+  const wrap = el('drops-wrap');
+  if (!wrap) return;
+
+  // Use getDelta7d() as single source of truth (matches detail panel & customers table)
+  const drops = [];
+  active.forEach(c => {
+    if (!c.history || c.history.length < 2) return;
+    const delta = getDelta7d(c);
+    if (delta < 0) drops.push({ c, delta, newScore: c.score });
+  });
+
+  if (!drops.length) {
+    wrap.innerHTML = '<div style="font-size:.78rem;color:var(--muted);padding:6px 0;text-align:center">No score drops this week</div>';
+    return;
+  }
+
+  // Sort by biggest drop (most negative first), show top 3 with "See all" link
+  drops.sort((a,b) => a.delta - b.delta);
+  const dropsTotal = drops.length;
+  const topDrops   = drops.slice(0, 3);
+  const dropsSeeAll = dropsTotal > 3
+    ? `<div class="widget-see-all" onclick="showAllDelta('down')">See all ${dropsTotal} →</div>`
+    : '';
+
+  const statusBg = { critical:'#fef2f2', risk:'#fff7ed', watch:'#fffbeb', healthy:'#f0fdf4', expand:'#ecfeff' };
+
+  wrap.innerHTML = topDrops.map(({ c, delta, newScore }) => {
+    const st         = getStatus(newScore);
+    const badgeColor = STATUS_COLOR[st] || '#ea580c';
+    const badgeBg    = statusBg[st] || '#fff7ed';
+    return `
+    <div class="win-item" onclick="openDetail('${escHtml(c.id)}')">
+      <div style="width:32px;height:32px;border-radius:50%;background:${badgeBg};border:2px solid ${badgeColor};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <span style="font-size:.72rem;font-weight:800;color:${badgeColor}">${newScore}</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div class="win-name">${escHtml(c.name)}</div>
+        <div style="font-size:.68rem;color:var(--muted)">${STATUS_LABEL[st]}</div>
+      </div>
+      <span style="font-size:.75rem;font-weight:800;color:#dc2626;white-space:nowrap;display:flex;align-items:center;gap:3px"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>-${Math.abs(delta)}</span>
+    </div>`;
+  }).join('') + dropsSeeAll;
+}
+
+// Compute a customer's 7-day score delta (used for See All filtering + sorting)
+function getDelta7d(c) {
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  const hist = c.history || [];
+  const recent = hist.filter(h => new Date(h.date) >= weekAgo)
+                     .sort((a,b) => new Date(b.date) - new Date(a.date));
+  if (!recent.length) return 0;
+  const before = hist.filter(h => new Date(h.date) < weekAgo)
+                     .sort((a,b) => new Date(b.date) - new Date(a.date));
+  const prev = before.length ? before[0].score : hist[0].score;
+  return recent[0].score - prev;
+}
+
+// ─── RENEWAL PIPELINE WIDGET ─────────────────────────────────
+function renderRenewalPipeline(active) {
+  const wrap = el('renewal-pipeline-wrap');
+  if (!wrap) return;
+  const now = new Date(); now.setHours(0,0,0,0);
+  const buckets = [
+    { label:'0–30 days',  color:'#dc2626', bg:'#fef2f2', min:0,  max:30  },
+    { label:'31–60 days', color:'#ea580c', bg:'#fff7ed', min:31, max:60  },
+    { label:'61–90 days', color:'#d97706', bg:'#fffbeb', min:61, max:90  },
+  ];
+  const withDate = active.filter(c => c.renewal_date);
+  if (!withDate.length) {
+    wrap.innerHTML = '<div style="color:var(--subtle);font-size:.78rem;padding:8px 0;text-align:center">No accounts have a renewal date set. Add renewal dates when editing a customer.</div>';
+    return;
+  }
+  const rows = buckets.map(b => {
+    const grp = withDate.filter(c => {
+      const days = Math.round((new Date(c.renewal_date) - now) / 86400000);
+      return days >= b.min && days <= b.max;
+    });
+    const mrr    = grp.reduce((s,c)=>s+(c.mrr||0),0);
+    const atRisk = grp.filter(c=>c.status==='critical'||c.status==='risk').length;
+    return { ...b, count:grp.length, mrr, atRisk, ids: grp.map(c=>c.id) };
+  });
+  wrap.innerHTML = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+    ${rows.map(r => {
+      const riskBadge = r.atRisk ? `<span style="color:${r.color};font-size:.68rem;font-weight:700">⚠ ${r.atRisk} at risk</span>` : '';
+      const countText = r.count ? `${r.count} acct${r.count!==1?'s':''}` : `<span style="color:var(--subtle)">—</span>`;
+      const clickable = r.count > 0;
+      return `<div style="border-left:3px solid ${r.color};background:${r.bg};border-radius:6px;padding:9px 12px;${clickable?'cursor:pointer;transition:transform .15s,box-shadow .15s':''}" ${clickable?`onclick="filterRenewalBucket('Renewal ${r.label}',${JSON.stringify(r.ids)})" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,.1)'" onmouseout="this.style.transform='';this.style.boxShadow=''"`:''}>
+        <div style="font-size:.65rem;font-weight:700;color:${r.color};text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${r.label}</div>
+        <div style="font-size:1.05rem;font-weight:800;color:#1e293b;margin-bottom:2px">${r.mrr ? '$'+fmtNum(r.mrr) : '—'}</div>
+        <div style="font-size:.7rem;color:var(--muted);display:flex;gap:5px;align-items:center;flex-wrap:wrap">${countText}${r.atRisk?' · ':''}${riskBadge}</div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+// Navigate to customers tab filtered to a renewal pipeline bucket
+function filterRenewalBucket(label, ids) {
+  if (!ids || !ids.length) return;
+  mrrExposureFilter = { label, ids: new Set(ids) };
+  sortKey = 'renewal';
+  sortDir = 1;
+  nav('customers');
+}
+
+// Navigate to customers page pre-filtered to all improvers or all decliners this week
+function showAllDelta(direction) {
+  filterMode = 'all';
+  columnFilters = {};
+  columnFilters['_delta'] = { type: direction }; // 'up' or 'down'
+  sortKey = '_delta';
+  sortDir = direction === 'up' ? -1 : 1; // improvements desc, drops asc
+  nav('customers');
 }

@@ -13,7 +13,7 @@
     currentUser = existingSession.user;
     hideAuthGate();
     updateUserUI(currentUser);
-    ensureUserProfile(currentUser); // register in user_profiles so admin can see this user
+    await ensureUserProfile(currentUser); // register in user_profiles + resolve _userClientId before loading data
 
     // Load from cache instantly — no spinner
     let hasCached = false;
@@ -102,7 +102,7 @@
     // Fresh sign-in only (no existing data loaded)
     hideAuthGate();
     updateUserUI(currentUser);
-    ensureUserProfile(currentUser);
+    await ensureUserProfile(currentUser); // resolve _userClientId before loading data
     nav('homebase');
     renderSettings();
     startPolling();

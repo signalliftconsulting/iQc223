@@ -34,6 +34,7 @@ const SEG_UNTAGGED = '__untagged__';
 const SEG_UNTAGGED_LABEL = 'Untagged';
 function segDisplayLabel(tag) { return tag === SEG_UNTAGGED ? SEG_UNTAGGED_LABEL : tag; }
 let _userRole      = null;      // 'admin' | 'user' — fetched from user_profiles on login
+let _userClientId  = null;      // user's client_id — resolved from user_profiles on login
 let adminClients   = [];        // list of {id, name, notes} — admin only
 let activeClientId = '__own__'; // '__own__' = admin's own data, else client UUID
 let trash          = [];        // soft-deleted customers
@@ -136,16 +137,11 @@ async function resolveClientPlanTier() {
   } catch(e) {}
 
   try {
-    // Get user's client_id
-    const { data: profile } = await sb.from('user_profiles')
-      .select('client_id')
-      .eq('user_id', currentUser.id)
-      .single();
-    if (profile?.client_id) {
-      // Get client's plan_tier
+    // Use cached _userClientId (resolved during ensureUserProfile)
+    if (_userClientId) {
       const { data: client } = await sb.from('clients')
         .select('plan_tier')
-        .eq('id', profile.client_id)
+        .eq('id', _userClientId)
         .single();
       clientPlanTier = client?.plan_tier || 'starter';
     } else {
@@ -185,7 +181,7 @@ const COL_DEFS = [
   { key:'manager',   label:'Manager',      ftype:'text',   sortKey:'manager' },
   { key:'profile',   label:'Profile',      ftype:'enum',   sortKey:'profile', enumFn:()=>profiles.map(p=>p.name) },
   { key:'score',     label:'Score',        ftype:'number', sortKey:'score' },
-  { key:'_momentum', label:'Momentum',     ftype:'enum',   sortKey:'_momentum',  enumVals:['up','dn','flat','new'] },
+  { key:'_momentum', label:'Momentum (7d)', ftype:'enum',   sortKey:'_momentum',  enumVals:['up','dn','flat','new'] },
   { key:'status',    label:'Status',       ftype:'enum',   sortKey:'status',     enumVals:['critical','risk','watch','healthy','expand'] },
   { key:'lifecycle', label:'Stage',        ftype:'enum',   sortKey:'lifecycle',  enumVals:['onboarding','active','atrisk','won','churned'] },
   { key:'mrr',       label:'MRR',          ftype:'number', sortKey:'mrr' },
@@ -237,7 +233,51 @@ let weights    = { ...DEFAULT_WEIGHTS };
 let thresholds = { ...DEFAULT_THRESHOLDS };
 let profiles   = [];
 
+// Expansion estimate config: mode = 'pct' (percentage of MRR) or 'flat' (fixed $ per account)
+const DEFAULT_EXPANSION = { mode: 'pct', pct: 20, flat: 5000 };
+let expansionConfig = { ...DEFAULT_EXPANSION };
 
+// Contact cadence thresholds per tier (days)
+const DEFAULT_CADENCE = {
+  enterprise: { warn: 14, overdue: 30 },
+  mid:        { warn: 21, overdue: 45 },
+  smb:        { warn: 30, overdue: 60 }
+};
+let cadenceConfig = JSON.parse(JSON.stringify(DEFAULT_CADENCE));
+
+// Renewal alert windows (days out from renewal date)
+const DEFAULT_RENEWAL_WINDOWS = { critical: 14, warning: 30, upcoming: 60 };
+let renewalWindows = { ...DEFAULT_RENEWAL_WINDOWS };
+
+// Quiet account threshold (days with no logins before flagged)
+const DEFAULT_QUIET_DAYS = 14;
+let quietDays = DEFAULT_QUIET_DAYS;
+
+// Momentum sensitivity (score change over 7d to classify as improving/declining)
+const DEFAULT_MOMENTUM_PTS = 3;
+let momentumPts = DEFAULT_MOMENTUM_PTS;
+
+
+
+// ─── CORE HELPERS ───────────────────────────────────────────
+function el(id) { return document.getElementById(id); }
+function fmtNum(n) {
+  if (n >= 1e6) return (n/1e6).toFixed(1).replace(/\.0$/,'') + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1).replace(/\.0$/,'') + 'K';
+  return n.toLocaleString();
+}
+
+// ─── TIME FORMATTING ────────────────────────────────────────
+function fmtTime12(hhmm) {
+  if (!hhmm) return '';
+  var parts = hhmm.split(':');
+  var h = parseInt(parts[0], 10);
+  var m = parts[1] || '00';
+  var ampm = h >= 12 ? 'PM' : 'AM';
+  if (h === 0) h = 12;
+  else if (h > 12) h -= 12;
+  return h + ':' + m + ' ' + ampm;
+}
 
 // ─── TOAST ──────────────────────────────────────────────────
 function toast(msg, type, dur) {
@@ -305,8 +345,8 @@ document.addEventListener('keydown', e => {
     }
     return;
   }
-  // Number shortcuts for nav (1-6)
-  const navMap = { '1':'dashboard','2':'alerts','3':'customers','4':'score','5':'csv','6':'settings' };
+  // Number shortcuts for nav (1-7) — matches sidebar order
+  const navMap = { '1':'homebase','2':'alerts','3':'customers','4':'segments','5':'trends','6':'csmperf','7':'calendar' };
   if (!e.metaKey && !e.ctrlKey && !e.altKey && navMap[e.key]) {
     nav(navMap[e.key]);
   }
@@ -315,7 +355,7 @@ document.addEventListener('keydown', e => {
 
 // ─── PERSIST ────────────────────────────────────────────────
 // Settings (weights, thresholds, profiles, snoozed) stored in Supabase settings table.
-// Customers stored in Supabase customers table with RLS (each user sees only their own).
+// Customers stored in Supabase customers table with RLS (each client's users see their client's customers).
 
 function saveSettings() {
   // Also keep in localStorage as fast local cache
@@ -324,6 +364,11 @@ function saveSettings() {
   localStorage.setItem('iqc_profiles',   JSON.stringify(profiles));
   localStorage.setItem('iqc_snoozed',    JSON.stringify([...snoozed]));
   localStorage.setItem('iqc_dismissed',  JSON.stringify([...dismissed]));
+  localStorage.setItem('iqc_expansion',  JSON.stringify(expansionConfig));
+  localStorage.setItem('iqc_cadence',    JSON.stringify(cadenceConfig));
+  localStorage.setItem('iqc_renewal_windows', JSON.stringify(renewalWindows));
+  localStorage.setItem('iqc_quiet_days', String(quietDays));
+  localStorage.setItem('iqc_momentum_pts', String(momentumPts));
   // Sync to Supabase (fire and forget)
   if (currentUser) {
     sb.from('settings').upsert({
@@ -387,6 +432,31 @@ function loadSettings() {
   try {
     const fp = localStorage.getItem('iqc_filter_presets');
     if (fp) filterPresets = JSON.parse(fp);
+  } catch(e) {}
+  try {
+    const ex = localStorage.getItem('iqc_expansion');
+    if (ex) expansionConfig = { ...DEFAULT_EXPANSION, ...JSON.parse(ex) };
+  } catch(e) {}
+  try {
+    const cc = localStorage.getItem('iqc_cadence');
+    if (cc) {
+      const parsed = JSON.parse(cc);
+      ['enterprise','mid','smb'].forEach(t => {
+        if (parsed[t]) cadenceConfig[t] = { ...DEFAULT_CADENCE[t], ...parsed[t] };
+      });
+    }
+  } catch(e) {}
+  try {
+    const rw = localStorage.getItem('iqc_renewal_windows');
+    if (rw) renewalWindows = { ...DEFAULT_RENEWAL_WINDOWS, ...JSON.parse(rw) };
+  } catch(e) {}
+  try {
+    const qd = localStorage.getItem('iqc_quiet_days');
+    if (qd) quietDays = parseInt(qd) || DEFAULT_QUIET_DAYS;
+  } catch(e) {}
+  try {
+    const mp = localStorage.getItem('iqc_momentum_pts');
+    if (mp) momentumPts = parseInt(mp) || DEFAULT_MOMENTUM_PTS;
   } catch(e) {}
 }
 
@@ -495,15 +565,19 @@ function fromRow(row) {
     deleted_at:      row.deleted_at      || null,
     created:         row.created_at      || new Date().toISOString(),
     next_touch:        row.next_touch        || '',
+    next_touch_time:   row.next_touch_time   || '',
     playbook_checks:   tryParse(row.playbook_checks, {}),
     last_contact_date: row.last_contact_date || '',
     touch_history:     tryParse(row.touch_history, [])
   };
 }
 
+// Flag: set true once we confirm the customers table has a client_id column
+let _dbHasClientId = false;
+
 // Convert internal customer → Supabase row fields
 function toRow(c) {
-  return {
+  const row = {
     id:        c.id,
     user_id:   currentUser.id,
     name:      c.name,
@@ -532,56 +606,63 @@ function toRow(c) {
     deleted_at:      c.deleted_at      || null,
     created_at:      c.created         || new Date().toISOString(),
     next_touch:        c.next_touch        || '',
+    next_touch_time:   c.next_touch_time   || '',
     playbook_checks:   JSON.stringify(c.playbook_checks || {}),
     last_contact_date: c.last_contact_date || '',
     touch_history:     JSON.stringify(c.touch_history || [])
   };
+  // Only include client_id if the DB column exists (detected during load)
+  if (_dbHasClientId && _userClientId) row.client_id = _userClientId;
+  return row;
 }
 
-// Load all customers for current user from Supabase
-// Admin → own rows only (uses client filter dropdown for other clients)
-// Non-admin → all rows in their client (RLS + user_ids lookup)
+// Load all customers for current user's client from Supabase
+// Uses client_id for ownership — all users in the same client see the same customers
 // Active rows (deleted_at IS NULL) → customers[]
 // Soft-deleted rows (deleted_at IS NOT NULL) → trash[]
 async function loadCustomersFromSupabase() {
-  let query;
+  let data, error;
 
   if (isAdmin()) {
-    // Admin loads rows from ALL admin user IDs so all admins see the same data
-    const { data: adminProfiles } = await sb.from('user_profiles')
-      .select('user_id, role')
-      .eq('role', 'admin');
-    const adminIds = (adminProfiles || []).map(p => p.user_id);
-    if (!adminIds.includes(currentUser.id)) adminIds.push(currentUser.id);
-    query = sb.from('customers')
-      .select('*')
-      .in('user_id', adminIds)
-      .order('created_at', { ascending: false });
-  } else {
-    // Non-admin: load all customers from users in the same client
-    const { data: profiles } = await sb.from('user_profiles')
-      .select('user_id')
-      .eq('client_id',
-        // get this user's client_id first
-        (await sb.from('user_profiles')
-          .select('client_id')
-          .eq('user_id', currentUser.id)
-          .single()
-        ).data?.client_id || '__none__'
-      );
-    const userIds = (profiles || []).map(p => p.user_id);
-    if (!userIds.length) {
-      customers = []; trash = [];
-      localStorage.setItem('iqc_customers_cache', JSON.stringify(customers));
-      return;
+    // Admin: try client_id first, fall back to loading all
+    if (_userClientId) {
+      ({ data, error } = await sb.from('customers')
+        .select('*')
+        .eq('client_id', _userClientId)
+        .order('created_at', { ascending: false }));
+      if (!error) _dbHasClientId = true;
     }
-    query = sb.from('customers')
+    // If no client_id set, or client_id query failed (column may not exist yet), load all
+    if (!_userClientId || error) {
+      if (error) console.warn('client_id query unavailable, using fallback:', error.message);
+      ({ data, error } = await sb.from('customers')
+        .select('*')
+        .order('created_at', { ascending: false }));
+    }
+  } else if (_userClientId) {
+    // Non-admin with client: try client_id first
+    ({ data, error } = await sb.from('customers')
       .select('*')
-      .in('user_id', userIds)
-      .order('created_at', { ascending: false });
+      .eq('client_id', _userClientId)
+      .order('created_at', { ascending: false }));
+    if (!error) {
+      _dbHasClientId = true;
+    } else {
+      // Fall back to user_id if client_id column doesn't exist yet
+      console.warn('client_id query unavailable, falling back to user_id:', error.message);
+      ({ data, error } = await sb.from('customers')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false }));
+    }
+  } else {
+    // Non-admin without client: fall back to user_id
+    ({ data, error } = await sb.from('customers')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: false }));
   }
 
-  const { data, error } = await query;
   if (error) throw error;
   const all = (data || []).map(fromRow);
   customers = all.filter(c => !c.deleted_at);
@@ -646,13 +727,19 @@ async function save(c) {
   checkWebhookTriggers(c);
 }
 
+// Ownership filter helper — uses client_id if DB supports it, else user_id
+function _ownerEq(query) {
+  if (_dbHasClientId && _userClientId) return query.eq('client_id', _userClientId);
+  return query.eq('user_id', currentUser.id);
+}
+
 // atDelete(c) — SOFT delete: sets deleted_at, never removes the row
 async function atDelete(c) {
   if (!currentUser) return;
   const deletedAt = new Date().toISOString();
-  const { error } = await sb.from('customers')
-    .update({ deleted_at: deletedAt })
-    .eq('id', c.id).eq('user_id', currentUser.id);
+  const { error } = await _ownerEq(
+    sb.from('customers').update({ deleted_at: deletedAt }).eq('id', c.id)
+  );
   if (error) throw error;
 }
 
@@ -669,9 +756,9 @@ async function restoreCustomer(id) {
   renderCustomers();
   logAudit('customer_restored', c.id, c.name, { summary: `Restored from trash — Score: ${c.score}/100, MRR: $${c.mrr||0}` });
   toast(`${c.name} restored`, 'success');
-  const { error } = await sb.from('customers')
-    .update({ deleted_at: null })
-    .eq('id', id).eq('user_id', currentUser.id);
+  const { error } = await _ownerEq(
+    sb.from('customers').update({ deleted_at: null }).eq('id', id)
+  );
   if (error) toast('Restore sync failed', 'warn');
 }
 
@@ -685,7 +772,9 @@ async function hardDeleteCustomer(id) {
     renderTrash();
     logAudit('customer_hard_deleted', id, cName, { summary: 'Permanently removed from database' });
     toast(`${cName} permanently deleted`, 'warn');
-    const { error } = await sb.from('customers').delete().eq('id', id).eq('user_id', currentUser.id);
+    const { error } = await _ownerEq(
+      sb.from('customers').delete().eq('id', id)
+    );
     if (error) toast('Permanent delete sync failed', 'warn');
   });
 }
@@ -700,7 +789,7 @@ async function emptyTrash() {
     renderTrash();
     toast('Trash emptied', 'warn');
     await Promise.all(toNuke.map(c =>
-      sb.from('customers').delete().eq('id', c.id).eq('user_id', currentUser.id).catch(()=>{})
+      _ownerEq(sb.from('customers').delete().eq('id', c.id)).catch(()=>{})
     ));
   });
 }
@@ -1054,10 +1143,16 @@ function _generateDemoCustomer(name, index, now) {
 
   // Next scheduled touch (~40% of active customers)
   let next_touch = '';
+  let next_touch_time = '';
   if (lifecycle !== 'churned' && Math.random() < 0.40) {
     const ntDate = new Date(now);
     ntDate.setDate(ntDate.getDate() + 1 + Math.floor(Math.random() * 21));
     next_touch = ntDate.toISOString().slice(0,10);
+    if (Math.random() < 0.50) {
+      const hr = 8 + Math.floor(Math.random() * 10);
+      const mn = [0,15,30,45][Math.floor(Math.random()*4)];
+      next_touch_time = String(hr).padStart(2,'0') + ':' + String(mn).padStart(2,'0');
+    }
   }
 
   // Last contact date — derive from days since contact for ~60% of active customers
@@ -1097,6 +1192,7 @@ function _generateDemoCustomer(name, index, now) {
     deleted_at:      null,
     created,
     next_touch,
+    next_touch_time,
     playbook_checks: {},
     last_contact_date
   };
@@ -1141,9 +1237,9 @@ async function seedDemoData() {
   console.log('   Client ID:', prof.client_id);
   console.log('   Business:', prof.business_name || '(none)');
 
-  // 2. Delete existing customers for this user
-  console.log('2/4 — Deleting existing customers for ' + targetEmail + '…');
-  const { error: delErr } = await sb.from('customers').delete().eq('user_id', prof.user_id);
+  // 2. Delete existing customers for this client
+  console.log('2/4 — Deleting existing customers for client ' + prof.client_id + '…');
+  const { error: delErr } = await sb.from('customers').delete().eq('client_id', prof.client_id);
   if (delErr) { console.error('Delete error:', delErr.message); return; }
   console.log('   Old data cleared.');
 
@@ -1155,7 +1251,8 @@ async function seedDemoData() {
   console.log('4/4 — Pushing to Supabase (150 rows)…');
   const rows = customers.map(c => {
     const row = toRow(c);
-    row.user_id = prof.user_id; // assign to the target user
+    row.user_id = prof.user_id;       // audit: who seeded
+    row.client_id = prof.client_id;   // ownership: target client
     return row;
   });
 
@@ -1192,11 +1289,9 @@ async function seedExampleData() {
   console.log('   Client:', exClient.name, '(' + exClient.id + ')');
   console.log('   Target user:', targetUser.email);
 
-  // 3. Delete existing customers for ALL users in this client
+  // 3. Delete existing customers for this client
   console.log('2/4 — Clearing existing data…');
-  for (const p of profiles) {
-    await sb.from('customers').delete().eq('user_id', p.user_id);
-  }
+  await sb.from('customers').delete().eq('client_id', exClient.id);
   console.log('   Old data cleared.');
 
   // 4. Generate curated customers
@@ -1345,10 +1440,16 @@ async function seedExampleData() {
 
     // Next touch — 50% of active
     let next_touch = '';
+    let next_touch_time = '';
     if (lifecycle !== 'churned' && Math.random() < 0.50) {
       const ntDate = new Date(now);
       ntDate.setDate(ntDate.getDate() + 1 + Math.floor(Math.random() * 18));
       next_touch = ntDate.toISOString().slice(0,10);
+      if (Math.random() < 0.50) {
+        const hr = 8 + Math.floor(Math.random() * 10);
+        const mn = [0,15,30,45][Math.floor(Math.random()*4)];
+        next_touch_time = String(hr).padStart(2,'0') + ':' + String(mn).padStart(2,'0');
+      }
     }
 
     // Last contact date — 70% of active
@@ -1403,6 +1504,7 @@ async function seedExampleData() {
       deleted_at:      lifecycle === 'churned' ? null : null,
       created,
       next_touch,
+      next_touch_time,
       playbook_checks: {},
       last_contact_date,
       touch_history
@@ -1413,7 +1515,8 @@ async function seedExampleData() {
   console.log('4/4 — Pushing ' + exCustomers.length + ' customers to Supabase…');
   const rows = exCustomers.map(c => {
     const row = toRow(c);
-    row.user_id = targetUser.user_id;
+    row.user_id = targetUser.user_id;   // audit: who seeded
+    row.client_id = exClient.id;        // ownership: Demo Account client
     return row;
   });
 
@@ -1581,6 +1684,7 @@ async function authSignOut() {
   stopPolling();
   currentUser = null;
   _userRole   = null;
+  _userClientId = null;
   customers   = [];
   trash       = [];
   await sb.auth.signOut();
@@ -2033,8 +2137,8 @@ function getMomentum(c) {
   if (!c.history || c.history.length < 2) return 'new';
   // Use 7-day delta for consistency with trend sparkline and insights
   const diff = getDelta7d(c);
-  if (diff >= 3)  return 'up';
-  if (diff <= -3) return 'dn';
+  if (diff >= momentumPts)  return 'up';
+  if (diff <= -momentumPts) return 'dn';
   return 'flat';
 }
 
@@ -2081,15 +2185,13 @@ function urgencyHTML(c) {
 
 // ─── CADENCE TRACKER ─────────────────────────────────────────
 // Tier-based thresholds for days since last contact
-const CADENCE_THRESHOLDS = {
-  enterprise: { warn: 14, overdue: 30 },
-  mid:        { warn: 21, overdue: 45 },
-  smb:        { warn: 30, overdue: 60 }
-};
+// cadenceConfig is defined in state.js and configurable via Settings
+function getCadenceThresholds() { return cadenceConfig; }
 
 function getCadenceStatus(c) {
   if (c.days == null) return { status:'ok', label:'N/A', cls:'cadence-ok' };
-  const thres = CADENCE_THRESHOLDS[c.tier] || CADENCE_THRESHOLDS.mid;
+  const ct = getCadenceThresholds();
+  const thres = ct[c.tier] || ct.mid;
   if (c.days >= thres.overdue) return { status:'overdue', label:`Overdue (${c.days}d)`,  cls:'cadence-overdue' };
   if (c.days >= thres.warn)    return { status:'warn',    label:`Due Soon (${c.days}d)`, cls:'cadence-warn' };
   return                                { status:'ok',      label:`On Track (${c.days}d)`, cls:'cadence-ok' };
@@ -2097,14 +2199,14 @@ function getCadenceStatus(c) {
 
 // ─── QUIET ACCOUNT DETECTION ──────────────────────────────────
 // "Quiet" = zero activity across ALL channels: no logins, no tickets, no CSM contact.
-const QUIET_THRESHOLD_DAYS = 14;
+// quietDays is defined in state.js and configurable via Settings
 
 function isQuietAccount(c) {
   if (c.lifecycle === 'churned' || c.lifecycle === 'won') return false;
   if (c.logins != null && c.logins > 0) return false;
   if (c.tickets != null && c.tickets > 0) return false;
   const effDays = getEffectiveDays(c);
-  if (effDays == null || effDays < QUIET_THRESHOLD_DAYS) return false;
+  if (effDays == null || effDays < quietDays) return false;
   return true;
 }
 
@@ -2139,7 +2241,7 @@ function buildCadenceAlerts() {
         id: c.id+'-cadence',
         cid: c.id,
         type: 'red',
-        msg: `<strong>${c.name}</strong> <span>— check-in overdue! No contact in ${c.days} days (${(c.tier||'mid').toUpperCase()} SLA: ${CADENCE_THRESHOLDS[c.tier||'mid'].overdue}d)</span>`
+        msg: `<strong>${c.name}</strong> <span>— check-in overdue! No contact in ${c.days} days (${(c.tier||'mid').toUpperCase()} SLA: ${getCadenceThresholds()[c.tier||'mid'].overdue}d)</span>`
       });
     } else if (cad.status === 'warn') {
       alerts.push({
@@ -2248,7 +2350,7 @@ function nav(v) {
   if (v === 'homebase')  renderHomeBase();
   if (v === 'alerts')    renderAlerts();
   if (v === 'customers') renderCustomers();
-  if (v === 'segments')  { if (!hasFeature('segments')) { el('seg-kpi-row').innerHTML = ''; el('seg-cards-wrap').innerHTML = upgradeHTML('segments'); el('seg-table-wrap').innerHTML = ''; el('seg-insights-wrap').innerHTML = ''; } else renderSegments(); }
+  if (v === 'segments')  { if (!hasFeature('segments')) { el('seg-kpi-row').innerHTML = ''; el('seg-table-wrap').innerHTML = upgradeHTML('segments'); } else renderSegments(); }
   if (v === 'trends')    renderTrends();
   if (v === 'csmperf')   { if (!hasFeature('csm_performance')) { el('csmperf-wrap').innerHTML = upgradeHTML('csm_performance'); el('csmperf-stats').innerHTML = ''; } else renderCSMPerformance(); }
   if (v === 'calendar')  renderCalendar();
@@ -2337,7 +2439,6 @@ const _hbSvg = {
   engagement: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
   // Empty states
   chartEmpty: '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>',
-  checkCircle: '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
 };
 
 // Category → icon key mapping
@@ -2436,12 +2537,6 @@ function _renderHomeBase() {
   // ── Generate insights ──
   const insights = _generateInsights(active, now, cutoff);
 
-  // ── Build Focus list ──
-  const focusList = _buildFocusList(active, now);
-
-  // ── Build page snapshots ──
-  const snapshots = _buildPageSnapshots(active, now, cutoff, atRisk, atRiskMRR, total, avgScore, renewals30);
-
   // ── Extra KPI values ──
   const watch   = active.filter(c => c.status === 'watch');
   const healthy = active.filter(c => c.status === 'healthy');
@@ -2476,15 +2571,6 @@ function _renderHomeBase() {
   const contactGapHighVal = contactGap.filter(c => (c.mrr || 0) >= 5000);
   // Biggest single at-risk account
   const biggestRisk = atRisk.length ? atRisk.reduce((a, b) => (b.mrr || 0) > (a.mrr || 0) ? b : a) : null;
-  // NPS detractors
-  const detractors = active.filter(c => c.nps !== null && c.nps !== undefined && c.nps <= 6);
-  // Low adoption
-  const lowAdoption = active.filter(c => (c.adoption || 0) < 30 && (c.mrr || 0) > 0);
-  // Manager concentration: does one CSM hold >40% of at-risk MRR?
-  const mgrRisk = {};
-  atRisk.forEach(c => { const m = c.manager || 'Unassigned'; mgrRisk[m] = (mgrRisk[m] || 0) + (c.mrr || 0); });
-  const topRiskMgr = Object.entries(mgrRisk).sort((a,b) => b[1] - a[1])[0];
-  const mgrConcentrated = topRiskMgr && atRiskMRR > 0 && topRiskMgr[1] / atRiskMRR > 0.4;
 
   // ── Day-over-day / short-term trend analysis for briefing ──
   // Uses same approach as _insightDayOverDay: compare last two history entries per account
@@ -2533,81 +2619,85 @@ function _renderHomeBase() {
     return { avgDelta, droppers: droppers.length, topDroppers: droppers.slice(0, 3), reasons, total: dodPairs.length };
   })();
 
-  // Also compute 7-day delta for the briefing
-  const _weekDelta = (() => {
-    const deltas = withHist.map(c => getDeltaPeriod(c)).filter(d => d !== 0);
-    if (!deltas.length) return null;
-    return Math.round(deltas.reduce((s,d) => s+d, 0) / deltas.length * 10) / 10;
+  // ── Build today's priorities (action-oriented, account-specific) ──
+  // Distinct from Insights section: briefing = "what to act on today", insights = "what the data tells you"
+  const _briefBullets = (() => {
+    const bs = [];
+    const _ids = arr => JSON.stringify(arr.map(c => c.id));
+
+    // 1. Overnight drops — what broke since yesterday?
+    if (_dodBriefing && _dodBriefing.avgDelta <= -2) {
+      const d = _dodBriefing;
+      let text = `Scores dropped ${Math.abs(d.avgDelta)} pts overnight across ${d.total} accounts`;
+      if (d.reasons.length) text += `, driven by ${d.reasons.slice(0,2).join(' and ')}`;
+      text += '.';
+      bs.push({ p: 0, text, action: "setTrendRange('1d');nav('trends')" });
+    }
+
+    // 2. Renewal + contact gap — who needs outreach NOW?
+    if (contactGapHighVal.length > 0) {
+      const gapWithRenewal = contactGapHighVal.filter(c => c.renewal != null && c.renewal <= 3);
+      if (gapWithRenewal.length > 0) {
+        const gapMRR = gapWithRenewal.reduce((s,c) => s + (c.mrr||0), 0);
+        if (gapWithRenewal.length === 1) {
+          bs.push({ p: 0, text: `${gapWithRenewal[0].name} ($${fmtNum(gapWithRenewal[0].mrr||0)}/mo) has a renewal coming up and no contact in 30+ days.`, action: `openDetail('${gapWithRenewal[0].id}')` });
+        } else {
+          bs.push({ p: 0, text: `${gapWithRenewal.length} high-value accounts ($${fmtNum(gapMRR)} MRR) have renewals in the next 90 days and no contact in 30+ days.`, action: `setInsightFilter('Renewal + no contact',${_ids(gapWithRenewal)})` });
+        }
+      } else {
+        const gapMRR = contactGapHighVal.reduce((s,c) => s + (c.mrr||0), 0);
+        bs.push({ p: 1, text: `${contactGapHighVal.length} high-value accounts ($${fmtNum(gapMRR)} MRR) haven't been contacted in 30+ days.`, action: `setInsightFilter('No contact 30d+',${_ids(contactGapHighVal)})` });
+      }
+    }
+
+    // 3. Biggest at-risk account — your #1 priority
+    if (biggestRisk && biggestRisk.mrr >= 5000) {
+      const brDelta = getDelta7d(biggestRisk);
+      if (brDelta < -5) {
+        bs.push({ p: 1, text: `${biggestRisk.name} ($${fmtNum(biggestRisk.mrr)}/mo) is your largest at-risk account and dropped ${Math.abs(brDelta)} pts this week.`, action: `openDetail('${biggestRisk.id}')` });
+      } else if (biggestRisk.days != null && biggestRisk.days >= 14) {
+        bs.push({ p: 1, text: `${biggestRisk.name} ($${fmtNum(biggestRisk.mrr)}/mo) is your largest at-risk account and hasn't been contacted in ${biggestRisk.days} days.`, action: `openDetail('${biggestRisk.id}')` });
+      }
+    }
+
+    // 4. Silent decliners — catch before they escalate
+    if (silentDecliners.length >= 2) {
+      const sdMRR = silentDecliners.reduce((s,c) => s + (c.mrr||0), 0);
+      bs.push({ p: 1, text: `${silentDecliners.length} accounts that were healthy last period are now declining, putting $${fmtNum(sdMRR)} MRR at risk of sliding into watch.`, action: `setInsightFilter('Declining from healthy',${_ids(silentDecliners)})` });
+    } else if (silentDecliners.length === 1) {
+      const sd = silentDecliners[0];
+      bs.push({ p: 1, text: `${sd.name} was healthy but has started declining. Worth a check-in before it escalates.`, action: `openDetail('${sd.id}')` });
+    }
+
+    bs.sort((a,b) => a.p - b.p);
+    return bs.slice(0, 4);
   })();
 
-  // Build prioritized insight pool (max 2-3 signals)
-  const signals = [];
-
-  // Day-over-day trend callout (highest priority when significant)
-  if (_dodBriefing && _dodBriefing.avgDelta <= -2) {
-    const d = _dodBriefing;
-    let text = `Portfolio avg score dropped ${Math.abs(d.avgDelta)} pts day-over-day across ${d.total} accounts`;
-    if (d.droppers > 0) text += ` \u2014 ${d.droppers} fell 5+ pts`;
-    if (d.topDroppers.length) text += ` (${d.topDroppers.map(p => p.c.name + ' ' + p.delta).join(', ')})`;
-    text += '.';
-    if (d.reasons.length) text += ` Key drivers: ${d.reasons.join(', ')}.`;
-    else if (d.droppers > 0) text += ' Review recent signal changes to identify the cause.';
-    signals.push({ p: 0, text });
-  } else if (_weekDelta !== null && _weekDelta <= -3) {
-    signals.push({ p: 1, text: `Portfolio avg score is trending down ${Math.abs(_weekDelta)} pts over the selected period.` });
+  // Build opener line
+  let _briefOpener = '';
+  if (_briefBullets.length && _briefBullets[0].p <= 1) {
+    if (atRisk.length === 0) _briefOpener = `Your book is clean with no at-risk accounts.`;
+    else if (atRiskMRR >= 50000) _briefOpener = `$${fmtNum(atRiskMRR)} in MRR is currently at risk across ${atRisk.length} accounts.`;
+    else _briefOpener = `${atRisk.length} account${atRisk.length !== 1 ? 's' : ''} ${atRisk.length !== 1 ? 'are' : 'is'} at risk today ($${fmtNum(atRiskMRR)} MRR).`;
+  } else if (healthyPct >= 80) {
+    _briefOpener = `Your portfolio is in strong shape at ${healthyPct}% healthy.`;
+  } else if (healthyPct >= 60) {
+    _briefOpener = `Portfolio health is holding at ${healthyPct}%. Here's what stands out.`;
+  } else {
+    _briefOpener = `Your book is running at ${healthyPct}% healthy with $${fmtNum(atRiskMRR)} MRR exposed.`;
   }
-
-  // Silent decliners — early warning, high value
-  if (silentDecliners.length >= 2) {
-    signals.push({ p: 1, text: `${silentDecliners.length} previously healthy accounts are now declining. Early intervention could prevent churn.` });
-  } else if (silentDecliners.length === 1) {
-    signals.push({ p: 1, text: `${silentDecliners[0].name} was healthy but is now declining and may need a check-in.` });
-  }
-  // Contact gap on high-value accounts
-  if (contactGapHighVal.length > 0) {
-    const gapMRR = contactGapHighVal.reduce((s,c) => s + (c.mrr||0), 0);
-    signals.push({ p: 2, text: `${contactGapHighVal.length} high-value account${contactGapHighVal.length > 1 ? 's' : ''} ($${fmtNum(gapMRR)} MRR) haven't been contacted in 30+ days.` });
-  } else if (contactGap.length > 5) {
-    signals.push({ p: 3, text: `${contactGap.length} accounts have gone 30+ days without contact.` });
-  }
-  // Manager concentration risk
-  if (mgrConcentrated && mgrFilterAll) {
-    const pct = Math.round(topRiskMgr[1] / atRiskMRR * 100);
-    signals.push({ p: 2, text: `${pct}% of at-risk MRR sits under ${topRiskMgr[0]}, creating concentrated exposure.` });
-  }
-  // Biggest single risk
-  if (biggestRisk && biggestRisk.mrr >= 10000) {
-    signals.push({ p: 3, text: `Largest at-risk account is ${biggestRisk.name} at $${fmtNum(biggestRisk.mrr)}/mo.` });
-  }
-  // NPS detractors
-  if (detractors.length >= 3) {
-    signals.push({ p: 4, text: `${detractors.length} accounts have NPS scores of 6 or below, which may signal softening sentiment.` });
-  }
-  // Low adoption
-  if (lowAdoption.length >= 5) {
-    signals.push({ p: 4, text: `${lowAdoption.length} accounts are below 30% feature adoption, a leading indicator of churn.` });
-  }
-  // Momentum (fallback if nothing else fires)
-  if (declining > improving + 5) signals.push({ p: 5, text: `Net momentum is negative, with more accounts declining than improving this period.` });
-  else if (improving > declining + 5) signals.push({ p: 5, text: `Positive momentum this period, with ${improving} accounts trending upward.` });
-
-  // Pick top 2-3 by priority
-  signals.sort((a,b) => a.p - b.p);
-  const topSignals = signals.slice(0, 3);
-
-  // Opening line
-  let opener = '';
-  if (healthyPct >= 80) opener = `Portfolio${mgrLabel} is strong at ${healthyPct}% healthy.`;
-  else if (healthyPct >= 60) opener = `Portfolio${mgrLabel} is at ${healthyPct}% healthy, stable with room to improve.`;
-  else if (healthyPct >= 40) opener = `Portfolio${mgrLabel} is at ${healthyPct}% healthy, below target.`;
-  else opener = `Portfolio${mgrLabel} needs attention at only ${healthyPct}% healthy.`;
-
-  const summaryText = opener + (topSignals.length ? ' ' + topSignals.map(s => s.text).join(' ') : '');
 
   html += '<div class="hb-welcome">';
   html += `<div class="hb-greeting">${greeting}${userName ? ', ' + escHtml(userName) : ''}</div>`;
   html += `<div class="hb-date">${dateStr}</div>`;
-  html += `<div class="hb-summary">${summaryText}</div>`;
+  html += `<div class="hb-summary">${_briefOpener}</div>`;
+  if (_briefBullets.length) {
+    html += '<ul class="hb-brief-list">';
+    _briefBullets.forEach(b => {
+      html += `<li class="hb-brief-item" onclick="${b.action.replace(/"/g,'&quot;')}">${b.text}</li>`;
+    });
+    html += '</ul>';
+  }
   html += '</div>';
 
   // ── 5 KPI Cards Row (from Dashboard) ──
@@ -2662,10 +2752,16 @@ function _renderHomeBase() {
   </div>`;
 
   // Card 4: Expansion Opportunity
+  const expEst = expansionConfig.mode === 'flat'
+    ? expand.length * expansionConfig.flat
+    : Math.round(expMRR * (expansionConfig.pct / 100));
+  const expSub = expansionConfig.mode === 'flat'
+    ? `Est. upsell potential ($${fmtNum(expansionConfig.flat)}/acct)`
+    : `Est. upsell potential (${expansionConfig.pct}%)`;
   html += `<div class="dash-kpi-card dash-kpi-green" onclick="nav('customers');setFilter('expand')">
     <div class="dash-kpi-top">${_kpiIcon(_kpiSvg.trend)}<span class="dash-kpi-label">Expansion Opportunity</span></div>
-    <div class="dash-kpi-num">$${fmtNum(Math.round(expMRR * 0.2))}</div>
-    <div class="dash-kpi-sub">Est. upsell potential (20%)</div>
+    <div class="dash-kpi-num">$${fmtNum(expEst)}</div>
+    <div class="dash-kpi-sub">${expSub}</div>
     <div style="margin-top:10px"><span class="dash-kpi-pill green">${expand.length} account${expand.length !== 1 ? 's' : ''} ready</span></div>
   </div>`;
 
@@ -2679,20 +2775,6 @@ function _renderHomeBase() {
 
   html += '</div>';
 
-  // ── Page Snapshots (quick-glance per tab) ──
-  html += '<div class="hb-snap-grid">';
-  snapshots.forEach(snap => {
-    html += `<div class="hb-snap-card" onclick="nav('${snap.view}')">
-      <div class="hb-snap-icon" style="background:${snap.iconBg};color:${snap.iconColor}">${snap.icon}</div>
-      <div class="hb-snap-body">
-        <div class="hb-snap-title">${snap.title}</div>
-        <div class="hb-snap-detail">${snap.detail}</div>
-      </div>
-      <svg class="hb-snap-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-    </div>`;
-  });
-  html += '</div>';
-
   // ── Renewal Pipeline (moved from Dashboard) ──
   html += '<div class="card" style="margin-bottom:20px;padding:16px 20px">';
   html += '<div class="card-hd" style="margin-bottom:12px"><div class="hb-section-hd" style="margin-bottom:0">Renewal Pipeline</div></div>';
@@ -2701,7 +2783,7 @@ function _renderHomeBase() {
 
   // ── Insights section ──
   html += '<div class="hb-section hb-section-tinted" style="margin-bottom:16px;padding-bottom:8px">';
-  html += '<div class="card-hd" style="margin-bottom:12px">';
+  html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">';
   html += '<div class="hb-section-hd" style="margin-bottom:0">Insights' + (insights.length ? ` <span class="hb-count">(${insights.length})</span>` : '') + '</div>';
   html += '<div style="display:flex;align-items:center;gap:8px">';
   html += `<select class="form-input" style="width:auto;padding:4px 10px;font-size:.76rem" onchange="_hbPeriodDays=+this.value;renderHomeBase()">
@@ -2728,34 +2810,6 @@ function _renderHomeBase() {
   html += '<div class="card" style="padding:16px 20px"><div class="card-hd" style="margin-bottom:8px"><div class="hb-section-hd" style="margin-bottom:0">Biggest Drops <span style="font-weight:500;font-size:.72rem;color:var(--muted)">7d</span></div></div><div id="drops-wrap"></div></div>';
   html += '</div>';
 
-  // ── This Week's Focus ──
-  html += '<div class="hb-section hb-section-warm" style="margin-bottom:16px">';
-  html += '<div class="card-hd" style="margin-bottom:12px">';
-  html += `<div class="hb-section-hd" style="margin-bottom:0">This Week's Focus <span class="hb-count">(${focusList.length})</span></div>`;
-  html += '</div>';
-
-  if (!focusList.length) {
-    html += `<div class="hb-empty">${_hbSvg.checkCircle}<p>All clear — no urgent items this week. Your portfolio is looking good.</p></div>`;
-  } else {
-    html += '<div class="hb-focus-list">';
-    focusList.forEach((f, i) => {
-      const dotColor = _statusColor(f.status);
-      html += `<div class="hb-focus-item" onclick="openDetail('${escHtml(f.id)}')">
-        <span class="hb-focus-rank">${i + 1}</span>
-        <div class="hb-focus-body">
-          <div class="hb-focus-name"><span class="hb-focus-dot" style="background:${dotColor}"></span>${escHtml(f.name)}</div>
-          <div class="hb-focus-reason">${escHtml(f.reason)}</div>
-        </div>
-        <div class="hb-focus-meta">
-          ${f.mrr ? '<span class="hb-focus-mrr">$' + fmtNum(f.mrr) + '</span>' : ''}
-          <span class="hb-focus-score" style="background:${dotColor}">${f.score}</span>
-        </div>
-      </div>`;
-    });
-    html += '</div>';
-  }
-  html += '</div>';
-
   // ── Signal Heatmap (moved from Dashboard) ──
   html += '<div class="card" style="padding:16px 20px">';
   html += '<div class="card-hd" style="margin-bottom:12px"><div class="hb-section-hd" style="margin-bottom:0">Signal Heatmap</div></div>';
@@ -2772,158 +2826,6 @@ function _renderHomeBase() {
   if (typeof renderWins === 'function') renderWins(active);
   if (typeof renderDrops === 'function') renderDrops(active);
   if (typeof renderHeatmap === 'function') renderHeatmap(active);
-}
-
-// ═══════════════════════════════════════════════════════════════
-// PAGE SNAPSHOTS — Quick-glance insight per main tab
-// ═══════════════════════════════════════════════════════════════
-
-function _buildPageSnapshots(active, now, cutoff, atRisk, atRiskMRR, total, avgScore, renewals30) {
-  const s = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">';
-  const snapshots = [];
-
-  // ── Alerts snapshot ──
-  try {
-    const allAlerts = typeof buildAlerts === 'function' ? buildAlerts() : [];
-    const activeAlerts = allAlerts.filter(a => !isSnoozed(a.id) && !isDismissed(a.id));
-    const redAlerts = activeAlerts.filter(a => a.type === 'red');
-    const amberAlerts = activeAlerts.filter(a => a.type === 'amber');
-    let detail = '';
-    if (!activeAlerts.length) {
-      detail = 'All clear — no active alerts. Focus on proactive outreach.';
-    } else {
-      const parts = [`<strong>${activeAlerts.length}</strong> active`];
-      if (redAlerts.length) parts.push(`${redAlerts.length} critical`);
-      if (amberAlerts.length) parts.push(`${amberAlerts.length} warning`);
-      detail = parts.join(' · ');
-      // Add top-priority context
-      const topAlert = activeAlerts[0];
-      if (topAlert) {
-        const cust = customers.find(x => x.id === topAlert.cid);
-        const shortMsg = topAlert.msg.replace(/<[^>]+>/g, '').substring(0, 50);
-        detail += `<br>Top: ${cust ? cust.name : shortMsg}`;
-      }
-    }
-    snapshots.push({
-      view: 'alerts', title: 'Alerts', detail,
-      icon: s + '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
-      iconBg: activeAlerts.length > 0 ? 'var(--red-l)' : 'var(--green-l)',
-      iconColor: activeAlerts.length > 0 ? 'var(--red)' : 'var(--green)'
-    });
-  } catch(e) {}
-
-  // ── Customers snapshot ──
-  try {
-    const healthy = active.filter(c => c.status === 'healthy' || c.status === 'expand');
-    const healthyPct = total ? Math.round(healthy.length / total * 100) : 0;
-    const totalMRR = active.reduce((s,c) => s + (c.mrr || 0), 0);
-    let detail = `<strong>${total}</strong> active · ${healthyPct}% healthy · $${fmtNum(totalMRR)} MRR`;
-    // Second line: movement or stale contacts
-    const withHist = active.filter(c => (c.history || []).length >= 1);
-    const improving = withHist.filter(c => _getDeltaPeriod(c, cutoff) > 2).length;
-    const declining = withHist.filter(c => _getDeltaPeriod(c, cutoff) < -2).length;
-    if (improving > 0 || declining > 0) {
-      detail += `<br>${improving} improving, ${declining} declining this period`;
-    } else {
-      const stale = active.filter(c => c.days != null && c.days > 30);
-      if (stale.length >= 3) detail += `<br>${stale.length} not contacted in 30+ days`;
-    }
-    snapshots.push({
-      view: 'customers', title: 'Customers', detail,
-      icon: s + '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
-      iconBg: 'var(--blue-l)', iconColor: 'var(--blue)'
-    });
-  } catch(e) {}
-
-  // ── Segments snapshot ──
-  try {
-    const tags = new Set();
-    active.forEach(c => (c.tags || []).forEach(t => tags.add(t)));
-    const tagCount = tags.size;
-    const atRiskPct = total ? Math.round(atRisk.length / total * 100) : 0;
-    const tiers = {};
-    active.forEach(c => {
-      const t = c.tier || 'Unknown';
-      if (!tiers[t]) tiers[t] = { total: 0, risk: 0 };
-      tiers[t].total++;
-      if (c.status === 'critical' || c.status === 'risk') tiers[t].risk++;
-    });
-    const tierList = Object.entries(tiers).filter(([,v]) => v.total >= 2).map(([k,v]) => ({
-      name: k, pct: Math.round(v.risk/v.total*100), total: v.total, risk: v.risk
-    }));
-    tierList.sort((a,b) => b.pct - a.pct);
-    let detail = `<strong>${tagCount}</strong> tags · ${Object.keys(tiers).length} tiers · ${atRiskPct}% at risk`;
-    if (tierList.length > 0 && tierList[0].pct > 0) {
-      detail += `<br>${tierList[0].name} highest risk at ${tierList[0].pct}%`;
-    }
-    snapshots.push({
-      view: 'segments', title: 'Segments', detail,
-      icon: s + '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
-      iconBg: 'var(--purple-l)', iconColor: 'var(--purple)'
-    });
-  } catch(e) {}
-
-  // ── Trends snapshot ──
-  try {
-    const withHist = active.filter(c => (c.history || []).length >= 1);
-    const improving = withHist.filter(c => _getDeltaPeriod(c, cutoff) > 2).length;
-    const declining = withHist.filter(c => _getDeltaPeriod(c, cutoff) < -2).length;
-    let direction = 'stable';
-    if (improving > declining + 2) direction = 'trending up';
-    else if (declining > improving + 2) direction = 'trending down';
-    let detail = `Portfolio ${direction} over ${_hbPeriodDays}d`;
-    if (improving > 0 || declining > 0) {
-      detail += `<br>${improving} up, ${declining} down`;
-      // Add biggest mover
-      let biggestDrop = null;
-      withHist.forEach(c => {
-        const d = _getDeltaPeriod(c, cutoff);
-        if (!biggestDrop || d < biggestDrop.delta) biggestDrop = { name: c.name, delta: d };
-      });
-      if (biggestDrop && biggestDrop.delta < -5) detail += ` · Biggest drop: ${biggestDrop.name}`;
-    }
-    snapshots.push({
-      view: 'trends', title: 'Trends', detail,
-      icon: s + '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
-      iconBg: improving >= declining ? 'var(--green-l)' : 'var(--amber-l)',
-      iconColor: improving >= declining ? 'var(--green)' : 'var(--amber)'
-    });
-  } catch(e) {}
-
-  // ── CSM Performance snapshot ──
-  try {
-    const byMgr = {};
-    active.forEach(c => {
-      const m = c.manager || 'Unassigned';
-      if (!byMgr[m]) byMgr[m] = { count: 0, risk: 0, mrr: 0, scoreSum: 0 };
-      byMgr[m].count++;
-      byMgr[m].scoreSum += c.score;
-      byMgr[m].mrr += (c.mrr || 0);
-      if (c.status === 'critical' || c.status === 'risk') byMgr[m].risk++;
-    });
-    const mgrs = Object.entries(byMgr).filter(([k]) => k !== 'Unassigned');
-    const csmCount = mgrs.length;
-    const riskMRR = atRisk.reduce((s,c) => s + (c.mrr || 0), 0);
-    let bestCsm = null, worstCsm = null;
-    mgrs.forEach(([name, data]) => {
-      const avg = Math.round(data.scoreSum / data.count);
-      if (!bestCsm || avg > bestCsm.avg) bestCsm = { name, avg };
-      if (!worstCsm || avg < worstCsm.avg) worstCsm = { name, avg };
-    });
-    let detail = `<strong>${csmCount}</strong> CSM${csmCount !== 1 ? 's' : ''} · $${fmtNum(riskMRR)} at risk`;
-    if (bestCsm && worstCsm && csmCount >= 2 && bestCsm.name !== worstCsm.name) {
-      detail += `<br>Top: ${bestCsm.name} (${bestCsm.avg}) · Low: ${worstCsm.name} (${worstCsm.avg})`;
-    } else if (bestCsm) {
-      detail += `<br>Top: ${bestCsm.name} (avg ${bestCsm.avg})`;
-    }
-    snapshots.push({
-      view: 'csmperf', title: 'CSM Performance', detail,
-      icon: s + '<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>',
-      iconBg: 'var(--teal-l)', iconColor: 'var(--teal)'
-    });
-  } catch(e) {}
-
-  return snapshots;
 }
 
 // ── Pulse KPI Card (gradient) ──
@@ -2954,22 +2856,17 @@ function _generateInsights(active, now, cutoff) {
   const insights = [];
   const generators = [
     _insightDayOverDay,
-    _insightPortfolioMomentum,
-    _insightWinLossBalance,
-    _insightBestWorstWeek,
     _insightTierDivergence,
     _insightRiskConcentration,
     _insightEmergingRisk,
     _insightQuietAccounts,
     _insightMrrAtRiskDelta,
     _insightRenewalReadiness,
-    _insightRenewalRisk,
-    _insightContactGaps,
-    _insightWorkloadBalance,
-    _insightExpansionReady,
-    _insightPositiveMovers,
+    _insightRenewalVelocity,
+    _insightContactImpact,
+    _insightSignalDivergence,
     _insightAdoptionCorrelation,
-    _insightTicketSpike
+    _insightRenewalClustering
   ];
 
   generators.forEach(gen => {
@@ -2980,7 +2877,7 @@ function _generateInsights(active, now, cutoff) {
   });
 
   insights.sort((a,b) => a.priority - b.priority);
-  return insights;
+  return insights.slice(0, 6);
 }
 
 // ── Helper: get delta for configurable period ──
@@ -3007,128 +2904,6 @@ function _getScoreNDaysAgo(c, daysAgo) {
   return best ? best.score : null;
 }
 
-// ── INSIGHT: Portfolio Momentum ──
-function _insightPortfolioMomentum(active, now, cutoff) {
-  const withHist = active.filter(c => (c.history || []).length >= 1);
-  if (withHist.length < 3) return null;
-
-  const deltas = withHist.map(c => _getDeltaPeriod(c, cutoff));
-  const avgDelta = Math.round(deltas.reduce((s,d) => s+d, 0) / deltas.length * 10) / 10;
-  if (Math.abs(avgDelta) < 1) return null;
-
-  const improving = avgDelta > 0;
-  return {
-    category: 'Trend',
-    priority: improving ? 3 : 1,
-    title: improving
-      ? `Portfolio health improved ${Math.abs(avgDelta)} pts this period`
-      : `Portfolio health declined ${Math.abs(avgDelta)} pts this period`,
-    detail: `Average score moved from ${Math.round(withHist.reduce((s,c) => { const prev = _getScoreNDaysAgo(c, _hbPeriodDays); return s + (prev !== null ? prev : c.score); }, 0) / withHist.length)} to ${Math.round(active.reduce((s,c) => s+c.score, 0) / active.length)} across ${withHist.length} accounts with history data.`,
-    action: { label: 'View Trends', fn: "nav('trends')" }
-  };
-}
-
-// ── INSIGHT: Win/Loss Balance ──
-function _insightWinLossBalance(active, now, cutoff) {
-  const withHist = active.filter(c => (c.history || []).length >= 1);
-  if (withHist.length < 3) return null;
-
-  const improving = withHist.filter(c => _getDeltaPeriod(c, cutoff) > 2);
-  const declining = withHist.filter(c => _getDeltaPeriod(c, cutoff) < -2);
-  if (improving.length === 0 && declining.length === 0) return null;
-
-  const ratio = improving.length / Math.max(declining.length, 1);
-  const net = improving.length - declining.length;
-
-  if (Math.abs(net) < 2) return null;
-
-  const good = net > 0;
-  const allTrending = [...declining, ...improving];
-  const focusIds = JSON.stringify(allTrending.map(c => c.id));
-  const focusLabel = `${declining.length} declining + ${improving.length} improving accounts`;
-  return {
-    category: 'Trend',
-    priority: good ? 4 : 2,
-    title: good
-      ? `${improving.length} accounts improving vs ${declining.length} declining`
-      : `${declining.length} accounts declining vs ${improving.length} improving`,
-    detail: good
-      ? `Net positive momentum — ${ratio.toFixed(1)}x more accounts gaining health than losing it this period.`
-      : `Net negative momentum — more accounts losing health than gaining. Review declining accounts for patterns.`,
-    action: { label: 'View Customers', fn: `setInsightFilter('${focusLabel}',${focusIds})` }
-  };
-}
-
-// ── INSIGHT: Best/Worst Week ──
-function _insightBestWorstWeek(active, now, cutoff) {
-  const withHist = active.filter(c => (c.history || []).length >= 2);
-  if (withHist.length < 5) return null;
-
-  const currentImprovers = withHist.filter(c => _getDeltaPeriod(c, cutoff) > 2).length;
-
-  const periods = [2, 3, 4].map(mult => {
-    const pCutoff = new Date(now);
-    pCutoff.setDate(pCutoff.getDate() - _hbPeriodDays * mult);
-    const pEnd = new Date(now);
-    pEnd.setDate(pEnd.getDate() - _hbPeriodDays * (mult - 1));
-    return withHist.filter(c => {
-      const hist = (c.history || []).filter(h => h.date).sort((a,b) => new Date(a.date) - new Date(b.date));
-      let atStart = null, atEnd = null;
-      for (const h of hist) {
-        if (new Date(h.date) <= pCutoff) atStart = h.score;
-        if (new Date(h.date) <= pEnd) atEnd = h.score;
-      }
-      if (atStart === null || atEnd === null) return false;
-      return (atEnd - atStart) > 2;
-    }).length;
-  });
-
-  if (!periods.length || periods.every(p => p === 0)) return null;
-
-  const maxPrev = Math.max(...periods);
-  const avgPrev = Math.round(periods.reduce((s,p) => s+p, 0) / periods.length);
-
-  if (currentImprovers > maxPrev && currentImprovers > 3) {
-    return {
-      category: 'Trend',
-      priority: 3,
-      title: `Best period for improvements in ${periods.length + 1} periods`,
-      detail: `${currentImprovers} accounts gained health this period vs avg ${avgPrev} in prior periods. Momentum is building.`,
-      action: { label: 'View Trends', fn: "nav('trends')" }
-    };
-  }
-
-  const currentDecliners = withHist.filter(c => _getDeltaPeriod(c, cutoff) < -2).length;
-  const prevDecliners = [2, 3, 4].map(mult => {
-    const pCutoff = new Date(now);
-    pCutoff.setDate(pCutoff.getDate() - _hbPeriodDays * mult);
-    const pEnd = new Date(now);
-    pEnd.setDate(pEnd.getDate() - _hbPeriodDays * (mult - 1));
-    return withHist.filter(c => {
-      const hist = (c.history || []).filter(h => h.date).sort((a,b) => new Date(a.date) - new Date(b.date));
-      let atStart = null, atEnd = null;
-      for (const h of hist) {
-        if (new Date(h.date) <= pCutoff) atStart = h.score;
-        if (new Date(h.date) <= pEnd) atEnd = h.score;
-      }
-      if (atStart === null || atEnd === null) return false;
-      return (atEnd - atStart) < -2;
-    }).length;
-  });
-  const maxPrevDec = Math.max(...prevDecliners);
-
-  if (currentDecliners > maxPrevDec && currentDecliners > 3) {
-    return {
-      category: 'Trend',
-      priority: 1,
-      title: `Worst period for declines in ${prevDecliners.length + 1} periods`,
-      detail: `${currentDecliners} accounts lost health this period — above the recent average. Investigate the pattern.`,
-      action: { label: 'View Trends', fn: "nav('trends')" }
-    };
-  }
-
-  return null;
-}
 
 // ── INSIGHT: Tier Divergence ──
 function _insightTierDivergence(active) {
@@ -3281,122 +3056,143 @@ function _insightRenewalReadiness(active, now) {
   };
 }
 
-// ── INSIGHT: Renewal Risk ──
-function _insightRenewalRisk(active, now) {
-  const next30 = active.filter(c => {
-    if (!c.renewal_date) return c.renewal != null && c.renewal >= 0 && c.renewal <= 1;
-    const diff = (new Date(c.renewal_date) - now) / 86400000;
-    return diff >= 0 && diff <= 30;
+// ── INSIGHT: Renewal Velocity (are renewal accounts declining faster than portfolio?) ──
+function _insightRenewalVelocity(active, now, cutoff) {
+  const next60 = active.filter(c => {
+    if (c.renewal_date) {
+      const diff = (new Date(c.renewal_date) - now) / 86400000;
+      return diff >= 0 && diff <= 60;
+    }
+    return c.renewal != null && c.renewal >= 0 && c.renewal <= 2;
   });
-  const atRiskRenewals = next30.filter(c => c.status === 'critical' || c.status === 'risk');
-  if (atRiskRenewals.length < 1 || next30.length < 2) return null;
+  if (next60.length < 3) return null;
 
-  const renewMRR = atRiskRenewals.reduce((s,c) => s + (c.mrr || 0), 0);
-  const rrIds = JSON.stringify(atRiskRenewals.map(c => c.id));
+  const withHist = active.filter(c => (c.history || []).length >= 1);
+  if (withHist.length < 5) return null;
+
+  // Avg delta for renewal cohort vs rest of portfolio
+  const renewWithHist = next60.filter(c => (c.history || []).length >= 1);
+  if (renewWithHist.length < 2) return null;
+
+  const renewAvgDelta = Math.round(renewWithHist.reduce((s,c) => s + _getDeltaPeriod(c, cutoff), 0) / renewWithHist.length * 10) / 10;
+  const nonRenew = withHist.filter(c => !next60.includes(c));
+  const portfolioAvgDelta = nonRenew.length
+    ? Math.round(nonRenew.reduce((s,c) => s + _getDeltaPeriod(c, cutoff), 0) / nonRenew.length * 10) / 10
+    : 0;
+
+  const gap = portfolioAvgDelta - renewAvgDelta; // positive = renewals declining faster
+  if (gap < 3) return null;
+
+  const renewMRR = next60.reduce((s,c) => s + (c.mrr || 0), 0);
+  const decliningRenewals = renewWithHist.filter(c => _getDeltaPeriod(c, cutoff) < -2);
 
   return {
     category: 'Renewal',
-    priority: 1,
-    title: `${atRiskRenewals.length} of ${next30.length} upcoming renewals are at-risk`,
-    detail: `$${fmtNum(renewMRR)} MRR is at risk among accounts renewing in the next 30 days. These need immediate attention.`,
-    action: { label: 'View Customers', fn: `setInsightFilter('${atRiskRenewals.length} at-risk renewals',${rrIds})` }
+    priority: gap > 8 ? 1 : 2,
+    title: `Renewal cohort declining ${Math.abs(renewAvgDelta)} pts vs portfolio ${portfolioAvgDelta > 0 ? '+' : ''}${portfolioAvgDelta}`,
+    detail: `${next60.length} accounts renewing in the next 60 days are losing health ${gap} pts faster than your portfolio average. ${decliningRenewals.length} are actively declining — $${fmtNum(renewMRR)} MRR at stake. Set up alerts to catch further drops early.`,
+    action: { label: 'Review Alerts', fn: "nav('alerts')" }
   };
 }
 
-// ── INSIGHT: Contact Gaps ──
-function _insightContactGaps(active) {
-  const stale = active.filter(c => c.days != null && c.days > 30);
-  if (stale.length < 3) return null;
+// ── INSIGHT: Contact Impact (does outreach correlate with better outcomes?) ──
+function _insightContactImpact(active, now, cutoff) {
+  const withDays = active.filter(c => c.days != null && (c.history || []).length >= 1);
+  if (withDays.length < 6) return null;
 
-  const enterprise = stale.filter(c => (c.tier || '').toLowerCase() === 'enterprise');
-  const atRiskStale = stale.filter(c => c.status === 'critical' || c.status === 'risk');
+  // Split into recently contacted (≤14 days) vs not contacted (>14 days)
+  const contacted   = withDays.filter(c => c.days <= 14);
+  const uncontacted = withDays.filter(c => c.days > 14);
+  if (contacted.length < 2 || uncontacted.length < 2) return null;
 
-  let extra = '';
-  if (enterprise.length > 0) extra += `, including ${enterprise.length} Enterprise`;
-  if (atRiskStale.length > 0) extra += ` and ${atRiskStale.length} at-risk`;
+  const contactedDelta   = Math.round(contacted.reduce((s,c) => s + _getDeltaPeriod(c, cutoff), 0) / contacted.length * 10) / 10;
+  const uncontactedDelta = Math.round(uncontacted.reduce((s,c) => s + _getDeltaPeriod(c, cutoff), 0) / uncontacted.length * 10) / 10;
 
-  const staleIds = JSON.stringify(stale.map(c => c.id));
-  return {
-    category: 'Workload',
-    priority: atRiskStale.length > 2 ? 2 : 3,
-    title: `${stale.length} accounts not contacted in 30+ days`,
-    detail: `${stale.length} accounts have gone over 30 days without contact${extra}. Regular touchpoints reduce churn risk.`,
-    action: { label: 'View Customers', fn: `setInsightFilter('${stale.length} accounts with no contact 30+ days',${staleIds})` }
-  };
+  const gap = contactedDelta - uncontactedDelta; // positive = contacted are doing better
+  if (Math.abs(gap) < 2) return null;
+
+  const outreachHelps = gap > 0;
+
+  // Find uncontacted accounts that are declining — prime outreach candidates
+  const neglectedDecliners = uncontacted
+    .filter(c => _getDeltaPeriod(c, cutoff) < -2)
+    .sort((a,b) => (b.mrr || 0) - (a.mrr || 0));
+  const ndIds = JSON.stringify(neglectedDecliners.map(c => c.id));
+
+  if (outreachHelps) {
+    return {
+      category: 'Engagement',
+      priority: neglectedDecliners.length >= 3 ? 2 : 3,
+      title: `Contacted accounts trending ${contactedDelta > 0 ? '+' : ''}${contactedDelta} pts vs ${uncontactedDelta > 0 ? '+' : ''}${uncontactedDelta} for uncontacted`,
+      detail: `Accounts with recent CSM contact (≤14 days) are outperforming uncontacted ones by ${gap} pts this period. ${neglectedDecliners.length} uncontacted account${neglectedDecliners.length !== 1 ? 's are' : ' is'} actively declining — outreach could reverse the trend.`,
+      action: neglectedDecliners.length
+        ? { label: 'View Declining Uncontacted', fn: `setInsightFilter('${neglectedDecliners.length} declining uncontacted',${ndIds})` }
+        : { label: 'View Customers', fn: "nav('customers')" }
+    };
+  } else {
+    // Unusual: uncontacted are doing better — maybe over-contact or wrong accounts contacted
+    return {
+      category: 'Engagement',
+      priority: 3,
+      title: `Uncontacted accounts outperforming contacted ones by ${Math.abs(gap)} pts`,
+      detail: `Contacted accounts averaged ${contactedDelta > 0 ? '+' : ''}${contactedDelta} pts vs ${uncontactedDelta > 0 ? '+' : ''}${uncontactedDelta} for uncontacted. This may indicate outreach is focused on the wrong accounts or low-touch accounts are self-sufficient.`,
+      action: { label: 'Review Book', fn: "nav('customers')" }
+    };
+  }
 }
 
-// ── INSIGHT: Workload Balance ──
-function _insightWorkloadBalance(active) {
-  const byMgr = {};
-  active.forEach(c => {
-    const m = c.manager || 'Unassigned';
-    if (!byMgr[m]) byMgr[m] = 0;
-    byMgr[m]++;
-  });
-  const mgrs = Object.entries(byMgr).filter(([k]) => k !== 'Unassigned');
-  if (mgrs.length < 2) return null;
+// ── INSIGHT: Signal Divergence (usage vs sentiment moving in opposite directions) ──
+function _insightSignalDivergence(active) {
+  // Find accounts where usage signals and sentiment signals are moving in opposite directions
+  // This is a classic early warning: high usage + dropping sentiment = frustration
+  // Or: low usage + good sentiment = disengagement risk (they like it but don't use it)
 
-  mgrs.sort((a,b) => b[1] - a[1]);
-  const highest = mgrs[0];
-  const lowest = mgrs[mgrs.length - 1];
-  const ratio = highest[1] / Math.max(lowest[1], 1);
+  const divergent = active.filter(c => {
+    const highUsage = (c.logins != null && c.logins >= 10) || (c.adoption != null && c.adoption >= 50);
+    const lowSentiment = npsIsDetractor(c.nps) || (c.csat != null && c.csat < 3) || (c.tickets != null && c.tickets >= 5);
+    const lowUsage = (c.logins != null && c.logins < 3) || (c.adoption != null && c.adoption < 20);
+    const highSentiment = npsIsPromoter(c.nps) || (c.csat != null && c.csat >= 4);
 
-  if (ratio < 2.5 || highest[1] - lowest[1] < 5) return null;
+    // Must have data on both dimensions
+    const hasUsage = c.logins != null || c.adoption != null;
+    const hasSentiment = c.nps != null || c.csat != null || c.tickets != null;
+    if (!hasUsage || !hasSentiment) return false;
 
-  return {
-    category: 'Workload',
-    priority: 4,
-    title: `CSM workload imbalance: ${highest[0]} has ${highest[1]} accounts`,
-    detail: `${highest[0]} manages ${highest[1]} accounts vs ${lowest[0]} with ${lowest[1]} — a ${ratio.toFixed(1)}x difference. Consider rebalancing for better coverage.`,
-    action: { label: 'View CSM Performance', fn: "nav('csmperf')" }
-  };
-}
-
-// ── INSIGHT: Expansion Ready ──
-function _insightExpansionReady(active) {
-  const expanding = active.filter(c => c.status === 'expand');
-  if (expanding.length < 2) return null;
-
-  const strongEngagement = expanding.filter(c => {
-    const signals = [
-      c.logins != null && c.logins >= 15,
-      c.adoption != null && c.adoption >= 60,
-      npsIsPromoter(c.nps)
-    ].filter(Boolean).length;
-    return signals >= 2;
-  });
-
-  if (strongEngagement.length < 2) return null;
-  const totalMRR = strongEngagement.reduce((s,c) => s + (c.mrr || 0), 0);
-  const seIds = JSON.stringify(strongEngagement.map(c => c.id));
-
-  return {
-    category: 'Opportunity',
-    priority: 3,
-    title: `${strongEngagement.length} accounts ready for expansion`,
-    detail: `${strongEngagement.length} Expand-status accounts have strong engagement signals (high logins, adoption, and NPS). Combined MRR: $${fmtNum(totalMRR)} — upsell candidates.`,
-    action: { label: 'View Customers', fn: `setInsightFilter('${strongEngagement.length} expansion-ready accounts',${seIds})` }
-  };
-}
-
-// ── INSIGHT: Positive Movers ──
-function _insightPositiveMovers(active, now, cutoff) {
-  const movedUp = active.filter(c => {
-    const prev = _getScoreNDaysAgo(c, _hbPeriodDays);
-    if (prev === null) return false;
-    const prevStatus = getStatus(prev);
-    return (prevStatus === 'watch' || prevStatus === 'risk') && (c.status === 'healthy' || c.status === 'expand');
+    // Flag 1: Using the product a lot but unhappy (frustration pattern)
+    if (highUsage && lowSentiment) { c._divergeType = 'frustration'; return true; }
+    // Flag 2: Not using it much but say they like it (disengagement risk)
+    if (lowUsage && highSentiment) { c._divergeType = 'disengaging'; return true; }
+    return false;
   });
 
-  if (movedUp.length < 1) return null;
-  const muIds = JSON.stringify(movedUp.map(c => c.id));
+  if (divergent.length < 2) return null;
+
+  const frustrated = divergent.filter(c => c._divergeType === 'frustration');
+  const disengaging = divergent.filter(c => c._divergeType === 'disengaging');
+  const frustratedMRR = frustrated.reduce((s,c) => s + (c.mrr || 0), 0);
+  const divIds = JSON.stringify(divergent.map(c => c.id));
+
+  // Clean up temp property
+  divergent.forEach(c => delete c._divergeType);
+
+  let title, detail;
+  if (frustrated.length >= 2 && frustrated.length >= disengaging.length) {
+    title = `${frustrated.length} high-usage accounts showing negative sentiment`;
+    detail = `These accounts are actively using the product but showing frustration signals (low NPS, high tickets, or low CSAT). $${fmtNum(frustratedMRR)} MRR. When usage is high but sentiment is low, churn often follows once an alternative appears.`;
+  } else if (disengaging.length >= 2) {
+    title = `${disengaging.length} accounts show positive sentiment but low engagement`;
+    detail = `These accounts report satisfaction but have low login/adoption numbers. Positive sentiment without active usage often precedes quiet churn — they like the idea but aren't embedded in it.`;
+  } else {
+    title = `${divergent.length} accounts have usage-sentiment divergence`;
+    detail = `${frustrated.length} show high usage with negative sentiment (frustration risk), ${disengaging.length} show low usage with positive sentiment (disengagement risk). Both patterns warrant investigation.`;
+  }
 
   return {
-    category: 'Opportunity',
-    priority: 4,
-    title: `${movedUp.length} account${movedUp.length > 1 ? 's' : ''} improved to Healthy this period`,
-    detail: `${movedUp.map(c => c.name).slice(0, 4).join(', ')}${movedUp.length > 4 ? ' +' + (movedUp.length - 4) + ' more' : ''} moved out of Watch/Risk into Healthy or Expand status.`,
-    action: { label: 'View Customers', fn: `setInsightFilter('${movedUp.length} recently improved accounts',${muIds})` }
+    category: 'Risk',
+    priority: frustrated.length >= 2 ? 2 : 3,
+    title,
+    detail,
+    action: { label: 'View Divergent Accounts', fn: `setInsightFilter('${divergent.length} signal-divergent accounts',${divIds})` }
   };
 }
 
@@ -3427,22 +3223,70 @@ function _insightAdoptionCorrelation(active) {
   };
 }
 
-// ── INSIGHT: Ticket Spike ──
-function _insightTicketSpike(active) {
-  const highTickets = active.filter(c => c.tickets != null && c.tickets >= 5);
-  if (highTickets.length < 2) return null;
+// ── INSIGHT: Renewal Clustering (are renewals bunched, creating workload risk?) ──
+function _insightRenewalClustering(active, now) {
+  // Analyze renewal date distribution over next 90 days
+  // Detect if renewals cluster in narrow windows — creating attention-dilution risk
+  const withRenewal = active.filter(c => {
+    if (c.renewal_date) {
+      const diff = (new Date(c.renewal_date) - now) / 86400000;
+      return diff >= 0 && diff <= 90;
+    }
+    return c.renewal != null && c.renewal >= 0 && c.renewal <= 3;
+  });
+  if (withRenewal.length < 5) return null;
 
-  const withTickets = active.filter(c => c.tickets != null);
-  if (withTickets.length < 5) return null;
+  // Bucket into 2-week windows (6 buckets for 90 days)
+  const buckets = [0,0,0,0,0,0];
+  const bucketMRR = [0,0,0,0,0,0];
+  const bucketAccts = [[],[],[],[],[],[]];
+  withRenewal.forEach(c => {
+    let days;
+    if (c.renewal_date) {
+      days = Math.max(0, Math.round((new Date(c.renewal_date) - now) / 86400000));
+    } else {
+      days = Math.max(0, Math.round((c.renewal || 0) * 30));
+    }
+    const bucket = Math.min(Math.floor(days / 15), 5);
+    buckets[bucket]++;
+    bucketMRR[bucket] += (c.mrr || 0);
+    bucketAccts[bucket].push(c);
+  });
 
-  const avgTickets = Math.round(withTickets.reduce((s,c) => s + c.tickets, 0) / withTickets.length * 10) / 10;
+  // Find the peak bucket
+  let peakIdx = 0;
+  for (let i = 1; i < buckets.length; i++) {
+    if (buckets[i] > buckets[peakIdx]) peakIdx = i;
+  }
+
+  const peakCount = buckets[peakIdx];
+  const peakPct = Math.round(peakCount / withRenewal.length * 100);
+  const peakMRR = bucketMRR[peakIdx];
+
+  // Only fire if meaningful concentration (>40% in one window)
+  if (peakPct < 40 || peakCount < 3) return null;
+
+  // Also check if consecutive windows are heavy (clustering across 4 weeks)
+  const adjacentIdx = peakIdx < 5 ? peakIdx + 1 : peakIdx - 1;
+  const clusterCount = peakCount + (buckets[adjacentIdx] || 0);
+  const clusterPct = Math.round(clusterCount / withRenewal.length * 100);
+  const clusterMRR = peakMRR + (bucketMRR[adjacentIdx] || 0);
+
+  const windowStart = peakIdx * 15;
+  const windowEnd = windowStart + 14;
+  const dtFmt = { month: 'short', day: 'numeric' };
+  const startDate = new Date(now.getTime() + windowStart * 86400000);
+  const endDate = new Date(now.getTime() + windowEnd * 86400000);
+  const windowLabel = windowStart === 0
+    ? `next 2 weeks (${startDate.toLocaleDateString('en-US', dtFmt)} – ${endDate.toLocaleDateString('en-US', dtFmt)})`
+    : `${startDate.toLocaleDateString('en-US', dtFmt)} – ${endDate.toLocaleDateString('en-US', dtFmt)}`;
 
   return {
-    category: 'Engagement',
-    priority: highTickets.some(c => c.status === 'critical' || c.status === 'risk') ? 2 : 3,
-    title: `${highTickets.length} accounts have 5+ open tickets`,
-    detail: `These accounts have elevated ticket volume (portfolio avg: ${avgTickets}). High ticket counts often precede health declines — review for patterns.`,
-    action: { label: 'View Customers', fn: `setInsightFilter('${highTickets.length} accounts with 5+ tickets',${JSON.stringify(highTickets.map(c=>c.id))})` }
+    category: 'Renewal',
+    priority: peakPct >= 50 ? 2 : 3,
+    title: `${peakPct}% of renewals clustered in ${windowLabel}`,
+    detail: `${peakCount} of ${withRenewal.length} upcoming renewals ($${fmtNum(peakMRR)} MRR) fall in a single 2-week window. ${clusterPct > peakPct ? `Including the adjacent window, ${clusterPct}% ($${fmtNum(clusterMRR)} MRR) land in a 4-week span. ` : ''}Clustering creates attention-dilution risk — plan outreach cadence now.`,
+    action: { label: 'View Calendar', fn: "nav('calendar')" }
   };
 }
 
@@ -3524,68 +3368,6 @@ function _insightQuietAccounts(active) {
   };
 }
 
-// ═══════════════════════════════════════════════════════════════
-// THIS WEEK'S FOCUS — Top 5 urgent accounts
-// ═══════════════════════════════════════════════════════════════
-
-function _buildFocusList(active, now) {
-  const scored = active.map(c => {
-    let urgency = 0;
-    let reasons = [];
-
-    if (c.status === 'critical') { urgency += 40; reasons.push('critical status'); }
-    else if (c.status === 'risk') { urgency += 25; reasons.push('at-risk'); }
-
-    let renewDays = null;
-    if (c.renewal_date) {
-      renewDays = Math.round((new Date(c.renewal_date) - now) / 86400000);
-    } else if (c.renewal != null) {
-      renewDays = Math.round(c.renewal * 30);
-    }
-    if (renewDays != null && renewDays >= 0 && renewDays <= 30) {
-      urgency += 30 - renewDays;
-      reasons.push(`renewal in ${renewDays}d`);
-    }
-
-    const delta = getDelta7d(c);
-    if (delta < -10) { urgency += 20; reasons.push(`score dropped ${Math.abs(delta)}pts`); }
-    else if (delta < -5) { urgency += 10; reasons.push(`score dropped ${Math.abs(delta)}pts`); }
-
-    if (c.days != null && c.days > 30) {
-      urgency += Math.min(c.days / 3, 15);
-      reasons.push(`no contact ${c.days} days`);
-    }
-
-    if (c.tickets != null && c.tickets >= 5) {
-      urgency += c.tickets * 2;
-      reasons.push(`${c.tickets} open tickets`);
-    }
-
-    if (npsIsDetractor(c.nps)) {
-      urgency += 10;
-      reasons.push('NPS detractor');
-    }
-
-    if (isQuietAccount(c)) {
-      const qDays = getQuietDays(c);
-      urgency += Math.min(qDays / 2, 20);
-      reasons.push(`completely quiet ${qDays}d`);
-    }
-
-    if (c.mrr > 0) urgency += Math.min(c.mrr / 1000, 10);
-
-    return {
-      id: c.id, name: c.name, score: c.score, status: c.status,
-      mrr: c.mrr, urgency, reason: reasons.slice(0, 3).join(', ')
-    };
-  });
-
-  return scored
-    .filter(s => s.urgency > 10)
-    .sort((a,b) => b.urgency - a.urgency)
-    .slice(0, 5);
-}
-
 // ── Render a single insight card ──
 function _renderInsightCard(ins) {
   const catColors = {
@@ -3617,15 +3399,8 @@ function _renderInsightCard(ins) {
   </div>`;
 }
 
-
-// ─── DASHBOARD WIDGETS (kept for Home Base) ─────────────────
-
-function el(id) { return document.getElementById(id); }
-function fmtNum(n) {
-  if (n >= 1e6) return (n/1e6).toFixed(1).replace(/\.0$/,'') + 'M';
-  if (n >= 1e3) return (n/1e3).toFixed(1).replace(/\.0$/,'') + 'K';
-  return n.toLocaleString();
-}
+// ─── HOME BASE WIDGETS ──────────────────────────────────────
+// Signal heatmap, wins/drops, renewal pipeline — all called by renderHomeBase()
 
 // ─── SIGNAL HEATMAP ─────────────────────────────────────────
 function dashHeatSortBy(key) {
@@ -3958,8 +3733,8 @@ function buildAlerts() {
     if (c.renewal_date) {
       const d = new Date(c.renewal_date);
       const days = Math.round((d - now) / 86400000);
-      if (days >= 0 && days <= 60) {
-        const urgency = days <= 14 ? 'red' : days <= 30 ? 'amber' : 'blue';
+      if (days >= 0 && days <= renewalWindows.upcoming) {
+        const urgency = days <= renewalWindows.critical ? 'red' : days <= renewalWindows.warning ? 'amber' : 'blue';
         const label   = days === 0 ? 'Today!' : days === 1 ? 'Tomorrow' : `${days} days`;
         alerts.push({ id:c.id+'-renew', cid:c.id, cat:'renewal', type:urgency,
           msg:`<strong>${escHtml(c.name)}</strong> <span>renews in ${label}</span>`,
@@ -4189,7 +3964,6 @@ function _renderAlerts() {
   if (!active.length && !snz.length && !(_alertViewMode === 'table' && _alertTableFilter)) {
     list.innerHTML = '<div class="empty-st"><div class="ei"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><h3>All clear!</h3><p>No alerts right now — all accounts are in good shape.</p></div>';
     renderAlertPanel(all, active, snz);
-    renderAlertBriefing(active, snz);
     return;
   }
 
@@ -4383,7 +4157,6 @@ function _renderAlerts() {
   }
 
   renderAlertPanel(all, active, snz);
-  renderAlertBriefing(active, snz);
 
   // Show/hide "View Snoozed" button
   const vsBtn = el('alerts-view-snoozed-btn');
@@ -4592,303 +4365,6 @@ function filterByAlertCat(cat) {
 function clearMrrExposureFilter() {
   mrrExposureFilter = null;
   renderCustomers();
-}
-
-// ════════════════════════════════════════════════════════════════
-// Alert Briefing Panel — Smart narrative overview + action list
-// ════════════════════════════════════════════════════════════════
-
-function _briefLink(c) {
-  return `<strong class="briefing-link" onclick="openDetail('${escHtml(c.id)}')">${escHtml(c.name)}</strong>`;
-}
-
-let _briefingGroups = [];
-function _briefGroupLink(text, items, tableLabel) {
-  const ids = new Set(items.map(x => x.cid || x.id));
-  if (!ids.size) return `<strong>${text}</strong>`;
-  const idx = _briefingGroups.length;
-  _briefingGroups.push({ label: tableLabel || text, ids });
-  return `<strong class="briefing-link" onclick="_briefShowGroup(${idx})">${text}</strong>`;
-}
-function _briefShowGroup(idx) {
-  const g = _briefingGroups[idx];
-  if (g) _alertShowTable(g.label, g.ids);
-}
-
-function _briefingNarrative(active, snz) {
-  _briefingGroups = [];
-  const total = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
-  if (!total.length) return '';
-  const n = total.length;
-  const critRisk   = total.filter(c => c.status === 'critical' || c.status === 'risk');
-  const watchAccts = total.filter(c => c.status === 'watch');
-  const healthy    = total.filter(c => c.status === 'healthy' || c.status === 'expand');
-  const healthPct  = Math.round((healthy.length / n) * 100);
-
-  // MRR
-  const riskMrr   = critRisk.reduce((s, c) => s + (c.mrr || 0), 0);
-  const totalMrr  = total.reduce((s, c) => s + (c.mrr || 0), 0);
-  const riskMrrPct = totalMrr > 0 ? Math.round((riskMrr / totalMrr) * 100) : 0;
-  const avgScore = Math.round(total.reduce((s, c) => s + (c.score || 0), 0) / n);
-
-  // Momentum — arrays for group linking
-  const improvingAccts = [], decliningAccts = [];
-  let biggestDrop = null, biggestRise = null;
-  total.forEach(c => {
-    const d = getDelta7d(c);
-    if (d > 2) { improvingAccts.push(c); if (!biggestRise || d > getDelta7d(biggestRise)) biggestRise = c; }
-    else if (d < -2) { decliningAccts.push(c); if (!biggestDrop || d < getDelta7d(biggestDrop)) biggestDrop = c; }
-  });
-
-  // Alert buckets — split sentiment from NPS (both cat:'sentiment' but different alerts)
-  const renewals     = active.filter(a => a.cat === 'renewal');
-  const urgRenewals  = renewals.filter(a => a.type === 'red');
-  const cadenceRed   = active.filter(a => a.cat === 'cadence' && a.type === 'red');
-  const ticketAlerts = active.filter(a => a.cat === 'tickets');
-  const sentNeg      = active.filter(a => a.id.endsWith('-sent'));
-  const npsDetract   = active.filter(a => a.id.endsWith('-nps') || a.id.endsWith('-csat'));
-  const engAlerts    = active.filter(a => a.cat === 'engagement');
-  const expansions   = active.filter(a => a.cat === 'expansion');
-
-  // Touch & coverage
-  const recentTouch  = total.filter(c => c.days != null && c.days <= 14).length;
-  const touchPct     = Math.round((recentTouch / n) * 100);
-  const ghosted      = total.filter(c => c.days != null && c.days > 30);
-  const alertCids    = new Set(active.map(a => a.cid));
-  const clearCount   = total.filter(c => !alertCids.has(c.id)).length;
-
-  // Cross-signals
-  const renewCids = new Set(renewals.map(a => a.cid));
-  const riskyRenewals   = critRisk.filter(c => renewCids.has(c.id));
-  const silentDecliners = total.filter(c => getDelta7d(c) < -3 && c.days != null && c.days > 21);
-  const entAtRisk       = critRisk.filter(c => c.tier === 'enterprise');
-  const entMrrAtRisk    = entAtRisk.reduce((s, c) => s + (c.mrr || 0), 0);
-  const lowAdoption     = total.filter(c => c.adoption != null && c.adoption < 30 && (c.status === 'healthy' || c.status === 'expand'));
-  const lowLogins       = total.filter(c => c.logins != null && c.logins < 5);
-  const quietAccts      = total.filter(c => isQuietAccount(c));
-  const quietMrr        = quietAccts.reduce((s, c) => s + (c.mrr || 0), 0);
-
-  const dow   = new Date().getDay();
-  const isMon = dow === 1;
-  const isFri = dow === 5;
-
-  // ── Build 3 sections ──
-  const working = [];    // What's Working (plain HTML strings)
-  const notWorking = []; // What Needs Attention (plain HTML strings)
-  const actions = [];    // What To Do — { text, items?, label? } for clickable rows
-  const _act = (text, items, label) => actions.push({ text, items: items || null, label: label || '' });
-
-  // ═══ WHAT'S WORKING ═══
-  if (healthy.length > 0) {
-    working.push(`${_briefGroupLink(healthy.length + '', healthy, 'Healthy / Expanding')} of ${n} accounts (${healthPct}%) are healthy or expanding`);
-  }
-  if (improvingAccts.length > 0) {
-    working.push(`${_briefGroupLink(improvingAccts.length + '', improvingAccts, 'Improving This Week')} account${improvingAccts.length !== 1 ? 's' : ''} improving this week`);
-    if (biggestRise && getDelta7d(biggestRise) > 8) {
-      working.push(`Biggest gain: ${_briefLink(biggestRise)} +${getDelta7d(biggestRise)} pts`);
-    }
-  }
-  if (touchPct >= 60) {
-    working.push(`Outreach coverage at ${touchPct}% — ${touchPct >= 80 ? 'excellent' : 'solid'}`);
-  }
-  if (expansions.length > 0) {
-    const expCusts = expansions.map(a => customers.find(x => x.id === a.cid)).filter(Boolean);
-    const expMrr = expCusts.reduce((s, c) => s + (c.mrr || 0), 0);
-    working.push(`${_briefGroupLink(expansions.length + '', expCusts, 'Expansion Opportunities')} expansion opportunit${expansions.length === 1 ? 'y' : 'ies'}${expMrr > 0 ? ` across $${fmtNum(expMrr)} MRR` : ''}`);
-  }
-  if (clearCount > 0 && clearCount >= n * 0.5) {
-    const clearAccts = total.filter(c => !alertCids.has(c.id));
-    working.push(`${_briefGroupLink(clearCount + '', clearAccts, 'No Alerts')} accounts have zero alerts`);
-  }
-
-  // ═══ WHAT NEEDS ATTENTION ═══
-  if (critRisk.length > 0) {
-    if (critRisk.length <= 3) {
-      const names = critRisk.map(c => `${_briefLink(c)} (${c.score})`).join(', ');
-      notWorking.push(`${names} — critical/at-risk, $${fmtNum(riskMrr)} MRR exposed${riskMrrPct >= 15 ? ` (${riskMrrPct}% of portfolio)` : ''}`);
-    } else {
-      notWorking.push(`${_briefGroupLink(critRisk.length + ' accounts', critRisk, 'Critical / At-Risk')} critical or at-risk — $${fmtNum(riskMrr)} MRR exposed${riskMrrPct >= 15 ? ` (${riskMrrPct}% of portfolio)` : ''}`);
-    }
-  }
-  if (riskyRenewals.length > 0) {
-    const rrMrr = riskyRenewals.reduce((s, c) => s + (c.mrr || 0), 0);
-    const rrNames = riskyRenewals.slice(0, 2).map(c => _briefLink(c)).join(', ');
-    const moreLink = riskyRenewals.length > 2 ? ` ${_briefGroupLink('+' + (riskyRenewals.length - 2) + ' more', riskyRenewals, 'At-Risk Renewals')}` : '';
-    notWorking.push(`⚠ ${rrNames}${moreLink} — unhealthy AND renewing soon, $${fmtNum(rrMrr)} MRR at direct churn risk`);
-  }
-  if (entAtRisk.length > 0 && entMrrAtRisk > 0) {
-    notWorking.push(`${_briefGroupLink(entAtRisk.length + ' enterprise account' + (entAtRisk.length !== 1 ? 's' : ''), entAtRisk, 'Enterprise At-Risk')} at risk — $${fmtNum(entMrrAtRisk)} high-value MRR`);
-  }
-  if (silentDecliners.length > 0) {
-    const sdNames = silentDecliners.slice(0, 2).map(c => _briefLink(c)).join(', ');
-    const moreLink = silentDecliners.length > 2 ? ` ${_briefGroupLink('+' + (silentDecliners.length - 2) + ' more', silentDecliners, 'Silent Decliners')}` : '';
-    notWorking.push(`${sdNames}${moreLink} — declining with no contact in 21+ days`);
-  }
-  if (decliningAccts.length > improvingAccts.length && decliningAccts.length > 0) {
-    notWorking.push(`Momentum tilting negative: ${_briefGroupLink(decliningAccts.length + ' declining', decliningAccts, 'Declining Accounts')} vs ${improvingAccts.length} improving`);
-    if (biggestDrop && getDelta7d(biggestDrop) < -8) {
-      notWorking.push(`Biggest drop: ${_briefLink(biggestDrop)} fell ${Math.abs(getDelta7d(biggestDrop))} pts${biggestDrop.status === 'critical' || biggestDrop.status === 'risk' ? ' — now at risk' : ''}`);
-    }
-  }
-  if (ticketAlerts.length > 0 && sentNeg.length > 0) {
-    const tixSentCusts = [...new Set([...ticketAlerts, ...sentNeg].map(a => a.cid))].map(id => customers.find(c => c.id === id)).filter(Boolean);
-    notWorking.push(`${_briefGroupLink(ticketAlerts.length + ' with elevated tickets', tixSentCusts, 'Tickets + Sentiment')} + ${sentNeg.length} negative sentiment — possible product/support gap`);
-  } else if (ticketAlerts.length > 0) {
-    const tixCusts = ticketAlerts.map(a => customers.find(c => c.id === a.cid)).filter(Boolean);
-    notWorking.push(`${_briefGroupLink(ticketAlerts.length + ' account' + (ticketAlerts.length !== 1 ? 's' : ''), tixCusts, 'Elevated Tickets')} with elevated support tickets`);
-  } else if (sentNeg.length > 0) {
-    const sentCusts = sentNeg.map(a => customers.find(c => c.id === a.cid)).filter(Boolean);
-    notWorking.push(`${_briefGroupLink(sentNeg.length + ' account' + (sentNeg.length !== 1 ? 's' : ''), sentCusts, 'Negative Sentiment')} logged negative sentiment`);
-  }
-  if (npsDetract.length > 0) {
-    const npsCusts = npsDetract.map(a => customers.find(c => c.id === a.cid)).filter(Boolean);
-    notWorking.push(`${_briefGroupLink(npsDetract.length + ' NPS detractor' + (npsDetract.length !== 1 ? 's' : ''), npsCusts, 'NPS Detractors')} on file`);
-  }
-  if (lowAdoption.length > 0) {
-    notWorking.push(`${_briefGroupLink(lowAdoption.length + ' "healthy" account' + (lowAdoption.length !== 1 ? 's' : ''), lowAdoption, 'Low Adoption')} with adoption &lt;30% — hidden churn risk`);
-  }
-  if (lowLogins.length > 0) {
-    const llMrr = lowLogins.reduce((s, c) => s + (c.mrr || 0), 0);
-    notWorking.push(`${_briefGroupLink(lowLogins.length + ' account' + (lowLogins.length !== 1 ? 's' : ''), lowLogins, 'Low Logins')} with &lt;5 logins/mo${llMrr > 0 ? ` — $${fmtNum(llMrr)} MRR at risk` : ''}`);
-  }
-  if (quietAccts.length > 0) {
-    notWorking.push(`${_briefGroupLink(quietAccts.length + ' account' + (quietAccts.length !== 1 ? 's' : ''), quietAccts, 'Quiet Accounts')} completely dark — zero logins, tickets, and contact${quietMrr > 0 ? ` ($${fmtNum(quietMrr)} MRR)` : ''}`);
-  }
-  if (ghosted.length > 0 && touchPct < 50) {
-    notWorking.push(`Only ${touchPct}% touched in 14d, ${_briefGroupLink(ghosted.length + '', ghosted, 'Untouched 30+ Days')} untouched for 30+ days`);
-  }
-
-  // ═══ WHAT TO DO ═══ (each row is clickable → opens table view)
-  if (riskyRenewals.length > 0) {
-    _act(`Build escalation plans for ${riskyRenewals.length} at-risk renewal${riskyRenewals.length !== 1 ? 's' : ''}`, riskyRenewals, 'At-Risk Renewals');
-  } else if (urgRenewals.length > 0) {
-    _act(`Lock in ${urgRenewals.length} renewal${urgRenewals.length !== 1 ? 's' : ''} due within 14 days`, urgRenewals, 'Urgent Renewals');
-  } else if (renewals.length > 0) {
-    _act(`Prep ${renewals.length} upcoming renewal${renewals.length !== 1 ? 's' : ''} (within 60d)`, renewals, 'Upcoming Renewals');
-  }
-  if (critRisk.length > 0 && !riskyRenewals.length) {
-    _act(`Prioritize outreach to ${critRisk.length} critical/at-risk account${critRisk.length !== 1 ? 's' : ''}`, critRisk, 'Critical / At-Risk');
-  }
-  if (silentDecliners.length > 0) {
-    _act(`Re-engage ${silentDecliners.length} silent decliner${silentDecliners.length !== 1 ? 's' : ''} before scores drop further`, silentDecliners, 'Silent Decliners');
-  }
-  if (cadenceRed.length > 0 && !silentDecliners.length) {
-    _act(`Schedule overdue check-ins for ${cadenceRed.length} account${cadenceRed.length !== 1 ? 's' : ''}`, cadenceRed, 'Overdue Check-ins');
-  }
-  if (ticketAlerts.length > 0) {
-    _act(`Proactive check-in on ${ticketAlerts.length} account${ticketAlerts.length !== 1 ? 's' : ''} with elevated tickets`, ticketAlerts, 'Elevated Tickets');
-  }
-  if (sentNeg.length > 0) {
-    _act(`Follow up on ${sentNeg.length} negative sentiment log${sentNeg.length !== 1 ? 's' : ''}`, sentNeg, 'Negative Sentiment');
-  }
-  if (npsDetract.length > 0) {
-    _act(`Address ${npsDetract.length} NPS detractor${npsDetract.length !== 1 ? 's' : ''} — schedule recovery calls`, npsDetract, 'NPS Detractors');
-  }
-  if (expansions.length > 0) {
-    _act(`Start growth conversations with ${expansions.length} expansion-ready account${expansions.length !== 1 ? 's' : ''}`, expansions, 'Expansion Opportunities');
-  }
-  if (lowAdoption.length > 0) {
-    _act(`Drive adoption for ${lowAdoption.length} under-utilized account${lowAdoption.length !== 1 ? 's' : ''}`, lowAdoption, 'Low Adoption');
-  }
-  if (lowLogins.length > 0) {
-    _act(`Investigate low login activity on ${lowLogins.length} account${lowLogins.length !== 1 ? 's' : ''} — schedule engagement calls`, lowLogins, 'Low Logins');
-  }
-  if (quietAccts.length > 0) {
-    _act(`Investigate ${quietAccts.length} quiet account${quietAccts.length !== 1 ? 's' : ''} — no activity detected anywhere`, quietAccts, 'Quiet Accounts');
-  }
-  if (ghosted.length > 0 && touchPct < 50) {
-    _act(`${isFri ? 'Block time Monday to' : 'Prioritize'} outreach to ${ghosted.length} untouched account${ghosted.length !== 1 ? 's' : ''}`, ghosted, 'Untouched 30+ Days');
-  }
-
-  // All clear
-  if (!notWorking.length && !actions.length) {
-    const suggestions = [];
-    if (total.some(c => c.status === 'expand')) suggestions.push('expansion conversations');
-    if (renewals.length === 0) suggestions.push('early renewal planning');
-    if (touchPct < 60) suggestions.push('outreach to untouched accounts');
-    suggestions.push('strategic QBR prep');
-    _act(`No urgent items — focus on ${suggestions.slice(0, 2).join(' or ')}`);
-  }
-
-  if (snz.length > 0) {
-    _act(`Circle back on ${snz.length} snoozed alert${snz.length !== 1 ? 's' : ''}`, snz, 'Snoozed Alerts');
-  }
-
-  // Build sectioned HTML
-  const sectionIcon = (icon, color) => `<span style="font-size:.72rem;margin-right:2px;color:${color}">${icon}</span>`;
-  let html = '';
-
-  if (working.length) {
-    html += `<div class="briefing-section"><div class="briefing-section-hd">${sectionIcon('✅','var(--green)')} What's Working</div><ul class="briefing-list good">${working.map(l => `<li>${l}</li>`).join('')}</ul></div>`;
-  }
-  if (notWorking.length) {
-    html += `<div class="briefing-section"><div class="briefing-section-hd">${sectionIcon('⚠','var(--amber)')} Needs Attention</div><ul class="briefing-list warn">${notWorking.map(l => `<li>${l}</li>`).join('')}</ul></div>`;
-  }
-  if (actions.length) {
-    const actionLis = actions.map(a => {
-      if (a.items && a.items.length) {
-        const ids = new Set(a.items.map(x => x.cid || x.id));
-        const idx = _briefingGroups.length;
-        _briefingGroups.push({ label: a.label, ids });
-        return `<li class="briefing-link-row" onclick="_briefShowGroup(${idx})">${a.text}</li>`;
-      }
-      return `<li>${a.text}</li>`;
-    }).join('');
-    html += `<div class="briefing-section"><div class="briefing-section-hd">${sectionIcon('📋','var(--blue)')} Action Items</div><ul class="briefing-list action">${actionLis}</ul></div>`;
-  }
-
-  return html;
-}
-
-function renderAlertBriefing(active, snz) {
-  const wrap = el('alert-briefing');
-  if (!wrap) return;
-
-  // Hide if no customers loaded or no manager selected
-  const total    = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
-  if (!customers.length || !total.length) { wrap.style.display = 'none'; return; }
-  wrap.style.display = '';
-  const n        = total.length;
-  const healthy  = total.filter(c => c.status === 'healthy' || c.status === 'expand');
-  const alertCids = new Set(active.map(a => a.cid));
-  const clearPct  = n ? Math.round((total.filter(c => !alertCids.has(c.id)).length / n) * 100) : 0;
-  const recentTouch = total.filter(c => c.days != null && c.days <= 14).length;
-  const avgScore  = n ? Math.round(total.reduce((s, c) => s + (c.score || 0), 0) / n) : 0;
-  const expansions = active.filter(a => a.cat === 'expansion');
-
-  // Determine overall sentiment for accent color
-  const critRisk = total.filter(c => c.status === 'critical' || c.status === 'risk');
-  let accentCls = 'good';
-  if (critRisk.length >= 3) accentCls = 'critical';
-  else if (critRisk.length >= 1) accentCls = 'caution';
-  else if (active.filter(a => a.type === 'red' || a.type === 'amber').length > 0) accentCls = 'caution';
-
-  // ── Narrative ──
-  const narrative = _briefingNarrative(active, snz);
-
-  // ── Quick stats row ──
-  const stats = [
-    { icon: '💯', val: avgScore, lbl: 'Avg Score', cls: avgScore >= 65 ? 'stat-green' : avgScore >= 50 ? 'stat-amber' : 'stat-red' },
-    { icon: '💚', val: healthy.length + '/' + n, lbl: 'Healthy', cls: 'stat-green' },
-    { icon: '🔕', val: clearPct + '%', lbl: 'No Alerts', cls: clearPct >= 70 ? 'stat-green' : 'stat-amber' },
-    { icon: '📞', val: recentTouch, lbl: 'Touched <14d', cls: '' },
-    { icon: '🚀', val: expansions.length, lbl: 'Expansions', cls: expansions.length > 0 ? 'stat-green' : '' },
-  ];
-  const statsHtml = stats.map(s =>
-    `<div class="briefing-kpi ${s.cls}"><div class="briefing-kpi-val">${s.val}</div><div class="briefing-kpi-lbl">${s.lbl}</div></div>`
-  ).join('');
-
-  // ── Assemble ──
-  wrap.innerHTML = `
-    <div class="briefing-accent ${accentCls}"></div>
-    <div class="briefing-body">
-      <div class="alert-briefing-hd">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
-        Portfolio Briefing
-      </div>
-      <div class="briefing-stats-row">${statsHtml}</div>
-      <div class="briefing-text">${narrative}</div>
-    </div>`;
 }
 
 function tierChip(tier) {
@@ -5263,7 +4739,8 @@ function renderFilterPills() {
   const keys = Object.keys(columnFilters);
   const hasMrr = mrrExposureFilter && mrrExposureFilter.ids;
   const hasInsight = insightFilter && insightFilter.ids;
-  if (!keys.length && !hasMrr && !hasInsight) { bar.style.display = 'none'; return; }
+  const hasTier = !!_filterTier;
+  if (!keys.length && !hasMrr && !hasInsight && !hasTier) { bar.style.display = 'none'; return; }
 
   bar.innerHTML = keys.map(key => {
     const f = columnFilters[key];
@@ -5294,6 +4771,11 @@ function renderFilterPills() {
   // Insight filter pill
   if (insightFilter && insightFilter.ids) {
     bar.innerHTML = `<span class="filter-pill" style="background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.4)">Insight: ${escHtml(insightFilter.label)}<button class="filter-pill-x" onclick="event.stopPropagation();clearInsightFilter()" title="Remove filter">✕</button></span>` + bar.innerHTML;
+  }
+  // Tier filter pill
+  if (_filterTier) {
+    const tierLabel = _filterTier === 'enterprise' ? 'Enterprise' : _filterTier === 'mid' ? 'Mid-Market' : 'SMB';
+    bar.innerHTML = `<span class="filter-pill" style="background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.4)">Tier: ${tierLabel}<button class="filter-pill-x" onclick="event.stopPropagation();clearTierFilter()" title="Remove filter">✕</button></span>` + bar.innerHTML;
   }
 
   bar.style.display = 'flex';
@@ -5543,8 +5025,8 @@ function _renderCustomers() {
 
   // Sort
   list.sort((a,b) => {
-    let av = sortKey==='_delta'?getDelta7d(a): sortKey==='_momentum'?getMomentum(a): sortKey==='status'?(a.status||''): sortKey==='lifecycle'?(a.lifecycle||''): sortKey==='tags'?(a.tags||[]).join(', '): sortKey==='name'?a.name: sortKey==='manager'?(a.manager||'zzz'): sortKey==='profile'?(a.scoring_profile||'zzz'): sortKey==='score'?a.score: sortKey==='mrr'?a.mrr||0: sortKey==='arr'?(a.arr||(a.mrr*12)||0): sortKey==='since'?(a.since||'9999'): sortKey==='days'?(a.days != null ? a.days : 999): sortKey==='renewal'?a.renewal||99: sortKey==='next_touch'?(a.next_touch||'9999'):0;
-    let bv = sortKey==='_delta'?getDelta7d(b): sortKey==='_momentum'?getMomentum(b): sortKey==='status'?(b.status||''): sortKey==='lifecycle'?(b.lifecycle||''): sortKey==='tags'?(b.tags||[]).join(', '): sortKey==='name'?b.name: sortKey==='manager'?(b.manager||'zzz'): sortKey==='profile'?(b.scoring_profile||'zzz'): sortKey==='score'?b.score: sortKey==='mrr'?b.mrr||0: sortKey==='arr'?(b.arr||(b.mrr*12)||0): sortKey==='since'?(b.since||'9999'): sortKey==='days'?(b.days != null ? b.days : 999): sortKey==='renewal'?b.renewal||99: sortKey==='next_touch'?(b.next_touch||'9999'):0;
+    let av = sortKey==='_delta'?getDelta7d(a): sortKey==='_momentum'?getDelta7d(a): sortKey==='status'?(a.status||''): sortKey==='lifecycle'?(a.lifecycle||''): sortKey==='tags'?(a.tags||[]).join(', '): sortKey==='name'?a.name: sortKey==='manager'?(a.manager||'zzz'): sortKey==='profile'?(a.scoring_profile||'zzz'): sortKey==='score'?a.score: sortKey==='mrr'?a.mrr||0: sortKey==='arr'?(a.arr||(a.mrr*12)||0): sortKey==='since'?(a.since||'9999'): sortKey==='days'?(a.days != null ? a.days : 999): sortKey==='renewal'?a.renewal||99: sortKey==='next_touch'?(a.next_touch||'9999'):0;
+    let bv = sortKey==='_delta'?getDelta7d(b): sortKey==='_momentum'?getDelta7d(b): sortKey==='status'?(b.status||''): sortKey==='lifecycle'?(b.lifecycle||''): sortKey==='tags'?(b.tags||[]).join(', '): sortKey==='name'?b.name: sortKey==='manager'?(b.manager||'zzz'): sortKey==='profile'?(b.scoring_profile||'zzz'): sortKey==='score'?b.score: sortKey==='mrr'?b.mrr||0: sortKey==='arr'?(b.arr||(b.mrr*12)||0): sortKey==='since'?(b.since||'9999'): sortKey==='days'?(b.days != null ? b.days : 999): sortKey==='renewal'?b.renewal||99: sortKey==='next_touch'?(b.next_touch||'9999'):0;
     if (typeof av === 'string') return av.localeCompare(bv) * sortDir;
     return (av - bv) * sortDir;
   });
@@ -6048,6 +5530,36 @@ function toggleCsatNA() {
   el('rv-csat-label').style.color = na ? 'var(--subtle)' : '';
 }
 
+// Gray out signals with zero weight in the selected scoring profile
+function applyProfileSignalState() {
+  var profName = el('f-profile') ? el('f-profile').value : '';
+  var prof = profName ? profiles.find(function(p) { return p.name === profName; }) : null;
+  var w = prof ? prof.weights : weights;
+  var signalFields = {
+    logins:  'f-logins',
+    adoption:'f-adoption',
+    tickets: 'f-tickets',
+    nps:     'f-nps',
+    csat:    'f-csat',
+    days:    'f-days',
+    growth:  'f-growth'
+  };
+  Object.keys(signalFields).forEach(function(key) {
+    var fieldEl = el(signalFields[key]);
+    if (!fieldEl) return;
+    var wrapper = fieldEl.closest('.field');
+    if (!wrapper) return;
+    var isOff = !(w[key] > 0);
+    wrapper.style.opacity = isOff ? '.35' : '';
+    wrapper.style.pointerEvents = isOff ? 'none' : '';
+    if (isOff) {
+      wrapper.title = 'Weight is 0 in this profile — not used in scoring';
+    } else {
+      wrapper.title = '';
+    }
+  });
+}
+
 function getFormData() {
   return {
     name:     document.getElementById('f-name').value.trim(),
@@ -6140,23 +5652,28 @@ function showResult({ data, score, signals, status, rec, plays }) {
   // Rec
   document.getElementById('score-rec').innerHTML = rec;
 
-  // Breakdown
+  // Breakdown — resolve weights for the selected profile
   const bd = document.getElementById('breakdown-wrap');
+  const profName = el('f-profile') ? el('f-profile').value : '';
+  const matchedProf = profName ? profiles.find(p => p.name === profName) : null;
+  const bw = matchedProf ? matchedProf.weights : weights;
   const signalDefs = [
-    { key:'logins_n',   label:'Login Frequency',    color:'var(--blue)' },
-    { key:'adoption_n', label:'Feature Adoption',   color:'var(--green)' },
-    { key:'tickets_n',  label:'Support Health',     color:'var(--red)' },
-    { key:'nps_n',      label:'NPS (0–10)',         color:'var(--purple)' },
-    { key:'csat_n',     label:'CSAT (1–5)',         color:'#7c3aed' },
-    { key:'days_n',     label:'Contact Recency',    color:'var(--teal)' },
-    { key:'growth_n',   label:'Growth Signal',      color:'var(--green)' }
+    { key:'logins_n',   wkey:'logins',   label:'Login Frequency',    color:'var(--blue)' },
+    { key:'adoption_n', wkey:'adoption', label:'Feature Adoption',   color:'var(--green)' },
+    { key:'tickets_n',  wkey:'tickets',  label:'Support Health',     color:'var(--red)' },
+    { key:'nps_n',      wkey:'nps',      label:'NPS (0–10)',         color:'var(--purple)' },
+    { key:'csat_n',     wkey:'csat',     label:'CSAT (1–5)',         color:'#7c3aed' },
+    { key:'days_n',     wkey:'days',     label:'Contact Recency',    color:'var(--teal)' },
+    { key:'growth_n',   wkey:'growth',   label:'Growth Signal',      color:'var(--green)' }
   ];
-  bd.innerHTML = signalDefs.map(s => `
-    <div class="bd-row">
-      <div class="bd-label">${s.label}</div>
-      <div class="bd-bar"><div class="bd-fill" style="width:${Math.round(signals[s.key])}%;background:${s.color}"></div></div>
-      <div class="bd-score">${Math.round(signals[s.key])}</div>
-    </div>`).join('');
+  bd.innerHTML = signalDefs.map(s => {
+    const off = !((bw[s.wkey] || 0) > 0);
+    return `<div class="bd-row${off ? ' bd-row--off' : ''}">
+      <div class="bd-label">${s.label}${off ? ' <span style="font-size:.65rem;color:var(--muted)">(off)</span>' : ''}</div>
+      <div class="bd-bar"><div class="bd-fill" style="width:${off ? 0 : Math.round(signals[s.key])}%;background:${s.color}"></div></div>
+      <div class="bd-score">${off ? '—' : Math.round(signals[s.key])}</div>
+    </div>`;
+  }).join('');
 
   // Playbook
   const pw = document.getElementById('playbook-wrap');
@@ -6383,6 +5900,7 @@ function resetForm() {
   document.getElementById('form-title').textContent = 'Score a Customer';
   pendingResult = null;
   document.getElementById('score-form').dataset.editId = '';
+  applyProfileSignalState();
 }
 
 function printReport() {
@@ -6702,7 +6220,10 @@ function renderDetailOverview() {
           </div>
           <div>
             <label style="display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:2px">Next Touch</label>
-            <input type="date" id="di-next-touch" value="${c.next_touch||''}" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;background:var(--bg);color:var(--text)" />
+            <div style="display:flex;gap:4px">
+              <input type="date" id="di-next-touch" value="${c.next_touch||''}" style="flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;background:var(--bg);color:var(--text)" />
+              <input type="time" id="di-next-touch-time" value="${c.next_touch_time||''}" style="width:90px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;background:var(--bg);color:var(--text)" />
+            </div>
           </div>
           <div style="grid-column:1/-1">
             <label style="display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:2px">Tags</label>
@@ -6745,9 +6266,10 @@ function renderDetailOverview() {
         ${(()=>{
           if (!c.next_touch) return '<span style="font-size:.75rem;color:var(--muted)">Not scheduled</span>';
           const ntDays = Math.round((new Date(c.next_touch) - new Date()) / 86400000);
-          if (ntDays < 0)  return `<span class="nt-badge nt-overdue">Overdue ${Math.abs(ntDays)}d</span>`;
-          if (ntDays === 0) return `<span class="nt-badge nt-today">Today</span>`;
-          return `<span class="nt-badge nt-ok">in ${ntDays}d</span>`;
+          const tDisp = c.next_touch_time ? ' at ' + fmtTime12(c.next_touch_time) : '';
+          if (ntDays < 0)  return `<span class="nt-badge nt-overdue">Overdue ${Math.abs(ntDays)}d${tDisp}</span>`;
+          if (ntDays === 0) return `<span class="nt-badge nt-today">Today${tDisp}</span>`;
+          return `<span class="nt-badge nt-ok">in ${ntDays}d${tDisp}</span>`;
         })()}
       </div>
     </div>
@@ -6781,15 +6303,16 @@ async function saveDetailInline() {
   if (ntInput) {
     const newNt = ntInput.value || '';
     const oldNt = c.next_touch || '';
-    // Archive old next_touch to touch_history before overwriting
+    const timeInput = document.getElementById('di-next-touch-time');
+    const newTime = timeInput ? timeInput.value || '' : '';
+    // Archive old next_touch only if it's today or past (actually happened)
+    // Future scheduled calls that get rescheduled are just replaced
     if (oldNt && oldNt !== newNt) {
-      if (!c.touch_history) c.touch_history = [];
-      c.touch_history.push({ date: oldNt, status: 'completed' });
-
-      // If old next_touch is today or past, promote it to last_contact_date
       const oldDate = new Date(oldNt);
       const today = new Date(); today.setHours(0,0,0,0);
       if (oldDate <= today) {
+        if (!c.touch_history) c.touch_history = [];
+        c.touch_history.push({ date: oldNt, status: 'completed', time: c.next_touch_time || '' });
         c.last_contact_date = oldNt;
         const daysSince = Math.max(0, Math.floor((Date.now() - oldDate.getTime()) / 86400000));
         c.days = daysSince;
@@ -6797,6 +6320,7 @@ async function saveDetailInline() {
       }
     }
     c.next_touch = newNt;
+    c.next_touch_time = newNt ? newTime : '';
   }
   if (tagsInput) {
     c.tags = tagsInput.value.split(',').map(t => t.trim()).filter(Boolean);
@@ -6846,14 +6370,16 @@ function buildBreakdownHTML(signals, c) {
     { key:'days_n',     label:'Contact Recency',  color:'var(--teal)',   weight:w.days,     raw: c ? (c.days != null ? `${c.days}d ago` : 'N/A')          : '' },
     { key:'growth_n',   label:'Growth Signal',    color:'var(--green)',  weight:w.growth,   raw: c ? c.growth                  : '' }
   ];
-  return defs.map(d => `
-    <div class="bd-row">
-      <div class="bd-label">${d.label}</div>
-      <div class="bd-weight">${Math.round((d.weight / total) * 100)}%</div>
-      <div class="bd-bar"><div class="bd-fill" style="width:${Math.round(signals[d.key])}%;background:${d.color}"></div></div>
-      <div class="bd-score">${Math.round(signals[d.key])}</div>
+  return defs.map(d => {
+    const off = !(d.weight > 0);
+    return `<div class="bd-row${off ? ' bd-row--off' : ''}">
+      <div class="bd-label">${d.label}${off ? ' <span style="font-size:.65rem;color:var(--muted)">(off)</span>' : ''}</div>
+      <div class="bd-weight">${off ? '—' : Math.round((d.weight / total) * 100) + '%'}</div>
+      <div class="bd-bar"><div class="bd-fill" style="width:${off ? 0 : Math.round(signals[d.key])}%;background:${d.color}"></div></div>
+      <div class="bd-score">${off ? '—' : Math.round(signals[d.key])}</div>
       ${d.raw ? `<div class="bd-raw">${d.raw}</div>` : ''}
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function renderDetailPlaybook() {
@@ -7080,8 +6606,10 @@ function editCustomer(id) {
   if (el('f-days')) el('f-days').value = c.days != null ? c.days : '';
   if (el('f-renewal-date')) el('f-renewal-date').value = c.renewal_date || '';
   if (el('f-next-touch'))  el('f-next-touch').value  = c.next_touch   || '';
+  if (el('f-next-touch-time')) el('f-next-touch-time').value = c.next_touch_time || '';
   el('f-growth').value   = c.growth || 'none';
   el('f-note').value     = '';
+  applyProfileSignalState();
 
   // Override saveScore to update in-place
   window._editMode = c.id;
@@ -7118,6 +6646,7 @@ window.saveScore = function() {
       c.renewal         = data.renewal;
       c.renewal_date    = data.renewal_date || '';
       c.next_touch      = (el('f-next-touch') ? el('f-next-touch').value : '') || '';
+      c.next_touch_time = c.next_touch ? (el('f-next-touch-time') ? el('f-next-touch-time').value : '') || '' : '';
       c.growth          = data.growth;
       c.mrr             = data.mrr;
       c.arr             = data.arr || (data.mrr * 12);
@@ -7324,6 +6853,10 @@ function renderSettings() {
   el('th-watch').value    = thresholds.watch;
   el('th-healthy').value  = thresholds.healthy;
   updateThresholdLabels();
+  renderExpansionSettings();
+  renderCadenceSettings();
+  renderRenewalWindows();
+  renderMiscThresholds();
 
   // Weights — available to ALL tiers (ungated)
   const weightCard = el('weight-rows')?.closest('.card');
@@ -7426,7 +6959,8 @@ function saveWeights() {
   renderProfiles();
   refreshProfileDropdown();
   resetEditingState();
-  logConfigChange('Global weights updated');
+  const wDetail = keys.map(k => `${WEIGHT_LABELS[k]||k}: ${weights[k]}%`).join(', ');
+  logConfigChange('Global weights updated', wDetail);
   renderScoreDistribution();
   toast('Weights saved!', 'success');
 }
@@ -7531,9 +7065,145 @@ function saveThresholds() {
   const changed = ['critical','risk','watch','healthy'].filter(k => prev[k] !== thresholds[k]).map(k => `${k}: ${prev[k]}→${thresholds[k]}`);
   logAudit('thresholds_updated', null, '', { summary: `Thresholds changed: ${changed.join(', ')}`, thresholds: { ...thresholds } });
   updateThresholdLabels();
-  logConfigChange('Thresholds updated');
+  logConfigChange('Thresholds updated', changed.length ? changed.join(', ') : 'No changes');
   renderScoreDistribution();
   toast('Thresholds saved!', 'success');
+}
+
+// ─── EXPANSION SETTINGS ──────────────────────────────────────
+function renderExpansionSettings() {
+  const modeEl = el('exp-mode');
+  const pctEl = el('exp-pct');
+  const flatEl = el('exp-flat');
+  if (!modeEl) return;
+  modeEl.value = expansionConfig.mode;
+  if (pctEl) pctEl.value = expansionConfig.pct;
+  if (flatEl) flatEl.value = expansionConfig.flat;
+  toggleExpMode(expansionConfig.mode);
+}
+
+function toggleExpMode(mode) {
+  const pctRow = el('exp-pct-row');
+  const flatRow = el('exp-flat-row');
+  if (pctRow) pctRow.style.display = mode === 'pct' ? '' : 'none';
+  if (flatRow) flatRow.style.display = mode === 'flat' ? '' : 'none';
+}
+
+function saveExpansion() {
+  const mode = el('exp-mode')?.value || 'pct';
+  const pct = parseFloat(el('exp-pct')?.value);
+  const flat = parseFloat(el('exp-flat')?.value);
+  if (mode === 'pct' && (isNaN(pct) || pct <= 0 || pct > 100)) {
+    toast('Percentage must be between 1 and 100', 'error'); return;
+  }
+  if (mode === 'flat' && (isNaN(flat) || flat <= 0)) {
+    toast('Flat amount must be greater than 0', 'error'); return;
+  }
+  const prev = { ...expansionConfig };
+  expansionConfig.mode = mode;
+  if (!isNaN(pct)) expansionConfig.pct = pct;
+  if (!isNaN(flat)) expansionConfig.flat = flat;
+  saveSettings();
+  logAudit('expansion_updated', null, '', { summary: `Expansion estimate changed: mode=${mode}, pct=${expansionConfig.pct}%, flat=$${expansionConfig.flat}`, expansion: { ...expansionConfig } });
+  const expDetail = mode === 'pct' ? `${expansionConfig.pct}% of MRR` : `$${expansionConfig.flat} per account`;
+  logConfigChange('Expansion estimate updated', expDetail);
+  toast('Expansion settings saved!', 'success');
+}
+
+// ─── CONTACT CADENCE SETTINGS ────────────────────────────────
+function renderCadenceSettings() {
+  ['enterprise','mid','smb'].forEach(t => {
+    const wEl = el('cad-' + t + '-warn');
+    const oEl = el('cad-' + t + '-overdue');
+    if (wEl) wEl.value = cadenceConfig[t].warn;
+    if (oEl) oEl.value = cadenceConfig[t].overdue;
+  });
+}
+
+function saveCadence() {
+  const tiers = ['enterprise','mid','smb'];
+  for (const t of tiers) {
+    const w = parseInt(el('cad-' + t + '-warn')?.value);
+    const o = parseInt(el('cad-' + t + '-overdue')?.value);
+    if (isNaN(w) || isNaN(o) || w < 1 || o < 1) {
+      toast('All cadence values must be positive numbers', 'error'); return;
+    }
+    if (w >= o) {
+      toast(`${t}: "Due Soon" days must be less than "Overdue" days`, 'error'); return;
+    }
+  }
+  tiers.forEach(t => {
+    cadenceConfig[t].warn = parseInt(el('cad-' + t + '-warn').value);
+    cadenceConfig[t].overdue = parseInt(el('cad-' + t + '-overdue').value);
+  });
+  saveSettings();
+  logAudit('cadence_updated', null, '', { summary: `Contact cadence updated: ENT ${cadenceConfig.enterprise.warn}/${cadenceConfig.enterprise.overdue}d, MID ${cadenceConfig.mid.warn}/${cadenceConfig.mid.overdue}d, SMB ${cadenceConfig.smb.warn}/${cadenceConfig.smb.overdue}d`, cadence: JSON.parse(JSON.stringify(cadenceConfig)) });
+  const cadDetail = `ENT ${cadenceConfig.enterprise.warn}/${cadenceConfig.enterprise.overdue}d, MID ${cadenceConfig.mid.warn}/${cadenceConfig.mid.overdue}d, SMB ${cadenceConfig.smb.warn}/${cadenceConfig.smb.overdue}d`;
+  logConfigChange('Contact cadence updated', cadDetail);
+  toast('Cadence settings saved!', 'success');
+}
+
+function resetCadence() {
+  cadenceConfig = JSON.parse(JSON.stringify(DEFAULT_CADENCE));
+  saveSettings();
+  renderCadenceSettings();
+  logConfigChange('Contact cadence reset to defaults');
+  toast('Cadence reset to defaults', 'warn');
+}
+
+// ─── RENEWAL WINDOWS ─────────────────────────────────────────
+function renderRenewalWindows() {
+  const cEl = el('rw-critical'); const wEl = el('rw-warning'); const uEl = el('rw-upcoming');
+  if (cEl) cEl.value = renewalWindows.critical;
+  if (wEl) wEl.value = renewalWindows.warning;
+  if (uEl) uEl.value = renewalWindows.upcoming;
+}
+
+function saveRenewalWindows() {
+  const c = parseInt(el('rw-critical')?.value);
+  const w = parseInt(el('rw-warning')?.value);
+  const u = parseInt(el('rw-upcoming')?.value);
+  if ([c,w,u].some(isNaN) || c < 1 || w < 1 || u < 1) { toast('All values must be positive', 'error'); return; }
+  if (!(c < w && w < u)) { toast('Must be in order: Critical < Warning < Upcoming', 'error'); return; }
+  renewalWindows.critical = c; renewalWindows.warning = w; renewalWindows.upcoming = u;
+  saveSettings();
+  logAudit('renewal_windows_updated', null, '', { summary: `Renewal windows: critical=${c}d, warning=${w}d, upcoming=${u}d` });
+  logConfigChange('Renewal windows updated', `Critical ≤${c}d, Warning ≤${w}d, Upcoming ≤${u}d`);
+  toast('Renewal windows saved!', 'success');
+}
+
+function resetRenewalWindows() {
+  renewalWindows = { ...DEFAULT_RENEWAL_WINDOWS };
+  saveSettings(); renderRenewalWindows();
+  logConfigChange('Renewal windows reset to defaults');
+  toast('Renewal windows reset to defaults', 'warn');
+}
+
+// ─── QUIET ACCOUNT & MOMENTUM ────────────────────────────────
+function renderMiscThresholds() {
+  const qEl = el('cfg-quiet-days');
+  const mEl = el('cfg-momentum-pts');
+  if (qEl) qEl.value = quietDays;
+  if (mEl) mEl.value = momentumPts;
+}
+
+function saveMiscThresholds() {
+  const q = parseInt(el('cfg-quiet-days')?.value);
+  const m = parseInt(el('cfg-momentum-pts')?.value);
+  if (isNaN(q) || q < 1) { toast('Quiet account days must be positive', 'error'); return; }
+  if (isNaN(m) || m < 1) { toast('Momentum threshold must be positive', 'error'); return; }
+  quietDays = q; momentumPts = m;
+  saveSettings();
+  logAudit('misc_thresholds_updated', null, '', { summary: `Quiet days=${q}, Momentum sensitivity=±${m} pts` });
+  logConfigChange('Signal thresholds updated', `Quiet=${q}d, Momentum=±${m}pts`);
+  toast('Thresholds saved!', 'success');
+}
+
+function resetMiscThresholds() {
+  quietDays = DEFAULT_QUIET_DAYS; momentumPts = DEFAULT_MOMENTUM_PTS;
+  saveSettings(); renderMiscThresholds();
+  logConfigChange('Signal thresholds reset to defaults');
+  toast('Thresholds reset to defaults', 'warn');
 }
 
 function resetThresholds() {
@@ -7608,7 +7278,8 @@ function updateEditingProfile() {
   if (isGlobal) weights = { ...newWeights };
   saveSettings();
   logAudit('profile_updated', null, '', { summary: `Profile "${p.name}" updated via slider`, profile: p.name, weights: newWeights });
-  logConfigChange('Profile "' + p.name + '" updated');
+  const pDetail = keys.map(k => `${WEIGHT_LABELS[k]||k}: ${newWeights[k]}%`).join(', ');
+  logConfigChange('Profile "' + p.name + '" updated', pDetail);
   rescoreByProfile(p.name);
   renderProfiles();
   refreshProfileDropdown();
@@ -7735,9 +7406,9 @@ function showDhDetail(type) {
   openModal('dh-detail-modal');
 }
 
-function logConfigChange(action) {
+function logConfigChange(action, details) {
   const hist = JSON.parse(localStorage.getItem('iqc_config_history') || '[]');
-  hist.unshift({ action, ts: Date.now(), user: currentUser?.email || '' });
+  hist.unshift({ action, details: details || '', ts: Date.now(), user: currentUser?.email || '' });
   if (hist.length > 20) hist.length = 20;
   localStorage.setItem('iqc_config_history', JSON.stringify(hist));
   renderConfigHistory();
@@ -7748,16 +7419,42 @@ function renderConfigHistory() {
   if (!wrap) return;
   const hist = JSON.parse(localStorage.getItem('iqc_config_history') || '[]');
   if (!hist.length) {
-    wrap.innerHTML = '<ul class="cfg-history"><li class="ch-empty">No config changes recorded yet.</li></ul>';
+    wrap.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:.85rem">No config changes recorded yet.</div>';
     return;
   }
-  let h = '<ul class="cfg-history">';
-  hist.slice(0, 10).forEach(e => {
-    const userStr = e.user ? `<span style="font-size:.72rem;color:var(--muted);margin-left:6px">${escHtml(e.user)}</span>` : '';
-    h += `<li><div class="ch-action">${e.action}${userStr}</div><div class="ch-time">${cfgTimeAgo(e.ts)}</div></li>`;
+  let h = '<table class="ct" style="width:100%;min-width:0"><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Details</th></tr></thead><tbody>';
+  hist.slice(0, 20).forEach(e => {
+    const dt = new Date(e.ts);
+    const time = dt.toLocaleDateString('en-US', { month:'short', day:'numeric' }) + ' ' + dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const user = e.user ? escHtml(e.user) : '<span style="color:var(--subtle)">—</span>';
+    const detail = e.details ? escHtml(e.details) : '<span style="color:var(--subtle)">—</span>';
+    h += `<tr>
+      <td style="font-size:.76rem;color:var(--muted);white-space:nowrap">${time}</td>
+      <td style="font-size:.76rem;color:var(--text)">${user}</td>
+      <td style="font-size:.78rem;color:var(--text);font-weight:600;white-space:nowrap">${escHtml(e.action)}</td>
+      <td style="font-size:.76rem;color:var(--muted);line-height:1.4">${detail}</td>
+    </tr>`;
   });
-  h += '</ul>';
+  h += '</tbody></table>';
   wrap.innerHTML = h;
+}
+
+function exportConfigHistory() {
+  const hist = JSON.parse(localStorage.getItem('iqc_config_history') || '[]');
+  if (!hist.length) { toast('No config history to export', 'warn'); return; }
+  const hdr = 'timestamp,user,action,details';
+  const rows = hist.map(e => {
+    const ts = new Date(e.ts).toISOString();
+    const csvEsc = v => '"' + String(v || '').replace(/"/g, '""') + '"';
+    return [ts, csvEsc(e.user), csvEsc(e.action), csvEsc(e.details)].join(',');
+  });
+  const csv = hdr + '\n' + rows.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'config_history_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 function clearConfigHistory() {
@@ -7896,14 +7593,16 @@ function confirmSaveProfile() {
     const keys = ['logins','adoption','tickets','nps','csat','days','growth'];
     const changed = keys.filter(k => (oldWeights[k]||0) !== profileWeights[k]).map(k => `${WEIGHT_LABELS[k]||k}: ${oldWeights[k]||0}→${profileWeights[k]}`);
     logAudit('profile_updated', null, '', { summary: `Profile "${name}" updated${changed.length ? ': ' + changed.join(', ') : ''}`, profile: name, weights: profileWeights });
-    logConfigChange(`Profile "${name}" updated`);
+    logConfigChange(`Profile "${name}" updated`, changed.length ? changed.join(', ') : 'No changes');
     toast(`Profile "${name}" updated`, 'success');
     // Rescore all customers assigned to this profile (or all unassigned for Global Weights)
     rescoreByProfile(name);
   } else {
     profiles.push({ name, weights: profileWeights });
     logAudit('profile_created', null, '', { summary: `New scoring profile "${name}" created`, profile: name, weights: profileWeights });
-    logConfigChange(`Profile "${name}" created`);
+    const pKeys = ['logins','adoption','tickets','nps','csat','days','growth'];
+    const pDetail = pKeys.map(k => `${WEIGHT_LABELS[k]||k}: ${profileWeights[k]}%`).join(', ');
+    logConfigChange(`Profile "${name}" created`, pDetail);
     toast(`Profile "${name}" saved`, 'success');
   }
 
@@ -11438,6 +11137,104 @@ async function fireEmailAlert(eventType, customer, extra, emailCfg) {
 let segSortKey = 'mrr';
 let segSortDir = 'desc';
 let _hideUntagged = localStorage.getItem('iqc_hide_untagged') === 'true';
+let _segView = 'segments';
+let tierSortKey = 'mrr';
+let tierSortDir = 'desc';
+
+// ── Segment Chart State ──
+let _segChartMetric = 'score';
+let _segChartRange = '60d';
+let _segChartSelected = []; // empty = all segments
+let _segChartTipData = [];
+
+const SEG_CHART_COLORS = ['#3b82f6','#ef4444','#10b981','#f59e0b','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316','#6366f1'];
+
+function aggregateSegmentByDay(custs, metricKey, cutoff) {
+  const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
+  const isSumMetric = cfg.agg === 'sum';
+  const isCountMetric = cfg.agg === 'count';
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+  if (isSumMetric || isCountMetric) {
+    const allDates = new Set();
+    const custEntries = [];
+    custs.forEach(c => {
+      const valForDate = {};
+      (c.history || []).forEach(h => {
+        if (!h.date) return;
+        const val = cfg.val(h, c);
+        if (val == null || typeof val !== 'number' || isNaN(val)) return;
+        const key = new Date(h.date).toISOString().slice(0, 10);
+        valForDate[key] = val;
+      });
+      const sortedDates = Object.keys(valForDate).sort();
+      if (sortedDates.length) {
+        custEntries.push({ valForDate, sortedDates });
+        sortedDates.forEach(d => { if (d >= cutoffStr) allDates.add(d); });
+      }
+    });
+    const dates = [...allDates].sort();
+    return dates.map(date => {
+      let total = 0, count = 0;
+      custEntries.forEach(ce => {
+        let val = null;
+        for (let i = ce.sortedDates.length - 1; i >= 0; i--) {
+          if (ce.sortedDates[i] <= date) { val = ce.valForDate[ce.sortedDates[i]]; break; }
+        }
+        if (val !== null) { total += val; count++; }
+      });
+      return { date, avg: isCountMetric ? count : total };
+    }).filter(p => p.avg > 0).sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  // Avg metrics: forward-fill
+  const allDates = new Set();
+  const custData = [];
+  custs.forEach(c => {
+    const dateMap = {};
+    (c.history || []).forEach(h => {
+      if (!h.date) return;
+      const val = cfg.val(h, c);
+      if (val == null || typeof val !== 'number' || isNaN(val)) return;
+      const key = new Date(h.date).toISOString().slice(0, 10);
+      dateMap[key] = val;
+    });
+    const sortedDates = Object.keys(dateMap).sort();
+    if (sortedDates.length) {
+      custData.push({ dateMap, sortedDates });
+      sortedDates.forEach(d => { if (d >= cutoffStr) allDates.add(d); });
+    }
+  });
+  const dates = [...allDates].sort();
+  return dates.map(date => {
+    let total = 0, count = 0;
+    custData.forEach(cd => {
+      let val = null;
+      for (let i = cd.sortedDates.length - 1; i >= 0; i--) {
+        if (cd.sortedDates[i] <= date) { val = cd.dateMap[cd.sortedDates[i]]; break; }
+      }
+      if (val !== null) { total += val; count++; }
+    });
+    return { date, avg: count ? total / count : 0 };
+  }).filter(p => p.avg > 0);
+}
+
+function toggleSegView(view) {
+  _segView = view;
+  _segChartSelected = []; // reset selection on view switch
+  const segBtn = document.getElementById('seg-view-segments');
+  const tierBtn = document.getElementById('seg-view-tiers');
+  if (segBtn) segBtn.classList.toggle('active', view === 'segments');
+  if (tierBtn) tierBtn.classList.toggle('active', view === 'tiers');
+  if (view === 'segments') {
+    const segs = window._segData;
+    if (segs) { renderSegTable(segs); renderSegChart(segs, window._segActive, window._segDeltaCache); }
+  } else {
+    const active = window._segActive;
+    const dc = window._segDeltaCache;
+    if (active) { renderTierTable(active, dc); renderSegChart(window._segData, active, dc); }
+  }
+}
 
 function toggleHideUntagged() {
   _hideUntagged = !_hideUntagged;
@@ -11447,9 +11244,7 @@ function toggleHideUntagged() {
 
 function renderSegments() {
   const kpiRow = el('seg-kpi-row');
-  const cardsWrap = el('seg-cards-wrap');
   const tableWrap = el('seg-table-wrap');
-  const insightsWrap = el('seg-insights-wrap');
   if (!kpiRow) return;
 
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
@@ -11507,26 +11302,32 @@ function renderSegments() {
   // Cache for drill-down usage
   window._segData = visibleSegments;
   window._segDeltaCache = deltaCache;
+  window._segActive = active;
 
   if (!visibleSegments.length) {
     const tagIcon = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>';
     kpiRow.innerHTML = '';
-    if (cardsWrap) cardsWrap.innerHTML = `<div class="empty-st"><div class="ei" style="font-size:1.5rem;color:var(--muted)">${tagIcon}</div><h3>No tags yet</h3><p>Add tags to customers via the edit form or bulk-tag to create segments.</p></div>`;
-    if (tableWrap) tableWrap.innerHTML = '';
-    if (insightsWrap) insightsWrap.innerHTML = '';
+    if (tableWrap) tableWrap.innerHTML = `<div class="empty-st"><div class="ei" style="font-size:1.5rem;color:var(--muted)">${tagIcon}</div><h3>No tags yet</h3><p>Add tags to customers via the edit form or bulk-tag to create segments.</p></div>`;
     return;
   }
 
   const subtitle = el('seg-subtitle');
   if (subtitle) subtitle.textContent = `${visibleSegments.length} segment${visibleSegments.length !== 1 ? 's' : ''} \u00b7 ${active.length} accounts`;
 
-  const toggleBtn = document.getElementById('seg-toggle-untagged');
-  if (toggleBtn) toggleBtn.textContent = _hideUntagged ? 'Show Untagged' : 'Hide Untagged';
+  const showBtn = document.getElementById('seg-untag-show');
+  const hideBtn = document.getElementById('seg-untag-hide');
+  if (showBtn && hideBtn) {
+    showBtn.classList.toggle('active', !_hideUntagged);
+    hideBtn.classList.toggle('active', _hideUntagged);
+  }
 
   renderSegKPIs(visibleSegments, active);
-  renderSegCardGrid(visibleSegments);
-  renderSegTable(visibleSegments);
-  renderSegInsights(visibleSegments);
+  if (_segView === 'tiers') {
+    renderTierTable(active, deltaCache);
+  } else {
+    renderSegTable(visibleSegments);
+  }
+  renderSegChart(visibleSegments, active, deltaCache);
 }
 
 /* ── Segment KPI Cards ─────────────────────────────────────── */
@@ -11608,6 +11409,241 @@ function renderSegKPIs(segments, active) {
       <div class="dash-kpi-sub">${fastestGrow ? (fastestGrow.avgDelta >= 0 ? '+' : '') + fastestGrow.avgDelta + ' avg trend' : 'No data'}</div>
     </div>
   `;
+}
+
+/* ── Tier Table View ───────────────────────────────────────── */
+function _buildTierData(active, deltaCache) {
+  const tierDefs = [
+    { key: 'smb',        label: 'SMB',        pill: 'tier-pill-smb' },
+    { key: 'mid',        label: 'Mid-Market', pill: 'tier-pill-mid' },
+    { key: 'enterprise', label: 'Enterprise', pill: 'tier-pill-ent' }
+  ];
+  return tierDefs.map(td => {
+    const custs = active.filter(c => (c.tier || 'mid') === td.key);
+    const count = custs.length;
+    const totalMRR = custs.reduce((s, c) => s + (c.mrr || 0), 0);
+    const avgScore = count ? Math.round(custs.reduce((s, c) => s + c.score, 0) / count) : 0;
+    const avgDelta = count ? Math.round(custs.reduce((s, c) => s + (deltaCache.get(c.id) || 0), 0) / count * 10) / 10 : 0;
+    const healthy = custs.filter(c => c.status === 'healthy' || c.status === 'expand').length;
+    const watch = custs.filter(c => c.status === 'watch').length;
+    const atRisk = custs.filter(c => c.status === 'critical' || c.status === 'risk').length;
+    const riskPct = count ? Math.round((atRisk / count) * 100) : 0;
+    const overdueCount = custs.filter(c => c.days != null && c.days >= 14).length;
+    const renewals90 = custs.filter(c => c.renewal != null && c.renewal > 0 && c.renewal <= 3).length;
+    const withDays = custs.filter(c => c.days != null);
+    const avgDays = withDays.length ? Math.round(withDays.reduce((s, c) => s + c.days, 0) / withDays.length) : null;
+    return { key: td.key, label: td.label, pill: td.pill, custs, count, totalMRR, avgScore, avgDelta, healthy, watch, atRisk, riskPct, overdueCount, renewals90, avgDays };
+  });
+}
+
+function renderTierTable(active, deltaCache) {
+  const wrap = el('seg-table-wrap');
+  if (!wrap) return;
+
+  const tiers = _buildTierData(active, deltaCache);
+  window._tierData = tiers;
+
+  const sortIcon = key => {
+    if (tierSortKey !== key) return '';
+    return tierSortDir === 'asc' ? ' ▲' : ' ▼';
+  };
+  const activeClass = key => tierSortKey === key ? 'seg-sort-active' : '';
+
+  const sorted = [...tiers].sort((a, b) => {
+    let va, vb;
+    switch (tierSortKey) {
+      case 'label':    va = a.label.toLowerCase(); vb = b.label.toLowerCase(); return tierSortDir === 'asc' ? (va < vb ? -1 : 1) : (va > vb ? -1 : 1);
+      case 'count':    va = a.count; vb = b.count; break;
+      case 'avgScore': va = a.avgScore; vb = b.avgScore; break;
+      case 'avgDelta': va = a.avgDelta; vb = b.avgDelta; break;
+      case 'mrr':      va = a.totalMRR; vb = b.totalMRR; break;
+      case 'riskPct':  va = a.riskPct; vb = b.riskPct; break;
+      case 'avgDays':  va = a.avgDays || 0; vb = b.avgDays || 0; break;
+      case 'renewals': va = a.renewals90; vb = b.renewals90; break;
+      default:         va = a.totalMRR; vb = b.totalMRR;
+    }
+    return tierSortDir === 'asc' ? va - vb : vb - va;
+  });
+
+  const chevronDown = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+  const scoreColor = v => v >= (thresholds.healthy || 80) ? 'var(--green)' : v >= (thresholds.watch || 65) ? 'var(--amber)' : v >= (thresholds.risk || 50) ? 'var(--orange,#ea580c)' : 'var(--red)';
+
+  const colCount = 9;
+  window._tierColCount = colCount;
+
+  wrap.innerHTML = `<div class="seg-table-wrap-scroll">
+    <table class="ct" style="min-width:900px">
+      <thead><tr>
+        <th class="seg-sort-btn ${activeClass('label')}" onclick="sortTierTable('label')">Tier${sortIcon('label')}</th>
+        <th class="seg-sort-btn ${activeClass('count')}" onclick="sortTierTable('count')">Accounts${sortIcon('count')}</th>
+        <th class="seg-sort-btn ${activeClass('avgScore')}" onclick="sortTierTable('avgScore')">Avg Score${sortIcon('avgScore')}</th>
+        <th class="seg-sort-btn ${activeClass('avgDelta')}" onclick="sortTierTable('avgDelta')">Trend (7d)${sortIcon('avgDelta')}</th>
+        <th class="seg-sort-btn ${activeClass('mrr')}" onclick="sortTierTable('mrr')">MRR${sortIcon('mrr')}</th>
+        <th class="seg-sort-btn ${activeClass('riskPct')}" onclick="sortTierTable('riskPct')">At-Risk %${sortIcon('riskPct')}</th>
+        <th class="seg-sort-btn ${activeClass('avgDays')}" onclick="sortTierTable('avgDays')">Avg Contact${sortIcon('avgDays')}</th>
+        <th class="seg-sort-btn ${activeClass('renewals')}" onclick="sortTierTable('renewals')">Renewals \u226490d${sortIcon('renewals')}</th>
+        <th style="width:90px"></th>
+      </tr></thead>
+      <tbody id="seg-table-tbody">${sorted.map(t => {
+        const trendCls = t.avgDelta > 0 ? 'up' : t.avgDelta < 0 ? 'dn' : 'flat';
+        const trendIcon = t.avgDelta > 0 ? '▲' : t.avgDelta < 0 ? '▼' : '—';
+        const trendTxt = t.avgDelta > 0 ? '+' + t.avgDelta : '' + t.avgDelta;
+        const contactStr = t.avgDays != null ? t.avgDays + 'd' : '—';
+        return `<tr class="seg-table-row" data-tier="${t.key}">
+          <td><span class="tier-pill ${t.pill}">${t.label}</span></td>
+          <td>${t.count}</td>
+          <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${scoreColor(t.avgScore)};background:${t.avgScore >= 65 ? 'var(--green-l)' : t.avgScore >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${t.avgScore}</span></td>
+          <td><span class="csm-trend ${trendCls}" style="font-size:.68rem;padding:1px 6px">${trendIcon} ${trendTxt}</span></td>
+          <td>$${fmtNum(t.totalMRR)}</td>
+          <td><span style="font-weight:700;color:${t.riskPct > 30 ? 'var(--red)' : t.riskPct > 0 ? 'var(--amber)' : 'var(--green)'}">${t.riskPct}%</span> <span style="font-size:.7rem;color:var(--muted)">(${t.atRisk})</span></td>
+          <td>${contactStr}</td>
+          <td>${t.renewals90}</td>
+          <td><button class="btn-sm csm-expand-btn" onclick="event.stopPropagation();drillTier('${t.key}')">${chevronDown} Expand</button></td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>
+  </div>`;
+}
+
+function sortTierTable(key) {
+  if (tierSortKey === key) tierSortDir = tierSortDir === 'asc' ? 'desc' : 'asc';
+  else { tierSortKey = key; tierSortDir = key === 'label' ? 'asc' : 'desc'; }
+  const active = window._segActive;
+  const dc = window._segDeltaCache;
+  if (active) renderTierTable(active, dc);
+}
+
+function drillTier(tierKey) {
+  const tbody = el('seg-table-tbody');
+  if (!tbody) return;
+  const colCount = window._tierColCount || 9;
+
+  const parentRow = tbody.querySelector(`tr.seg-table-row[data-tier="${tierKey}"]`);
+  if (!parentRow) return;
+
+  // Toggle off if already expanded
+  const existingExpand = parentRow.nextElementSibling;
+  if (existingExpand && existingExpand.classList.contains('seg-table-expand-row')) {
+    existingExpand.remove();
+    parentRow.classList.remove('seg-row-expanded');
+    const btn = parentRow.querySelector('.csm-expand-btn');
+    if (btn) btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg> Expand`;
+    return;
+  }
+
+  // Collapse any other open expand
+  const prevExpanded = tbody.querySelector('tr.seg-table-expand-row');
+  if (prevExpanded) {
+    const prevParent = prevExpanded.previousElementSibling;
+    if (prevParent) {
+      prevParent.classList.remove('seg-row-expanded');
+      const prevBtn = prevParent.querySelector('.csm-expand-btn');
+      if (prevBtn) prevBtn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg> Expand`;
+    }
+    prevExpanded.remove();
+  }
+
+  parentRow.classList.add('seg-row-expanded');
+  const btn = parentRow.querySelector('.csm-expand-btn');
+  if (btn) btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg> Collapse`;
+
+  const expandRow = document.createElement('tr');
+  expandRow.className = 'seg-table-expand-row';
+  expandRow.innerHTML = `<td colspan="${colCount}" class="seg-table-expand-cell">${buildTierDrillHTML(tierKey)}</td>`;
+  parentRow.after(expandRow);
+}
+
+function buildTierDrillHTML(tierKey) {
+  const tiers = window._tierData || [];
+  const deltaCache = window._segDeltaCache || new Map();
+  const tier = tiers.find(t => t.key === tierKey);
+  if (!tier) return '<p>No data for this tier.</p>';
+
+  const accs = tier.custs;
+  const avgScore = tier.avgScore;
+  const totalMRR = tier.totalMRR;
+  const hmColor = v => v >= 65 ? 'var(--green)' : v >= 50 ? 'var(--amber)' : 'var(--red)';
+  const dColor = tier.avgDelta > 0 ? 'var(--green)' : tier.avgDelta < 0 ? 'var(--red)' : 'var(--muted)';
+  const dIcon = tier.avgDelta > 0 ? '▲' : tier.avgDelta < 0 ? '▼' : '—';
+
+  let summaryHTML = `<div class="csm-drill-stats">
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val" style="color:${hmColor(avgScore)}">${avgScore}</div>
+      <div class="csm-drill-stat__label">Avg Score</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val" style="color:${dColor}">${dIcon} ${Math.abs(tier.avgDelta)}</div>
+      <div class="csm-drill-stat__label">7d Trend</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val">${tier.count}</div>
+      <div class="csm-drill-stat__label">Accounts</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val">$${fmtNum(totalMRR)}</div>
+      <div class="csm-drill-stat__label">Total MRR</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val" style="color:var(--green)">${tier.healthy}</div>
+      <div class="csm-drill-stat__label">Healthy</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val" style="color:${tier.atRisk ? 'var(--red)' : 'var(--muted)'}">${tier.atRisk}</div>
+      <div class="csm-drill-stat__label">At Risk</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val" style="color:${tier.overdueCount ? 'var(--red)' : 'var(--muted)'}">${tier.overdueCount}</div>
+      <div class="csm-drill-stat__label">Overdue</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val">${tier.renewals90}</div>
+      <div class="csm-drill-stat__label">Renewals \u226490d</div>
+    </div>
+  </div>`;
+
+  // Sort by urgency
+  const urgency = c => {
+    const statusW = c.status === 'critical' ? 5 : c.status === 'risk' ? 4 : c.status === 'watch' ? 3 : c.status === 'healthy' ? 2 : 1;
+    const renewalW = c.renewal != null && c.renewal > 0 ? Math.max(0, 13 - c.renewal) : 0;
+    const mrrW = (c.mrr || 0) / 10000;
+    const contactW = (c.days != null && c.days >= 14) ? 2 : 0;
+    return (statusW * 10) + renewalW + mrrW + contactW;
+  };
+  const sorted = [...accs].sort((a, b) => urgency(b) - urgency(a));
+
+  const OVERDUE_DAYS = 14;
+  const tableHTML = `<table class="ct" style="min-width:auto;margin:0">
+    <thead><tr>
+      <th>Customer</th><th>Score</th><th>Trend</th><th>Status</th><th>MRR</th><th>Last Contact</th><th>Renewal</th><th>Lifecycle</th>
+    </tr></thead>
+    <tbody>${sorted.map(c => {
+      const renewStr = c.renewal_date ? new Date(c.renewal_date).toLocaleDateString() : (c.renewal ? c.renewal + 'mo' : '—');
+      const isOverdue = c.days != null && c.days >= OVERDUE_DAYS;
+      const delta = deltaCache.get(c.id) || 0;
+      const trendHTML = delta > 0
+        ? `<span class="csm-trend up" style="font-size:.68rem;padding:1px 6px">▲ +${delta}</span>`
+        : delta < 0
+          ? `<span class="csm-trend dn" style="font-size:.68rem;padding:1px 6px">▼ ${delta}</span>`
+          : `<span class="csm-trend flat" style="font-size:.68rem;padding:1px 6px">— 0</span>`;
+      const contactCell = isOverdue
+        ? `<span style="font-weight:700;color:var(--red)">${c.days}d ago</span> <span class="csm-overdue">OVERDUE</span>`
+        : (c.days != null ? c.days + 'd ago' : '—');
+      return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
+        <td><strong>${escHtml(c.name)}</strong></td>
+        <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${c.score >= 65 ? 'var(--green)' : c.score >= 50 ? 'var(--amber)' : 'var(--red)'};background:${c.score >= 65 ? 'var(--green-l)' : c.score >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${c.score}</span></td>
+        <td>${trendHTML}</td>
+        <td>${badgeHTML(c.status)}</td>
+        <td>$${fmtNum(c.mrr || 0)}</td>
+        <td>${contactCell}</td>
+        <td>${renewStr}</td>
+        <td style="font-size:.78rem;color:var(--muted)">${c.lifecycle || '—'}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+
+  const viewBtn = `<div style="text-align:right;margin-top:12px"><button class="btn-sm" onclick="filterByTier('${tierKey}')" style="gap:4px">View in Customers <span style="font-size:.8rem">\u2192</span></button></div>`;
+
+  return summaryHTML + tableHTML + viewBtn;
 }
 
 /* ── Segment Cards (enriched) ──────────────────────────────── */
@@ -11915,27 +11951,40 @@ function renderSegInsights(segments) {
 
   const insights = [];
 
+  // --- Segment-specific insights (things only the Segments page can surface) ---
+
+  // Total MRR across all segments for concentration calc
+  const totalSegMRR = segments.reduce((s, seg) => s + (seg.totalMRR || 0), 0);
+
   segments.forEach(seg => {
-    // High risk % (priority 4)
+    // High risk % (priority 4) — segment composition, not individual alerts
     if (seg.riskPct > 40 && seg.count >= 3) {
       insights.push({ priority: 4, icon: iconAlert, bg: 'var(--red-l)', color: 'var(--red)',
         html: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> has <strong>${seg.riskPct}%</strong> at risk (${seg.atRisk}/${seg.count})` });
     }
-    // At-risk renewals in 90 days (priority 4)
-    const riskRenewals = seg.custs.filter(c => (c.status === 'critical' || c.status === 'risk') && c.renewal != null && c.renewal > 0 && c.renewal <= 3).length;
-    if (riskRenewals > 0) {
-      insights.push({ priority: 4, icon: iconCalendar, bg: 'var(--red-l)', color: 'var(--red)',
-        html: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> has <strong>${riskRenewals}</strong> at-risk renewal${riskRenewals !== 1 ? 's' : ''} in 90 days` });
+    // MRR Concentration — one segment holds outsized revenue share (priority 3)
+    if (totalSegMRR > 0 && seg.totalMRR > 0) {
+      const mrrPct = Math.round(seg.totalMRR / totalSegMRR * 100);
+      if (mrrPct >= 40 && segments.length >= 3) {
+        insights.push({ priority: 3, icon: iconAlert, bg: 'var(--amber-l)', color: 'var(--amber)',
+          html: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> holds <strong>${mrrPct}%</strong> of total MRR ($${fmtNum(seg.totalMRR)}) — high concentration risk` });
+      }
     }
-    // Declining segment (priority 3)
+    // Score Spread — high variance within segment means inconsistent group (priority 2)
+    if (seg.count >= 4) {
+      const scores = seg.custs.map(c => c.score);
+      const min = Math.min(...scores);
+      const max = Math.max(...scores);
+      const spread = max - min;
+      if (spread >= 40) {
+        insights.push({ priority: 2, icon: iconTrendDn, bg: 'var(--amber-l)', color: 'var(--amber)',
+          html: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> has a wide score spread (${min}–${max}) — may need sub-segmenting` });
+      }
+    }
+    // Declining segment (priority 3) — segment-level trajectory
     if (seg.avgDelta < -2) {
       insights.push({ priority: 3, icon: iconTrendDn, bg: 'var(--amber-l)', color: 'var(--amber)',
         html: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> is declining (${seg.avgDelta} avg this week)` });
-    }
-    // Overdue contacts (priority 3)
-    if (seg.overdueCount > 0) {
-      insights.push({ priority: 3, icon: iconPhone, bg: 'var(--amber-l)', color: 'var(--amber)',
-        html: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> has <strong>${seg.overdueCount}</strong> overdue contact${seg.overdueCount !== 1 ? 's' : ''} (14+ days)` });
     }
   });
 
@@ -11979,6 +12028,22 @@ function filterByTag(tag) {
   renderCustomers();
 }
 
+function filterByTier(tier) {
+  // Clear all other filters so only the tier filter is active
+  columnFilters = {};
+  insightFilter = null;
+  mrrExposureFilter = null;
+  filterMode = 'all';
+  _filterTier = tier;
+  nav('customers');
+  renderCustomers();
+}
+
+function clearTierFilter() {
+  _filterTier = null;
+  renderCustomers();
+}
+
 // Bulksheet export — all editable/importable fields (excludes auto-derived: score, status, created)
 function exportBulksheet() {
   const filtered = customers.filter(c => passesManagerFilter(c));
@@ -12000,6 +12065,600 @@ function exportBulksheet() {
   });
   dlText(hdr + '\n' + rows.join('\n'), 'cs-health-bulksheet.csv', 'text/csv');
   toast(`Exported ${filtered.length} customer${filtered.length !== 1 ? 's' : ''} (bulksheet)`);
+}
+
+/* ═══════════════ SEGMENT COMPARISON CHART ═══════════════ */
+
+function segChartMetricChanged(key) {
+  _segChartMetric = key || 'score';
+  _renderSegChartOnly();
+}
+
+function setSegChartRange(range) {
+  _segChartRange = range;
+  document.querySelectorAll('#seg-chart-range-row .dtab').forEach(b =>
+    b.classList.toggle('active', b.dataset.range === range));
+  _renderSegChartOnly();
+}
+
+function toggleSegChartPill(tag) {
+  const idx = _segChartSelected.indexOf(tag);
+  if (idx >= 0) {
+    _segChartSelected.splice(idx, 1);
+  } else {
+    if (_segChartSelected.length >= 3) _segChartSelected.shift(); // drop oldest
+    _segChartSelected.push(tag);
+  }
+  _renderSegChartOnly();
+}
+
+function segChartSelectAll() {
+  _segChartSelected = [];
+  _renderSegChartOnly();
+}
+
+function _renderSegChartOnly() {
+  const data = _segView === 'tiers' ? window._tierData : window._segData;
+  if (!data || !data.length) return;
+  _buildSegChartPills(data);
+  _buildSegChartSVG(data);
+  _buildSegChartAnalysis(data);
+}
+
+function renderSegChart(segments, active, deltaCache) {
+  const card = el('seg-chart-card');
+  if (!card) return;
+
+  // Populate metric dropdown
+  const sel = el('seg-chart-metric');
+  if (sel && !sel.dataset.init) {
+    sel.dataset.init = '1';
+    sel.innerHTML = Object.keys(METRIC_CFG).map(k =>
+      `<option value="${k}"${k === _segChartMetric ? ' selected' : ''}>${METRIC_CFG[k].label}</option>`
+    ).join('');
+  }
+
+  const data = _segView === 'tiers' ? window._tierData : segments;
+  if (!data || !data.length) {
+    const wrap = el('seg-chart-wrap');
+    if (wrap) wrap.innerHTML = '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:.88rem">Not enough data to display a comparison chart.</p>';
+    return;
+  }
+
+  _buildSegChartPills(data);
+  _buildSegChartSVG(data);
+  _buildSegChartAnalysis(data);
+}
+
+function _segLabel(item) {
+  return item.label || segDisplayLabel(item.tag) || item.key || '?';
+}
+
+function _buildSegChartPills(data) {
+  const wrap = el('seg-chart-pills');
+  if (!wrap) return;
+  const isAll = _segChartSelected.length === 0;
+  let html = `<button class="seg-pill${isAll ? ' active' : ''}" onclick="segChartSelectAll()">All</button>`;
+  data.forEach((seg, i) => {
+    const label = _segLabel(seg);
+    const tag = seg.tag || seg.key || label;
+    const color = SEG_CHART_COLORS[i % SEG_CHART_COLORS.length];
+    const active = _segChartSelected.includes(tag);
+    html += `<button class="seg-pill${active ? ' active' : ''}" style="${active ? 'background:' + color + ';border-color:' + color : ''}" onclick="toggleSegChartPill('${escHtml(tag)}')">`
+      + `<span class="seg-pill-color" style="background:${color}"></span>${escHtml(label)}</button>`;
+  });
+  wrap.innerHTML = html;
+}
+
+function _buildSegChartSVG(data) {
+  const wrap = el('seg-chart-wrap');
+  if (!wrap) return;
+
+  const metric = _segChartMetric || 'score';
+  const cfg = METRIC_CFG[metric] || METRIC_CFG.score;
+  const rangeDays = { '30d': 30, '60d': 60, '90d': 90 }[_segChartRange] || 60;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - rangeDays);
+  cutoff.setHours(0, 0, 0, 0);
+
+  // Determine which segments to chart
+  let chartSegs;
+  if (_segChartSelected.length > 0) {
+    chartSegs = data.filter(s => _segChartSelected.includes(s.tag || s.key || _segLabel(s)));
+  } else {
+    chartSegs = data;
+  }
+
+  // Build lines
+  const lines = [];
+  chartSegs.forEach((seg, i) => {
+    const pts = aggregateSegmentByDay(seg.custs, metric, cutoff);
+    if (pts.length >= 2) {
+      lines.push({
+        label: _segLabel(seg),
+        color: SEG_CHART_COLORS[data.indexOf(seg) % SEG_CHART_COLORS.length],
+        width: 2,
+        points: pts,
+        tag: seg.tag || seg.key
+      });
+    }
+  });
+
+  if (!lines.length) {
+    wrap.innerHTML = '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:.88rem">Not enough history data for the selected segments.</p>';
+    return;
+  }
+
+  const W = 960, H = 220;
+  const pad = { top: 14, right: 56, bottom: 36, left: 44 };
+  const cW = W - pad.left - pad.right;
+  const cH = H - pad.top - pad.bottom;
+
+  // Collect all dates
+  const allDates = new Set();
+  lines.forEach(l => l.points.forEach(p => allDates.add(p.date)));
+  const dates = [...allDates].sort();
+
+  const xScale = (i) => pad.left + (dates.length === 1 ? cW / 2 : (i / (dates.length - 1)) * cW);
+
+  // Y-axis scale (reuse global _trendNiceScale)
+  const yL = _trendNiceScale(lines, cfg.fixed || null);
+  const yScaleL = (v) => pad.top + cH - ((v - yL.min) / (yL.max - yL.min || 1)) * cH;
+
+  // Status bands if health score
+  let bandSVG = '';
+  if (metric === 'score') {
+    const thresholds = window._clientThresholds || DEFAULT_THRESHOLDS;
+    const bandDefs = [
+      { y0: 0, y1: thresholds.critical, color: '#dc2626' },
+      { y0: thresholds.critical, y1: thresholds.risk, color: '#ea580c' },
+      { y0: thresholds.risk, y1: thresholds.watch, color: '#d97706' },
+      { y0: thresholds.watch, y1: thresholds.healthy, color: '#16a34a' },
+      { y0: thresholds.healthy, y1: 100, color: '#3b82f6' },
+    ];
+    bandSVG = bandDefs.map(b => {
+      const y = yScaleL(b.y1);
+      const h = yScaleL(b.y0) - y;
+      return `<rect x="${pad.left}" y="${y}" width="${cW}" height="${h}" fill="${b.color}" opacity="0.055"/>`;
+    }).join('');
+  }
+
+  // Grid lines + Y-axis labels
+  let gridSVG = '';
+  if (metric === 'score' && cfg.fixed) {
+    for (let v = yL.min; v <= yL.max; v += 10) {
+      const y = yScaleL(v);
+      const isMajor = v % 25 === 0;
+      gridSVG += `<line x1="${pad.left}" y1="${y}" x2="${W - pad.right}" y2="${y}" stroke="var(--border)" stroke-width="${isMajor ? 1 : 0.5}" opacity="${isMajor ? 0.7 : 0.35}" stroke-dasharray="${v === yL.min || v === yL.max ? '0' : '3,3'}"/>`;
+      if (v % 20 === 0) {
+        gridSVG += `<text x="${pad.left - 8}" y="${y + 3}" text-anchor="end" font-size="8" font-weight="${isMajor ? '600' : '400'}" fill="var(--subtle)">${cfg.axFmt(v)}</text>`;
+      }
+    }
+  } else {
+    const step = yL.step;
+    for (let v = yL.min; v <= yL.max + step * 0.01; v += step) {
+      const y = yScaleL(v);
+      const isEdge = Math.abs(v - yL.min) < 0.01 || Math.abs(v - yL.max) < 0.01;
+      gridSVG += `<line x1="${pad.left}" y1="${y}" x2="${W - pad.right}" y2="${y}" stroke="var(--border)" stroke-width="${isEdge ? 1 : 0.5}" opacity="${isEdge ? 0.7 : 0.35}" stroke-dasharray="${isEdge ? '0' : '3,3'}"/>`;
+      gridSVG += `<text x="${pad.left - 8}" y="${y + 3}" text-anchor="end" font-size="8" font-weight="${isEdge ? '600' : '400'}" fill="var(--subtle)">${cfg.axFmt(v)}</text>`;
+    }
+  }
+
+  // X-axis date labels
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  let xLabels = '';
+  const labelEvery = rangeDays <= 30 ? 2 : rangeDays <= 60 ? 4 : 7;
+  dates.forEach((d, i) => {
+    const x = xScale(i);
+    const parts = d.split('-');
+    const mo = parseInt(parts[1]) - 1;
+    const day = parseInt(parts[2]);
+    if (rangeDays <= 30 || (rangeDays <= 60 && i % 2 === 0) || i % 3 === 0) {
+      xLabels += `<line x1="${x}" y1="${yScaleL(yL.min)}" x2="${x}" y2="${yScaleL(yL.min) + 4}" stroke="var(--border)" stroke-width="0.5" opacity="0.5"/>`;
+    }
+    if (i % labelEvery === 0 || i === dates.length - 1) {
+      xLabels += `<text x="${x}" y="${H - pad.bottom + 16}" text-anchor="middle" font-size="7.5" fill="var(--subtle)">${monthNames[mo]} ${day}</text>`;
+    }
+  });
+
+  // Draw lines
+  let linesSVG = '';
+  const dateIdx = {};
+  dates.forEach((d, i) => { dateIdx[d] = i; });
+
+  lines.forEach((line, lineIdx) => {
+    const pts = line.points.filter(p => dateIdx[p.date] !== undefined && !isNaN(p.avg))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    if (pts.length < 2) return;
+
+    // Area fill (only for first line or single line)
+    if (lines.length === 1 || lineIdx === 0) {
+      const areaBottom = yScaleL(yL.min);
+      const areaPts = pts.map(p => `${xScale(dateIdx[p.date])},${yScaleL(p.avg)}`);
+      const firstX = xScale(dateIdx[pts[0].date]);
+      const lastX = xScale(dateIdx[pts[pts.length - 1].date]);
+      const areaPath = `M${firstX},${areaBottom} L${areaPts.join(' L')} L${lastX},${areaBottom} Z`;
+      linesSVG += `<defs><linearGradient id="segAreaGrad${lineIdx}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${line.color}" stop-opacity="0.12"/>
+        <stop offset="100%" stop-color="${line.color}" stop-opacity="0.01"/>
+      </linearGradient></defs>`;
+      linesSVG += `<path d="${areaPath}" fill="url(#segAreaGrad${lineIdx})"/>`;
+    }
+
+    // Polyline
+    const polyPts = pts.map(p => `${xScale(dateIdx[p.date])},${yScaleL(p.avg)}`).join(' ');
+    linesSVG += `<polyline points="${polyPts}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linejoin="round" stroke-linecap="round" opacity="0.9"/>`;
+
+    // Dots
+    const dotR = 2.5;
+    const labelSkip = pts.length <= 10 ? 1 : pts.length <= 20 ? 3 : pts.length <= 40 ? 5 : 8;
+    pts.forEach((p, pi) => {
+      const cx = xScale(dateIdx[p.date]);
+      const cy = yScaleL(p.avg);
+      linesSVG += `<circle cx="${cx}" cy="${cy}" r="${dotR + 1}" fill="var(--surface)" opacity="0.8"/>`;
+      linesSVG += `<circle cx="${cx}" cy="${cy}" r="${dotR}" fill="${line.color}"/>`;
+      // Value labels on single-line view
+      if (lines.length <= 2 && (pi % labelSkip === 0 || pi === pts.length - 1)) {
+        linesSVG += `<text x="${cx}" y="${cy - dotR - 4}" text-anchor="middle" font-size="7" font-weight="700" fill="${line.color}">${cfg.fmt(p.avg)}</text>`;
+      }
+    });
+  });
+
+  // Build tooltip data
+  _segChartTipData = dates.map((d) => {
+    const parts = d.split('-');
+    const mo = parseInt(parts[1]) - 1;
+    const day = parseInt(parts[2]);
+    const dateLabel = monthNames[mo] + ' ' + day;
+    const vals = lines.map(l => {
+      const pt = l.points.find(x => x.date === d);
+      return pt ? { label: l.label, color: l.color, val: cfg.fmt(pt.avg) } : null;
+    }).filter(Boolean);
+    return { dateLabel, vals };
+  });
+
+  // Hover columns
+  let hoverSVG = '';
+  const colW = dates.length > 1 ? cW / (dates.length - 1) : cW;
+  dates.forEach((d, i) => {
+    const cx = xScale(i);
+    hoverSVG += `<rect x="${cx - colW / 2}" y="${pad.top}" width="${colW}" height="${cH}" fill="transparent" style="cursor:crosshair"
+      onmouseenter="showSegChartTip(evt,${cx},${i})"
+      onmouseleave="hideSegChartTip()"/>`;
+  });
+
+  // Axis borders
+  let axisSVG = `<line x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${yScaleL(yL.min)}" stroke="var(--border)" stroke-width="1.5" opacity="0.5"/>`;
+  axisSVG += `<line x1="${pad.left}" y1="${yScaleL(yL.min)}" x2="${W - pad.right}" y2="${yScaleL(yL.min)}" stroke="var(--border)" stroke-width="1.5" opacity="0.5"/>`;
+
+  // Legend (HTML below chart)
+  const legendHTML = `<div class="seg-chart-legend">${lines.map(l =>
+    `<span class="seg-chart-legend-item"><span class="seg-chart-legend-dot" style="background:${l.color}"></span>${escHtml(l.label)}</span>`
+  ).join('')}</div>`;
+
+  wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;display:block">
+    ${bandSVG}${gridSVG}${axisSVG}${xLabels}${linesSVG}${hoverSVG}
+  </svg>${legendHTML}`;
+}
+
+function showSegChartTip(evt, cx, colIdx) {
+  let tip = document.getElementById('seg-chart-tip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.id = 'seg-chart-tip';
+    tip.className = 'seg-chart-tooltip';
+    el('seg-chart-wrap').appendChild(tip);
+  }
+  const data = _segChartTipData[colIdx];
+  if (!data) return;
+
+  let rows = '';
+  data.vals.forEach(v => {
+    rows += `<div style="display:flex;align-items:center;gap:6px;margin-top:3px"><span style="width:8px;height:8px;border-radius:50%;background:${v.color};flex-shrink:0"></span><span>${escHtml(v.label)}</span><strong style="margin-left:auto">${v.val}</strong></div>`;
+  });
+
+  tip.innerHTML = `<div style="font-weight:700;margin-bottom:4px;font-size:.82rem">${data.dateLabel}</div>${rows}`;
+  const wrap = el('seg-chart-wrap');
+  const svg = wrap.querySelector('svg');
+  if (!svg) return;
+  const rect = svg.getBoundingClientRect();
+  const wRect = wrap.getBoundingClientRect();
+  const scaleX = rect.width / 960;
+  const left = (cx * scaleX) + (rect.left - wRect.left);
+  tip.style.display = 'block';
+  // Flip to left side if too close to right edge
+  if (left + 160 > wRect.width) {
+    tip.style.left = (left - 170) + 'px';
+  } else {
+    tip.style.left = (left + 14) + 'px';
+  }
+  tip.style.top = '8px';
+}
+
+function hideSegChartTip() {
+  const tip = document.getElementById('seg-chart-tip');
+  if (tip) tip.style.display = 'none';
+}
+
+/* ── Segment Chart Analysis ─────────────────────────────── */
+function _buildSegChartAnalysis(data) {
+  const wrap = el('seg-chart-analysis');
+  if (!wrap) return;
+
+  const metric = _segChartMetric || 'score';
+  const cfg = METRIC_CFG[metric] || METRIC_CFG.score;
+  const rangeDays = { '30d': 30, '60d': 60, '90d': 90 }[_segChartRange] || 60;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - rangeDays);
+  cutoff.setHours(0, 0, 0, 0);
+
+  // Get segments to analyze
+  let chartSegs;
+  if (_segChartSelected.length > 0) {
+    chartSegs = data.filter(s => _segChartSelected.includes(s.tag || s.key || _segLabel(s)));
+  } else {
+    chartSegs = data;
+  }
+
+  // Build time series for each segment
+  const series = [];
+  chartSegs.forEach((seg, i) => {
+    const pts = aggregateSegmentByDay(seg.custs, metric, cutoff);
+    if (pts.length >= 2) {
+      const label = _segLabel(seg);
+      const color = SEG_CHART_COLORS[data.indexOf(seg) % SEG_CHART_COLORS.length];
+      const startVal = pts[0].avg;
+      const endVal = pts[pts.length - 1].avg;
+      const delta = endVal - startVal;
+      // Compute std dev
+      const mean = pts.reduce((s, p) => s + p.avg, 0) / pts.length;
+      const variance = pts.reduce((s, p) => s + Math.pow(p.avg - mean, 2), 0) / pts.length;
+      const stdDev = Math.sqrt(variance);
+      // Half-period split for momentum
+      const mid = Math.floor(pts.length / 2);
+      const firstHalfDelta = pts[mid].avg - pts[0].avg;
+      const secondHalfDelta = pts[pts.length - 1].avg - pts[mid].avg;
+      const tag = seg.tag || seg.key || label;
+      series.push({ seg, label, tag, color, pts, startVal, endVal, delta, mean, stdDev, firstHalfDelta, secondHalfDelta });
+    }
+  });
+
+  if (series.length < 1) { wrap.innerHTML = ''; return; }
+
+  const _ai = (path) => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+  const icons = {
+    momentum: _ai('<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'),
+    corr:     _ai('<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>'),
+    risk:     _ai('<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'),
+    dollar:   _ai('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'),
+    signal:   _ai('<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>'),
+  };
+
+  const insights = [];
+  const rangeLabel = _segChartRange;
+  const metricLabel = cfg.label;
+  const halfLabel = rangeDays <= 30 ? Math.round(rangeDays / 2) + 'd' : Math.round(rangeDays / 60) + 'mo';
+
+  // ── 1. Momentum shift — segment was heading one way but recently reversed ──
+  // This is NOT visible at a glance since the overall delta may look flat
+  series.forEach(s => {
+    const accel = s.secondHalfDelta - s.firstHalfDelta;
+    const threshold = Math.max(2, Math.abs(s.delta) * 0.5);
+    if (Math.abs(accel) < threshold) return;
+    // Only interesting if the halves disagree or the acceleration is dramatic
+    const reversed = (s.firstHalfDelta > 0.5 && s.secondHalfDelta < -0.5) || (s.firstHalfDelta < -0.5 && s.secondHalfDelta > 0.5);
+    const accelerating = !reversed && Math.abs(s.secondHalfDelta) > Math.abs(s.firstHalfDelta) * 2;
+    if (!reversed && !accelerating) return;
+    const f = v => (v >= 0 ? '+' : '') + cfg.fmt(v);
+    if (reversed) {
+      const wasDir = s.firstHalfDelta > 0 ? 'climbing' : 'declining';
+      const nowDir = s.secondHalfDelta > 0 ? 'recovering' : 'pulling back';
+      insights.push({
+        score: Math.abs(accel) + 3,
+        icon: icons.momentum,
+        color: s.secondHalfDelta > 0 ? 'var(--green)' : 'var(--red)',
+        bg: s.secondHalfDelta > 0 ? 'var(--green-l)' : 'var(--red-l)',
+        label: 'Momentum Shift',
+        tags: [s.tag],
+        text: `<strong>${escHtml(s.label)}</strong> was ${wasDir} (${f(s.firstHalfDelta)}) in the first half but is now ${nowDir} (${f(s.secondHalfDelta)}) — the overall ${rangeLabel} number masks this recent change in direction.`
+      });
+    } else {
+      const dir = s.secondHalfDelta > 0 ? 'accelerating upward' : 'accelerating downward';
+      insights.push({
+        score: Math.abs(accel),
+        icon: icons.momentum,
+        color: s.secondHalfDelta > 0 ? 'var(--green)' : 'var(--amber)',
+        bg: s.secondHalfDelta > 0 ? 'var(--green-l)' : 'var(--amber-l)',
+        label: 'Accelerating',
+        tags: [s.tag],
+        text: `<strong>${escHtml(s.label)}</strong> is ${dir} — moved ${f(s.secondHalfDelta)} in the recent ${halfLabel} vs ${f(s.firstHalfDelta)} in the prior ${halfLabel}. The pace of change is picking up.`
+      });
+    }
+  });
+
+  // ── 2. Cross-signal: metric change vs health score (only when metric ≠ score) ──
+  // Reveals whether this metric actually impacts health, which isn't visible on a single chart
+  if (metric !== 'score' && series.length >= 2) {
+    const scoreSeries = [];
+    chartSegs.forEach(seg => {
+      const pts = aggregateSegmentByDay(seg.custs, 'score', cutoff);
+      if (pts.length >= 2) {
+        scoreSeries.push({ label: _segLabel(seg), sDelta: pts[pts.length - 1].avg - pts[0].avg });
+      }
+    });
+    if (scoreSeries.length >= 2) {
+      const pairs = series.map(s => {
+        const sc = scoreSeries.find(ss => ss.label === s.label);
+        return sc ? { label: s.label, mDelta: s.delta, sDelta: sc.sDelta } : null;
+      }).filter(Boolean);
+      // Look for the outlier: metric went one way, score went the other — that's the non-obvious one
+      const outliers = pairs.filter(p => (p.mDelta > 1 && p.sDelta < -1) || (p.mDelta < -1 && p.sDelta > 1));
+      if (outliers.length > 0) {
+        const ex = outliers.reduce((a, b) => Math.abs(b.mDelta) + Math.abs(b.sDelta) > Math.abs(a.mDelta) + Math.abs(a.sDelta) ? b : a);
+        const mDir = ex.mDelta > 0 ? 'improved' : 'declined';
+        const sDir = ex.sDelta > 0 ? 'improved' : 'dropped';
+        const exSeries = series.find(ss => ss.label === ex.label);
+        insights.push({
+          score: Math.abs(ex.mDelta) + Math.abs(ex.sDelta),
+          icon: icons.corr,
+          color: 'var(--amber)',
+          bg: 'var(--amber-l)',
+          label: 'Disconnected Signal',
+          tags: exSeries ? [exSeries.tag] : [],
+          text: `<strong>${escHtml(ex.label)}</strong>'s ${metricLabel} ${mDir} (${ex.mDelta > 0 ? '+' : ''}${cfg.fmt(ex.mDelta)}) but their Health Score ${sDir} (${ex.sDelta > 0 ? '+' : ''}${Math.round(ex.sDelta)}) — something else is driving score changes in this segment.`
+        });
+      } else {
+        // Check for strong positive correlation — metric and score moving together
+        const sameDir = pairs.filter(p => (p.mDelta > 1 && p.sDelta > 1) || (p.mDelta < -1 && p.sDelta < -1));
+        if (sameDir.length >= 2 && sameDir.length === pairs.length) {
+          const ex = sameDir.reduce((a, b) => Math.abs(b.mDelta) > Math.abs(a.mDelta) ? b : a);
+          const exS = series.find(ss => ss.label === ex.label);
+          insights.push({
+            score: sameDir.length * 1.5,
+            icon: icons.signal,
+            color: 'var(--blue)',
+            bg: 'var(--blue-l,#dbeafe)',
+            label: 'Strong Signal',
+            tags: exS ? [exS.tag] : [],
+            text: `${metricLabel} changes are tracking Health Score changes across all segments — this metric appears to be a reliable leading indicator. <strong>${escHtml(ex.label)}</strong> shows the clearest link.`
+          });
+        }
+      }
+    }
+  }
+
+  // ── 3. MRR concentration risk — which segments hold the $ ──
+  // Not visible on the metric chart at all, adds financial context
+  if (series.length >= 2) {
+    const totalMRR = chartSegs.reduce((s, seg) => s + (seg.totalMRR || seg.custs.reduce((t, c) => t + (c.mrr || 0), 0)), 0);
+    if (totalMRR > 0) {
+      const segMRR = chartSegs.map(seg => {
+        const mrr = seg.totalMRR || seg.custs.reduce((t, c) => t + (c.mrr || 0), 0);
+        const pct = Math.round(mrr / totalMRR * 100);
+        const s = series.find(x => x.label === _segLabel(seg));
+        return { label: _segLabel(seg), mrr, pct, delta: s ? s.delta : 0, tag: s ? s.tag : (seg.tag || seg.key || _segLabel(seg)) };
+      }).sort((a, b) => b.mrr - a.mrr);
+
+      // Flag: biggest MRR segment is declining
+      const biggest = segMRR[0];
+      if (biggest.pct >= 30 && biggest.delta < -1) {
+        insights.push({
+          score: biggest.pct * Math.abs(biggest.delta) * 0.1,
+          icon: icons.dollar,
+          color: 'var(--red)',
+          bg: 'var(--red-l)',
+          label: 'Revenue Exposure',
+          tags: [biggest.tag],
+          text: `<strong>${escHtml(biggest.label)}</strong> holds ${biggest.pct}% of segment MRR ($${fmtNum(biggest.mrr)}) and its ${metricLabel} is declining — this concentrates risk in your highest-value segment.`
+        });
+      }
+      // Flag: small MRR segment outperforming — possible expansion opportunity
+      const smallest = segMRR.filter(s => s.pct < 20 && s.delta > 2);
+      if (smallest.length > 0) {
+        const opp = smallest.reduce((a, b) => b.delta > a.delta ? b : a);
+        insights.push({
+          score: opp.delta * 1.5,
+          icon: icons.dollar,
+          color: 'var(--green)',
+          bg: 'var(--green-l)',
+          label: 'Growth Opportunity',
+          tags: [opp.tag],
+          text: `<strong>${escHtml(opp.label)}</strong> is only ${opp.pct}% of MRR but has the strongest ${metricLabel} trajectory — healthy signals in a small segment could mean expansion potential.`
+        });
+      }
+    }
+  }
+
+  // ── 4. Lagging risk — segment with declining customers that others don't have ──
+  // Looks at per-customer variance within segments, not segment-level averages
+  if (series.length >= 2 && metric === 'score') {
+    chartSegs.forEach(seg => {
+      const s = series.find(x => x.label === _segLabel(seg));
+      if (!s) return;
+      // Count how many customers in this segment are critical or risk vs others
+      const riskCount = seg.custs.filter(c => c.status === 'critical' || c.status === 'risk').length;
+      const riskPct = seg.custs.length ? Math.round(riskCount / seg.custs.length * 100) : 0;
+      // Is the segment average OK but risk concentration is high?
+      if (s.endVal >= 60 && riskPct >= 30) {
+        insights.push({
+          score: riskPct * 0.3,
+          icon: icons.risk,
+          color: 'var(--amber)',
+          bg: 'var(--amber-l)',
+          label: 'Hidden Risk',
+          tags: [s.tag],
+          text: `<strong>${escHtml(s.label)}</strong> averages ${cfg.fmt(s.endVal)} overall but ${riskPct}% of its accounts (${riskCount}/${seg.custs.length}) are at risk — the average hides a bimodal distribution of healthy and struggling accounts.`
+        });
+      }
+    });
+  }
+
+  // ── 5. Contact gap correlation — segments with high days-since-contact and declining metric ──
+  if (series.length >= 2) {
+    chartSegs.forEach(seg => {
+      const s = series.find(x => x.label === _segLabel(seg));
+      if (!s || s.delta >= 0) return; // only flag declining segments
+      const withDays = seg.custs.filter(c => c.days != null);
+      if (withDays.length < 2) return;
+      const avgDays = Math.round(withDays.reduce((t, c) => t + c.days, 0) / withDays.length);
+      // Other segments' avg days
+      const otherSegs = chartSegs.filter(x => _segLabel(x) !== _segLabel(seg));
+      const otherDays = [];
+      otherSegs.forEach(os => {
+        const wd = os.custs.filter(c => c.days != null);
+        if (wd.length) otherDays.push(Math.round(wd.reduce((t, c) => t + c.days, 0) / wd.length));
+      });
+      if (!otherDays.length) return;
+      const otherAvg = Math.round(otherDays.reduce((t, d) => t + d, 0) / otherDays.length);
+      if (avgDays > otherAvg * 1.5 && avgDays >= 10) {
+        insights.push({
+          score: (avgDays - otherAvg) * 0.5 + Math.abs(s.delta),
+          icon: icons.risk,
+          color: 'var(--amber)',
+          bg: 'var(--amber-l)',
+          label: 'Engagement Gap',
+          tags: [s.tag],
+          text: `<strong>${escHtml(s.label)}</strong> is declining and averages ${avgDays} days since last contact vs ${otherAvg} days for other segments — the lack of recent outreach may be contributing to the decline.`
+        });
+      }
+    });
+  }
+
+  // Sort by score desc, show top 3
+  insights.sort((a, b) => b.score - a.score);
+  const top = insights.slice(0, 3);
+  window._segChartInsights = top;
+
+  if (!top.length) {
+    wrap.innerHTML = '';
+    return;
+  }
+
+  wrap.innerHTML = top.map((ins, idx) => {
+    const clickable = ins.tags && ins.tags.length > 0;
+    const accentCls = ins.color === 'var(--green)' ? ' ta-card-green' : ins.color === 'var(--red)' ? ' ta-card-red' : ins.color === 'var(--amber)' ? ' ta-card-amber' : '';
+    return `<div class="ta-card${accentCls}${clickable ? ' ta-card-clickable' : ''}" style="border-left-color:${ins.color}" ${clickable ? `onclick="segAnalysisFocus(${idx})"` : ''}>
+    <div class="ta-icon" style="background:${ins.bg};color:${ins.color}">${ins.icon}</div>
+    <div>
+      <div class="ta-label">${ins.label}</div>
+      <div class="ta-detail">${ins.text}</div>
+    </div>
+  </div>`;
+  }).join('');
+}
+
+function segAnalysisFocus(idx) {
+  const insights = window._segChartInsights;
+  if (!insights || !insights[idx]) return;
+  const tags = insights[idx].tags || [];
+  if (!tags.length) return;
+  // If already showing exactly these tags, toggle back to all
+  if (_segChartSelected.length === tags.length && tags.every(t => _segChartSelected.includes(t))) {
+    _segChartSelected = [];
+  } else {
+    _segChartSelected = [...tags];
+  }
+  _renderSegChartOnly();
 }
 
 
@@ -12099,7 +12758,7 @@ function renderTrends() {
     days = Math.ceil((cutoff - jan1) / 86400000);
     cutoff.setTime(jan1.getTime());
   } else {
-    days = { '1d': 1, '7d': 7, '30d': 30, '90d': 90, '6m': 180, '1y': 365, '2y': 730 }[range] || 30;
+    days = { '3d': 3, '7d': 7, '30d': 30, '90d': 90, '6m': 180, '1y': 365, '2y': 730 }[range] || 30;
     cutoff.setDate(cutoff.getDate() - days);
   }
   cutoff.setHours(0,0,0,0);
@@ -12115,26 +12774,37 @@ function renderTrends() {
     const isCountMetric = cfg.agg === 'count';
 
     if (isSumMetric || isCountMetric) {
-      // Sum/Count metrics: count each customer once per day
-      const dayMap = {};
+      // Sum/Count metrics: forward-fill each customer's value so all
+      // customers that have been scored at least once contribute every day
+      const allDates = new Set();
+      const custEntries = []; // { valForDate: { 'YYYY-MM-DD': value }, sortedDates: [...] }
       custs.forEach(c => {
+        const valForDate = {};
         (c.history || []).forEach(h => {
           if (!h.date) return;
-          const d = new Date(h.date);
-          if (d < cutoff) return;
           const val = cfg.val(h, c);
           if (val == null || typeof val !== 'number' || isNaN(val)) return;
-          const key = d.toISOString().slice(0,10);
-          if (!dayMap[key]) dayMap[key] = { total: 0, count: 0, seen: new Set() };
-          if (dayMap[key].seen.has(c.id)) return;
-          dayMap[key].seen.add(c.id);
-          dayMap[key].total += val;
-          dayMap[key].count += 1;
+          const key = new Date(h.date).toISOString().slice(0,10);
+          valForDate[key] = val;
         });
+        const sortedDates = Object.keys(valForDate).sort();
+        if (sortedDates.length) {
+          custEntries.push({ valForDate, sortedDates });
+          sortedDates.forEach(d => { if (d >= cutoff.toISOString().slice(0,10)) allDates.add(d); });
+        }
       });
-      return Object.entries(dayMap)
-        .map(([date, v]) => ({ date, avg: isCountMetric ? v.count : v.total }))
-        .filter(p => !isNaN(p.avg))
+      const dates = [...allDates].sort();
+      return dates.map(date => {
+        let total = 0, count = 0;
+        custEntries.forEach(ce => {
+          let val = null;
+          for (let i = ce.sortedDates.length - 1; i >= 0; i--) {
+            if (ce.sortedDates[i] <= date) { val = ce.valForDate[ce.sortedDates[i]]; break; }
+          }
+          if (val !== null) { total += val; count++; }
+        });
+        return { date, avg: isCountMetric ? count : total };
+      }).filter(p => p.avg > 0)
         .sort((a, b) => a.date.localeCompare(b.date));
     }
 
@@ -12340,6 +13010,9 @@ function renderTrends() {
   if (sel2) sel2.value = m2;
 
   // ── Top Movers — build data, then render with current sort ──
+  // ── Trend Analysis ──
+  _buildTrendAnalysis(active, portfolioData, m2Line ? m2Line.points : null, cutoff, days, m1, m2);
+
   _trendMovers = active.map(c => {
     const allHist = (c.history || []).filter(h => h.date).sort((a,b) => a.date.localeCompare(b.date));
     const inRange    = allHist.filter(h => new Date(h.date) >= cutoff);
@@ -12391,7 +13064,7 @@ function renderTrendMovers() {
     if (av < bv) return -1 * _trendSortDir;
     if (av > bv) return  1 * _trendSortDir;
     return 0;
-  }).slice(0, 10);
+  });
 
   if (!sorted.length) {
     wrap.innerHTML = '<p style="color:var(--subtle);font-size:.84rem;padding:12px">No score history available for this period.</p>';
@@ -12399,7 +13072,7 @@ function renderTrendMovers() {
   }
 
   const arrow = (key) => _trendSortKey === key ? (_trendSortDir === 1 ? ' ▲' : ' ▼') : '';
-  const thStyle = 'padding:8px 12px;font-weight:700;color:var(--fg);cursor:pointer;user-select:none;white-space:nowrap';
+  const thStyle = 'padding:8px 12px;font-weight:700;color:var(--fg);cursor:pointer;user-select:none;white-space:nowrap;position:sticky;top:0;background:var(--card-bg);z-index:1';
 
   wrap.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:.82rem">
     <thead><tr style="text-align:left;border-bottom:2px solid var(--border)">
@@ -12729,6 +13402,411 @@ function hideTrendTip() {
   if (tip) tip.style.display = 'none';
 }
 
+/* ═══════════════ TREND ANALYSIS ═══════════════ */
+
+const _taSvg = {
+  trend:  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
+  corr:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
+  signal: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+  zap:    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
+  clock:  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+  users:  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+  bar:    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>'
+};
+
+function _fmtTaVal(v, metricKey) {
+  const cfg = METRIC_CFG[metricKey];
+  if (!cfg) return Math.round(v * 10) / 10;
+  if (metricKey === 'mrr' || metricKey === 'arr') return '$' + fmtNum(Math.round(v));
+  // For small deltas, show more precision so we don't display "+0"
+  const rounded = cfg.fmt(v);
+  if (rounded === '0' && Math.abs(v) > 0.001) return Math.round(v * 100) / 100;
+  return rounded;
+}
+
+function _taRangeLabel(rangeDays) {
+  if (rangeDays <= 1) return '1 day';
+  if (rangeDays <= 7) return rangeDays + ' days';
+  if (rangeDays <= 30) return rangeDays + ' days';
+  if (rangeDays <= 90) return Math.round(rangeDays / 30) + ' months';
+  if (rangeDays <= 365) return Math.round(rangeDays / 30) + ' months';
+  return (rangeDays / 365).toFixed(1).replace('.0', '') + ' years';
+}
+
+/* 1. Trend Acceleration */
+function _taTrendAccel(data, metricKey, rangeDays) {
+  if (data.length < 6) return null;
+  const mid = Math.floor(data.length / 2);
+  const firstHalf = data.slice(0, mid);
+  const secondHalf = data.slice(mid);
+  const d1 = firstHalf[firstHalf.length - 1].avg - firstHalf[0].avg;
+  const d2 = secondHalf[secondHalf.length - 1].avg - secondHalf[0].avg;
+  const diff = d2 - d1;
+  const label = (METRIC_CFG[metricKey] || {}).label || metricKey;
+  const halfLabel = _taRangeLabel(Math.round(rangeDays / 2));
+  const isCurrency = metricKey === 'mrr' || metricKey === 'arr';
+  const threshold = isCurrency ? Math.max(Math.abs(d1) * 0.1, 100) : 1;
+  if (Math.abs(diff) < threshold) return null;
+  const accel = diff > 0 && d2 > 0;
+  const decel = diff < 0 && d1 > 0 && d2 >= 0;
+  const accelDn = diff < 0 && d2 < 0;
+  const decelDn = diff > 0 && d1 < 0 && d2 <= 0;
+  let title, accent;
+  if (accel) { title = label + ' is accelerating'; accent = 'green'; }
+  else if (decel) { title = label + ' growth is decelerating'; accent = 'amber'; }
+  else if (accelDn) { title = label + ' decline is accelerating'; accent = 'red'; }
+  else if (decelDn) { title = label + ' decline is slowing'; accent = 'amber'; }
+  else { title = label + ' momentum shifted'; accent = 'amber'; }
+  const f = v => (v >= 0 ? '+' : '') + _fmtTaVal(v, metricKey);
+  const detail = `Changed <strong>${f(d2)}</strong> in the recent ${halfLabel} vs <strong>${f(d1)}</strong> in the prior ${halfLabel}.`;
+  return { priority: 2, icon: _taSvg.trend, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail };
+}
+
+/* 2. Metric Correlation (dual metric) */
+// Inverted metrics: lower value = better outcome
+const _invertedMetrics = new Set(['days', 'tickets']);
+function _taMetricCorrelation(data1, data2, m1, m2, rangeDays) {
+  if (!data2 || !data2.length || data1.length < 3) return null;
+  const rawD1 = data1[data1.length - 1].avg - data1[0].avg;
+  const rawD2 = data2[data2.length - 1].avg - data2[0].avg;
+  // Flip inverted metrics so positive = good for both
+  const d1 = _invertedMetrics.has(m1) ? -rawD1 : rawD1;
+  const d2 = _invertedMetrics.has(m2) ? -rawD2 : rawD2;
+  const l1 = (METRIC_CFG[m1] || {}).label || m1;
+  const l2 = (METRIC_CFG[m2] || {}).label || m2;
+  const f1 = v => (v >= 0 ? '+' : '') + _fmtTaVal(v, m1);
+  const f2 = v => (v >= 0 ? '+' : '') + _fmtTaVal(v, m2);
+  const m2Hint = _invertedMetrics.has(m2) ? (rawD2 < 0 ? ' (improving)' : ' (worsening)') : '';
+
+  // Detect recovery: check second-half trend for each metric
+  const mid1 = Math.floor(data1.length / 2);
+  const mid2 = Math.floor(data2.length / 2);
+  const rawD1Recent = data1.length >= 6 ? data1[data1.length - 1].avg - data1[mid1].avg : rawD1;
+  const rawD2Recent = data2.length >= 6 ? data2[data2.length - 1].avg - data2[mid2].avg : rawD2;
+  const d1Recent = _invertedMetrics.has(m1) ? -rawD1Recent : rawD1Recent;
+  const d2Recent = _invertedMetrics.has(m2) ? -rawD2Recent : rawD2Recent;
+  // Recovery = overall negative but recent half is positive (and meaningful)
+  const m1Recovering = d1 < 0 && d1Recent > 0 && Math.abs(rawD1Recent) > Math.abs(rawD1) * 0.3;
+  const m2Recovering = d2 < 0 && d2Recent > 0 && Math.abs(rawD2Recent) > Math.abs(rawD2) * 0.3;
+
+  const sameDir = (d1 > 0 && d2 > 0) || (d1 < 0 && d2 < 0);
+  const oppositeDir = (d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0);
+  // Check significance — both need meaningful movement
+  const t1 = m1 === 'mrr' || m1 === 'arr' ? 100 : 0.5;
+  const t2 = m2 === 'mrr' || m2 === 'arr' ? 100 : 0.5;
+  if (Math.abs(rawD1) < t1 && Math.abs(rawD2) < t2) return null;
+  const rl = _taRangeLabel(rangeDays);
+  const halfLabel = _taRangeLabel(Math.round(rangeDays / 2));
+  let title, detail, accent;
+  if (sameDir) {
+    const bothGood = d1 > 0;
+    if (!bothGood && (m1Recovering || m2Recovering)) {
+      // Both down overall but one or both recovering
+      const recoverNames = [m1Recovering ? l1 : null, m2Recovering ? l2 : null].filter(Boolean).join(' and ');
+      title = recoverNames + ' recovering after earlier decline';
+      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> and <strong>${l2} ${f2(rawD2)}${m2Hint}</strong> overall, but ${recoverNames} ${m1Recovering && m2Recovering ? 'have' : 'has'} been trending up in the recent ${halfLabel}. The recovery trend is encouraging.`;
+      accent = 'amber';
+    } else {
+      title = l1 + ' and ' + l2 + ' both ' + (bothGood ? 'improved' : 'worsened');
+      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> while <strong>${l2} ${f2(rawD2)}${m2Hint}</strong>. ` + (bothGood ? 'Both metrics moving positively — a healthy reinforcing trend.' : 'Both metrics declining — investigate shared root causes.');
+      accent = bothGood ? 'green' : 'red';
+    }
+  } else if (oppositeDir) {
+    const m1Good = d1 > 0;
+    if (!m1Good && m1Recovering) {
+      // m1 overall down but recovering, m2 improving — both now trending up
+      title = l1 + ' recovering — now trending with ' + l2;
+      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> overall but has been trending up in the recent ${halfLabel} (<strong>${f1(rawD1Recent)}</strong>). Combined with <strong>${l2} ${f2(rawD2)}${m2Hint}</strong>, both metrics are now moving in the right direction.`;
+      accent = 'green';
+    } else if (m1Good && m2Recovering) {
+      title = l1 + ' improved and ' + l2 + ' now recovering';
+      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> while <strong>${l2} ${f2(rawD2)}${m2Hint}</strong> overall. However, ${l2} has turned around in the recent ${halfLabel} — a positive signal.`;
+      accent = 'green';
+    } else {
+      const m2Improved = d2 > 0;
+      title = l1 + (m1Good ? ' improved' : ' declined') + ' while ' + l2 + (m2Improved ? ' improved' : ' worsened');
+      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> while <strong>${l2} ${f2(rawD2)}${m2Hint}</strong>. ` + (m1Good ? 'Mixed signals — ' + l2 + ' may be a drag on future ' + l1 + ' performance.' : l2 + ' is improving but hasn\'t yet lifted ' + l1 + ' — watch for a lagging recovery.');
+      accent = 'amber';
+    }
+  } else {
+    return null;
+  }
+  return { priority: 1, icon: _taSvg.corr, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail };
+}
+
+/* 3. Inflection Point */
+function _taInflection(data, metricKey, rangeDays) {
+  if (data.length < 10) return null;
+  // Use a wider window to find sustained reversals, not blips
+  // Window = ~10% of data length, min 3, max 15
+  const win = Math.max(3, Math.min(15, Math.round(data.length * 0.1)));
+  // For each candidate point, compare avg slope before vs after over the window
+  let maxSwing = 0, bestIdx = -1, bestBefore = 0, bestAfter = 0;
+  for (let i = win; i < data.length - win; i++) {
+    const beforeSlope = (data[i].avg - data[i - win].avg) / win;
+    const afterSlope = (data[i + win].avg - data[i].avg) / win;
+    if ((beforeSlope > 0 && afterSlope < 0) || (beforeSlope < 0 && afterSlope > 0)) {
+      const swing = Math.abs(afterSlope - beforeSlope) * win; // Total magnitude over window
+      if (swing > maxSwing) { maxSwing = swing; bestIdx = i; bestBefore = beforeSlope; bestAfter = afterSlope; }
+    }
+  }
+  const isCurrency = metricKey === 'mrr' || metricKey === 'arr';
+  // Threshold relative to data range — swing must be at least 15% of the total range
+  const vals = data.map(d => d.avg);
+  const dataRange = Math.max(...vals) - Math.min(...vals);
+  const threshold = isCurrency ? Math.max(200, dataRange * 0.15) : Math.max(3, dataRange * 0.15);
+  if (bestIdx < 0 || maxSwing < threshold) return null;
+
+  // Verify the reversal actually sustained — check overall slope from inflection to end
+  // If the trend from inflection→end agrees with the BEFORE direction (not the after),
+  // the reversal was a temporary blip and didn't stick
+  const remaining = data.length - 1 - bestIdx;
+  if (remaining >= win) {
+    const endSlope = (data[data.length - 1].avg - data[bestIdx].avg) / remaining;
+    // Reversal was temporary: original direction resumed
+    if ((bestBefore > 0 && endSlope > 0) || (bestBefore < 0 && endSlope < 0)) return null;
+  }
+
+  const inflPt = data[bestIdx];
+  const d = new Date(inflPt.date);
+  const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const label = (METRIC_CFG[metricKey] || {}).label || metricKey;
+  const wasRising = bestBefore > 0;
+  const title = 'Trend reversed around ' + dateStr;
+  const swingFmt = _fmtTaVal(Math.round(maxSwing * 10) / 10, metricKey);
+  const unit = isCurrency ? '' : metricKey === 'csat' ? '' : ' pts';
+  const detail = `<strong>${label}</strong> shifted from ${wasRising ? 'climbing' : 'declining'} to ${wasRising ? 'declining' : 'climbing'} around <strong>${dateStr}</strong>. The ${wasRising ? 'pullback' : 'recovery'} magnitude was <strong>${swingFmt}${unit}</strong>.`;
+  const accent = wasRising ? 'red' : 'green';
+  return { priority: 1, icon: _taSvg.zap, iconBg: accent === 'green' ? 'var(--green-l)' : 'var(--red-l)', iconColor: accent === 'green' ? 'var(--green)' : 'var(--red)', accent, title, detail };
+}
+
+/* 4. Volatility Assessment */
+function _taVolatility(data, metricKey) {
+  if (data.length < 10) return null;
+  const diffs = [];
+  for (let i = 1; i < data.length; i++) diffs.push(data[i].avg - data[i-1].avg);
+  const mean = diffs.reduce((s,d) => s+d, 0) / diffs.length;
+  const variance = diffs.reduce((s,d) => s + (d - mean) ** 2, 0) / diffs.length;
+  const stddev = Math.sqrt(variance);
+  const label = (METRIC_CFG[metricKey] || {}).label || metricKey;
+  const isCurrency = metricKey === 'mrr' || metricKey === 'arr';
+  // Compare to expected volatility scaled by metric range
+  // Score ~0-100, CSAT ~1-5, Adoption ~0-100, Logins ~0-50, Days ~0-60, Tickets ~0-20
+  const dataVals = data.map(d => d.avg);
+  const dataRange = Math.max(...dataVals) - Math.min(...dataVals);
+  const baseExpected = isCurrency ? 500 : Math.max(0.1, dataRange * 0.05);
+  const ratio = stddev / baseExpected;
+  if (ratio > 0.5 && ratio < 2.0) return null; // Normal range
+  const isStable = ratio <= 0.5;
+  const title = label + ' has been ' + (isStable ? 'unusually stable' : 'volatile');
+  const fmtStd = isCurrency ? '$' + fmtNum(Math.round(stddev)) : (Math.round(stddev * 10) / 10);
+  const detail = isStable
+    ? `Daily variation of just <strong>${fmtStd}</strong> — the portfolio is in a tight range. A breakout in either direction could signal a shift.`
+    : `Swinging <strong>±${fmtStd}</strong> day-to-day — higher than typical. Investigate whether specific accounts are driving the volatility.`;
+  const accent = isStable ? 'green' : 'amber';
+  return { priority: 3, icon: _taSvg.bar, iconBg: isStable ? 'var(--green-l)' : 'var(--amber-l)', iconColor: isStable ? 'var(--green)' : 'var(--amber)', accent, title, detail };
+}
+
+/* 5. Period-over-Period Comparison */
+function _taPeriodComparison(data, metricKey, cutoff, rangeDays, active) {
+  const label = (METRIC_CFG[metricKey] || {}).label || metricKey;
+  const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
+  // Compute prior period data
+  const priorCutoff = new Date(cutoff.getTime() - rangeDays * 86400000);
+  const cutoffStr = cutoff.toISOString().slice(0,10);
+  // Current period avg
+  if (data.length < 2) return null;
+  const currentAvg = data.reduce((s,d) => s + d.avg, 0) / data.length;
+  // Prior period avg — manually scan history
+  const priorPts = [];
+  const allDates = new Set();
+  active.forEach(c => {
+    (c.history || []).forEach(h => {
+      if (!h.date) return;
+      const d = new Date(h.date);
+      const key = d.toISOString().slice(0,10);
+      if (d >= priorCutoff && d < cutoff) allDates.add(key);
+    });
+  });
+  if (allDates.size < 2) return null;
+  // Use same aggregation approach — simplified: just get avg of all history points in prior window
+  const priorDates = [...allDates].sort();
+  priorDates.forEach(date => {
+    let total = 0, count = 0;
+    active.forEach(c => {
+      const hist = (c.history || []).filter(h => h.date).sort((a,b) => a.date.localeCompare(b.date));
+      let val = null;
+      for (const h of hist) {
+        const key = new Date(h.date).toISOString().slice(0,10);
+        if (key <= date) {
+          const v = cfg.val(h, c);
+          if (v != null && typeof v === 'number' && !isNaN(v)) val = v;
+        }
+      }
+      if (val !== null) { total += val; count++; }
+    });
+    if (count) priorPts.push(total / count);
+  });
+  if (!priorPts.length) return null;
+  const priorAvg = priorPts.reduce((s,v) => s+v, 0) / priorPts.length;
+  const diff = currentAvg - priorAvg;
+  const isCurrency = metricKey === 'mrr' || metricKey === 'arr';
+  const threshold = isCurrency ? 100 : 0.5;
+  if (Math.abs(diff) < threshold) return null;
+  const rangeLabel = rangeDays <= 7 ? rangeDays + ' days' : rangeDays <= 30 ? rangeDays + ' days' : rangeDays <= 90 ? Math.round(rangeDays / 30) + ' month' + (rangeDays > 45 ? 's' : '') : Math.round(rangeDays / 30) + ' months';
+  const improved = diff > 0;
+  const f = v => _fmtTaVal(v, metricKey);
+  const fd = v => (v >= 0 ? '+' : '') + _fmtTaVal(v, metricKey);
+  const title = label + (improved ? ' improved' : ' declined') + ' vs prior period';
+  const detail = `Averaged <strong>${f(currentAvg)}</strong> this period vs <strong>${f(priorAvg)}</strong> in the prior ${rangeLabel} — a <strong>${fd(diff)}</strong> shift.`;
+  const accent = improved ? 'green' : 'red';
+  return { priority: 2, icon: _taSvg.clock, iconBg: improved ? 'var(--green-l)' : 'var(--red-l)', iconColor: improved ? 'var(--green)' : 'var(--red)', accent, title, detail };
+}
+
+/* 6. CSM Overlay Divergence */
+function _taCsmDivergence(data, active, cutoff, rangeDays, metricKey) {
+  if (!_trendCsmOverlay) return null;
+  const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
+  const label = cfg.label || metricKey;
+  const csmName = _trendCsmOverlay;
+  if (data.length < 2) return null;
+
+  // Helper: compute per-customer delta for a set of customers
+  const _custDelta = function(c) {
+    const hist = (c.history || []).filter(h => h.date).sort((a,b) => a.date.localeCompare(b.date));
+    const inRange = hist.filter(h => new Date(h.date) >= cutoff);
+    const before = hist.filter(h => new Date(h.date) < cutoff);
+    if (!inRange.length) return null;
+    const startVal = before.length ? cfg.val(before[before.length - 1], c) : cfg.val(inRange[0], c);
+    const endVal = cfg.val(inRange[inRange.length - 1], c);
+    if (startVal == null || endVal == null) return null;
+    return endVal - startVal;
+  };
+
+  // CSM cohort delta
+  const csmCusts = active.filter(c => c.manager === csmName);
+  if (csmCusts.length < 2) return null;
+  const csmDeltas = csmCusts.map(_custDelta).filter(d => d !== null);
+  if (csmDeltas.length < 2) return null;
+  const csmAvgDelta = csmDeltas.reduce((s,d) => s+d, 0) / csmDeltas.length;
+
+  // Rest-of-portfolio delta — same methodology, excluding CSM's own accounts
+  const restCusts = active.filter(c => c.manager !== csmName);
+  const restDeltas = restCusts.map(_custDelta).filter(d => d !== null);
+  const portDelta = restDeltas.length ? restDeltas.reduce((s,d) => s+d, 0) / restDeltas.length : 0;
+
+  const gap = csmAvgDelta - portDelta;
+  const isCurrency = metricKey === 'mrr' || metricKey === 'arr';
+  // Gap must be meaningful: at least 25% of the larger group's change, floor of 3 pts
+  const minRelative = Math.max(Math.abs(csmAvgDelta), Math.abs(portDelta)) * 0.25;
+  const threshold = isCurrency ? 200 : Math.max(3, minRelative);
+  if (Math.abs(gap) < threshold) return null;
+  const outperformed = gap > 0;
+  const f = v => (v >= 0 ? '+' : '') + _fmtTaVal(v, metricKey);
+  const title = escHtml(csmName) + '\'s accounts ' + (outperformed ? 'outperformed' : 'underperformed') + ' the rest of the portfolio';
+  const detail = `${escHtml(csmName)}'s ${csmDeltas.length} accounts averaged <strong>${f(csmAvgDelta)}</strong> ${label} change vs <strong>${f(portDelta)}</strong> across the other ${restDeltas.length} accounts.`;
+  const accent = outperformed ? 'green' : 'red';
+  return { priority: 1, icon: _taSvg.users, iconBg: outperformed ? 'var(--green-l)' : 'var(--red-l)', iconColor: outperformed ? 'var(--green)' : 'var(--red)', accent, title, detail };
+}
+
+/* 7. Cross-Metric Signal */
+function _taCrossSignal(active, cutoff, metricKey) {
+  if (active.length < 6) return null;
+  const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
+  const label = cfg.label || metricKey;
+  // Split accounts by whether their primary metric improved or declined
+  const improving = [], declining = [];
+  active.forEach(c => {
+    const hist = (c.history || []).filter(h => h.date).sort((a,b) => a.date.localeCompare(b.date));
+    const inRange = hist.filter(h => new Date(h.date) >= cutoff);
+    const before = hist.filter(h => new Date(h.date) < cutoff);
+    if (!inRange.length) return;
+    const startVal = before.length ? cfg.val(before[before.length - 1], c) : cfg.val(inRange[0], c);
+    const endVal = cfg.val(inRange[inRange.length - 1], c);
+    if (startVal == null || endVal == null) return;
+    const delta = endVal - startVal;
+    if (delta > 0.5) improving.push(c);
+    else if (delta < -0.5) declining.push(c);
+  });
+  if (improving.length < 2 || declining.length < 2) return null;
+  // Check which other signal differs most between the two groups
+  const signals = [
+    { key: 'logins', getter: c => c.logins, label: 'Logins' },
+    { key: 'adoption', getter: c => c.adoption, label: 'Adoption %' },
+    { key: 'tickets', getter: c => c.tickets, label: 'Open Tickets' },
+    { key: 'nps', getter: c => c.nps, label: 'NPS' },
+    { key: 'csat', getter: c => c.csat, label: 'CSAT' },
+    { key: 'days', getter: c => c.days, label: 'Days Since Contact' }
+  ].filter(s => s.key !== metricKey); // Don't compare metric to itself
+  let bestSignal = null, bestGap = 0;
+  signals.forEach(sig => {
+    const impVals = improving.map(c => sig.getter(c)).filter(v => v != null);
+    const decVals = declining.map(c => sig.getter(c)).filter(v => v != null);
+    if (impVals.length < 2 || decVals.length < 2) return;
+    const impAvg = impVals.reduce((s,v) => s+v, 0) / impVals.length;
+    const decAvg = decVals.reduce((s,v) => s+v, 0) / decVals.length;
+    const gap = Math.abs(impAvg - decAvg);
+    // Normalize by the signal's range to compare fairly
+    const maxVal = Math.max(...impVals, ...decVals);
+    const minVal = Math.min(...impVals, ...decVals);
+    const range = maxVal - minVal || 1;
+    const normalizedGap = gap / range;
+    if (normalizedGap > bestGap) {
+      bestGap = normalizedGap;
+      bestSignal = { ...sig, impAvg, decAvg, gap: impAvg - decAvg };
+    }
+  });
+  if (!bestSignal || bestGap < 0.15) return null;
+  const fv = v => Math.round(v * 10) / 10;
+  const inverted = _invertedMetrics.has(bestSignal.key); // Lower = better
+  // For inverted metrics: improving accounts having LOWER values = expected positive pattern
+  // gap = impAvg - decAvg; for inverted: negative gap means improving accounts have lower (better) values
+  const isHealthyPattern = inverted ? bestSignal.gap < 0 : bestSignal.gap > 0;
+  const title = bestSignal.label + ' correlates most with ' + label + ' changes';
+  let detail;
+  if (inverted) {
+    const lowerGroup = bestSignal.gap < 0 ? 'rising' : 'declining';
+    detail = `Accounts with rising ${label} averaged <strong>${fv(bestSignal.impAvg)}</strong> ${bestSignal.label} vs <strong>${fv(bestSignal.decAvg)}</strong> for declining accounts — <strong>lower ${bestSignal.label} tracks with better ${label}</strong>.`;
+  } else {
+    detail = `Accounts with rising ${label} averaged <strong>${fv(bestSignal.impAvg)}</strong> ${bestSignal.label} vs <strong>${fv(bestSignal.decAvg)}</strong> for declining accounts — <strong>higher ${bestSignal.label} tracks with better ${label}</strong>.`;
+  }
+  const accent = isHealthyPattern ? 'green' : 'amber';
+  return { priority: 3, icon: _taSvg.signal, iconBg: isHealthyPattern ? 'var(--green-l)' : 'var(--amber-l)', iconColor: isHealthyPattern ? 'var(--green)' : 'var(--amber)', accent, title, detail };
+}
+
+/* ── Orchestrator ─────────────────────────────── */
+function _buildTrendAnalysis(active, data1, data2, cutoff, rangeDays, m1, m2) {
+  const wrap = el('trend-analysis-wrap');
+  if (!wrap) return;
+
+  const results = [
+    _taPeriodComparison(data1, m1, cutoff, rangeDays, active),
+    _taTrendAccel(data1, m1, rangeDays),
+    _taMetricCorrelation(data1, data2, m1, m2, rangeDays),
+    _taInflection(data1, m1, rangeDays),
+    _taVolatility(data1, m1),
+    _taCsmDivergence(data1, active, cutoff, rangeDays, m1),
+    _taCrossSignal(active, cutoff, m1)
+  ].filter(Boolean);
+
+  results.sort((a, b) => a.priority - b.priority);
+  const top = results.slice(0, 5);
+
+  if (!top.length) {
+    wrap.innerHTML = '';
+    return;
+  }
+
+  wrap.innerHTML = '<div style="font-size:.82rem;font-weight:700;color:var(--text);margin-bottom:8px">Analysis</div>' +
+    top.map(ins => {
+      const cls = ins.accent === 'green' ? 'ta-card-green' : ins.accent === 'red' ? 'ta-card-red' : ins.accent === 'amber' ? 'ta-card-amber' : '';
+      return `<div class="ta-card ${cls}">
+        <div class="ta-icon" style="background:${ins.iconBg};color:${ins.iconColor}">${ins.icon}</div>
+        <div><div class="ta-label">${ins.title}</div><div class="ta-detail">${ins.detail}</div></div>
+      </div>`;
+    }).join('');
+}
+
 
 // ─── CSM PERFORMANCE DASHBOARD ───────────────────────────────
 
@@ -12823,6 +13901,10 @@ function renderCSMPerformance() {
   const healthScoreGradient = overallAvg >= 65 ? 'dash-kpi-green' : overallAvg >= 50 ? 'dash-kpi-teal' : 'dash-kpi-red';
   const riskGradient = 'dash-kpi-red';
 
+  const avgMRRPerCSM = totalCSMs ? Math.round(totalMRR / totalCSMs) : 0;
+  const avgAtRiskPerCSM = totalCSMs ? (totalAtRisk / totalCSMs).toFixed(1).replace(/\.0$/, '') : 0;
+  const overdueGradient = totalOverdue > 0 ? 'dash-kpi-red' : 'dash-kpi-green';
+
   statsWrap.innerHTML = `
     <div class="dash-kpi-card dash-kpi-blue">
       <div class="dash-kpi-top">
@@ -12830,23 +13912,23 @@ function renderCSMPerformance() {
         <span class="dash-kpi-label">Active CSMs</span>
       </div>
       <div class="dash-kpi-num">${totalCSMs}</div>
-      <div class="dash-kpi-sub">~${avgAccsPerCSM} accounts each</div>
+      <div class="dash-kpi-sub">${totalAccounts} accounts across team</div>
     </div>
     <div class="dash-kpi-card dash-kpi-purple">
       <div class="dash-kpi-top">
         <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${CSM_ICONS.chart}</div>
-        <span class="dash-kpi-label">Total Accounts</span>
+        <span class="dash-kpi-label">Avg Book Size</span>
       </div>
-      <div class="dash-kpi-num">${totalAccounts}</div>
-      <div class="dash-kpi-sub">${totalHealthy} healthy · ${active.filter(c=>c.status==='watch').length} watch</div>
+      <div class="dash-kpi-num">${avgAccsPerCSM}</div>
+      <div class="dash-kpi-sub">accounts per CSM</div>
     </div>
     <div class="dash-kpi-card dash-kpi-teal">
       <div class="dash-kpi-top">
         <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${CSM_ICONS.dollar}</div>
-        <span class="dash-kpi-label">Total MRR</span>
+        <span class="dash-kpi-label">Avg MRR / CSM</span>
       </div>
-      <div class="dash-kpi-num">$${fmtNum(totalMRR)}</div>
-      <div class="dash-kpi-sub">${totalAtRisk ? '$' + fmtNum(riskMRRTotal) + ' at risk' : 'No MRR at risk'}</div>
+      <div class="dash-kpi-num">$${fmtNum(avgMRRPerCSM)}</div>
+      <div class="dash-kpi-sub">$${fmtNum(totalMRR)} total portfolio</div>
     </div>
     <div class="dash-kpi-card ${healthScoreGradient}">
       <div class="dash-kpi-top">
@@ -12856,13 +13938,13 @@ function renderCSMPerformance() {
       <div class="dash-kpi-num">${overallAvg}</div>
       <div class="dash-kpi-sub">${deltaIcon} ${Math.abs(overallDelta)} pts this week</div>
     </div>
-    <div class="dash-kpi-card ${riskGradient}">
+    <div class="dash-kpi-card ${overdueGradient}">
       <div class="dash-kpi-top">
         <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${CSM_ICONS.alert}</div>
-        <span class="dash-kpi-label">At-Risk Accounts</span>
+        <span class="dash-kpi-label">Overdue Contacts</span>
       </div>
-      <div class="dash-kpi-num">${totalAtRisk}</div>
-      <div class="dash-kpi-sub">${totalOverdue ? totalOverdue + ' overdue contacts' : 'All contacts current'}</div>
+      <div class="dash-kpi-num">${totalOverdue}</div>
+      <div class="dash-kpi-sub">${totalOverdue ? avgAtRiskPerCSM + ' at-risk per CSM' : 'All contacts current'}</div>
     </div>
   `;
 
@@ -13018,64 +14100,332 @@ function renderCSMFocus(mgrList) {
   if (!wrap) return;
   const items = [];
   const _fi = (path) => `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+  const icPhone = _fi('<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.09 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 9a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>');
+  const icCal = _fi('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>');
+  const icDown = _fi('<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>');
+  const icUp = _fi('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>');
+  const icAlert = _fi('<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>');
+  const icTarget = _fi('<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>');
+  const icShuffle = _fi('<polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/>');
 
-  mgrList.filter(m => m.name !== 'Unassigned').forEach(m => {
-    // Overdue contacts
-    const overdueAccs = m.accs.filter(c => c.days != null && c.days >= 14);
-    if (overdueAccs.length) {
-      const names = overdueAccs.slice(0, 3).map(c => c.name).join(', ') + (overdueAccs.length > 3 ? ` +${overdueAccs.length - 3} more` : '');
-      items.push({ csm: m.name, priority: 3, icon: _fi('<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.09 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 9a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>'),
-        color: 'var(--red)', bg: 'var(--red-l)',
-        text: `<strong>${escHtml(m.name)}</strong> has ${overdueAccs.length} account${overdueAccs.length>1?'s':''} with no contact in 14+ days`,
-        detail: names });
-    }
-    // At-risk renewals within 90 days
-    const riskRenewals = m.accs.filter(c => (c.status === 'critical' || c.status === 'risk') && c.renewal != null && c.renewal > 0 && c.renewal <= 3);
-    if (riskRenewals.length) {
-      const names = riskRenewals.map(c => `${c.name} (${c.score})`).join(', ');
-      items.push({ csm: m.name, priority: 4, icon: _fi('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'),
-        color: 'var(--red)', bg: 'var(--red-l)',
-        text: `<strong>${escHtml(m.name)}</strong> has ${riskRenewals.length} at-risk renewal${riskRenewals.length>1?'s':''} in the next 90 days`,
-        detail: names });
-    }
-    // Declining portfolio (negative trend)
-    if (m.avgDelta < -2) {
-      items.push({ csm: m.name, priority: 2, icon: _fi('<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>'),
-        color: 'var(--amber)', bg: 'var(--amber-l)',
-        text: `<strong>${escHtml(m.name)}</strong>'s portfolio is declining (${m.avgDelta} avg this week)`,
-        detail: `Avg score: ${m.avgScore}, ${m.atRisk} at risk` });
-    }
-    // High risk ratio
-    if (m.count >= 3 && (m.atRisk / m.count) >= 0.4) {
-      items.push({ csm: m.name, priority: 2, icon: _fi('<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'),
-        color: 'var(--red)', bg: 'var(--red-l)',
-        text: `<strong>${escHtml(m.name)}</strong> has ${Math.round((m.atRisk/m.count)*100)}% of accounts at risk (${m.atRisk}/${m.count})`,
-        detail: `$${fmtNum(m.riskMRR)} MRR at risk` });
-    }
-    // Positive callout — improving portfolio
-    if (m.avgDelta >= 3) {
-      items.push({ csm: m.name, priority: 0, icon: _fi('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>'),
-        color: 'var(--green)', bg: 'var(--green-l)',
-        text: `<strong>${escHtml(m.name)}</strong> is improving their portfolio (+${m.avgDelta} avg this week)`,
-        detail: `${m.healthy} healthy, avg score ${m.avgScore}` });
-    }
-  });
+  // Clickable customer name link — closes modal, opens detail
+  const _cl = (c) => '<a class="fd-cust-link" onclick="closeModal(\'focus-detail-modal\');openDetail(\'' + escHtml(c.id) + '\')">' + escHtml(c.name) + '</a>';
 
+  // ── Gather cross-team data ───────────────────────────────────
+  const activeMgrs = mgrList.filter(m => m.name !== 'Unassigned' && m.count > 0);
+  if (!activeMgrs.length) {
+    wrap.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:.82rem"><div style="font-size:1.4rem;margin-bottom:6px;opacity:.3">✓</div>No focus areas to show.</div>';
+    return;
+  }
+  const allAccs = activeMgrs.flatMap(m => m.accs);
+  const teamAvgScore = Math.round(allAccs.reduce((s,c) => s + c.score, 0) / allAccs.length);
+  const teamAvgDelta = Math.round(allAccs.reduce((s,c) => s + getDelta7d(c), 0) / allAccs.length * 10) / 10;
+
+  // ── Generator 1: Consolidated renewal pipeline ───────────────
+  // One combined insight — "X at-risk renewals across Y CSMs with $Z MRR"
+  (() => {
+    const riskRenewals = allAccs.filter(c => (c.status === 'critical' || c.status === 'risk') && c.renewal != null && c.renewal > 0 && c.renewal <= 3);
+    if (!riskRenewals.length) return;
+    const renewMRR = riskRenewals.reduce((s,c) => s + (c.mrr||0), 0);
+    const csmNames = [...new Set(riskRenewals.map(c => c.manager ? c.manager.trim() : 'Unassigned'))];
+    // Find the single biggest at-risk renewal
+    riskRenewals.sort((a,b) => (b.mrr||0) - (a.mrr||0));
+    const top = riskRenewals[0];
+    const topDays = top.renewal_date ? Math.max(0, Math.round((new Date(top.renewal_date) - new Date()) / 86400000)) : Math.round((top.renewal || 0) * 30);
+    // Which CSM has the most at-risk renewal MRR?
+    const csmMRR = {};
+    riskRenewals.forEach(c => { const k = c.manager ? c.manager.trim() : 'Unassigned'; csmMRR[k] = (csmMRR[k]||0) + (c.mrr||0); });
+    const heaviestCSM = Object.entries(csmMRR).sort((a,b) => b[1] - a[1])[0];
+    const detail = `There ${riskRenewals.length === 1 ? 'is' : 'are'} <strong>${riskRenewals.length}</strong> account${riskRenewals.length>1?'s':''} coming up for renewal that ${riskRenewals.length === 1 ? 'is' : 'are'} currently at risk, representing <strong>$${fmtNum(renewMRR)}/mo</strong> in revenue that could churn. The largest is ${_cl(top)} at $${fmtNum(top.mrr||0)}/mo with a health score of ${top.score} and roughly ${topDays} days until renewal.${heaviestCSM ? ` <strong>${escHtml(heaviestCSM[0])}</strong> is carrying the heaviest load with $${fmtNum(heaviestCSM[1])}/mo of at-risk renewal MRR on their plate.` : ''} Without intervention, these accounts are likely to churn or downgrade at renewal.`;
+    items.push({ priority: 6, icon: icCal,
+      color: 'var(--red)', bg: 'var(--red-l)',
+      title: `${riskRenewals.length} At-Risk Renewal${riskRenewals.length>1?'s':''} — $${fmtNum(renewMRR)}/mo`,
+      text: `<strong>${riskRenewals.length}</strong> at-risk renewal${riskRenewals.length>1?'s':''} across ${csmNames.length} CSM${csmNames.length>1?'s':''} — <strong>$${fmtNum(renewMRR)}/mo</strong> MRR at stake`,
+      detail,
+      steps: [
+        'Prioritize outreach to the highest-MRR renewal — ' + _cl(top) + ' ($' + fmtNum(top.mrr||0) + '/mo, ~' + topDays + 'd out)',
+        heaviestCSM ? 'Coordinate with <strong>' + escHtml(heaviestCSM[0]) + '</strong> who carries the most at-risk renewal exposure' : 'Align CSMs on renewal save strategies',
+        'Flag any accounts with a score below 40 for executive sponsor escalation'
+      ] });
+  })();
+
+  // ── Generator 2: Neglected + declining accounts (cross-team) ─
+  // Accounts declining with no recent contact — the "silent bleed"
+  (() => {
+    const neglected = allAccs.filter(c => c.days != null && c.days >= 14 && getDelta7d(c) < -2);
+    if (neglected.length < 2) return;
+    const ndMRR = neglected.reduce((s,c) => s + (c.mrr||0), 0);
+    const csmsAffected = [...new Set(neglected.map(c => c.manager ? c.manager.trim() : 'Unassigned'))];
+    neglected.sort((a,b) => getDelta7d(a) - getDelta7d(b));
+    const worst = neglected.slice(0, 3);
+    const detail = `These accounts are actively losing health points while no one is reaching out — a "silent bleed" that often leads to surprise churn. The worst right now: ` + worst.map(c => `${_cl(c)} is down ${Math.abs(getDelta7d(c))} pts this week with ${c.days} days since last contact ($${fmtNum(c.mrr||0)}/mo)`).join('; ') + `. Together they represent <strong>$${fmtNum(ndMRR)}/mo</strong> in MRR that\'s eroding without anyone noticing.`;
+    items.push({ priority: 5, icon: icPhone,
+      color: 'var(--red)', bg: 'var(--red-l)',
+      title: `${neglected.length} Neglected & Declining Accounts`,
+      text: `<strong>${neglected.length}</strong> accounts declining with no contact in 14+ days across ${csmsAffected.length} CSM${csmsAffected.length>1?'s':''} — $${fmtNum(ndMRR)}/mo exposed`,
+      detail,
+      steps: [
+        'Assign same-day outreach for the worst-declining accounts — start with ' + _cl(worst[0]),
+        'Review contact cadence — these accounts have gone 14+ days without a touchpoint while declining',
+        'Set up alerts for accounts that go 10+ days without contact while score is dropping'
+      ] });
+  })();
+
+  // ── Generator 3: CSM performance spread ──────────────────────
+  // Gap between best and worst performing CSM — flags team disparity
+  (() => {
+    if (activeMgrs.length < 2) return;
+    const sorted = [...activeMgrs].sort((a,b) => b.avgDelta - a.avgDelta);
+    const best = sorted[0];
+    const worst = sorted[sorted.length - 1];
+    const spread = Math.round((best.avgDelta - worst.avgDelta) * 10) / 10;
+    if (spread < 3) return; // not significant
+    const detail = `There\'s a significant gap in how CSM portfolios are performing this week. <strong>${escHtml(best.name)}</strong> is trending at <strong>${best.avgDelta > 0 ? '+' : ''}${best.avgDelta} pts/wk</strong> with an avg score of ${best.avgScore}, while <strong>${escHtml(worst.name)}</strong> is at <strong>${worst.avgDelta > 0 ? '+' : ''}${worst.avgDelta} pts/wk</strong> with an avg score of ${worst.avgScore}. A ${spread}-point spread usually signals different engagement approaches, workload issues, or account mix problems worth digging into.`;
+    items.push({ priority: 3, icon: icShuffle,
+      color: 'var(--amber)', bg: 'var(--amber-l)',
+      title: `${spread} pt Performance Gap Between CSMs`,
+      text: `<strong>${spread} pt</strong> spread between fastest- and slowest-improving portfolios this week`,
+      detail,
+      steps: [
+        'Schedule a 1:1 with <strong>' + escHtml(worst.name) + '</strong> to identify blockers in their portfolio',
+        'Have <strong>' + escHtml(best.name) + '</strong> share their playbook or run a team knowledge-share session',
+        'Review whether account assignment complexity differs between top and bottom performers'
+      ] });
+  })();
+
+  // ── Generator 4: MRR concentration risk ──────────────────────
+  // Single accounts that represent outsized MRR exposure if they churn
+  (() => {
+    const totalMRR = allAccs.reduce((s,c) => s + (c.mrr||0), 0);
+    if (!totalMRR) return;
+    const highMRR = allAccs.filter(c => (c.mrr||0) >= totalMRR * 0.08 && (c.status === 'critical' || c.status === 'risk'));
+    if (!highMRR.length) return;
+    highMRR.sort((a,b) => (b.mrr||0) - (a.mrr||0));
+    const combinedMRR = highMRR.reduce((s,c) => s + (c.mrr||0), 0);
+    const pct = Math.round(combinedMRR / totalMRR * 100);
+    const topAcct = highMRR[0];
+    const topPct = Math.round((topAcct.mrr||0) / totalMRR * 100);
+    const detail = `A large share of portfolio revenue is concentrated in ${highMRR.length === 1 ? 'a single account that\'s' : highMRR.length + ' accounts that are'} currently at risk. ${_cl(topAcct)} alone accounts for <strong>${topPct}%</strong> of total MRR with a health score of ${topAcct.score} (${topAcct.status}), managed by ${escHtml(topAcct.manager||'Unassigned')}.${highMRR.length > 1 ? ' Plus ' + (highMRR.length - 1) + ' more high-value account' + (highMRR.length > 2 ? 's' : '') + ' also at risk.' : ''} Losing ${highMRR.length === 1 ? 'this account' : 'any of these'} would create a material impact on the overall book of business.`;
+    items.push({ priority: 4, icon: icAlert,
+      color: 'var(--red)', bg: 'var(--red-l)',
+      title: `${pct}% MRR at Risk in ${highMRR.length} Account${highMRR.length>1?'s':''}`,
+      text: `<strong>${pct}%</strong> of total MRR ($${fmtNum(combinedMRR)}/mo) sits in ${highMRR.length} at-risk high-value account${highMRR.length>1?'s':''}`,
+      detail,
+      steps: [
+        'Assign an executive sponsor to ' + _cl(topAcct) + ' immediately',
+        'Build a 30-day save plan with specific adoption and engagement milestones',
+        'Assess pipeline diversification — single-account exposure above 8% of MRR is high risk'
+      ] });
+  })();
+
+  // ── Generator 5: Adoption-score disconnect ───────────────────
+  // Accounts with decent scores but dropping adoption — lagging risk
+  (() => {
+    const disconnected = allAccs.filter(c =>
+      c.adoption != null && c.adoption < 25 &&
+      c.score >= 60 && (c.status === 'healthy' || c.status === 'watch')
+    );
+    if (disconnected.length < 2) return;
+    const dcMRR = disconnected.reduce((s,c) => s + (c.mrr||0), 0);
+    const csmsAffected = [...new Set(disconnected.map(c => c.manager ? c.manager.trim() : 'Unassigned'))];
+    disconnected.sort((a,b) => a.adoption - b.adoption);
+    const examples = disconnected.slice(0,3).map(c => `${_cl(c)} (score ${c.score}, ${c.adoption}% adoption)`).join(' · ');
+    items.push({ priority: 3, icon: icDown,
+      color: 'var(--amber)', bg: 'var(--amber-l)',
+      title: `${disconnected.length} Accounts with Low Adoption Risk`,
+      text: `<strong>${disconnected.length}</strong> accounts look healthy but have adoption under 25% — potential lagging risk ($${fmtNum(dcMRR)}/mo)`,
+      detail: `These accounts look healthy on the surface — scores above 60 — but product adoption is under 25%. That\'s a leading indicator of future churn because customers who aren\'t using the product tend to question its value at renewal. The most at risk: ` + examples + `. Together they represent <strong>$${fmtNum(dcMRR)}/mo</strong> in MRR that could quietly slip away.`,
+      steps: [
+        'Run adoption deep-dives on the lowest-adoption accounts — identify unused features',
+        'Schedule product training or enablement sessions for these accounts',
+        'Treat these as leading indicators — scores may drop soon if adoption stays low'
+      ] });
+  })();
+
+  // ── Generator 6: Workload imbalance ──────────────────────────
+  // One CSM carries significantly more at-risk accounts than others
+  (() => {
+    if (activeMgrs.length < 2) return;
+    const avgRisk = activeMgrs.reduce((s,m) => s + m.atRisk, 0) / activeMgrs.length;
+    const overloaded = activeMgrs.filter(m => m.atRisk >= avgRisk * 2 && m.atRisk >= 3);
+    if (!overloaded.length) return;
+    overloaded.sort((a,b) => b.atRisk - a.atRisk);
+    const csm = overloaded[0];
+    const detail = `<strong>${escHtml(csm.name)}</strong> is managing <strong>${csm.atRisk} at-risk accounts</strong> worth $${fmtNum(csm.riskMRR)}/mo, while the team average is only ${Math.round(avgRisk)}. When one CSM is stretched too thin across too many problem accounts, response times suffer and at-risk accounts don\'t get the attention they need.${overloaded.length > 1 ? ' <strong>' + escHtml(overloaded[1].name) + '</strong> is also elevated at ' + overloaded[1].atRisk + ' at-risk accounts.' : ''} Redistributing some of this load could prevent accounts from slipping through the cracks.`;
+    items.push({ priority: 3, icon: icAlert,
+      color: 'var(--amber)', bg: 'var(--amber-l)',
+      title: `${escHtml(csm.name)} Carrying ${csm.atRisk} At-Risk Accounts`,
+      text: `Risk accounts are unevenly distributed — <strong>${escHtml(csm.name)}</strong> carries ${Math.round(csm.atRisk / Math.max(1, activeMgrs.reduce((s,m)=>s+m.atRisk,0)) * 100)}% of team's at-risk load`,
+      detail,
+      steps: [
+        'Evaluate redistributing 1–2 at-risk accounts to lower-loaded CSMs',
+        'Provide <strong>' + escHtml(csm.name) + '</strong> with additional support or temporary assistance',
+        'Review whether workload imbalance is contributing to declining portfolio health'
+      ] });
+  })();
+
+  // ── Generator 7: Cross-CSM bright spot ───────────────────────
+  // Which CSM is driving the most improvement, and what are they doing differently?
+  (() => {
+    const improving = activeMgrs.filter(m => m.avgDelta >= 1.5 && m.avgDelta > teamAvgDelta + 1);
+    if (!improving.length) return;
+    improving.sort((a,b) => b.avgDelta - a.avgDelta);
+    const best = improving[0];
+    const improvingAccts = best.accs.filter(c => getDelta7d(c) > 2);
+    // What's different about this CSM's portfolio?
+    const contactDays = best.accs.filter(c => c.days != null);
+    const avgContact = contactDays.length ? Math.round(contactDays.reduce((s,c) => s + c.days, 0) / contactDays.length) : null;
+    const teamContact = allAccs.filter(c => c.days != null);
+    const teamAvgContact = teamContact.length ? Math.round(teamContact.reduce((s,c) => s + c.days, 0) / teamContact.length) : null;
+    let why = `<strong>${escHtml(best.name)}</strong> is outpacing the rest of the team with <strong>${improvingAccts.length} of ${best.count}</strong> accounts actively improving this week. Their portfolio is trending at <strong>+${best.avgDelta} pts/wk</strong> compared to the team average of ${teamAvgDelta > 0 ? '+' : ''}${teamAvgDelta}.`;
+    if (avgContact != null && teamAvgContact != null && avgContact < teamAvgContact - 3) {
+      why += ` One likely factor: they\'re making contact every <strong>${avgContact} days</strong> on average, vs <strong>${teamAvgContact} days</strong> team-wide. More frequent touchpoints are clearly correlating with better outcomes.`;
+    } else {
+      why += ` Understanding what they\'re doing differently — whether it\'s talk tracks, timing, or prioritization — could help lift the rest of the team.`;
+    }
+    items.push({ priority: 1, icon: icUp,
+      color: 'var(--green)', bg: 'var(--green-l)',
+      title: `${escHtml(best.name)} Driving Strong Portfolio Gains`,
+      text: `<strong>${escHtml(best.name)}</strong> is driving the strongest portfolio gains at <strong>+${best.avgDelta} pts/wk</strong>`,
+      detail: why,
+      steps: [
+        'Document what <strong>' + escHtml(best.name) + '</strong> is doing differently — contact cadence, talk tracks, etc.',
+        'Have them present their approach at the next team meeting',
+        'Apply their methods to underperforming portfolios as a test'
+      ] });
+  })();
+
+  // ── Generator 8: Biggest single account at risk ──────────────
+  // The #1 account across all CSMs that needs attention today
+  (() => {
+    const atRisk = allAccs.filter(c => c.status === 'critical' || c.status === 'risk');
+    if (!atRisk.length) return;
+    const totalMRR = allAccs.reduce((s,c) => s + (c.mrr||0), 0);
+    // Score by: MRR share of portfolio (primary), severity, decline speed, renewal urgency
+    atRisk.sort((a,b) => {
+      const pctA = totalMRR ? (a.mrr||0) / totalMRR * 100 : 0;
+      const pctB = totalMRR ? (b.mrr||0) / totalMRR * 100 : 0;
+      const scoreA = pctA * 3 + (a.status === 'critical' ? 8 : 0) + Math.abs(Math.min(0, getDelta7d(a))) * 1.5 + (a.renewal != null && a.renewal > 0 && a.renewal <= 2 ? 5 : 0);
+      const scoreB = pctB * 3 + (b.status === 'critical' ? 8 : 0) + Math.abs(Math.min(0, getDelta7d(b))) * 1.5 + (b.renewal != null && b.renewal > 0 && b.renewal <= 2 ? 5 : 0);
+      return scoreB - scoreA;
+    });
+    const top = atRisk[0];
+    const delta = getDelta7d(top);
+    const topMRR = top.mrr || 0;
+    const mrrPct = totalMRR ? Math.round(topMRR / totalMRR * 100) : 0;
+
+    // Build conversational "why" narrative
+    var why = 'This is the highest-priority account across all CSMs right now. ';
+    why += _cl(top) + ' represents <strong>$' + fmtNum(topMRR) + '/mo</strong>';
+    if (mrrPct >= 2) why += ' (' + mrrPct + '% of total portfolio MRR)';
+    why += ', and ';
+    if (top.status === 'critical') {
+      why += 'is in <strong>critical</strong> status with a health score of ' + top.score;
+    } else {
+      why += 'is flagged as <strong>at risk</strong> with a health score of ' + top.score;
+    }
+    if (delta && delta < 0) {
+      why += ' that\'s dropped <strong>' + Math.abs(delta) + ' points</strong> this week';
+    } else if (delta && delta > 0) {
+      why += ', though it did improve ' + delta + ' pts this week';
+    }
+    why += '. ';
+
+    // Explain the risk signals conversationally
+    var whySignals = [];
+    if (top.days != null && top.days >= 14) whySignals.push('no one has reached out in <strong>' + top.days + ' days</strong>');
+    if (top.logins != null && top.logins < 5) whySignals.push('login activity is very low');
+    if (top.adoption != null && top.adoption < 30) whySignals.push('adoption is only at ' + top.adoption + '%');
+    if (top.tickets != null && top.tickets >= 3) whySignals.push('they have ' + top.tickets + ' open support tickets');
+    if (top.renewal != null && top.renewal > 0 && top.renewal <= 3) {
+      var renewDays = top.renewal_date ? Math.max(0, Math.round((new Date(top.renewal_date) - new Date()) / 86400000)) : Math.round((top.renewal || 0) * 30);
+      whySignals.push('their renewal is coming up in <strong>' + renewDays + ' days</strong>');
+    }
+    if (whySignals.length === 1) {
+      why += 'On top of that, ' + whySignals[0] + '. ';
+    } else if (whySignals.length > 1) {
+      why += 'On top of that, ' + whySignals.slice(0, -1).join(', ') + ' and ' + whySignals[whySignals.length - 1] + '. ';
+    }
+    why += 'Managed by <strong>' + escHtml(top.manager || 'Unassigned') + '</strong>.';
+
+    var signalBullets = [];
+    if (top.logins != null && top.logins < 5) signalBullets.push('low logins');
+    if (top.adoption != null && top.adoption < 30) signalBullets.push(top.adoption + '% adoption');
+    if (top.tickets != null && top.tickets >= 3) signalBullets.push(top.tickets + ' open tickets');
+    if (top.days != null && top.days >= 14) signalBullets.push(top.days + 'd since contact');
+    if (top.renewal != null && top.renewal > 0 && top.renewal <= 3) signalBullets.push('renews within 90d');
+    var signalStr = signalBullets.length ? signalBullets.join(', ') : 'multiple weak signals';
+
+    items.push({ priority: 4, icon: icTarget,
+      color: 'var(--red)', bg: 'var(--red-l)',
+      title: `Top Priority: ${escHtml(top.name)} ($${fmtNum(topMRR)}/mo)`,
+      text: `Highest-priority account across all CSMs: ${_cl(top)} ($${fmtNum(topMRR)}/mo, ${top.status})`,
+      detail: why,
+      steps: [
+        'Reach out to <strong>' + escHtml(top.manager||'Unassigned') + '</strong> today for a status update on this account',
+        'Review the risk signals (' + signalStr + ') and build a specific action plan for each',
+        'Schedule a customer check-in within 48 hours — don\'t let this one go quiet'
+      ] });
+  })();
+
+  // ── Render ───────────────────────────────────────────────────
   items.sort((a, b) => b.priority - a.priority);
 
   if (!items.length) {
     wrap.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:.82rem"><div style="font-size:1.4rem;margin-bottom:6px;opacity:.3">✓</div>No urgent focus areas — all CSMs look good.</div>';
+    window._csmFocusItems = [];
     return;
   }
 
-  wrap.innerHTML = items.slice(0, 8).map(it => `
-    <div class="csm-focus-item">
-      <div class="csm-focus-icon" style="background:${it.bg};color:${it.color}">${it.icon}</div>
-      <div class="csm-focus-text">
-        <div>${it.text}</div>
-        <p>${escHtml(it.detail)}</p>
-      </div>
-    </div>`).join('');
+  var shown = items.slice(0, 6);
+  window._csmFocusItems = shown;
+  wrap.innerHTML = shown.map(function(it, idx) { return '<div class="csm-focus-item" onclick="openFocusDetail(' + idx + ')">' +
+    '<div class="csm-focus-icon" style="background:' + it.bg + ';color:' + it.color + '">' + it.icon + '</div>' +
+    '<div class="csm-focus-title">' + it.title + '</div>' +
+    '<svg class="csm-focus-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>' +
+    '</div>'; }).join('');
+}
+
+function openFocusDetail(idx) {
+  var items = window._csmFocusItems;
+  if (!items || !items[idx]) return;
+  var it = items[idx];
+
+  // Accent-colored header banner
+  el('fd-banner').style.background = it.bg;
+  el('fd-banner').style.color = it.color;
+  el('fd-banner-icon').innerHTML = it.icon.replace(/width="13" height="13"/, 'width="22" height="22"');
+  el('fd-title').innerHTML = it.title;
+
+  // Build body
+  var h = '';
+
+  // Issue block
+  h += '<div class="fd-section">' +
+    '<div class="fd-section-hd"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Issue</div>' +
+    '<div class="fd-section-body">' + it.text + '</div>' +
+  '</div>';
+
+  // Why This Matters — callout card
+  h += '<div class="fd-callout" style="border-left-color:' + it.color + '">' +
+    '<div class="fd-callout-hd">Why This Matters</div>' +
+    '<div class="fd-callout-body">' + it.detail + '</div>' +
+  '</div>';
+
+  // Next Steps — numbered cards
+  h += '<div class="fd-section">' +
+    '<div class="fd-section-hd"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Suggested Next Steps</div>' +
+    '<div class="fd-steps-list">' +
+    it.steps.map(function(s, i) {
+      return '<div class="fd-step">' +
+        '<span class="fd-step-num" style="background:' + it.bg + ';color:' + it.color + '">' + (i + 1) + '</span>' +
+        '<span class="fd-step-text">' + s + '</span>' +
+      '</div>';
+    }).join('') +
+    '</div></div>';
+
+  el('fd-body').innerHTML = h;
+  openModal('focus-detail-modal');
 }
 
 /* ─── PORTFOLIO MOVEMENT ───────────────────────────────────────── */
@@ -13350,6 +14700,8 @@ function drillCSM(mgrName) {
 let _calYear  = new Date().getFullYear();
 let _calMonth = new Date().getMonth();
 let _calCustFilter = ''; // customer ID filter
+let _calCustName   = ''; // display name for selected customer
+let _calSearchOpen = false;
 
 function renderCalendar() {
   try { _renderCalendar(); } catch(e) { console.error('renderCalendar error:', e); }
@@ -13379,7 +14731,14 @@ function _renderCalendar() {
       events.push({ date: c.renewal_date.slice(0,10), type: 'renewal', customer: c });
     }
     if (c.next_touch) {
-      events.push({ date: c.next_touch.slice(0,10), type: 'touch', customer: c });
+      var ntDate = c.next_touch.slice(0,10);
+      // Skip if there's a matching scheduled touch_history entry (avoid duplicate pills)
+      var _hasDup = c.touch_history && c.touch_history.some(function(th) {
+        return th.status === 'scheduled' && th.date && th.date.slice(0,10) === ntDate;
+      });
+      if (!_hasDup) {
+        events.push({ date: ntDate, type: ntDate < todayStr ? 'past-completed' : 'touch', customer: c, isNextTouch: true });
+      }
     }
     if (c.last_contact_date) {
       const lcd = new Date(c.last_contact_date);
@@ -13388,15 +14747,24 @@ function _renderCalendar() {
         events.push({ date: todayStr, type: 'overdue', customer: c, daysSince: daysSince });
       }
     }
-    // Past touches from touch_history
+    // Touches from touch_history (past + scheduled)
     if (c.touch_history && c.touch_history.length) {
       c.touch_history.forEach(function(th, idx) {
         if (th.date) {
+          var thType;
+          if (th.status === 'scheduled') {
+            thType = th.date.slice(0,10) >= todayStr ? 'touch' : 'past-completed';
+          } else if (th.status === 'missed') {
+            thType = 'past-missed';
+          } else {
+            thType = 'past-completed';
+          }
           events.push({
             date: th.date.slice(0,10),
-            type: th.status === 'missed' ? 'past-missed' : 'past-completed',
+            type: thType,
             customer: c,
-            histIdx: idx
+            histIdx: idx,
+            isScheduledHistory: th.status === 'scheduled'
           });
         }
       });
@@ -13442,16 +14810,18 @@ function _renderCalendar() {
     '</div>' +
   '</div>';
 
-  // ── Customer filter ──
+  // ── Customer search filter ──
   var custOpts = allActive.slice().sort(function(a,b) { return a.name.localeCompare(b.name); });
   html += '<div class="cal-filter-row">';
-  html += '<div class="cal-filter-select-wrap">';
-  html += '<select id="cal-cust-filter" class="cal-filter-select" onchange="calSetCustFilter(this.value)">';
-  html += '<option value="">All Customers</option>';
-  custOpts.forEach(function(c) {
-    html += '<option value="' + escHtml(c.id) + '"' + (c.id === _calCustFilter ? ' selected' : '') + '>' + escHtml(c.name) + '</option>';
-  });
-  html += '</select></div>';
+  html += '<div class="cal-search-wrap">';
+  html += '<input type="text" id="cal-cust-search" class="cal-search-input" placeholder="Search customers\u2026"' +
+    ' value="' + escHtml(_calCustName) + '"' +
+    ' oninput="calSearchInput(this.value)" onfocus="calSearchFocus()" onblur="calSearchBlur()" autocomplete="off" />';
+  if (_calCustFilter) {
+    html += '<button class="cal-search-clear" onclick="calClearCustFilter()" title="Clear">&times;</button>';
+  }
+  html += '<div id="cal-search-results" class="cal-search-results" style="display:none"></div>';
+  html += '</div>';
 
   // Context bar — show last/next call when a customer is selected
   if (_calCustFilter) {
@@ -13468,13 +14838,115 @@ function _renderCalendar() {
       html += '<div class="cal-ctx-bar">';
       html += '<span class="cal-ctx-item"><span class="cal-ctx-label">Last Call</span><span class="cal-ctx-val">' + _fmtD(lastTouch) + '</span></span>';
       html += '<span class="cal-ctx-sep"></span>';
-      html += '<span class="cal-ctx-item"><span class="cal-ctx-label">Next Scheduled</span><span class="cal-ctx-val">' + _fmtD(fc.next_touch) + '</span></span>';
+      var nextTimeDisp = fc.next_touch_time ? ' at ' + fmtTime12(fc.next_touch_time) : '';
+      html += '<span class="cal-ctx-item"><span class="cal-ctx-label">Next Scheduled</span><span class="cal-ctx-val">' + _fmtD(fc.next_touch) + nextTimeDisp + '</span></span>';
       html += '<span class="cal-ctx-sep"></span>';
       html += '<span class="cal-ctx-item"><span class="cal-ctx-label">Renewal</span><span class="cal-ctx-val">' + _fmtD(fc.renewal_date) + '</span></span>';
       html += '</div>';
     }
   }
   html += '</div>';
+
+  // ── Today's Schedule banner ──
+  (() => {
+    const todayD = new Date(); todayD.setHours(0,0,0,0);
+    const dateLabel = todayD.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+    // Today's events
+    const todayEvents = events.filter(e => e.date === todayStr);
+    const todayRenewals = todayEvents.filter(e => e.type === 'renewal');
+    const todayTouches  = todayEvents.filter(e => e.type === 'touch');
+    const todayOverdue  = todayEvents.filter(e => e.type === 'overdue');
+
+    // Rest of this calendar week (Sun–Sat), excluding today
+    const dow = todayD.getDay(); // 0=Sun
+    const daysLeft = 6 - dow;   // days remaining until Saturday
+    const upcoming = [];
+    for (let d = 1; d <= daysLeft; d++) {
+      const dt = new Date(todayD); dt.setDate(dt.getDate() + d);
+      const ds = dt.toISOString().slice(0,10);
+      events.forEach(e => { if (e.date === ds && (e.type === 'renewal' || e.type === 'touch')) upcoming.push(e); });
+    }
+    const upcomingRenewals = upcoming.filter(e => e.type === 'renewal');
+    const upcomingTouches  = upcoming.filter(e => e.type === 'touch');
+
+    // Build summary items
+    const lines = [];
+
+    // Today's calls — sort by time (earliest first)
+    var _evTime = function(e) {
+      if (e.histIdx != null && e.customer.touch_history && e.customer.touch_history[e.histIdx]) return e.customer.touch_history[e.histIdx].time || '';
+      if (e.isNextTouch) return e.customer.next_touch_time || '';
+      return '';
+    };
+    todayTouches.sort(function(a,b) { return (_evTime(a)||'99:99').localeCompare(_evTime(b)||'99:99'); });
+    if (todayTouches.length) {
+      const names = todayTouches.slice(0,3).map(e => {
+        var t = _evTime(e) ? fmtTime12(_evTime(e)) + ' ' : '';
+        return '<strong>' + t + escHtml(e.customer.name) + '</strong>';
+      }).join(', ');
+      lines.push({ icon: 'phone', accent: 'var(--blue)',
+        text: todayTouches.length + ' call' + (todayTouches.length > 1 ? 's' : '') + ' scheduled today — ' + names + (todayTouches.length > 3 ? ' +' + (todayTouches.length - 3) + ' more' : '') });
+    }
+
+    // Today's renewals
+    if (todayRenewals.length) {
+      const names = todayRenewals.map(e => '<strong>' + escHtml(e.customer.name) + '</strong> ($' + fmtNum(e.customer.mrr||0) + '/mo)').join(', ');
+      lines.push({ icon: 'alert', accent: 'var(--purple)',
+        text: todayRenewals.length + ' renewal' + (todayRenewals.length > 1 ? 's' : '') + ' due today — ' + names });
+    }
+
+    // Overdue contacts
+    if (todayOverdue.length) {
+      const sorted = todayOverdue.slice().sort((a,b) => (b.daysSince||0) - (a.daysSince||0));
+      const top3 = sorted.slice(0,3).map(e => escHtml(e.customer.name) + ' (' + (e.daysSince||30) + 'd)').join(', ');
+      lines.push({ icon: 'overdue', accent: 'var(--red)',
+        text: '<strong>' + todayOverdue.length + '</strong> account' + (todayOverdue.length > 1 ? 's' : '') + ' overdue for contact — ' + top3 + (todayOverdue.length > 3 ? ' +' + (todayOverdue.length - 3) + ' more' : '') });
+    }
+
+    // Rest of this week (Sun–Sat)
+    if (upcomingRenewals.length) {
+      const names = upcomingRenewals.slice(0,3).map(e => {
+        const d = new Date(e.date + 'T12:00:00');
+        return escHtml(e.customer.name) + ' (' + d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) + ')';
+      }).join(', ');
+      lines.push({ icon: 'cal', accent: 'var(--purple)',
+        text: upcomingRenewals.length + ' renewal' + (upcomingRenewals.length > 1 ? 's' : '') + ' later this week — ' + names });
+    }
+
+    if (upcomingTouches.length) {
+      const byDay = {};
+      upcomingTouches.forEach(e => { byDay[e.date] = (byDay[e.date]||0) + 1; });
+      const dayCount = Object.keys(byDay).length;
+      lines.push({ icon: 'phone', accent: 'var(--teal)',
+        text: upcomingTouches.length + ' more call' + (upcomingTouches.length > 1 ? 's' : '') + ' later this week across ' + dayCount + ' day' + (dayCount > 1 ? 's' : '') });
+    }
+
+    // Nothing happening
+    if (!lines.length) {
+      lines.push({ icon: 'check', accent: 'var(--green)',
+        text: 'Nothing on the schedule today or this week' });
+    }
+
+    const iconSvgs = {
+      phone: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.09 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 9a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
+      cal: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+      alert: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+      overdue: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+      check: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
+    };
+
+    html += '<div class="cal-today-banner">';
+    html += '<div class="cal-today-date">' + dateLabel + '</div>';
+    html += '<div class="cal-today-items">';
+    lines.forEach(l => {
+      html += '<div class="cal-today-item">';
+      html += '<span class="cal-today-icon" style="color:' + l.accent + '">' + (iconSvgs[l.icon] || iconSvgs.cal) + '</span>';
+      html += '<span class="cal-today-text">' + l.text + '</span>';
+      html += '</div>';
+    });
+    html += '</div></div>';
+  })();
 
   // ── Stat cards ──
   html += '<div class="cal-stats">' +
@@ -13488,7 +14960,7 @@ function _renderCalendar() {
     '</div>' +
     '<div class="cal-stat-card" style="--accent-color:var(--green)">' +
       '<div class="cal-stat-num">' + pastTouchCount + '</div>' +
-      '<div class="cal-stat-label">Past Touches</div>' +
+      '<div class="cal-stat-label">Past Calls</div>' +
     '</div>' +
     '<div class="cal-stat-card" style="--accent-color:var(--red)">' +
       '<div class="cal-stat-num">' + overdueCount + '</div>' +
@@ -13526,7 +14998,14 @@ function _renderCalendar() {
           var maxPills = 3;
           if (dayEvents.length <= maxPills) {
             dayEvents.forEach(function(ev) {
-              html += '<span class="cal-pill cal-pill--' + ev.type + '">' + escHtml(ev.customer.name) + '</span>';
+              var timeStr = '';
+              if (ev.isNextTouch && ev.customer.next_touch_time) {
+                timeStr = fmtTime12(ev.customer.next_touch_time) + ' \u00B7 ';
+              }
+              if (ev.histIdx != null && ev.customer.touch_history && ev.customer.touch_history[ev.histIdx] && ev.customer.touch_history[ev.histIdx].time) {
+                timeStr = fmtTime12(ev.customer.touch_history[ev.histIdx].time) + ' \u00B7 ';
+              }
+              html += '<span class="cal-pill cal-pill--' + ev.type + '">' + timeStr + escHtml(ev.customer.name) + '</span>';
             });
           } else {
             var byType = {};
@@ -13535,7 +15014,7 @@ function _renderCalendar() {
               byType[ev.type].push(ev);
             });
             var pillCount = 0;
-            var typeLabels = { renewal:'Renewal', touch:'Touch', 'past-completed':'Done', 'past-missed':'Missed', overdue:'Overdue' };
+            var typeLabels = { renewal:'Renewal', touch:'Scheduled', 'past-completed':'Completed', 'past-missed':'Missed', overdue:'Overdue' };
             ['renewal', 'touch', 'past-completed', 'past-missed', 'overdue'].forEach(function(type) {
               if (byType[type] && byType[type].length && pillCount < maxPills) {
                 var count = byType[type].length;
@@ -13581,10 +15060,71 @@ function calToday() {
   renderCalendar();
 }
 
-function calSetCustFilter(val) {
+function calSetCustFilter(val, name) {
   _calCustFilter = val || '';
+  _calCustName = name || '';
+  _calSearchOpen = false;
   calClosePopover();
   renderCalendar();
+}
+
+function calClearCustFilter() {
+  _calCustFilter = '';
+  _calCustName = '';
+  _calSearchOpen = false;
+  calClosePopover();
+  renderCalendar();
+}
+
+function calSearchFocus() {
+  var inp = el('cal-cust-search');
+  if (!inp) return;
+  // If a customer is selected, select all text so typing replaces it
+  if (_calCustFilter) inp.select();
+  _calSearchShowResults(inp.value);
+}
+
+function calSearchInput(val) {
+  _calSearchShowResults(val);
+}
+
+function _calSearchShowResults(query) {
+  var box = el('cal-search-results');
+  if (!box) return;
+  var allActive = customers.filter(function(c) { return c.lifecycle !== 'churned' && passesManagerFilter(c); });
+  var opts = allActive.slice().sort(function(a,b) { return a.name.localeCompare(b.name); });
+  var q = (query || '').toLowerCase().trim();
+  var matches = q ? opts.filter(function(c) { return c.name.toLowerCase().indexOf(q) !== -1; }) : opts;
+  if (!matches.length) {
+    box.innerHTML = '<div class="cal-search-empty">No matches</div>';
+    box.style.display = 'block';
+    _calSearchOpen = true;
+    return;
+  }
+  var maxShow = 8;
+  var h = '';
+  matches.slice(0, maxShow).forEach(function(c) {
+    h += '<button class="cal-search-item" onmousedown="calSetCustFilter(\'' + escHtml(c.id) + '\',\'' + escHtml(c.name).replace(/'/g, '\\&#39;') + '\')">' + escHtml(c.name) + '</button>';
+  });
+  if (matches.length > maxShow) {
+    h += '<div class="cal-search-more">' + (matches.length - maxShow) + ' more\u2026</div>';
+  }
+  box.innerHTML = h;
+  box.style.display = 'block';
+  _calSearchOpen = true;
+}
+
+function calSearchBlur() {
+  // Delay to allow click on result
+  setTimeout(function() {
+    var box = el('cal-search-results');
+    if (box) box.style.display = 'none';
+    _calSearchOpen = false;
+    // If no customer selected, reset input
+    var inp = el('cal-cust-search');
+    if (inp && !_calCustFilter) inp.value = '';
+    if (inp && _calCustFilter) inp.value = _calCustName;
+  }, 200);
 }
 
 // ── Day popover ──
@@ -13607,7 +15147,7 @@ function calShowPopover(cellEl, dateStr) {
       evts.push({ type: 'renewal', customer: c });
     }
     if (c.next_touch && c.next_touch.slice(0,10) === dateStr) {
-      evts.push({ type: 'touch', customer: c });
+      evts.push({ type: dateStr < todayStr ? 'past-completed' : 'touch', customer: c, isNextTouch: true });
     }
     if (c.last_contact_date && todayStr === dateStr) {
       var daysSince = Math.floor((now - new Date(c.last_contact_date)) / 86400000);
@@ -13629,8 +15169,6 @@ function calShowPopover(cellEl, dateStr) {
     }
   });
 
-  if (!evts.length) { calClosePopover(); return; }
-
   var dateLabel = new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   var typeLabel = {
     renewal: 'Renewal', touch: 'Scheduled Touch', overdue: 'Overdue Contact',
@@ -13646,43 +15184,109 @@ function calShowPopover(cellEl, dateStr) {
     '<button class="cal-popover-close" onclick="calClosePopover()">&#10005;</button></div>';
   h += '<div class="cal-popover-body">';
 
-  evts.forEach(function(ev) {
-    var c = ev.customer;
-    var isPast = (ev.type === 'past-completed' || ev.type === 'past-missed');
+  if (evts.length) {
+    evts.forEach(function(ev) {
+      var c = ev.customer;
+      var isPast = (ev.type === 'past-completed' || ev.type === 'past-missed');
 
-    h += '<div class="cal-popover-item">';
-    h += '<span class="cal-popover-type-dot" style="background:' + typeColor[ev.type] + '"></span>';
-    h += '<div class="cal-popover-info" style="cursor:pointer" onclick="calClosePopover();openDetail(\'' + escHtml(c.id) + '\')">';
-    h += '<div class="cal-popover-name">' + escHtml(c.name) + '</div>';
-    h += '<div class="cal-popover-meta">';
-    h += '<span class="cal-popover-tag" style="color:' + typeColor[ev.type] + '">' + typeLabel[ev.type] + '</span>';
-    if (ev.daysSince) h += '<span>' + ev.daysSince + 'd since contact</span>';
-    if (c.manager) h += '<span>' + escHtml(c.manager) + '</span>';
-    h += '<span style="display:inline-flex;align-items:center;gap:3px"><span style="width:6px;height:6px;border-radius:50%;background:' + (statusDot[c.status] || 'var(--muted)') + '"></span>' + c.score + '</span>';
-    h += '</div></div>';
-
-    // Actions for past touches: toggle status + remove
-    if (isPast) {
-      var toggleTo = ev.type === 'past-completed' ? 'missed' : 'completed';
-      var toggleLabel = ev.type === 'past-completed' ? 'Mark missed' : 'Mark completed';
-      h += '<div class="cal-popover-actions">';
-      h += '<button class="cal-pop-btn" title="' + toggleLabel + '" onclick="event.stopPropagation();calToggleTouchStatus(\'' + escHtml(c.id) + '\',' + ev.histIdx + ',\'' + toggleTo + '\')">';
-      if (toggleTo === 'missed') {
-        h += '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
-      } else {
-        h += '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
+      h += '<div class="cal-popover-item">';
+      h += '<span class="cal-popover-type-dot" style="background:' + typeColor[ev.type] + '"></span>';
+      h += '<div class="cal-popover-info" style="cursor:pointer" onclick="calClosePopover();openDetail(\'' + escHtml(c.id) + '\')">';
+      h += '<div class="cal-popover-name">' + escHtml(c.name) + '</div>';
+      h += '<div class="cal-popover-meta">';
+      h += '<span class="cal-popover-tag" style="color:' + typeColor[ev.type] + '">' + typeLabel[ev.type] + '</span>';
+      // Show time if available
+      if (ev.isNextTouch && c.next_touch_time) h += '<span>' + fmtTime12(c.next_touch_time) + '</span>';
+      if (ev.histIdx != null && c.touch_history && c.touch_history[ev.histIdx] && c.touch_history[ev.histIdx].time) {
+        h += '<span>' + fmtTime12(c.touch_history[ev.histIdx].time) + '</span>';
       }
-      h += '</button>';
-      h += '<button class="cal-pop-btn cal-pop-btn--del" title="Remove" onclick="event.stopPropagation();calRemoveTouch(\'' + escHtml(c.id) + '\',' + ev.histIdx + ')">';
-      h += '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
-      h += '</button>';
-      h += '</div>';
-    }
+      if (ev.daysSince) h += '<span>' + ev.daysSince + 'd since contact</span>';
+      if (c.manager) h += '<span>' + escHtml(c.manager) + '</span>';
+      h += '<span style="display:inline-flex;align-items:center;gap:3px"><span style="width:6px;height:6px;border-radius:50%;background:' + (statusDot[c.status] || 'var(--muted)') + '"></span>' + c.score + '</span>';
+      h += '</div></div>';
 
-    h += '</div>';
-  });
+      // Action buttons row
+      var hasActions = isPast || ev.type === 'touch' || ev.isNextTouch;
+      if (hasActions || ev.type !== 'renewal') {
+        h += '<div class="cal-popover-actions">';
+
+        // Log sentiment button
+        if (ev.type !== 'renewal' && ev.type !== 'overdue') {
+          h += '<button class="cal-pop-btn" title="Log sentiment" onclick="event.stopPropagation();calToggleLogForm(\'' + escHtml(c.id) + '\')">';
+          h += '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
+          h += '</button>';
+        }
+
+        // Touch history entries (completed, missed, or scheduled): toggle status + remove
+        if (ev.histIdx != null && !ev.isNextTouch) {
+          var toggleTo = ev.type === 'past-completed' ? 'missed' : 'completed';
+          var toggleLabel = ev.type === 'past-completed' ? 'Mark missed' : 'Mark completed';
+          // Scheduled future entries get mark missed + remove
+          if (ev.isScheduledHistory && ev.type === 'touch') {
+            h += '<button class="cal-pop-btn cal-pop-btn--miss" title="Mark missed" onclick="event.stopPropagation();calToggleTouchStatus(\'' + escHtml(c.id) + '\',' + ev.histIdx + ',\'missed\')">';
+            h += '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>';
+            h += '</button>';
+          } else if (toggleTo === 'missed') {
+            h += '<button class="cal-pop-btn cal-pop-btn--miss" title="' + toggleLabel + '" onclick="event.stopPropagation();calToggleTouchStatus(\'' + escHtml(c.id) + '\',' + ev.histIdx + ',\'' + toggleTo + '\')">';
+            h += '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>';
+          } else {
+            h += '<button class="cal-pop-btn cal-pop-btn--done" title="' + toggleLabel + '" onclick="event.stopPropagation();calToggleTouchStatus(\'' + escHtml(c.id) + '\',' + ev.histIdx + ',\'' + toggleTo + '\')">';
+            h += '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
+          }
+          h += '</button>';
+          h += '<button class="cal-pop-btn cal-pop-btn--del" title="Remove" onclick="event.stopPropagation();calRemoveTouch(\'' + escHtml(c.id) + '\',' + ev.histIdx + ')">';
+          h += '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+          h += '</button>';
+        }
+
+        // Scheduled calls from next_touch field: mark missed + remove
+        if ((ev.type === 'touch' || (isPast && ev.isNextTouch)) && ev.isNextTouch) {
+          h += '<button class="cal-pop-btn cal-pop-btn--miss" title="Mark missed" onclick="event.stopPropagation();calMarkScheduledMissed(\'' + escHtml(c.id) + '\')">';
+          h += '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>';
+          h += '</button>';
+          h += '<button class="cal-pop-btn cal-pop-btn--del" title="Remove" onclick="event.stopPropagation();calRemoveScheduled(\'' + escHtml(c.id) + '\')">';
+          h += '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+          h += '</button>';
+        }
+
+        h += '</div>';
+      }
+
+      // Inline log form (hidden by default)
+      if (ev.type !== 'renewal' && ev.type !== 'overdue') {
+        h += '<div class="cal-log-form" id="cal-log-' + escHtml(c.id) + '" style="display:none" onclick="event.stopPropagation()">';
+        h += '<div class="cal-log-sentiments">';
+        h += '<button class="cal-log-sent" data-val="positive" onclick="event.stopPropagation();calPickSentiment(\'' + escHtml(c.id) + '\',\'positive\',this)">😊</button>';
+        h += '<button class="cal-log-sent" data-val="neutral" onclick="event.stopPropagation();calPickSentiment(\'' + escHtml(c.id) + '\',\'neutral\',this)">😐</button>';
+        h += '<button class="cal-log-sent" data-val="negative" onclick="event.stopPropagation();calPickSentiment(\'' + escHtml(c.id) + '\',\'negative\',this)">😟</button>';
+        h += '</div>';
+        h += '<input type="text" class="cal-log-note" id="cal-log-note-' + escHtml(c.id) + '" placeholder="Add a note\u2026" />';
+        h += '<button class="btn btn-primary btn-sm cal-log-save" onclick="event.stopPropagation();calSaveSentiment(\'' + escHtml(c.id) + '\')">Save</button>';
+        h += '</div>';
+      }
+
+      h += '</div>';
+    });
+  } else {
+    h += '<div style="padding:10px 14px;color:var(--muted);font-size:.78rem">No events on this day</div>';
+  }
 
   h += '</div>';
+
+  // Schedule a call button + inline form
+  h += '<div class="cal-sched-trigger" style="padding:8px 14px;border-top:1px solid var(--border)">';
+  h += '<button class="btn btn-outline btn-sm" style="width:100%;font-size:.72rem" onclick="event.stopPropagation();calToggleScheduleForm(\'' + dateStr + '\')">';
+  h += '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+  h += 'Schedule a call</button></div>';
+  h += '<div id="cal-sched-form" class="cal-sched-form" style="display:none" onclick="event.stopPropagation()">';
+  h += '<div class="cal-sched-search-wrap">';
+  h += '<input type="text" id="cal-sched-cust-input" class="cal-search-input" placeholder="Search customer\u2026" oninput="calSchedSearchInput(this.value)" onfocus="calSchedSearchFocus()" onblur="calSchedSearchBlur()" autocomplete="off" />';
+  h += '<div id="cal-sched-results" class="cal-search-results" style="display:none"></div>';
+  h += '</div>';
+  h += '<input type="time" id="cal-sched-time" class="cal-sched-time" />';
+  h += '<button class="btn btn-primary btn-sm cal-sched-save" onclick="event.stopPropagation();calSaveSchedule(\'' + dateStr + '\')">Schedule</button>';
+  h += '</div>';
+
   pop.innerHTML = h;
   pop.dataset.date = dateStr;
   pop.style.display = 'block';
@@ -13703,13 +15307,35 @@ function calClosePopover() {
   if (pop) { pop.style.display = 'none'; pop.dataset.date = ''; }
 }
 
+// ── Sync next_touch to nearest future scheduled call ──
+function _calSyncNextTouch(c) {
+  var todayStr = new Date().toISOString().slice(0, 10);
+  var nearest = '';
+  var nearestTime = '';
+  if (c.touch_history && c.touch_history.length) {
+    c.touch_history.forEach(function(th) {
+      if (th.status === 'scheduled' && th.date && th.date.slice(0,10) >= todayStr) {
+        if (!nearest || th.date.slice(0,10) < nearest) {
+          nearest = th.date.slice(0,10);
+          nearestTime = th.time || '';
+        }
+      }
+    });
+  }
+  c.next_touch = nearest;
+  c.next_touch_time = nearestTime;
+}
+
 // ── Touch history actions ──
 async function calToggleTouchStatus(custId, histIdx, newStatus) {
   var c = customers.find(function(x) { return x.id === custId; });
   if (!c || !c.touch_history || !c.touch_history[histIdx]) return;
   c.touch_history[histIdx].status = newStatus;
+  _calSyncNextTouch(c);
   var { error } = await sb.from('customers').update({
-    touch_history: JSON.stringify(c.touch_history)
+    touch_history: JSON.stringify(c.touch_history),
+    next_touch: c.next_touch,
+    next_touch_time: c.next_touch_time
   }).eq('id', c.id);
   if (error) {
     toast('Failed to update — ' + error.message, 'error');
@@ -13721,7 +15347,65 @@ async function calRemoveTouch(custId, histIdx) {
   var c = customers.find(function(x) { return x.id === custId; });
   if (!c || !c.touch_history || !c.touch_history[histIdx]) return;
   c.touch_history.splice(histIdx, 1);
+  _calSyncNextTouch(c);
   var { error } = await sb.from('customers').update({
+    touch_history: JSON.stringify(c.touch_history),
+    next_touch: c.next_touch,
+    next_touch_time: c.next_touch_time
+  }).eq('id', c.id);
+  if (error) {
+    toast('Failed to remove — ' + error.message, 'error');
+  }
+  renderCalendar();
+}
+
+async function calMarkScheduledMissed(custId) {
+  var c = customers.find(function(x) { return x.id === custId; });
+  if (!c || !c.next_touch) return;
+  if (!c.touch_history) c.touch_history = [];
+  var ntDate = c.next_touch.slice(0,10);
+  // Find existing scheduled entry for this date and mark it missed
+  var found = false;
+  for (var i = 0; i < c.touch_history.length; i++) {
+    if (c.touch_history[i].status === 'scheduled' && c.touch_history[i].date && c.touch_history[i].date.slice(0,10) === ntDate) {
+      c.touch_history[i].status = 'missed';
+      found = true;
+      break;
+    }
+  }
+  // If no existing entry (e.g. set via detail form), add one
+  if (!found) {
+    c.touch_history.push({ date: ntDate, status: 'missed', time: c.next_touch_time || '' });
+  }
+  _calSyncNextTouch(c);
+  var { error } = await sb.from('customers').update({
+    next_touch: c.next_touch,
+    next_touch_time: c.next_touch_time,
+    touch_history: JSON.stringify(c.touch_history)
+  }).eq('id', c.id);
+  if (error) {
+    toast('Failed to update — ' + error.message, 'error');
+  }
+  renderCalendar();
+}
+
+async function calRemoveScheduled(custId) {
+  var c = customers.find(function(x) { return x.id === custId; });
+  if (!c || !c.next_touch) return;
+  var ntDate = c.next_touch.slice(0,10);
+  // Remove matching scheduled entry from touch_history
+  if (c.touch_history) {
+    for (var i = 0; i < c.touch_history.length; i++) {
+      if (c.touch_history[i].status === 'scheduled' && c.touch_history[i].date && c.touch_history[i].date.slice(0,10) === ntDate) {
+        c.touch_history.splice(i, 1);
+        break;
+      }
+    }
+  }
+  _calSyncNextTouch(c);
+  var { error } = await sb.from('customers').update({
+    next_touch: c.next_touch,
+    next_touch_time: c.next_touch_time,
     touch_history: JSON.stringify(c.touch_history)
   }).eq('id', c.id);
   if (error) {
@@ -13730,8 +15414,172 @@ async function calRemoveTouch(custId, histIdx) {
   renderCalendar();
 }
 
+// ── Inline scheduling form ──
+var _calSchedCustId = '';
+var _calSchedCustName = '';
+var _calSchedBusy = false;
+
+function calToggleScheduleForm(dateStr) {
+  var form = el('cal-sched-form');
+  if (!form) return;
+  var isOpen = form.style.display !== 'none';
+  if (!isOpen) {
+    form.style.display = 'flex';
+    _calSchedCustId = '';
+    _calSchedCustName = '';
+    var inp = el('cal-sched-cust-input');
+    if (inp) { inp.value = ''; setTimeout(function(){ inp.focus(); }, 50); }
+    var timeInp = el('cal-sched-time');
+    if (timeInp) timeInp.value = '';
+  } else {
+    form.style.display = 'none';
+  }
+}
+
+function calSchedSearchFocus() {
+  _calSchedShowResults(el('cal-sched-cust-input') ? el('cal-sched-cust-input').value : '');
+}
+
+function calSchedSearchInput(val) {
+  _calSchedShowResults(val);
+}
+
+function _calSchedShowResults(query) {
+  var box = el('cal-sched-results');
+  if (!box) return;
+  var allActive = customers.filter(function(c) { return c.lifecycle !== 'churned' && passesManagerFilter(c); });
+  var opts = allActive.slice().sort(function(a,b) { return a.name.localeCompare(b.name); });
+  var q = (query || '').toLowerCase().trim();
+  var matches = q ? opts.filter(function(c) { return c.name.toLowerCase().indexOf(q) !== -1; }) : opts;
+  if (!matches.length) {
+    box.innerHTML = '<div class="cal-search-empty" style="padding:6px 10px;font-size:.75rem;color:var(--muted)">No matches</div>';
+    box.style.display = 'block';
+    return;
+  }
+  var maxShow = 6;
+  var h = '';
+  matches.slice(0, maxShow).forEach(function(c) {
+    h += '<button class="cal-search-item" onmousedown="event.preventDefault();calSchedPickCust(\'' + c.id + '\',this)" data-name="' + escHtml(c.name) + '">' + escHtml(c.name) + '</button>';
+  });
+  if (matches.length > maxShow) {
+    h += '<div style="padding:4px 10px;font-size:.68rem;color:var(--muted)">' + (matches.length - maxShow) + ' more\u2026</div>';
+  }
+  box.innerHTML = h;
+  box.style.display = 'block';
+}
+
+function calSchedPickCust(id, btn) {
+  _calSchedBusy = true;
+  _calSchedCustId = id;
+  _calSchedCustName = btn ? btn.dataset.name : '';
+  var inp = el('cal-sched-cust-input');
+  if (inp) inp.value = _calSchedCustName;
+  setTimeout(function() {
+    var box = el('cal-sched-results');
+    if (box) box.style.display = 'none';
+    _calSchedBusy = false;
+  }, 300);
+}
+
+function calSchedSearchBlur() {
+  setTimeout(function() {
+    var box = el('cal-sched-results');
+    if (box) box.style.display = 'none';
+    var inp = el('cal-sched-cust-input');
+    if (inp && !_calSchedCustId) inp.value = '';
+    if (inp && _calSchedCustId) inp.value = _calSchedCustName;
+  }, 200);
+}
+
+async function calSaveSchedule(dateStr) {
+  if (!_calSchedCustId) { toast('Select a customer first', 'error'); return; }
+  var c = customers.find(function(x) { return x.id === _calSchedCustId; });
+  if (!c) { toast('Customer not found', 'error'); return; }
+
+  var timeVal = el('cal-sched-time') ? el('cal-sched-time').value : '';
+  var today = new Date(); today.setHours(0,0,0,0);
+  var schedDate = new Date(dateStr + 'T12:00:00');
+  var isPast = schedDate <= today;
+
+  // Always add to touch_history — supports multiple calls per customer
+  if (!c.touch_history) c.touch_history = [];
+  c.touch_history.push({
+    date: dateStr,
+    status: isPast ? 'completed' : 'scheduled',
+    time: timeVal
+  });
+
+  // If past/today, update last contact date
+  if (isPast) {
+    c.last_contact_date = dateStr;
+    var daysSince = Math.max(0, Math.floor((Date.now() - schedDate.getTime()) / 86400000));
+    c.days = daysSince;
+    c._baseDays = daysSince;
+  }
+
+  // Sync next_touch to nearest future scheduled call
+  _calSyncNextTouch(c);
+
+  try {
+    await save(c);
+    logAudit('call_scheduled', c.id, c.name, {
+      summary: 'Scheduled call for ' + dateStr + (timeVal ? ' at ' + fmtTime12(timeVal) : '')
+    });
+    toast('Call scheduled for ' + c.name, 'success');
+  } catch(e) {
+    console.error('Schedule save failed:', e);
+    toast('Saved locally — sync failed', 'warn');
+  }
+
+  _calSchedCustId = '';
+  _calSchedCustName = '';
+  renderCalendar();
+}
+
+// ── Inline sentiment logging ──
+var _calPendingSentiment = {};
+
+function calToggleLogForm(custId) {
+  var form = el('cal-log-' + custId);
+  if (!form) return;
+  var isOpen = form.style.display !== 'none';
+  // Close all open forms first
+  document.querySelectorAll('.cal-log-form').forEach(function(f) { f.style.display = 'none'; });
+  if (!isOpen) {
+    form.style.display = 'flex';
+    _calPendingSentiment[custId] = null;
+  }
+}
+
+function calPickSentiment(custId, val, btn) {
+  _calPendingSentiment[custId] = val;
+  var form = el('cal-log-' + custId);
+  if (form) {
+    form.querySelectorAll('.cal-log-sent').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+  }
+}
+
+async function calSaveSentiment(custId) {
+  var val = _calPendingSentiment[custId];
+  if (!val) { toast('Select a sentiment first', 'error'); return; }
+  var c = customers.find(function(x) { return x.id === custId; });
+  if (!c) return;
+  var noteEl = el('cal-log-note-' + custId);
+  var note = noteEl ? noteEl.value.trim() : '';
+  c.sentiment = c.sentiment || [];
+  c.sentiment.unshift({ val: val, note: note, date: new Date().toISOString() });
+  logAudit('sentiment_logged', c.id, c.name, { summary: 'Sentiment: ' + val + (note ? ' — "' + note.substring(0, 80) + '"' : '') });
+  save(c).then(function() { toast('Sentiment logged', 'success'); })
+         .catch(function(e) { console.error('Sentiment save failed:', e); toast('Saved locally — sync failed', 'warn'); });
+  _calPendingSentiment[custId] = null;
+  var form = el('cal-log-' + custId);
+  if (form) form.style.display = 'none';
+}
+
 document.addEventListener('click', function(e) {
-  if (!e.target.closest('.cal-cell') && !e.target.closest('.cal-popover')) {
+  if (_calSchedBusy) return;
+  if (!e.target.closest('.cal-cell') && !e.target.closest('.cal-popover') && !e.target.closest('.cal-search-results')) {
     calClosePopover();
   }
 });
@@ -14479,24 +16327,34 @@ function updateClientFilterLabel() {
   }
 }
 
-// Load all customers belonging to users assigned to a given client
+// Load all customers belonging to a given client (direct query by client_id)
+// Falls back to user_id lookup if client_id column doesn't exist yet
 async function loadClientCustomers(clientId, silent) {
   if (!silent) setLoading(true);
   try {
-    // Get all user_ids assigned to this client
-    const { data: profiles, error: pErr } = await sb.from('user_profiles')
-      .select('user_id').eq('client_id', clientId);
-    if (pErr) throw pErr;
-
-    const userIds = (profiles || []).map(p => p.user_id);
-    if (!userIds.length) { customers = []; trash = []; if (!silent) setLoading(false); return; }
-
-    // Load all customers for those users (active + soft-deleted)
-    const { data, error } = await sb.from('customers')
+    let data, error;
+    // Try direct client_id query first
+    ({ data, error } = await sb.from('customers')
       .select('*')
-      .in('user_id', userIds)
-      .order('created_at', { ascending: false });
-    if (error) throw error;
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false }));
+
+    if (error) {
+      // Fallback: find all user_ids in this client, then query by user_id
+      console.warn('client_id query unavailable, falling back to user lookup:', error.message);
+      const { data: profiles } = await sb.from('user_profiles').select('user_id').eq('client_id', clientId);
+      const uids = (profiles || []).map(p => p.user_id);
+      if (uids.length) {
+        ({ data, error } = await sb.from('customers')
+          .select('*')
+          .in('user_id', uids)
+          .order('created_at', { ascending: false }));
+        if (error) throw error;
+      } else {
+        data = [];
+      }
+    }
+
     const all = (data || []).map(fromRow);
     customers = all.filter(c => !c.deleted_at);
     trash     = all.filter(c =>  c.deleted_at);
@@ -14537,21 +16395,18 @@ async function renderClients() {
   const userCounts = {};
   profiles.forEach(p => { if (p.client_id) userCounts[p.client_id] = (userCounts[p.client_id]||0)+1; });
 
-  // Count customers per client (via user_profiles → customers)
+  // Count customers per client — try client_id first, fall back to user→client mapping
   const custCounts = {};
   let totalCustomers = 0;
   try {
-    // Get user_id → client_id mapping
-    const userToClient = {};
-    profiles.forEach(p => { if (p.client_id) userToClient[p.client_id] = userToClient[p.client_id] || []; });
-    // Profiles already have client_id; query customer counts grouped by user_id
-    const { data: custRows } = await sb.from('customers').select('user_id');
+    const { data: custRows, error: custErr } = await sb.from('customers').select('client_id, user_id');
     if (custRows) {
-      // Build user_id → client_id lookup
+      // Build user→client map for fallback
       const uidToClient = {};
       profiles.forEach(p => { if (p.client_id) uidToClient[p.user_id] = p.client_id; });
+
       custRows.forEach(r => {
-        const cid = uidToClient[r.user_id];
+        const cid = r.client_id || uidToClient[r.user_id] || null;
         if (cid) { custCounts[cid] = (custCounts[cid] || 0) + 1; }
         totalCustomers++;
       });
@@ -14928,7 +16783,7 @@ async function adminSaveEdit() {
 // Auto-register current user's profile on login (so admin can see them)
 async function ensureUserProfile(user) {
   try {
-    const { data } = await sb.from('user_profiles').select('user_id, role').eq('user_id', user.id).single();
+    const { data } = await sb.from('user_profiles').select('user_id, role, client_id').eq('user_id', user.id).single();
     if (!data) {
       // Not registered yet — create profile row
       await sb.from('user_profiles').insert({
@@ -14939,9 +16794,11 @@ async function ensureUserProfile(user) {
         created_at:    new Date().toISOString()
       });
       _userRole = 'user';
+      _userClientId = null;
     } else {
       // Store the server-fetched role (can't be spoofed from console)
       _userRole = data.role || 'user';
+      _userClientId = data.client_id || null;
     }
     // Re-apply admin UI now that role is confirmed from server
     updateUserUI(user);
@@ -14963,7 +16820,7 @@ async function ensureUserProfile(user) {
     currentUser = existingSession.user;
     hideAuthGate();
     updateUserUI(currentUser);
-    ensureUserProfile(currentUser); // register in user_profiles so admin can see this user
+    await ensureUserProfile(currentUser); // register in user_profiles + resolve _userClientId before loading data
 
     // Load from cache instantly — no spinner
     let hasCached = false;
@@ -15052,7 +16909,7 @@ async function ensureUserProfile(user) {
     // Fresh sign-in only (no existing data loaded)
     hideAuthGate();
     updateUserUI(currentUser);
-    ensureUserProfile(currentUser);
+    await ensureUserProfile(currentUser); // resolve _userClientId before loading data
     nav('homebase');
     renderSettings();
     startPolling();

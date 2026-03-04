@@ -1,3 +1,23 @@
+// ─── CORE HELPERS ───────────────────────────────────────────
+function el(id) { return document.getElementById(id); }
+function fmtNum(n) {
+  if (n >= 1e6) return (n/1e6).toFixed(1).replace(/\.0$/,'') + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1).replace(/\.0$/,'') + 'K';
+  return n.toLocaleString();
+}
+
+// ─── TIME FORMATTING ────────────────────────────────────────
+function fmtTime12(hhmm) {
+  if (!hhmm) return '';
+  var parts = hhmm.split(':');
+  var h = parseInt(parts[0], 10);
+  var m = parts[1] || '00';
+  var ampm = h >= 12 ? 'PM' : 'AM';
+  if (h === 0) h = 12;
+  else if (h > 12) h -= 12;
+  return h + ':' + m + ' ' + ampm;
+}
+
 // ─── TOAST ──────────────────────────────────────────────────
 function toast(msg, type, dur) {
   type = type || 'default';
@@ -64,8 +84,8 @@ document.addEventListener('keydown', e => {
     }
     return;
   }
-  // Number shortcuts for nav (1-6)
-  const navMap = { '1':'dashboard','2':'alerts','3':'customers','4':'score','5':'csv','6':'settings' };
+  // Number shortcuts for nav (1-7) — matches sidebar order
+  const navMap = { '1':'homebase','2':'alerts','3':'customers','4':'segments','5':'trends','6':'csmperf','7':'calendar' };
   if (!e.metaKey && !e.ctrlKey && !e.altKey && navMap[e.key]) {
     nav(navMap[e.key]);
   }

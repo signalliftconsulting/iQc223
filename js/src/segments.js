@@ -3,6 +3,104 @@
 let segSortKey = 'mrr';
 let segSortDir = 'desc';
 let _hideUntagged = localStorage.getItem('iqc_hide_untagged') === 'true';
+let _segView = 'segments';
+let tierSortKey = 'mrr';
+let tierSortDir = 'desc';
+
+// ── Segment Chart State ──
+let _segChartMetric = 'score';
+let _segChartRange = '60d';
+let _segChartSelected = []; // empty = all segments
+let _segChartTipData = [];
+
+const SEG_CHART_COLORS = ['#3b82f6','#ef4444','#10b981','#f59e0b','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316','#6366f1'];
+
+function aggregateSegmentByDay(custs, metricKey, cutoff) {
+  const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
+  const isSumMetric = cfg.agg === 'sum';
+  const isCountMetric = cfg.agg === 'count';
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+  if (isSumMetric || isCountMetric) {
+    const allDates = new Set();
+    const custEntries = [];
+    custs.forEach(c => {
+      const valForDate = {};
+      (c.history || []).forEach(h => {
+        if (!h.date) return;
+        const val = cfg.val(h, c);
+        if (val == null || typeof val !== 'number' || isNaN(val)) return;
+        const key = new Date(h.date).toISOString().slice(0, 10);
+        valForDate[key] = val;
+      });
+      const sortedDates = Object.keys(valForDate).sort();
+      if (sortedDates.length) {
+        custEntries.push({ valForDate, sortedDates });
+        sortedDates.forEach(d => { if (d >= cutoffStr) allDates.add(d); });
+      }
+    });
+    const dates = [...allDates].sort();
+    return dates.map(date => {
+      let total = 0, count = 0;
+      custEntries.forEach(ce => {
+        let val = null;
+        for (let i = ce.sortedDates.length - 1; i >= 0; i--) {
+          if (ce.sortedDates[i] <= date) { val = ce.valForDate[ce.sortedDates[i]]; break; }
+        }
+        if (val !== null) { total += val; count++; }
+      });
+      return { date, avg: isCountMetric ? count : total };
+    }).filter(p => p.avg > 0).sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  // Avg metrics: forward-fill
+  const allDates = new Set();
+  const custData = [];
+  custs.forEach(c => {
+    const dateMap = {};
+    (c.history || []).forEach(h => {
+      if (!h.date) return;
+      const val = cfg.val(h, c);
+      if (val == null || typeof val !== 'number' || isNaN(val)) return;
+      const key = new Date(h.date).toISOString().slice(0, 10);
+      dateMap[key] = val;
+    });
+    const sortedDates = Object.keys(dateMap).sort();
+    if (sortedDates.length) {
+      custData.push({ dateMap, sortedDates });
+      sortedDates.forEach(d => { if (d >= cutoffStr) allDates.add(d); });
+    }
+  });
+  const dates = [...allDates].sort();
+  return dates.map(date => {
+    let total = 0, count = 0;
+    custData.forEach(cd => {
+      let val = null;
+      for (let i = cd.sortedDates.length - 1; i >= 0; i--) {
+        if (cd.sortedDates[i] <= date) { val = cd.dateMap[cd.sortedDates[i]]; break; }
+      }
+      if (val !== null) { total += val; count++; }
+    });
+    return { date, avg: count ? total / count : 0 };
+  }).filter(p => p.avg > 0);
+}
+
+function toggleSegView(view) {
+  _segView = view;
+  _segChartSelected = []; // reset selection on view switch
+  const segBtn = document.getElementById('seg-view-segments');
+  const tierBtn = document.getElementById('seg-view-tiers');
+  if (segBtn) segBtn.classList.toggle('active', view === 'segments');
+  if (tierBtn) tierBtn.classList.toggle('active', view === 'tiers');
+  if (view === 'segments') {
+    const segs = window._segData;
+    if (segs) { renderSegTable(segs); renderSegChart(segs, window._segActive, window._segDeltaCache); }
+  } else {
+    const active = window._segActive;
+    const dc = window._segDeltaCache;
+    if (active) { renderTierTable(active, dc); renderSegChart(window._segData, active, dc); }
+  }
+}
 
 function toggleHideUntagged() {
   _hideUntagged = !_hideUntagged;
@@ -12,9 +110,7 @@ function toggleHideUntagged() {
 
 function renderSegments() {
   const kpiRow = el('seg-kpi-row');
-  const cardsWrap = el('seg-cards-wrap');
   const tableWrap = el('seg-table-wrap');
-  const insightsWrap = el('seg-insights-wrap');
   if (!kpiRow) return;
 
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
@@ -72,26 +168,32 @@ function renderSegments() {
   // Cache for drill-down usage
   window._segData = visibleSegments;
   window._segDeltaCache = deltaCache;
+  window._segActive = active;
 
   if (!visibleSegments.length) {
     const tagIcon = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>';
     kpiRow.innerHTML = '';
-    if (cardsWrap) cardsWrap.innerHTML = `<div class="empty-st"><div class="ei" style="font-size:1.5rem;color:var(--muted)">${tagIcon}</div><h3>No tags yet</h3><p>Add tags to customers via the edit form or bulk-tag to create segments.</p></div>`;
-    if (tableWrap) tableWrap.innerHTML = '';
-    if (insightsWrap) insightsWrap.innerHTML = '';
+    if (tableWrap) tableWrap.innerHTML = `<div class="empty-st"><div class="ei" style="font-size:1.5rem;color:var(--muted)">${tagIcon}</div><h3>No tags yet</h3><p>Add tags to customers via the edit form or bulk-tag to create segments.</p></div>`;
     return;
   }
 
   const subtitle = el('seg-subtitle');
   if (subtitle) subtitle.textContent = `${visibleSegments.length} segment${visibleSegments.length !== 1 ? 's' : ''} \u00b7 ${active.length} accounts`;
 
-  const toggleBtn = document.getElementById('seg-toggle-untagged');
-  if (toggleBtn) toggleBtn.textContent = _hideUntagged ? 'Show Untagged' : 'Hide Untagged';
+  const showBtn = document.getElementById('seg-untag-show');
+  const hideBtn = document.getElementById('seg-untag-hide');
+  if (showBtn && hideBtn) {
+    showBtn.classList.toggle('active', !_hideUntagged);
+    hideBtn.classList.toggle('active', _hideUntagged);
+  }
 
   renderSegKPIs(visibleSegments, active);
-  renderSegCardGrid(visibleSegments);
-  renderSegTable(visibleSegments);
-  renderSegInsights(visibleSegments);
+  if (_segView === 'tiers') {
+    renderTierTable(active, deltaCache);
+  } else {
+    renderSegTable(visibleSegments);
+  }
+  renderSegChart(visibleSegments, active, deltaCache);
 }
 
 /* ── Segment KPI Cards ─────────────────────────────────────── */
@@ -173,6 +275,241 @@ function renderSegKPIs(segments, active) {
       <div class="dash-kpi-sub">${fastestGrow ? (fastestGrow.avgDelta >= 0 ? '+' : '') + fastestGrow.avgDelta + ' avg trend' : 'No data'}</div>
     </div>
   `;
+}
+
+/* ── Tier Table View ───────────────────────────────────────── */
+function _buildTierData(active, deltaCache) {
+  const tierDefs = [
+    { key: 'smb',        label: 'SMB',        pill: 'tier-pill-smb' },
+    { key: 'mid',        label: 'Mid-Market', pill: 'tier-pill-mid' },
+    { key: 'enterprise', label: 'Enterprise', pill: 'tier-pill-ent' }
+  ];
+  return tierDefs.map(td => {
+    const custs = active.filter(c => (c.tier || 'mid') === td.key);
+    const count = custs.length;
+    const totalMRR = custs.reduce((s, c) => s + (c.mrr || 0), 0);
+    const avgScore = count ? Math.round(custs.reduce((s, c) => s + c.score, 0) / count) : 0;
+    const avgDelta = count ? Math.round(custs.reduce((s, c) => s + (deltaCache.get(c.id) || 0), 0) / count * 10) / 10 : 0;
+    const healthy = custs.filter(c => c.status === 'healthy' || c.status === 'expand').length;
+    const watch = custs.filter(c => c.status === 'watch').length;
+    const atRisk = custs.filter(c => c.status === 'critical' || c.status === 'risk').length;
+    const riskPct = count ? Math.round((atRisk / count) * 100) : 0;
+    const overdueCount = custs.filter(c => c.days != null && c.days >= 14).length;
+    const renewals90 = custs.filter(c => c.renewal != null && c.renewal > 0 && c.renewal <= 3).length;
+    const withDays = custs.filter(c => c.days != null);
+    const avgDays = withDays.length ? Math.round(withDays.reduce((s, c) => s + c.days, 0) / withDays.length) : null;
+    return { key: td.key, label: td.label, pill: td.pill, custs, count, totalMRR, avgScore, avgDelta, healthy, watch, atRisk, riskPct, overdueCount, renewals90, avgDays };
+  });
+}
+
+function renderTierTable(active, deltaCache) {
+  const wrap = el('seg-table-wrap');
+  if (!wrap) return;
+
+  const tiers = _buildTierData(active, deltaCache);
+  window._tierData = tiers;
+
+  const sortIcon = key => {
+    if (tierSortKey !== key) return '';
+    return tierSortDir === 'asc' ? ' ▲' : ' ▼';
+  };
+  const activeClass = key => tierSortKey === key ? 'seg-sort-active' : '';
+
+  const sorted = [...tiers].sort((a, b) => {
+    let va, vb;
+    switch (tierSortKey) {
+      case 'label':    va = a.label.toLowerCase(); vb = b.label.toLowerCase(); return tierSortDir === 'asc' ? (va < vb ? -1 : 1) : (va > vb ? -1 : 1);
+      case 'count':    va = a.count; vb = b.count; break;
+      case 'avgScore': va = a.avgScore; vb = b.avgScore; break;
+      case 'avgDelta': va = a.avgDelta; vb = b.avgDelta; break;
+      case 'mrr':      va = a.totalMRR; vb = b.totalMRR; break;
+      case 'riskPct':  va = a.riskPct; vb = b.riskPct; break;
+      case 'avgDays':  va = a.avgDays || 0; vb = b.avgDays || 0; break;
+      case 'renewals': va = a.renewals90; vb = b.renewals90; break;
+      default:         va = a.totalMRR; vb = b.totalMRR;
+    }
+    return tierSortDir === 'asc' ? va - vb : vb - va;
+  });
+
+  const chevronDown = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+  const scoreColor = v => v >= (thresholds.healthy || 80) ? 'var(--green)' : v >= (thresholds.watch || 65) ? 'var(--amber)' : v >= (thresholds.risk || 50) ? 'var(--orange,#ea580c)' : 'var(--red)';
+
+  const colCount = 9;
+  window._tierColCount = colCount;
+
+  wrap.innerHTML = `<div class="seg-table-wrap-scroll">
+    <table class="ct" style="min-width:900px">
+      <thead><tr>
+        <th class="seg-sort-btn ${activeClass('label')}" onclick="sortTierTable('label')">Tier${sortIcon('label')}</th>
+        <th class="seg-sort-btn ${activeClass('count')}" onclick="sortTierTable('count')">Accounts${sortIcon('count')}</th>
+        <th class="seg-sort-btn ${activeClass('avgScore')}" onclick="sortTierTable('avgScore')">Avg Score${sortIcon('avgScore')}</th>
+        <th class="seg-sort-btn ${activeClass('avgDelta')}" onclick="sortTierTable('avgDelta')">Trend (7d)${sortIcon('avgDelta')}</th>
+        <th class="seg-sort-btn ${activeClass('mrr')}" onclick="sortTierTable('mrr')">MRR${sortIcon('mrr')}</th>
+        <th class="seg-sort-btn ${activeClass('riskPct')}" onclick="sortTierTable('riskPct')">At-Risk %${sortIcon('riskPct')}</th>
+        <th class="seg-sort-btn ${activeClass('avgDays')}" onclick="sortTierTable('avgDays')">Avg Contact${sortIcon('avgDays')}</th>
+        <th class="seg-sort-btn ${activeClass('renewals')}" onclick="sortTierTable('renewals')">Renewals \u226490d${sortIcon('renewals')}</th>
+        <th style="width:90px"></th>
+      </tr></thead>
+      <tbody id="seg-table-tbody">${sorted.map(t => {
+        const trendCls = t.avgDelta > 0 ? 'up' : t.avgDelta < 0 ? 'dn' : 'flat';
+        const trendIcon = t.avgDelta > 0 ? '▲' : t.avgDelta < 0 ? '▼' : '—';
+        const trendTxt = t.avgDelta > 0 ? '+' + t.avgDelta : '' + t.avgDelta;
+        const contactStr = t.avgDays != null ? t.avgDays + 'd' : '—';
+        return `<tr class="seg-table-row" data-tier="${t.key}">
+          <td><span class="tier-pill ${t.pill}">${t.label}</span></td>
+          <td>${t.count}</td>
+          <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${scoreColor(t.avgScore)};background:${t.avgScore >= 65 ? 'var(--green-l)' : t.avgScore >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${t.avgScore}</span></td>
+          <td><span class="csm-trend ${trendCls}" style="font-size:.68rem;padding:1px 6px">${trendIcon} ${trendTxt}</span></td>
+          <td>$${fmtNum(t.totalMRR)}</td>
+          <td><span style="font-weight:700;color:${t.riskPct > 30 ? 'var(--red)' : t.riskPct > 0 ? 'var(--amber)' : 'var(--green)'}">${t.riskPct}%</span> <span style="font-size:.7rem;color:var(--muted)">(${t.atRisk})</span></td>
+          <td>${contactStr}</td>
+          <td>${t.renewals90}</td>
+          <td><button class="btn-sm csm-expand-btn" onclick="event.stopPropagation();drillTier('${t.key}')">${chevronDown} Expand</button></td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>
+  </div>`;
+}
+
+function sortTierTable(key) {
+  if (tierSortKey === key) tierSortDir = tierSortDir === 'asc' ? 'desc' : 'asc';
+  else { tierSortKey = key; tierSortDir = key === 'label' ? 'asc' : 'desc'; }
+  const active = window._segActive;
+  const dc = window._segDeltaCache;
+  if (active) renderTierTable(active, dc);
+}
+
+function drillTier(tierKey) {
+  const tbody = el('seg-table-tbody');
+  if (!tbody) return;
+  const colCount = window._tierColCount || 9;
+
+  const parentRow = tbody.querySelector(`tr.seg-table-row[data-tier="${tierKey}"]`);
+  if (!parentRow) return;
+
+  // Toggle off if already expanded
+  const existingExpand = parentRow.nextElementSibling;
+  if (existingExpand && existingExpand.classList.contains('seg-table-expand-row')) {
+    existingExpand.remove();
+    parentRow.classList.remove('seg-row-expanded');
+    const btn = parentRow.querySelector('.csm-expand-btn');
+    if (btn) btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg> Expand`;
+    return;
+  }
+
+  // Collapse any other open expand
+  const prevExpanded = tbody.querySelector('tr.seg-table-expand-row');
+  if (prevExpanded) {
+    const prevParent = prevExpanded.previousElementSibling;
+    if (prevParent) {
+      prevParent.classList.remove('seg-row-expanded');
+      const prevBtn = prevParent.querySelector('.csm-expand-btn');
+      if (prevBtn) prevBtn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg> Expand`;
+    }
+    prevExpanded.remove();
+  }
+
+  parentRow.classList.add('seg-row-expanded');
+  const btn = parentRow.querySelector('.csm-expand-btn');
+  if (btn) btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg> Collapse`;
+
+  const expandRow = document.createElement('tr');
+  expandRow.className = 'seg-table-expand-row';
+  expandRow.innerHTML = `<td colspan="${colCount}" class="seg-table-expand-cell">${buildTierDrillHTML(tierKey)}</td>`;
+  parentRow.after(expandRow);
+}
+
+function buildTierDrillHTML(tierKey) {
+  const tiers = window._tierData || [];
+  const deltaCache = window._segDeltaCache || new Map();
+  const tier = tiers.find(t => t.key === tierKey);
+  if (!tier) return '<p>No data for this tier.</p>';
+
+  const accs = tier.custs;
+  const avgScore = tier.avgScore;
+  const totalMRR = tier.totalMRR;
+  const hmColor = v => v >= 65 ? 'var(--green)' : v >= 50 ? 'var(--amber)' : 'var(--red)';
+  const dColor = tier.avgDelta > 0 ? 'var(--green)' : tier.avgDelta < 0 ? 'var(--red)' : 'var(--muted)';
+  const dIcon = tier.avgDelta > 0 ? '▲' : tier.avgDelta < 0 ? '▼' : '—';
+
+  let summaryHTML = `<div class="csm-drill-stats">
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val" style="color:${hmColor(avgScore)}">${avgScore}</div>
+      <div class="csm-drill-stat__label">Avg Score</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val" style="color:${dColor}">${dIcon} ${Math.abs(tier.avgDelta)}</div>
+      <div class="csm-drill-stat__label">7d Trend</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val">${tier.count}</div>
+      <div class="csm-drill-stat__label">Accounts</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val">$${fmtNum(totalMRR)}</div>
+      <div class="csm-drill-stat__label">Total MRR</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val" style="color:var(--green)">${tier.healthy}</div>
+      <div class="csm-drill-stat__label">Healthy</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val" style="color:${tier.atRisk ? 'var(--red)' : 'var(--muted)'}">${tier.atRisk}</div>
+      <div class="csm-drill-stat__label">At Risk</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val" style="color:${tier.overdueCount ? 'var(--red)' : 'var(--muted)'}">${tier.overdueCount}</div>
+      <div class="csm-drill-stat__label">Overdue</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val">${tier.renewals90}</div>
+      <div class="csm-drill-stat__label">Renewals \u226490d</div>
+    </div>
+  </div>`;
+
+  // Sort by urgency
+  const urgency = c => {
+    const statusW = c.status === 'critical' ? 5 : c.status === 'risk' ? 4 : c.status === 'watch' ? 3 : c.status === 'healthy' ? 2 : 1;
+    const renewalW = c.renewal != null && c.renewal > 0 ? Math.max(0, 13 - c.renewal) : 0;
+    const mrrW = (c.mrr || 0) / 10000;
+    const contactW = (c.days != null && c.days >= 14) ? 2 : 0;
+    return (statusW * 10) + renewalW + mrrW + contactW;
+  };
+  const sorted = [...accs].sort((a, b) => urgency(b) - urgency(a));
+
+  const OVERDUE_DAYS = 14;
+  const tableHTML = `<table class="ct" style="min-width:auto;margin:0">
+    <thead><tr>
+      <th>Customer</th><th>Score</th><th>Trend</th><th>Status</th><th>MRR</th><th>Last Contact</th><th>Renewal</th><th>Lifecycle</th>
+    </tr></thead>
+    <tbody>${sorted.map(c => {
+      const renewStr = c.renewal_date ? new Date(c.renewal_date).toLocaleDateString() : (c.renewal ? c.renewal + 'mo' : '—');
+      const isOverdue = c.days != null && c.days >= OVERDUE_DAYS;
+      const delta = deltaCache.get(c.id) || 0;
+      const trendHTML = delta > 0
+        ? `<span class="csm-trend up" style="font-size:.68rem;padding:1px 6px">▲ +${delta}</span>`
+        : delta < 0
+          ? `<span class="csm-trend dn" style="font-size:.68rem;padding:1px 6px">▼ ${delta}</span>`
+          : `<span class="csm-trend flat" style="font-size:.68rem;padding:1px 6px">— 0</span>`;
+      const contactCell = isOverdue
+        ? `<span style="font-weight:700;color:var(--red)">${c.days}d ago</span> <span class="csm-overdue">OVERDUE</span>`
+        : (c.days != null ? c.days + 'd ago' : '—');
+      return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
+        <td><strong>${escHtml(c.name)}</strong></td>
+        <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${c.score >= 65 ? 'var(--green)' : c.score >= 50 ? 'var(--amber)' : 'var(--red)'};background:${c.score >= 65 ? 'var(--green-l)' : c.score >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${c.score}</span></td>
+        <td>${trendHTML}</td>
+        <td>${badgeHTML(c.status)}</td>
+        <td>$${fmtNum(c.mrr || 0)}</td>
+        <td>${contactCell}</td>
+        <td>${renewStr}</td>
+        <td style="font-size:.78rem;color:var(--muted)">${c.lifecycle || '—'}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+
+  const viewBtn = `<div style="text-align:right;margin-top:12px"><button class="btn-sm" onclick="filterByTier('${tierKey}')" style="gap:4px">View in Customers <span style="font-size:.8rem">\u2192</span></button></div>`;
+
+  return summaryHTML + tableHTML + viewBtn;
 }
 
 /* ── Segment Cards (enriched) ──────────────────────────────── */
@@ -480,27 +817,40 @@ function renderSegInsights(segments) {
 
   const insights = [];
 
+  // --- Segment-specific insights (things only the Segments page can surface) ---
+
+  // Total MRR across all segments for concentration calc
+  const totalSegMRR = segments.reduce((s, seg) => s + (seg.totalMRR || 0), 0);
+
   segments.forEach(seg => {
-    // High risk % (priority 4)
+    // High risk % (priority 4) — segment composition, not individual alerts
     if (seg.riskPct > 40 && seg.count >= 3) {
       insights.push({ priority: 4, icon: iconAlert, bg: 'var(--red-l)', color: 'var(--red)',
         html: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> has <strong>${seg.riskPct}%</strong> at risk (${seg.atRisk}/${seg.count})` });
     }
-    // At-risk renewals in 90 days (priority 4)
-    const riskRenewals = seg.custs.filter(c => (c.status === 'critical' || c.status === 'risk') && c.renewal != null && c.renewal > 0 && c.renewal <= 3).length;
-    if (riskRenewals > 0) {
-      insights.push({ priority: 4, icon: iconCalendar, bg: 'var(--red-l)', color: 'var(--red)',
-        html: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> has <strong>${riskRenewals}</strong> at-risk renewal${riskRenewals !== 1 ? 's' : ''} in 90 days` });
+    // MRR Concentration — one segment holds outsized revenue share (priority 3)
+    if (totalSegMRR > 0 && seg.totalMRR > 0) {
+      const mrrPct = Math.round(seg.totalMRR / totalSegMRR * 100);
+      if (mrrPct >= 40 && segments.length >= 3) {
+        insights.push({ priority: 3, icon: iconAlert, bg: 'var(--amber-l)', color: 'var(--amber)',
+          html: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> holds <strong>${mrrPct}%</strong> of total MRR ($${fmtNum(seg.totalMRR)}) — high concentration risk` });
+      }
     }
-    // Declining segment (priority 3)
+    // Score Spread — high variance within segment means inconsistent group (priority 2)
+    if (seg.count >= 4) {
+      const scores = seg.custs.map(c => c.score);
+      const min = Math.min(...scores);
+      const max = Math.max(...scores);
+      const spread = max - min;
+      if (spread >= 40) {
+        insights.push({ priority: 2, icon: iconTrendDn, bg: 'var(--amber-l)', color: 'var(--amber)',
+          html: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> has a wide score spread (${min}–${max}) — may need sub-segmenting` });
+      }
+    }
+    // Declining segment (priority 3) — segment-level trajectory
     if (seg.avgDelta < -2) {
       insights.push({ priority: 3, icon: iconTrendDn, bg: 'var(--amber-l)', color: 'var(--amber)',
         html: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> is declining (${seg.avgDelta} avg this week)` });
-    }
-    // Overdue contacts (priority 3)
-    if (seg.overdueCount > 0) {
-      insights.push({ priority: 3, icon: iconPhone, bg: 'var(--amber-l)', color: 'var(--amber)',
-        html: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> has <strong>${seg.overdueCount}</strong> overdue contact${seg.overdueCount !== 1 ? 's' : ''} (14+ days)` });
     }
   });
 
@@ -544,6 +894,22 @@ function filterByTag(tag) {
   renderCustomers();
 }
 
+function filterByTier(tier) {
+  // Clear all other filters so only the tier filter is active
+  columnFilters = {};
+  insightFilter = null;
+  mrrExposureFilter = null;
+  filterMode = 'all';
+  _filterTier = tier;
+  nav('customers');
+  renderCustomers();
+}
+
+function clearTierFilter() {
+  _filterTier = null;
+  renderCustomers();
+}
+
 // Bulksheet export — all editable/importable fields (excludes auto-derived: score, status, created)
 function exportBulksheet() {
   const filtered = customers.filter(c => passesManagerFilter(c));
@@ -565,5 +931,599 @@ function exportBulksheet() {
   });
   dlText(hdr + '\n' + rows.join('\n'), 'cs-health-bulksheet.csv', 'text/csv');
   toast(`Exported ${filtered.length} customer${filtered.length !== 1 ? 's' : ''} (bulksheet)`);
+}
+
+/* ═══════════════ SEGMENT COMPARISON CHART ═══════════════ */
+
+function segChartMetricChanged(key) {
+  _segChartMetric = key || 'score';
+  _renderSegChartOnly();
+}
+
+function setSegChartRange(range) {
+  _segChartRange = range;
+  document.querySelectorAll('#seg-chart-range-row .dtab').forEach(b =>
+    b.classList.toggle('active', b.dataset.range === range));
+  _renderSegChartOnly();
+}
+
+function toggleSegChartPill(tag) {
+  const idx = _segChartSelected.indexOf(tag);
+  if (idx >= 0) {
+    _segChartSelected.splice(idx, 1);
+  } else {
+    if (_segChartSelected.length >= 3) _segChartSelected.shift(); // drop oldest
+    _segChartSelected.push(tag);
+  }
+  _renderSegChartOnly();
+}
+
+function segChartSelectAll() {
+  _segChartSelected = [];
+  _renderSegChartOnly();
+}
+
+function _renderSegChartOnly() {
+  const data = _segView === 'tiers' ? window._tierData : window._segData;
+  if (!data || !data.length) return;
+  _buildSegChartPills(data);
+  _buildSegChartSVG(data);
+  _buildSegChartAnalysis(data);
+}
+
+function renderSegChart(segments, active, deltaCache) {
+  const card = el('seg-chart-card');
+  if (!card) return;
+
+  // Populate metric dropdown
+  const sel = el('seg-chart-metric');
+  if (sel && !sel.dataset.init) {
+    sel.dataset.init = '1';
+    sel.innerHTML = Object.keys(METRIC_CFG).map(k =>
+      `<option value="${k}"${k === _segChartMetric ? ' selected' : ''}>${METRIC_CFG[k].label}</option>`
+    ).join('');
+  }
+
+  const data = _segView === 'tiers' ? window._tierData : segments;
+  if (!data || !data.length) {
+    const wrap = el('seg-chart-wrap');
+    if (wrap) wrap.innerHTML = '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:.88rem">Not enough data to display a comparison chart.</p>';
+    return;
+  }
+
+  _buildSegChartPills(data);
+  _buildSegChartSVG(data);
+  _buildSegChartAnalysis(data);
+}
+
+function _segLabel(item) {
+  return item.label || segDisplayLabel(item.tag) || item.key || '?';
+}
+
+function _buildSegChartPills(data) {
+  const wrap = el('seg-chart-pills');
+  if (!wrap) return;
+  const isAll = _segChartSelected.length === 0;
+  let html = `<button class="seg-pill${isAll ? ' active' : ''}" onclick="segChartSelectAll()">All</button>`;
+  data.forEach((seg, i) => {
+    const label = _segLabel(seg);
+    const tag = seg.tag || seg.key || label;
+    const color = SEG_CHART_COLORS[i % SEG_CHART_COLORS.length];
+    const active = _segChartSelected.includes(tag);
+    html += `<button class="seg-pill${active ? ' active' : ''}" style="${active ? 'background:' + color + ';border-color:' + color : ''}" onclick="toggleSegChartPill('${escHtml(tag)}')">`
+      + `<span class="seg-pill-color" style="background:${color}"></span>${escHtml(label)}</button>`;
+  });
+  wrap.innerHTML = html;
+}
+
+function _buildSegChartSVG(data) {
+  const wrap = el('seg-chart-wrap');
+  if (!wrap) return;
+
+  const metric = _segChartMetric || 'score';
+  const cfg = METRIC_CFG[metric] || METRIC_CFG.score;
+  const rangeDays = { '30d': 30, '60d': 60, '90d': 90 }[_segChartRange] || 60;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - rangeDays);
+  cutoff.setHours(0, 0, 0, 0);
+
+  // Determine which segments to chart
+  let chartSegs;
+  if (_segChartSelected.length > 0) {
+    chartSegs = data.filter(s => _segChartSelected.includes(s.tag || s.key || _segLabel(s)));
+  } else {
+    chartSegs = data;
+  }
+
+  // Build lines
+  const lines = [];
+  chartSegs.forEach((seg, i) => {
+    const pts = aggregateSegmentByDay(seg.custs, metric, cutoff);
+    if (pts.length >= 2) {
+      lines.push({
+        label: _segLabel(seg),
+        color: SEG_CHART_COLORS[data.indexOf(seg) % SEG_CHART_COLORS.length],
+        width: 2,
+        points: pts,
+        tag: seg.tag || seg.key
+      });
+    }
+  });
+
+  if (!lines.length) {
+    wrap.innerHTML = '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:.88rem">Not enough history data for the selected segments.</p>';
+    return;
+  }
+
+  const W = 960, H = 220;
+  const pad = { top: 14, right: 56, bottom: 36, left: 44 };
+  const cW = W - pad.left - pad.right;
+  const cH = H - pad.top - pad.bottom;
+
+  // Collect all dates
+  const allDates = new Set();
+  lines.forEach(l => l.points.forEach(p => allDates.add(p.date)));
+  const dates = [...allDates].sort();
+
+  const xScale = (i) => pad.left + (dates.length === 1 ? cW / 2 : (i / (dates.length - 1)) * cW);
+
+  // Y-axis scale (reuse global _trendNiceScale)
+  const yL = _trendNiceScale(lines, cfg.fixed || null);
+  const yScaleL = (v) => pad.top + cH - ((v - yL.min) / (yL.max - yL.min || 1)) * cH;
+
+  // Status bands if health score
+  let bandSVG = '';
+  if (metric === 'score') {
+    const thresholds = window._clientThresholds || DEFAULT_THRESHOLDS;
+    const bandDefs = [
+      { y0: 0, y1: thresholds.critical, color: '#dc2626' },
+      { y0: thresholds.critical, y1: thresholds.risk, color: '#ea580c' },
+      { y0: thresholds.risk, y1: thresholds.watch, color: '#d97706' },
+      { y0: thresholds.watch, y1: thresholds.healthy, color: '#16a34a' },
+      { y0: thresholds.healthy, y1: 100, color: '#3b82f6' },
+    ];
+    bandSVG = bandDefs.map(b => {
+      const y = yScaleL(b.y1);
+      const h = yScaleL(b.y0) - y;
+      return `<rect x="${pad.left}" y="${y}" width="${cW}" height="${h}" fill="${b.color}" opacity="0.055"/>`;
+    }).join('');
+  }
+
+  // Grid lines + Y-axis labels
+  let gridSVG = '';
+  if (metric === 'score' && cfg.fixed) {
+    for (let v = yL.min; v <= yL.max; v += 10) {
+      const y = yScaleL(v);
+      const isMajor = v % 25 === 0;
+      gridSVG += `<line x1="${pad.left}" y1="${y}" x2="${W - pad.right}" y2="${y}" stroke="var(--border)" stroke-width="${isMajor ? 1 : 0.5}" opacity="${isMajor ? 0.7 : 0.35}" stroke-dasharray="${v === yL.min || v === yL.max ? '0' : '3,3'}"/>`;
+      if (v % 20 === 0) {
+        gridSVG += `<text x="${pad.left - 8}" y="${y + 3}" text-anchor="end" font-size="8" font-weight="${isMajor ? '600' : '400'}" fill="var(--subtle)">${cfg.axFmt(v)}</text>`;
+      }
+    }
+  } else {
+    const step = yL.step;
+    for (let v = yL.min; v <= yL.max + step * 0.01; v += step) {
+      const y = yScaleL(v);
+      const isEdge = Math.abs(v - yL.min) < 0.01 || Math.abs(v - yL.max) < 0.01;
+      gridSVG += `<line x1="${pad.left}" y1="${y}" x2="${W - pad.right}" y2="${y}" stroke="var(--border)" stroke-width="${isEdge ? 1 : 0.5}" opacity="${isEdge ? 0.7 : 0.35}" stroke-dasharray="${isEdge ? '0' : '3,3'}"/>`;
+      gridSVG += `<text x="${pad.left - 8}" y="${y + 3}" text-anchor="end" font-size="8" font-weight="${isEdge ? '600' : '400'}" fill="var(--subtle)">${cfg.axFmt(v)}</text>`;
+    }
+  }
+
+  // X-axis date labels
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  let xLabels = '';
+  const labelEvery = rangeDays <= 30 ? 2 : rangeDays <= 60 ? 4 : 7;
+  dates.forEach((d, i) => {
+    const x = xScale(i);
+    const parts = d.split('-');
+    const mo = parseInt(parts[1]) - 1;
+    const day = parseInt(parts[2]);
+    if (rangeDays <= 30 || (rangeDays <= 60 && i % 2 === 0) || i % 3 === 0) {
+      xLabels += `<line x1="${x}" y1="${yScaleL(yL.min)}" x2="${x}" y2="${yScaleL(yL.min) + 4}" stroke="var(--border)" stroke-width="0.5" opacity="0.5"/>`;
+    }
+    if (i % labelEvery === 0 || i === dates.length - 1) {
+      xLabels += `<text x="${x}" y="${H - pad.bottom + 16}" text-anchor="middle" font-size="7.5" fill="var(--subtle)">${monthNames[mo]} ${day}</text>`;
+    }
+  });
+
+  // Draw lines
+  let linesSVG = '';
+  const dateIdx = {};
+  dates.forEach((d, i) => { dateIdx[d] = i; });
+
+  lines.forEach((line, lineIdx) => {
+    const pts = line.points.filter(p => dateIdx[p.date] !== undefined && !isNaN(p.avg))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    if (pts.length < 2) return;
+
+    // Area fill (only for first line or single line)
+    if (lines.length === 1 || lineIdx === 0) {
+      const areaBottom = yScaleL(yL.min);
+      const areaPts = pts.map(p => `${xScale(dateIdx[p.date])},${yScaleL(p.avg)}`);
+      const firstX = xScale(dateIdx[pts[0].date]);
+      const lastX = xScale(dateIdx[pts[pts.length - 1].date]);
+      const areaPath = `M${firstX},${areaBottom} L${areaPts.join(' L')} L${lastX},${areaBottom} Z`;
+      linesSVG += `<defs><linearGradient id="segAreaGrad${lineIdx}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${line.color}" stop-opacity="0.12"/>
+        <stop offset="100%" stop-color="${line.color}" stop-opacity="0.01"/>
+      </linearGradient></defs>`;
+      linesSVG += `<path d="${areaPath}" fill="url(#segAreaGrad${lineIdx})"/>`;
+    }
+
+    // Polyline
+    const polyPts = pts.map(p => `${xScale(dateIdx[p.date])},${yScaleL(p.avg)}`).join(' ');
+    linesSVG += `<polyline points="${polyPts}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linejoin="round" stroke-linecap="round" opacity="0.9"/>`;
+
+    // Dots
+    const dotR = 2.5;
+    const labelSkip = pts.length <= 10 ? 1 : pts.length <= 20 ? 3 : pts.length <= 40 ? 5 : 8;
+    pts.forEach((p, pi) => {
+      const cx = xScale(dateIdx[p.date]);
+      const cy = yScaleL(p.avg);
+      linesSVG += `<circle cx="${cx}" cy="${cy}" r="${dotR + 1}" fill="var(--surface)" opacity="0.8"/>`;
+      linesSVG += `<circle cx="${cx}" cy="${cy}" r="${dotR}" fill="${line.color}"/>`;
+      // Value labels on single-line view
+      if (lines.length <= 2 && (pi % labelSkip === 0 || pi === pts.length - 1)) {
+        linesSVG += `<text x="${cx}" y="${cy - dotR - 4}" text-anchor="middle" font-size="7" font-weight="700" fill="${line.color}">${cfg.fmt(p.avg)}</text>`;
+      }
+    });
+  });
+
+  // Build tooltip data
+  _segChartTipData = dates.map((d) => {
+    const parts = d.split('-');
+    const mo = parseInt(parts[1]) - 1;
+    const day = parseInt(parts[2]);
+    const dateLabel = monthNames[mo] + ' ' + day;
+    const vals = lines.map(l => {
+      const pt = l.points.find(x => x.date === d);
+      return pt ? { label: l.label, color: l.color, val: cfg.fmt(pt.avg) } : null;
+    }).filter(Boolean);
+    return { dateLabel, vals };
+  });
+
+  // Hover columns
+  let hoverSVG = '';
+  const colW = dates.length > 1 ? cW / (dates.length - 1) : cW;
+  dates.forEach((d, i) => {
+    const cx = xScale(i);
+    hoverSVG += `<rect x="${cx - colW / 2}" y="${pad.top}" width="${colW}" height="${cH}" fill="transparent" style="cursor:crosshair"
+      onmouseenter="showSegChartTip(evt,${cx},${i})"
+      onmouseleave="hideSegChartTip()"/>`;
+  });
+
+  // Axis borders
+  let axisSVG = `<line x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${yScaleL(yL.min)}" stroke="var(--border)" stroke-width="1.5" opacity="0.5"/>`;
+  axisSVG += `<line x1="${pad.left}" y1="${yScaleL(yL.min)}" x2="${W - pad.right}" y2="${yScaleL(yL.min)}" stroke="var(--border)" stroke-width="1.5" opacity="0.5"/>`;
+
+  // Legend (HTML below chart)
+  const legendHTML = `<div class="seg-chart-legend">${lines.map(l =>
+    `<span class="seg-chart-legend-item"><span class="seg-chart-legend-dot" style="background:${l.color}"></span>${escHtml(l.label)}</span>`
+  ).join('')}</div>`;
+
+  wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;display:block">
+    ${bandSVG}${gridSVG}${axisSVG}${xLabels}${linesSVG}${hoverSVG}
+  </svg>${legendHTML}`;
+}
+
+function showSegChartTip(evt, cx, colIdx) {
+  let tip = document.getElementById('seg-chart-tip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.id = 'seg-chart-tip';
+    tip.className = 'seg-chart-tooltip';
+    el('seg-chart-wrap').appendChild(tip);
+  }
+  const data = _segChartTipData[colIdx];
+  if (!data) return;
+
+  let rows = '';
+  data.vals.forEach(v => {
+    rows += `<div style="display:flex;align-items:center;gap:6px;margin-top:3px"><span style="width:8px;height:8px;border-radius:50%;background:${v.color};flex-shrink:0"></span><span>${escHtml(v.label)}</span><strong style="margin-left:auto">${v.val}</strong></div>`;
+  });
+
+  tip.innerHTML = `<div style="font-weight:700;margin-bottom:4px;font-size:.82rem">${data.dateLabel}</div>${rows}`;
+  const wrap = el('seg-chart-wrap');
+  const svg = wrap.querySelector('svg');
+  if (!svg) return;
+  const rect = svg.getBoundingClientRect();
+  const wRect = wrap.getBoundingClientRect();
+  const scaleX = rect.width / 960;
+  const left = (cx * scaleX) + (rect.left - wRect.left);
+  tip.style.display = 'block';
+  // Flip to left side if too close to right edge
+  if (left + 160 > wRect.width) {
+    tip.style.left = (left - 170) + 'px';
+  } else {
+    tip.style.left = (left + 14) + 'px';
+  }
+  tip.style.top = '8px';
+}
+
+function hideSegChartTip() {
+  const tip = document.getElementById('seg-chart-tip');
+  if (tip) tip.style.display = 'none';
+}
+
+/* ── Segment Chart Analysis ─────────────────────────────── */
+function _buildSegChartAnalysis(data) {
+  const wrap = el('seg-chart-analysis');
+  if (!wrap) return;
+
+  const metric = _segChartMetric || 'score';
+  const cfg = METRIC_CFG[metric] || METRIC_CFG.score;
+  const rangeDays = { '30d': 30, '60d': 60, '90d': 90 }[_segChartRange] || 60;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - rangeDays);
+  cutoff.setHours(0, 0, 0, 0);
+
+  // Get segments to analyze
+  let chartSegs;
+  if (_segChartSelected.length > 0) {
+    chartSegs = data.filter(s => _segChartSelected.includes(s.tag || s.key || _segLabel(s)));
+  } else {
+    chartSegs = data;
+  }
+
+  // Build time series for each segment
+  const series = [];
+  chartSegs.forEach((seg, i) => {
+    const pts = aggregateSegmentByDay(seg.custs, metric, cutoff);
+    if (pts.length >= 2) {
+      const label = _segLabel(seg);
+      const color = SEG_CHART_COLORS[data.indexOf(seg) % SEG_CHART_COLORS.length];
+      const startVal = pts[0].avg;
+      const endVal = pts[pts.length - 1].avg;
+      const delta = endVal - startVal;
+      // Compute std dev
+      const mean = pts.reduce((s, p) => s + p.avg, 0) / pts.length;
+      const variance = pts.reduce((s, p) => s + Math.pow(p.avg - mean, 2), 0) / pts.length;
+      const stdDev = Math.sqrt(variance);
+      // Half-period split for momentum
+      const mid = Math.floor(pts.length / 2);
+      const firstHalfDelta = pts[mid].avg - pts[0].avg;
+      const secondHalfDelta = pts[pts.length - 1].avg - pts[mid].avg;
+      const tag = seg.tag || seg.key || label;
+      series.push({ seg, label, tag, color, pts, startVal, endVal, delta, mean, stdDev, firstHalfDelta, secondHalfDelta });
+    }
+  });
+
+  if (series.length < 1) { wrap.innerHTML = ''; return; }
+
+  const _ai = (path) => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+  const icons = {
+    momentum: _ai('<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'),
+    corr:     _ai('<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>'),
+    risk:     _ai('<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'),
+    dollar:   _ai('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'),
+    signal:   _ai('<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>'),
+  };
+
+  const insights = [];
+  const rangeLabel = _segChartRange;
+  const metricLabel = cfg.label;
+  const halfLabel = rangeDays <= 30 ? Math.round(rangeDays / 2) + 'd' : Math.round(rangeDays / 60) + 'mo';
+
+  // ── 1. Momentum shift — segment was heading one way but recently reversed ──
+  // This is NOT visible at a glance since the overall delta may look flat
+  series.forEach(s => {
+    const accel = s.secondHalfDelta - s.firstHalfDelta;
+    const threshold = Math.max(2, Math.abs(s.delta) * 0.5);
+    if (Math.abs(accel) < threshold) return;
+    // Only interesting if the halves disagree or the acceleration is dramatic
+    const reversed = (s.firstHalfDelta > 0.5 && s.secondHalfDelta < -0.5) || (s.firstHalfDelta < -0.5 && s.secondHalfDelta > 0.5);
+    const accelerating = !reversed && Math.abs(s.secondHalfDelta) > Math.abs(s.firstHalfDelta) * 2;
+    if (!reversed && !accelerating) return;
+    const f = v => (v >= 0 ? '+' : '') + cfg.fmt(v);
+    if (reversed) {
+      const wasDir = s.firstHalfDelta > 0 ? 'climbing' : 'declining';
+      const nowDir = s.secondHalfDelta > 0 ? 'recovering' : 'pulling back';
+      insights.push({
+        score: Math.abs(accel) + 3,
+        icon: icons.momentum,
+        color: s.secondHalfDelta > 0 ? 'var(--green)' : 'var(--red)',
+        bg: s.secondHalfDelta > 0 ? 'var(--green-l)' : 'var(--red-l)',
+        label: 'Momentum Shift',
+        tags: [s.tag],
+        text: `<strong>${escHtml(s.label)}</strong> was ${wasDir} (${f(s.firstHalfDelta)}) in the first half but is now ${nowDir} (${f(s.secondHalfDelta)}) — the overall ${rangeLabel} number masks this recent change in direction.`
+      });
+    } else {
+      const dir = s.secondHalfDelta > 0 ? 'accelerating upward' : 'accelerating downward';
+      insights.push({
+        score: Math.abs(accel),
+        icon: icons.momentum,
+        color: s.secondHalfDelta > 0 ? 'var(--green)' : 'var(--amber)',
+        bg: s.secondHalfDelta > 0 ? 'var(--green-l)' : 'var(--amber-l)',
+        label: 'Accelerating',
+        tags: [s.tag],
+        text: `<strong>${escHtml(s.label)}</strong> is ${dir} — moved ${f(s.secondHalfDelta)} in the recent ${halfLabel} vs ${f(s.firstHalfDelta)} in the prior ${halfLabel}. The pace of change is picking up.`
+      });
+    }
+  });
+
+  // ── 2. Cross-signal: metric change vs health score (only when metric ≠ score) ──
+  // Reveals whether this metric actually impacts health, which isn't visible on a single chart
+  if (metric !== 'score' && series.length >= 2) {
+    const scoreSeries = [];
+    chartSegs.forEach(seg => {
+      const pts = aggregateSegmentByDay(seg.custs, 'score', cutoff);
+      if (pts.length >= 2) {
+        scoreSeries.push({ label: _segLabel(seg), sDelta: pts[pts.length - 1].avg - pts[0].avg });
+      }
+    });
+    if (scoreSeries.length >= 2) {
+      const pairs = series.map(s => {
+        const sc = scoreSeries.find(ss => ss.label === s.label);
+        return sc ? { label: s.label, mDelta: s.delta, sDelta: sc.sDelta } : null;
+      }).filter(Boolean);
+      // Look for the outlier: metric went one way, score went the other — that's the non-obvious one
+      const outliers = pairs.filter(p => (p.mDelta > 1 && p.sDelta < -1) || (p.mDelta < -1 && p.sDelta > 1));
+      if (outliers.length > 0) {
+        const ex = outliers.reduce((a, b) => Math.abs(b.mDelta) + Math.abs(b.sDelta) > Math.abs(a.mDelta) + Math.abs(a.sDelta) ? b : a);
+        const mDir = ex.mDelta > 0 ? 'improved' : 'declined';
+        const sDir = ex.sDelta > 0 ? 'improved' : 'dropped';
+        const exSeries = series.find(ss => ss.label === ex.label);
+        insights.push({
+          score: Math.abs(ex.mDelta) + Math.abs(ex.sDelta),
+          icon: icons.corr,
+          color: 'var(--amber)',
+          bg: 'var(--amber-l)',
+          label: 'Disconnected Signal',
+          tags: exSeries ? [exSeries.tag] : [],
+          text: `<strong>${escHtml(ex.label)}</strong>'s ${metricLabel} ${mDir} (${ex.mDelta > 0 ? '+' : ''}${cfg.fmt(ex.mDelta)}) but their Health Score ${sDir} (${ex.sDelta > 0 ? '+' : ''}${Math.round(ex.sDelta)}) — something else is driving score changes in this segment.`
+        });
+      } else {
+        // Check for strong positive correlation — metric and score moving together
+        const sameDir = pairs.filter(p => (p.mDelta > 1 && p.sDelta > 1) || (p.mDelta < -1 && p.sDelta < -1));
+        if (sameDir.length >= 2 && sameDir.length === pairs.length) {
+          const ex = sameDir.reduce((a, b) => Math.abs(b.mDelta) > Math.abs(a.mDelta) ? b : a);
+          const exS = series.find(ss => ss.label === ex.label);
+          insights.push({
+            score: sameDir.length * 1.5,
+            icon: icons.signal,
+            color: 'var(--blue)',
+            bg: 'var(--blue-l,#dbeafe)',
+            label: 'Strong Signal',
+            tags: exS ? [exS.tag] : [],
+            text: `${metricLabel} changes are tracking Health Score changes across all segments — this metric appears to be a reliable leading indicator. <strong>${escHtml(ex.label)}</strong> shows the clearest link.`
+          });
+        }
+      }
+    }
+  }
+
+  // ── 3. MRR concentration risk — which segments hold the $ ──
+  // Not visible on the metric chart at all, adds financial context
+  if (series.length >= 2) {
+    const totalMRR = chartSegs.reduce((s, seg) => s + (seg.totalMRR || seg.custs.reduce((t, c) => t + (c.mrr || 0), 0)), 0);
+    if (totalMRR > 0) {
+      const segMRR = chartSegs.map(seg => {
+        const mrr = seg.totalMRR || seg.custs.reduce((t, c) => t + (c.mrr || 0), 0);
+        const pct = Math.round(mrr / totalMRR * 100);
+        const s = series.find(x => x.label === _segLabel(seg));
+        return { label: _segLabel(seg), mrr, pct, delta: s ? s.delta : 0, tag: s ? s.tag : (seg.tag || seg.key || _segLabel(seg)) };
+      }).sort((a, b) => b.mrr - a.mrr);
+
+      // Flag: biggest MRR segment is declining
+      const biggest = segMRR[0];
+      if (biggest.pct >= 30 && biggest.delta < -1) {
+        insights.push({
+          score: biggest.pct * Math.abs(biggest.delta) * 0.1,
+          icon: icons.dollar,
+          color: 'var(--red)',
+          bg: 'var(--red-l)',
+          label: 'Revenue Exposure',
+          tags: [biggest.tag],
+          text: `<strong>${escHtml(biggest.label)}</strong> holds ${biggest.pct}% of segment MRR ($${fmtNum(biggest.mrr)}) and its ${metricLabel} is declining — this concentrates risk in your highest-value segment.`
+        });
+      }
+      // Flag: small MRR segment outperforming — possible expansion opportunity
+      const smallest = segMRR.filter(s => s.pct < 20 && s.delta > 2);
+      if (smallest.length > 0) {
+        const opp = smallest.reduce((a, b) => b.delta > a.delta ? b : a);
+        insights.push({
+          score: opp.delta * 1.5,
+          icon: icons.dollar,
+          color: 'var(--green)',
+          bg: 'var(--green-l)',
+          label: 'Growth Opportunity',
+          tags: [opp.tag],
+          text: `<strong>${escHtml(opp.label)}</strong> is only ${opp.pct}% of MRR but has the strongest ${metricLabel} trajectory — healthy signals in a small segment could mean expansion potential.`
+        });
+      }
+    }
+  }
+
+  // ── 4. Lagging risk — segment with declining customers that others don't have ──
+  // Looks at per-customer variance within segments, not segment-level averages
+  if (series.length >= 2 && metric === 'score') {
+    chartSegs.forEach(seg => {
+      const s = series.find(x => x.label === _segLabel(seg));
+      if (!s) return;
+      // Count how many customers in this segment are critical or risk vs others
+      const riskCount = seg.custs.filter(c => c.status === 'critical' || c.status === 'risk').length;
+      const riskPct = seg.custs.length ? Math.round(riskCount / seg.custs.length * 100) : 0;
+      // Is the segment average OK but risk concentration is high?
+      if (s.endVal >= 60 && riskPct >= 30) {
+        insights.push({
+          score: riskPct * 0.3,
+          icon: icons.risk,
+          color: 'var(--amber)',
+          bg: 'var(--amber-l)',
+          label: 'Hidden Risk',
+          tags: [s.tag],
+          text: `<strong>${escHtml(s.label)}</strong> averages ${cfg.fmt(s.endVal)} overall but ${riskPct}% of its accounts (${riskCount}/${seg.custs.length}) are at risk — the average hides a bimodal distribution of healthy and struggling accounts.`
+        });
+      }
+    });
+  }
+
+  // ── 5. Contact gap correlation — segments with high days-since-contact and declining metric ──
+  if (series.length >= 2) {
+    chartSegs.forEach(seg => {
+      const s = series.find(x => x.label === _segLabel(seg));
+      if (!s || s.delta >= 0) return; // only flag declining segments
+      const withDays = seg.custs.filter(c => c.days != null);
+      if (withDays.length < 2) return;
+      const avgDays = Math.round(withDays.reduce((t, c) => t + c.days, 0) / withDays.length);
+      // Other segments' avg days
+      const otherSegs = chartSegs.filter(x => _segLabel(x) !== _segLabel(seg));
+      const otherDays = [];
+      otherSegs.forEach(os => {
+        const wd = os.custs.filter(c => c.days != null);
+        if (wd.length) otherDays.push(Math.round(wd.reduce((t, c) => t + c.days, 0) / wd.length));
+      });
+      if (!otherDays.length) return;
+      const otherAvg = Math.round(otherDays.reduce((t, d) => t + d, 0) / otherDays.length);
+      if (avgDays > otherAvg * 1.5 && avgDays >= 10) {
+        insights.push({
+          score: (avgDays - otherAvg) * 0.5 + Math.abs(s.delta),
+          icon: icons.risk,
+          color: 'var(--amber)',
+          bg: 'var(--amber-l)',
+          label: 'Engagement Gap',
+          tags: [s.tag],
+          text: `<strong>${escHtml(s.label)}</strong> is declining and averages ${avgDays} days since last contact vs ${otherAvg} days for other segments — the lack of recent outreach may be contributing to the decline.`
+        });
+      }
+    });
+  }
+
+  // Sort by score desc, show top 3
+  insights.sort((a, b) => b.score - a.score);
+  const top = insights.slice(0, 3);
+  window._segChartInsights = top;
+
+  if (!top.length) {
+    wrap.innerHTML = '';
+    return;
+  }
+
+  wrap.innerHTML = top.map((ins, idx) => {
+    const clickable = ins.tags && ins.tags.length > 0;
+    const accentCls = ins.color === 'var(--green)' ? ' ta-card-green' : ins.color === 'var(--red)' ? ' ta-card-red' : ins.color === 'var(--amber)' ? ' ta-card-amber' : '';
+    return `<div class="ta-card${accentCls}${clickable ? ' ta-card-clickable' : ''}" style="border-left-color:${ins.color}" ${clickable ? `onclick="segAnalysisFocus(${idx})"` : ''}>
+    <div class="ta-icon" style="background:${ins.bg};color:${ins.color}">${ins.icon}</div>
+    <div>
+      <div class="ta-label">${ins.label}</div>
+      <div class="ta-detail">${ins.text}</div>
+    </div>
+  </div>`;
+  }).join('');
+}
+
+function segAnalysisFocus(idx) {
+  const insights = window._segChartInsights;
+  if (!insights || !insights[idx]) return;
+  const tags = insights[idx].tags || [];
+  if (!tags.length) return;
+  // If already showing exactly these tags, toggle back to all
+  if (_segChartSelected.length === tags.length && tags.every(t => _segChartSelected.includes(t))) {
+    _segChartSelected = [];
+  } else {
+    _segChartSelected = [...tags];
+  }
+  _renderSegChartOnly();
 }
 

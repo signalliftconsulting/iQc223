@@ -91,6 +91,10 @@ function renderCSMPerformance() {
   const healthScoreGradient = overallAvg >= 65 ? 'dash-kpi-green' : overallAvg >= 50 ? 'dash-kpi-teal' : 'dash-kpi-red';
   const riskGradient = 'dash-kpi-red';
 
+  const avgMRRPerCSM = totalCSMs ? Math.round(totalMRR / totalCSMs) : 0;
+  const avgAtRiskPerCSM = totalCSMs ? (totalAtRisk / totalCSMs).toFixed(1).replace(/\.0$/, '') : 0;
+  const overdueGradient = totalOverdue > 0 ? 'dash-kpi-red' : 'dash-kpi-green';
+
   statsWrap.innerHTML = `
     <div class="dash-kpi-card dash-kpi-blue">
       <div class="dash-kpi-top">
@@ -98,23 +102,23 @@ function renderCSMPerformance() {
         <span class="dash-kpi-label">Active CSMs</span>
       </div>
       <div class="dash-kpi-num">${totalCSMs}</div>
-      <div class="dash-kpi-sub">~${avgAccsPerCSM} accounts each</div>
+      <div class="dash-kpi-sub">${totalAccounts} accounts across team</div>
     </div>
     <div class="dash-kpi-card dash-kpi-purple">
       <div class="dash-kpi-top">
         <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${CSM_ICONS.chart}</div>
-        <span class="dash-kpi-label">Total Accounts</span>
+        <span class="dash-kpi-label">Avg Book Size</span>
       </div>
-      <div class="dash-kpi-num">${totalAccounts}</div>
-      <div class="dash-kpi-sub">${totalHealthy} healthy · ${active.filter(c=>c.status==='watch').length} watch</div>
+      <div class="dash-kpi-num">${avgAccsPerCSM}</div>
+      <div class="dash-kpi-sub">accounts per CSM</div>
     </div>
     <div class="dash-kpi-card dash-kpi-teal">
       <div class="dash-kpi-top">
         <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${CSM_ICONS.dollar}</div>
-        <span class="dash-kpi-label">Total MRR</span>
+        <span class="dash-kpi-label">Avg MRR / CSM</span>
       </div>
-      <div class="dash-kpi-num">$${fmtNum(totalMRR)}</div>
-      <div class="dash-kpi-sub">${totalAtRisk ? '$' + fmtNum(riskMRRTotal) + ' at risk' : 'No MRR at risk'}</div>
+      <div class="dash-kpi-num">$${fmtNum(avgMRRPerCSM)}</div>
+      <div class="dash-kpi-sub">$${fmtNum(totalMRR)} total portfolio</div>
     </div>
     <div class="dash-kpi-card ${healthScoreGradient}">
       <div class="dash-kpi-top">
@@ -124,13 +128,13 @@ function renderCSMPerformance() {
       <div class="dash-kpi-num">${overallAvg}</div>
       <div class="dash-kpi-sub">${deltaIcon} ${Math.abs(overallDelta)} pts this week</div>
     </div>
-    <div class="dash-kpi-card ${riskGradient}">
+    <div class="dash-kpi-card ${overdueGradient}">
       <div class="dash-kpi-top">
         <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${CSM_ICONS.alert}</div>
-        <span class="dash-kpi-label">At-Risk Accounts</span>
+        <span class="dash-kpi-label">Overdue Contacts</span>
       </div>
-      <div class="dash-kpi-num">${totalAtRisk}</div>
-      <div class="dash-kpi-sub">${totalOverdue ? totalOverdue + ' overdue contacts' : 'All contacts current'}</div>
+      <div class="dash-kpi-num">${totalOverdue}</div>
+      <div class="dash-kpi-sub">${totalOverdue ? avgAtRiskPerCSM + ' at-risk per CSM' : 'All contacts current'}</div>
     </div>
   `;
 
@@ -286,64 +290,332 @@ function renderCSMFocus(mgrList) {
   if (!wrap) return;
   const items = [];
   const _fi = (path) => `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+  const icPhone = _fi('<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.09 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 9a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>');
+  const icCal = _fi('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>');
+  const icDown = _fi('<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>');
+  const icUp = _fi('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>');
+  const icAlert = _fi('<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>');
+  const icTarget = _fi('<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>');
+  const icShuffle = _fi('<polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/>');
 
-  mgrList.filter(m => m.name !== 'Unassigned').forEach(m => {
-    // Overdue contacts
-    const overdueAccs = m.accs.filter(c => c.days != null && c.days >= 14);
-    if (overdueAccs.length) {
-      const names = overdueAccs.slice(0, 3).map(c => c.name).join(', ') + (overdueAccs.length > 3 ? ` +${overdueAccs.length - 3} more` : '');
-      items.push({ csm: m.name, priority: 3, icon: _fi('<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.09 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 9a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>'),
-        color: 'var(--red)', bg: 'var(--red-l)',
-        text: `<strong>${escHtml(m.name)}</strong> has ${overdueAccs.length} account${overdueAccs.length>1?'s':''} with no contact in 14+ days`,
-        detail: names });
-    }
-    // At-risk renewals within 90 days
-    const riskRenewals = m.accs.filter(c => (c.status === 'critical' || c.status === 'risk') && c.renewal != null && c.renewal > 0 && c.renewal <= 3);
-    if (riskRenewals.length) {
-      const names = riskRenewals.map(c => `${c.name} (${c.score})`).join(', ');
-      items.push({ csm: m.name, priority: 4, icon: _fi('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'),
-        color: 'var(--red)', bg: 'var(--red-l)',
-        text: `<strong>${escHtml(m.name)}</strong> has ${riskRenewals.length} at-risk renewal${riskRenewals.length>1?'s':''} in the next 90 days`,
-        detail: names });
-    }
-    // Declining portfolio (negative trend)
-    if (m.avgDelta < -2) {
-      items.push({ csm: m.name, priority: 2, icon: _fi('<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>'),
-        color: 'var(--amber)', bg: 'var(--amber-l)',
-        text: `<strong>${escHtml(m.name)}</strong>'s portfolio is declining (${m.avgDelta} avg this week)`,
-        detail: `Avg score: ${m.avgScore}, ${m.atRisk} at risk` });
-    }
-    // High risk ratio
-    if (m.count >= 3 && (m.atRisk / m.count) >= 0.4) {
-      items.push({ csm: m.name, priority: 2, icon: _fi('<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'),
-        color: 'var(--red)', bg: 'var(--red-l)',
-        text: `<strong>${escHtml(m.name)}</strong> has ${Math.round((m.atRisk/m.count)*100)}% of accounts at risk (${m.atRisk}/${m.count})`,
-        detail: `$${fmtNum(m.riskMRR)} MRR at risk` });
-    }
-    // Positive callout — improving portfolio
-    if (m.avgDelta >= 3) {
-      items.push({ csm: m.name, priority: 0, icon: _fi('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>'),
-        color: 'var(--green)', bg: 'var(--green-l)',
-        text: `<strong>${escHtml(m.name)}</strong> is improving their portfolio (+${m.avgDelta} avg this week)`,
-        detail: `${m.healthy} healthy, avg score ${m.avgScore}` });
-    }
-  });
+  // Clickable customer name link — closes modal, opens detail
+  const _cl = (c) => '<a class="fd-cust-link" onclick="closeModal(\'focus-detail-modal\');openDetail(\'' + escHtml(c.id) + '\')">' + escHtml(c.name) + '</a>';
 
+  // ── Gather cross-team data ───────────────────────────────────
+  const activeMgrs = mgrList.filter(m => m.name !== 'Unassigned' && m.count > 0);
+  if (!activeMgrs.length) {
+    wrap.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:.82rem"><div style="font-size:1.4rem;margin-bottom:6px;opacity:.3">✓</div>No focus areas to show.</div>';
+    return;
+  }
+  const allAccs = activeMgrs.flatMap(m => m.accs);
+  const teamAvgScore = Math.round(allAccs.reduce((s,c) => s + c.score, 0) / allAccs.length);
+  const teamAvgDelta = Math.round(allAccs.reduce((s,c) => s + getDelta7d(c), 0) / allAccs.length * 10) / 10;
+
+  // ── Generator 1: Consolidated renewal pipeline ───────────────
+  // One combined insight — "X at-risk renewals across Y CSMs with $Z MRR"
+  (() => {
+    const riskRenewals = allAccs.filter(c => (c.status === 'critical' || c.status === 'risk') && c.renewal != null && c.renewal > 0 && c.renewal <= 3);
+    if (!riskRenewals.length) return;
+    const renewMRR = riskRenewals.reduce((s,c) => s + (c.mrr||0), 0);
+    const csmNames = [...new Set(riskRenewals.map(c => c.manager ? c.manager.trim() : 'Unassigned'))];
+    // Find the single biggest at-risk renewal
+    riskRenewals.sort((a,b) => (b.mrr||0) - (a.mrr||0));
+    const top = riskRenewals[0];
+    const topDays = top.renewal_date ? Math.max(0, Math.round((new Date(top.renewal_date) - new Date()) / 86400000)) : Math.round((top.renewal || 0) * 30);
+    // Which CSM has the most at-risk renewal MRR?
+    const csmMRR = {};
+    riskRenewals.forEach(c => { const k = c.manager ? c.manager.trim() : 'Unassigned'; csmMRR[k] = (csmMRR[k]||0) + (c.mrr||0); });
+    const heaviestCSM = Object.entries(csmMRR).sort((a,b) => b[1] - a[1])[0];
+    const detail = `There ${riskRenewals.length === 1 ? 'is' : 'are'} <strong>${riskRenewals.length}</strong> account${riskRenewals.length>1?'s':''} coming up for renewal that ${riskRenewals.length === 1 ? 'is' : 'are'} currently at risk, representing <strong>$${fmtNum(renewMRR)}/mo</strong> in revenue that could churn. The largest is ${_cl(top)} at $${fmtNum(top.mrr||0)}/mo with a health score of ${top.score} and roughly ${topDays} days until renewal.${heaviestCSM ? ` <strong>${escHtml(heaviestCSM[0])}</strong> is carrying the heaviest load with $${fmtNum(heaviestCSM[1])}/mo of at-risk renewal MRR on their plate.` : ''} Without intervention, these accounts are likely to churn or downgrade at renewal.`;
+    items.push({ priority: 6, icon: icCal,
+      color: 'var(--red)', bg: 'var(--red-l)',
+      title: `${riskRenewals.length} At-Risk Renewal${riskRenewals.length>1?'s':''} — $${fmtNum(renewMRR)}/mo`,
+      text: `<strong>${riskRenewals.length}</strong> at-risk renewal${riskRenewals.length>1?'s':''} across ${csmNames.length} CSM${csmNames.length>1?'s':''} — <strong>$${fmtNum(renewMRR)}/mo</strong> MRR at stake`,
+      detail,
+      steps: [
+        'Prioritize outreach to the highest-MRR renewal — ' + _cl(top) + ' ($' + fmtNum(top.mrr||0) + '/mo, ~' + topDays + 'd out)',
+        heaviestCSM ? 'Coordinate with <strong>' + escHtml(heaviestCSM[0]) + '</strong> who carries the most at-risk renewal exposure' : 'Align CSMs on renewal save strategies',
+        'Flag any accounts with a score below 40 for executive sponsor escalation'
+      ] });
+  })();
+
+  // ── Generator 2: Neglected + declining accounts (cross-team) ─
+  // Accounts declining with no recent contact — the "silent bleed"
+  (() => {
+    const neglected = allAccs.filter(c => c.days != null && c.days >= 14 && getDelta7d(c) < -2);
+    if (neglected.length < 2) return;
+    const ndMRR = neglected.reduce((s,c) => s + (c.mrr||0), 0);
+    const csmsAffected = [...new Set(neglected.map(c => c.manager ? c.manager.trim() : 'Unassigned'))];
+    neglected.sort((a,b) => getDelta7d(a) - getDelta7d(b));
+    const worst = neglected.slice(0, 3);
+    const detail = `These accounts are actively losing health points while no one is reaching out — a "silent bleed" that often leads to surprise churn. The worst right now: ` + worst.map(c => `${_cl(c)} is down ${Math.abs(getDelta7d(c))} pts this week with ${c.days} days since last contact ($${fmtNum(c.mrr||0)}/mo)`).join('; ') + `. Together they represent <strong>$${fmtNum(ndMRR)}/mo</strong> in MRR that\'s eroding without anyone noticing.`;
+    items.push({ priority: 5, icon: icPhone,
+      color: 'var(--red)', bg: 'var(--red-l)',
+      title: `${neglected.length} Neglected & Declining Accounts`,
+      text: `<strong>${neglected.length}</strong> accounts declining with no contact in 14+ days across ${csmsAffected.length} CSM${csmsAffected.length>1?'s':''} — $${fmtNum(ndMRR)}/mo exposed`,
+      detail,
+      steps: [
+        'Assign same-day outreach for the worst-declining accounts — start with ' + _cl(worst[0]),
+        'Review contact cadence — these accounts have gone 14+ days without a touchpoint while declining',
+        'Set up alerts for accounts that go 10+ days without contact while score is dropping'
+      ] });
+  })();
+
+  // ── Generator 3: CSM performance spread ──────────────────────
+  // Gap between best and worst performing CSM — flags team disparity
+  (() => {
+    if (activeMgrs.length < 2) return;
+    const sorted = [...activeMgrs].sort((a,b) => b.avgDelta - a.avgDelta);
+    const best = sorted[0];
+    const worst = sorted[sorted.length - 1];
+    const spread = Math.round((best.avgDelta - worst.avgDelta) * 10) / 10;
+    if (spread < 3) return; // not significant
+    const detail = `There\'s a significant gap in how CSM portfolios are performing this week. <strong>${escHtml(best.name)}</strong> is trending at <strong>${best.avgDelta > 0 ? '+' : ''}${best.avgDelta} pts/wk</strong> with an avg score of ${best.avgScore}, while <strong>${escHtml(worst.name)}</strong> is at <strong>${worst.avgDelta > 0 ? '+' : ''}${worst.avgDelta} pts/wk</strong> with an avg score of ${worst.avgScore}. A ${spread}-point spread usually signals different engagement approaches, workload issues, or account mix problems worth digging into.`;
+    items.push({ priority: 3, icon: icShuffle,
+      color: 'var(--amber)', bg: 'var(--amber-l)',
+      title: `${spread} pt Performance Gap Between CSMs`,
+      text: `<strong>${spread} pt</strong> spread between fastest- and slowest-improving portfolios this week`,
+      detail,
+      steps: [
+        'Schedule a 1:1 with <strong>' + escHtml(worst.name) + '</strong> to identify blockers in their portfolio',
+        'Have <strong>' + escHtml(best.name) + '</strong> share their playbook or run a team knowledge-share session',
+        'Review whether account assignment complexity differs between top and bottom performers'
+      ] });
+  })();
+
+  // ── Generator 4: MRR concentration risk ──────────────────────
+  // Single accounts that represent outsized MRR exposure if they churn
+  (() => {
+    const totalMRR = allAccs.reduce((s,c) => s + (c.mrr||0), 0);
+    if (!totalMRR) return;
+    const highMRR = allAccs.filter(c => (c.mrr||0) >= totalMRR * 0.08 && (c.status === 'critical' || c.status === 'risk'));
+    if (!highMRR.length) return;
+    highMRR.sort((a,b) => (b.mrr||0) - (a.mrr||0));
+    const combinedMRR = highMRR.reduce((s,c) => s + (c.mrr||0), 0);
+    const pct = Math.round(combinedMRR / totalMRR * 100);
+    const topAcct = highMRR[0];
+    const topPct = Math.round((topAcct.mrr||0) / totalMRR * 100);
+    const detail = `A large share of portfolio revenue is concentrated in ${highMRR.length === 1 ? 'a single account that\'s' : highMRR.length + ' accounts that are'} currently at risk. ${_cl(topAcct)} alone accounts for <strong>${topPct}%</strong> of total MRR with a health score of ${topAcct.score} (${topAcct.status}), managed by ${escHtml(topAcct.manager||'Unassigned')}.${highMRR.length > 1 ? ' Plus ' + (highMRR.length - 1) + ' more high-value account' + (highMRR.length > 2 ? 's' : '') + ' also at risk.' : ''} Losing ${highMRR.length === 1 ? 'this account' : 'any of these'} would create a material impact on the overall book of business.`;
+    items.push({ priority: 4, icon: icAlert,
+      color: 'var(--red)', bg: 'var(--red-l)',
+      title: `${pct}% MRR at Risk in ${highMRR.length} Account${highMRR.length>1?'s':''}`,
+      text: `<strong>${pct}%</strong> of total MRR ($${fmtNum(combinedMRR)}/mo) sits in ${highMRR.length} at-risk high-value account${highMRR.length>1?'s':''}`,
+      detail,
+      steps: [
+        'Assign an executive sponsor to ' + _cl(topAcct) + ' immediately',
+        'Build a 30-day save plan with specific adoption and engagement milestones',
+        'Assess pipeline diversification — single-account exposure above 8% of MRR is high risk'
+      ] });
+  })();
+
+  // ── Generator 5: Adoption-score disconnect ───────────────────
+  // Accounts with decent scores but dropping adoption — lagging risk
+  (() => {
+    const disconnected = allAccs.filter(c =>
+      c.adoption != null && c.adoption < 25 &&
+      c.score >= 60 && (c.status === 'healthy' || c.status === 'watch')
+    );
+    if (disconnected.length < 2) return;
+    const dcMRR = disconnected.reduce((s,c) => s + (c.mrr||0), 0);
+    const csmsAffected = [...new Set(disconnected.map(c => c.manager ? c.manager.trim() : 'Unassigned'))];
+    disconnected.sort((a,b) => a.adoption - b.adoption);
+    const examples = disconnected.slice(0,3).map(c => `${_cl(c)} (score ${c.score}, ${c.adoption}% adoption)`).join(' · ');
+    items.push({ priority: 3, icon: icDown,
+      color: 'var(--amber)', bg: 'var(--amber-l)',
+      title: `${disconnected.length} Accounts with Low Adoption Risk`,
+      text: `<strong>${disconnected.length}</strong> accounts look healthy but have adoption under 25% — potential lagging risk ($${fmtNum(dcMRR)}/mo)`,
+      detail: `These accounts look healthy on the surface — scores above 60 — but product adoption is under 25%. That\'s a leading indicator of future churn because customers who aren\'t using the product tend to question its value at renewal. The most at risk: ` + examples + `. Together they represent <strong>$${fmtNum(dcMRR)}/mo</strong> in MRR that could quietly slip away.`,
+      steps: [
+        'Run adoption deep-dives on the lowest-adoption accounts — identify unused features',
+        'Schedule product training or enablement sessions for these accounts',
+        'Treat these as leading indicators — scores may drop soon if adoption stays low'
+      ] });
+  })();
+
+  // ── Generator 6: Workload imbalance ──────────────────────────
+  // One CSM carries significantly more at-risk accounts than others
+  (() => {
+    if (activeMgrs.length < 2) return;
+    const avgRisk = activeMgrs.reduce((s,m) => s + m.atRisk, 0) / activeMgrs.length;
+    const overloaded = activeMgrs.filter(m => m.atRisk >= avgRisk * 2 && m.atRisk >= 3);
+    if (!overloaded.length) return;
+    overloaded.sort((a,b) => b.atRisk - a.atRisk);
+    const csm = overloaded[0];
+    const detail = `<strong>${escHtml(csm.name)}</strong> is managing <strong>${csm.atRisk} at-risk accounts</strong> worth $${fmtNum(csm.riskMRR)}/mo, while the team average is only ${Math.round(avgRisk)}. When one CSM is stretched too thin across too many problem accounts, response times suffer and at-risk accounts don\'t get the attention they need.${overloaded.length > 1 ? ' <strong>' + escHtml(overloaded[1].name) + '</strong> is also elevated at ' + overloaded[1].atRisk + ' at-risk accounts.' : ''} Redistributing some of this load could prevent accounts from slipping through the cracks.`;
+    items.push({ priority: 3, icon: icAlert,
+      color: 'var(--amber)', bg: 'var(--amber-l)',
+      title: `${escHtml(csm.name)} Carrying ${csm.atRisk} At-Risk Accounts`,
+      text: `Risk accounts are unevenly distributed — <strong>${escHtml(csm.name)}</strong> carries ${Math.round(csm.atRisk / Math.max(1, activeMgrs.reduce((s,m)=>s+m.atRisk,0)) * 100)}% of team's at-risk load`,
+      detail,
+      steps: [
+        'Evaluate redistributing 1–2 at-risk accounts to lower-loaded CSMs',
+        'Provide <strong>' + escHtml(csm.name) + '</strong> with additional support or temporary assistance',
+        'Review whether workload imbalance is contributing to declining portfolio health'
+      ] });
+  })();
+
+  // ── Generator 7: Cross-CSM bright spot ───────────────────────
+  // Which CSM is driving the most improvement, and what are they doing differently?
+  (() => {
+    const improving = activeMgrs.filter(m => m.avgDelta >= 1.5 && m.avgDelta > teamAvgDelta + 1);
+    if (!improving.length) return;
+    improving.sort((a,b) => b.avgDelta - a.avgDelta);
+    const best = improving[0];
+    const improvingAccts = best.accs.filter(c => getDelta7d(c) > 2);
+    // What's different about this CSM's portfolio?
+    const contactDays = best.accs.filter(c => c.days != null);
+    const avgContact = contactDays.length ? Math.round(contactDays.reduce((s,c) => s + c.days, 0) / contactDays.length) : null;
+    const teamContact = allAccs.filter(c => c.days != null);
+    const teamAvgContact = teamContact.length ? Math.round(teamContact.reduce((s,c) => s + c.days, 0) / teamContact.length) : null;
+    let why = `<strong>${escHtml(best.name)}</strong> is outpacing the rest of the team with <strong>${improvingAccts.length} of ${best.count}</strong> accounts actively improving this week. Their portfolio is trending at <strong>+${best.avgDelta} pts/wk</strong> compared to the team average of ${teamAvgDelta > 0 ? '+' : ''}${teamAvgDelta}.`;
+    if (avgContact != null && teamAvgContact != null && avgContact < teamAvgContact - 3) {
+      why += ` One likely factor: they\'re making contact every <strong>${avgContact} days</strong> on average, vs <strong>${teamAvgContact} days</strong> team-wide. More frequent touchpoints are clearly correlating with better outcomes.`;
+    } else {
+      why += ` Understanding what they\'re doing differently — whether it\'s talk tracks, timing, or prioritization — could help lift the rest of the team.`;
+    }
+    items.push({ priority: 1, icon: icUp,
+      color: 'var(--green)', bg: 'var(--green-l)',
+      title: `${escHtml(best.name)} Driving Strong Portfolio Gains`,
+      text: `<strong>${escHtml(best.name)}</strong> is driving the strongest portfolio gains at <strong>+${best.avgDelta} pts/wk</strong>`,
+      detail: why,
+      steps: [
+        'Document what <strong>' + escHtml(best.name) + '</strong> is doing differently — contact cadence, talk tracks, etc.',
+        'Have them present their approach at the next team meeting',
+        'Apply their methods to underperforming portfolios as a test'
+      ] });
+  })();
+
+  // ── Generator 8: Biggest single account at risk ──────────────
+  // The #1 account across all CSMs that needs attention today
+  (() => {
+    const atRisk = allAccs.filter(c => c.status === 'critical' || c.status === 'risk');
+    if (!atRisk.length) return;
+    const totalMRR = allAccs.reduce((s,c) => s + (c.mrr||0), 0);
+    // Score by: MRR share of portfolio (primary), severity, decline speed, renewal urgency
+    atRisk.sort((a,b) => {
+      const pctA = totalMRR ? (a.mrr||0) / totalMRR * 100 : 0;
+      const pctB = totalMRR ? (b.mrr||0) / totalMRR * 100 : 0;
+      const scoreA = pctA * 3 + (a.status === 'critical' ? 8 : 0) + Math.abs(Math.min(0, getDelta7d(a))) * 1.5 + (a.renewal != null && a.renewal > 0 && a.renewal <= 2 ? 5 : 0);
+      const scoreB = pctB * 3 + (b.status === 'critical' ? 8 : 0) + Math.abs(Math.min(0, getDelta7d(b))) * 1.5 + (b.renewal != null && b.renewal > 0 && b.renewal <= 2 ? 5 : 0);
+      return scoreB - scoreA;
+    });
+    const top = atRisk[0];
+    const delta = getDelta7d(top);
+    const topMRR = top.mrr || 0;
+    const mrrPct = totalMRR ? Math.round(topMRR / totalMRR * 100) : 0;
+
+    // Build conversational "why" narrative
+    var why = 'This is the highest-priority account across all CSMs right now. ';
+    why += _cl(top) + ' represents <strong>$' + fmtNum(topMRR) + '/mo</strong>';
+    if (mrrPct >= 2) why += ' (' + mrrPct + '% of total portfolio MRR)';
+    why += ', and ';
+    if (top.status === 'critical') {
+      why += 'is in <strong>critical</strong> status with a health score of ' + top.score;
+    } else {
+      why += 'is flagged as <strong>at risk</strong> with a health score of ' + top.score;
+    }
+    if (delta && delta < 0) {
+      why += ' that\'s dropped <strong>' + Math.abs(delta) + ' points</strong> this week';
+    } else if (delta && delta > 0) {
+      why += ', though it did improve ' + delta + ' pts this week';
+    }
+    why += '. ';
+
+    // Explain the risk signals conversationally
+    var whySignals = [];
+    if (top.days != null && top.days >= 14) whySignals.push('no one has reached out in <strong>' + top.days + ' days</strong>');
+    if (top.logins != null && top.logins < 5) whySignals.push('login activity is very low');
+    if (top.adoption != null && top.adoption < 30) whySignals.push('adoption is only at ' + top.adoption + '%');
+    if (top.tickets != null && top.tickets >= 3) whySignals.push('they have ' + top.tickets + ' open support tickets');
+    if (top.renewal != null && top.renewal > 0 && top.renewal <= 3) {
+      var renewDays = top.renewal_date ? Math.max(0, Math.round((new Date(top.renewal_date) - new Date()) / 86400000)) : Math.round((top.renewal || 0) * 30);
+      whySignals.push('their renewal is coming up in <strong>' + renewDays + ' days</strong>');
+    }
+    if (whySignals.length === 1) {
+      why += 'On top of that, ' + whySignals[0] + '. ';
+    } else if (whySignals.length > 1) {
+      why += 'On top of that, ' + whySignals.slice(0, -1).join(', ') + ' and ' + whySignals[whySignals.length - 1] + '. ';
+    }
+    why += 'Managed by <strong>' + escHtml(top.manager || 'Unassigned') + '</strong>.';
+
+    var signalBullets = [];
+    if (top.logins != null && top.logins < 5) signalBullets.push('low logins');
+    if (top.adoption != null && top.adoption < 30) signalBullets.push(top.adoption + '% adoption');
+    if (top.tickets != null && top.tickets >= 3) signalBullets.push(top.tickets + ' open tickets');
+    if (top.days != null && top.days >= 14) signalBullets.push(top.days + 'd since contact');
+    if (top.renewal != null && top.renewal > 0 && top.renewal <= 3) signalBullets.push('renews within 90d');
+    var signalStr = signalBullets.length ? signalBullets.join(', ') : 'multiple weak signals';
+
+    items.push({ priority: 4, icon: icTarget,
+      color: 'var(--red)', bg: 'var(--red-l)',
+      title: `Top Priority: ${escHtml(top.name)} ($${fmtNum(topMRR)}/mo)`,
+      text: `Highest-priority account across all CSMs: ${_cl(top)} ($${fmtNum(topMRR)}/mo, ${top.status})`,
+      detail: why,
+      steps: [
+        'Reach out to <strong>' + escHtml(top.manager||'Unassigned') + '</strong> today for a status update on this account',
+        'Review the risk signals (' + signalStr + ') and build a specific action plan for each',
+        'Schedule a customer check-in within 48 hours — don\'t let this one go quiet'
+      ] });
+  })();
+
+  // ── Render ───────────────────────────────────────────────────
   items.sort((a, b) => b.priority - a.priority);
 
   if (!items.length) {
     wrap.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:.82rem"><div style="font-size:1.4rem;margin-bottom:6px;opacity:.3">✓</div>No urgent focus areas — all CSMs look good.</div>';
+    window._csmFocusItems = [];
     return;
   }
 
-  wrap.innerHTML = items.slice(0, 8).map(it => `
-    <div class="csm-focus-item">
-      <div class="csm-focus-icon" style="background:${it.bg};color:${it.color}">${it.icon}</div>
-      <div class="csm-focus-text">
-        <div>${it.text}</div>
-        <p>${escHtml(it.detail)}</p>
-      </div>
-    </div>`).join('');
+  var shown = items.slice(0, 6);
+  window._csmFocusItems = shown;
+  wrap.innerHTML = shown.map(function(it, idx) { return '<div class="csm-focus-item" onclick="openFocusDetail(' + idx + ')">' +
+    '<div class="csm-focus-icon" style="background:' + it.bg + ';color:' + it.color + '">' + it.icon + '</div>' +
+    '<div class="csm-focus-title">' + it.title + '</div>' +
+    '<svg class="csm-focus-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>' +
+    '</div>'; }).join('');
+}
+
+function openFocusDetail(idx) {
+  var items = window._csmFocusItems;
+  if (!items || !items[idx]) return;
+  var it = items[idx];
+
+  // Accent-colored header banner
+  el('fd-banner').style.background = it.bg;
+  el('fd-banner').style.color = it.color;
+  el('fd-banner-icon').innerHTML = it.icon.replace(/width="13" height="13"/, 'width="22" height="22"');
+  el('fd-title').innerHTML = it.title;
+
+  // Build body
+  var h = '';
+
+  // Issue block
+  h += '<div class="fd-section">' +
+    '<div class="fd-section-hd"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Issue</div>' +
+    '<div class="fd-section-body">' + it.text + '</div>' +
+  '</div>';
+
+  // Why This Matters — callout card
+  h += '<div class="fd-callout" style="border-left-color:' + it.color + '">' +
+    '<div class="fd-callout-hd">Why This Matters</div>' +
+    '<div class="fd-callout-body">' + it.detail + '</div>' +
+  '</div>';
+
+  // Next Steps — numbered cards
+  h += '<div class="fd-section">' +
+    '<div class="fd-section-hd"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Suggested Next Steps</div>' +
+    '<div class="fd-steps-list">' +
+    it.steps.map(function(s, i) {
+      return '<div class="fd-step">' +
+        '<span class="fd-step-num" style="background:' + it.bg + ';color:' + it.color + '">' + (i + 1) + '</span>' +
+        '<span class="fd-step-text">' + s + '</span>' +
+      '</div>';
+    }).join('') +
+    '</div></div>';
+
+  el('fd-body').innerHTML = h;
+  openModal('focus-detail-modal');
 }
 
 /* ─── PORTFOLIO MOVEMENT ───────────────────────────────────────── */

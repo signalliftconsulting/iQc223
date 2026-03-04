@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "dev",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "-l", "9200", "C:\\Users\\iande\\Website Claude\\SignalLift-CS-Health"],
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "9200"],
       "port": 9200
     }
   ]

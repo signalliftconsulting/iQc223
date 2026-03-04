@@ -28,6 +28,10 @@ function renderSettings() {
   el('th-watch').value    = thresholds.watch;
   el('th-healthy').value  = thresholds.healthy;
   updateThresholdLabels();
+  renderExpansionSettings();
+  renderCadenceSettings();
+  renderRenewalWindows();
+  renderMiscThresholds();
 
   // Weights — available to ALL tiers (ungated)
   const weightCard = el('weight-rows')?.closest('.card');
@@ -130,7 +134,8 @@ function saveWeights() {
   renderProfiles();
   refreshProfileDropdown();
   resetEditingState();
-  logConfigChange('Global weights updated');
+  const wDetail = keys.map(k => `${WEIGHT_LABELS[k]||k}: ${weights[k]}%`).join(', ');
+  logConfigChange('Global weights updated', wDetail);
   renderScoreDistribution();
   toast('Weights saved!', 'success');
 }
@@ -235,9 +240,145 @@ function saveThresholds() {
   const changed = ['critical','risk','watch','healthy'].filter(k => prev[k] !== thresholds[k]).map(k => `${k}: ${prev[k]}→${thresholds[k]}`);
   logAudit('thresholds_updated', null, '', { summary: `Thresholds changed: ${changed.join(', ')}`, thresholds: { ...thresholds } });
   updateThresholdLabels();
-  logConfigChange('Thresholds updated');
+  logConfigChange('Thresholds updated', changed.length ? changed.join(', ') : 'No changes');
   renderScoreDistribution();
   toast('Thresholds saved!', 'success');
+}
+
+// ─── EXPANSION SETTINGS ──────────────────────────────────────
+function renderExpansionSettings() {
+  const modeEl = el('exp-mode');
+  const pctEl = el('exp-pct');
+  const flatEl = el('exp-flat');
+  if (!modeEl) return;
+  modeEl.value = expansionConfig.mode;
+  if (pctEl) pctEl.value = expansionConfig.pct;
+  if (flatEl) flatEl.value = expansionConfig.flat;
+  toggleExpMode(expansionConfig.mode);
+}
+
+function toggleExpMode(mode) {
+  const pctRow = el('exp-pct-row');
+  const flatRow = el('exp-flat-row');
+  if (pctRow) pctRow.style.display = mode === 'pct' ? '' : 'none';
+  if (flatRow) flatRow.style.display = mode === 'flat' ? '' : 'none';
+}
+
+function saveExpansion() {
+  const mode = el('exp-mode')?.value || 'pct';
+  const pct = parseFloat(el('exp-pct')?.value);
+  const flat = parseFloat(el('exp-flat')?.value);
+  if (mode === 'pct' && (isNaN(pct) || pct <= 0 || pct > 100)) {
+    toast('Percentage must be between 1 and 100', 'error'); return;
+  }
+  if (mode === 'flat' && (isNaN(flat) || flat <= 0)) {
+    toast('Flat amount must be greater than 0', 'error'); return;
+  }
+  const prev = { ...expansionConfig };
+  expansionConfig.mode = mode;
+  if (!isNaN(pct)) expansionConfig.pct = pct;
+  if (!isNaN(flat)) expansionConfig.flat = flat;
+  saveSettings();
+  logAudit('expansion_updated', null, '', { summary: `Expansion estimate changed: mode=${mode}, pct=${expansionConfig.pct}%, flat=$${expansionConfig.flat}`, expansion: { ...expansionConfig } });
+  const expDetail = mode === 'pct' ? `${expansionConfig.pct}% of MRR` : `$${expansionConfig.flat} per account`;
+  logConfigChange('Expansion estimate updated', expDetail);
+  toast('Expansion settings saved!', 'success');
+}
+
+// ─── CONTACT CADENCE SETTINGS ────────────────────────────────
+function renderCadenceSettings() {
+  ['enterprise','mid','smb'].forEach(t => {
+    const wEl = el('cad-' + t + '-warn');
+    const oEl = el('cad-' + t + '-overdue');
+    if (wEl) wEl.value = cadenceConfig[t].warn;
+    if (oEl) oEl.value = cadenceConfig[t].overdue;
+  });
+}
+
+function saveCadence() {
+  const tiers = ['enterprise','mid','smb'];
+  for (const t of tiers) {
+    const w = parseInt(el('cad-' + t + '-warn')?.value);
+    const o = parseInt(el('cad-' + t + '-overdue')?.value);
+    if (isNaN(w) || isNaN(o) || w < 1 || o < 1) {
+      toast('All cadence values must be positive numbers', 'error'); return;
+    }
+    if (w >= o) {
+      toast(`${t}: "Due Soon" days must be less than "Overdue" days`, 'error'); return;
+    }
+  }
+  tiers.forEach(t => {
+    cadenceConfig[t].warn = parseInt(el('cad-' + t + '-warn').value);
+    cadenceConfig[t].overdue = parseInt(el('cad-' + t + '-overdue').value);
+  });
+  saveSettings();
+  logAudit('cadence_updated', null, '', { summary: `Contact cadence updated: ENT ${cadenceConfig.enterprise.warn}/${cadenceConfig.enterprise.overdue}d, MID ${cadenceConfig.mid.warn}/${cadenceConfig.mid.overdue}d, SMB ${cadenceConfig.smb.warn}/${cadenceConfig.smb.overdue}d`, cadence: JSON.parse(JSON.stringify(cadenceConfig)) });
+  const cadDetail = `ENT ${cadenceConfig.enterprise.warn}/${cadenceConfig.enterprise.overdue}d, MID ${cadenceConfig.mid.warn}/${cadenceConfig.mid.overdue}d, SMB ${cadenceConfig.smb.warn}/${cadenceConfig.smb.overdue}d`;
+  logConfigChange('Contact cadence updated', cadDetail);
+  toast('Cadence settings saved!', 'success');
+}
+
+function resetCadence() {
+  cadenceConfig = JSON.parse(JSON.stringify(DEFAULT_CADENCE));
+  saveSettings();
+  renderCadenceSettings();
+  logConfigChange('Contact cadence reset to defaults');
+  toast('Cadence reset to defaults', 'warn');
+}
+
+// ─── RENEWAL WINDOWS ─────────────────────────────────────────
+function renderRenewalWindows() {
+  const cEl = el('rw-critical'); const wEl = el('rw-warning'); const uEl = el('rw-upcoming');
+  if (cEl) cEl.value = renewalWindows.critical;
+  if (wEl) wEl.value = renewalWindows.warning;
+  if (uEl) uEl.value = renewalWindows.upcoming;
+}
+
+function saveRenewalWindows() {
+  const c = parseInt(el('rw-critical')?.value);
+  const w = parseInt(el('rw-warning')?.value);
+  const u = parseInt(el('rw-upcoming')?.value);
+  if ([c,w,u].some(isNaN) || c < 1 || w < 1 || u < 1) { toast('All values must be positive', 'error'); return; }
+  if (!(c < w && w < u)) { toast('Must be in order: Critical < Warning < Upcoming', 'error'); return; }
+  renewalWindows.critical = c; renewalWindows.warning = w; renewalWindows.upcoming = u;
+  saveSettings();
+  logAudit('renewal_windows_updated', null, '', { summary: `Renewal windows: critical=${c}d, warning=${w}d, upcoming=${u}d` });
+  logConfigChange('Renewal windows updated', `Critical ≤${c}d, Warning ≤${w}d, Upcoming ≤${u}d`);
+  toast('Renewal windows saved!', 'success');
+}
+
+function resetRenewalWindows() {
+  renewalWindows = { ...DEFAULT_RENEWAL_WINDOWS };
+  saveSettings(); renderRenewalWindows();
+  logConfigChange('Renewal windows reset to defaults');
+  toast('Renewal windows reset to defaults', 'warn');
+}
+
+// ─── QUIET ACCOUNT & MOMENTUM ────────────────────────────────
+function renderMiscThresholds() {
+  const qEl = el('cfg-quiet-days');
+  const mEl = el('cfg-momentum-pts');
+  if (qEl) qEl.value = quietDays;
+  if (mEl) mEl.value = momentumPts;
+}
+
+function saveMiscThresholds() {
+  const q = parseInt(el('cfg-quiet-days')?.value);
+  const m = parseInt(el('cfg-momentum-pts')?.value);
+  if (isNaN(q) || q < 1) { toast('Quiet account days must be positive', 'error'); return; }
+  if (isNaN(m) || m < 1) { toast('Momentum threshold must be positive', 'error'); return; }
+  quietDays = q; momentumPts = m;
+  saveSettings();
+  logAudit('misc_thresholds_updated', null, '', { summary: `Quiet days=${q}, Momentum sensitivity=±${m} pts` });
+  logConfigChange('Signal thresholds updated', `Quiet=${q}d, Momentum=±${m}pts`);
+  toast('Thresholds saved!', 'success');
+}
+
+function resetMiscThresholds() {
+  quietDays = DEFAULT_QUIET_DAYS; momentumPts = DEFAULT_MOMENTUM_PTS;
+  saveSettings(); renderMiscThresholds();
+  logConfigChange('Signal thresholds reset to defaults');
+  toast('Thresholds reset to defaults', 'warn');
 }
 
 function resetThresholds() {
@@ -312,7 +453,8 @@ function updateEditingProfile() {
   if (isGlobal) weights = { ...newWeights };
   saveSettings();
   logAudit('profile_updated', null, '', { summary: `Profile "${p.name}" updated via slider`, profile: p.name, weights: newWeights });
-  logConfigChange('Profile "' + p.name + '" updated');
+  const pDetail = keys.map(k => `${WEIGHT_LABELS[k]||k}: ${newWeights[k]}%`).join(', ');
+  logConfigChange('Profile "' + p.name + '" updated', pDetail);
   rescoreByProfile(p.name);
   renderProfiles();
   refreshProfileDropdown();
@@ -439,9 +581,9 @@ function showDhDetail(type) {
   openModal('dh-detail-modal');
 }
 
-function logConfigChange(action) {
+function logConfigChange(action, details) {
   const hist = JSON.parse(localStorage.getItem('iqc_config_history') || '[]');
-  hist.unshift({ action, ts: Date.now(), user: currentUser?.email || '' });
+  hist.unshift({ action, details: details || '', ts: Date.now(), user: currentUser?.email || '' });
   if (hist.length > 20) hist.length = 20;
   localStorage.setItem('iqc_config_history', JSON.stringify(hist));
   renderConfigHistory();
@@ -452,16 +594,42 @@ function renderConfigHistory() {
   if (!wrap) return;
   const hist = JSON.parse(localStorage.getItem('iqc_config_history') || '[]');
   if (!hist.length) {
-    wrap.innerHTML = '<ul class="cfg-history"><li class="ch-empty">No config changes recorded yet.</li></ul>';
+    wrap.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:.85rem">No config changes recorded yet.</div>';
     return;
   }
-  let h = '<ul class="cfg-history">';
-  hist.slice(0, 10).forEach(e => {
-    const userStr = e.user ? `<span style="font-size:.72rem;color:var(--muted);margin-left:6px">${escHtml(e.user)}</span>` : '';
-    h += `<li><div class="ch-action">${e.action}${userStr}</div><div class="ch-time">${cfgTimeAgo(e.ts)}</div></li>`;
+  let h = '<table class="ct" style="width:100%;min-width:0"><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Details</th></tr></thead><tbody>';
+  hist.slice(0, 20).forEach(e => {
+    const dt = new Date(e.ts);
+    const time = dt.toLocaleDateString('en-US', { month:'short', day:'numeric' }) + ' ' + dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const user = e.user ? escHtml(e.user) : '<span style="color:var(--subtle)">—</span>';
+    const detail = e.details ? escHtml(e.details) : '<span style="color:var(--subtle)">—</span>';
+    h += `<tr>
+      <td style="font-size:.76rem;color:var(--muted);white-space:nowrap">${time}</td>
+      <td style="font-size:.76rem;color:var(--text)">${user}</td>
+      <td style="font-size:.78rem;color:var(--text);font-weight:600;white-space:nowrap">${escHtml(e.action)}</td>
+      <td style="font-size:.76rem;color:var(--muted);line-height:1.4">${detail}</td>
+    </tr>`;
   });
-  h += '</ul>';
+  h += '</tbody></table>';
   wrap.innerHTML = h;
+}
+
+function exportConfigHistory() {
+  const hist = JSON.parse(localStorage.getItem('iqc_config_history') || '[]');
+  if (!hist.length) { toast('No config history to export', 'warn'); return; }
+  const hdr = 'timestamp,user,action,details';
+  const rows = hist.map(e => {
+    const ts = new Date(e.ts).toISOString();
+    const csvEsc = v => '"' + String(v || '').replace(/"/g, '""') + '"';
+    return [ts, csvEsc(e.user), csvEsc(e.action), csvEsc(e.details)].join(',');
+  });
+  const csv = hdr + '\n' + rows.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'config_history_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 function clearConfigHistory() {
@@ -600,14 +768,16 @@ function confirmSaveProfile() {
     const keys = ['logins','adoption','tickets','nps','csat','days','growth'];
     const changed = keys.filter(k => (oldWeights[k]||0) !== profileWeights[k]).map(k => `${WEIGHT_LABELS[k]||k}: ${oldWeights[k]||0}→${profileWeights[k]}`);
     logAudit('profile_updated', null, '', { summary: `Profile "${name}" updated${changed.length ? ': ' + changed.join(', ') : ''}`, profile: name, weights: profileWeights });
-    logConfigChange(`Profile "${name}" updated`);
+    logConfigChange(`Profile "${name}" updated`, changed.length ? changed.join(', ') : 'No changes');
     toast(`Profile "${name}" updated`, 'success');
     // Rescore all customers assigned to this profile (or all unassigned for Global Weights)
     rescoreByProfile(name);
   } else {
     profiles.push({ name, weights: profileWeights });
     logAudit('profile_created', null, '', { summary: `New scoring profile "${name}" created`, profile: name, weights: profileWeights });
-    logConfigChange(`Profile "${name}" created`);
+    const pKeys = ['logins','adoption','tickets','nps','csat','days','growth'];
+    const pDetail = pKeys.map(k => `${WEIGHT_LABELS[k]||k}: ${profileWeights[k]}%`).join(', ');
+    logConfigChange(`Profile "${name}" created`, pDetail);
     toast(`Profile "${name}" saved`, 'success');
   }
 
