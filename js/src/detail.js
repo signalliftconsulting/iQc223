@@ -139,13 +139,20 @@ function showResult({ data, score, signals, status, rec, plays }) {
   // Scroll to the result so the user sees the score immediately
   card.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-  // Score ring
+  // Score ring — animate via transition + rAF
   document.getElementById('score-num').textContent = score;
   const circ = 2 * Math.PI * 58;
   const fill = document.getElementById('ring-fill');
-  fill.style.stroke           = STATUS_COLOR[status] || '#16a34a';
-  fill.style.strokeDasharray  = circ;
-  fill.style.strokeDashoffset = circ - (score / 100) * circ;
+  fill.style.stroke          = STATUS_COLOR[status] || '#16a34a';
+  fill.style.strokeDasharray = String(circ);
+  fill.style.transition      = 'none';
+  fill.style.strokeDashoffset = String(circ);            // start fully hidden
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      fill.style.transition      = 'stroke-dashoffset .9s cubic-bezier(.4,0,.2,1), stroke .3s';
+      fill.style.strokeDashoffset = String(circ - (score / 100) * circ);  // animate to score
+    });
+  });
 
   // Badge
   const badgeEl = document.getElementById('score-badge');
@@ -328,6 +335,7 @@ function saveScore() {
         resetForm();
         nav(_returnToPage || 'customers');
         _returnToPage = '';
+        if (_returnToDetail) { const rid = _returnToDetail; _returnToDetail = ''; setTimeout(() => openDetail(rid), 80); }
       }
     );
     return;
@@ -376,6 +384,7 @@ function saveScore() {
   resetForm();
   nav(_returnToPage || 'dashboard');
   _returnToPage = '';
+  if (_returnToDetail) { const rid = _returnToDetail; _returnToDetail = ''; setTimeout(() => openDetail(rid), 80); }
 }
 
 function resetForm() {
@@ -513,18 +522,26 @@ function renderDetailSentiment() {
   const icons = { positive:'😊', neutral:'😐', negative:'😟' };
   const labels = { positive:'Positive', neutral:'Neutral', negative:'Negative' };
 
-  el('dm-sentiment-list').innerHTML = logs.length
-    ? logs.map((s,i) => `
-        <div class="sent-log">
+  const sentWrap = el('dm-sentiment-list');
+  if (!logs.length) {
+    sentWrap.innerHTML = '<p style="font-size:.82rem;color:var(--muted)">No sentiment logs yet. Log one above.</p>';
+    return;
+  }
+  const pg = _pagGet('sentLog');
+  const slice = logs.slice(pg * PAGE_SIZE, (pg + 1) * PAGE_SIZE);
+  const pagNav = _pagHTML(logs.length, 'sentLog', 'renderDetailSentiment');
+  sentWrap.innerHTML = pagNav + slice.map((s,si) => {
+    const idx = pg * PAGE_SIZE + si; // original index for delete
+    return `<div class="sent-log">
           <div class="sent-log__icon">${icons[s.val]||'😐'}</div>
           <div style="flex:1;min-width:0">
             <div style="font-weight:700;font-size:.8rem">${labels[s.val]||s.val}</div>
             ${s.note ? `<div style="font-size:.75rem;color:var(--muted);margin-top:1px">${escHtml(s.note)}</div>` : ''}
           </div>
           <div class="sent-log__meta">${fmtDate(s.date)}</div>
-          <button class="btn btn-xs btn-danger" style="margin-left:6px" onclick="deleteSentiment(${i})">✕</button>
-        </div>`).join('')
-    : '<p style="font-size:.82rem;color:var(--muted)">No sentiment logs yet. Log one above.</p>';
+          <button class="btn btn-xs btn-danger" style="margin-left:6px" onclick="deleteSentiment(${idx})">✕</button>
+        </div>`;
+  }).join('') + pagNav;
 }
 
 function deleteSentiment(idx) {
@@ -559,6 +576,8 @@ function openDetail(id) {
   const c = customers.find(x => x.id === id);
   if (!c) return;
   detailId = id;
+  _pagState.sentLog = 0;
+  _pagState.scoreHist = 0;
 
   el('dm-name').textContent = c.name;
   el('dm-sub').innerHTML = `
@@ -739,9 +758,9 @@ function renderDetailOverview() {
         </div>
       </div>
     </div>
-    <!-- Signals row: last contact + cadence + urgency + sentiment -->
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:10px 12px;background:var(--bg);border-radius:var(--r);border:1px solid var(--border)">
-      <div style="flex:1;min-width:110px">
+    <!-- Signals row: last contact + next touch + renewal + sentiment -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;padding:10px 12px;background:var(--bg);border-radius:var(--r);border:1px solid var(--border)">
+      <div>
         <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:3px">Last Contact</div>
         ${(()=>{
           if (c.last_contact_date) {
@@ -749,22 +768,11 @@ function renderDetailOverview() {
             const daysAgo = Math.max(0, Math.floor((Date.now() - lcd.getTime()) / 86400000));
             return `<span style="font-size:.78rem;font-weight:600">${lcd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span> <span style="font-size:.7rem;color:var(--muted)">(${daysAgo}d ago)</span>`;
           }
+          if (c.days != null) return `<span style="font-size:.78rem;font-weight:600">${c.days}d ago</span>`;
           return '<span style="font-size:.75rem;color:var(--muted)">—</span>';
         })()}
       </div>
-      <div style="flex:1;min-width:110px">
-        <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:3px">Check-in</div>
-        <span class="${cad.cls}">${cad.label}</span>
-      </div>
-      <div style="flex:1;min-width:110px">
-        <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:3px">Renewal</div>
-        ${c.renewal != null ? urgencyHTML(c) + ` <span style="font-size:.7rem;color:var(--muted);margin-left:4px">(${c.renewal}mo)</span>` : '<span style="font-size:.75rem;color:var(--muted)">—</span>'}
-      </div>
-      <div style="flex:1;min-width:110px">
-        <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:3px">Last Vibe</div>
-        ${sentIcon ? `<span style="font-size:.85rem">${sentIcon}</span> <span style="font-size:.75rem;color:var(--muted)">${fmtDate(sent.date)}</span>` : '<span style="font-size:.75rem;color:var(--muted)">—</span>'}
-      </div>
-      <div style="flex:1;min-width:110px">
+      <div>
         <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:3px">Next Touch</div>
         ${(()=>{
           if (!c.next_touch) return '<span style="font-size:.75rem;color:var(--muted)">Not scheduled</span>';
@@ -774,6 +782,14 @@ function renderDetailOverview() {
           if (ntDays === 0) return `<span class="nt-badge nt-today">Today${tDisp}</span>`;
           return `<span class="nt-badge nt-ok">in ${ntDays}d${tDisp}</span>`;
         })()}
+      </div>
+      <div>
+        <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:3px">Renewal</div>
+        ${c.renewal != null ? urgencyHTML(c) + ` <span style="font-size:.7rem;color:var(--muted);margin-left:4px">(${c.renewal}mo)</span>` : '<span style="font-size:.75rem;color:var(--muted)">—</span>'}
+      </div>
+      <div>
+        <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:3px">Last Vibe</div>
+        ${sentIcon ? `<span style="font-size:.85rem">${sentIcon}</span> <span style="font-size:.75rem;color:var(--muted)">${fmtDate(sent.date)}</span>` : '<span style="font-size:.75rem;color:var(--muted)">—</span>'}
       </div>
     </div>
     <div class="rec-box" style="margin-bottom:14px">${rec}</div>
@@ -839,6 +855,8 @@ async function saveDetailInline() {
       <span style="margin-left:6px;color:var(--muted)">Score: <strong>${c.score}</strong></span>
       ${c.mrr ? `<span style="margin-left:6px;color:var(--muted)">MRR: <strong>$${fmtNum(c.mrr)}</strong></span>` : ''}
     `;
+    // Refresh the page behind the modal so widgets stay current
+    refreshCurrentPage();
     toast('Changes saved', 'success');
   } catch (err) {
     console.error('Save failed:', err);
@@ -975,45 +993,54 @@ function renderDetailHistory() {
     : '<p style="font-size:.8rem;color:var(--muted)">Score at least twice to see trend.</p>';
 
   // List — newest first; arr[i+1] = previous (older) entry
-  el('dm-history-list').innerHTML = hist.length
-    ? [...hist].reverse().map((h, i, arr) => {
-        const dotColor = STATUS_COLOR[getStatus(h.score)] || '#16a34a';
-        const prev = arr[i + 1];
+  const histList = el('dm-history-list');
+  const reversed = [...hist].reverse();
+  if (!reversed.length) {
+    histList.innerHTML = '<p style="font-size:.82rem;color:var(--muted)">No history yet.</p>';
+    return;
+  }
+  const pg = _pagGet('scoreHist');
+  const slice = reversed.slice(pg * PAGE_SIZE, (pg + 1) * PAGE_SIZE);
+  const pagNav = _pagHTML(reversed.length, 'scoreHist', 'renderDetailHistory');
+  // Need the entry before first slice item for delta calculation
+  const sliceStart = pg * PAGE_SIZE;
+  histList.innerHTML = pagNav + slice.map((h, i) => {
+    const globalIdx = sliceStart + i;
+    const dotColor = STATUS_COLOR[getStatus(h.score)] || '#16a34a';
+    const prev = reversed[globalIdx + 1]; // next in reversed = older entry
 
-        // Score delta badge
-        let deltaHtml = '';
-        if (prev != null) {
-          const d = h.score - prev.score;
-          if      (d > 0) deltaHtml = `<span class="delta-up" style="font-size:.72rem">▲${d}</span>`;
-          else if (d < 0) deltaHtml = `<span class="delta-dn" style="font-size:.72rem">▼${Math.abs(d)}</span>`;
-          else             deltaHtml = `<span class="delta-eq" style="font-size:.72rem">→0</span>`;
-        }
+    // Score delta badge
+    let deltaHtml = '';
+    if (prev != null) {
+      const d = h.score - prev.score;
+      if      (d > 0) deltaHtml = `<span class="delta-up" style="font-size:.72rem">▲${d}</span>`;
+      else if (d < 0) deltaHtml = `<span class="delta-dn" style="font-size:.72rem">▼${Math.abs(d)}</span>`;
+      else             deltaHtml = `<span class="delta-eq" style="font-size:.72rem">→0</span>`;
+    }
 
-        // Signal diff — what actually changed
-        const changes = diffSnapshots(h.signals || null, prev ? (prev.signals || null) : null);
-        let reasonHtml = '';
-        if (changes.length) {
-          reasonHtml = `<div class="hist-reason">${changes.map(escHtml).join(' &nbsp;·&nbsp; ')}</div>`;
-        } else if (!prev) {
-          reasonHtml = `<div class="hist-reason" style="font-style:italic">Initial score entry</div>`;
-        } else if (!h.signals) {
-          // Old entry with no signals stored — just say no detail available
-          reasonHtml = `<div class="hist-reason" style="color:var(--subtle);font-style:italic">No signal detail (pre-v18 entry)</div>`;
-        } else {
-          reasonHtml = `<div class="hist-reason" style="font-style:italic">All signals unchanged</div>`;
-        }
+    // Signal diff — what actually changed
+    const changes = diffSnapshots(h.signals || null, prev ? (prev.signals || null) : null);
+    let reasonHtml = '';
+    if (changes.length) {
+      reasonHtml = `<div class="hist-reason">${changes.map(escHtml).join(' &nbsp;·&nbsp; ')}</div>`;
+    } else if (!prev) {
+      reasonHtml = `<div class="hist-reason" style="font-style:italic">Initial score entry</div>`;
+    } else if (!h.signals) {
+      reasonHtml = `<div class="hist-reason" style="color:var(--subtle);font-style:italic">No signal detail (pre-v18 entry)</div>`;
+    } else {
+      reasonHtml = `<div class="hist-reason" style="font-style:italic">All signals unchanged</div>`;
+    }
 
-        return `
-          <div class="hist-row">
-            <div class="hist-dot" style="background:${dotColor}"></div>
-            <div class="hist-score">${h.score}</div>
-            ${deltaHtml}
-            <div>${badgeHTML(getStatus(h.score))}</div>
-            <div class="hist-date">${fmtDate(h.date)}</div>
-          </div>
-          ${reasonHtml}`;
-      }).join('')
-    : '<p style="font-size:.82rem;color:var(--muted)">No history yet.</p>';
+    return `
+      <div class="hist-row">
+        <div class="hist-dot" style="background:${dotColor}"></div>
+        <div class="hist-score">${h.score}</div>
+        ${deltaHtml}
+        <div>${badgeHTML(getStatus(h.score))}</div>
+        <div class="hist-date">${fmtDate(h.date)}</div>
+      </div>
+      ${reasonHtml}`;
+  }).join('') + pagNav;
 }
 
 function buildSparkline(values, w, h) {
@@ -1048,6 +1075,7 @@ function buildSparklineMini(c) {
 }
 
 let _returnToPage = '';
+let _returnToDetail = '';
 
 function editCustomer(id) {
   const cid = id || detailId;
@@ -1056,6 +1084,7 @@ function editCustomer(id) {
   if (!c) return;
 
   try { _returnToPage = localStorage.getItem('iqc_active_view') || 'dashboard'; } catch(e) { _returnToPage = 'dashboard'; }
+  _returnToDetail = c.id;
   closeModal('detail-modal');
   nav('score');
   document.getElementById('form-title').textContent = 'Re-score: ' + c.name;
@@ -1116,6 +1145,22 @@ function editCustomer(id) {
 
   // Override saveScore to update in-place
   window._editMode = c.id;
+
+  // Pre-populate result panel with current score so breakdown is visible immediately
+  const curData = {
+    name: c.name, manager: c.manager || '', mrr: c.mrr || 0, arr: c.arr || 0,
+    tier: c.tier || 'mid', lifecycle: c.lifecycle || 'active', tags: c.tags || [],
+    logins: c.logins, adoption: c.adoption, tickets: c.tickets,
+    nps: c.nps, csat: c.csat, days: c.days, growth: c.growth || 'none',
+    renewal: c.renewal, renewal_date: c.renewal_date || '', profile: c.scoring_profile || ''
+  };
+  const rw = c.scoring_profile ? (profiles.find(p => p.name === c.scoring_profile) || {}).weights || weights : weights;
+  const { score: curScore, signals: curSignals } = calcScore(curData, rw);
+  const curStatus = getStatus(curScore);
+  const curRec    = makeRec(curScore, curData);
+  const curPlays  = buildPlaybook(curScore, curData);
+  pendingResult = { data: curData, score: curScore, signals: curSignals, status: curStatus, rec: curRec, plays: curPlays };
+  showResult(pendingResult);
 }
 
 // Patch submitForm to handle edit mode
@@ -1175,6 +1220,7 @@ window.saveScore = function() {
       resetForm();
       nav(_returnToPage || 'customers');
       _returnToPage = '';
+      if (_returnToDetail) { const rid = _returnToDetail; _returnToDetail = ''; setTimeout(() => openDetail(rid), 80); }
       return;
     }
   }
@@ -1226,16 +1272,236 @@ function openQBR() {
   const c = customers.find(x => x.id === detailId);
   if (!c) return;
   logAudit('qbr_opened', c.id, c.name, { summary: 'QBR Prep opened' });
-  el('qbr-title').textContent = c.name;
-  el('qbr-content').textContent = buildQBRText(c);
+  el('qbr-content').innerHTML = buildQBRHTML(c);
   closeModal('detail-modal');
   openModal('qbr-modal');
 }
+function closeQBR() {
+  closeModal('qbr-modal');
+  if (detailId) setTimeout(() => openDetail(detailId), 80);
+}
 
+/* ── Rich HTML version (displayed in modal) ── */
+function buildQBRHTML(c) {
+  const mom   = getMomentum(c);
+  const cad   = getCadenceStatus(c);
+  const sent  = latestSentiment(c);
+  const u     = getRenewalUrgency(c);
+  const date  = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+
+  const statusColor = STATUS_COLOR[c.status] || '#16a34a';
+  const statusLabel = STATUS_LABEL[c.status] || 'Healthy';
+
+  const momIcons  = { up:'↑', dn:'↓', flat:'→', new:'★' };
+  const momColors = { up:'#16a34a', dn:'#dc2626', flat:'#d97706', new:'#2563eb' };
+  const momLabels = { up:'Improving', dn:'Declining', flat:'Flat', new:'New' };
+  const sentLabels = { positive:'Positive', neutral:'Neutral', negative:'Negative' };
+
+  const hist = c.history || [];
+  const histLine = hist.length >= 2
+    ? `${hist[hist.length-2].score} → ${hist[hist.length-1].score} <span style="color:${hist[hist.length-1].score >= hist[hist.length-2].score ? '#16a34a' : '#dc2626'}">(${hist[hist.length-1].score > hist[hist.length-2].score ? '+' : ''}${hist[hist.length-1].score - hist[hist.length-2].score})</span>`
+    : '';
+
+  const tierMap = { smb:'SMB', mid:'Mid-Market', enterprise:'Enterprise' };
+  const tierDisp = tierMap[c.tier] || c.tier || '';
+  const name = c.name || 'This account';
+
+  // SVG icons
+  const svgi = (d, w=14) => `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:middle">${d}</svg>`;
+  const svgSummary   = svgi('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/>');
+  const svgWins      = svgi('<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>');
+  const svgRisks     = svgi('<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>');
+  const svgAgenda    = svgi('<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>');
+  const svgQuestions = svgi('<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>');
+  const svgNotes     = svgi('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>');
+  const svgDollar    = svgi('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>', 12);
+  const svgRenewal   = svgi('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>', 12);
+
+  /* ── Wins & Highlights ── */
+  const wins = [];
+  if (c.logins != null && c.logins >= 15) wins.push(`Strong engagement \u2014 ${c.logins} logins in the past 30 days`);
+  if (c.adoption != null && c.adoption >= 60) wins.push(`High feature adoption at ${c.adoption}%`);
+  if (c.tickets != null && c.tickets <= 1) wins.push(`Clean support queue \u2014 ${c.tickets === 0 ? 'no' : 'only 1'} open ticket${c.tickets === 1 ? '' : 's'}`);
+  if (c.nps != null && npsIsPromoter(c.nps)) wins.push(`NPS promoter (${npsDisplay(c.nps)}) \u2014 strong advocacy potential`);
+  if (c.csat != null && csatIsGood(c.csat)) wins.push(`High satisfaction (CSAT ${csatDisplay(c.csat)})`);
+  if (c.growth === 'strong') wins.push('Strong growth trajectory \u2014 expansion opportunity');
+  else if (c.growth === 'mild') wins.push('Positive growth trend emerging');
+  if (sent && sent.val === 'positive') wins.push(`Positive sentiment logged on ${fmtDate(sent.date)}`);
+  if (mom === 'up') wins.push('Health score is trending upward');
+  if (c.days != null && c.days <= 7) wins.push('Recently engaged \u2014 last contact within 7 days');
+
+  /* ── Risks & Concerns ── */
+  const risks = [];
+  if (c.logins != null && c.logins < 5) risks.push({ sev:'high', text:`Low engagement \u2014 only ${c.logins} login${c.logins === 1 ? '' : 's'} in the past 30 days` });
+  else if (c.logins != null && c.logins < 12) risks.push({ sev:'med', text:`Moderate engagement \u2014 ${c.logins} logins/month (below ideal)` });
+  if (c.adoption != null && c.adoption < 25) risks.push({ sev:'high', text:`Critical adoption gap \u2014 only ${c.adoption}% of features utilized` });
+  else if (c.adoption != null && c.adoption < 50) risks.push({ sev:'med', text:`Adoption at ${c.adoption}% \u2014 significant value left on the table` });
+  if (c.tickets != null && c.tickets >= 5) risks.push({ sev:'high', text:`${c.tickets} open support tickets \u2014 unresolved friction` });
+  else if (c.tickets != null && c.tickets >= 3) risks.push({ sev:'med', text:`${c.tickets} open tickets may indicate product friction` });
+  if (c.nps != null && npsIsDetractor(c.nps)) risks.push({ sev:'high', text:`NPS detractor (${npsDisplay(c.nps)}) \u2014 needs immediate attention` });
+  if (c.csat != null && csatIsPoor(c.csat)) risks.push({ sev:'high', text:`CSAT is ${csatDisplay(c.csat)} \u2014 satisfaction critically low` });
+  if (c.days != null && c.days > 30) risks.push({ sev:'high', text:`No contact in ${c.days} days \u2014 relationship at risk` });
+  else if (c.days != null && c.days > 14) risks.push({ sev:'med', text:`${c.days} days since last contact \u2014 follow-up overdue` });
+  if (c.growth === 'declining') risks.push({ sev:'med', text:'Growth signal is declining' });
+  if (sent && sent.val === 'negative') risks.push({ sev:'high', text:`Negative sentiment logged on ${fmtDate(sent.date)}` });
+  if (mom === 'dn') risks.push({ sev:'med', text:'Health score trending downward' });
+  if (c.renewal != null && c.renewal <= 2) risks.push({ sev: c.renewal <= 1 ? 'high' : 'med', text:`Renewal in ${c.renewal} month${c.renewal === 1 ? '' : 's'} \u2014 needs proactive attention` });
+
+  /* ── Executive Summary ── */
+  let summary = '';
+  if (c.status === 'critical' || c.status === 'risk') {
+    summary = `${name} is currently in a <strong>${statusLabel}</strong> state with a health score of ${c.score}/100. `;
+    if (mom === 'dn') summary += 'The score has been declining, which warrants immediate attention. ';
+    else if (mom === 'up') summary += 'However, the score is trending upward, indicating recent recovery efforts may be working. ';
+    if (risks.length) summary += `There ${risks.length === 1 ? 'is 1 key concern' : 'are ' + risks.length + ' concerns'} to address. `;
+    if (c.renewal != null && c.renewal <= 3) summary += `With renewal ${c.renewal <= 1 ? 'imminent' : 'approaching in ' + c.renewal + ' months'}, this QBR is critical for retention. `;
+    summary += 'The focus for this meeting should be understanding root causes and building a joint recovery plan.';
+  } else if (c.status === 'watch') {
+    summary = `${name} is in <strong>Watch</strong> status (${c.score}/100). `;
+    if (wins.length) summary += `There are positive signals, `;
+    summary += `but ${risks.length ? risks.length + ' area' + (risks.length > 1 ? 's need' : ' needs') + ' attention' : 'some signals are mixed'}. `;
+    summary += 'This QBR should balance acknowledging wins while proactively addressing gaps before they escalate.';
+  } else if (c.status === 'expand') {
+    summary = `${name} is performing strongly at ${c.score}/100 (<strong>${statusLabel}</strong>). `;
+    if (wins.length) summary += `Key highlights include strong engagement and satisfaction. `;
+    summary += 'This QBR is an opportunity to deepen the partnership, explore expansion, and build advocacy.';
+  } else {
+    summary = `${name} is in a <strong>${statusLabel}</strong> state with a health score of ${c.score}/100. `;
+    if (mom === 'up') summary += 'The score is trending positively. ';
+    if (wins.length && risks.length) summary += `There are clear strengths alongside ${risks.length} area${risks.length > 1 ? 's' : ''} to monitor. `;
+    else if (wins.length) summary += 'Multiple positive signals are present. ';
+    summary += 'This meeting should reinforce value, address any concerns, and align on goals for the next quarter.';
+  }
+
+  /* ── Suggested Agenda ── */
+  const agenda = [];
+  agenda.push({ time:'5 min', topic:'Welcome & Relationship Check-in', detail:'Open with a personal check-in. Ask how things are going overall before diving into business.' });
+  if (wins.length)
+    agenda.push({ time:'10 min', topic:'Celebrate Wins & Value Delivered', detail:'Walk through key successes and metrics that demonstrate ROI. Let the customer see the impact.' });
+  if (risks.some(r => r.sev === 'high'))
+    agenda.push({ time:'10 min', topic:'Address Key Concerns', detail:'Proactively raise the high-priority concerns identified below. Show you\'re aware and have a plan.' });
+  else if (risks.length)
+    agenda.push({ time:'5 min', topic:'Areas for Improvement', detail:'Brief discussion on areas where there\'s room to grow.' });
+  if (c.adoption != null && c.adoption < 60)
+    agenda.push({ time:'10 min', topic:'Product Adoption & Enablement', detail:`Current adoption is at ${c.adoption}%. Walk through underutilized features and their business impact.` });
+  agenda.push({ time:'10 min', topic:'Goals for Next Quarter', detail:'Align on what success looks like for Q+1. Document concrete objectives together.' });
+  if (c.renewal != null && c.renewal <= 6)
+    agenda.push({ time:'5 min', topic:'Renewal & Partnership Discussion', detail:`Renewal is ${c.renewal} month${c.renewal === 1 ? '' : 's'} out. Address timeline, scope, and any expansion interest.` });
+  if (c.growth === 'strong' || c.growth === 'mild' || c.status === 'expand')
+    agenda.push({ time:'5 min', topic:'Expansion Opportunities', detail:'Explore where additional value could be unlocked \u2014 new users, features, or tiers.' });
+  agenda.push({ time:'5 min', topic:'Action Items & Next Steps', detail:'Summarize agreed-upon action items with owners and timelines.' });
+
+  /* ── Questions to Ask ── */
+  const questions = [];
+  questions.push('What\'s top of mind for your team heading into next quarter?');
+  questions.push('Are there any internal changes (team, strategy, budget) we should be aware of?');
+  if (c.logins != null && c.logins < 10)
+    questions.push('What does a typical week look like for your team using the platform? Are there barriers to more frequent usage?');
+  if (c.adoption != null && c.adoption < 50)
+    questions.push('Are there specific features you\'ve wanted to try but haven\'t had time to explore?');
+  if (c.tickets != null && c.tickets >= 3)
+    questions.push('How has your experience with our support team been? Is there anything we can do to resolve these issues faster?');
+  if (c.nps != null && npsIsDetractor(c.nps))
+    questions.push('Your recent NPS feedback was lower than expected \u2014 can you help me understand what fell short?');
+  if (c.growth === 'strong' || c.status === 'expand')
+    questions.push('Your team has been growing \u2014 are there additional users or departments that could benefit from the platform?');
+  if (c.renewal != null && c.renewal <= 6)
+    questions.push('As we approach renewal, is there anything you\'d like to see from us to make the decision easier?');
+  if (c.days != null && c.days > 21)
+    questions.push('It\'s been a while since we last connected \u2014 has anything changed on your end that I should know about?');
+  if (sent && sent.val === 'negative')
+    questions.push('I wanted to follow up on our last conversation. Has anything improved since then?');
+  questions.push('What would make our partnership even more valuable to your organization over the next 6 months?');
+
+  /* ── Recent Notes ── */
+  const recentNotes = (c.notes || []).slice(0, 3);
+  const notesHTML = recentNotes.map(n =>
+    `<div class="qbr-note"><div class="qbr-note-date">${fmtDate(n.date)}</div>${escHtml(n.text)}</div>`
+  ).join('');
+
+  /* ── Render sections ── */
+  const winsHTML = wins.map(w =>
+    `<div class="qbr-win-row"><span class="qbr-win-dot"></span><span>${w}</span></div>`
+  ).join('');
+
+  const risksHTML = risks.map(r =>
+    `<div class="qbr-risk-row ${r.sev === 'high' ? 'qbr-risk--high' : 'qbr-risk--med'}"><span class="qbr-risk-dot"></span><span>${r.text}</span></div>`
+  ).join('');
+
+  const agendaHTML = agenda.map((a, i) =>
+    `<div class="qbr-agenda-item">
+      <div class="qbr-agenda-num">${i + 1}</div>
+      <div class="qbr-agenda-body">
+        <div class="qbr-agenda-topic">${a.topic} <span class="qbr-agenda-time">${a.time}</span></div>
+        <div class="qbr-agenda-detail">${a.detail}</div>
+      </div>
+    </div>`
+  ).join('');
+
+  const questionsHTML = questions.map(q =>
+    `<div class="qbr-q-row"><span class="qbr-q-bullet">?</span><span>${q}</span></div>`
+  ).join('');
+
+  return `
+    <div class="qbr-hdr">
+      <div class="qbr-score" style="background:${statusColor}">
+        <div class="qbr-score-num">${c.score}</div>
+        <div class="qbr-score-lbl">${statusLabel}</div>
+      </div>
+      <div class="qbr-meta">
+        <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--blue);margin-bottom:2px">Quarterly Business Review</div>
+        <h3>${escHtml(c.name)}</h3>
+        <div style="font-size:.78rem;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:2px">
+          <span style="color:${momColors[mom] || '#94a3b8'};font-weight:700">${momIcons[mom] || ''} ${momLabels[mom] || '\u2014'}</span>
+          ${histLine ? `<span style="color:var(--border)">\u00b7</span><span style="font-weight:600">${histLine}</span>` : ''}
+        </div>
+        <div class="qbr-meta-tags">
+          ${c.mrr ? `<span class="qbr-tag" style="display:inline-flex;align-items:center;gap:4px">${svgDollar} $${fmtNum(c.mrr)} MRR</span>` : ''}
+          ${tierDisp ? `<span class="qbr-tag">${tierDisp}</span>` : ''}
+          ${c.lifecycle ? `<span class="qbr-tag">${c.lifecycle}</span>` : ''}
+          ${c.renewal != null ? `<span class="qbr-tag" style="display:inline-flex;align-items:center;gap:4px">${svgRenewal} ${c.renewal}mo to renewal${u ? ' \u00b7 ' + u.label : ''}</span>` : ''}
+        </div>
+      </div>
+    </div>
+
+    <div class="qbr-section">
+      <div class="qbr-section-title">${svgSummary} Executive Summary</div>
+      <div class="qbr-summary">${summary}</div>
+    </div>
+
+    ${wins.length ? `
+    <div class="qbr-section">
+      <div class="qbr-section-title">${svgWins} Wins & Highlights</div>
+      <div class="qbr-wins">${winsHTML}</div>
+    </div>` : ''}
+
+    ${risks.length ? `
+    <div class="qbr-section">
+      <div class="qbr-section-title">${svgRisks} Risks & Concerns</div>
+      <div class="qbr-risks">${risksHTML}</div>
+    </div>` : ''}
+
+    <div class="qbr-section">
+      <div class="qbr-section-title">${svgAgenda} Suggested Agenda</div>
+      <div class="qbr-agenda">${agendaHTML}</div>
+    </div>
+
+    <div class="qbr-section">
+      <div class="qbr-section-title">${svgQuestions} Questions to Ask</div>
+      <div class="qbr-questions">${questionsHTML}</div>
+    </div>
+
+    ${recentNotes.length ? `
+    <div class="qbr-section">
+      <div class="qbr-section-title">${svgNotes} Meeting Context \u2014 Recent Notes</div>
+      <div class="qbr-notes">${notesHTML}</div>
+    </div>` : ''}
+
+    <div class="qbr-footer">Prepared ${date} \u00b7 IQ Cadence \u00b7 iqcadence.com</div>`;
+}
+
+/* ── Plain-text version (clipboard copy) ── */
 function buildQBRText(c) {
-  const nba   = buildNextBestAction(c);
-  const plays = buildPlaybook(c.score, c);
-  const rec   = makeRec(c.score, c).replace(/<[^>]+>/g, '');
   const mom   = getMomentum(c);
   const cad   = getCadenceStatus(c);
   const sent  = latestSentiment(c);
@@ -1243,62 +1509,117 @@ function buildQBRText(c) {
   const momLabels = { up:'Improving', dn:'Declining', flat:'Flat', new:'New' };
   const sentLabels = { positive:'Positive', neutral:'Neutral', negative:'Negative' };
   const date  = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
-
-  // Score history summary
   const hist = c.history || [];
   const histLine = hist.length >= 2
     ? `${hist[hist.length-2].score} → ${hist[hist.length-1].score} (${hist[hist.length-1].score > hist[hist.length-2].score ? '+' : ''}${hist[hist.length-1].score - hist[hist.length-2].score} pts)`
     : `${c.score} (first score)`;
+  const tierMap = { smb:'SMB', mid:'Mid-Market', enterprise:'Enterprise' };
+  const name = c.name || 'This account';
 
-  // Recent notes
+  // Wins
+  const wins = [];
+  if (c.logins != null && c.logins >= 15) wins.push(`Strong engagement — ${c.logins} logins in the past 30 days`);
+  if (c.adoption != null && c.adoption >= 60) wins.push(`High feature adoption at ${c.adoption}%`);
+  if (c.tickets != null && c.tickets <= 1) wins.push(`Clean support queue — ${c.tickets === 0 ? 'no' : 'only 1'} open ticket${c.tickets === 1 ? '' : 's'}`);
+  if (c.nps != null && npsIsPromoter(c.nps)) wins.push(`NPS promoter (${npsDisplay(c.nps)}) — strong advocacy potential`);
+  if (c.csat != null && csatIsGood(c.csat)) wins.push(`High satisfaction (CSAT ${csatDisplay(c.csat)})`);
+  if (c.growth === 'strong') wins.push('Strong growth trajectory — expansion opportunity');
+  else if (c.growth === 'mild') wins.push('Positive growth trend emerging');
+  if (sent && sent.val === 'positive') wins.push(`Positive sentiment logged on ${fmtDate(sent.date)}`);
+  if (mom === 'up') wins.push('Health score is trending upward');
+  if (c.days != null && c.days <= 7) wins.push('Recently engaged — last contact within 7 days');
+
+  // Risks
+  const risks = [];
+  if (c.logins != null && c.logins < 5) risks.push(`[HIGH] Low engagement — only ${c.logins} logins in the past 30 days`);
+  else if (c.logins != null && c.logins < 12) risks.push(`[MED] Moderate engagement — ${c.logins} logins/month`);
+  if (c.adoption != null && c.adoption < 25) risks.push(`[HIGH] Critical adoption gap — only ${c.adoption}% of features utilized`);
+  else if (c.adoption != null && c.adoption < 50) risks.push(`[MED] Adoption at ${c.adoption}% — value left on the table`);
+  if (c.tickets != null && c.tickets >= 5) risks.push(`[HIGH] ${c.tickets} open support tickets — unresolved friction`);
+  else if (c.tickets != null && c.tickets >= 3) risks.push(`[MED] ${c.tickets} open tickets may indicate product friction`);
+  if (c.nps != null && npsIsDetractor(c.nps)) risks.push(`[HIGH] NPS detractor (${npsDisplay(c.nps)}) — needs immediate attention`);
+  if (c.csat != null && csatIsPoor(c.csat)) risks.push(`[HIGH] CSAT is ${csatDisplay(c.csat)} — satisfaction critically low`);
+  if (c.days != null && c.days > 30) risks.push(`[HIGH] No contact in ${c.days} days — relationship at risk`);
+  else if (c.days != null && c.days > 14) risks.push(`[MED] ${c.days} days since last contact — follow-up overdue`);
+  if (c.growth === 'declining') risks.push('[MED] Growth signal is declining');
+  if (sent && sent.val === 'negative') risks.push(`[HIGH] Negative sentiment logged on ${fmtDate(sent.date)}`);
+  if (mom === 'dn') risks.push('[MED] Health score trending downward');
+  if (c.renewal != null && c.renewal <= 2) risks.push(`[${c.renewal <= 1 ? 'HIGH' : 'MED'}] Renewal in ${c.renewal} month${c.renewal === 1 ? '' : 's'} — needs proactive attention`);
+
+  // Summary
+  let summary = '';
+  const sl = STATUS_LABEL[c.status] || 'Healthy';
+  if (c.status === 'critical' || c.status === 'risk') {
+    summary = `${name} is currently in a ${sl} state with a health score of ${c.score}/100. `;
+    if (mom === 'dn') summary += 'The score has been declining. ';
+    if (risks.length) summary += `There are ${risks.length} concern(s) to address. `;
+    if (c.renewal != null && c.renewal <= 3) summary += `Renewal is ${c.renewal <= 1 ? 'imminent' : 'in ' + c.renewal + ' months'}. `;
+    summary += 'Focus this meeting on understanding root causes and building a joint recovery plan.';
+  } else if (c.status === 'expand') {
+    summary = `${name} is performing strongly at ${c.score}/100 (${sl}). This QBR is an opportunity to deepen the partnership, explore expansion, and build advocacy.`;
+  } else {
+    summary = `${name} is in a ${sl} state (${c.score}/100). This meeting should reinforce value, address concerns, and align on goals for next quarter.`;
+  }
+
+  // Agenda
+  const agenda = [];
+  agenda.push('1. Welcome & Relationship Check-in (5 min)');
+  if (wins.length) agenda.push('2. Celebrate Wins & Value Delivered (10 min)');
+  if (risks.length) agenda.push(`${agenda.length + 1}. Address Concerns (10 min)`);
+  if (c.adoption != null && c.adoption < 60) agenda.push(`${agenda.length + 1}. Product Adoption & Enablement (10 min)`);
+  agenda.push(`${agenda.length + 1}. Goals for Next Quarter (10 min)`);
+  if (c.renewal != null && c.renewal <= 6) agenda.push(`${agenda.length + 1}. Renewal & Partnership Discussion (5 min)`);
+  if (c.growth === 'strong' || c.growth === 'mild' || c.status === 'expand') agenda.push(`${agenda.length + 1}. Expansion Opportunities (5 min)`);
+  agenda.push(`${agenda.length + 1}. Action Items & Next Steps (5 min)`);
+
+  // Questions
+  const questions = [];
+  questions.push('What\'s top of mind for your team heading into next quarter?');
+  questions.push('Are there any internal changes (team, strategy, budget) we should be aware of?');
+  if (c.logins != null && c.logins < 10) questions.push('What does a typical week look like for your team using the platform?');
+  if (c.adoption != null && c.adoption < 50) questions.push('Are there specific features you\'ve wanted to explore?');
+  if (c.tickets != null && c.tickets >= 3) questions.push('How has your experience with our support team been?');
+  if (c.renewal != null && c.renewal <= 6) questions.push('As we approach renewal, is there anything you\'d like to see from us?');
+  questions.push('What would make our partnership even more valuable over the next 6 months?');
+
   const recentNotes = (c.notes || []).slice(0, 3).map(n => `  • [${fmtDate(n.date)}] ${n.text}`).join('\n');
 
-  // Plays as plain text
-  const playsText = plays.map(p => `  • ${p.text.replace(/<[^>]+>/g,'')}`).join('\n');
-
   return `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-QBR PREP SUMMARY — ${c.name.toUpperCase()}
+QBR MEETING PREP — ${c.name.toUpperCase()}
 Generated: ${date} · IQcadence CS Health Score
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-HEALTH SNAPSHOT
-  Health Score:    ${c.score} / 100  (${rec.replace(/^[^:]+:\s*/,'').split('.')[0]})
-  Status:          ${STATUS_LABEL[c.status] || 'Healthy'}
+ACCOUNT SNAPSHOT
+  Health Score:    ${c.score} / 100  (${sl})
   Momentum:        ${momLabels[mom] || '—'}
   Score Trend:     ${histLine}
   MRR:             ${c.mrr ? '$' + fmtNum(c.mrr) : '—'}
-  Tier:            ${(c.tier || '—').toUpperCase()}
+  Tier:            ${tierMap[c.tier] || c.tier || '—'}
   Lifecycle:       ${c.lifecycle || '—'}
   Renewal:         ${c.renewal != null ? c.renewal + ' months' + (u ? ' — ' + u.label + ' urgency' : '') : '—'}
 
-SIGNAL BREAKDOWN
-  Login Frequency:    ${c.logins != null ? c.logins + ' / 30 days' : 'N/A'}
-  Feature Adoption:   ${c.adoption != null ? c.adoption + '%' : 'N/A'}
-  Open Tickets:       ${c.tickets != null ? c.tickets : 'N/A'}
-  NPS:                ${npsDisplay(c.nps)}
-  CSAT:               ${csatDisplay(c.csat)}
-  Days Since Contact: ${c.days != null ? c.days + ' days' : 'N/A'}  (${cad.label})
-  Growth Signal:      ${c.growth}
-  Last Vibe Check:    ${sent ? sentLabels[sent.val] + ' — ' + fmtDate(sent.date) + (sent.note ? ' ("' + sent.note + '")' : '') : 'Not logged'}
+EXECUTIVE SUMMARY
+  ${summary}
+${wins.length ? `\nWINS & HIGHLIGHTS\n${wins.map(w => '  ✓ ' + w).join('\n')}` : ''}
+${risks.length ? `\nRISKS & CONCERNS\n${risks.map(r => '  ⚠ ' + r).join('\n')}` : ''}
 
-NEXT BEST ACTION
-  ${nba.action}
-  "${nba.talk.replace(/<[^>]+>/g,'')}"
+SUGGESTED AGENDA
+${agenda.map(a => '  ' + a).join('\n')}
 
-RECOMMENDED PLAYBOOK
-${playsText}
-${recentNotes ? `\nRECENT NOTES\n${recentNotes}` : ''}
+QUESTIONS TO ASK
+${questions.map(q => '  ? ' + q).join('\n')}
+${recentNotes ? `\nMEETING CONTEXT — RECENT NOTES\n${recentNotes}` : ''}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Prepared with IQ Cadence · iqcadence.com
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 }
 
 function copyQBR() {
-  const text = el('qbr-content').textContent;
+  const c = customers.find(x => x.id === detailId);
+  const text = c ? buildQBRText(c) : el('qbr-content').textContent;
   navigator.clipboard.writeText(text).then(() => {
     toast('Copied to clipboard!', 'success');
   }).catch(() => {
-    // Fallback for older browsers
     const ta = document.createElement('textarea');
     ta.value = text;
     ta.style.position = 'fixed';
@@ -1312,15 +1633,35 @@ function copyQBR() {
 }
 
 function printQBR() {
-  const c = customers.find(x => x.id === detailId) || {};
   const pa = document.getElementById('print-area');
   pa.style.display = 'block';
   pa.innerHTML = `
     <style>
-      body{font-family:'Courier New',monospace;color:#0f172a;padding:32px;max-width:800px;margin:0 auto;font-size:.82rem;line-height:1.7}
-      pre{white-space:pre-wrap;word-break:break-word}
+      body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;padding:32px;max-width:800px;margin:0 auto}
+      .qbr-hdr{display:flex;gap:16px;align-items:center;padding:16px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:16px}
+      .qbr-score{width:72px;height:72px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-weight:800;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .qbr-score-num{font-size:1.5rem;line-height:1}.qbr-score-lbl{font-size:.6rem;text-transform:uppercase;letter-spacing:.5px;opacity:.9;margin-top:2px}
+      .qbr-meta h3{margin:0 0 4px;font-size:1rem}
+      .qbr-section{margin-bottom:14px}.qbr-section-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#64748b;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:7px}
+      .qbr-summary{font-size:.82rem;line-height:1.7;padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .qbr-wins,.qbr-risks,.qbr-questions{display:grid;gap:2px}
+      .qbr-win-row,.qbr-risk-row,.qbr-q-row{display:flex;align-items:center;gap:10px;padding:5px 8px;font-size:.82rem}
+      .qbr-win-row:nth-child(odd),.qbr-risk-row:nth-child(odd),.qbr-q-row:nth-child(odd){background:#f8fafc;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .qbr-win-dot{width:8px;height:8px;border-radius:50%;background:#16a34a;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .qbr-risk-dot{width:8px;height:8px;border-radius:50%;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .qbr-risk--high .qbr-risk-dot{background:#dc2626}.qbr-risk--med .qbr-risk-dot{background:#d97706}
+      .qbr-agenda{display:grid;gap:6px}
+      .qbr-agenda-item{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px}
+      .qbr-agenda-num{width:26px;height:26px;border-radius:50%;background:#2563eb;color:#fff;font-size:.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .qbr-agenda-topic{font-weight:700;font-size:.82rem}.qbr-agenda-time{font-weight:500;font-size:.68rem;color:#64748b;margin-left:6px}
+      .qbr-agenda-detail{font-size:.76rem;color:#64748b;line-height:1.5;margin-top:3px}
+      .qbr-q-bullet{width:20px;height:20px;border-radius:50%;background:#eff6ff;color:#2563eb;font-size:.7rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .qbr-note{padding:6px 10px;border-left:3px solid #2563eb;background:#f8fafc;border-radius:0 6px 6px 0;font-size:.8rem;margin-bottom:6px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .qbr-note-date{font-size:.68rem;color:#64748b;font-weight:600;margin-bottom:2px;text-transform:uppercase;letter-spacing:.3px}
+      .qbr-tag{font-size:.7rem;padding:2px 8px;border:1px solid #e2e8f0;border-radius:100px;display:inline-block;margin-right:4px}
+      .qbr-meta-tags{margin-top:6px}.qbr-footer{text-align:center;font-size:.64rem;color:#94a3b8;padding-top:10px;border-top:1px solid #e2e8f0;margin-top:8px}
     </style>
-    <pre>${escHtml(el('qbr-content').textContent)}</pre>`;
+    ${el('qbr-content').innerHTML}`;
   window.print();
   setTimeout(() => { pa.style.display = 'none'; pa.innerHTML = ''; }, 1000);
 }

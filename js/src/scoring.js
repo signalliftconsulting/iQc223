@@ -208,6 +208,11 @@ function makeRec(score, data) {
     return `<strong>Watch:</strong> ${name} has some warning signals. Stay close — increase your cadence and address any friction before it worsens.`;
   }
   if (status === 'expand') {
+    const mom = getMomentum(data);
+    if (mom === 'dn') {
+      const drop = Math.abs(getDelta7d(data));
+      return `<strong>Monitor Decline:</strong> ${name} scores well overall but has dropped ${drop} points this week. Hold off on expansion conversations — investigate what's changing before this trend deepens.`;
+    }
     if (signalOn(data,'growth') && data.growth === 'strong')
       return `<strong>Expansion Ready:</strong> ${name} is highly engaged with strong growth signals. This is the right time to open an upsell conversation — they're primed to say yes.`;
     return `<strong>Expansion Ready:</strong> ${name} is in great shape. Introduce an expansion conversation, request a referral, or propose a tier upgrade at your next touchpoint.`;
@@ -312,13 +317,77 @@ function buildPlaybook(score, data) {
       plays.push({ type:'urgent', text:`<strong>Investigate:</strong> ${name} is ${status === 'critical' ? 'critical' : 'at risk'} — the composite score is low even though no single signal is in crisis. Review recent trends, reach out today, and dig into what may have changed: <em>"I've been keeping a close eye on your account — can we find time this week to check in?"</em>` });
     else if (status === 'watch')
       plays.push({ type:'engage', text:`<strong>Proactive check-in:</strong> ${name} is in the Watch zone — signals are borderline across the board. Increase your cadence and reach out: <em>"I wanted to check in and make sure everything is tracking well. Anything on your radar I should know about?"</em>` });
-    else if (status === 'expand')
+    else if (status === 'expand' && getMomentum(data) !== 'dn')
       plays.push({ type:'expand', text:`<strong>Capitalize on momentum:</strong> ${name} is in great shape with strong engagement. Explore expansion opportunities, ask for a referral, or propose a tier upgrade at your next touchpoint.` });
+    else if (status === 'expand')
+      plays.push({ type:'engage', text:`<strong>Investigate recent decline:</strong> ${name} scores well but momentum has turned negative. Focus on understanding what changed before pursuing growth conversations.` });
     else
       plays.push({ type:'ok', text:`<strong>Stay the course:</strong> ${name} is healthy across all signals. Maintain your regular cadence, bring value on every call, and watch for any early warning signs.` });
   }
 
   return plays;
+}
+
+// ─── SCORE DECLINE DRIVERS (per-customer) ────────────────────
+// Compare current signal values to ~7 days ago, return top contributors to score drop
+function _nbaScoreDrivers(c) {
+  const hist = (c.history || []).filter(h => h.date).sort((a, b) => a.date.localeCompare(b.date));
+  if (hist.length < 2) return [];
+
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  const weekAgoT = weekAgo.getTime();
+
+  const recent = hist[hist.length - 1];
+  const prev = hist.reduce((best, h) =>
+    Math.abs(new Date(h.date).getTime() - weekAgoT) < Math.abs(new Date(best.date).getTime() - weekAgoT) ? h : best
+  );
+  if (recent === prev) return [];
+
+  const w = getActiveWeights(c);
+  const totalW = (w.logins + w.adoption + w.tickets + (w.nps || 0) + (w.csat || 0) + w.days + w.growth) || 100;
+
+  const signals = [
+    { key: 'logins', label: 'Logins', wt: w.logins,
+      get: h => h.signals?.logins ?? c.logins,
+      norm: v => v != null ? Math.min(v / 30, 1) * 100 : 50,
+      desc: (a, b) => `went from ${Math.round(a)}/mo to ${Math.round(b)}/mo` },
+    { key: 'adoption', label: 'Adoption', wt: w.adoption,
+      get: h => h.signals?.adoption ?? c.adoption,
+      norm: v => v != null ? Math.min(v, 100) : 50,
+      desc: (a, b) => `dropped from ${Math.round(a)}% to ${Math.round(b)}%` },
+    { key: 'tickets', label: 'Tickets', wt: w.tickets,
+      get: h => h.signals?.tickets ?? c.tickets,
+      norm: v => v != null ? Math.max(0, 100 - v * 20) : 50,
+      desc: (a, b) => `increased from ${Math.round(a)} to ${Math.round(b)}` },
+    { key: 'nps', label: 'NPS', wt: w.nps || 0,
+      get: h => h.signals?.nps ?? c.nps,
+      norm: v => npsNormalized(v),
+      desc: (a, b) => `dropped from ${Math.round(a * 10) / 10} to ${Math.round(b * 10) / 10}` },
+    { key: 'csat', label: 'CSAT', wt: w.csat || 0,
+      get: h => h.signals?.csat ?? c.csat,
+      norm: v => csatNormalized(v),
+      desc: (a, b) => `dropped from ${csatDisplay(a)} to ${csatDisplay(b)}` },
+    { key: 'days', label: 'Days Since Contact', wt: w.days,
+      get: h => h.signals?.days ?? c.days,
+      norm: v => v != null ? Math.max(0, 100 - (v / 180) * 100) : 50,
+      desc: (a, b) => `grew from ${Math.round(a)}d to ${Math.round(b)}d` }
+  ].filter(s => s.wt > 0);
+
+  const results = [];
+  signals.forEach(s => {
+    const rawPrev = s.get(prev);
+    const rawCurr = s.get(recent);
+    if (rawPrev == null || rawCurr == null) return;
+    const normPrev = s.norm(rawPrev);
+    const normCurr = s.norm(rawCurr);
+    const contribution = (normCurr - normPrev) * (s.wt / totalW);
+    if (contribution < -1) { // meaningful negative impact
+      results.push({ key: s.key, label: s.label, contribution, desc: s.desc(rawPrev, rawCurr) });
+    }
+  });
+  results.sort((a, b) => a.contribution - b.contribution); // most negative first
+  return results.slice(0, 2);
 }
 
 // ─── NEXT BEST ACTION ────────────────────────────────────────
@@ -380,7 +449,7 @@ function buildNextBestAction(c) {
     return { level:'warn', action:'Check in — ' + signSummary, talk:`Score is in the Watch zone (${signSummary}). Proactively reach out: "I wanted to check in and make sure everything is going well. Anything on your radar I should know about?"` };
   }
 
-  if (signalOn(c,'growth') && status === 'expand' && c.growth === 'strong')
+  if (signalOn(c,'growth') && status === 'expand' && c.growth === 'strong' && mom !== 'dn')
     return { level:'expand', action:'Open the upsell conversation', talk:`Perfect timing for expansion. Say: "Your team's engagement has been really strong — have you thought about [next tier / additional seats]? Teams at your stage typically see [outcome] when they expand."` };
 
   if (c.renewal != null && c.renewal <= 3)
@@ -388,7 +457,20 @@ function buildNextBestAction(c) {
 
   if (mom === 'dn') {
     const drop = Math.abs(getDelta7d(c));
-    return { level:'warn', action:`Investigate score decline (−${drop} pts)`, talk:`Score dropped ${drop} points this week — dig into what changed. Ask: "I noticed some changes in your usage patterns recently — is there anything going on that I should know about?"` };
+    // Find which signal drove the decline by comparing current vs week-ago values
+    const drivers = _nbaScoreDrivers(c);
+    let driverText = '';
+    let actionSuffix = '';
+    if (drivers.length > 0) {
+      const top = drivers[0];
+      actionSuffix = ` — driven by ${top.label}`;
+      if (drivers.length === 1) {
+        driverText = `The main factor: <strong>${top.label}</strong> ${top.desc}. `;
+      } else {
+        driverText = `The main factors: <strong>${top.label}</strong> ${top.desc} and <strong>${drivers[1].label}</strong> ${drivers[1].desc}. `;
+      }
+    }
+    return { level:'warn', action:`Score decline (−${drop} pts)${actionSuffix}`, talk:`Score dropped ${drop} points this week. ${driverText}Ask: "I noticed some changes in your usage patterns recently — is there anything going on that I should know about?"` };
   }
 
   if (status === 'expand')

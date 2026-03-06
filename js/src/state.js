@@ -37,6 +37,7 @@ let _openColFilterKey = null;   // key of currently open column filter dropdown
 let filterPresets  = [];        // saved filter presets [{ name, filterMode, columnFilters, sortKey, sortDir }]
 let mrrExposureFilter = null;   // { label: string, ids: Set<string> } — set by clicking MRR Exposure rows
 let _filterTier       = null;   // tier filter for customers table (set by segment click-through)
+let _filterStage      = null;   // lifecycle stage filter for customers table (set by stage click-through)
 let insightFilter     = null;   // { label: string, ids: Set<string> } — set by insight card click-through
 
 // ─── AUTOMATIONS STATE ──────────────────────────────────────
@@ -44,6 +45,35 @@ let automationsCfg    = {};        // { api_key_prefix, webhooks: { type: { url,
 let webhookEvents     = [];        // loaded from webhook_events table
 let webhookLogOffset  = 0;
 let _prevCustomerStates = new Map(); // id → { score, status } for trigger detection
+
+// ─── SHARED PAGINATION ──────────────────────────────────────
+const PAGE_SIZE = 50;
+const _pagState = {}; // key → current page (0-indexed)
+
+function _pagGet(key) { return _pagState[key] || 0; }
+function _pagSet(key, pg, renderFn) { _pagState[key] = pg; if (renderFn) renderFn(); }
+
+// Build page controls HTML — place at top and/or bottom of a list
+// total = total item count, key = state key, renderFnName = global function name to call on page change
+function _pagHTML(total, key, renderFnName) {
+  const pages = Math.ceil(total / PAGE_SIZE);
+  if (pages <= 1) return '';
+  const cur = _pagGet(key);
+  const btns = [];
+  btns.push(`<button class="pag-btn${cur===0?' disabled':''}" onclick="if(${cur}>0){_pagSet('${key}',${cur}-1,${renderFnName})}" ${cur===0?'disabled':''}>&lsaquo;</button>`);
+  // Show max 7 page buttons with ellipsis
+  const show = [];
+  for (let i = 0; i < pages; i++) {
+    if (i === 0 || i === pages-1 || (i >= cur-2 && i <= cur+2)) show.push(i);
+    else if (show.length && show[show.length-1] !== -1) show.push(-1); // ellipsis marker
+  }
+  show.forEach(i => {
+    if (i === -1) { btns.push('<span class="pag-ellipsis">&hellip;</span>'); return; }
+    btns.push(`<button class="pag-btn${i===cur?' active':''}" onclick="_pagSet('${key}',${i},${renderFnName})">${i+1}</button>`);
+  });
+  btns.push(`<button class="pag-btn${cur>=pages-1?' disabled':''}" onclick="if(${cur}<${pages-1}){_pagSet('${key}',${cur}+1,${renderFnName})}" ${cur>=pages-1?'disabled':''}>&rsaquo;</button>`);
+  return `<div class="pag-wrap">${btns.join('')}<span class="pag-info">${cur*PAGE_SIZE+1}–${Math.min((cur+1)*PAGE_SIZE,total)} of ${total}</span></div>`;
+}
 
 // ─── PLAN TIER GATING ──────────────────────────────────────
 let clientPlanTier = 'enterprise'; // default to enterprise (full access) until resolved

@@ -218,7 +218,8 @@ function renderFilterPills() {
   const hasMrr = mrrExposureFilter && mrrExposureFilter.ids;
   const hasInsight = insightFilter && insightFilter.ids;
   const hasTier = !!_filterTier;
-  if (!keys.length && !hasMrr && !hasInsight && !hasTier) { bar.style.display = 'none'; return; }
+  const hasStage = !!_filterStage;
+  if (!keys.length && !hasMrr && !hasInsight && !hasTier && !hasStage) { bar.style.display = 'none'; return; }
 
   bar.innerHTML = keys.map(key => {
     const f = columnFilters[key];
@@ -254,6 +255,12 @@ function renderFilterPills() {
   if (_filterTier) {
     const tierLabel = _filterTier === 'enterprise' ? 'Enterprise' : _filterTier === 'mid' ? 'Mid-Market' : 'SMB';
     bar.innerHTML = `<span class="filter-pill" style="background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.4)">Tier: ${tierLabel}<button class="filter-pill-x" onclick="event.stopPropagation();clearTierFilter()" title="Remove filter">✕</button></span>` + bar.innerHTML;
+  }
+  // Stage filter pill
+  if (_filterStage) {
+    const stageLabels = { onboarding:'Onboarding', active:'Active', atrisk:'At Risk', won:'Won / Upsold', churned:'Churned' };
+    const stageLabel = stageLabels[_filterStage] || _filterStage;
+    bar.innerHTML = `<span class="filter-pill" style="background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.4)">Stage: ${stageLabel}<button class="filter-pill-x" onclick="event.stopPropagation();clearStageFilter()" title="Remove filter">✕</button></span>` + bar.innerHTML;
   }
 
   bar.style.display = 'flex';
@@ -485,6 +492,7 @@ function _renderCustomers() {
     return c.status === filterMode && c.lifecycle !== 'churned';
   }).filter(c => passesManagerFilter(c)).filter(c => {
     if (_filterTier && c.tier !== _filterTier) return false;
+    if (_filterStage && (c.lifecycle || 'active') !== _filterStage) return false;
     if (!q) return true;
     return c.name.toLowerCase().includes(q) || (c.tags||[]).some(t=>t.toLowerCase().includes(q));
   });
@@ -714,10 +722,9 @@ function scoreDelta(c) {
 }
 
 function deltaHTML(delta) {
-  if (delta === null) return '<span class="delta-eq">—</span>';
-  if (delta > 0)  return `<span class="delta-up">▲ +${delta} <small style="font-weight:500;color:var(--muted)">7v7 days</small></span>`;
-  if (delta < 0)  return `<span class="delta-dn">▼ ${delta} <small style="font-weight:500;color:var(--muted)">7v7 days</small></span>`;
-  return '<span class="delta-eq">→ 0</span>';
+  if (delta === null) return '';
+  if (delta !== 0) return `<small style="font-weight:500;color:var(--muted)">7v7 days</small>`;
+  return '';
 }
 
 // ─── BULK ACTIONS ────────────────────────────────────────────
@@ -736,6 +743,7 @@ function toggleSelectAll(checked) {
     return c.status===filterMode && c.lifecycle!=='churned';
   }).filter(c => passesManagerFilter(c)).filter(c => {
     if (_filterTier && c.tier !== _filterTier) return false;
+    if (_filterStage && (c.lifecycle || 'active') !== _filterStage) return false;
     if (!q) return true;
     return c.name.toLowerCase().includes(q) || (c.tags||[]).some(t=>t.toLowerCase().includes(q));
   });

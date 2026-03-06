@@ -8,23 +8,8 @@ function renderReporting() {
   const lockSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
 
   const reports = [
-    { section:'all', tier:'starter', featureKey:'reports_basic',
-      title:'Customer Health Export', desc:'Download all customers as CSV with scores, signals, status, MRR, and tags.',
-      iconBg:'var(--blue-l)', iconColor:'var(--blue)',
-      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
-      actions:[
-        { label:'Print / PDF', cls:'btn-primary', fn:'printCustomerHealth()' },
-        { label:'Export CSV', cls:'btn-outline', fn:'exportCSV()' },
-        { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('customer_health')" }
-      ]
-    },
-    { section:'all', tier:'starter', featureKey:'reports_basic',
-      title:'Score History Export', desc:'Per-customer score changes over time with all signal snapshots.',
-      iconBg:'var(--teal-l)', iconColor:'var(--teal)',
-      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
-      actions:[{ label:'Export CSV', cls:'btn-primary', fn:'exportScoreHistory()' }]
-    },
-    { section:'all', tier:'starter', featureKey:'reports_basic',
+    // ── Portfolio & Strategy ──
+    { section:'portfolio', tier:'starter', featureKey:'reports_basic',
       title:'Portfolio Health Summary', desc:'Printable dashboard snapshot with KPI cards, status distribution, segment breakdown, and top at-risk accounts.',
       iconBg:'var(--purple-l)', iconColor:'var(--purple)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
@@ -34,8 +19,8 @@ function renderReporting() {
         { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('portfolio_summary')" }
       ]
     },
-    { section:'all', tier:'starter', featureKey:'reports_basic',
-      title:'Weekly Health Digest', desc:'Email-ready weekly digest with KPIs, at-risk accounts, and score movers.',
+    { section:'portfolio', tier:'starter', featureKey:'reports_basic',
+      title:'Weekly Review', desc:'Friday report — week-over-week trends, portfolio insights, action items, at-risk accounts, and score movers.',
       iconBg:'var(--green-l)', iconColor:'var(--green)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
       actions:[
@@ -45,27 +30,7 @@ function renderReporting() {
         { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('weekly_digest')" }
       ]
     },
-    { section:'all', tier:'starter', featureKey:'reports_basic',
-      title:'At-Risk Report', desc:'Critical and At Risk customers sorted by MRR, with scores, trends, days since contact, and renewal dates.',
-      iconBg:'var(--red-l)', iconColor:'var(--red)',
-      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
-      actions:[
-        { label:'Print / PDF', cls:'btn-primary', fn:'printAtRiskReport()' },
-        { label:'Export CSV', cls:'btn-outline', fn:'exportAtRiskCSV()' },
-        { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('at_risk')" }
-      ]
-    },
-    { section:'all', tier:'starter', featureKey:'reports_basic',
-      title:'Renewal Forecast Report', desc:'Customers grouped by renewal window (this month, 30/60/90 days) with health status and MRR.',
-      iconBg:'var(--amber-l)', iconColor:'var(--amber)',
-      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
-      actions:[
-        { label:'Print / PDF', cls:'btn-primary', fn:'printRenewalForecast()' },
-        { label:'Export CSV', cls:'btn-outline', fn:'exportRenewalCSV()' },
-        { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('renewal_forecast')" }
-      ]
-    },
-    { section:'all', tier:'starter', featureKey:'reports_basic',
+    { section:'portfolio', tier:'starter', featureKey:'reports_basic',
       title:'Trend Report (30/60/90d)', desc:'Overall portfolio health score trend over time with status mix and MRR changes.',
       iconBg:'var(--teal-l)', iconColor:'var(--teal)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
@@ -75,7 +40,18 @@ function renderReporting() {
         { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('trend_report')" }
       ]
     },
-    { section:'all', tier:'starter', featureKey:'reports_basic',
+    // ── Risk & Renewals ──
+    { section:'risk', tier:'starter', featureKey:'reports_basic',
+      title:'At-Risk Report', desc:'Critical and At Risk customers sorted by MRR, with scores, trends, days since contact, and renewal dates.',
+      iconBg:'var(--red-l)', iconColor:'var(--red)',
+      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+      actions:[
+        { label:'Print / PDF', cls:'btn-primary', fn:'printAtRiskReport()' },
+        { label:'Export CSV', cls:'btn-outline', fn:'exportAtRiskCSV()' },
+        { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('at_risk')" }
+      ]
+    },
+    { section:'risk', tier:'starter', featureKey:'reports_basic',
       title:'Churn Risk Report', desc:'Combined risk ranking with estimated revenue impact, scored by health, trend, NPS, engagement, and renewal proximity.',
       iconBg:'var(--red-l)', iconColor:'var(--red)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
@@ -85,8 +61,18 @@ function renderReporting() {
         { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('churn_risk')" }
       ]
     },
-    // Gated reports
-    { section:'all', tier:'team', featureKey:'report_segments',
+    { section:'risk', tier:'starter', featureKey:'reports_basic',
+      title:'Renewal Forecast Report', desc:'Customers grouped by renewal window (this month, 30/60/90 days) with health status and MRR.',
+      iconBg:'var(--amber-l)', iconColor:'var(--amber)',
+      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+      actions:[
+        { label:'Print / PDF', cls:'btn-primary', fn:'printRenewalForecast()' },
+        { label:'Export CSV', cls:'btn-outline', fn:'exportRenewalCSV()' },
+        { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('renewal_forecast')" }
+      ]
+    },
+    // ── Team & Segments ──
+    { section:'team', tier:'team', featureKey:'report_segments',
       title:'Segment Analysis Report', desc:'Health breakdown by tier, lifecycle, and tag — with MRR at risk per segment.',
       iconBg:'var(--purple-l)', iconColor:'var(--purple)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
@@ -96,7 +82,7 @@ function renderReporting() {
         { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('segment_analysis')" }
       ]
     },
-    { section:'all', tier:'pro', featureKey:'report_csmperf',
+    { section:'team', tier:'pro', featureKey:'report_csmperf',
       title:'CSM Performance Report', desc:'Per-manager portfolio metrics — avg score, risk ratio, MRR managed, contact cadence.',
       iconBg:'var(--blue-l)', iconColor:'var(--blue)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
@@ -106,20 +92,52 @@ function renderReporting() {
         { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('csm_performance')" }
       ]
     },
+    // ── Exports & Data ──
+    { section:'data', tier:'starter', featureKey:'reports_basic',
+      title:'Customer Health Export', desc:'Download all customers as CSV with scores, signals, status, MRR, and tags.',
+      iconBg:'var(--blue-l)', iconColor:'var(--blue)',
+      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+      actions:[
+        { label:'Print / PDF', cls:'btn-primary', fn:'printCustomerHealth()' },
+        { label:'Export CSV', cls:'btn-outline', fn:'exportCSV()' },
+        { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('customer_health')" }
+      ]
+    },
+    { section:'data', tier:'starter', featureKey:'reports_basic',
+      title:'Score History Export', desc:'Per-customer score changes over time with all signal snapshots.',
+      iconBg:'var(--teal-l)', iconColor:'var(--teal)',
+      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
+      actions:[{ label:'Export CSV', cls:'btn-primary', fn:'exportScoreHistory()' }]
+    },
   ];
 
   _reportDefs = reports;
 
   const sections = [
-    { key:'all', label:'Reports' },
+    { key:'portfolio', label:'Portfolio & Strategy',
+      sub:'High-level health snapshots, trends, and weekly summaries',
+      icon:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>' },
+    { key:'risk', label:'Risk & Renewals',
+      sub:'At-risk accounts, churn scoring, and renewal pipeline',
+      icon:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' },
+    { key:'team', label:'Team & Segments',
+      sub:'Breakdowns by segment, tag, lifecycle, and CSM',
+      icon:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' },
+    { key:'data', label:'Exports & Data',
+      sub:'Raw CSV downloads and full customer data exports',
+      icon:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>' },
   ];
 
   let html = '';
   let idx = 0;
   sections.forEach(sec => {
     const secReports = reports.filter(r => r.section === sec.key);
+    if (!secReports.length) return;
     html += '<div class="rpt-section">' +
-      '<div class="rpt-section-hd"><h2>' + sec.label + '</h2></div>' +
+      '<div class="rpt-section-hd">' +
+        '<div style="display:flex;align-items:center;gap:8px"><span style="color:var(--muted);display:flex">' + (sec.icon || '') + '</span><h2>' + sec.label + '</h2></div>' +
+        '<p style="margin:0;font-size:.78rem;color:var(--muted);font-weight:400">' + (sec.sub || '') + '</p>' +
+      '</div>' +
       '<div class="rpt-grid">';
     secReports.forEach(r => {
       const locked = !hasFeature(r.featureKey);
@@ -385,6 +403,245 @@ function svgMiniBar(items) {
   }).join('');
 }
 
+// ── Insights & Action Items helper for print/PDF reports ──
+function _rptInsights(key) {
+  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
+  if (!active.length) return '';
+  const items = [];
+
+  // Shared helpers
+  const _tierLabel = t => t === 'smb' ? 'SMB' : t === 'mid' ? 'Mid-Market' : 'Enterprise';
+  const atRiskAll = active.filter(c => c.status === 'critical' || c.status === 'risk');
+  const totalMrr = active.reduce((s,c) => s+(c.mrr||0), 0);
+  const riskMrr = atRiskAll.reduce((s,c) => s+(c.mrr||0), 0);
+  const riskPctBook = totalMrr > 0 ? Math.round(riskMrr / totalMrr * 100) : 0;
+
+  if (key === 'portfolio_summary') {
+    // MRR concentration risk — how much MRR sits in the top 3 accounts
+    const byMrr = [...active].sort((a,b) => (b.mrr||0) - (a.mrr||0));
+    if (byMrr.length >= 3 && totalMrr > 0) {
+      const top3Mrr = byMrr.slice(0,3).reduce((s,c) => s+(c.mrr||0), 0);
+      const concPct = Math.round(top3Mrr / totalMrr * 100);
+      if (concPct >= 40) items.push('<strong>Concentration risk:</strong> Top 3 accounts represent ' + concPct + '% of total MRR — losing any one would be a significant book impact.');
+    }
+    // Engagement-health divergence — accounts scoring well but with declining engagement
+    const silentHealthy = active.filter(c => c.score >= 70 && signalOn(c,'logins') && (c.logins||0) <= 2 && signalOn(c,'adoption') && (c.adoption||0) < 30);
+    if (silentHealthy.length) items.push('<strong>Silent risk:</strong> ' + silentHealthy.length + ' account' + (silentHealthy.length>1?'s score':'scores') + ' 70+ but ' + (silentHealthy.length>1?'have':'has') + ' very low login and adoption — scores may not reflect actual engagement.');
+    // Risk velocity — how many moved INTO risk bands this week
+    const newRisk = atRiskAll.filter(c => {
+      const hist = (c.history||[]).filter(h => h.date).sort((a,b) => new Date(b.date) - new Date(a.date));
+      const prev = hist.find(h => new Date(h.date) < new Date(Date.now() - 7*86400000));
+      return prev && getStatus(prev.score) !== 'critical' && getStatus(prev.score) !== 'risk';
+    });
+    if (newRisk.length) items.push('<strong>Deteriorating:</strong> ' + newRisk.length + ' account' + (newRisk.length>1?'s':'') + ' fell into at-risk status in the past 7 days — early outreach can prevent further decline.');
+    // Tier health gap
+    const tiers = ['smb','mid','enterprise'];
+    const tierAvgs = tiers.map(t => {
+      const grp = active.filter(c => c.tier === t);
+      return { label: _tierLabel(t), avg: grp.length ? Math.round(grp.reduce((s,c) => s+c.score, 0)/grp.length) : null, count: grp.length };
+    }).filter(t => t.count > 0 && t.avg !== null);
+    if (tierAvgs.length >= 2) {
+      const sorted = [...tierAvgs].sort((a,b) => a.avg - b.avg);
+      const gap = sorted[sorted.length-1].avg - sorted[0].avg;
+      if (gap >= 15) items.push('<strong>Tier gap:</strong> ' + sorted[sorted.length-1].label + ' averages ' + gap + ' points higher than ' + sorted[0].label + ' — consider whether ' + sorted[0].label + ' needs a different engagement model.');
+    }
+
+  } else if (key === 'at_risk') {
+    if (!atRiskAll.length) return '';
+    // Signal correlation — what signals are most common among at-risk accounts
+    const signals = ['logins','adoption','tickets','nps','csat'];
+    const sigPairs = [];
+    signals.forEach(s => {
+      const bad = atRiskAll.filter(c => {
+        if (!signalOn(c, s)) return false;
+        if (s === 'logins') return (c.logins||0) <= 3;
+        if (s === 'adoption') return (c.adoption||0) < 40;
+        if (s === 'tickets') return (c.tickets||0) >= 5;
+        if (s === 'nps') return npsIsDetractor(c.nps);
+        if (s === 'csat') return csatIsPoor(c.csat);
+        return false;
+      }).length;
+      if (bad >= 2) sigPairs.push({ sig: s, count: bad, pct: Math.round(bad/atRiskAll.length*100) });
+    });
+    sigPairs.sort((a,b) => b.pct - a.pct);
+    if (sigPairs.length) items.push('<strong>Common signal pattern:</strong> ' + sigPairs.slice(0,2).map(p => p.pct + '% have weak ' + p.sig).join(', ') + ' — addressing ' + sigPairs[0].sig + ' across the cohort could improve multiple accounts simultaneously.');
+    // Accounts declining faster than others
+    const fastDrop = atRiskAll.filter(c => getDelta7d(c) <= -5).sort((a,b) => getDelta7d(a) - getDelta7d(b));
+    if (fastDrop.length) items.push('<strong>Accelerating decline:</strong> ' + fastDrop.map(c => escHtml(c.name) + ' (' + getDelta7d(c) + ')').slice(0,3).join(', ') + (fastDrop.length>1?' are':' is') + ' dropping fast — these need intervention before they hit critical.');
+    // Contact gap + MRR correlation
+    const overdueHigh = atRiskAll.filter(c => (c.days||0) >= 14 && (c.mrr||0) >= 5000).sort((a,b) => (b.mrr||0) - (a.mrr||0));
+    if (overdueHigh.length) items.push('<strong>Unattended high-value:</strong> ' + overdueHigh.length + ' at-risk account' + (overdueHigh.length>1?'s':'') + ' with $5k+ MRR ' + (overdueHigh.length>1?'haven\'t':'hasn\'t') + ' been contacted in 14+ days — ' + escHtml(overdueHigh[0].name) + ' ($' + fmtNum(overdueHigh[0].mrr) + ') is the highest priority.');
+    // Renewal proximity
+    const riskNearRenewal = atRiskAll.filter(c => c.renewal != null && c.renewal <= 3);
+    if (riskNearRenewal.length) items.push('<strong>Renewal urgency:</strong> ' + riskNearRenewal.length + ' at-risk account' + (riskNearRenewal.length>1?'s renew':'renews') + ' within 90 days — limited runway to recover before decision point.');
+
+  } else if (key === 'renewal_forecast') {
+    const now = new Date(); now.setHours(0,0,0,0);
+    const d30 = new Date(now); d30.setDate(d30.getDate() + 30);
+    const d90 = new Date(now); d90.setDate(d90.getDate() + 90);
+    const renewing90 = active.filter(c => c.renewal_date && new Date(c.renewal_date) >= now && new Date(c.renewal_date) <= d90);
+    const riskRenewals = renewing90.filter(c => c.status === 'critical' || c.status === 'risk');
+    // Revenue retention forecast
+    if (renewing90.length) {
+      const renewMrr = renewing90.reduce((s,c) => s+(c.mrr||0), 0);
+      const safeRenewMrr = renewing90.filter(c => c.status === 'healthy' || c.status === 'expand').reduce((s,c) => s+(c.mrr||0), 0);
+      const retPct = renewMrr > 0 ? Math.round(safeRenewMrr / renewMrr * 100) : 100;
+      items.push('<strong>Retention outlook:</strong> ' + retPct + '% of upcoming renewal MRR ($' + fmtNum(safeRenewMrr) + ' of $' + fmtNum(renewMrr) + ') is in healthy status — the remaining $' + fmtNum(renewMrr - safeRenewMrr) + ' needs active save efforts.');
+    }
+    // Declining renewals — trending the wrong direction into their renewal
+    const decliningRenewals = renewing90.filter(c => getMomentum(c) === 'dn');
+    if (decliningRenewals.length) items.push('<strong>Deteriorating into renewal:</strong> ' + decliningRenewals.length + ' upcoming renewal' + (decliningRenewals.length>1?'s are':' is') + ' still trending downward — these accounts are getting worse as their decision date approaches.');
+    // Expansion vs save split
+    const expandable = renewing90.filter(c => c.status === 'expand' || c.status === 'healthy');
+    const saveable = renewing90.filter(c => c.status === 'critical' || c.status === 'risk');
+    if (expandable.length && saveable.length) items.push('<strong>Renewal strategy:</strong> ' + expandable.length + ' renewal' + (expandable.length>1?'s':'') + ' ready for expansion conversations, ' + saveable.length + ' need save plays — plan different playbooks for each group.');
+    // Uncontacted approaching renewals
+    const noTouchRenew = riskRenewals.filter(c => (c.days||0) >= 14);
+    if (noTouchRenew.length) items.push('<strong>Urgent outreach needed:</strong> ' + noTouchRenew.length + ' at-risk renewal' + (noTouchRenew.length>1?'s haven\'t':' hasn\'t') + ' been contacted in 14+ days — shrinking window to influence outcome.');
+
+  } else if (key === 'trend_report') {
+    // Momentum shift — are more accounts improving or declining this week vs the data suggests
+    const deltas = active.map(c => ({c, d: getDelta7d(c)}));
+    const improving = deltas.filter(m => m.d > 0);
+    const declining = deltas.filter(m => m.d < 0);
+    const ratio = declining.length > 0 ? (improving.length / declining.length) : (improving.length > 0 ? 999 : 1);
+    if (ratio < 0.5) items.push('<strong>Negative momentum:</strong> Declining accounts outnumber improving ones ' + declining.length + ' to ' + improving.length + ' — this ratio typically signals a broader engagement problem, not isolated cases.');
+    else if (ratio > 2 && improving.length >= 3) items.push('<strong>Positive momentum:</strong> Improving accounts outnumber declining ones ' + improving.length + ' to ' + declining.length + ' — the portfolio is recovering well.');
+    // Status band migration
+    const bandChanges = active.map(c => {
+      const hist = (c.history||[]).filter(h => h.date).sort((a,b) => new Date(b.date) - new Date(a.date));
+      const prev = hist.find(h => new Date(h.date) < new Date(Date.now() - 7*86400000));
+      if (!prev) return null;
+      const oldSt = getStatus(prev.score), newSt = c.status;
+      if (oldSt === newSt) return null;
+      return { c, from: oldSt, to: newSt };
+    }).filter(Boolean);
+    const downgrades = bandChanges.filter(b => ['critical','risk'].includes(b.to) && !['critical','risk'].includes(b.from));
+    const upgrades = bandChanges.filter(b => ['healthy','expand'].includes(b.to) && !['healthy','expand'].includes(b.from));
+    if (downgrades.length) items.push('<strong>New risk entries:</strong> ' + downgrades.map(b => escHtml(b.c.name)).slice(0,3).join(', ') + ' moved into at-risk/critical this week — investigate root cause before scores drop further.');
+    if (upgrades.length) items.push('<strong>Recoveries:</strong> ' + upgrades.map(b => escHtml(b.c.name)).slice(0,3).join(', ') + ' graduated to healthy — review what worked to replicate the playbook.');
+    // Score volatility — accounts bouncing up and down frequently
+    const volatile = active.filter(c => {
+      const hist = (c.history||[]).slice(-5);
+      if (hist.length < 4) return false;
+      let flips = 0;
+      for (let i = 2; i < hist.length; i++) { if ((hist[i].score - hist[i-1].score) * (hist[i-1].score - hist[i-2].score) < 0) flips++; }
+      return flips >= 2;
+    });
+    if (volatile.length >= 2) items.push('<strong>Score instability:</strong> ' + volatile.length + ' accounts are oscillating rather than trending — volatile scores often indicate inconsistent product usage or data quality issues worth investigating.');
+
+  } else if (key === 'churn_risk') {
+    // Multi-signal failure — accounts failing on 3+ signals simultaneously
+    const multiSigFail = atRiskAll.filter(c => {
+      let fails = 0;
+      if (signalOn(c,'logins') && (c.logins||0) <= 3) fails++;
+      if (signalOn(c,'adoption') && (c.adoption||0) < 40) fails++;
+      if (signalOn(c,'tickets') && (c.tickets||0) >= 5) fails++;
+      if (signalOn(c,'nps') && npsIsDetractor(c.nps)) fails++;
+      if (signalOn(c,'csat') && csatIsPoor(c.csat)) fails++;
+      return fails >= 3;
+    });
+    if (multiSigFail.length) items.push('<strong>Multi-signal failure:</strong> ' + multiSigFail.length + ' account' + (multiSigFail.length>1?'s are':' is') + ' failing across 3+ signals simultaneously — historically this pattern has the lowest save rate and needs executive-level intervention.');
+    // Declining + at-risk combo — accelerating toward churn
+    const accelerating = atRiskAll.filter(c => getMomentum(c) === 'dn' && (c.mrr||0) > 0).sort((a,b) => (b.mrr||0) - (a.mrr||0));
+    if (accelerating.length) items.push('<strong>Active deterioration:</strong> ' + accelerating.length + ' at-risk account' + (accelerating.length>1?'s are':' is') + ' still trending downward — these are on a path to churn unless something changes, representing $' + fmtNum(accelerating.reduce((s,c)=>s+(c.mrr||0),0)) + ' MRR.');
+    // MRR-weighted risk — top 20% of MRR that's at risk
+    if (totalMrr > 0 && riskPctBook >= 15) items.push('<strong>Book exposure:</strong> ' + riskPctBook + '% of total MRR is in at-risk status — if this exceeds 20%, consider reallocating CSM capacity toward save efforts.');
+    // Ticket-to-risk correlation
+    const highTicketRisk = atRiskAll.filter(c => (c.tickets||0) >= 4);
+    const highTicketOk = active.filter(c => c.status !== 'critical' && c.status !== 'risk' && (c.tickets||0) >= 4);
+    if (highTicketRisk.length >= 2 && highTicketOk.length === 0) items.push('<strong>Ticket correlation:</strong> Every account with 4+ open tickets is at risk — elevated ticket volume appears to be a strong leading indicator of health decline in this portfolio.');
+
+  } else if (key === 'segment_analysis') {
+    // Cross-segment health disparity
+    const tiers = ['smb','mid','enterprise'];
+    const tierData = tiers.map(t => {
+      const grp = active.filter(c => c.tier === t);
+      const riskGrp = grp.filter(c => c.status === 'critical' || c.status === 'risk');
+      return { label: _tierLabel(t), avg: grp.length ? Math.round(grp.reduce((s,c)=>s+c.score,0)/grp.length) : null, count: grp.length, riskPct: grp.length ? Math.round(riskGrp.length/grp.length*100) : 0, mrrPerAcct: grp.length ? Math.round(grp.reduce((s,c)=>s+(c.mrr||0),0)/grp.length) : 0 };
+    }).filter(t => t.count > 0);
+    // Per-account MRR vs health inverse
+    const expensiveUnhealthy = tierData.filter(t => t.mrrPerAcct > 5000 && t.riskPct > 20);
+    if (expensiveUnhealthy.length) items.push('<strong>High-value risk cluster:</strong> ' + expensiveUnhealthy.map(t => t.label).join(' and ') + ' ' + (expensiveUnhealthy.length>1?'have':'has') + ' above-average MRR per account but ' + expensiveUnhealthy.map(t => t.riskPct + '% at risk').join('/') + ' — disproportionate revenue impact if these churn.');
+    // Lifecycle stage analysis
+    const lcData = {};
+    active.forEach(c => { const lc = c.lifecycle || 'unknown'; if (!lcData[lc]) lcData[lc] = []; lcData[lc].push(c); });
+    const lcEntries = Object.entries(lcData).map(([lc, grp]) => ({
+      label: lc, count: grp.length, avg: Math.round(grp.reduce((s,c)=>s+c.score,0)/grp.length),
+      riskPct: Math.round(grp.filter(c=>c.status==='critical'||c.status==='risk').length/grp.length*100)
+    }));
+    const worstLC = lcEntries.filter(l => l.count >= 2).sort((a,b) => a.avg - b.avg)[0];
+    if (worstLC && worstLC.avg < 65) items.push('<strong>Lifecycle bottleneck:</strong> "' + worstLC.label + '" stage has the lowest average score (' + worstLC.avg + ') — accounts may be stalling at this stage, suggesting process or enablement gaps.');
+    // Tag risk clustering
+    const tags = {};
+    active.forEach(c => (c.tags||[]).forEach(tag => {
+      if (!tags[tag]) tags[tag] = { total:0, atRisk:0, mrr:0 };
+      tags[tag].total++;
+      tags[tag].mrr += (c.mrr||0);
+      if (c.status === 'critical' || c.status === 'risk') tags[tag].atRisk++;
+    }));
+    const riskTags = Object.entries(tags).filter(([,v]) => v.total >= 3 && v.atRisk/v.total >= 0.4).sort((a,b) => (b[1].atRisk/b[1].total) - (a[1].atRisk/a[1].total));
+    if (riskTags.length) items.push('<strong>Tag risk cluster:</strong> Accounts tagged "' + escHtml(riskTags[0][0]) + '" have a ' + Math.round(riskTags[0][1].atRisk/riskTags[0][1].total*100) + '% risk rate — investigate if this tag represents a shared root cause (product fit, use case, region).');
+
+  } else if (key === 'csm_performance') {
+    const managers = [...new Set(active.map(c => c.manager || '').filter(Boolean))];
+    const mgrData = managers.map(m => {
+      const grp = active.filter(c => c.manager === m);
+      const avg = grp.length ? Math.round(grp.reduce((s,c)=>s+c.score,0)/grp.length) : 0;
+      const delta = grp.length ? Math.round(grp.map(c => getDelta7d(c)).reduce((s,v)=>s+v,0)/grp.length) : 0;
+      const atRisk = grp.filter(c => c.status === 'critical' || c.status === 'risk').length;
+      const riskPct = grp.length ? Math.round(atRisk/grp.length*100) : 0;
+      const avgDays = grp.length ? Math.round(grp.reduce((s,c) => s+(c.days||0), 0)/grp.length) : 0;
+      const mrr = grp.reduce((s,c) => s+(c.mrr||0), 0);
+      return { manager: m, avg, delta, atRisk, riskPct, count: grp.length, avgDays, mrr };
+    });
+    // Workload imbalance
+    if (mgrData.length >= 2) {
+      const maxLoad = Math.max(...mgrData.map(m => m.count));
+      const minLoad = Math.min(...mgrData.map(m => m.count));
+      if (maxLoad > minLoad * 2) {
+        const heavy = mgrData.find(m => m.count === maxLoad);
+        items.push('<strong>Workload imbalance:</strong> ' + escHtml(heavy.manager) + ' manages ' + heavy.count + ' accounts vs the smallest book of ' + minLoad + ' — overloaded CSMs typically show declining portfolio health over time.');
+      }
+    }
+    // Contact cadence vs health correlation
+    const slowContact = mgrData.filter(m => m.avgDays >= 14 && m.riskPct >= 25);
+    if (slowContact.length) items.push('<strong>Contact cadence gap:</strong> ' + slowContact.map(m => escHtml(m.manager)).join(', ') + ' ' + (slowContact.length>1?'average':'averages') + ' 14+ days between contacts and ' + (slowContact.length>1?'have':'has') + ' above-average risk rates — faster outreach cadence correlates with better retention.');
+    // Momentum divergence — one CSM improving while another declines
+    const bestDelta = [...mgrData].sort((a,b) => b.delta - a.delta)[0];
+    const worstDelta = [...mgrData].sort((a,b) => a.delta - b.delta)[0];
+    if (bestDelta && worstDelta && bestDelta.manager !== worstDelta.manager && (bestDelta.delta - worstDelta.delta) >= 5)
+      items.push('<strong>Momentum divergence:</strong> ' + escHtml(bestDelta.manager) + '\'s portfolio is improving (+' + bestDelta.delta + ') while ' + escHtml(worstDelta.manager) + '\'s is declining (' + worstDelta.delta + ') — worth pairing them for knowledge transfer on what\'s working.');
+    // MRR per CSM risk
+    const highMrrRisk = mgrData.filter(m => m.mrr >= 50000 && m.riskPct >= 30);
+    if (highMrrRisk.length) items.push('<strong>Revenue at risk:</strong> ' + highMrrRisk.map(m => escHtml(m.manager) + ' ($' + fmtNum(m.mrr) + ' MRR, ' + m.riskPct + '% at risk)').join(', ') + ' — consider temporary backup support for high-MRR risk accounts.');
+
+  } else if (key === 'customer_health') {
+    // Score distribution shape — bimodal vs normal
+    const sub40 = active.filter(c => c.score < 40).length;
+    const over80 = active.filter(c => c.score >= 80).length;
+    const mid = active.length - sub40 - over80;
+    if (sub40 >= 3 && over80 >= 3 && mid < Math.max(sub40, over80)) items.push('<strong>Bimodal distribution:</strong> The portfolio is polarized — ' + over80 + ' accounts score 80+ while ' + sub40 + ' score below 40 with fewer in between. This often indicates the product works well for some use cases but poorly for others.');
+    // Engagement without contact
+    const ghosted = active.filter(c => c.score < 60 && (c.days||0) >= 21).sort((a,b) => (b.mrr||0) - (a.mrr||0));
+    if (ghosted.length >= 2) items.push('<strong>Unattended risk:</strong> ' + ghosted.length + ' accounts scoring below 60 haven\'t been contacted in 21+ days — the longer the gap, the harder the recovery. Top priority: ' + escHtml(ghosted[0].name) + ' ($' + fmtNum(ghosted[0].mrr||0) + ' MRR).');
+    // Signal-score mismatch — good signals but low score (or vice versa)
+    const overScored = active.filter(c => c.score >= 75 && signalOn(c,'logins') && (c.logins||0) <= 2 && signalOn(c,'adoption') && (c.adoption||0) < 25);
+    if (overScored.length) items.push('<strong>Possible scoring gap:</strong> ' + overScored.length + ' account' + (overScored.length>1?'s score':'scores') + ' 75+ despite very low engagement — these scores may be inflated by weight distribution. Consider reviewing scoring profiles.');
+    // MRR exposure as % of book
+    if (riskPctBook >= 20) items.push('<strong>Portfolio health alert:</strong> ' + riskPctBook + '% of total MRR is in at-risk or critical status — this level of exposure typically warrants a dedicated risk review cadence.');
+  }
+
+  if (!items.length) return '';
+  return '<div class="rpt-insights" style="margin-top:24px;padding:16px 20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;page-break-inside:avoid">' +
+    '<h2 style="margin:0 0 10px;font-size:.88rem;color:#334155;display:flex;align-items:center;gap:6px">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' +
+      ' Insights &amp; Action Items</h2>' +
+    '<ul style="margin:0;padding-left:18px;font-size:.8rem;line-height:1.7;color:#475569">' +
+      items.map(i => '<li>' + i + '</li>').join('') +
+    '</ul></div>';
+}
+
 // ── Report: Portfolio Health Summary (Team) ──
 function buildPortfolioSummaryHTML() {
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
@@ -408,6 +665,7 @@ function buildPortfolioSummaryHTML() {
   const topRisk = [...active].filter(c => c.status === 'critical' || c.status === 'risk').sort((a, b) => (b.mrr || 0) - (a.mrr || 0)).slice(0, 10);
 
   let html = rptHeader('Portfolio Health Summary', 'Generated ' + rptDateStr() + ' &middot; ' + total + ' active accounts') +
+    _rptInsights('portfolio_summary') +
     '<div class="kpi-row">' +
       '<div class="kpi"><div class="kpi-num">' + total + '</div><div class="kpi-label">Active Accounts</div></div>' +
       '<div class="kpi"><div class="kpi-num">' + avg + '</div><div class="kpi-label">Avg Health Score</div></div>' +
@@ -455,6 +713,7 @@ function buildAtRiskReportHTML() {
   const riskOnlyMRR = totalRiskMRR - critMRR;
 
   let html = rptHeader('At-Risk Report', 'Generated ' + rptDateStr() + ' &middot; ' + atRisk.length + ' accounts &middot; $' + fmtNum(totalRiskMRR) + ' MRR at risk') +
+    _rptInsights('at_risk') +
     '<div class="kpi-row">' +
       '<div class="kpi" style="border-top-color:#dc2626"><div class="kpi-num" style="color:#dc2626">' + critCount + '</div><div class="kpi-label">Critical</div></div>' +
       '<div class="kpi" style="border-top-color:#f97316"><div class="kpi-num" style="color:#f97316">' + riskCount + '</div><div class="kpi-label">At Risk</div></div>' +
@@ -524,6 +783,7 @@ function buildRenewalForecastHTML() {
   const totalRenewals = bucketData.reduce((s, b) => s + b.items.length, 0);
   const totalRMRR = bucketData.reduce((s, b) => s + b.mrr, 0);
   let html = rptHeader('Renewal Forecast Report', 'Generated ' + rptDateStr() + ' &middot; ' + totalRenewals + ' renewals &middot; $' + fmtNum(totalRMRR) + ' MRR') +
+    _rptInsights('renewal_forecast') +
     '<h2>MRR by Renewal Window</h2>' +
     svgBarH(bucketData.map(b => ({label: b.label, value: b.mrr, color: b.items.some(c => c.status === 'critical' || c.status === 'risk') ? '#d97706' : '#4f46e5', valLabel: '$' + fmtNum(b.mrr) + ' (' + b.items.length + ')'})));
 
@@ -559,6 +819,7 @@ function buildCSMReportHTML() {
   }).sort((a, b) => b.avgScore - a.avgScore);
 
   let html = rptHeader('CSM Performance Report', 'Generated ' + rptDateStr() + ' &middot; ' + managers.length + ' managers') +
+    _rptInsights('csm_performance') +
     '<h2>Avg Health Score by Manager</h2>' +
     svgBarH(mgrData.map(m => {
       var col = m.avgScore >= 80 ? '#16a34a' : m.avgScore >= 60 ? '#4f46e5' : m.avgScore >= 40 ? '#d97706' : '#dc2626';
@@ -613,6 +874,7 @@ function buildSegmentAnalysisHTML() {
   const byTag = buildGroups(c => (c.tags && c.tags.length) ? c.tags : ['Untagged']);
 
   let html = rptHeader('Segment Analysis Report', 'Generated ' + rptDateStr() + ' &middot; ' + active.length + ' accounts') +
+    _rptInsights('segment_analysis') +
     segTable('By Tier', byTier) +
     segTable('By Lifecycle', byLifecycle) +
     (byTag.length ? segTable('By Tag', byTag) : '') +
@@ -628,11 +890,14 @@ function buildTrendReportHTML() {
   const d90ago = new Date(now); d90ago.setDate(d90ago.getDate() - 90);
 
   // Collect all history points in the last 90 days, group by date
+  // Exclude today — partial day data skews averages
+  const todayStr = now.toISOString().slice(0, 10);
   const dateMap = {};
   active.forEach(c => {
     (c.history || []).forEach(h => {
       if (!h.date) return;
       const d = h.date.slice(0, 10);
+      if (d >= todayStr) return;          // skip today & future
       if (new Date(d) < d90ago) return;
       if (!dateMap[d]) dateMap[d] = [];
       dateMap[d].push(h.score);
@@ -655,6 +920,7 @@ function buildTrendReportHTML() {
 
   const deltaColor = delta >= 0 ? '#16a34a' : '#dc2626';
   let html = rptHeader('Trend Report (90 Days)') +
+    _rptInsights('trend_report') +
     '<div class="kpi-row">' +
       '<div class="kpi"><div class="kpi-num">' + currentAvg + '</div><div class="kpi-label">Current Avg Score</div></div>' +
       '<div class="kpi"><div class="kpi-num">' + firstAvg + '</div><div class="kpi-label">90 Days Ago</div></div>' +
@@ -709,6 +975,7 @@ function buildChurnRiskReportHTML() {
   const highRisk = scored.filter(r => r.risk >= 50);
 
   let html = rptHeader('Churn Risk Report', 'Generated ' + rptDateStr() + ' &middot; ' + active.length + ' accounts analyzed') +
+    _rptInsights('churn_risk') +
     '<div class="kpi-row">' +
       '<div class="kpi" style="border-top-color:#dc2626"><div class="kpi-num" style="color:#dc2626">' + highRisk.length + '</div><div class="kpi-label">High Risk (50+)</div></div>' +
       '<div class="kpi"><div class="kpi-num">$' + fmtNum(totalImpact) + '</div><div class="kpi-label">Total ARR Exposure</div></div>' +
@@ -853,12 +1120,14 @@ function exportSegmentCSV() {
 function exportTrendCSV() {
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
   const now = new Date();
+  const todayStr = now.toISOString().slice(0, 10);
   const d90ago = new Date(now); d90ago.setDate(d90ago.getDate() - 90);
   const dateMap = {};
   active.forEach(c => {
     (c.history || []).forEach(h => {
       if (!h.date) return;
       const d = h.date.slice(0, 10);
+      if (d >= todayStr) return;
       if (new Date(d) < d90ago) return;
       if (!dateMap[d]) dateMap[d] = [];
       dateMap[d].push(h.score);
@@ -910,6 +1179,7 @@ function buildCustomerHealthHTML() {
   if (!active.length) return '';
   const sorted = [...active].sort((a, b) => a.score - b.score);
   let html = rptHeader('Customer Health Report', 'Generated ' + rptDateStr() + ' &middot; ' + active.length + ' accounts') +
+    _rptInsights('customer_health') +
     '<table><tr><th>Customer</th><th>Manager</th><th>Score</th><th>Status</th><th>Tier</th><th style="text-align:right">MRR</th><th>Logins</th><th>Adoption</th><th>Tickets</th><th>NPS</th><th>CSAT</th></tr>' +
     sorted.map(c =>
       '<tr><td><strong>' + escHtml(c.name) + '</strong></td><td>' + escHtml(c.manager || '\u2014') + '</td>' +
@@ -945,15 +1215,34 @@ function showDigestPreview() {
 }
 
 function buildDigestHTML() {
-  const active = customers.filter(c => c.lifecycle !== 'churned');
+  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
   const critical = active.filter(c => c.status === 'critical').length;
   const atRisk   = active.filter(c => c.status === 'risk').length;
   const avgScore = active.length ? Math.round(active.reduce((s,c)=>s+c.score,0)/active.length) : 0;
   const totalMrr = active.reduce((s,c)=>s+(c.mrr||0),0);
+  const riskMrr  = active.filter(c=>c.status==='critical'||c.status==='risk').reduce((s,c)=>s+(c.mrr||0),0);
+
+  // Week-over-week comparison
+  const withHist = active.filter(c=>(c.history||[]).length>=2);
+  const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate()-7);
+  const weekAgoT = weekAgo.getTime();
+  let prevAvg = 0, prevRiskCount = 0, prevRiskMrr = 0;
+  if (withHist.length > 0) {
+    withHist.forEach(c => {
+      const hist = c.history.filter(h=>h.date).sort((a,b)=>a.date.localeCompare(b.date));
+      const prev = hist.reduce((best,h) => Math.abs(new Date(h.date).getTime()-weekAgoT)<Math.abs(new Date(best.date).getTime()-weekAgoT)?h:best);
+      const prevStatus = getStatus(prev.score);
+      prevAvg += prev.score;
+      if (prevStatus==='critical'||prevStatus==='risk') { prevRiskCount++; prevRiskMrr += c.mrr||0; }
+    });
+    prevAvg = Math.round(prevAvg/withHist.length);
+  }
+  const scoreDelta = avgScore - prevAvg;
+  const riskCountDelta = (critical+atRisk) - prevRiskCount;
 
   // Top at-risk (worst score first)
   const topRisk = [...active].filter(c=>c.status==='critical'||c.status==='risk')
-    .sort((a,b)=>a.score-b.score).slice(0,3);
+    .sort((a,b)=>a.score-b.score).slice(0,5);
 
   // Upcoming renewals in next 7 days
   const now = new Date();
@@ -964,48 +1253,108 @@ function buildDigestHTML() {
     return d >= now && d <= in7;
   }).sort((a,b)=>new Date(a.renewal_date)-new Date(b.renewal_date));
 
-  // Score movers (need ≥2 history points)
-  const withHist = active.filter(c=>(c.history||[]).length>=2);
-  const deltas = withHist.map(c=>{
-    const hist=c.history;
-    const delta=hist[hist.length-1].score - hist[hist.length-2].score;
-    return {c,delta};
-  });
+  // Score movers (use getDelta7d for accuracy)
+  const deltas = withHist.map(c=>({ c, delta: getDelta7d(c) }));
   const improved = [...deltas].filter(x=>x.delta>0).sort((a,b)=>b.delta-a.delta).slice(0,3);
   const dropped  = [...deltas].filter(x=>x.delta<0).sort((a,b)=>a.delta-b.delta).slice(0,3);
+  const declining = deltas.filter(x=>x.delta<=-momentumPts);
+
+  // Signal changes across portfolio
+  const signalChanges = [];
+  const signalKeys = [
+    { key:'logins', label:'Logins', unit:'/mo', get: (h,c)=>h.signals?.logins??c.logins },
+    { key:'adoption', label:'Adoption', unit:'%', get: (h,c)=>h.signals?.adoption??c.adoption },
+    { key:'tickets', label:'Tickets', unit:'', get: (h,c)=>h.signals?.tickets??c.tickets },
+  ];
+  signalKeys.forEach(sig => {
+    if (!signalOn(active[0]||{}, sig.key)) return;
+    let curSum=0, prevSum=0, cnt=0;
+    withHist.forEach(c => {
+      const hist = c.history.filter(h=>h.date).sort((a,b)=>a.date.localeCompare(b.date));
+      const cur = hist[hist.length-1];
+      const prev = hist.reduce((best,h)=>Math.abs(new Date(h.date).getTime()-weekAgoT)<Math.abs(new Date(best.date).getTime()-weekAgoT)?h:best);
+      const cv = sig.get(cur,c), pv = sig.get(prev,c);
+      if (cv!=null && pv!=null) { curSum+=cv; prevSum+=pv; cnt++; }
+    });
+    if (cnt>0) {
+      const avg = Math.round((curSum/cnt)*10)/10;
+      const prevA = Math.round((prevSum/cnt)*10)/10;
+      const d = Math.round((avg-prevA)*10)/10;
+      if (Math.abs(d)>0.1) signalChanges.push({ label:sig.label, unit:sig.unit, avg, delta:d });
+    }
+  });
+
+  // Action items
+  const actions = [];
+  // Highest MRR at risk
+  const topMrrRisk = [...active].filter(c=>c.status==='critical'||c.status==='risk').sort((a,b)=>(b.mrr||0)-(a.mrr||0))[0];
+  if (topMrrRisk) actions.push(`Schedule a health check with <strong>${escHtml(topMrrRisk.name)}</strong> — $${fmtNum(topMrrRisk.mrr||0)} MRR at score ${topMrrRisk.score}`);
+  // Overdue contacts
+  const overdue30 = active.filter(c=>signalOn(c,'days')&&c.days!=null&&c.days>30);
+  if (overdue30.length>0) actions.push(`<strong>${overdue30.length} account${overdue30.length>1?'s':''}</strong> haven't been contacted in 30+ days`);
+  // Declining momentum
+  if (declining.length>0) {
+    const steepest = declining.sort((a,b)=>a.delta-b.delta)[0];
+    actions.push(`<strong>${declining.length} account${declining.length>1?'s':''}</strong> trending downward — ${escHtml(steepest.c.name)} dropped ${Math.abs(steepest.delta)} pts`);
+  }
+  // Renewals at risk
+  const renewRisk = upcoming.filter(c=>c.status==='critical'||c.status==='risk');
+  if (renewRisk.length>0) actions.push(`<strong>${renewRisk.length} renewal${renewRisk.length>1?'s':''}</strong> coming up with at-risk health — ${escHtml(renewRisk[0].name)} renews in ${Math.round((new Date(renewRisk[0].renewal_date)-now)/86400000)}d at score ${renewRisk[0].score}`);
+
+  // Portfolio summary sentence
+  let trendSentence = '';
+  if (withHist.length>0) {
+    if (scoreDelta>2) trendSentence = `Portfolio health improved <strong>${scoreDelta} points</strong> on average this week.`;
+    else if (scoreDelta<-2) trendSentence = `Portfolio health declined <strong>${Math.abs(scoreDelta)} points</strong> this week — ${declining.length} account${declining.length!==1?'s':''} trending downward.`;
+    else trendSentence = `Portfolio health held steady this week (${scoreDelta>=0?'+':''}${scoreDelta} points average).`;
+  }
 
   const week = new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  const dayName = new Date().toLocaleDateString('en-US',{weekday:'long'});
   const sdot = s=>({critical:'🔴',risk:'🟠',watch:'🟡',healthy:'🟢',expand:'✨'}[s]||'⚪');
+  const arrow = d => d>0?'<span style="color:#16a34a;font-weight:700">▲+'+d+'</span>':d<0?'<span style="color:#dc2626;font-weight:700">▼'+d+'</span>':'<span style="color:#64748b">→ 0</span>';
 
-  return `<div style="max-width:580px;margin:0 auto;font-family:Arial,sans-serif">
+  return `<div style="max-width:620px;margin:0 auto;font-family:Arial,sans-serif">
     <div style="background:linear-gradient(90deg,#2e3fa3,#4a6fd4);color:#fff;padding:20px 24px;border-radius:8px 8px 0 0">
-      <div style="font-size:18px;font-weight:700">IQcadence CS Health Digest</div>
-      <div style="font-size:12px;opacity:.8;margin-top:2px">Week of ${week}</div>
+      <div style="font-size:18px;font-weight:700">Weekly Review</div>
+      <div style="font-size:12px;opacity:.8;margin-top:2px">${dayName}, ${week}</div>
     </div>
     <div style="padding:20px 24px;background:#f8fafc;border-radius:0 0 8px 8px">
 
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
+      ${trendSentence?`<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;margin-bottom:16px;font-size:13px;color:#334155;line-height:1.6">${trendSentence}</div>`:''}
+
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
         ${[
-          ['Total Accounts', active.length, '#1e293b'],
-          ['Critical / At Risk', critical+' / '+atRisk, (critical+atRisk)>0?'#dc2626':'#16a34a'],
-          ['Avg Health Score', avgScore, avgScore>=80?'#16a34a':avgScore>=65?'#d97706':'#dc2626'],
-          ['Total MRR', '$'+fmtNum(totalMrr), '#2e3fa3'],
-        ].map(([lbl,val,col])=>`<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px;text-align:center">
+          ['Avg Score', avgScore, avgScore>=80?'#16a34a':avgScore>=65?'#d97706':'#dc2626', scoreDelta],
+          ['Critical / Risk', critical+atRisk, (critical+atRisk)>0?'#dc2626':'#16a34a', riskCountDelta],
+          ['MRR at Risk', '$'+fmtNum(riskMrr), riskMrr>0?'#dc2626':'#16a34a', null],
+          ['Total MRR', '$'+fmtNum(totalMrr), '#2e3fa3', null],
+        ].map(([lbl,val,col,delta])=>`<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px;text-align:center">
           <div style="font-size:20px;font-weight:800;color:${col}">${val}</div>
           <div style="font-size:11px;color:#64748b;margin-top:2px">${lbl}</div>
+          ${delta!=null && withHist.length>0?`<div style="font-size:10px;margin-top:4px">${arrow(delta)} vs last week</div>`:''}
         </div>`).join('')}
       </div>
 
+      ${actions.length?`<div style="margin-bottom:18px">
+        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">🎯 Action Items This Week</div>
+        ${actions.map(a=>`<div style="font-size:12px;padding:6px 0;border-bottom:1px solid #f1f5f9;color:#334155;line-height:1.5">• ${a}</div>`).join('')}
+      </div>`:''}
+
       ${topRisk.length?`<div style="margin-bottom:18px">
         <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">🚨 Accounts Needing Attention</div>
-        ${topRisk.map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9">
-          <div>${sdot(c.status)} <strong>${escHtml(c.name)}</strong></div>
-          <div style="font-size:12px;color:#64748b">Score ${c.score} · MRR $${fmtNum(c.mrr||0)}</div>
-        </div>`).join('')}
+        ${topRisk.map(c=>{
+          const d7 = getDelta7d(c);
+          const trend = d7>0?'<span style="color:#16a34a">▲+'+d7+'</span>':d7<0?'<span style="color:#dc2626">▼'+d7+'</span>':'<span style="color:#94a3b8">→0</span>';
+          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9">
+          <div>${sdot(c.status)} <strong>${escHtml(c.name)}</strong> <span style="font-size:11px;color:#94a3b8">${trend}</span></div>
+          <div style="font-size:12px;color:#64748b">Score ${c.score} · $${fmtNum(c.mrr||0)}</div>
+        </div>`;
+        }).join('')}
       </div>`:``}
 
       ${upcoming.length?`<div style="margin-bottom:18px">
-        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">📅 Renewals This Week</div>
+        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">📅 Renewals Coming Up</div>
         ${upcoming.map(c=>{
           const days=Math.round((new Date(c.renewal_date)-now)/86400000);
           return `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9">
@@ -1018,7 +1367,7 @@ function buildDigestHTML() {
       ${(improved.length||dropped.length)?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px">
         ${improved.length?`<div>
           <div style="font-size:12px;font-weight:700;color:#16a34a;margin-bottom:6px">📈 Most Improved</div>
-          ${improved.map(({c,delta})=>`<div style="font-size:12px;padding:4px 0">${escHtml(c.name)} <span style="color:#16a34a;font-weight:700">+${delta}</span></div>`).join('')}
+          ${improved.map(({c,delta})=>`<div style="font-size:12px;padding:4px 0">${escHtml(c.name)} <span style="color:#16a34a;font-weight:700">+${Math.abs(delta)}</span></div>`).join('')}
         </div>`:''}
         ${dropped.length?`<div>
           <div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:6px">📉 Biggest Drops</div>
@@ -1026,7 +1375,14 @@ function buildDigestHTML() {
         </div>`:''}
       </div>`:``}
 
-      <div style="font-size:11px;color:#94a3b8;text-align:center;margin-top:8px">Generated by IQcadence CS Health Score · ${week}</div>
+      ${signalChanges.length?`<div style="margin-bottom:18px">
+        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">📊 Signal Trends This Week</div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap">
+          ${signalChanges.map(s=>`<div style="font-size:12px;color:#334155"><strong>${s.label}</strong> ${s.delta>0?'<span style="color:#16a34a">▲+'+s.delta+s.unit+'</span>':'<span style="color:#dc2626">▼'+s.delta+s.unit+'</span>'} (avg ${s.avg}${s.unit})</div>`).join('')}
+        </div>
+      </div>`:''}
+
+      <div style="font-size:11px;color:#94a3b8;text-align:center;margin-top:8px">Generated by IQcadence · ${week}</div>
     </div>
   </div>`;
 }
@@ -1053,7 +1409,7 @@ function downloadDigestHTML() {
 // ─── REPORT EMAIL / SCHEDULING ────────────────────────────────
 
 const EMAILABLE_REPORTS = [
-  { key:'weekly_digest',      label:'Weekly Health Digest',       builder: () => buildDigestHTML() },
+  { key:'weekly_digest',      label:'Weekly Review',              builder: () => buildDigestHTML() },
   { key:'customer_health',    label:'Customer Health Report',     builder: () => buildCustomerHealthHTML() },
   { key:'portfolio_summary',  label:'Portfolio Health Summary',   builder: () => buildPortfolioSummaryHTML() },
   { key:'at_risk',            label:'At-Risk Report',             builder: () => buildAtRiskReportHTML() },
@@ -1335,7 +1691,12 @@ function renderScheduledReports() {
     return cfg && cfg.recipients;
   });
 
+  const activeCount = configured.filter(r => (schedules[r.key] || {}).enabled).length;
+  const badge = el('sched-active-badge');
+  if (badge) badge.textContent = activeCount + ' of ' + configured.length + ' active';
+
   if (!configured.length) {
+    if (badge) badge.textContent = '';
     container.innerHTML =
       '<div style="text-align:center;padding:40px 20px">' +
         '<div style="font-size:2rem;margin-bottom:8px">\u{1F4E7}</div>' +
@@ -1355,7 +1716,7 @@ function renderScheduledReports() {
     '<th>Day / Time</th>' +
     '<th>Recipients</th>' +
     '<th>Last Sent</th>' +
-    '<th style="width:80px">Actions</th>';
+    '<th style="width:140px">Actions</th>';
 
   const rows = configured.map(r => {
     const cfg = schedules[r.key] || {};
@@ -1424,17 +1785,15 @@ function renderScheduledReports() {
       '<td style="font-size:.82rem;color:var(--muted)">' + dayTimeText + '</td>' +
       '<td style="font-size:.82rem;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis" title="' + escHtml(cfg.recipients || '') + '">' + recipText + '</td>' +
       '<td style="font-size:.78rem;color:var(--muted)">' + lastSentText + '</td>' +
-      '<td>' +
+      '<td style="white-space:nowrap">' +
+        '<button class="btn btn-xs btn-ghost" onclick="schedSendNow(\'' + r.key + '\')" title="Send Now" style="font-size:.68rem;padding:2px 6px">Send</button>' +
+        '<button class="btn btn-xs btn-ghost" onclick="schedTestSend(\'' + r.key + '\')" title="Test (sends to you)" style="font-size:.68rem;padding:2px 6px;color:var(--muted)">Test</button>' +
         '<button class="btn btn-xs btn-ghost" onclick="toggleSchedInlineEdit(\'' + r.key + '\')" title="' + (isEditing ? 'Close' : 'Edit') + '">' + (isEditing ? checkSvg : editSvg) + '</button>' +
       '</td></tr>' +
       inlineEditHtml;
   }).join('');
 
   container.innerHTML =
-    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">' +
-      '<h3 style="margin:0;font-size:1rem;font-weight:700;color:var(--text)">Scheduled Reports</h3>' +
-      '<span style="font-size:.78rem;color:var(--muted)">' + configured.filter(r => (schedules[r.key] || {}).enabled).length + ' of ' + configured.length + ' active</span>' +
-    '</div>' +
     '<table class="alert-summary-table">' +
       '<thead><tr>' + theadCols + '</tr></thead>' +
       '<tbody>' + rows + '</tbody>' +
@@ -1486,4 +1845,47 @@ function removeReportSchedule(reportKey) {
   _schedEditKey = null;
   renderScheduledReports();
   toast('Report schedule removed', 'success');
+}
+
+async function schedSendNow(reportKey) {
+  const cfg = (automationsCfg.report_schedules || {})[reportKey];
+  if (!cfg || !cfg.recipients) { toast('No recipients configured', 'warn'); return; }
+  const { html, subject } = buildReportEmailPayload(reportKey);
+  if (!html) { toast('Could not generate report — no data', 'error'); return; }
+  const prefix = cfg.subject_prefix || '[iQcadence Report]';
+  try {
+    toast('Sending report...', 'default');
+    const { data, error } = await sb.functions.invoke('send-webhook', {
+      body: { mode: 'email', recipients: cfg.recipients, subject: prefix + ' ' + subject,
+              html_body: html, event_type: 'report_' + reportKey, customer_id: null, customer_name: null }
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    cfg.last_sent = new Date().toISOString();
+    saveAutomationsCfg();
+    renderScheduledReports();
+    toast('Report sent to ' + cfg.recipients.split(',').length + ' recipient(s)', 'success');
+  } catch(err) {
+    toast('Failed to send: ' + (err.message || 'Unknown error'), 'error');
+  }
+}
+
+async function schedTestSend(reportKey) {
+  if (!currentUser || !currentUser.email) { toast('No email on current user', 'error'); return; }
+  const cfg = (automationsCfg.report_schedules || {})[reportKey];
+  const { html, subject } = buildReportEmailPayload(reportKey);
+  if (!html) { toast('Could not generate report — no data', 'error'); return; }
+  const prefix = (cfg && cfg.subject_prefix) || '[iQcadence Report]';
+  try {
+    toast('Sending test to ' + currentUser.email + '...', 'default');
+    const { data, error } = await sb.functions.invoke('send-webhook', {
+      body: { mode: 'email', recipients: currentUser.email, subject: prefix + ' ' + subject + ' (TEST)',
+              html_body: html, event_type: 'report_test_' + reportKey, customer_id: null, customer_name: null }
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    toast('Test report sent to ' + currentUser.email, 'success');
+  } catch(err) {
+    toast('Failed to send test: ' + (err.message || 'Unknown error'), 'error');
+  }
 }

@@ -43,6 +43,7 @@ let _openColFilterKey = null;   // key of currently open column filter dropdown
 let filterPresets  = [];        // saved filter presets [{ name, filterMode, columnFilters, sortKey, sortDir }]
 let mrrExposureFilter = null;   // { label: string, ids: Set<string> } — set by clicking MRR Exposure rows
 let _filterTier       = null;   // tier filter for customers table (set by segment click-through)
+let _filterStage      = null;   // lifecycle stage filter for customers table (set by stage click-through)
 let insightFilter     = null;   // { label: string, ids: Set<string> } — set by insight card click-through
 
 // ─── AUTOMATIONS STATE ──────────────────────────────────────
@@ -50,6 +51,35 @@ let automationsCfg    = {};        // { api_key_prefix, webhooks: { type: { url,
 let webhookEvents     = [];        // loaded from webhook_events table
 let webhookLogOffset  = 0;
 let _prevCustomerStates = new Map(); // id → { score, status } for trigger detection
+
+// ─── SHARED PAGINATION ──────────────────────────────────────
+const PAGE_SIZE = 50;
+const _pagState = {}; // key → current page (0-indexed)
+
+function _pagGet(key) { return _pagState[key] || 0; }
+function _pagSet(key, pg, renderFn) { _pagState[key] = pg; if (renderFn) renderFn(); }
+
+// Build page controls HTML — place at top and/or bottom of a list
+// total = total item count, key = state key, renderFnName = global function name to call on page change
+function _pagHTML(total, key, renderFnName) {
+  const pages = Math.ceil(total / PAGE_SIZE);
+  if (pages <= 1) return '';
+  const cur = _pagGet(key);
+  const btns = [];
+  btns.push(`<button class="pag-btn${cur===0?' disabled':''}" onclick="if(${cur}>0){_pagSet('${key}',${cur}-1,${renderFnName})}" ${cur===0?'disabled':''}>&lsaquo;</button>`);
+  // Show max 7 page buttons with ellipsis
+  const show = [];
+  for (let i = 0; i < pages; i++) {
+    if (i === 0 || i === pages-1 || (i >= cur-2 && i <= cur+2)) show.push(i);
+    else if (show.length && show[show.length-1] !== -1) show.push(-1); // ellipsis marker
+  }
+  show.forEach(i => {
+    if (i === -1) { btns.push('<span class="pag-ellipsis">&hellip;</span>'); return; }
+    btns.push(`<button class="pag-btn${i===cur?' active':''}" onclick="_pagSet('${key}',${i},${renderFnName})">${i+1}</button>`);
+  });
+  btns.push(`<button class="pag-btn${cur>=pages-1?' disabled':''}" onclick="if(${cur}<${pages-1}){_pagSet('${key}',${cur}+1,${renderFnName})}" ${cur>=pages-1?'disabled':''}>&rsaquo;</button>`);
+  return `<div class="pag-wrap">${btns.join('')}<span class="pag-info">${cur*PAGE_SIZE+1}–${Math.min((cur+1)*PAGE_SIZE,total)} of ${total}</span></div>`;
+}
 
 // ─── PLAN TIER GATING ──────────────────────────────────────
 let clientPlanTier = 'enterprise'; // default to enterprise (full access) until resolved
@@ -306,6 +336,7 @@ function openModal(id) {
 // Close modal on backdrop click
 document.addEventListener('click', e => {
   if (e.target.classList.contains('modal-bg')) {
+    if (e.target.id === 'qbr-modal' && typeof closeQBR === 'function') { closeQBR(); return; }
     e.target.classList.remove('open');
   }
   // Close preset dropdown on outside click
@@ -1942,6 +1973,11 @@ function makeRec(score, data) {
     return `<strong>Watch:</strong> ${name} has some warning signals. Stay close — increase your cadence and address any friction before it worsens.`;
   }
   if (status === 'expand') {
+    const mom = getMomentum(data);
+    if (mom === 'dn') {
+      const drop = Math.abs(getDelta7d(data));
+      return `<strong>Monitor Decline:</strong> ${name} scores well overall but has dropped ${drop} points this week. Hold off on expansion conversations — investigate what's changing before this trend deepens.`;
+    }
     if (signalOn(data,'growth') && data.growth === 'strong')
       return `<strong>Expansion Ready:</strong> ${name} is highly engaged with strong growth signals. This is the right time to open an upsell conversation — they're primed to say yes.`;
     return `<strong>Expansion Ready:</strong> ${name} is in great shape. Introduce an expansion conversation, request a referral, or propose a tier upgrade at your next touchpoint.`;
@@ -2046,13 +2082,77 @@ function buildPlaybook(score, data) {
       plays.push({ type:'urgent', text:`<strong>Investigate:</strong> ${name} is ${status === 'critical' ? 'critical' : 'at risk'} — the composite score is low even though no single signal is in crisis. Review recent trends, reach out today, and dig into what may have changed: <em>"I've been keeping a close eye on your account — can we find time this week to check in?"</em>` });
     else if (status === 'watch')
       plays.push({ type:'engage', text:`<strong>Proactive check-in:</strong> ${name} is in the Watch zone — signals are borderline across the board. Increase your cadence and reach out: <em>"I wanted to check in and make sure everything is tracking well. Anything on your radar I should know about?"</em>` });
-    else if (status === 'expand')
+    else if (status === 'expand' && getMomentum(data) !== 'dn')
       plays.push({ type:'expand', text:`<strong>Capitalize on momentum:</strong> ${name} is in great shape with strong engagement. Explore expansion opportunities, ask for a referral, or propose a tier upgrade at your next touchpoint.` });
+    else if (status === 'expand')
+      plays.push({ type:'engage', text:`<strong>Investigate recent decline:</strong> ${name} scores well but momentum has turned negative. Focus on understanding what changed before pursuing growth conversations.` });
     else
       plays.push({ type:'ok', text:`<strong>Stay the course:</strong> ${name} is healthy across all signals. Maintain your regular cadence, bring value on every call, and watch for any early warning signs.` });
   }
 
   return plays;
+}
+
+// ─── SCORE DECLINE DRIVERS (per-customer) ────────────────────
+// Compare current signal values to ~7 days ago, return top contributors to score drop
+function _nbaScoreDrivers(c) {
+  const hist = (c.history || []).filter(h => h.date).sort((a, b) => a.date.localeCompare(b.date));
+  if (hist.length < 2) return [];
+
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  const weekAgoT = weekAgo.getTime();
+
+  const recent = hist[hist.length - 1];
+  const prev = hist.reduce((best, h) =>
+    Math.abs(new Date(h.date).getTime() - weekAgoT) < Math.abs(new Date(best.date).getTime() - weekAgoT) ? h : best
+  );
+  if (recent === prev) return [];
+
+  const w = getActiveWeights(c);
+  const totalW = (w.logins + w.adoption + w.tickets + (w.nps || 0) + (w.csat || 0) + w.days + w.growth) || 100;
+
+  const signals = [
+    { key: 'logins', label: 'Logins', wt: w.logins,
+      get: h => h.signals?.logins ?? c.logins,
+      norm: v => v != null ? Math.min(v / 30, 1) * 100 : 50,
+      desc: (a, b) => `went from ${Math.round(a)}/mo to ${Math.round(b)}/mo` },
+    { key: 'adoption', label: 'Adoption', wt: w.adoption,
+      get: h => h.signals?.adoption ?? c.adoption,
+      norm: v => v != null ? Math.min(v, 100) : 50,
+      desc: (a, b) => `dropped from ${Math.round(a)}% to ${Math.round(b)}%` },
+    { key: 'tickets', label: 'Tickets', wt: w.tickets,
+      get: h => h.signals?.tickets ?? c.tickets,
+      norm: v => v != null ? Math.max(0, 100 - v * 20) : 50,
+      desc: (a, b) => `increased from ${Math.round(a)} to ${Math.round(b)}` },
+    { key: 'nps', label: 'NPS', wt: w.nps || 0,
+      get: h => h.signals?.nps ?? c.nps,
+      norm: v => npsNormalized(v),
+      desc: (a, b) => `dropped from ${Math.round(a * 10) / 10} to ${Math.round(b * 10) / 10}` },
+    { key: 'csat', label: 'CSAT', wt: w.csat || 0,
+      get: h => h.signals?.csat ?? c.csat,
+      norm: v => csatNormalized(v),
+      desc: (a, b) => `dropped from ${csatDisplay(a)} to ${csatDisplay(b)}` },
+    { key: 'days', label: 'Days Since Contact', wt: w.days,
+      get: h => h.signals?.days ?? c.days,
+      norm: v => v != null ? Math.max(0, 100 - (v / 180) * 100) : 50,
+      desc: (a, b) => `grew from ${Math.round(a)}d to ${Math.round(b)}d` }
+  ].filter(s => s.wt > 0);
+
+  const results = [];
+  signals.forEach(s => {
+    const rawPrev = s.get(prev);
+    const rawCurr = s.get(recent);
+    if (rawPrev == null || rawCurr == null) return;
+    const normPrev = s.norm(rawPrev);
+    const normCurr = s.norm(rawCurr);
+    const contribution = (normCurr - normPrev) * (s.wt / totalW);
+    if (contribution < -1) { // meaningful negative impact
+      results.push({ key: s.key, label: s.label, contribution, desc: s.desc(rawPrev, rawCurr) });
+    }
+  });
+  results.sort((a, b) => a.contribution - b.contribution); // most negative first
+  return results.slice(0, 2);
 }
 
 // ─── NEXT BEST ACTION ────────────────────────────────────────
@@ -2114,7 +2214,7 @@ function buildNextBestAction(c) {
     return { level:'warn', action:'Check in — ' + signSummary, talk:`Score is in the Watch zone (${signSummary}). Proactively reach out: "I wanted to check in and make sure everything is going well. Anything on your radar I should know about?"` };
   }
 
-  if (signalOn(c,'growth') && status === 'expand' && c.growth === 'strong')
+  if (signalOn(c,'growth') && status === 'expand' && c.growth === 'strong' && mom !== 'dn')
     return { level:'expand', action:'Open the upsell conversation', talk:`Perfect timing for expansion. Say: "Your team's engagement has been really strong — have you thought about [next tier / additional seats]? Teams at your stage typically see [outcome] when they expand."` };
 
   if (c.renewal != null && c.renewal <= 3)
@@ -2122,7 +2222,20 @@ function buildNextBestAction(c) {
 
   if (mom === 'dn') {
     const drop = Math.abs(getDelta7d(c));
-    return { level:'warn', action:`Investigate score decline (−${drop} pts)`, talk:`Score dropped ${drop} points this week — dig into what changed. Ask: "I noticed some changes in your usage patterns recently — is there anything going on that I should know about?"` };
+    // Find which signal drove the decline by comparing current vs week-ago values
+    const drivers = _nbaScoreDrivers(c);
+    let driverText = '';
+    let actionSuffix = '';
+    if (drivers.length > 0) {
+      const top = drivers[0];
+      actionSuffix = ` — driven by ${top.label}`;
+      if (drivers.length === 1) {
+        driverText = `The main factor: <strong>${top.label}</strong> ${top.desc}. `;
+      } else {
+        driverText = `The main factors: <strong>${top.label}</strong> ${top.desc} and <strong>${drivers[1].label}</strong> ${drivers[1].desc}. `;
+      }
+    }
+    return { level:'warn', action:`Score decline (−${drop} pts)${actionSuffix}`, talk:`Score dropped ${drop} points this week. ${driverText}Ask: "I noticed some changes in your usage patterns recently — is there anything going on that I should know about?"` };
   }
 
   if (status === 'expand')
@@ -2345,6 +2458,11 @@ function nav(v) {
   if (v !== 'score') {
     document.getElementById('score-form').dataset.editId = '';
     document.getElementById('form-title').textContent = 'Score a Customer';
+    // Return to customer detail modal if rescore was opened from there
+    if (typeof _returnToDetail !== 'undefined' && _returnToDetail) {
+      const rid = _returnToDetail; _returnToDetail = '';
+      setTimeout(() => openDetail(rid), 80);
+    }
   }
 
   if (v === 'homebase')  renderHomeBase();
@@ -2360,6 +2478,20 @@ function nav(v) {
   if (v === 'automations') renderAutomations();
   if (v === 'users')     renderUsers();
   if (v === 'clients')   renderClients();
+}
+
+/* Refresh the currently active page (used after saving from detail modal) */
+function refreshCurrentPage() {
+  const v = document.querySelector('.view.active');
+  if (!v) return;
+  const id = (v.id || '').replace('view-', '');
+  if (id === 'homebase')  renderHomeBase();
+  if (id === 'alerts')    renderAlerts();
+  if (id === 'customers') renderCustomers();
+  if (id === 'segments')  renderSegments();
+  if (id === 'trends')    renderTrends();
+  if (id === 'csmperf')   renderCSMPerformance();
+  if (id === 'calendar')  renderCalendar();
 }
 
 // ─── NOTIFICATION BELL (v86) ───────────────────────────────────
@@ -2687,18 +2819,71 @@ function _renderHomeBase() {
     _briefOpener = `Your book is running at ${healthyPct}% healthy with $${fmtNum(atRiskMRR)} MRR exposed.`;
   }
 
+  // Portfolio health score (avg across all accounts)
+  const _portfolioScore = total ? Math.round(active.reduce((s,c) => s + (c.score || 0), 0) / total) : 0;
+  const _portfolioStatus = getStatus(_portfolioScore);
+  const _portfolioColor = STATUS_COLOR[_portfolioStatus] || '#16a34a';
+  const _ringCirc = 2 * Math.PI * 40;
+  const _ringOffset = _ringCirc - (_portfolioScore / 100) * _ringCirc;
+
+  // Bullet priority icons
+  const _bIcon = (i) => {
+    const icons = [
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
+    ];
+    return icons[i % icons.length];
+  };
+
   html += '<div class="hb-welcome">';
+  html += '<div class="hb-welcome-grid">';
+
+  // Left column: portfolio health ring + quick stats (front and center)
+  html += '<div class="hb-welcome-left">';
   html += `<div class="hb-greeting">${greeting}${userName ? ', ' + escHtml(userName) : ''}</div>`;
   html += `<div class="hb-date">${dateStr}</div>`;
-  html += `<div class="hb-summary">${_briefOpener}</div>`;
+  html += `<div class="hb-summary" style="margin-top:10px">${_briefOpener}</div>`;
+  html += '<div style="display:flex;align-items:center;gap:24px;margin-top:16px">';
+  html += `<div class="hb-pulse-ring">
+    <svg viewBox="0 0 100 100" width="110" height="110">
+      <circle cx="50" cy="50" r="40" fill="none" stroke="var(--border)" stroke-width="7" opacity=".3"/>
+      <circle cx="50" cy="50" r="40" fill="none" stroke="${_portfolioColor}" stroke-width="7"
+        stroke-dasharray="${_ringCirc}" stroke-dashoffset="${_ringOffset}"
+        stroke-linecap="round" style="transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset .8s cubic-bezier(.4,0,.2,1)"/>
+    </svg>
+    <div class="hb-pulse-center">
+      <div class="hb-pulse-num">${_portfolioScore}</div>
+      <div class="hb-pulse-lbl">Portfolio</div>
+    </div>
+  </div>`;
+  html += '<div class="hb-quick-stats">';
+  html += `<div class="hb-qs"><span class="hb-qs-num" style="color:var(--green)">${healthyPct}%</span><span class="hb-qs-lbl">Healthy</span></div>`;
+  html += `<div class="hb-qs"><span class="hb-qs-num" style="color:var(--red)">${atRisk.length}</span><span class="hb-qs-lbl">At Risk</span></div>`;
+  html += `<div class="hb-qs"><span class="hb-qs-num" style="color:var(--green)">${improving}</span><span class="hb-qs-lbl">\u2191 Up</span></div>`;
+  html += `<div class="hb-qs"><span class="hb-qs-num" style="color:var(--red)">${declining}</span><span class="hb-qs-lbl">\u2193 Down</span></div>`;
+  html += '</div>';
+  html += '</div>'; // close flex row
+  html += '</div>';
+
+  // Right column: briefing action cards
+  html += '<div class="hb-welcome-right">';
   if (_briefBullets.length) {
-    html += '<ul class="hb-brief-list">';
-    _briefBullets.forEach(b => {
-      html += `<li class="hb-brief-item" onclick="${b.action.replace(/"/g,'&quot;')}">${b.text}</li>`;
+    html += '<div class="hb-brief-cards">';
+    _briefBullets.forEach((b, i) => {
+      html += `<div class="hb-brief-card" onclick="${b.action.replace(/"/g,'&quot;')}">
+        <div class="hb-brief-icon">${_bIcon(i)}</div>
+        <div class="hb-brief-text">${b.text}</div>
+        <svg class="hb-brief-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>`;
     });
-    html += '</ul>';
+    html += '</div>';
   }
   html += '</div>';
+
+  html += '</div>'; // close grid
+  html += '</div>'; // close welcome
 
   // ── 5 KPI Cards Row (from Dashboard) ──
   const _kpiIcon = (svg) => `<div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${svg}</div>`;
@@ -2736,7 +2921,8 @@ function _renderHomeBase() {
   </div>`;
 
   // Card 2: Revenue at Risk
-  html += `<div class="dash-kpi-card dash-kpi-red" onclick="nav('customers');setFilter('risk')">
+  const _arIds = JSON.stringify(atRisk.map(c => c.id)).replace(/"/g,'&quot;');
+  html += `<div class="dash-kpi-card dash-kpi-red" onclick="setInsightFilter('${atRisk.length} at-risk accounts (Critical + Risk)',${_arIds})">
     <div class="dash-kpi-top">${_kpiIcon(_kpiSvg.alert)}<span class="dash-kpi-label">Revenue at Risk</span></div>
     <div class="dash-kpi-num">$${fmtNum(atRiskMRR)}</div>
     <div class="dash-kpi-sub">MRR in At Risk accounts</div>
@@ -2744,7 +2930,8 @@ function _renderHomeBase() {
   </div>`;
 
   // Card 3: Upcoming Renewals
-  html += `<div class="dash-kpi-card dash-kpi-teal" onclick="nav('alerts')">
+  const _r30Ids = JSON.stringify(renewals30.map(c => c.id)).replace(/"/g,'&quot;');
+  html += `<div class="dash-kpi-card dash-kpi-teal" onclick="setInsightFilter('${renewals30.length} upcoming renewals (30 days)',${_r30Ids})">
     <div class="dash-kpi-top">${_kpiIcon(_kpiSvg.cal)}<span class="dash-kpi-label">Upcoming Renewals</span></div>
     <div class="dash-kpi-num">${renewals30.length}</div>
     <div class="dash-kpi-sub">Due in next 30 days</div>
@@ -3617,7 +3804,8 @@ function renderRenewalPipeline(active) {
       const riskBadge = r.atRisk ? `<span style="color:${r.color};font-size:.68rem;font-weight:700">⚠ ${r.atRisk} at risk</span>` : '';
       const countText = r.count ? `${r.count} acct${r.count!==1?'s':''}` : `<span style="color:var(--subtle)">—</span>`;
       const clickable = r.count > 0;
-      return `<div style="border-left:3px solid ${r.color};background:${r.bg};border-radius:6px;padding:9px 12px;${clickable?'cursor:pointer;transition:transform .15s,box-shadow .15s':''}" ${clickable?`onclick="filterRenewalBucket('Renewal ${r.label}',${JSON.stringify(r.ids)})" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,.1)'" onmouseout="this.style.transform='';this.style.boxShadow=''"`:''}>
+      const _rIds = JSON.stringify(r.ids).replace(/"/g,'&quot;');
+      return `<div style="border-left:3px solid ${r.color};background:${r.bg};border-radius:6px;padding:9px 12px;${clickable?'cursor:pointer;transition:transform .15s,box-shadow .15s':''}" ${clickable?`onclick="filterRenewalBucket('Renewal ${r.label}',${_rIds})" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,.1)'" onmouseout="this.style.transform='';this.style.boxShadow=''"`:''}>
         <div style="font-size:.65rem;font-weight:700;color:${r.color};text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${r.label}</div>
         <div style="font-size:1.05rem;font-weight:800;color:#1e293b;margin-bottom:2px">${r.mrr ? '$'+fmtNum(r.mrr) : '—'}</div>
         <div style="font-size:.7rem;color:var(--muted);display:flex;gap:5px;align-items:center;flex-wrap:wrap">${countText}${r.atRisk?' · ':''}${riskBadge}</div>
@@ -3629,10 +3817,9 @@ function renderRenewalPipeline(active) {
 // Navigate to customers tab filtered to a renewal pipeline bucket
 function filterRenewalBucket(label, ids) {
   if (!ids || !ids.length) return;
-  mrrExposureFilter = { label, ids: new Set(ids) };
   sortKey = 'renewal';
   sortDir = 1;
-  nav('customers');
+  setInsightFilter(label, ids);
 }
 
 // Navigate to customers page pre-filtered to all improvers or all decliners this week
@@ -4024,7 +4211,7 @@ function _renderAlerts() {
     if (custList.length) {
       custList.forEach(([cid, data]) => {
         const scoreColor = STATUS_COLOR[data.status] || '#94a3b8';
-        html += `<div class="alert-group-hd" onclick="toggleAlertGroup(this)">
+        html += `<div class="alert-group-hd" data-cid="${escHtml(cid)}" onclick="toggleAlertGroup(this)">
           <span class="alert-score-circle" style="background:${scoreColor};width:26px;height:26px;font-size:.65rem;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-weight:800">${data.score}</span>
           <span style="cursor:pointer" onclick="event.stopPropagation();openDetail('${escHtml(cid)}')">${escHtml(data.name)}</span>
           ${data.mrr ? `<span style="font-weight:400;color:var(--subtle);font-size:.75rem">$${fmtNum(data.mrr)} MRR</span>` : ''}
@@ -4165,47 +4352,78 @@ function _renderAlerts() {
 
 // ─── ALERT RIGHT PANEL ───────────────────────────────────────
 function renderAlertPanel(all, active, snz) {
-  // KPI cells
-  const critical = active.filter(a => a.cat === 'health' && a.type === 'red').length;
-  const renewal  = active.filter(a => a.cat === 'renewal').length;
-
-  function setKpi(id, val, cls) {
-    const cell = el(id);
-    if (!cell) return;
-    cell.querySelector('.alert-kpi-val').textContent = val;
-    if (cls) { cell.className = 'alert-kpi-cell alert-kpi-click ' + cls; }
+  // ── KPI 1: Total active ──
+  const totalEl = el('akpi-total');
+  if (totalEl) totalEl.textContent = active.length;
+  const totalSub = el('akpi-total-sub');
+  if (totalSub) {
+    const renewal = active.filter(a => a.cat === 'renewal').length;
+    totalSub.textContent = renewal > 0
+      ? renewal + ' renewal' + (renewal !== 1 ? 's' : '') + ' \u226460d'
+      : active.length === 0 ? 'all clear' : 'across your book';
   }
-  setKpi('akpi-total',    active.length,                active.length > 0 ? 'red' : '');
-  setKpi('akpi-critical', critical,                     critical > 0 ? 'red' : '');
-  setKpi('akpi-renewal',  renewal,                      renewal > 0 ? 'blue' : '');
-  setKpi('akpi-snoozed',  snz.length,                   snz.length > 0 ? 'amber' : '');
 
-  // MRR exposure
+  // ── KPI 2: Critical / Risk ──
+  const critical = active.filter(a => a.cat === 'health' && a.type === 'red').length;
+  const critEl = el('akpi-critical');
+  if (critEl) critEl.textContent = critical;
+  const critSub = el('akpi-critical-sub');
+  if (critSub) critSub.textContent = critical === 0 ? 'none flagged' : 'health alerts';
+
+  // ── KPI 3: MRR exposed ──
+  const affectedIds = new Set(active.map(a => a.cid));
+  const totalBook = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c)).length;
+  let mrrExposed = 0;
+  const mrrSeen = new Set();
+  active.forEach(a => {
+    if (mrrSeen.has(a.cid)) return;
+    const c = customers.find(x => x.id === a.cid);
+    if (!c) return;
+    if (c.status === 'critical' || c.status === 'risk') { mrrSeen.add(a.cid); mrrExposed += c.mrr || 0; }
+  });
+  const mrrEl = el('akpi-mrr');
+  if (mrrEl) mrrEl.textContent = mrrExposed > 0 ? '$' + fmtNum(mrrExposed) : '$0';
+  const mrrSubEl = el('akpi-mrr-sub');
+  if (mrrSubEl) mrrSubEl.textContent = mrrSeen.size > 0 ? mrrSeen.size + ' account' + (mrrSeen.size !== 1 ? 's' : '') + ' at risk' : 'no revenue at risk';
+
+  // ── KPI 4: Accounts affected ──
+  const acctEl = el('akpi-accounts');
+  if (acctEl) acctEl.textContent = affectedIds.size;
+  const acctPct = el('akpi-acct-pct');
+  if (acctPct) {
+    const pctAlerting = totalBook > 0 ? Math.round((affectedIds.size / totalBook) * 100) : 0;
+    acctPct.textContent = pctAlerting > 0 ? pctAlerting + '% of book' : 'affected';
+  }
+
+  // ── KPI 5: Snoozed ──
+  const snzEl = el('akpi-snoozed');
+  if (snzEl) snzEl.textContent = snz.length;
+  const snzSub = el('akpi-snoozed-sub');
+  if (snzSub) snzSub.textContent = snz.length === 0 ? 'none paused' : 'paused';
+
+  // ── MRR Exposure detail card ──
   const mrrWrap = el('alert-mrr-wrap');
   if (mrrWrap) {
     const mrrMap = {
-      'Critical/Risk':    { color:'#fca5a5', mrr:0 },
-      'Watch':            { color:'#fde68a', mrr:0 },
-      'Renewal ≤60d':     { color:'#93c5fd', mrr:0 },
-      'No Contact 60d+':  { color:'#c4b5fd', mrr:0 },
-      'Poor Sentiment':   { color:'#fda4af', mrr:0 },
-      'Low Adoption':     { color:'#fdba74', mrr:0 },
-      'Low Logins':       { color:'#fcd34d', mrr:0 },
-      'Quiet Accounts':   { color:'#8b5cf6', mrr:0 }
+      'Critical/Risk':    { color:'#dc2626', mrr:0 },
+      'Watch':            { color:'#d97706', mrr:0 },
+      'Renewal \u226460d': { color:'#2563eb', mrr:0 },
+      'No Contact 60d+':  { color:'#7c3aed', mrr:0 },
+      'Poor Sentiment':   { color:'#be123c', mrr:0 },
+      'Low Adoption':     { color:'#ea580c', mrr:0 },
+      'Low Logins':       { color:'#ca8a04', mrr:0 },
+      'Quiet Accounts':   { color:'#6d28d9', mrr:0 }
     };
-    // Dedupe by customer (only count each customer once per bucket)
     const seen = {};
     Object.keys(mrrMap).forEach(k => seen[k] = new Set());
-    _mrrSeen = seen; // expose for click-to-filter
-    // Alert-based buckets
+    _mrrSeen = seen;
     active.forEach(a => {
       const c = customers.find(x => x.id === a.cid);
       if (!c) return;
       if (a.cat === 'health' && a.type === 'red' && !seen['Critical/Risk'].has(c.id)) { seen['Critical/Risk'].add(c.id); mrrMap['Critical/Risk'].mrr += c.mrr||0; }
       else if (a.cat === 'health' && a.type === 'amber' && !seen['Watch'].has(c.id)) { seen['Watch'].add(c.id); mrrMap['Watch'].mrr += c.mrr||0; }
-      if (a.cat === 'renewal' && !seen['Renewal ≤60d'].has(c.id)) { seen['Renewal ≤60d'].add(c.id); mrrMap['Renewal ≤60d'].mrr += c.mrr||0; }
+      if (a.cat === 'renewal' && !seen['Renewal \u226460d'].has(c.id)) { seen['Renewal \u226460d'].add(c.id); mrrMap['Renewal \u226460d'].mrr += c.mrr||0; }
     });
-    // Customer-based buckets: no contact 60d+, poor sentiment, low adoption, low logins (respects manager filter)
     customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c)).forEach(c => {
       if (c.days != null && c.days >= 60 && !seen['No Contact 60d+'].has(c.id)) { seen['No Contact 60d+'].add(c.id); mrrMap['No Contact 60d+'].mrr += c.mrr||0; }
       const sent = latestSentiment(c);
@@ -4214,74 +4432,233 @@ function renderAlertPanel(all, active, snz) {
       if (signalOn(c,'logins') && c.logins != null && c.logins < 5 && !seen['Low Logins'].has(c.id)) { seen['Low Logins'].add(c.id); mrrMap['Low Logins'].mrr += c.mrr||0; }
       if (isQuietAccount(c) && !seen['Quiet Accounts'].has(c.id)) { seen['Quiet Accounts'].add(c.id); mrrMap['Quiet Accounts'].mrr += c.mrr||0; }
     });
-    mrrWrap.innerHTML = Object.entries(mrrMap).map(([label, {color, mrr}]) => `
-      <div class="alert-mrr-row" style="cursor:pointer;border-radius:6px;padding:5px 6px;margin:2px -6px;transition:background .15s" onclick="filterByMrrBucket('${label}')" onmouseover="this.style.background='rgba(255,255,255,.08)'" onmouseout="this.style.background=''">
-        <div class="alert-mrr-dot" style="background:${color}"></div>
-        <div class="alert-mrr-label">${label}</div>
-        <div class="alert-mrr-val">$${fmtNum(mrr)}</div>
-      </div>`).join('');
+    const rows = Object.entries(mrrMap).filter(([, {mrr}]) => mrr > 0).sort((a, b) => b[1].mrr - a[1].mrr);
+    const maxMrr = rows.length > 0 ? rows[0][1].mrr : 1;
+    const totalMrrExposed = rows.reduce((s, [, {mrr}]) => s + mrr, 0);
+    const mrrTotalEl = el('alert-mrr-total');
+    if (mrrTotalEl) mrrTotalEl.textContent = '$' + fmtNum(totalMrrExposed);
+    const mrrRows = rows.map(([label, {color, mrr}]) => {
+      const pct = Math.round((mrr / maxMrr) * 100);
+      return `
+        <div style="display:flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer" onclick="filterByMrrBucket('${label}')">
+          <div class="alert-mrr-dot" style="background:${color}"></div>
+          <span class="alert-mrr-label">${label}</span>
+        </div>
+        <div style="height:7px;background:var(--border);border-radius:100px;overflow:hidden;cursor:pointer" onclick="filterByMrrBucket('${label}')">
+          <div style="width:${pct}%;height:100%;background:${color};border-radius:100px;transition:width .4s"></div>
+        </div>
+        <div class="alert-mrr-val" style="font-weight:800;color:${color};white-space:nowrap;text-align:right;font-size:.85rem;cursor:pointer" onclick="filterByMrrBucket('${label}')">$${fmtNum(mrr)}</div>`;
+    }).join('');
+    mrrWrap.innerHTML = mrrRows
+      ? `<div style="display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center">${mrrRows}</div>`
+      : '<div class="alerts-detail-empty" style="padding:20px 0;text-align:center;color:var(--muted)">No MRR at risk — looking good!</div>';
   }
 
-  // By category bars
+  // ── By Category detail card ──
   const catWrap = el('alert-cat-wrap');
   if (catWrap) {
     const catOrder = ['health','tickets','quiet','engagement','renewal','cadence','momentum','sentiment','expansion'];
     const catCounts = {};
     catOrder.forEach(c => catCounts[c] = 0);
     active.forEach(a => { if (catCounts[a.cat] !== undefined) catCounts[a.cat]++; });
+    const totalAlerts = Object.values(catCounts).reduce((s, v) => s + v, 0);
+    const catTotalEl = el('alert-cat-total');
+    if (catTotalEl) catTotalEl.textContent = totalAlerts;
     const maxCount = Math.max(1, ...Object.values(catCounts));
-    const catColors = { health:'#dc2626', tickets:'#ea580c', quiet:'#8b5cf6', engagement:'#f59e0b', renewal:'#2563eb', cadence:'#d97706', momentum:'#d97706', sentiment:'#d97706', expansion:'#16a34a' };
-    catWrap.innerHTML = catOrder.filter(c => catCounts[c] > 0).map(c => {
+    const catColors = { health:'#dc2626', tickets:'#ea580c', quiet:'#7c3aed', engagement:'#d97706', renewal:'#2563eb', cadence:'#b45309', momentum:'#ca8a04', sentiment:'#be123c', expansion:'#16a34a' };
+    const catRows = catOrder.filter(c => catCounts[c] > 0).map(c => {
       const def = ALERT_CATS[c];
       const pct = Math.round((catCounts[c] / maxCount) * 100);
       return `
-        <div class="alert-cat-row" onclick="filterByAlertCat('${c}')">
-          <div class="alert-cat-meta">
-            <span class="alert-cat-name">${def.icon} ${def.label}</span>
-            <span class="alert-cat-count">${catCounts[c]}</span>
-          </div>
-          <div class="alert-cat-track">
-            <div class="alert-cat-bar" style="width:${pct}%;background:${catColors[c]}"></div>
-          </div>
+        <div style="display:flex;align-items:center;gap:5px;white-space:nowrap;cursor:pointer" onclick="filterByAlertCat('${c}')">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;background:${catColors[c]}15;font-size:.65rem">${def.icon}</span>
+          <span class="alert-cat-name">${def.label}</span>
+        </div>
+        <div style="height:7px;background:var(--border);border-radius:100px;overflow:hidden;cursor:pointer" onclick="filterByAlertCat('${c}')">
+          <div style="width:${pct}%;height:100%;background:${catColors[c]};border-radius:100px;transition:width .4s"></div>
+        </div>
+        <div style="text-align:right;cursor:pointer" onclick="filterByAlertCat('${c}')">
+          <span style="background:${catColors[c]}12;color:${catColors[c]};padding:2px 9px;border-radius:100px;font-size:.82rem;font-weight:800;white-space:nowrap">${catCounts[c]}</span>
         </div>`;
-    }).join('') || '<div style="font-size:.78rem;color:rgba(255,255,255,.6)">No active alerts</div>';
+    }).join('');
+    catWrap.innerHTML = catRows
+      ? `<div style="display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center">${catRows}</div>`
+      : '<div class="alerts-detail-empty" style="padding:20px 0;text-align:center;color:var(--muted)">No active alerts — all clear!</div>';
   }
 
-  // Priority Actions
-  const actWrap = el('alert-actions-wrap');
-  if (actWrap) {
-    const urgColors = { urgent:'#fca5a5', warn:'#fde68a', expand:'#86efac', renew:'#93c5fd', ok:'rgba(255,255,255,.4)' };
-    const urgOrder  = { urgent:0, warn:1, expand:2, renew:3, ok:4 };
+  // Insights — surface actionable patterns across alerts
+  const insWrap = el('alert-insights-wrap');
+  if (insWrap) {
+    const insights = [];
+    const _iSvg = (d) => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 
-    // Dedupe by customer — one action per customer, pick first alert match
-    const seen = new Set();
-    const items = [];
+    // Helper: build unique affected-customer list from alert array
+    const uniqueCusts = (alerts) => {
+      const seen = new Set(), out = [];
+      alerts.forEach(a => { if (seen.has(a.cid)) return; seen.add(a.cid); const c = customers.find(x => x.id === a.cid); if (c) out.push(c); });
+      return out;
+    };
+
+    // ── 1. Renewals at Risk — renewing soon AND unhealthy ──
+    const renewalAlerts = active.filter(a => a.cat === 'renewal');
+    if (renewalAlerts.length > 0) {
+      const healthRiskIds = new Set(active.filter(a => a.cat === 'health' && a.type === 'red').map(a => a.cid));
+      const atRiskRenewals = renewalAlerts.filter(a => healthRiskIds.has(a.cid));
+      if (atRiskRenewals.length > 0) {
+        const custs = uniqueCusts(atRiskRenewals);
+        const renewMrr = custs.reduce((s, c) => s + (c.mrr || 0), 0);
+        const nameList = custs.slice(0, 2).map(c => `<strong>${escHtml(c.name)}</strong>`);
+        const extra = custs.length > 2 ? ` and ${custs.length - 2} more` : '';
+        const rCids = custs.map(c => c.id);
+        insights.push({
+          score: 95 + custs.length, label: 'Renewals at Risk', accent: 'red',
+          icon: _iSvg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>'),
+          iconBg: 'var(--red-l)', iconColor: 'var(--red)',
+          cids: rCids, navMode: rCids.length === 1 ? 'customer' : 'table', navLabel: 'Renewals at Risk',
+          text: `${nameList.join(' and ')}${extra} ${custs.length === 1 ? 'is' : 'are'} up for renewal while sitting at Critical or At Risk health. That's <strong>$${fmtNum(renewMrr)} MRR</strong> on the line — prioritize outreach before the renewal conversation starts.`
+        });
+      }
+    }
+
+    // ── 2. Biggest Account at Risk — highest-MRR critical/risk account with specific issues ──
+    const healthAlerts = active.filter(a => a.cat === 'health' && a.type === 'red');
+    if (healthAlerts.length > 0) {
+      const riskCusts = uniqueCusts(healthAlerts).sort((a, b) => (b.mrr || 0) - (a.mrr || 0));
+      const top = riskCusts[0];
+      if (top && (top.mrr || 0) > 0) {
+        // Collect what's wrong with this account
+        const issues = [];
+        const tAlerts = active.filter(a => a.cid === top.id);
+        if (tAlerts.some(a => a.cat === 'tickets')) issues.push('open support tickets');
+        if (tAlerts.some(a => a.cat === 'engagement')) issues.push('low engagement');
+        if (tAlerts.some(a => a.cat === 'quiet')) issues.push('gone quiet');
+        if (tAlerts.some(a => a.cat === 'momentum')) issues.push('declining momentum');
+        if (tAlerts.some(a => a.cat === 'sentiment')) issues.push('poor sentiment');
+        if (tAlerts.some(a => a.cat === 'cadence')) issues.push('overdue for contact');
+        const issueText = issues.length > 0 ? `, plus ${issues.join(' and ')}` : '';
+        insights.push({
+          score: 85 + Math.min((top.mrr || 0) / 1000, 10), label: 'Highest MRR at Risk', accent: 'red',
+          icon: _iSvg('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'),
+          iconBg: 'var(--red-l)', iconColor: 'var(--red)',
+          cids: [top.id], navMode: 'customer', navLabel: 'Highest MRR at Risk',
+          text: `<strong>${escHtml(top.name)}</strong> is your biggest dollar risk — <strong>$${fmtNum(top.mrr)} MRR</strong> at a score of <strong>${top.score}</strong>${issueText}. Start here today.`
+        });
+      }
+    }
+
+    // ── 3. Declining Momentum — accounts trending downward this week ──
+    const alertCustIds = new Set(active.map(a => a.cid));
+    const decliningCusts = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c) && alertCustIds.has(c.id) && getMomentum(c) === 'dn');
+    if (decliningCusts.length >= 2) {
+      const decMrr = decliningCusts.reduce((s, c) => s + (c.mrr || 0), 0);
+      const totalAffected = new Set(active.map(a => a.cid)).size;
+      const pct = Math.round((decliningCusts.length / totalAffected) * 100);
+      const decIds = decliningCusts.map(c => c.id);
+      // Find steepest drop and highest MRR separately
+      const withDelta = decliningCusts.map(c => ({ c, delta: getDelta7d(c) }));
+      withDelta.sort((a, b) => a.delta - b.delta); // most negative first
+      const steepest = withDelta[0];
+      const biggestMrr = decliningCusts.slice().sort((a, b) => (b.mrr || 0) - (a.mrr || 0))[0];
+      let callout = '';
+      if (steepest.c.id === biggestMrr.id) {
+        callout = `<strong>${escHtml(steepest.c.name)}</strong> (${Math.abs(Math.round(steepest.delta))} pt drop, $${fmtNum(steepest.c.mrr || 0)} MRR) is the biggest concern.`;
+      } else {
+        callout = `<strong>${escHtml(steepest.c.name)}</strong> has the steepest drop (${Math.abs(Math.round(steepest.delta))} pts), while <strong>${escHtml(biggestMrr.name)}</strong> ($${fmtNum(biggestMrr.mrr || 0)} MRR) carries the most revenue risk.`;
+      }
+      insights.push({
+        score: 60 + pct, label: 'Scores Still Falling', accent: 'red',
+        icon: _iSvg('<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>'),
+        iconBg: 'var(--red-l)', iconColor: 'var(--red)',
+        cids: decIds, navMode: 'table', navLabel: 'Scores Still Falling',
+        text: `<strong>${decliningCusts.length} accounts</strong> are still trending downward week-over-week — <strong>$${fmtNum(decMrr)} MRR</strong> that hasn't stabilized. ${callout}`
+      });
+    }
+
+    // ── 4. Multi-signal accounts — accounts with 3+ different alert types need a plan ──
+    const custAlertCats = {};
     active.forEach(a => {
-      if (seen.has(a.cid)) return;
-      seen.add(a.cid);
-      const c = customers.find(x => x.id === a.cid);
-      if (!c) return;
-      const nba = buildNextBestAction(c);
-      // MRR urgency boost: high-value accounts escalate warn → urgent
-      let level = nba.level;
-      if (level === 'warn' && (c.mrr||0) >= 10000) level = 'urgent';
-      items.push({ cid: c.id, name: c.name, level, action: nba.action, mrr: c.mrr||0 });
+      if (!custAlertCats[a.cid]) custAlertCats[a.cid] = new Set();
+      custAlertCats[a.cid].add(a.cat);
     });
+    const multiSignal = Object.entries(custAlertCats)
+      .filter(([, cats]) => cats.size >= 3)
+      .map(([cid, cats]) => ({ c: customers.find(x => x.id === cid), cats: cats.size }))
+      .filter(x => x.c)
+      .sort((a, b) => b.cats - a.cats || (b.c.mrr || 0) - (a.c.mrr || 0));
+    if (multiSignal.length > 0) {
+      const top = multiSignal[0];
+      const topCats = [...custAlertCats[top.c.id]].map(k => (ALERT_CATS[k] || {}).label || k);
+      const others = multiSignal.length > 1 ? ` ${multiSignal.length - 1} other ${multiSignal.length - 1 === 1 ? 'account' : 'accounts'} also have 3+ alert types.` : '';
+      const msCids = multiSignal.map(x => x.c.id);
+      insights.push({
+        score: 50 + top.cats * 10, label: 'Multiple Red Flags', accent: 'amber',
+        icon: _iSvg('<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'),
+        iconBg: 'var(--amber-l)', iconColor: 'var(--amber)',
+        cids: msCids, navMode: msCids.length === 1 ? 'customer' : 'table', navLabel: 'Multiple Red Flags',
+        text: `<strong>${escHtml(top.c.name)}</strong> is flagged across <strong>${top.cats} categories</strong> — ${topCats.join(', ')}. When issues stack up like this, a single check-in call can uncover the root cause.${others}`
+      });
+    }
 
-    // Sort by urgency then by MRR desc
-    items.sort((a,b) => (urgOrder[a.level]||4) - (urgOrder[b.level]||4) || b.mrr - a.mrr);
+    // ── 5. Engagement Gap — low adoption/logins accounts with real MRR ──
+    const engAlerts = active.filter(a => a.cat === 'engagement');
+    if (engAlerts.length >= 2) {
+      const engCusts = uniqueCusts(engAlerts).sort((a, b) => (b.mrr || 0) - (a.mrr || 0));
+      const engMrr = engCusts.reduce((s, c) => s + (c.mrr || 0), 0);
+      if (engMrr > 0) {
+        const lowAdopt = engCusts.filter(c => c.adoption != null && c.adoption < 30);
+        const lowLogin = engCusts.filter(c => c.logins != null && c.logins < 5);
+        let detail = '';
+        if (lowAdopt.length > 0 && lowLogin.length > 0) detail = `${lowAdopt.length} with low adoption and ${lowLogin.length} with low logins`;
+        else if (lowAdopt.length > 0) detail = `${lowAdopt.length} with feature adoption under 30%`;
+        else detail = `${lowLogin.length} with fewer than 5 logins per month`;
+        const eCids = engCusts.map(c => c.id);
+        insights.push({
+          score: 45 + engCusts.length * 3, label: 'Engagement Drop', accent: 'amber',
+          icon: _iSvg('<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'),
+          iconBg: 'var(--amber-l)', iconColor: 'var(--amber)',
+          cids: eCids, navMode: 'table', navLabel: 'Low Engagement',
+          text: `<strong>${engCusts.length} accounts</strong> (<strong>$${fmtNum(engMrr)} MRR</strong>) are underusing the product — ${detail}. Low usage often leads to churn — consider a training session or check-in to drive adoption.`
+        });
+      }
+    }
 
-    if (items.length) {
-      actWrap.innerHTML = items.slice(0, 4).map(it => `
-        <div class="alert-action-row" onclick="openDetail('${escHtml(it.cid)}')">
-          <div class="alert-action-dot" style="background:${urgColors[it.level]||'rgba(255,255,255,.4)'}"></div>
-          <div class="alert-action-body">
-            <div class="alert-action-cust">${escHtml(it.name)}${it.mrr ? ` <span style="font-weight:400;font-size:.7rem;color:rgba(255,255,255,.55)">$${fmtNum(it.mrr)} MRR</span>` : ''}</div>
-            <div class="alert-action-text">${escHtml(it.action)}</div>
-          </div>
-        </div>`).join('');
+    // ── 6. Silent Revenue — quiet high-value accounts ──
+    const quietAlerts = active.filter(a => a.cat === 'quiet');
+    if (quietAlerts.length > 0) {
+      const quietCusts = uniqueCusts(quietAlerts).filter(c => (c.mrr || 0) >= 3000).sort((a, b) => (b.mrr || 0) - (a.mrr || 0));
+      if (quietCusts.length > 0) {
+        const totalQuietMrr = quietCusts.reduce((s, c) => s + (c.mrr || 0), 0);
+        const topQ = quietCusts[0];
+        const qDays = getQuietDays(topQ);
+        const qCids = quietCusts.map(c => c.id);
+        insights.push({
+          score: 42 + quietCusts.length * 2, label: 'Silent Revenue', accent: 'amber',
+          icon: _iSvg('<path d="M18.36 6.64A9 9 0 0 1 20.77 15"/><path d="M6.16 6.16a9 9 0 1 0 12.68 12.68"/><line x1="2" y1="2" x2="22" y2="22"/>'),
+          iconBg: 'var(--amber-l)', iconColor: 'var(--amber)',
+          cids: qCids, navMode: qCids.length === 1 ? 'customer' : 'table', navLabel: 'Quiet Accounts',
+          text: `<strong>${quietCusts.length} ${quietCusts.length === 1 ? 'account' : 'accounts'}</strong> worth <strong>$${fmtNum(totalQuietMrr)} MRR</strong> ${quietCusts.length === 1 ? 'has' : 'have'} gone dark — zero logins, zero tickets, no contact. <strong>${escHtml(topQ.name)}</strong> ($${fmtNum(topQ.mrr || 0)} MRR) has been quiet for <strong>${qDays} days</strong>. Reach out now — the longer the silence, the harder the save.`
+        });
+      }
+    }
+
+    // Sort by score desc, show top 3
+    insights.sort((a, b) => b.score - a.score);
+    const topIns = insights.slice(0, 3);
+
+    if (topIns.length) {
+      // Store insight data for click navigation
+      window._alertInsights = topIns;
+      insWrap.innerHTML = '<div style="font-size:.82rem;font-weight:700;color:var(--text);margin-bottom:8px">Insights</div>' +
+        topIns.map((ins, idx) => {
+          const cls = ins.accent === 'green' ? 'ta-card-green' : ins.accent === 'red' ? 'ta-card-red' : ins.accent === 'amber' ? 'ta-card-amber' : '';
+          const clickable = ins.cids && ins.cids.length > 0;
+          return `<div class="ta-card ${cls}${clickable ? ' ta-card-clickable' : ''}" ${clickable ? `onclick="_alertInsightClick(${idx})"` : ''}>
+            <div class="ta-icon" style="background:${ins.iconBg};color:${ins.iconColor}">${ins.icon}</div>
+            <div><div class="ta-label">${ins.label}</div><div class="ta-detail">${ins.text}</div></div>
+          </div>`;
+        }).join('');
     } else {
-      actWrap.innerHTML = '<div style="font-size:.78rem;color:rgba(255,255,255,.6);text-align:center;padding:12px 0">All clear — no actions needed</div>';
+      insWrap.innerHTML = '';
     }
   }
 }
@@ -4291,6 +4668,40 @@ function _alertTblSortBy(key) {
   if (_alertTblSort.key === key) _alertTblSort.dir *= -1;
   else { _alertTblSort.key = key; _alertTblSort.dir = key === 'name' || key === 'manager' ? 1 : -1; }
   renderAlerts();
+}
+
+// Navigate from insight card: single customer → customer view + expand, multiple → table view
+function _insightNav(mode, custIds, label) {
+  const ids = custIds instanceof Set ? custIds : new Set(custIds);
+  if (mode === 'customer' && ids.size === 1) {
+    // Single customer: switch to customer view, expand, and scroll
+    const cid = [...ids][0];
+    setAlertView('customer');
+    setTimeout(() => {
+      const hd = document.querySelector(`.alert-group-hd[data-cid="${cid}"]`);
+      if (hd) {
+        const body = hd.nextElementSibling;
+        if (body && body.classList.contains('alert-group-body') && getComputedStyle(body).display === 'none') {
+          toggleAlertGroup(hd);
+        }
+        const stickyBar = document.getElementById('alert-sticky-bar');
+        const barH = stickyBar ? stickyBar.offsetHeight : 0;
+        _smoothScrollWithOffset(hd, barH + 12);
+      }
+    }, 80);
+  } else if (mode === 'detail' && ids.size === 1) {
+    // Open detail modal for single account
+    openDetail([...ids][0]);
+  } else {
+    // Multiple customers: show in filtered table
+    _alertShowTable(label || 'Insight', ids);
+  }
+}
+
+function _alertInsightClick(idx) {
+  const ins = window._alertInsights?.[idx];
+  if (!ins || !ins.cids || !ins.cids.length) return;
+  _insightNav(ins.navMode || 'table', ins.cids, ins.navLabel || ins.label);
 }
 
 function _alertShowTable(label, ids) {
@@ -4326,9 +4737,12 @@ function filterByAlertKpi(which) {
   // Switch to category view and scroll to the relevant group
   if (_alertViewMode !== 'category') setAlertView('category');
   let scrollTo = null;
+  if (which === 'all')      scrollTo = 'alert-grp-health';
   if (which === 'total')    scrollTo = 'alert-grp-health';
   if (which === 'critical') scrollTo = 'alert-grp-health';
   if (which === 'renewal')  scrollTo = 'alert-grp-renewal';
+  if (which === 'mrr')      scrollTo = 'alert-grp-health';
+  if (which === 'accounts') scrollTo = 'alert-grp-health';
   setTimeout(() => {
     const stickyBar = document.getElementById('alert-sticky-bar');
     const barH = stickyBar ? stickyBar.offsetHeight : 0;
@@ -4740,7 +5154,8 @@ function renderFilterPills() {
   const hasMrr = mrrExposureFilter && mrrExposureFilter.ids;
   const hasInsight = insightFilter && insightFilter.ids;
   const hasTier = !!_filterTier;
-  if (!keys.length && !hasMrr && !hasInsight && !hasTier) { bar.style.display = 'none'; return; }
+  const hasStage = !!_filterStage;
+  if (!keys.length && !hasMrr && !hasInsight && !hasTier && !hasStage) { bar.style.display = 'none'; return; }
 
   bar.innerHTML = keys.map(key => {
     const f = columnFilters[key];
@@ -4776,6 +5191,12 @@ function renderFilterPills() {
   if (_filterTier) {
     const tierLabel = _filterTier === 'enterprise' ? 'Enterprise' : _filterTier === 'mid' ? 'Mid-Market' : 'SMB';
     bar.innerHTML = `<span class="filter-pill" style="background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.4)">Tier: ${tierLabel}<button class="filter-pill-x" onclick="event.stopPropagation();clearTierFilter()" title="Remove filter">✕</button></span>` + bar.innerHTML;
+  }
+  // Stage filter pill
+  if (_filterStage) {
+    const stageLabels = { onboarding:'Onboarding', active:'Active', atrisk:'At Risk', won:'Won / Upsold', churned:'Churned' };
+    const stageLabel = stageLabels[_filterStage] || _filterStage;
+    bar.innerHTML = `<span class="filter-pill" style="background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.4)">Stage: ${stageLabel}<button class="filter-pill-x" onclick="event.stopPropagation();clearStageFilter()" title="Remove filter">✕</button></span>` + bar.innerHTML;
   }
 
   bar.style.display = 'flex';
@@ -5007,6 +5428,7 @@ function _renderCustomers() {
     return c.status === filterMode && c.lifecycle !== 'churned';
   }).filter(c => passesManagerFilter(c)).filter(c => {
     if (_filterTier && c.tier !== _filterTier) return false;
+    if (_filterStage && (c.lifecycle || 'active') !== _filterStage) return false;
     if (!q) return true;
     return c.name.toLowerCase().includes(q) || (c.tags||[]).some(t=>t.toLowerCase().includes(q));
   });
@@ -5236,10 +5658,9 @@ function scoreDelta(c) {
 }
 
 function deltaHTML(delta) {
-  if (delta === null) return '<span class="delta-eq">—</span>';
-  if (delta > 0)  return `<span class="delta-up">▲ +${delta} <small style="font-weight:500;color:var(--muted)">7v7 days</small></span>`;
-  if (delta < 0)  return `<span class="delta-dn">▼ ${delta} <small style="font-weight:500;color:var(--muted)">7v7 days</small></span>`;
-  return '<span class="delta-eq">→ 0</span>';
+  if (delta === null) return '';
+  if (delta !== 0) return `<small style="font-weight:500;color:var(--muted)">7v7 days</small>`;
+  return '';
 }
 
 // ─── BULK ACTIONS ────────────────────────────────────────────
@@ -5258,6 +5679,7 @@ function toggleSelectAll(checked) {
     return c.status===filterMode && c.lifecycle!=='churned';
   }).filter(c => passesManagerFilter(c)).filter(c => {
     if (_filterTier && c.tier !== _filterTier) return false;
+    if (_filterStage && (c.lifecycle || 'active') !== _filterStage) return false;
     if (!q) return true;
     return c.name.toLowerCase().includes(q) || (c.tags||[]).some(t=>t.toLowerCase().includes(q));
   });
@@ -5636,13 +6058,20 @@ function showResult({ data, score, signals, status, rec, plays }) {
   // Scroll to the result so the user sees the score immediately
   card.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-  // Score ring
+  // Score ring — animate via transition + rAF
   document.getElementById('score-num').textContent = score;
   const circ = 2 * Math.PI * 58;
   const fill = document.getElementById('ring-fill');
-  fill.style.stroke           = STATUS_COLOR[status] || '#16a34a';
-  fill.style.strokeDasharray  = circ;
-  fill.style.strokeDashoffset = circ - (score / 100) * circ;
+  fill.style.stroke          = STATUS_COLOR[status] || '#16a34a';
+  fill.style.strokeDasharray = String(circ);
+  fill.style.transition      = 'none';
+  fill.style.strokeDashoffset = String(circ);            // start fully hidden
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      fill.style.transition      = 'stroke-dashoffset .9s cubic-bezier(.4,0,.2,1), stroke .3s';
+      fill.style.strokeDashoffset = String(circ - (score / 100) * circ);  // animate to score
+    });
+  });
 
   // Badge
   const badgeEl = document.getElementById('score-badge');
@@ -5825,6 +6254,7 @@ function saveScore() {
         resetForm();
         nav(_returnToPage || 'customers');
         _returnToPage = '';
+        if (_returnToDetail) { const rid = _returnToDetail; _returnToDetail = ''; setTimeout(() => openDetail(rid), 80); }
       }
     );
     return;
@@ -5873,6 +6303,7 @@ function saveScore() {
   resetForm();
   nav(_returnToPage || 'dashboard');
   _returnToPage = '';
+  if (_returnToDetail) { const rid = _returnToDetail; _returnToDetail = ''; setTimeout(() => openDetail(rid), 80); }
 }
 
 function resetForm() {
@@ -6010,18 +6441,26 @@ function renderDetailSentiment() {
   const icons = { positive:'😊', neutral:'😐', negative:'😟' };
   const labels = { positive:'Positive', neutral:'Neutral', negative:'Negative' };
 
-  el('dm-sentiment-list').innerHTML = logs.length
-    ? logs.map((s,i) => `
-        <div class="sent-log">
+  const sentWrap = el('dm-sentiment-list');
+  if (!logs.length) {
+    sentWrap.innerHTML = '<p style="font-size:.82rem;color:var(--muted)">No sentiment logs yet. Log one above.</p>';
+    return;
+  }
+  const pg = _pagGet('sentLog');
+  const slice = logs.slice(pg * PAGE_SIZE, (pg + 1) * PAGE_SIZE);
+  const pagNav = _pagHTML(logs.length, 'sentLog', 'renderDetailSentiment');
+  sentWrap.innerHTML = pagNav + slice.map((s,si) => {
+    const idx = pg * PAGE_SIZE + si; // original index for delete
+    return `<div class="sent-log">
           <div class="sent-log__icon">${icons[s.val]||'😐'}</div>
           <div style="flex:1;min-width:0">
             <div style="font-weight:700;font-size:.8rem">${labels[s.val]||s.val}</div>
             ${s.note ? `<div style="font-size:.75rem;color:var(--muted);margin-top:1px">${escHtml(s.note)}</div>` : ''}
           </div>
           <div class="sent-log__meta">${fmtDate(s.date)}</div>
-          <button class="btn btn-xs btn-danger" style="margin-left:6px" onclick="deleteSentiment(${i})">✕</button>
-        </div>`).join('')
-    : '<p style="font-size:.82rem;color:var(--muted)">No sentiment logs yet. Log one above.</p>';
+          <button class="btn btn-xs btn-danger" style="margin-left:6px" onclick="deleteSentiment(${idx})">✕</button>
+        </div>`;
+  }).join('') + pagNav;
 }
 
 function deleteSentiment(idx) {
@@ -6056,6 +6495,8 @@ function openDetail(id) {
   const c = customers.find(x => x.id === id);
   if (!c) return;
   detailId = id;
+  _pagState.sentLog = 0;
+  _pagState.scoreHist = 0;
 
   el('dm-name').textContent = c.name;
   el('dm-sub').innerHTML = `
@@ -6236,9 +6677,9 @@ function renderDetailOverview() {
         </div>
       </div>
     </div>
-    <!-- Signals row: last contact + cadence + urgency + sentiment -->
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:10px 12px;background:var(--bg);border-radius:var(--r);border:1px solid var(--border)">
-      <div style="flex:1;min-width:110px">
+    <!-- Signals row: last contact + next touch + renewal + sentiment -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;padding:10px 12px;background:var(--bg);border-radius:var(--r);border:1px solid var(--border)">
+      <div>
         <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:3px">Last Contact</div>
         ${(()=>{
           if (c.last_contact_date) {
@@ -6246,22 +6687,11 @@ function renderDetailOverview() {
             const daysAgo = Math.max(0, Math.floor((Date.now() - lcd.getTime()) / 86400000));
             return `<span style="font-size:.78rem;font-weight:600">${lcd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span> <span style="font-size:.7rem;color:var(--muted)">(${daysAgo}d ago)</span>`;
           }
+          if (c.days != null) return `<span style="font-size:.78rem;font-weight:600">${c.days}d ago</span>`;
           return '<span style="font-size:.75rem;color:var(--muted)">—</span>';
         })()}
       </div>
-      <div style="flex:1;min-width:110px">
-        <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:3px">Check-in</div>
-        <span class="${cad.cls}">${cad.label}</span>
-      </div>
-      <div style="flex:1;min-width:110px">
-        <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:3px">Renewal</div>
-        ${c.renewal != null ? urgencyHTML(c) + ` <span style="font-size:.7rem;color:var(--muted);margin-left:4px">(${c.renewal}mo)</span>` : '<span style="font-size:.75rem;color:var(--muted)">—</span>'}
-      </div>
-      <div style="flex:1;min-width:110px">
-        <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:3px">Last Vibe</div>
-        ${sentIcon ? `<span style="font-size:.85rem">${sentIcon}</span> <span style="font-size:.75rem;color:var(--muted)">${fmtDate(sent.date)}</span>` : '<span style="font-size:.75rem;color:var(--muted)">—</span>'}
-      </div>
-      <div style="flex:1;min-width:110px">
+      <div>
         <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:3px">Next Touch</div>
         ${(()=>{
           if (!c.next_touch) return '<span style="font-size:.75rem;color:var(--muted)">Not scheduled</span>';
@@ -6271,6 +6701,14 @@ function renderDetailOverview() {
           if (ntDays === 0) return `<span class="nt-badge nt-today">Today${tDisp}</span>`;
           return `<span class="nt-badge nt-ok">in ${ntDays}d${tDisp}</span>`;
         })()}
+      </div>
+      <div>
+        <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:3px">Renewal</div>
+        ${c.renewal != null ? urgencyHTML(c) + ` <span style="font-size:.7rem;color:var(--muted);margin-left:4px">(${c.renewal}mo)</span>` : '<span style="font-size:.75rem;color:var(--muted)">—</span>'}
+      </div>
+      <div>
+        <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:3px">Last Vibe</div>
+        ${sentIcon ? `<span style="font-size:.85rem">${sentIcon}</span> <span style="font-size:.75rem;color:var(--muted)">${fmtDate(sent.date)}</span>` : '<span style="font-size:.75rem;color:var(--muted)">—</span>'}
       </div>
     </div>
     <div class="rec-box" style="margin-bottom:14px">${rec}</div>
@@ -6336,6 +6774,8 @@ async function saveDetailInline() {
       <span style="margin-left:6px;color:var(--muted)">Score: <strong>${c.score}</strong></span>
       ${c.mrr ? `<span style="margin-left:6px;color:var(--muted)">MRR: <strong>$${fmtNum(c.mrr)}</strong></span>` : ''}
     `;
+    // Refresh the page behind the modal so widgets stay current
+    refreshCurrentPage();
     toast('Changes saved', 'success');
   } catch (err) {
     console.error('Save failed:', err);
@@ -6472,45 +6912,54 @@ function renderDetailHistory() {
     : '<p style="font-size:.8rem;color:var(--muted)">Score at least twice to see trend.</p>';
 
   // List — newest first; arr[i+1] = previous (older) entry
-  el('dm-history-list').innerHTML = hist.length
-    ? [...hist].reverse().map((h, i, arr) => {
-        const dotColor = STATUS_COLOR[getStatus(h.score)] || '#16a34a';
-        const prev = arr[i + 1];
+  const histList = el('dm-history-list');
+  const reversed = [...hist].reverse();
+  if (!reversed.length) {
+    histList.innerHTML = '<p style="font-size:.82rem;color:var(--muted)">No history yet.</p>';
+    return;
+  }
+  const pg = _pagGet('scoreHist');
+  const slice = reversed.slice(pg * PAGE_SIZE, (pg + 1) * PAGE_SIZE);
+  const pagNav = _pagHTML(reversed.length, 'scoreHist', 'renderDetailHistory');
+  // Need the entry before first slice item for delta calculation
+  const sliceStart = pg * PAGE_SIZE;
+  histList.innerHTML = pagNav + slice.map((h, i) => {
+    const globalIdx = sliceStart + i;
+    const dotColor = STATUS_COLOR[getStatus(h.score)] || '#16a34a';
+    const prev = reversed[globalIdx + 1]; // next in reversed = older entry
 
-        // Score delta badge
-        let deltaHtml = '';
-        if (prev != null) {
-          const d = h.score - prev.score;
-          if      (d > 0) deltaHtml = `<span class="delta-up" style="font-size:.72rem">▲${d}</span>`;
-          else if (d < 0) deltaHtml = `<span class="delta-dn" style="font-size:.72rem">▼${Math.abs(d)}</span>`;
-          else             deltaHtml = `<span class="delta-eq" style="font-size:.72rem">→0</span>`;
-        }
+    // Score delta badge
+    let deltaHtml = '';
+    if (prev != null) {
+      const d = h.score - prev.score;
+      if      (d > 0) deltaHtml = `<span class="delta-up" style="font-size:.72rem">▲${d}</span>`;
+      else if (d < 0) deltaHtml = `<span class="delta-dn" style="font-size:.72rem">▼${Math.abs(d)}</span>`;
+      else             deltaHtml = `<span class="delta-eq" style="font-size:.72rem">→0</span>`;
+    }
 
-        // Signal diff — what actually changed
-        const changes = diffSnapshots(h.signals || null, prev ? (prev.signals || null) : null);
-        let reasonHtml = '';
-        if (changes.length) {
-          reasonHtml = `<div class="hist-reason">${changes.map(escHtml).join(' &nbsp;·&nbsp; ')}</div>`;
-        } else if (!prev) {
-          reasonHtml = `<div class="hist-reason" style="font-style:italic">Initial score entry</div>`;
-        } else if (!h.signals) {
-          // Old entry with no signals stored — just say no detail available
-          reasonHtml = `<div class="hist-reason" style="color:var(--subtle);font-style:italic">No signal detail (pre-v18 entry)</div>`;
-        } else {
-          reasonHtml = `<div class="hist-reason" style="font-style:italic">All signals unchanged</div>`;
-        }
+    // Signal diff — what actually changed
+    const changes = diffSnapshots(h.signals || null, prev ? (prev.signals || null) : null);
+    let reasonHtml = '';
+    if (changes.length) {
+      reasonHtml = `<div class="hist-reason">${changes.map(escHtml).join(' &nbsp;·&nbsp; ')}</div>`;
+    } else if (!prev) {
+      reasonHtml = `<div class="hist-reason" style="font-style:italic">Initial score entry</div>`;
+    } else if (!h.signals) {
+      reasonHtml = `<div class="hist-reason" style="color:var(--subtle);font-style:italic">No signal detail (pre-v18 entry)</div>`;
+    } else {
+      reasonHtml = `<div class="hist-reason" style="font-style:italic">All signals unchanged</div>`;
+    }
 
-        return `
-          <div class="hist-row">
-            <div class="hist-dot" style="background:${dotColor}"></div>
-            <div class="hist-score">${h.score}</div>
-            ${deltaHtml}
-            <div>${badgeHTML(getStatus(h.score))}</div>
-            <div class="hist-date">${fmtDate(h.date)}</div>
-          </div>
-          ${reasonHtml}`;
-      }).join('')
-    : '<p style="font-size:.82rem;color:var(--muted)">No history yet.</p>';
+    return `
+      <div class="hist-row">
+        <div class="hist-dot" style="background:${dotColor}"></div>
+        <div class="hist-score">${h.score}</div>
+        ${deltaHtml}
+        <div>${badgeHTML(getStatus(h.score))}</div>
+        <div class="hist-date">${fmtDate(h.date)}</div>
+      </div>
+      ${reasonHtml}`;
+  }).join('') + pagNav;
 }
 
 function buildSparkline(values, w, h) {
@@ -6545,6 +6994,7 @@ function buildSparklineMini(c) {
 }
 
 let _returnToPage = '';
+let _returnToDetail = '';
 
 function editCustomer(id) {
   const cid = id || detailId;
@@ -6553,6 +7003,7 @@ function editCustomer(id) {
   if (!c) return;
 
   try { _returnToPage = localStorage.getItem('iqc_active_view') || 'dashboard'; } catch(e) { _returnToPage = 'dashboard'; }
+  _returnToDetail = c.id;
   closeModal('detail-modal');
   nav('score');
   document.getElementById('form-title').textContent = 'Re-score: ' + c.name;
@@ -6613,6 +7064,22 @@ function editCustomer(id) {
 
   // Override saveScore to update in-place
   window._editMode = c.id;
+
+  // Pre-populate result panel with current score so breakdown is visible immediately
+  const curData = {
+    name: c.name, manager: c.manager || '', mrr: c.mrr || 0, arr: c.arr || 0,
+    tier: c.tier || 'mid', lifecycle: c.lifecycle || 'active', tags: c.tags || [],
+    logins: c.logins, adoption: c.adoption, tickets: c.tickets,
+    nps: c.nps, csat: c.csat, days: c.days, growth: c.growth || 'none',
+    renewal: c.renewal, renewal_date: c.renewal_date || '', profile: c.scoring_profile || ''
+  };
+  const rw = c.scoring_profile ? (profiles.find(p => p.name === c.scoring_profile) || {}).weights || weights : weights;
+  const { score: curScore, signals: curSignals } = calcScore(curData, rw);
+  const curStatus = getStatus(curScore);
+  const curRec    = makeRec(curScore, curData);
+  const curPlays  = buildPlaybook(curScore, curData);
+  pendingResult = { data: curData, score: curScore, signals: curSignals, status: curStatus, rec: curRec, plays: curPlays };
+  showResult(pendingResult);
 }
 
 // Patch submitForm to handle edit mode
@@ -6672,6 +7139,7 @@ window.saveScore = function() {
       resetForm();
       nav(_returnToPage || 'customers');
       _returnToPage = '';
+      if (_returnToDetail) { const rid = _returnToDetail; _returnToDetail = ''; setTimeout(() => openDetail(rid), 80); }
       return;
     }
   }
@@ -6723,16 +7191,236 @@ function openQBR() {
   const c = customers.find(x => x.id === detailId);
   if (!c) return;
   logAudit('qbr_opened', c.id, c.name, { summary: 'QBR Prep opened' });
-  el('qbr-title').textContent = c.name;
-  el('qbr-content').textContent = buildQBRText(c);
+  el('qbr-content').innerHTML = buildQBRHTML(c);
   closeModal('detail-modal');
   openModal('qbr-modal');
 }
+function closeQBR() {
+  closeModal('qbr-modal');
+  if (detailId) setTimeout(() => openDetail(detailId), 80);
+}
 
+/* ── Rich HTML version (displayed in modal) ── */
+function buildQBRHTML(c) {
+  const mom   = getMomentum(c);
+  const cad   = getCadenceStatus(c);
+  const sent  = latestSentiment(c);
+  const u     = getRenewalUrgency(c);
+  const date  = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+
+  const statusColor = STATUS_COLOR[c.status] || '#16a34a';
+  const statusLabel = STATUS_LABEL[c.status] || 'Healthy';
+
+  const momIcons  = { up:'↑', dn:'↓', flat:'→', new:'★' };
+  const momColors = { up:'#16a34a', dn:'#dc2626', flat:'#d97706', new:'#2563eb' };
+  const momLabels = { up:'Improving', dn:'Declining', flat:'Flat', new:'New' };
+  const sentLabels = { positive:'Positive', neutral:'Neutral', negative:'Negative' };
+
+  const hist = c.history || [];
+  const histLine = hist.length >= 2
+    ? `${hist[hist.length-2].score} → ${hist[hist.length-1].score} <span style="color:${hist[hist.length-1].score >= hist[hist.length-2].score ? '#16a34a' : '#dc2626'}">(${hist[hist.length-1].score > hist[hist.length-2].score ? '+' : ''}${hist[hist.length-1].score - hist[hist.length-2].score})</span>`
+    : '';
+
+  const tierMap = { smb:'SMB', mid:'Mid-Market', enterprise:'Enterprise' };
+  const tierDisp = tierMap[c.tier] || c.tier || '';
+  const name = c.name || 'This account';
+
+  // SVG icons
+  const svgi = (d, w=14) => `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:middle">${d}</svg>`;
+  const svgSummary   = svgi('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/>');
+  const svgWins      = svgi('<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>');
+  const svgRisks     = svgi('<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>');
+  const svgAgenda    = svgi('<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>');
+  const svgQuestions = svgi('<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>');
+  const svgNotes     = svgi('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>');
+  const svgDollar    = svgi('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>', 12);
+  const svgRenewal   = svgi('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>', 12);
+
+  /* ── Wins & Highlights ── */
+  const wins = [];
+  if (c.logins != null && c.logins >= 15) wins.push(`Strong engagement \u2014 ${c.logins} logins in the past 30 days`);
+  if (c.adoption != null && c.adoption >= 60) wins.push(`High feature adoption at ${c.adoption}%`);
+  if (c.tickets != null && c.tickets <= 1) wins.push(`Clean support queue \u2014 ${c.tickets === 0 ? 'no' : 'only 1'} open ticket${c.tickets === 1 ? '' : 's'}`);
+  if (c.nps != null && npsIsPromoter(c.nps)) wins.push(`NPS promoter (${npsDisplay(c.nps)}) \u2014 strong advocacy potential`);
+  if (c.csat != null && csatIsGood(c.csat)) wins.push(`High satisfaction (CSAT ${csatDisplay(c.csat)})`);
+  if (c.growth === 'strong') wins.push('Strong growth trajectory \u2014 expansion opportunity');
+  else if (c.growth === 'mild') wins.push('Positive growth trend emerging');
+  if (sent && sent.val === 'positive') wins.push(`Positive sentiment logged on ${fmtDate(sent.date)}`);
+  if (mom === 'up') wins.push('Health score is trending upward');
+  if (c.days != null && c.days <= 7) wins.push('Recently engaged \u2014 last contact within 7 days');
+
+  /* ── Risks & Concerns ── */
+  const risks = [];
+  if (c.logins != null && c.logins < 5) risks.push({ sev:'high', text:`Low engagement \u2014 only ${c.logins} login${c.logins === 1 ? '' : 's'} in the past 30 days` });
+  else if (c.logins != null && c.logins < 12) risks.push({ sev:'med', text:`Moderate engagement \u2014 ${c.logins} logins/month (below ideal)` });
+  if (c.adoption != null && c.adoption < 25) risks.push({ sev:'high', text:`Critical adoption gap \u2014 only ${c.adoption}% of features utilized` });
+  else if (c.adoption != null && c.adoption < 50) risks.push({ sev:'med', text:`Adoption at ${c.adoption}% \u2014 significant value left on the table` });
+  if (c.tickets != null && c.tickets >= 5) risks.push({ sev:'high', text:`${c.tickets} open support tickets \u2014 unresolved friction` });
+  else if (c.tickets != null && c.tickets >= 3) risks.push({ sev:'med', text:`${c.tickets} open tickets may indicate product friction` });
+  if (c.nps != null && npsIsDetractor(c.nps)) risks.push({ sev:'high', text:`NPS detractor (${npsDisplay(c.nps)}) \u2014 needs immediate attention` });
+  if (c.csat != null && csatIsPoor(c.csat)) risks.push({ sev:'high', text:`CSAT is ${csatDisplay(c.csat)} \u2014 satisfaction critically low` });
+  if (c.days != null && c.days > 30) risks.push({ sev:'high', text:`No contact in ${c.days} days \u2014 relationship at risk` });
+  else if (c.days != null && c.days > 14) risks.push({ sev:'med', text:`${c.days} days since last contact \u2014 follow-up overdue` });
+  if (c.growth === 'declining') risks.push({ sev:'med', text:'Growth signal is declining' });
+  if (sent && sent.val === 'negative') risks.push({ sev:'high', text:`Negative sentiment logged on ${fmtDate(sent.date)}` });
+  if (mom === 'dn') risks.push({ sev:'med', text:'Health score trending downward' });
+  if (c.renewal != null && c.renewal <= 2) risks.push({ sev: c.renewal <= 1 ? 'high' : 'med', text:`Renewal in ${c.renewal} month${c.renewal === 1 ? '' : 's'} \u2014 needs proactive attention` });
+
+  /* ── Executive Summary ── */
+  let summary = '';
+  if (c.status === 'critical' || c.status === 'risk') {
+    summary = `${name} is currently in a <strong>${statusLabel}</strong> state with a health score of ${c.score}/100. `;
+    if (mom === 'dn') summary += 'The score has been declining, which warrants immediate attention. ';
+    else if (mom === 'up') summary += 'However, the score is trending upward, indicating recent recovery efforts may be working. ';
+    if (risks.length) summary += `There ${risks.length === 1 ? 'is 1 key concern' : 'are ' + risks.length + ' concerns'} to address. `;
+    if (c.renewal != null && c.renewal <= 3) summary += `With renewal ${c.renewal <= 1 ? 'imminent' : 'approaching in ' + c.renewal + ' months'}, this QBR is critical for retention. `;
+    summary += 'The focus for this meeting should be understanding root causes and building a joint recovery plan.';
+  } else if (c.status === 'watch') {
+    summary = `${name} is in <strong>Watch</strong> status (${c.score}/100). `;
+    if (wins.length) summary += `There are positive signals, `;
+    summary += `but ${risks.length ? risks.length + ' area' + (risks.length > 1 ? 's need' : ' needs') + ' attention' : 'some signals are mixed'}. `;
+    summary += 'This QBR should balance acknowledging wins while proactively addressing gaps before they escalate.';
+  } else if (c.status === 'expand') {
+    summary = `${name} is performing strongly at ${c.score}/100 (<strong>${statusLabel}</strong>). `;
+    if (wins.length) summary += `Key highlights include strong engagement and satisfaction. `;
+    summary += 'This QBR is an opportunity to deepen the partnership, explore expansion, and build advocacy.';
+  } else {
+    summary = `${name} is in a <strong>${statusLabel}</strong> state with a health score of ${c.score}/100. `;
+    if (mom === 'up') summary += 'The score is trending positively. ';
+    if (wins.length && risks.length) summary += `There are clear strengths alongside ${risks.length} area${risks.length > 1 ? 's' : ''} to monitor. `;
+    else if (wins.length) summary += 'Multiple positive signals are present. ';
+    summary += 'This meeting should reinforce value, address any concerns, and align on goals for the next quarter.';
+  }
+
+  /* ── Suggested Agenda ── */
+  const agenda = [];
+  agenda.push({ time:'5 min', topic:'Welcome & Relationship Check-in', detail:'Open with a personal check-in. Ask how things are going overall before diving into business.' });
+  if (wins.length)
+    agenda.push({ time:'10 min', topic:'Celebrate Wins & Value Delivered', detail:'Walk through key successes and metrics that demonstrate ROI. Let the customer see the impact.' });
+  if (risks.some(r => r.sev === 'high'))
+    agenda.push({ time:'10 min', topic:'Address Key Concerns', detail:'Proactively raise the high-priority concerns identified below. Show you\'re aware and have a plan.' });
+  else if (risks.length)
+    agenda.push({ time:'5 min', topic:'Areas for Improvement', detail:'Brief discussion on areas where there\'s room to grow.' });
+  if (c.adoption != null && c.adoption < 60)
+    agenda.push({ time:'10 min', topic:'Product Adoption & Enablement', detail:`Current adoption is at ${c.adoption}%. Walk through underutilized features and their business impact.` });
+  agenda.push({ time:'10 min', topic:'Goals for Next Quarter', detail:'Align on what success looks like for Q+1. Document concrete objectives together.' });
+  if (c.renewal != null && c.renewal <= 6)
+    agenda.push({ time:'5 min', topic:'Renewal & Partnership Discussion', detail:`Renewal is ${c.renewal} month${c.renewal === 1 ? '' : 's'} out. Address timeline, scope, and any expansion interest.` });
+  if (c.growth === 'strong' || c.growth === 'mild' || c.status === 'expand')
+    agenda.push({ time:'5 min', topic:'Expansion Opportunities', detail:'Explore where additional value could be unlocked \u2014 new users, features, or tiers.' });
+  agenda.push({ time:'5 min', topic:'Action Items & Next Steps', detail:'Summarize agreed-upon action items with owners and timelines.' });
+
+  /* ── Questions to Ask ── */
+  const questions = [];
+  questions.push('What\'s top of mind for your team heading into next quarter?');
+  questions.push('Are there any internal changes (team, strategy, budget) we should be aware of?');
+  if (c.logins != null && c.logins < 10)
+    questions.push('What does a typical week look like for your team using the platform? Are there barriers to more frequent usage?');
+  if (c.adoption != null && c.adoption < 50)
+    questions.push('Are there specific features you\'ve wanted to try but haven\'t had time to explore?');
+  if (c.tickets != null && c.tickets >= 3)
+    questions.push('How has your experience with our support team been? Is there anything we can do to resolve these issues faster?');
+  if (c.nps != null && npsIsDetractor(c.nps))
+    questions.push('Your recent NPS feedback was lower than expected \u2014 can you help me understand what fell short?');
+  if (c.growth === 'strong' || c.status === 'expand')
+    questions.push('Your team has been growing \u2014 are there additional users or departments that could benefit from the platform?');
+  if (c.renewal != null && c.renewal <= 6)
+    questions.push('As we approach renewal, is there anything you\'d like to see from us to make the decision easier?');
+  if (c.days != null && c.days > 21)
+    questions.push('It\'s been a while since we last connected \u2014 has anything changed on your end that I should know about?');
+  if (sent && sent.val === 'negative')
+    questions.push('I wanted to follow up on our last conversation. Has anything improved since then?');
+  questions.push('What would make our partnership even more valuable to your organization over the next 6 months?');
+
+  /* ── Recent Notes ── */
+  const recentNotes = (c.notes || []).slice(0, 3);
+  const notesHTML = recentNotes.map(n =>
+    `<div class="qbr-note"><div class="qbr-note-date">${fmtDate(n.date)}</div>${escHtml(n.text)}</div>`
+  ).join('');
+
+  /* ── Render sections ── */
+  const winsHTML = wins.map(w =>
+    `<div class="qbr-win-row"><span class="qbr-win-dot"></span><span>${w}</span></div>`
+  ).join('');
+
+  const risksHTML = risks.map(r =>
+    `<div class="qbr-risk-row ${r.sev === 'high' ? 'qbr-risk--high' : 'qbr-risk--med'}"><span class="qbr-risk-dot"></span><span>${r.text}</span></div>`
+  ).join('');
+
+  const agendaHTML = agenda.map((a, i) =>
+    `<div class="qbr-agenda-item">
+      <div class="qbr-agenda-num">${i + 1}</div>
+      <div class="qbr-agenda-body">
+        <div class="qbr-agenda-topic">${a.topic} <span class="qbr-agenda-time">${a.time}</span></div>
+        <div class="qbr-agenda-detail">${a.detail}</div>
+      </div>
+    </div>`
+  ).join('');
+
+  const questionsHTML = questions.map(q =>
+    `<div class="qbr-q-row"><span class="qbr-q-bullet">?</span><span>${q}</span></div>`
+  ).join('');
+
+  return `
+    <div class="qbr-hdr">
+      <div class="qbr-score" style="background:${statusColor}">
+        <div class="qbr-score-num">${c.score}</div>
+        <div class="qbr-score-lbl">${statusLabel}</div>
+      </div>
+      <div class="qbr-meta">
+        <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--blue);margin-bottom:2px">Quarterly Business Review</div>
+        <h3>${escHtml(c.name)}</h3>
+        <div style="font-size:.78rem;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:2px">
+          <span style="color:${momColors[mom] || '#94a3b8'};font-weight:700">${momIcons[mom] || ''} ${momLabels[mom] || '\u2014'}</span>
+          ${histLine ? `<span style="color:var(--border)">\u00b7</span><span style="font-weight:600">${histLine}</span>` : ''}
+        </div>
+        <div class="qbr-meta-tags">
+          ${c.mrr ? `<span class="qbr-tag" style="display:inline-flex;align-items:center;gap:4px">${svgDollar} $${fmtNum(c.mrr)} MRR</span>` : ''}
+          ${tierDisp ? `<span class="qbr-tag">${tierDisp}</span>` : ''}
+          ${c.lifecycle ? `<span class="qbr-tag">${c.lifecycle}</span>` : ''}
+          ${c.renewal != null ? `<span class="qbr-tag" style="display:inline-flex;align-items:center;gap:4px">${svgRenewal} ${c.renewal}mo to renewal${u ? ' \u00b7 ' + u.label : ''}</span>` : ''}
+        </div>
+      </div>
+    </div>
+
+    <div class="qbr-section">
+      <div class="qbr-section-title">${svgSummary} Executive Summary</div>
+      <div class="qbr-summary">${summary}</div>
+    </div>
+
+    ${wins.length ? `
+    <div class="qbr-section">
+      <div class="qbr-section-title">${svgWins} Wins & Highlights</div>
+      <div class="qbr-wins">${winsHTML}</div>
+    </div>` : ''}
+
+    ${risks.length ? `
+    <div class="qbr-section">
+      <div class="qbr-section-title">${svgRisks} Risks & Concerns</div>
+      <div class="qbr-risks">${risksHTML}</div>
+    </div>` : ''}
+
+    <div class="qbr-section">
+      <div class="qbr-section-title">${svgAgenda} Suggested Agenda</div>
+      <div class="qbr-agenda">${agendaHTML}</div>
+    </div>
+
+    <div class="qbr-section">
+      <div class="qbr-section-title">${svgQuestions} Questions to Ask</div>
+      <div class="qbr-questions">${questionsHTML}</div>
+    </div>
+
+    ${recentNotes.length ? `
+    <div class="qbr-section">
+      <div class="qbr-section-title">${svgNotes} Meeting Context \u2014 Recent Notes</div>
+      <div class="qbr-notes">${notesHTML}</div>
+    </div>` : ''}
+
+    <div class="qbr-footer">Prepared ${date} \u00b7 IQ Cadence \u00b7 iqcadence.com</div>`;
+}
+
+/* ── Plain-text version (clipboard copy) ── */
 function buildQBRText(c) {
-  const nba   = buildNextBestAction(c);
-  const plays = buildPlaybook(c.score, c);
-  const rec   = makeRec(c.score, c).replace(/<[^>]+>/g, '');
   const mom   = getMomentum(c);
   const cad   = getCadenceStatus(c);
   const sent  = latestSentiment(c);
@@ -6740,62 +7428,117 @@ function buildQBRText(c) {
   const momLabels = { up:'Improving', dn:'Declining', flat:'Flat', new:'New' };
   const sentLabels = { positive:'Positive', neutral:'Neutral', negative:'Negative' };
   const date  = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
-
-  // Score history summary
   const hist = c.history || [];
   const histLine = hist.length >= 2
     ? `${hist[hist.length-2].score} → ${hist[hist.length-1].score} (${hist[hist.length-1].score > hist[hist.length-2].score ? '+' : ''}${hist[hist.length-1].score - hist[hist.length-2].score} pts)`
     : `${c.score} (first score)`;
+  const tierMap = { smb:'SMB', mid:'Mid-Market', enterprise:'Enterprise' };
+  const name = c.name || 'This account';
 
-  // Recent notes
+  // Wins
+  const wins = [];
+  if (c.logins != null && c.logins >= 15) wins.push(`Strong engagement — ${c.logins} logins in the past 30 days`);
+  if (c.adoption != null && c.adoption >= 60) wins.push(`High feature adoption at ${c.adoption}%`);
+  if (c.tickets != null && c.tickets <= 1) wins.push(`Clean support queue — ${c.tickets === 0 ? 'no' : 'only 1'} open ticket${c.tickets === 1 ? '' : 's'}`);
+  if (c.nps != null && npsIsPromoter(c.nps)) wins.push(`NPS promoter (${npsDisplay(c.nps)}) — strong advocacy potential`);
+  if (c.csat != null && csatIsGood(c.csat)) wins.push(`High satisfaction (CSAT ${csatDisplay(c.csat)})`);
+  if (c.growth === 'strong') wins.push('Strong growth trajectory — expansion opportunity');
+  else if (c.growth === 'mild') wins.push('Positive growth trend emerging');
+  if (sent && sent.val === 'positive') wins.push(`Positive sentiment logged on ${fmtDate(sent.date)}`);
+  if (mom === 'up') wins.push('Health score is trending upward');
+  if (c.days != null && c.days <= 7) wins.push('Recently engaged — last contact within 7 days');
+
+  // Risks
+  const risks = [];
+  if (c.logins != null && c.logins < 5) risks.push(`[HIGH] Low engagement — only ${c.logins} logins in the past 30 days`);
+  else if (c.logins != null && c.logins < 12) risks.push(`[MED] Moderate engagement — ${c.logins} logins/month`);
+  if (c.adoption != null && c.adoption < 25) risks.push(`[HIGH] Critical adoption gap — only ${c.adoption}% of features utilized`);
+  else if (c.adoption != null && c.adoption < 50) risks.push(`[MED] Adoption at ${c.adoption}% — value left on the table`);
+  if (c.tickets != null && c.tickets >= 5) risks.push(`[HIGH] ${c.tickets} open support tickets — unresolved friction`);
+  else if (c.tickets != null && c.tickets >= 3) risks.push(`[MED] ${c.tickets} open tickets may indicate product friction`);
+  if (c.nps != null && npsIsDetractor(c.nps)) risks.push(`[HIGH] NPS detractor (${npsDisplay(c.nps)}) — needs immediate attention`);
+  if (c.csat != null && csatIsPoor(c.csat)) risks.push(`[HIGH] CSAT is ${csatDisplay(c.csat)} — satisfaction critically low`);
+  if (c.days != null && c.days > 30) risks.push(`[HIGH] No contact in ${c.days} days — relationship at risk`);
+  else if (c.days != null && c.days > 14) risks.push(`[MED] ${c.days} days since last contact — follow-up overdue`);
+  if (c.growth === 'declining') risks.push('[MED] Growth signal is declining');
+  if (sent && sent.val === 'negative') risks.push(`[HIGH] Negative sentiment logged on ${fmtDate(sent.date)}`);
+  if (mom === 'dn') risks.push('[MED] Health score trending downward');
+  if (c.renewal != null && c.renewal <= 2) risks.push(`[${c.renewal <= 1 ? 'HIGH' : 'MED'}] Renewal in ${c.renewal} month${c.renewal === 1 ? '' : 's'} — needs proactive attention`);
+
+  // Summary
+  let summary = '';
+  const sl = STATUS_LABEL[c.status] || 'Healthy';
+  if (c.status === 'critical' || c.status === 'risk') {
+    summary = `${name} is currently in a ${sl} state with a health score of ${c.score}/100. `;
+    if (mom === 'dn') summary += 'The score has been declining. ';
+    if (risks.length) summary += `There are ${risks.length} concern(s) to address. `;
+    if (c.renewal != null && c.renewal <= 3) summary += `Renewal is ${c.renewal <= 1 ? 'imminent' : 'in ' + c.renewal + ' months'}. `;
+    summary += 'Focus this meeting on understanding root causes and building a joint recovery plan.';
+  } else if (c.status === 'expand') {
+    summary = `${name} is performing strongly at ${c.score}/100 (${sl}). This QBR is an opportunity to deepen the partnership, explore expansion, and build advocacy.`;
+  } else {
+    summary = `${name} is in a ${sl} state (${c.score}/100). This meeting should reinforce value, address concerns, and align on goals for next quarter.`;
+  }
+
+  // Agenda
+  const agenda = [];
+  agenda.push('1. Welcome & Relationship Check-in (5 min)');
+  if (wins.length) agenda.push('2. Celebrate Wins & Value Delivered (10 min)');
+  if (risks.length) agenda.push(`${agenda.length + 1}. Address Concerns (10 min)`);
+  if (c.adoption != null && c.adoption < 60) agenda.push(`${agenda.length + 1}. Product Adoption & Enablement (10 min)`);
+  agenda.push(`${agenda.length + 1}. Goals for Next Quarter (10 min)`);
+  if (c.renewal != null && c.renewal <= 6) agenda.push(`${agenda.length + 1}. Renewal & Partnership Discussion (5 min)`);
+  if (c.growth === 'strong' || c.growth === 'mild' || c.status === 'expand') agenda.push(`${agenda.length + 1}. Expansion Opportunities (5 min)`);
+  agenda.push(`${agenda.length + 1}. Action Items & Next Steps (5 min)`);
+
+  // Questions
+  const questions = [];
+  questions.push('What\'s top of mind for your team heading into next quarter?');
+  questions.push('Are there any internal changes (team, strategy, budget) we should be aware of?');
+  if (c.logins != null && c.logins < 10) questions.push('What does a typical week look like for your team using the platform?');
+  if (c.adoption != null && c.adoption < 50) questions.push('Are there specific features you\'ve wanted to explore?');
+  if (c.tickets != null && c.tickets >= 3) questions.push('How has your experience with our support team been?');
+  if (c.renewal != null && c.renewal <= 6) questions.push('As we approach renewal, is there anything you\'d like to see from us?');
+  questions.push('What would make our partnership even more valuable over the next 6 months?');
+
   const recentNotes = (c.notes || []).slice(0, 3).map(n => `  • [${fmtDate(n.date)}] ${n.text}`).join('\n');
 
-  // Plays as plain text
-  const playsText = plays.map(p => `  • ${p.text.replace(/<[^>]+>/g,'')}`).join('\n');
-
   return `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-QBR PREP SUMMARY — ${c.name.toUpperCase()}
+QBR MEETING PREP — ${c.name.toUpperCase()}
 Generated: ${date} · IQcadence CS Health Score
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-HEALTH SNAPSHOT
-  Health Score:    ${c.score} / 100  (${rec.replace(/^[^:]+:\s*/,'').split('.')[0]})
-  Status:          ${STATUS_LABEL[c.status] || 'Healthy'}
+ACCOUNT SNAPSHOT
+  Health Score:    ${c.score} / 100  (${sl})
   Momentum:        ${momLabels[mom] || '—'}
   Score Trend:     ${histLine}
   MRR:             ${c.mrr ? '$' + fmtNum(c.mrr) : '—'}
-  Tier:            ${(c.tier || '—').toUpperCase()}
+  Tier:            ${tierMap[c.tier] || c.tier || '—'}
   Lifecycle:       ${c.lifecycle || '—'}
   Renewal:         ${c.renewal != null ? c.renewal + ' months' + (u ? ' — ' + u.label + ' urgency' : '') : '—'}
 
-SIGNAL BREAKDOWN
-  Login Frequency:    ${c.logins != null ? c.logins + ' / 30 days' : 'N/A'}
-  Feature Adoption:   ${c.adoption != null ? c.adoption + '%' : 'N/A'}
-  Open Tickets:       ${c.tickets != null ? c.tickets : 'N/A'}
-  NPS:                ${npsDisplay(c.nps)}
-  CSAT:               ${csatDisplay(c.csat)}
-  Days Since Contact: ${c.days != null ? c.days + ' days' : 'N/A'}  (${cad.label})
-  Growth Signal:      ${c.growth}
-  Last Vibe Check:    ${sent ? sentLabels[sent.val] + ' — ' + fmtDate(sent.date) + (sent.note ? ' ("' + sent.note + '")' : '') : 'Not logged'}
+EXECUTIVE SUMMARY
+  ${summary}
+${wins.length ? `\nWINS & HIGHLIGHTS\n${wins.map(w => '  ✓ ' + w).join('\n')}` : ''}
+${risks.length ? `\nRISKS & CONCERNS\n${risks.map(r => '  ⚠ ' + r).join('\n')}` : ''}
 
-NEXT BEST ACTION
-  ${nba.action}
-  "${nba.talk.replace(/<[^>]+>/g,'')}"
+SUGGESTED AGENDA
+${agenda.map(a => '  ' + a).join('\n')}
 
-RECOMMENDED PLAYBOOK
-${playsText}
-${recentNotes ? `\nRECENT NOTES\n${recentNotes}` : ''}
+QUESTIONS TO ASK
+${questions.map(q => '  ? ' + q).join('\n')}
+${recentNotes ? `\nMEETING CONTEXT — RECENT NOTES\n${recentNotes}` : ''}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Prepared with IQ Cadence · iqcadence.com
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 }
 
 function copyQBR() {
-  const text = el('qbr-content').textContent;
+  const c = customers.find(x => x.id === detailId);
+  const text = c ? buildQBRText(c) : el('qbr-content').textContent;
   navigator.clipboard.writeText(text).then(() => {
     toast('Copied to clipboard!', 'success');
   }).catch(() => {
-    // Fallback for older browsers
     const ta = document.createElement('textarea');
     ta.value = text;
     ta.style.position = 'fixed';
@@ -6809,15 +7552,35 @@ function copyQBR() {
 }
 
 function printQBR() {
-  const c = customers.find(x => x.id === detailId) || {};
   const pa = document.getElementById('print-area');
   pa.style.display = 'block';
   pa.innerHTML = `
     <style>
-      body{font-family:'Courier New',monospace;color:#0f172a;padding:32px;max-width:800px;margin:0 auto;font-size:.82rem;line-height:1.7}
-      pre{white-space:pre-wrap;word-break:break-word}
+      body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;padding:32px;max-width:800px;margin:0 auto}
+      .qbr-hdr{display:flex;gap:16px;align-items:center;padding:16px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:16px}
+      .qbr-score{width:72px;height:72px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-weight:800;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .qbr-score-num{font-size:1.5rem;line-height:1}.qbr-score-lbl{font-size:.6rem;text-transform:uppercase;letter-spacing:.5px;opacity:.9;margin-top:2px}
+      .qbr-meta h3{margin:0 0 4px;font-size:1rem}
+      .qbr-section{margin-bottom:14px}.qbr-section-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#64748b;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:7px}
+      .qbr-summary{font-size:.82rem;line-height:1.7;padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .qbr-wins,.qbr-risks,.qbr-questions{display:grid;gap:2px}
+      .qbr-win-row,.qbr-risk-row,.qbr-q-row{display:flex;align-items:center;gap:10px;padding:5px 8px;font-size:.82rem}
+      .qbr-win-row:nth-child(odd),.qbr-risk-row:nth-child(odd),.qbr-q-row:nth-child(odd){background:#f8fafc;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .qbr-win-dot{width:8px;height:8px;border-radius:50%;background:#16a34a;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .qbr-risk-dot{width:8px;height:8px;border-radius:50%;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .qbr-risk--high .qbr-risk-dot{background:#dc2626}.qbr-risk--med .qbr-risk-dot{background:#d97706}
+      .qbr-agenda{display:grid;gap:6px}
+      .qbr-agenda-item{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px}
+      .qbr-agenda-num{width:26px;height:26px;border-radius:50%;background:#2563eb;color:#fff;font-size:.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .qbr-agenda-topic{font-weight:700;font-size:.82rem}.qbr-agenda-time{font-weight:500;font-size:.68rem;color:#64748b;margin-left:6px}
+      .qbr-agenda-detail{font-size:.76rem;color:#64748b;line-height:1.5;margin-top:3px}
+      .qbr-q-bullet{width:20px;height:20px;border-radius:50%;background:#eff6ff;color:#2563eb;font-size:.7rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .qbr-note{padding:6px 10px;border-left:3px solid #2563eb;background:#f8fafc;border-radius:0 6px 6px 0;font-size:.8rem;margin-bottom:6px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .qbr-note-date{font-size:.68rem;color:#64748b;font-weight:600;margin-bottom:2px;text-transform:uppercase;letter-spacing:.3px}
+      .qbr-tag{font-size:.7rem;padding:2px 8px;border:1px solid #e2e8f0;border-radius:100px;display:inline-block;margin-right:4px}
+      .qbr-meta-tags{margin-top:6px}.qbr-footer{text-align:center;font-size:.64rem;color:#94a3b8;padding-top:10px;border-top:1px solid #e2e8f0;margin-top:8px}
     </style>
-    <pre>${escHtml(el('qbr-content').textContent)}</pre>`;
+    ${el('qbr-content').innerHTML}`;
   window.print();
   setTimeout(() => { pa.style.display = 'none'; pa.innerHTML = ''; }, 1000);
 }
@@ -7409,7 +8172,7 @@ function showDhDetail(type) {
 function logConfigChange(action, details) {
   const hist = JSON.parse(localStorage.getItem('iqc_config_history') || '[]');
   hist.unshift({ action, details: details || '', ts: Date.now(), user: currentUser?.email || '' });
-  if (hist.length > 20) hist.length = 20;
+  if (hist.length > 500) hist.length = 500;
   localStorage.setItem('iqc_config_history', JSON.stringify(hist));
   renderConfigHistory();
 }
@@ -7422,8 +8185,12 @@ function renderConfigHistory() {
     wrap.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:.85rem">No config changes recorded yet.</div>';
     return;
   }
-  let h = '<table class="ct" style="width:100%;min-width:0"><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Details</th></tr></thead><tbody>';
-  hist.slice(0, 20).forEach(e => {
+  const pg = _pagGet('cfgHist');
+  const slice = hist.slice(pg * PAGE_SIZE, (pg + 1) * PAGE_SIZE);
+  const pagNav = _pagHTML(hist.length, 'cfgHist', 'renderConfigHistory');
+  let h = pagNav;
+  h += '<table class="ct" style="width:100%;min-width:0"><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Details</th></tr></thead><tbody>';
+  slice.forEach(e => {
     const dt = new Date(e.ts);
     const time = dt.toLocaleDateString('en-US', { month:'short', day:'numeric' }) + ' ' + dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const user = e.user ? escHtml(e.user) : '<span style="color:var(--subtle)">—</span>';
@@ -7436,6 +8203,7 @@ function renderConfigHistory() {
     </tr>`;
   });
   h += '</tbody></table>';
+  h += pagNav;
   wrap.innerHTML = h;
 }
 
@@ -7791,23 +8559,8 @@ function renderReporting() {
   const lockSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
 
   const reports = [
-    { section:'all', tier:'starter', featureKey:'reports_basic',
-      title:'Customer Health Export', desc:'Download all customers as CSV with scores, signals, status, MRR, and tags.',
-      iconBg:'var(--blue-l)', iconColor:'var(--blue)',
-      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
-      actions:[
-        { label:'Print / PDF', cls:'btn-primary', fn:'printCustomerHealth()' },
-        { label:'Export CSV', cls:'btn-outline', fn:'exportCSV()' },
-        { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('customer_health')" }
-      ]
-    },
-    { section:'all', tier:'starter', featureKey:'reports_basic',
-      title:'Score History Export', desc:'Per-customer score changes over time with all signal snapshots.',
-      iconBg:'var(--teal-l)', iconColor:'var(--teal)',
-      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
-      actions:[{ label:'Export CSV', cls:'btn-primary', fn:'exportScoreHistory()' }]
-    },
-    { section:'all', tier:'starter', featureKey:'reports_basic',
+    // ── Portfolio & Strategy ──
+    { section:'portfolio', tier:'starter', featureKey:'reports_basic',
       title:'Portfolio Health Summary', desc:'Printable dashboard snapshot with KPI cards, status distribution, segment breakdown, and top at-risk accounts.',
       iconBg:'var(--purple-l)', iconColor:'var(--purple)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
@@ -7817,8 +8570,8 @@ function renderReporting() {
         { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('portfolio_summary')" }
       ]
     },
-    { section:'all', tier:'starter', featureKey:'reports_basic',
-      title:'Weekly Health Digest', desc:'Email-ready weekly digest with KPIs, at-risk accounts, and score movers.',
+    { section:'portfolio', tier:'starter', featureKey:'reports_basic',
+      title:'Weekly Review', desc:'Friday report — week-over-week trends, portfolio insights, action items, at-risk accounts, and score movers.',
       iconBg:'var(--green-l)', iconColor:'var(--green)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
       actions:[
@@ -7828,27 +8581,7 @@ function renderReporting() {
         { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('weekly_digest')" }
       ]
     },
-    { section:'all', tier:'starter', featureKey:'reports_basic',
-      title:'At-Risk Report', desc:'Critical and At Risk customers sorted by MRR, with scores, trends, days since contact, and renewal dates.',
-      iconBg:'var(--red-l)', iconColor:'var(--red)',
-      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
-      actions:[
-        { label:'Print / PDF', cls:'btn-primary', fn:'printAtRiskReport()' },
-        { label:'Export CSV', cls:'btn-outline', fn:'exportAtRiskCSV()' },
-        { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('at_risk')" }
-      ]
-    },
-    { section:'all', tier:'starter', featureKey:'reports_basic',
-      title:'Renewal Forecast Report', desc:'Customers grouped by renewal window (this month, 30/60/90 days) with health status and MRR.',
-      iconBg:'var(--amber-l)', iconColor:'var(--amber)',
-      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
-      actions:[
-        { label:'Print / PDF', cls:'btn-primary', fn:'printRenewalForecast()' },
-        { label:'Export CSV', cls:'btn-outline', fn:'exportRenewalCSV()' },
-        { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('renewal_forecast')" }
-      ]
-    },
-    { section:'all', tier:'starter', featureKey:'reports_basic',
+    { section:'portfolio', tier:'starter', featureKey:'reports_basic',
       title:'Trend Report (30/60/90d)', desc:'Overall portfolio health score trend over time with status mix and MRR changes.',
       iconBg:'var(--teal-l)', iconColor:'var(--teal)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
@@ -7858,7 +8591,18 @@ function renderReporting() {
         { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('trend_report')" }
       ]
     },
-    { section:'all', tier:'starter', featureKey:'reports_basic',
+    // ── Risk & Renewals ──
+    { section:'risk', tier:'starter', featureKey:'reports_basic',
+      title:'At-Risk Report', desc:'Critical and At Risk customers sorted by MRR, with scores, trends, days since contact, and renewal dates.',
+      iconBg:'var(--red-l)', iconColor:'var(--red)',
+      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+      actions:[
+        { label:'Print / PDF', cls:'btn-primary', fn:'printAtRiskReport()' },
+        { label:'Export CSV', cls:'btn-outline', fn:'exportAtRiskCSV()' },
+        { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('at_risk')" }
+      ]
+    },
+    { section:'risk', tier:'starter', featureKey:'reports_basic',
       title:'Churn Risk Report', desc:'Combined risk ranking with estimated revenue impact, scored by health, trend, NPS, engagement, and renewal proximity.',
       iconBg:'var(--red-l)', iconColor:'var(--red)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
@@ -7868,8 +8612,18 @@ function renderReporting() {
         { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('churn_risk')" }
       ]
     },
-    // Gated reports
-    { section:'all', tier:'team', featureKey:'report_segments',
+    { section:'risk', tier:'starter', featureKey:'reports_basic',
+      title:'Renewal Forecast Report', desc:'Customers grouped by renewal window (this month, 30/60/90 days) with health status and MRR.',
+      iconBg:'var(--amber-l)', iconColor:'var(--amber)',
+      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+      actions:[
+        { label:'Print / PDF', cls:'btn-primary', fn:'printRenewalForecast()' },
+        { label:'Export CSV', cls:'btn-outline', fn:'exportRenewalCSV()' },
+        { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('renewal_forecast')" }
+      ]
+    },
+    // ── Team & Segments ──
+    { section:'team', tier:'team', featureKey:'report_segments',
       title:'Segment Analysis Report', desc:'Health breakdown by tier, lifecycle, and tag — with MRR at risk per segment.',
       iconBg:'var(--purple-l)', iconColor:'var(--purple)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
@@ -7879,7 +8633,7 @@ function renderReporting() {
         { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('segment_analysis')" }
       ]
     },
-    { section:'all', tier:'pro', featureKey:'report_csmperf',
+    { section:'team', tier:'pro', featureKey:'report_csmperf',
       title:'CSM Performance Report', desc:'Per-manager portfolio metrics — avg score, risk ratio, MRR managed, contact cadence.',
       iconBg:'var(--blue-l)', iconColor:'var(--blue)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
@@ -7889,20 +8643,52 @@ function renderReporting() {
         { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('csm_performance')" }
       ]
     },
+    // ── Exports & Data ──
+    { section:'data', tier:'starter', featureKey:'reports_basic',
+      title:'Customer Health Export', desc:'Download all customers as CSV with scores, signals, status, MRR, and tags.',
+      iconBg:'var(--blue-l)', iconColor:'var(--blue)',
+      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+      actions:[
+        { label:'Print / PDF', cls:'btn-primary', fn:'printCustomerHealth()' },
+        { label:'Export CSV', cls:'btn-outline', fn:'exportCSV()' },
+        { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('customer_health')" }
+      ]
+    },
+    { section:'data', tier:'starter', featureKey:'reports_basic',
+      title:'Score History Export', desc:'Per-customer score changes over time with all signal snapshots.',
+      iconBg:'var(--teal-l)', iconColor:'var(--teal)',
+      icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
+      actions:[{ label:'Export CSV', cls:'btn-primary', fn:'exportScoreHistory()' }]
+    },
   ];
 
   _reportDefs = reports;
 
   const sections = [
-    { key:'all', label:'Reports' },
+    { key:'portfolio', label:'Portfolio & Strategy',
+      sub:'High-level health snapshots, trends, and weekly summaries',
+      icon:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>' },
+    { key:'risk', label:'Risk & Renewals',
+      sub:'At-risk accounts, churn scoring, and renewal pipeline',
+      icon:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' },
+    { key:'team', label:'Team & Segments',
+      sub:'Breakdowns by segment, tag, lifecycle, and CSM',
+      icon:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' },
+    { key:'data', label:'Exports & Data',
+      sub:'Raw CSV downloads and full customer data exports',
+      icon:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>' },
   ];
 
   let html = '';
   let idx = 0;
   sections.forEach(sec => {
     const secReports = reports.filter(r => r.section === sec.key);
+    if (!secReports.length) return;
     html += '<div class="rpt-section">' +
-      '<div class="rpt-section-hd"><h2>' + sec.label + '</h2></div>' +
+      '<div class="rpt-section-hd">' +
+        '<div style="display:flex;align-items:center;gap:8px"><span style="color:var(--muted);display:flex">' + (sec.icon || '') + '</span><h2>' + sec.label + '</h2></div>' +
+        '<p style="margin:0;font-size:.78rem;color:var(--muted);font-weight:400">' + (sec.sub || '') + '</p>' +
+      '</div>' +
       '<div class="rpt-grid">';
     secReports.forEach(r => {
       const locked = !hasFeature(r.featureKey);
@@ -8168,6 +8954,245 @@ function svgMiniBar(items) {
   }).join('');
 }
 
+// ── Insights & Action Items helper for print/PDF reports ──
+function _rptInsights(key) {
+  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
+  if (!active.length) return '';
+  const items = [];
+
+  // Shared helpers
+  const _tierLabel = t => t === 'smb' ? 'SMB' : t === 'mid' ? 'Mid-Market' : 'Enterprise';
+  const atRiskAll = active.filter(c => c.status === 'critical' || c.status === 'risk');
+  const totalMrr = active.reduce((s,c) => s+(c.mrr||0), 0);
+  const riskMrr = atRiskAll.reduce((s,c) => s+(c.mrr||0), 0);
+  const riskPctBook = totalMrr > 0 ? Math.round(riskMrr / totalMrr * 100) : 0;
+
+  if (key === 'portfolio_summary') {
+    // MRR concentration risk — how much MRR sits in the top 3 accounts
+    const byMrr = [...active].sort((a,b) => (b.mrr||0) - (a.mrr||0));
+    if (byMrr.length >= 3 && totalMrr > 0) {
+      const top3Mrr = byMrr.slice(0,3).reduce((s,c) => s+(c.mrr||0), 0);
+      const concPct = Math.round(top3Mrr / totalMrr * 100);
+      if (concPct >= 40) items.push('<strong>Concentration risk:</strong> Top 3 accounts represent ' + concPct + '% of total MRR — losing any one would be a significant book impact.');
+    }
+    // Engagement-health divergence — accounts scoring well but with declining engagement
+    const silentHealthy = active.filter(c => c.score >= 70 && signalOn(c,'logins') && (c.logins||0) <= 2 && signalOn(c,'adoption') && (c.adoption||0) < 30);
+    if (silentHealthy.length) items.push('<strong>Silent risk:</strong> ' + silentHealthy.length + ' account' + (silentHealthy.length>1?'s score':'scores') + ' 70+ but ' + (silentHealthy.length>1?'have':'has') + ' very low login and adoption — scores may not reflect actual engagement.');
+    // Risk velocity — how many moved INTO risk bands this week
+    const newRisk = atRiskAll.filter(c => {
+      const hist = (c.history||[]).filter(h => h.date).sort((a,b) => new Date(b.date) - new Date(a.date));
+      const prev = hist.find(h => new Date(h.date) < new Date(Date.now() - 7*86400000));
+      return prev && getStatus(prev.score) !== 'critical' && getStatus(prev.score) !== 'risk';
+    });
+    if (newRisk.length) items.push('<strong>Deteriorating:</strong> ' + newRisk.length + ' account' + (newRisk.length>1?'s':'') + ' fell into at-risk status in the past 7 days — early outreach can prevent further decline.');
+    // Tier health gap
+    const tiers = ['smb','mid','enterprise'];
+    const tierAvgs = tiers.map(t => {
+      const grp = active.filter(c => c.tier === t);
+      return { label: _tierLabel(t), avg: grp.length ? Math.round(grp.reduce((s,c) => s+c.score, 0)/grp.length) : null, count: grp.length };
+    }).filter(t => t.count > 0 && t.avg !== null);
+    if (tierAvgs.length >= 2) {
+      const sorted = [...tierAvgs].sort((a,b) => a.avg - b.avg);
+      const gap = sorted[sorted.length-1].avg - sorted[0].avg;
+      if (gap >= 15) items.push('<strong>Tier gap:</strong> ' + sorted[sorted.length-1].label + ' averages ' + gap + ' points higher than ' + sorted[0].label + ' — consider whether ' + sorted[0].label + ' needs a different engagement model.');
+    }
+
+  } else if (key === 'at_risk') {
+    if (!atRiskAll.length) return '';
+    // Signal correlation — what signals are most common among at-risk accounts
+    const signals = ['logins','adoption','tickets','nps','csat'];
+    const sigPairs = [];
+    signals.forEach(s => {
+      const bad = atRiskAll.filter(c => {
+        if (!signalOn(c, s)) return false;
+        if (s === 'logins') return (c.logins||0) <= 3;
+        if (s === 'adoption') return (c.adoption||0) < 40;
+        if (s === 'tickets') return (c.tickets||0) >= 5;
+        if (s === 'nps') return npsIsDetractor(c.nps);
+        if (s === 'csat') return csatIsPoor(c.csat);
+        return false;
+      }).length;
+      if (bad >= 2) sigPairs.push({ sig: s, count: bad, pct: Math.round(bad/atRiskAll.length*100) });
+    });
+    sigPairs.sort((a,b) => b.pct - a.pct);
+    if (sigPairs.length) items.push('<strong>Common signal pattern:</strong> ' + sigPairs.slice(0,2).map(p => p.pct + '% have weak ' + p.sig).join(', ') + ' — addressing ' + sigPairs[0].sig + ' across the cohort could improve multiple accounts simultaneously.');
+    // Accounts declining faster than others
+    const fastDrop = atRiskAll.filter(c => getDelta7d(c) <= -5).sort((a,b) => getDelta7d(a) - getDelta7d(b));
+    if (fastDrop.length) items.push('<strong>Accelerating decline:</strong> ' + fastDrop.map(c => escHtml(c.name) + ' (' + getDelta7d(c) + ')').slice(0,3).join(', ') + (fastDrop.length>1?' are':' is') + ' dropping fast — these need intervention before they hit critical.');
+    // Contact gap + MRR correlation
+    const overdueHigh = atRiskAll.filter(c => (c.days||0) >= 14 && (c.mrr||0) >= 5000).sort((a,b) => (b.mrr||0) - (a.mrr||0));
+    if (overdueHigh.length) items.push('<strong>Unattended high-value:</strong> ' + overdueHigh.length + ' at-risk account' + (overdueHigh.length>1?'s':'') + ' with $5k+ MRR ' + (overdueHigh.length>1?'haven\'t':'hasn\'t') + ' been contacted in 14+ days — ' + escHtml(overdueHigh[0].name) + ' ($' + fmtNum(overdueHigh[0].mrr) + ') is the highest priority.');
+    // Renewal proximity
+    const riskNearRenewal = atRiskAll.filter(c => c.renewal != null && c.renewal <= 3);
+    if (riskNearRenewal.length) items.push('<strong>Renewal urgency:</strong> ' + riskNearRenewal.length + ' at-risk account' + (riskNearRenewal.length>1?'s renew':'renews') + ' within 90 days — limited runway to recover before decision point.');
+
+  } else if (key === 'renewal_forecast') {
+    const now = new Date(); now.setHours(0,0,0,0);
+    const d30 = new Date(now); d30.setDate(d30.getDate() + 30);
+    const d90 = new Date(now); d90.setDate(d90.getDate() + 90);
+    const renewing90 = active.filter(c => c.renewal_date && new Date(c.renewal_date) >= now && new Date(c.renewal_date) <= d90);
+    const riskRenewals = renewing90.filter(c => c.status === 'critical' || c.status === 'risk');
+    // Revenue retention forecast
+    if (renewing90.length) {
+      const renewMrr = renewing90.reduce((s,c) => s+(c.mrr||0), 0);
+      const safeRenewMrr = renewing90.filter(c => c.status === 'healthy' || c.status === 'expand').reduce((s,c) => s+(c.mrr||0), 0);
+      const retPct = renewMrr > 0 ? Math.round(safeRenewMrr / renewMrr * 100) : 100;
+      items.push('<strong>Retention outlook:</strong> ' + retPct + '% of upcoming renewal MRR ($' + fmtNum(safeRenewMrr) + ' of $' + fmtNum(renewMrr) + ') is in healthy status — the remaining $' + fmtNum(renewMrr - safeRenewMrr) + ' needs active save efforts.');
+    }
+    // Declining renewals — trending the wrong direction into their renewal
+    const decliningRenewals = renewing90.filter(c => getMomentum(c) === 'dn');
+    if (decliningRenewals.length) items.push('<strong>Deteriorating into renewal:</strong> ' + decliningRenewals.length + ' upcoming renewal' + (decliningRenewals.length>1?'s are':' is') + ' still trending downward — these accounts are getting worse as their decision date approaches.');
+    // Expansion vs save split
+    const expandable = renewing90.filter(c => c.status === 'expand' || c.status === 'healthy');
+    const saveable = renewing90.filter(c => c.status === 'critical' || c.status === 'risk');
+    if (expandable.length && saveable.length) items.push('<strong>Renewal strategy:</strong> ' + expandable.length + ' renewal' + (expandable.length>1?'s':'') + ' ready for expansion conversations, ' + saveable.length + ' need save plays — plan different playbooks for each group.');
+    // Uncontacted approaching renewals
+    const noTouchRenew = riskRenewals.filter(c => (c.days||0) >= 14);
+    if (noTouchRenew.length) items.push('<strong>Urgent outreach needed:</strong> ' + noTouchRenew.length + ' at-risk renewal' + (noTouchRenew.length>1?'s haven\'t':' hasn\'t') + ' been contacted in 14+ days — shrinking window to influence outcome.');
+
+  } else if (key === 'trend_report') {
+    // Momentum shift — are more accounts improving or declining this week vs the data suggests
+    const deltas = active.map(c => ({c, d: getDelta7d(c)}));
+    const improving = deltas.filter(m => m.d > 0);
+    const declining = deltas.filter(m => m.d < 0);
+    const ratio = declining.length > 0 ? (improving.length / declining.length) : (improving.length > 0 ? 999 : 1);
+    if (ratio < 0.5) items.push('<strong>Negative momentum:</strong> Declining accounts outnumber improving ones ' + declining.length + ' to ' + improving.length + ' — this ratio typically signals a broader engagement problem, not isolated cases.');
+    else if (ratio > 2 && improving.length >= 3) items.push('<strong>Positive momentum:</strong> Improving accounts outnumber declining ones ' + improving.length + ' to ' + declining.length + ' — the portfolio is recovering well.');
+    // Status band migration
+    const bandChanges = active.map(c => {
+      const hist = (c.history||[]).filter(h => h.date).sort((a,b) => new Date(b.date) - new Date(a.date));
+      const prev = hist.find(h => new Date(h.date) < new Date(Date.now() - 7*86400000));
+      if (!prev) return null;
+      const oldSt = getStatus(prev.score), newSt = c.status;
+      if (oldSt === newSt) return null;
+      return { c, from: oldSt, to: newSt };
+    }).filter(Boolean);
+    const downgrades = bandChanges.filter(b => ['critical','risk'].includes(b.to) && !['critical','risk'].includes(b.from));
+    const upgrades = bandChanges.filter(b => ['healthy','expand'].includes(b.to) && !['healthy','expand'].includes(b.from));
+    if (downgrades.length) items.push('<strong>New risk entries:</strong> ' + downgrades.map(b => escHtml(b.c.name)).slice(0,3).join(', ') + ' moved into at-risk/critical this week — investigate root cause before scores drop further.');
+    if (upgrades.length) items.push('<strong>Recoveries:</strong> ' + upgrades.map(b => escHtml(b.c.name)).slice(0,3).join(', ') + ' graduated to healthy — review what worked to replicate the playbook.');
+    // Score volatility — accounts bouncing up and down frequently
+    const volatile = active.filter(c => {
+      const hist = (c.history||[]).slice(-5);
+      if (hist.length < 4) return false;
+      let flips = 0;
+      for (let i = 2; i < hist.length; i++) { if ((hist[i].score - hist[i-1].score) * (hist[i-1].score - hist[i-2].score) < 0) flips++; }
+      return flips >= 2;
+    });
+    if (volatile.length >= 2) items.push('<strong>Score instability:</strong> ' + volatile.length + ' accounts are oscillating rather than trending — volatile scores often indicate inconsistent product usage or data quality issues worth investigating.');
+
+  } else if (key === 'churn_risk') {
+    // Multi-signal failure — accounts failing on 3+ signals simultaneously
+    const multiSigFail = atRiskAll.filter(c => {
+      let fails = 0;
+      if (signalOn(c,'logins') && (c.logins||0) <= 3) fails++;
+      if (signalOn(c,'adoption') && (c.adoption||0) < 40) fails++;
+      if (signalOn(c,'tickets') && (c.tickets||0) >= 5) fails++;
+      if (signalOn(c,'nps') && npsIsDetractor(c.nps)) fails++;
+      if (signalOn(c,'csat') && csatIsPoor(c.csat)) fails++;
+      return fails >= 3;
+    });
+    if (multiSigFail.length) items.push('<strong>Multi-signal failure:</strong> ' + multiSigFail.length + ' account' + (multiSigFail.length>1?'s are':' is') + ' failing across 3+ signals simultaneously — historically this pattern has the lowest save rate and needs executive-level intervention.');
+    // Declining + at-risk combo — accelerating toward churn
+    const accelerating = atRiskAll.filter(c => getMomentum(c) === 'dn' && (c.mrr||0) > 0).sort((a,b) => (b.mrr||0) - (a.mrr||0));
+    if (accelerating.length) items.push('<strong>Active deterioration:</strong> ' + accelerating.length + ' at-risk account' + (accelerating.length>1?'s are':' is') + ' still trending downward — these are on a path to churn unless something changes, representing $' + fmtNum(accelerating.reduce((s,c)=>s+(c.mrr||0),0)) + ' MRR.');
+    // MRR-weighted risk — top 20% of MRR that's at risk
+    if (totalMrr > 0 && riskPctBook >= 15) items.push('<strong>Book exposure:</strong> ' + riskPctBook + '% of total MRR is in at-risk status — if this exceeds 20%, consider reallocating CSM capacity toward save efforts.');
+    // Ticket-to-risk correlation
+    const highTicketRisk = atRiskAll.filter(c => (c.tickets||0) >= 4);
+    const highTicketOk = active.filter(c => c.status !== 'critical' && c.status !== 'risk' && (c.tickets||0) >= 4);
+    if (highTicketRisk.length >= 2 && highTicketOk.length === 0) items.push('<strong>Ticket correlation:</strong> Every account with 4+ open tickets is at risk — elevated ticket volume appears to be a strong leading indicator of health decline in this portfolio.');
+
+  } else if (key === 'segment_analysis') {
+    // Cross-segment health disparity
+    const tiers = ['smb','mid','enterprise'];
+    const tierData = tiers.map(t => {
+      const grp = active.filter(c => c.tier === t);
+      const riskGrp = grp.filter(c => c.status === 'critical' || c.status === 'risk');
+      return { label: _tierLabel(t), avg: grp.length ? Math.round(grp.reduce((s,c)=>s+c.score,0)/grp.length) : null, count: grp.length, riskPct: grp.length ? Math.round(riskGrp.length/grp.length*100) : 0, mrrPerAcct: grp.length ? Math.round(grp.reduce((s,c)=>s+(c.mrr||0),0)/grp.length) : 0 };
+    }).filter(t => t.count > 0);
+    // Per-account MRR vs health inverse
+    const expensiveUnhealthy = tierData.filter(t => t.mrrPerAcct > 5000 && t.riskPct > 20);
+    if (expensiveUnhealthy.length) items.push('<strong>High-value risk cluster:</strong> ' + expensiveUnhealthy.map(t => t.label).join(' and ') + ' ' + (expensiveUnhealthy.length>1?'have':'has') + ' above-average MRR per account but ' + expensiveUnhealthy.map(t => t.riskPct + '% at risk').join('/') + ' — disproportionate revenue impact if these churn.');
+    // Lifecycle stage analysis
+    const lcData = {};
+    active.forEach(c => { const lc = c.lifecycle || 'unknown'; if (!lcData[lc]) lcData[lc] = []; lcData[lc].push(c); });
+    const lcEntries = Object.entries(lcData).map(([lc, grp]) => ({
+      label: lc, count: grp.length, avg: Math.round(grp.reduce((s,c)=>s+c.score,0)/grp.length),
+      riskPct: Math.round(grp.filter(c=>c.status==='critical'||c.status==='risk').length/grp.length*100)
+    }));
+    const worstLC = lcEntries.filter(l => l.count >= 2).sort((a,b) => a.avg - b.avg)[0];
+    if (worstLC && worstLC.avg < 65) items.push('<strong>Lifecycle bottleneck:</strong> "' + worstLC.label + '" stage has the lowest average score (' + worstLC.avg + ') — accounts may be stalling at this stage, suggesting process or enablement gaps.');
+    // Tag risk clustering
+    const tags = {};
+    active.forEach(c => (c.tags||[]).forEach(tag => {
+      if (!tags[tag]) tags[tag] = { total:0, atRisk:0, mrr:0 };
+      tags[tag].total++;
+      tags[tag].mrr += (c.mrr||0);
+      if (c.status === 'critical' || c.status === 'risk') tags[tag].atRisk++;
+    }));
+    const riskTags = Object.entries(tags).filter(([,v]) => v.total >= 3 && v.atRisk/v.total >= 0.4).sort((a,b) => (b[1].atRisk/b[1].total) - (a[1].atRisk/a[1].total));
+    if (riskTags.length) items.push('<strong>Tag risk cluster:</strong> Accounts tagged "' + escHtml(riskTags[0][0]) + '" have a ' + Math.round(riskTags[0][1].atRisk/riskTags[0][1].total*100) + '% risk rate — investigate if this tag represents a shared root cause (product fit, use case, region).');
+
+  } else if (key === 'csm_performance') {
+    const managers = [...new Set(active.map(c => c.manager || '').filter(Boolean))];
+    const mgrData = managers.map(m => {
+      const grp = active.filter(c => c.manager === m);
+      const avg = grp.length ? Math.round(grp.reduce((s,c)=>s+c.score,0)/grp.length) : 0;
+      const delta = grp.length ? Math.round(grp.map(c => getDelta7d(c)).reduce((s,v)=>s+v,0)/grp.length) : 0;
+      const atRisk = grp.filter(c => c.status === 'critical' || c.status === 'risk').length;
+      const riskPct = grp.length ? Math.round(atRisk/grp.length*100) : 0;
+      const avgDays = grp.length ? Math.round(grp.reduce((s,c) => s+(c.days||0), 0)/grp.length) : 0;
+      const mrr = grp.reduce((s,c) => s+(c.mrr||0), 0);
+      return { manager: m, avg, delta, atRisk, riskPct, count: grp.length, avgDays, mrr };
+    });
+    // Workload imbalance
+    if (mgrData.length >= 2) {
+      const maxLoad = Math.max(...mgrData.map(m => m.count));
+      const minLoad = Math.min(...mgrData.map(m => m.count));
+      if (maxLoad > minLoad * 2) {
+        const heavy = mgrData.find(m => m.count === maxLoad);
+        items.push('<strong>Workload imbalance:</strong> ' + escHtml(heavy.manager) + ' manages ' + heavy.count + ' accounts vs the smallest book of ' + minLoad + ' — overloaded CSMs typically show declining portfolio health over time.');
+      }
+    }
+    // Contact cadence vs health correlation
+    const slowContact = mgrData.filter(m => m.avgDays >= 14 && m.riskPct >= 25);
+    if (slowContact.length) items.push('<strong>Contact cadence gap:</strong> ' + slowContact.map(m => escHtml(m.manager)).join(', ') + ' ' + (slowContact.length>1?'average':'averages') + ' 14+ days between contacts and ' + (slowContact.length>1?'have':'has') + ' above-average risk rates — faster outreach cadence correlates with better retention.');
+    // Momentum divergence — one CSM improving while another declines
+    const bestDelta = [...mgrData].sort((a,b) => b.delta - a.delta)[0];
+    const worstDelta = [...mgrData].sort((a,b) => a.delta - b.delta)[0];
+    if (bestDelta && worstDelta && bestDelta.manager !== worstDelta.manager && (bestDelta.delta - worstDelta.delta) >= 5)
+      items.push('<strong>Momentum divergence:</strong> ' + escHtml(bestDelta.manager) + '\'s portfolio is improving (+' + bestDelta.delta + ') while ' + escHtml(worstDelta.manager) + '\'s is declining (' + worstDelta.delta + ') — worth pairing them for knowledge transfer on what\'s working.');
+    // MRR per CSM risk
+    const highMrrRisk = mgrData.filter(m => m.mrr >= 50000 && m.riskPct >= 30);
+    if (highMrrRisk.length) items.push('<strong>Revenue at risk:</strong> ' + highMrrRisk.map(m => escHtml(m.manager) + ' ($' + fmtNum(m.mrr) + ' MRR, ' + m.riskPct + '% at risk)').join(', ') + ' — consider temporary backup support for high-MRR risk accounts.');
+
+  } else if (key === 'customer_health') {
+    // Score distribution shape — bimodal vs normal
+    const sub40 = active.filter(c => c.score < 40).length;
+    const over80 = active.filter(c => c.score >= 80).length;
+    const mid = active.length - sub40 - over80;
+    if (sub40 >= 3 && over80 >= 3 && mid < Math.max(sub40, over80)) items.push('<strong>Bimodal distribution:</strong> The portfolio is polarized — ' + over80 + ' accounts score 80+ while ' + sub40 + ' score below 40 with fewer in between. This often indicates the product works well for some use cases but poorly for others.');
+    // Engagement without contact
+    const ghosted = active.filter(c => c.score < 60 && (c.days||0) >= 21).sort((a,b) => (b.mrr||0) - (a.mrr||0));
+    if (ghosted.length >= 2) items.push('<strong>Unattended risk:</strong> ' + ghosted.length + ' accounts scoring below 60 haven\'t been contacted in 21+ days — the longer the gap, the harder the recovery. Top priority: ' + escHtml(ghosted[0].name) + ' ($' + fmtNum(ghosted[0].mrr||0) + ' MRR).');
+    // Signal-score mismatch — good signals but low score (or vice versa)
+    const overScored = active.filter(c => c.score >= 75 && signalOn(c,'logins') && (c.logins||0) <= 2 && signalOn(c,'adoption') && (c.adoption||0) < 25);
+    if (overScored.length) items.push('<strong>Possible scoring gap:</strong> ' + overScored.length + ' account' + (overScored.length>1?'s score':'scores') + ' 75+ despite very low engagement — these scores may be inflated by weight distribution. Consider reviewing scoring profiles.');
+    // MRR exposure as % of book
+    if (riskPctBook >= 20) items.push('<strong>Portfolio health alert:</strong> ' + riskPctBook + '% of total MRR is in at-risk or critical status — this level of exposure typically warrants a dedicated risk review cadence.');
+  }
+
+  if (!items.length) return '';
+  return '<div class="rpt-insights" style="margin-top:24px;padding:16px 20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;page-break-inside:avoid">' +
+    '<h2 style="margin:0 0 10px;font-size:.88rem;color:#334155;display:flex;align-items:center;gap:6px">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' +
+      ' Insights &amp; Action Items</h2>' +
+    '<ul style="margin:0;padding-left:18px;font-size:.8rem;line-height:1.7;color:#475569">' +
+      items.map(i => '<li>' + i + '</li>').join('') +
+    '</ul></div>';
+}
+
 // ── Report: Portfolio Health Summary (Team) ──
 function buildPortfolioSummaryHTML() {
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
@@ -8191,6 +9216,7 @@ function buildPortfolioSummaryHTML() {
   const topRisk = [...active].filter(c => c.status === 'critical' || c.status === 'risk').sort((a, b) => (b.mrr || 0) - (a.mrr || 0)).slice(0, 10);
 
   let html = rptHeader('Portfolio Health Summary', 'Generated ' + rptDateStr() + ' &middot; ' + total + ' active accounts') +
+    _rptInsights('portfolio_summary') +
     '<div class="kpi-row">' +
       '<div class="kpi"><div class="kpi-num">' + total + '</div><div class="kpi-label">Active Accounts</div></div>' +
       '<div class="kpi"><div class="kpi-num">' + avg + '</div><div class="kpi-label">Avg Health Score</div></div>' +
@@ -8238,6 +9264,7 @@ function buildAtRiskReportHTML() {
   const riskOnlyMRR = totalRiskMRR - critMRR;
 
   let html = rptHeader('At-Risk Report', 'Generated ' + rptDateStr() + ' &middot; ' + atRisk.length + ' accounts &middot; $' + fmtNum(totalRiskMRR) + ' MRR at risk') +
+    _rptInsights('at_risk') +
     '<div class="kpi-row">' +
       '<div class="kpi" style="border-top-color:#dc2626"><div class="kpi-num" style="color:#dc2626">' + critCount + '</div><div class="kpi-label">Critical</div></div>' +
       '<div class="kpi" style="border-top-color:#f97316"><div class="kpi-num" style="color:#f97316">' + riskCount + '</div><div class="kpi-label">At Risk</div></div>' +
@@ -8307,6 +9334,7 @@ function buildRenewalForecastHTML() {
   const totalRenewals = bucketData.reduce((s, b) => s + b.items.length, 0);
   const totalRMRR = bucketData.reduce((s, b) => s + b.mrr, 0);
   let html = rptHeader('Renewal Forecast Report', 'Generated ' + rptDateStr() + ' &middot; ' + totalRenewals + ' renewals &middot; $' + fmtNum(totalRMRR) + ' MRR') +
+    _rptInsights('renewal_forecast') +
     '<h2>MRR by Renewal Window</h2>' +
     svgBarH(bucketData.map(b => ({label: b.label, value: b.mrr, color: b.items.some(c => c.status === 'critical' || c.status === 'risk') ? '#d97706' : '#4f46e5', valLabel: '$' + fmtNum(b.mrr) + ' (' + b.items.length + ')'})));
 
@@ -8342,6 +9370,7 @@ function buildCSMReportHTML() {
   }).sort((a, b) => b.avgScore - a.avgScore);
 
   let html = rptHeader('CSM Performance Report', 'Generated ' + rptDateStr() + ' &middot; ' + managers.length + ' managers') +
+    _rptInsights('csm_performance') +
     '<h2>Avg Health Score by Manager</h2>' +
     svgBarH(mgrData.map(m => {
       var col = m.avgScore >= 80 ? '#16a34a' : m.avgScore >= 60 ? '#4f46e5' : m.avgScore >= 40 ? '#d97706' : '#dc2626';
@@ -8396,6 +9425,7 @@ function buildSegmentAnalysisHTML() {
   const byTag = buildGroups(c => (c.tags && c.tags.length) ? c.tags : ['Untagged']);
 
   let html = rptHeader('Segment Analysis Report', 'Generated ' + rptDateStr() + ' &middot; ' + active.length + ' accounts') +
+    _rptInsights('segment_analysis') +
     segTable('By Tier', byTier) +
     segTable('By Lifecycle', byLifecycle) +
     (byTag.length ? segTable('By Tag', byTag) : '') +
@@ -8411,11 +9441,14 @@ function buildTrendReportHTML() {
   const d90ago = new Date(now); d90ago.setDate(d90ago.getDate() - 90);
 
   // Collect all history points in the last 90 days, group by date
+  // Exclude today — partial day data skews averages
+  const todayStr = now.toISOString().slice(0, 10);
   const dateMap = {};
   active.forEach(c => {
     (c.history || []).forEach(h => {
       if (!h.date) return;
       const d = h.date.slice(0, 10);
+      if (d >= todayStr) return;          // skip today & future
       if (new Date(d) < d90ago) return;
       if (!dateMap[d]) dateMap[d] = [];
       dateMap[d].push(h.score);
@@ -8438,6 +9471,7 @@ function buildTrendReportHTML() {
 
   const deltaColor = delta >= 0 ? '#16a34a' : '#dc2626';
   let html = rptHeader('Trend Report (90 Days)') +
+    _rptInsights('trend_report') +
     '<div class="kpi-row">' +
       '<div class="kpi"><div class="kpi-num">' + currentAvg + '</div><div class="kpi-label">Current Avg Score</div></div>' +
       '<div class="kpi"><div class="kpi-num">' + firstAvg + '</div><div class="kpi-label">90 Days Ago</div></div>' +
@@ -8492,6 +9526,7 @@ function buildChurnRiskReportHTML() {
   const highRisk = scored.filter(r => r.risk >= 50);
 
   let html = rptHeader('Churn Risk Report', 'Generated ' + rptDateStr() + ' &middot; ' + active.length + ' accounts analyzed') +
+    _rptInsights('churn_risk') +
     '<div class="kpi-row">' +
       '<div class="kpi" style="border-top-color:#dc2626"><div class="kpi-num" style="color:#dc2626">' + highRisk.length + '</div><div class="kpi-label">High Risk (50+)</div></div>' +
       '<div class="kpi"><div class="kpi-num">$' + fmtNum(totalImpact) + '</div><div class="kpi-label">Total ARR Exposure</div></div>' +
@@ -8636,12 +9671,14 @@ function exportSegmentCSV() {
 function exportTrendCSV() {
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
   const now = new Date();
+  const todayStr = now.toISOString().slice(0, 10);
   const d90ago = new Date(now); d90ago.setDate(d90ago.getDate() - 90);
   const dateMap = {};
   active.forEach(c => {
     (c.history || []).forEach(h => {
       if (!h.date) return;
       const d = h.date.slice(0, 10);
+      if (d >= todayStr) return;
       if (new Date(d) < d90ago) return;
       if (!dateMap[d]) dateMap[d] = [];
       dateMap[d].push(h.score);
@@ -8693,6 +9730,7 @@ function buildCustomerHealthHTML() {
   if (!active.length) return '';
   const sorted = [...active].sort((a, b) => a.score - b.score);
   let html = rptHeader('Customer Health Report', 'Generated ' + rptDateStr() + ' &middot; ' + active.length + ' accounts') +
+    _rptInsights('customer_health') +
     '<table><tr><th>Customer</th><th>Manager</th><th>Score</th><th>Status</th><th>Tier</th><th style="text-align:right">MRR</th><th>Logins</th><th>Adoption</th><th>Tickets</th><th>NPS</th><th>CSAT</th></tr>' +
     sorted.map(c =>
       '<tr><td><strong>' + escHtml(c.name) + '</strong></td><td>' + escHtml(c.manager || '\u2014') + '</td>' +
@@ -8728,15 +9766,34 @@ function showDigestPreview() {
 }
 
 function buildDigestHTML() {
-  const active = customers.filter(c => c.lifecycle !== 'churned');
+  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
   const critical = active.filter(c => c.status === 'critical').length;
   const atRisk   = active.filter(c => c.status === 'risk').length;
   const avgScore = active.length ? Math.round(active.reduce((s,c)=>s+c.score,0)/active.length) : 0;
   const totalMrr = active.reduce((s,c)=>s+(c.mrr||0),0);
+  const riskMrr  = active.filter(c=>c.status==='critical'||c.status==='risk').reduce((s,c)=>s+(c.mrr||0),0);
+
+  // Week-over-week comparison
+  const withHist = active.filter(c=>(c.history||[]).length>=2);
+  const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate()-7);
+  const weekAgoT = weekAgo.getTime();
+  let prevAvg = 0, prevRiskCount = 0, prevRiskMrr = 0;
+  if (withHist.length > 0) {
+    withHist.forEach(c => {
+      const hist = c.history.filter(h=>h.date).sort((a,b)=>a.date.localeCompare(b.date));
+      const prev = hist.reduce((best,h) => Math.abs(new Date(h.date).getTime()-weekAgoT)<Math.abs(new Date(best.date).getTime()-weekAgoT)?h:best);
+      const prevStatus = getStatus(prev.score);
+      prevAvg += prev.score;
+      if (prevStatus==='critical'||prevStatus==='risk') { prevRiskCount++; prevRiskMrr += c.mrr||0; }
+    });
+    prevAvg = Math.round(prevAvg/withHist.length);
+  }
+  const scoreDelta = avgScore - prevAvg;
+  const riskCountDelta = (critical+atRisk) - prevRiskCount;
 
   // Top at-risk (worst score first)
   const topRisk = [...active].filter(c=>c.status==='critical'||c.status==='risk')
-    .sort((a,b)=>a.score-b.score).slice(0,3);
+    .sort((a,b)=>a.score-b.score).slice(0,5);
 
   // Upcoming renewals in next 7 days
   const now = new Date();
@@ -8747,48 +9804,108 @@ function buildDigestHTML() {
     return d >= now && d <= in7;
   }).sort((a,b)=>new Date(a.renewal_date)-new Date(b.renewal_date));
 
-  // Score movers (need ≥2 history points)
-  const withHist = active.filter(c=>(c.history||[]).length>=2);
-  const deltas = withHist.map(c=>{
-    const hist=c.history;
-    const delta=hist[hist.length-1].score - hist[hist.length-2].score;
-    return {c,delta};
-  });
+  // Score movers (use getDelta7d for accuracy)
+  const deltas = withHist.map(c=>({ c, delta: getDelta7d(c) }));
   const improved = [...deltas].filter(x=>x.delta>0).sort((a,b)=>b.delta-a.delta).slice(0,3);
   const dropped  = [...deltas].filter(x=>x.delta<0).sort((a,b)=>a.delta-b.delta).slice(0,3);
+  const declining = deltas.filter(x=>x.delta<=-momentumPts);
+
+  // Signal changes across portfolio
+  const signalChanges = [];
+  const signalKeys = [
+    { key:'logins', label:'Logins', unit:'/mo', get: (h,c)=>h.signals?.logins??c.logins },
+    { key:'adoption', label:'Adoption', unit:'%', get: (h,c)=>h.signals?.adoption??c.adoption },
+    { key:'tickets', label:'Tickets', unit:'', get: (h,c)=>h.signals?.tickets??c.tickets },
+  ];
+  signalKeys.forEach(sig => {
+    if (!signalOn(active[0]||{}, sig.key)) return;
+    let curSum=0, prevSum=0, cnt=0;
+    withHist.forEach(c => {
+      const hist = c.history.filter(h=>h.date).sort((a,b)=>a.date.localeCompare(b.date));
+      const cur = hist[hist.length-1];
+      const prev = hist.reduce((best,h)=>Math.abs(new Date(h.date).getTime()-weekAgoT)<Math.abs(new Date(best.date).getTime()-weekAgoT)?h:best);
+      const cv = sig.get(cur,c), pv = sig.get(prev,c);
+      if (cv!=null && pv!=null) { curSum+=cv; prevSum+=pv; cnt++; }
+    });
+    if (cnt>0) {
+      const avg = Math.round((curSum/cnt)*10)/10;
+      const prevA = Math.round((prevSum/cnt)*10)/10;
+      const d = Math.round((avg-prevA)*10)/10;
+      if (Math.abs(d)>0.1) signalChanges.push({ label:sig.label, unit:sig.unit, avg, delta:d });
+    }
+  });
+
+  // Action items
+  const actions = [];
+  // Highest MRR at risk
+  const topMrrRisk = [...active].filter(c=>c.status==='critical'||c.status==='risk').sort((a,b)=>(b.mrr||0)-(a.mrr||0))[0];
+  if (topMrrRisk) actions.push(`Schedule a health check with <strong>${escHtml(topMrrRisk.name)}</strong> — $${fmtNum(topMrrRisk.mrr||0)} MRR at score ${topMrrRisk.score}`);
+  // Overdue contacts
+  const overdue30 = active.filter(c=>signalOn(c,'days')&&c.days!=null&&c.days>30);
+  if (overdue30.length>0) actions.push(`<strong>${overdue30.length} account${overdue30.length>1?'s':''}</strong> haven't been contacted in 30+ days`);
+  // Declining momentum
+  if (declining.length>0) {
+    const steepest = declining.sort((a,b)=>a.delta-b.delta)[0];
+    actions.push(`<strong>${declining.length} account${declining.length>1?'s':''}</strong> trending downward — ${escHtml(steepest.c.name)} dropped ${Math.abs(steepest.delta)} pts`);
+  }
+  // Renewals at risk
+  const renewRisk = upcoming.filter(c=>c.status==='critical'||c.status==='risk');
+  if (renewRisk.length>0) actions.push(`<strong>${renewRisk.length} renewal${renewRisk.length>1?'s':''}</strong> coming up with at-risk health — ${escHtml(renewRisk[0].name)} renews in ${Math.round((new Date(renewRisk[0].renewal_date)-now)/86400000)}d at score ${renewRisk[0].score}`);
+
+  // Portfolio summary sentence
+  let trendSentence = '';
+  if (withHist.length>0) {
+    if (scoreDelta>2) trendSentence = `Portfolio health improved <strong>${scoreDelta} points</strong> on average this week.`;
+    else if (scoreDelta<-2) trendSentence = `Portfolio health declined <strong>${Math.abs(scoreDelta)} points</strong> this week — ${declining.length} account${declining.length!==1?'s':''} trending downward.`;
+    else trendSentence = `Portfolio health held steady this week (${scoreDelta>=0?'+':''}${scoreDelta} points average).`;
+  }
 
   const week = new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  const dayName = new Date().toLocaleDateString('en-US',{weekday:'long'});
   const sdot = s=>({critical:'🔴',risk:'🟠',watch:'🟡',healthy:'🟢',expand:'✨'}[s]||'⚪');
+  const arrow = d => d>0?'<span style="color:#16a34a;font-weight:700">▲+'+d+'</span>':d<0?'<span style="color:#dc2626;font-weight:700">▼'+d+'</span>':'<span style="color:#64748b">→ 0</span>';
 
-  return `<div style="max-width:580px;margin:0 auto;font-family:Arial,sans-serif">
+  return `<div style="max-width:620px;margin:0 auto;font-family:Arial,sans-serif">
     <div style="background:linear-gradient(90deg,#2e3fa3,#4a6fd4);color:#fff;padding:20px 24px;border-radius:8px 8px 0 0">
-      <div style="font-size:18px;font-weight:700">IQcadence CS Health Digest</div>
-      <div style="font-size:12px;opacity:.8;margin-top:2px">Week of ${week}</div>
+      <div style="font-size:18px;font-weight:700">Weekly Review</div>
+      <div style="font-size:12px;opacity:.8;margin-top:2px">${dayName}, ${week}</div>
     </div>
     <div style="padding:20px 24px;background:#f8fafc;border-radius:0 0 8px 8px">
 
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px">
+      ${trendSentence?`<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:14px 16px;margin-bottom:16px;font-size:13px;color:#334155;line-height:1.6">${trendSentence}</div>`:''}
+
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
         ${[
-          ['Total Accounts', active.length, '#1e293b'],
-          ['Critical / At Risk', critical+' / '+atRisk, (critical+atRisk)>0?'#dc2626':'#16a34a'],
-          ['Avg Health Score', avgScore, avgScore>=80?'#16a34a':avgScore>=65?'#d97706':'#dc2626'],
-          ['Total MRR', '$'+fmtNum(totalMrr), '#2e3fa3'],
-        ].map(([lbl,val,col])=>`<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px;text-align:center">
+          ['Avg Score', avgScore, avgScore>=80?'#16a34a':avgScore>=65?'#d97706':'#dc2626', scoreDelta],
+          ['Critical / Risk', critical+atRisk, (critical+atRisk)>0?'#dc2626':'#16a34a', riskCountDelta],
+          ['MRR at Risk', '$'+fmtNum(riskMrr), riskMrr>0?'#dc2626':'#16a34a', null],
+          ['Total MRR', '$'+fmtNum(totalMrr), '#2e3fa3', null],
+        ].map(([lbl,val,col,delta])=>`<div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px;text-align:center">
           <div style="font-size:20px;font-weight:800;color:${col}">${val}</div>
           <div style="font-size:11px;color:#64748b;margin-top:2px">${lbl}</div>
+          ${delta!=null && withHist.length>0?`<div style="font-size:10px;margin-top:4px">${arrow(delta)} vs last week</div>`:''}
         </div>`).join('')}
       </div>
 
+      ${actions.length?`<div style="margin-bottom:18px">
+        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">🎯 Action Items This Week</div>
+        ${actions.map(a=>`<div style="font-size:12px;padding:6px 0;border-bottom:1px solid #f1f5f9;color:#334155;line-height:1.5">• ${a}</div>`).join('')}
+      </div>`:''}
+
       ${topRisk.length?`<div style="margin-bottom:18px">
         <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">🚨 Accounts Needing Attention</div>
-        ${topRisk.map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9">
-          <div>${sdot(c.status)} <strong>${escHtml(c.name)}</strong></div>
-          <div style="font-size:12px;color:#64748b">Score ${c.score} · MRR $${fmtNum(c.mrr||0)}</div>
-        </div>`).join('')}
+        ${topRisk.map(c=>{
+          const d7 = getDelta7d(c);
+          const trend = d7>0?'<span style="color:#16a34a">▲+'+d7+'</span>':d7<0?'<span style="color:#dc2626">▼'+d7+'</span>':'<span style="color:#94a3b8">→0</span>';
+          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9">
+          <div>${sdot(c.status)} <strong>${escHtml(c.name)}</strong> <span style="font-size:11px;color:#94a3b8">${trend}</span></div>
+          <div style="font-size:12px;color:#64748b">Score ${c.score} · $${fmtNum(c.mrr||0)}</div>
+        </div>`;
+        }).join('')}
       </div>`:``}
 
       ${upcoming.length?`<div style="margin-bottom:18px">
-        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">📅 Renewals This Week</div>
+        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">📅 Renewals Coming Up</div>
         ${upcoming.map(c=>{
           const days=Math.round((new Date(c.renewal_date)-now)/86400000);
           return `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9">
@@ -8801,7 +9918,7 @@ function buildDigestHTML() {
       ${(improved.length||dropped.length)?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px">
         ${improved.length?`<div>
           <div style="font-size:12px;font-weight:700;color:#16a34a;margin-bottom:6px">📈 Most Improved</div>
-          ${improved.map(({c,delta})=>`<div style="font-size:12px;padding:4px 0">${escHtml(c.name)} <span style="color:#16a34a;font-weight:700">+${delta}</span></div>`).join('')}
+          ${improved.map(({c,delta})=>`<div style="font-size:12px;padding:4px 0">${escHtml(c.name)} <span style="color:#16a34a;font-weight:700">+${Math.abs(delta)}</span></div>`).join('')}
         </div>`:''}
         ${dropped.length?`<div>
           <div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:6px">📉 Biggest Drops</div>
@@ -8809,7 +9926,14 @@ function buildDigestHTML() {
         </div>`:''}
       </div>`:``}
 
-      <div style="font-size:11px;color:#94a3b8;text-align:center;margin-top:8px">Generated by IQcadence CS Health Score · ${week}</div>
+      ${signalChanges.length?`<div style="margin-bottom:18px">
+        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">📊 Signal Trends This Week</div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap">
+          ${signalChanges.map(s=>`<div style="font-size:12px;color:#334155"><strong>${s.label}</strong> ${s.delta>0?'<span style="color:#16a34a">▲+'+s.delta+s.unit+'</span>':'<span style="color:#dc2626">▼'+s.delta+s.unit+'</span>'} (avg ${s.avg}${s.unit})</div>`).join('')}
+        </div>
+      </div>`:''}
+
+      <div style="font-size:11px;color:#94a3b8;text-align:center;margin-top:8px">Generated by IQcadence · ${week}</div>
     </div>
   </div>`;
 }
@@ -8836,7 +9960,7 @@ function downloadDigestHTML() {
 // ─── REPORT EMAIL / SCHEDULING ────────────────────────────────
 
 const EMAILABLE_REPORTS = [
-  { key:'weekly_digest',      label:'Weekly Health Digest',       builder: () => buildDigestHTML() },
+  { key:'weekly_digest',      label:'Weekly Review',              builder: () => buildDigestHTML() },
   { key:'customer_health',    label:'Customer Health Report',     builder: () => buildCustomerHealthHTML() },
   { key:'portfolio_summary',  label:'Portfolio Health Summary',   builder: () => buildPortfolioSummaryHTML() },
   { key:'at_risk',            label:'At-Risk Report',             builder: () => buildAtRiskReportHTML() },
@@ -9118,7 +10242,12 @@ function renderScheduledReports() {
     return cfg && cfg.recipients;
   });
 
+  const activeCount = configured.filter(r => (schedules[r.key] || {}).enabled).length;
+  const badge = el('sched-active-badge');
+  if (badge) badge.textContent = activeCount + ' of ' + configured.length + ' active';
+
   if (!configured.length) {
+    if (badge) badge.textContent = '';
     container.innerHTML =
       '<div style="text-align:center;padding:40px 20px">' +
         '<div style="font-size:2rem;margin-bottom:8px">\u{1F4E7}</div>' +
@@ -9138,7 +10267,7 @@ function renderScheduledReports() {
     '<th>Day / Time</th>' +
     '<th>Recipients</th>' +
     '<th>Last Sent</th>' +
-    '<th style="width:80px">Actions</th>';
+    '<th style="width:140px">Actions</th>';
 
   const rows = configured.map(r => {
     const cfg = schedules[r.key] || {};
@@ -9207,17 +10336,15 @@ function renderScheduledReports() {
       '<td style="font-size:.82rem;color:var(--muted)">' + dayTimeText + '</td>' +
       '<td style="font-size:.82rem;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis" title="' + escHtml(cfg.recipients || '') + '">' + recipText + '</td>' +
       '<td style="font-size:.78rem;color:var(--muted)">' + lastSentText + '</td>' +
-      '<td>' +
+      '<td style="white-space:nowrap">' +
+        '<button class="btn btn-xs btn-ghost" onclick="schedSendNow(\'' + r.key + '\')" title="Send Now" style="font-size:.68rem;padding:2px 6px">Send</button>' +
+        '<button class="btn btn-xs btn-ghost" onclick="schedTestSend(\'' + r.key + '\')" title="Test (sends to you)" style="font-size:.68rem;padding:2px 6px;color:var(--muted)">Test</button>' +
         '<button class="btn btn-xs btn-ghost" onclick="toggleSchedInlineEdit(\'' + r.key + '\')" title="' + (isEditing ? 'Close' : 'Edit') + '">' + (isEditing ? checkSvg : editSvg) + '</button>' +
       '</td></tr>' +
       inlineEditHtml;
   }).join('');
 
   container.innerHTML =
-    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">' +
-      '<h3 style="margin:0;font-size:1rem;font-weight:700;color:var(--text)">Scheduled Reports</h3>' +
-      '<span style="font-size:.78rem;color:var(--muted)">' + configured.filter(r => (schedules[r.key] || {}).enabled).length + ' of ' + configured.length + ' active</span>' +
-    '</div>' +
     '<table class="alert-summary-table">' +
       '<thead><tr>' + theadCols + '</tr></thead>' +
       '<tbody>' + rows + '</tbody>' +
@@ -9271,19 +10398,53 @@ function removeReportSchedule(reportKey) {
   toast('Report schedule removed', 'success');
 }
 
+async function schedSendNow(reportKey) {
+  const cfg = (automationsCfg.report_schedules || {})[reportKey];
+  if (!cfg || !cfg.recipients) { toast('No recipients configured', 'warn'); return; }
+  const { html, subject } = buildReportEmailPayload(reportKey);
+  if (!html) { toast('Could not generate report — no data', 'error'); return; }
+  const prefix = cfg.subject_prefix || '[iQcadence Report]';
+  try {
+    toast('Sending report...', 'default');
+    const { data, error } = await sb.functions.invoke('send-webhook', {
+      body: { mode: 'email', recipients: cfg.recipients, subject: prefix + ' ' + subject,
+              html_body: html, event_type: 'report_' + reportKey, customer_id: null, customer_name: null }
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    cfg.last_sent = new Date().toISOString();
+    saveAutomationsCfg();
+    renderScheduledReports();
+    toast('Report sent to ' + cfg.recipients.split(',').length + ' recipient(s)', 'success');
+  } catch(err) {
+    toast('Failed to send: ' + (err.message || 'Unknown error'), 'error');
+  }
+}
+
+async function schedTestSend(reportKey) {
+  if (!currentUser || !currentUser.email) { toast('No email on current user', 'error'); return; }
+  const cfg = (automationsCfg.report_schedules || {})[reportKey];
+  const { html, subject } = buildReportEmailPayload(reportKey);
+  if (!html) { toast('Could not generate report — no data', 'error'); return; }
+  const prefix = (cfg && cfg.subject_prefix) || '[iQcadence Report]';
+  try {
+    toast('Sending test to ' + currentUser.email + '...', 'default');
+    const { data, error } = await sb.functions.invoke('send-webhook', {
+      body: { mode: 'email', recipients: currentUser.email, subject: prefix + ' ' + subject + ' (TEST)',
+              html_body: html, event_type: 'report_test_' + reportKey, customer_id: null, customer_name: null }
+    });
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+    toast('Test report sent to ' + currentUser.email, 'success');
+  } catch(err) {
+    toast('Failed to send test: ' + (err.message || 'Unknown error'), 'error');
+  }
+}
+
 
 // ─── AUTOMATIONS (Zapier Webhook Integration) ──────────────
 
 function saveAutomationsCfg() {
-  // Auto-sync selected_alerts to all enabled channels
-  const selected = automationsCfg.selected_alerts || [];
-  if (automationsCfg.channels) {
-    ['slack', 'teams', 'email'].forEach(chKey => {
-      if (automationsCfg.channels[chKey]?.enabled) {
-        automationsCfg.channels[chKey].alerts = [...selected];
-      }
-    });
-  }
   localStorage.setItem('iqc_automations', JSON.stringify(automationsCfg));
   if (currentUser) {
     sb.from('settings').upsert({
@@ -9470,30 +10631,38 @@ const CHANNELS = [
     desc: 'Post alerts to a Slack channel via Incoming Webhook.',
     inputType: 'url', placeholder: 'https://hooks.slack.com/services/T.../B.../xxxx',
     setup: `<ol style="margin:6px 0 0 18px;font-size:.76rem;line-height:1.6;color:var(--muted)">
-      <li>Go to <a href="https://api.slack.com/apps" target="_blank" rel="noopener" style="color:var(--blue)">api.slack.com/apps</a> → <strong>Create New App</strong> → From Scratch</li>
-      <li>Under <strong>Incoming Webhooks</strong>, toggle it <strong>On</strong></li>
-      <li>Click <strong>Add New Webhook to Workspace</strong> → pick a channel → <strong>Allow</strong></li>
-      <li>Copy the <strong>Webhook URL</strong> and paste it above</li>
-    </ol>`
+      <li>Go to <a href="https://api.slack.com/apps" target="_blank" rel="noopener" style="color:var(--blue)">api.slack.com/apps</a> and click <strong>Create New App</strong> → choose <strong>From Scratch</strong></li>
+      <li>Name your app (e.g. "iQcadence Alerts") and select your workspace, then click <strong>Create App</strong></li>
+      <li>In the left sidebar, click <strong>Incoming Webhooks</strong> and toggle <strong>Activate Incoming Webhooks</strong> to <strong>On</strong></li>
+      <li>Scroll down and click <strong>Add New Webhook to Workspace</strong></li>
+      <li>Select the channel where alerts should post (e.g. #cs-alerts) and click <strong>Allow</strong></li>
+      <li>Copy the <strong>Webhook URL</strong> (starts with <code style="font-size:.7rem;background:var(--bg);padding:1px 4px;border-radius:3px">https://hooks.slack.com/services/...</code>) and paste it above</li>
+      <li>Click <strong>Send Test</strong> below to verify — you should see a test message appear in your channel</li>
+    </ol>
+    <p style="margin:8px 0 0;font-size:.72rem;color:var(--subtle)"><strong>Tip:</strong> You can customize the bot name and icon in your Slack app settings under <strong>Basic Information</strong> → <strong>Display Information</strong>. Alerts will include customer name, score, status, and the triggering event.</p>`
   },
   {
     key: 'teams', label: 'Microsoft Teams', icon: _aico(AUTO_ICONS.teams),
-    desc: 'Post alerts to a Teams channel via Workflow webhook.',
+    desc: 'Post alerts to a Teams channel via Workflows webhook.',
     inputType: 'url', placeholder: 'https://prod-xx.westus.logic.azure.com:443/workflows/...',
     setup: `<ol style="margin:6px 0 0 18px;font-size:.76rem;line-height:1.6;color:var(--muted)">
-      <li>In Teams, go to the channel → <strong>Manage Channel</strong> → <strong>Connectors</strong> (or use <strong>Workflows</strong>)</li>
-      <li>Search for <strong>"Incoming Webhook"</strong> → <strong>Configure</strong></li>
-      <li>Give it a name (e.g. "iQcadence Alerts") → <strong>Create</strong></li>
-      <li>Copy the <strong>Webhook URL</strong> and paste it above</li>
-    </ol>`
+      <li>Open <strong>Microsoft Teams</strong> and go to the channel where you want alerts</li>
+      <li>Click the <strong>+</strong> (Add a tab) or go to <strong>Apps</strong> → search for <strong>Workflows</strong></li>
+      <li>Select the template <strong>"Post to a channel when a webhook request is received"</strong></li>
+      <li>Name the workflow (e.g. "iQcadence Alerts"), select the target <strong>Team</strong> and <strong>Channel</strong>, then click <strong>Add workflow</strong></li>
+      <li>Copy the <strong>Webhook URL</strong> provided (starts with <code style="font-size:.7rem;background:var(--bg);padding:1px 4px;border-radius:3px">https://prod-xx.westus.logic.azure.com...</code>) and paste it above</li>
+      <li>Click <strong>Send Test</strong> below to verify — you should see a test card appear in your channel</li>
+    </ol>
+    <p style="margin:8px 0 0;font-size:.72rem;color:var(--subtle)"><strong>Note:</strong> Microsoft retired the old "Incoming Webhook" connector. Use the <strong>Workflows</strong> app instead. If you don\'t see Workflows, ask your Teams admin to enable it.</p>`
   },
   {
     key: 'email', label: 'Email', icon: _aico(AUTO_ICONS.email),
     desc: 'Send HTML email alerts to one or more recipients.',
     inputType: 'email', placeholder: 'alerts@yourcompany.com, csm-team@company.com',
-    setup: `<p style="margin:6px 0 0;font-size:.76rem;line-height:1.6;color:var(--muted)">
-      Enter one or more email addresses separated by commas. Requires Resend API key configured in Supabase secrets.
-    </p>`
+    setup: `<div style="margin:6px 0 0;font-size:.76rem;line-height:1.6;color:var(--muted)">
+      <p style="margin:0 0 6px">Enter one or more email addresses separated by commas. Each recipient gets a formatted HTML email with customer details, score changes, and the triggering event.</p>
+      <p style="margin:0;font-size:.72rem;color:var(--subtle)"><strong>Requires setup:</strong> Email delivery uses <a href="https://resend.com" target="_blank" rel="noopener" style="color:var(--blue)">Resend</a>. Your Supabase project must have the <code style="font-size:.68rem;background:var(--bg);padding:1px 4px;border-radius:3px">RESEND_API_KEY</code> secret configured. Contact your admin if emails are not being delivered.</p>
+    </div>`
   }
 ];
 
@@ -9520,12 +10689,13 @@ function truncateUrl(url, maxLen) {
   return s.length > maxLen ? escHtml(s.slice(0, maxLen) + '…') : escHtml(s);
 }
 
-function sentToHtml() {
+function sentToHtml(alertKey) {
   const ch = automationsCfg.channels || {};
   const parts = [];
-  if (ch.slack?.enabled) parts.push('<span class="dest-tag" title="' + escHtml(ch.slack.url || 'No URL configured') + '">' + _aicoSm(AUTO_ICONS.slack) + ' Slack</span>');
-  if (ch.teams?.enabled) parts.push('<span class="dest-tag" title="' + escHtml(ch.teams.url || 'No URL configured') + '">' + _aicoSm(AUTO_ICONS.teams) + ' Teams</span>');
-  if (ch.email?.enabled) parts.push('<span class="dest-tag" title="' + escHtml(ch.email.recipients || 'No recipients configured') + '">' + _aicoSm(AUTO_ICONS.email) + ' Email</span>');
+  const subscribed = (chKey) => !alertKey || (ch[chKey]?.alerts || []).includes(alertKey);
+  if (ch.slack?.enabled && subscribed('slack')) parts.push('<span class="dest-tag" title="' + escHtml(ch.slack.url || 'No URL configured') + '">' + _aicoSm(AUTO_ICONS.slack) + ' Slack</span>');
+  if (ch.teams?.enabled && subscribed('teams')) parts.push('<span class="dest-tag" title="' + escHtml(ch.teams.url || 'No URL configured') + '">' + _aicoSm(AUTO_ICONS.teams) + ' Teams</span>');
+  if (ch.email?.enabled && subscribed('email')) parts.push('<span class="dest-tag" title="' + escHtml(ch.email.recipients || 'No recipients configured') + '">' + _aicoSm(AUTO_ICONS.email) + ' Email</span>');
   return parts.length
     ? parts.join(' ')
     : '<span style="color:var(--muted);font-size:.78rem">' + _aicoSm(AUTO_ICONS.warning) + ' None</span>';
@@ -9568,7 +10738,12 @@ function renderActiveAlerts() {
     ? mgrScope.managers.map(m => escHtml(m)).join(', ')
     : 'All';
   const creatorDisplay = currentUser?.email || '\u2014';
-  const sentToNames = ['slack','teams','email'].filter(k => channels[k]?.enabled).map(k => k === 'teams' ? 'Teams' : k.charAt(0).toUpperCase()+k.slice(1)).join(', ') || 'None';
+  function alertSentToNames(alertKey) {
+    return ['slack','teams','email']
+      .filter(k => channels[k]?.enabled && (channels[k]?.alerts || []).includes(alertKey))
+      .map(k => k === 'teams' ? 'Teams' : k.charAt(0).toUpperCase()+k.slice(1))
+      .join(', ') || 'None';
+  }
   const timingLabel = schedule.mode === 'daily' ? 'Daily' : schedule.mode === 'weekly' ? 'Weekly' : 'Real-time';
 
   function conditionText(at) {
@@ -9590,7 +10765,7 @@ function renderActiveAlerts() {
     switch (key) {
       case 'label':     return at.label;
       case 'condition': return conditionText(at);
-      case 'sentTo':    return sentToNames;
+      case 'sentTo':    return alertSentToNames(at.key);
       case 'timing':    return timingLabel;
       case 'scope':     return scopeDisplay;
       case 'creator':   return creatorDisplay;
@@ -9608,10 +10783,12 @@ function renderActiveAlerts() {
         const v = alertColValue(at, key).toLowerCase();
         if (f.type === 'text' && !v.includes(f.q)) return false;
         if (f.type === 'enum') {
-          // For sentTo, check if any enabled channel matches
+          // For sentTo, check per-alert channel subscriptions
           if (key === 'sentTo') {
-            const enabledNames = ['slack','teams','email'].filter(k => channels[k]?.enabled).map(k => k === 'teams' ? 'Teams' : k.charAt(0).toUpperCase()+k.slice(1));
-            if (!enabledNames.some(n => f.vals.has(n))) return false;
+            const subscribedNames = ['slack','teams','email']
+              .filter(k => channels[k]?.enabled && (channels[k]?.alerts || []).includes(at.key))
+              .map(k => k === 'teams' ? 'Teams' : k.charAt(0).toUpperCase()+k.slice(1));
+            if (!subscribedNames.some(n => f.vals.has(n))) return false;
           } else {
             if (!f.vals.has(alertColValue(at, key))) return false;
           }
@@ -9665,12 +10842,15 @@ function renderActiveAlerts() {
         '</div>';
       }
 
-      // Channel toggles
+      // Channel toggles (per-alert subscriptions)
       const channelToggles = CHANNELS.map(ch => {
-        const isOn = !!channels[ch.key]?.enabled;
-        return '<label>' +
+        const chCfg = channels[ch.key];
+        const isConfigured = !!chCfg?.enabled;
+        const isOn = isConfigured && (chCfg?.alerts || []).includes(at.key);
+        return '<label' + (!isConfigured ? ' style="opacity:.5" title="Enable ' + escHtml(ch.label) + ' in Create tab first"' : '') + '>' +
           '<input type="checkbox" ' + (isOn ? 'checked' : '') +
-          ' onchange="toggleChannelInline(\'' + ch.key + '\', this.checked)"/>' +
+          (!isConfigured ? ' disabled' : '') +
+          ' onchange="toggleChannelInline(\'' + ch.key + '\', \'' + at.key + '\', this.checked)"/>' +
           ' ' + ch.icon + ' ' + escHtml(ch.label) +
         '</label>';
       }).join('');
@@ -9730,7 +10910,7 @@ function renderActiveAlerts() {
     return '<tr class="' + (isEditing ? 'editing' : '') + '">' +
       '<td><span style="margin-right:6px;display:inline-flex;vertical-align:middle;color:var(--blue)">' + _aicoSm(AUTO_ICONS[at.key]) + '</span>' + escHtml(at.label) + '</td>' +
       '<td style="color:var(--muted);font-size:.82rem">' + conditionText(at) + '</td>' +
-      '<td>' + sentToHtml() + '</td>' +
+      '<td>' + sentToHtml(at.key) + '</td>' +
       '<td style="font-size:.78rem;white-space:nowrap">' + scheduleText() + '</td>' +
       '<td style="font-size:.78rem;color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis" title="' + escHtml(scopeDisplay) + '">' + scopeDisplay + '</td>' +
       '<td style="font-size:.78rem;color:var(--muted)">' + escHtml(creatorDisplay) + '</td>' +
@@ -9783,20 +10963,24 @@ function closeInlineEdit() {
   renderAlertSummary();
 }
 
-function toggleChannelInline(channelKey, enabled) {
+function toggleChannelInline(channelKey, alertKey, enabled) {
   if (!automationsCfg.channels) automationsCfg.channels = {};
-  if (!automationsCfg.channels[channelKey]) automationsCfg.channels[channelKey] = {};
-  automationsCfg.channels[channelKey].enabled = enabled;
-  if (enabled && !automationsCfg.channels[channelKey].alerts) {
-    automationsCfg.channels[channelKey].alerts = [...(automationsCfg.selected_alerts || ALERT_TYPES.map(a => a.key))];
-  }
+  if (!automationsCfg.channels[channelKey]) automationsCfg.channels[channelKey] = { enabled: true, alerts: [] };
+  if (!automationsCfg.channels[channelKey].alerts) automationsCfg.channels[channelKey].alerts = [];
+  const arr = automationsCfg.channels[channelKey].alerts;
+  if (enabled && !arr.includes(alertKey)) arr.push(alertKey);
+  if (!enabled) automationsCfg.channels[channelKey].alerts = arr.filter(a => a !== alertKey);
   saveAutomationsCfg();
   renderAlertSummary();
-  if (_wizardStep === 3) renderWizardStep3();
 }
 
 function wizardRemoveAlert(key) {
   automationsCfg.selected_alerts = (automationsCfg.selected_alerts || []).filter(a => a !== key);
+  // Remove from all channels' alerts arrays
+  ['slack','teams','email'].forEach(chKey => {
+    if (automationsCfg.channels?.[chKey]?.alerts)
+      automationsCfg.channels[chKey].alerts = automationsCfg.channels[chKey].alerts.filter(a => a !== key);
+  });
   if (_inlineEditKey === key) _inlineEditKey = null;
   saveAutomationsCfg();
   renderAlertSummary();
@@ -10027,8 +11211,23 @@ function renderWizardStep1() {
 function wizardToggleAlert(key) {
   if (!automationsCfg.selected_alerts) automationsCfg.selected_alerts = [];
   const idx = automationsCfg.selected_alerts.indexOf(key);
-  if (idx >= 0) automationsCfg.selected_alerts.splice(idx, 1);
-  else automationsCfg.selected_alerts.push(key);
+  if (idx >= 0) {
+    automationsCfg.selected_alerts.splice(idx, 1);
+    // Remove from all channels' alerts arrays
+    ['slack','teams','email'].forEach(chKey => {
+      if (automationsCfg.channels?.[chKey]?.alerts)
+        automationsCfg.channels[chKey].alerts = automationsCfg.channels[chKey].alerts.filter(a => a !== key);
+    });
+  } else {
+    automationsCfg.selected_alerts.push(key);
+    // Subscribe to all enabled channels
+    ['slack','teams','email'].forEach(chKey => {
+      if (automationsCfg.channels?.[chKey]?.enabled) {
+        if (!automationsCfg.channels[chKey].alerts) automationsCfg.channels[chKey].alerts = [];
+        if (!automationsCfg.channels[chKey].alerts.includes(key)) automationsCfg.channels[chKey].alerts.push(key);
+      }
+    });
+  }
   saveAutomationsCfg();
   renderWizardStep1();
   renderAlertSummary();
@@ -10036,6 +11235,11 @@ function wizardToggleAlert(key) {
 
 function wizardSelectAll() {
   automationsCfg.selected_alerts = ALERT_TYPES.map(a => a.key);
+  // Subscribe all to every enabled channel
+  ['slack','teams','email'].forEach(chKey => {
+    if (automationsCfg.channels?.[chKey]?.enabled)
+      automationsCfg.channels[chKey].alerts = [...automationsCfg.selected_alerts];
+  });
   saveAutomationsCfg();
   renderWizardStep1();
   renderAlertSummary();
@@ -10043,6 +11247,11 @@ function wizardSelectAll() {
 
 function wizardClearAll() {
   automationsCfg.selected_alerts = [];
+  // Clear all channels' alerts arrays
+  ['slack','teams','email'].forEach(chKey => {
+    if (automationsCfg.channels?.[chKey]?.alerts)
+      automationsCfg.channels[chKey].alerts = [];
+  });
   saveAutomationsCfg();
   renderWizardStep1();
   renderAlertSummary();
@@ -10267,9 +11476,12 @@ function toggleChannel(key, enabled) {
   if (!automationsCfg.channels) automationsCfg.channels = {};
   if (!automationsCfg.channels[key]) automationsCfg.channels[key] = {};
   automationsCfg.channels[key].enabled = enabled;
-  if (enabled && !automationsCfg.channels[key].alerts) {
-    // Subscribe to currently selected alerts (not necessarily all)
+  if (enabled) {
+    // Subscribe all currently selected alerts to this channel
     automationsCfg.channels[key].alerts = [...(automationsCfg.selected_alerts || ALERT_TYPES.map(a => a.key))];
+  } else {
+    // Clear subscriptions when channel is disabled
+    automationsCfg.channels[key].alerts = [];
   }
   saveAutomationsCfg();
   renderWizardStep3();
@@ -10659,14 +11871,25 @@ function renderWebhookLog() {
     : webhookEvents.filter(e => e.direction === filterVal);
 
   const tbody = el('auto-log-tbody');
+  const pagTop = el('auto-log-pag-top');
+  const pagBot = el('auto-log-pag-bot');
   if (!tbody) return;
 
   if (!filtered.length) {
     tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted);font-size:.85rem">No ${filterVal === 'all' ? '' : filterVal + ' '}events found</td></tr>`;
+    if (pagTop) pagTop.innerHTML = '';
+    if (pagBot) pagBot.innerHTML = '';
     return;
   }
 
-  tbody.innerHTML = filtered.map(e => {
+  // Paginate
+  const pg = _pagGet('webhookLog');
+  const slice = filtered.slice(pg * PAGE_SIZE, (pg + 1) * PAGE_SIZE);
+  const pagNav = _pagHTML(filtered.length, 'webhookLog', 'renderWebhookLog');
+  if (pagTop) pagTop.innerHTML = pagNav;
+  if (pagBot) pagBot.innerHTML = pagNav;
+
+  tbody.innerHTML = slice.map(e => {
     const time = new Date(e.created_at).toLocaleString();
     const dirLabel = e.direction === 'outbound' ? '↑ Out' : '↓ In';
     const dirClass = e.direction === 'outbound' ? 'auto-dir-out' : 'auto-dir-in';
@@ -11143,17 +12366,26 @@ let tierSortDir = 'desc';
 
 // ── Segment Chart State ──
 let _segChartMetric = 'score';
-let _segChartRange = '60d';
+let _segChartRange = '90d';
 let _segChartSelected = []; // empty = all segments
 let _segChartTipData = [];
 
 const SEG_CHART_COLORS = ['#3b82f6','#ef4444','#10b981','#f59e0b','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316','#6366f1'];
+
+function _segRangeToDays(range) {
+  if (range === 'ytd') {
+    const now = new Date();
+    return Math.ceil((now - new Date(now.getFullYear(), 0, 1)) / 86400000);
+  }
+  return { '7d': 7, '30d': 30, '90d': 90, '6m': 180, '1y': 365, '2y': 730 }[range] || 90;
+}
 
 function aggregateSegmentByDay(custs, metricKey, cutoff) {
   const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
   const isSumMetric = cfg.agg === 'sum';
   const isCountMetric = cfg.agg === 'count';
   const cutoffStr = cutoff.toISOString().slice(0, 10);
+  const _todayStr = new Date().toISOString().slice(0, 10);
 
   if (isSumMetric || isCountMetric) {
     const allDates = new Set();
@@ -11170,7 +12402,7 @@ function aggregateSegmentByDay(custs, metricKey, cutoff) {
       const sortedDates = Object.keys(valForDate).sort();
       if (sortedDates.length) {
         custEntries.push({ valForDate, sortedDates });
-        sortedDates.forEach(d => { if (d >= cutoffStr) allDates.add(d); });
+        sortedDates.forEach(d => { if (d >= cutoffStr && d < _todayStr) allDates.add(d); });
       }
     });
     const dates = [...allDates].sort();
@@ -11202,7 +12434,7 @@ function aggregateSegmentByDay(custs, metricKey, cutoff) {
     const sortedDates = Object.keys(dateMap).sort();
     if (sortedDates.length) {
       custData.push({ dateMap, sortedDates });
-      sortedDates.forEach(d => { if (d >= cutoffStr) allDates.add(d); });
+      sortedDates.forEach(d => { if (d >= cutoffStr && d < _todayStr) allDates.add(d); });
     }
   });
   const dates = [...allDates].sort();
@@ -11224,14 +12456,18 @@ function toggleSegView(view) {
   _segChartSelected = []; // reset selection on view switch
   const segBtn = document.getElementById('seg-view-segments');
   const tierBtn = document.getElementById('seg-view-tiers');
+  const stageBtn = document.getElementById('seg-view-stage');
   if (segBtn) segBtn.classList.toggle('active', view === 'segments');
   if (tierBtn) tierBtn.classList.toggle('active', view === 'tiers');
+  if (stageBtn) stageBtn.classList.toggle('active', view === 'stage');
+  const active = window._segActive;
+  const dc = window._segDeltaCache;
   if (view === 'segments') {
     const segs = window._segData;
-    if (segs) { renderSegTable(segs); renderSegChart(segs, window._segActive, window._segDeltaCache); }
+    if (segs) { renderSegTable(segs); renderSegChart(segs, active, dc); }
+  } else if (view === 'stage') {
+    if (active) { renderStageTable(active, dc); renderSegChart(window._segData, active, dc); }
   } else {
-    const active = window._segActive;
-    const dc = window._segDeltaCache;
     if (active) { renderTierTable(active, dc); renderSegChart(window._segData, active, dc); }
   }
 }
@@ -11324,6 +12560,8 @@ function renderSegments() {
   renderSegKPIs(visibleSegments, active);
   if (_segView === 'tiers') {
     renderTierTable(active, deltaCache);
+  } else if (_segView === 'stage') {
+    renderStageTable(active, deltaCache);
   } else {
     renderSegTable(visibleSegments);
   }
@@ -11531,18 +12769,6 @@ function drillTier(tierKey) {
     return;
   }
 
-  // Collapse any other open expand
-  const prevExpanded = tbody.querySelector('tr.seg-table-expand-row');
-  if (prevExpanded) {
-    const prevParent = prevExpanded.previousElementSibling;
-    if (prevParent) {
-      prevParent.classList.remove('seg-row-expanded');
-      const prevBtn = prevParent.querySelector('.csm-expand-btn');
-      if (prevBtn) prevBtn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg> Expand`;
-    }
-    prevExpanded.remove();
-  }
-
   parentRow.classList.add('seg-row-expanded');
   const btn = parentRow.querySelector('.csm-expand-btn');
   if (btn) btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg> Collapse`;
@@ -11644,6 +12870,254 @@ function buildTierDrillHTML(tierKey) {
   const viewBtn = `<div style="text-align:right;margin-top:12px"><button class="btn-sm" onclick="filterByTier('${tierKey}')" style="gap:4px">View in Customers <span style="font-size:.8rem">\u2192</span></button></div>`;
 
   return summaryHTML + tableHTML + viewBtn;
+}
+
+/* ── Stage (Lifecycle) Table ─────────────────────────────────── */
+let stageSortKey = 'mrr';
+let stageSortDir = 'desc';
+
+function _buildStageData(active, deltaCache) {
+  const stageDefs = [
+    { key: 'onboarding', label: 'Onboarding', pill: 'stage-pill-onb' },
+    { key: 'active',     label: 'Active',     pill: 'stage-pill-act' },
+    { key: 'atrisk',     label: 'At Risk',    pill: 'stage-pill-risk' },
+    { key: 'won',        label: 'Won / Upsold', pill: 'stage-pill-won' },
+    { key: 'churned',    label: 'Churned',    pill: 'stage-pill-churn' }
+  ];
+  return stageDefs.map(sd => {
+    const custs = active.filter(c => (c.lifecycle || 'active') === sd.key);
+    const count = custs.length;
+    const totalMRR = custs.reduce((s, c) => s + (c.mrr || 0), 0);
+    const avgScore = count ? Math.round(custs.reduce((s, c) => s + c.score, 0) / count) : 0;
+    const avgDelta = count ? Math.round(custs.reduce((s, c) => s + (deltaCache.get(c.id) || 0), 0) / count * 10) / 10 : 0;
+    const healthy = custs.filter(c => c.status === 'healthy' || c.status === 'expand').length;
+    const watch = custs.filter(c => c.status === 'watch').length;
+    const atRisk = custs.filter(c => c.status === 'critical' || c.status === 'risk').length;
+    const riskPct = count ? Math.round((atRisk / count) * 100) : 0;
+    const overdueCount = custs.filter(c => c.days != null && c.days >= 14).length;
+    const renewals90 = custs.filter(c => c.renewal != null && c.renewal > 0 && c.renewal <= 3).length;
+    const withDays = custs.filter(c => c.days != null);
+    const avgDays = withDays.length ? Math.round(withDays.reduce((s, c) => s + c.days, 0) / withDays.length) : null;
+    return { key: sd.key, label: sd.label, pill: sd.pill, custs, count, totalMRR, avgScore, avgDelta, healthy, watch, atRisk, riskPct, overdueCount, renewals90, avgDays };
+  }).filter(s => s.count > 0);
+}
+
+function renderStageTable(active, deltaCache) {
+  const wrap = el('seg-table-wrap');
+  if (!wrap) return;
+
+  const stages = _buildStageData(active, deltaCache);
+  window._stageData = stages;
+
+  const sortIcon = key => {
+    if (stageSortKey !== key) return '';
+    return stageSortDir === 'asc' ? ' ▲' : ' ▼';
+  };
+  const activeClass = key => stageSortKey === key ? 'seg-sort-active' : '';
+
+  const sorted = [...stages].sort((a, b) => {
+    let va, vb;
+    switch (stageSortKey) {
+      case 'label':    va = a.label.toLowerCase(); vb = b.label.toLowerCase(); return stageSortDir === 'asc' ? (va < vb ? -1 : 1) : (va > vb ? -1 : 1);
+      case 'count':    va = a.count; vb = b.count; break;
+      case 'avgScore': va = a.avgScore; vb = b.avgScore; break;
+      case 'avgDelta': va = a.avgDelta; vb = b.avgDelta; break;
+      case 'mrr':      va = a.totalMRR; vb = b.totalMRR; break;
+      case 'riskPct':  va = a.riskPct; vb = b.riskPct; break;
+      case 'avgDays':  va = a.avgDays || 0; vb = b.avgDays || 0; break;
+      case 'renewals': va = a.renewals90; vb = b.renewals90; break;
+      default:         va = a.totalMRR; vb = b.totalMRR;
+    }
+    return stageSortDir === 'asc' ? va - vb : vb - va;
+  });
+
+  const chevronDown = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+  const scoreColor = v => v >= (thresholds.healthy || 80) ? 'var(--green)' : v >= (thresholds.watch || 65) ? 'var(--amber)' : v >= (thresholds.risk || 50) ? 'var(--orange,#ea580c)' : 'var(--red)';
+
+  const stageColors = { onboarding:'#3b82f6', active:'#10b981', atrisk:'#ef4444', won:'#8b5cf6', churned:'#64748b' };
+
+  const colCount = 9;
+  window._stageColCount = colCount;
+
+  wrap.innerHTML = `<div class="seg-table-wrap-scroll">
+    <table class="ct" style="min-width:900px">
+      <thead><tr>
+        <th class="seg-sort-btn ${activeClass('label')}" onclick="sortStageTable('label')">Stage${sortIcon('label')}</th>
+        <th class="seg-sort-btn ${activeClass('count')}" onclick="sortStageTable('count')">Accounts${sortIcon('count')}</th>
+        <th class="seg-sort-btn ${activeClass('avgScore')}" onclick="sortStageTable('avgScore')">Avg Score${sortIcon('avgScore')}</th>
+        <th class="seg-sort-btn ${activeClass('avgDelta')}" onclick="sortStageTable('avgDelta')">Trend (7d)${sortIcon('avgDelta')}</th>
+        <th class="seg-sort-btn ${activeClass('mrr')}" onclick="sortStageTable('mrr')">MRR${sortIcon('mrr')}</th>
+        <th class="seg-sort-btn ${activeClass('riskPct')}" onclick="sortStageTable('riskPct')">At-Risk %${sortIcon('riskPct')}</th>
+        <th class="seg-sort-btn ${activeClass('avgDays')}" onclick="sortStageTable('avgDays')">Avg Contact${sortIcon('avgDays')}</th>
+        <th class="seg-sort-btn ${activeClass('renewals')}" onclick="sortStageTable('renewals')">Renewals \u226490d${sortIcon('renewals')}</th>
+        <th style="width:90px"></th>
+      </tr></thead>
+      <tbody id="seg-table-tbody">${sorted.map(t => {
+        const trendCls = t.avgDelta > 0 ? 'up' : t.avgDelta < 0 ? 'dn' : 'flat';
+        const trendIcon = t.avgDelta > 0 ? '▲' : t.avgDelta < 0 ? '▼' : '—';
+        const trendTxt = t.avgDelta > 0 ? '+' + t.avgDelta : '' + t.avgDelta;
+        const contactStr = t.avgDays != null ? t.avgDays + 'd' : '—';
+        const sc = stageColors[t.key] || '#64748b';
+        return `<tr class="seg-table-row" data-stage="${t.key}">
+          <td><span class="stage-pill" style="background:${sc}15;color:${sc};border:1px solid ${sc}30;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700">${t.label}</span></td>
+          <td>${t.count}</td>
+          <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${scoreColor(t.avgScore)};background:${t.avgScore >= 65 ? 'var(--green-l)' : t.avgScore >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${t.avgScore}</span></td>
+          <td><span class="csm-trend ${trendCls}" style="font-size:.68rem;padding:1px 6px">${trendIcon} ${trendTxt}</span></td>
+          <td>$${fmtNum(t.totalMRR)}</td>
+          <td><span style="font-weight:700;color:${t.riskPct > 30 ? 'var(--red)' : t.riskPct > 0 ? 'var(--amber)' : 'var(--green)'}">${t.riskPct}%</span> <span style="font-size:.7rem;color:var(--muted)">(${t.atRisk})</span></td>
+          <td>${contactStr}</td>
+          <td>${t.renewals90}</td>
+          <td><button class="btn-sm csm-expand-btn" onclick="event.stopPropagation();drillStage('${t.key}')">${chevronDown} Expand</button></td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>
+  </div>`;
+}
+
+function sortStageTable(key) {
+  if (stageSortKey === key) stageSortDir = stageSortDir === 'asc' ? 'desc' : 'asc';
+  else { stageSortKey = key; stageSortDir = key === 'label' ? 'asc' : 'desc'; }
+  const active = window._segActive;
+  const dc = window._segDeltaCache;
+  if (active) renderStageTable(active, dc);
+}
+
+function drillStage(stageKey) {
+  const tbody = el('seg-table-tbody');
+  if (!tbody) return;
+  const colCount = window._stageColCount || 9;
+
+  const parentRow = tbody.querySelector(`tr.seg-table-row[data-stage="${stageKey}"]`);
+  if (!parentRow) return;
+
+  // Toggle off if already expanded
+  const existingExpand = parentRow.nextElementSibling;
+  if (existingExpand && existingExpand.classList.contains('seg-table-expand-row')) {
+    existingExpand.remove();
+    parentRow.classList.remove('seg-row-expanded');
+    const btn = parentRow.querySelector('.csm-expand-btn');
+    if (btn) btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg> Expand`;
+    return;
+  }
+
+  parentRow.classList.add('seg-row-expanded');
+  const btn = parentRow.querySelector('.csm-expand-btn');
+  if (btn) btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg> Collapse`;
+
+  const expandRow = document.createElement('tr');
+  expandRow.className = 'seg-table-expand-row';
+  expandRow.innerHTML = `<td colspan="${colCount}" class="seg-table-expand-cell">${buildStageDrillHTML(stageKey)}</td>`;
+  parentRow.after(expandRow);
+}
+
+function buildStageDrillHTML(stageKey) {
+  const stages = window._stageData || [];
+  const deltaCache = window._segDeltaCache || new Map();
+  const stage = stages.find(t => t.key === stageKey);
+  if (!stage) return '<p>No data for this stage.</p>';
+
+  const accs = stage.custs;
+  const avgScore = stage.avgScore;
+  const totalMRR = stage.totalMRR;
+  const hmColor = v => v >= 65 ? 'var(--green)' : v >= 50 ? 'var(--amber)' : 'var(--red)';
+  const dColor = stage.avgDelta > 0 ? 'var(--green)' : stage.avgDelta < 0 ? 'var(--red)' : 'var(--muted)';
+  const dIcon = stage.avgDelta > 0 ? '▲' : stage.avgDelta < 0 ? '▼' : '—';
+
+  let summaryHTML = `<div class="csm-drill-stats">
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val" style="color:${hmColor(avgScore)}">${avgScore}</div>
+      <div class="csm-drill-stat__label">Avg Score</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val" style="color:${dColor}">${dIcon} ${Math.abs(stage.avgDelta)}</div>
+      <div class="csm-drill-stat__label">7d Trend</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val">${stage.count}</div>
+      <div class="csm-drill-stat__label">Accounts</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val">$${fmtNum(totalMRR)}</div>
+      <div class="csm-drill-stat__label">Total MRR</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val" style="color:var(--green)">${stage.healthy}</div>
+      <div class="csm-drill-stat__label">Healthy</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val" style="color:${stage.atRisk ? 'var(--red)' : 'var(--muted)'}">${stage.atRisk}</div>
+      <div class="csm-drill-stat__label">At Risk</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val" style="color:${stage.overdueCount ? 'var(--red)' : 'var(--muted)'}">${stage.overdueCount}</div>
+      <div class="csm-drill-stat__label">Overdue</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val">${stage.renewals90}</div>
+      <div class="csm-drill-stat__label">Renewals \u226490d</div>
+    </div>
+  </div>`;
+
+  // Sort by urgency
+  const urgency = c => {
+    const statusW = c.status === 'critical' ? 5 : c.status === 'risk' ? 4 : c.status === 'watch' ? 3 : c.status === 'healthy' ? 2 : 1;
+    const renewalW = c.renewal != null && c.renewal > 0 ? Math.max(0, 13 - c.renewal) : 0;
+    const mrrW = (c.mrr || 0) / 10000;
+    const contactW = (c.days != null && c.days >= 14) ? 2 : 0;
+    return (statusW * 10) + renewalW + mrrW + contactW;
+  };
+  const sorted = [...accs].sort((a, b) => urgency(b) - urgency(a));
+
+  const OVERDUE_DAYS = 14;
+  const tableHTML = `<table class="ct" style="min-width:auto;margin:0">
+    <thead><tr>
+      <th>Customer</th><th>Score</th><th>Trend</th><th>Status</th><th>MRR</th><th>Last Contact</th><th>Renewal</th><th>Tier</th>
+    </tr></thead>
+    <tbody>${sorted.map(c => {
+      const renewStr = c.renewal_date ? new Date(c.renewal_date).toLocaleDateString() : (c.renewal ? c.renewal + 'mo' : '—');
+      const isOverdue = c.days != null && c.days >= OVERDUE_DAYS;
+      const delta = deltaCache.get(c.id) || 0;
+      const trendHTML = delta > 0
+        ? `<span class="csm-trend up" style="font-size:.68rem;padding:1px 6px">▲ +${delta}</span>`
+        : delta < 0
+          ? `<span class="csm-trend dn" style="font-size:.68rem;padding:1px 6px">▼ ${delta}</span>`
+          : `<span class="csm-trend flat" style="font-size:.68rem;padding:1px 6px">— 0</span>`;
+      const contactCell = isOverdue
+        ? `<span style="font-weight:700;color:var(--red)">${c.days}d ago</span> <span class="csm-overdue">OVERDUE</span>`
+        : (c.days != null ? c.days + 'd ago' : '—');
+      const tierLabel = c.tier === 'enterprise' ? 'Enterprise' : c.tier === 'smb' ? 'SMB' : 'Mid-Market';
+      return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
+        <td><strong>${escHtml(c.name)}</strong></td>
+        <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${c.score >= 65 ? 'var(--green)' : c.score >= 50 ? 'var(--amber)' : 'var(--red)'};background:${c.score >= 65 ? 'var(--green-l)' : c.score >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${c.score}</span></td>
+        <td>${trendHTML}</td>
+        <td>${badgeHTML(c.status)}</td>
+        <td>$${fmtNum(c.mrr || 0)}</td>
+        <td>${contactCell}</td>
+        <td>${renewStr}</td>
+        <td style="font-size:.78rem;color:var(--muted)">${tierLabel}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+
+  const viewBtn = `<div style="text-align:right;margin-top:12px"><button class="btn-sm" onclick="filterByStage('${stageKey}')" style="gap:4px">View in Customers <span style="font-size:.8rem">\u2192</span></button></div>`;
+
+  return summaryHTML + tableHTML + viewBtn;
+}
+
+function filterByStage(stageKey) {
+  columnFilters = {};
+  insightFilter = null;
+  mrrExposureFilter = null;
+  filterMode = stageKey === 'churned' ? 'churned' : 'all';
+  _filterTier = null;
+  _filterStage = stageKey;
+  nav('customers');
+  renderCustomers();
+}
+
+function clearStageFilter() {
+  _filterStage = null;
+  renderCustomers();
 }
 
 /* ── Segment Cards (enriched) ──────────────────────────────── */
@@ -11887,18 +13361,6 @@ function drillSeg(tagName) {
     return;
   }
 
-  // Collapse any other open expand
-  const prevExpanded = tbody.querySelector('tr.seg-table-expand-row');
-  if (prevExpanded) {
-    const prevParent = prevExpanded.previousElementSibling;
-    if (prevParent) {
-      prevParent.classList.remove('seg-row-expanded');
-      const prevBtn = prevParent.querySelector('.csm-expand-btn');
-      if (prevBtn) prevBtn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg> Expand`;
-    }
-    prevExpanded.remove();
-  }
-
   parentRow.classList.add('seg-row-expanded');
   const btn = parentRow.querySelector('.csm-expand-btn');
   if (btn) btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg> Collapse`;
@@ -12086,7 +13548,6 @@ function toggleSegChartPill(tag) {
   if (idx >= 0) {
     _segChartSelected.splice(idx, 1);
   } else {
-    if (_segChartSelected.length >= 3) _segChartSelected.shift(); // drop oldest
     _segChartSelected.push(tag);
   }
   _renderSegChartOnly();
@@ -12098,7 +13559,7 @@ function segChartSelectAll() {
 }
 
 function _renderSegChartOnly() {
-  const data = _segView === 'tiers' ? window._tierData : window._segData;
+  const data = _segView === 'tiers' ? window._tierData : _segView === 'stage' ? window._stageData : window._segData;
   if (!data || !data.length) return;
   _buildSegChartPills(data);
   _buildSegChartSVG(data);
@@ -12118,7 +13579,7 @@ function renderSegChart(segments, active, deltaCache) {
     ).join('');
   }
 
-  const data = _segView === 'tiers' ? window._tierData : segments;
+  const data = _segView === 'tiers' ? window._tierData : _segView === 'stage' ? window._stageData : segments;
   if (!data || !data.length) {
     const wrap = el('seg-chart-wrap');
     if (wrap) wrap.innerHTML = '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:.88rem">Not enough data to display a comparison chart.</p>';
@@ -12156,7 +13617,7 @@ function _buildSegChartSVG(data) {
 
   const metric = _segChartMetric || 'score';
   const cfg = METRIC_CFG[metric] || METRIC_CFG.score;
-  const rangeDays = { '30d': 30, '60d': 60, '90d': 90 }[_segChartRange] || 60;
+  const rangeDays = _segRangeToDays(_segChartRange);
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - rangeDays);
   cutoff.setHours(0, 0, 0, 0);
@@ -12387,7 +13848,7 @@ function _buildSegChartAnalysis(data) {
 
   const metric = _segChartMetric || 'score';
   const cfg = METRIC_CFG[metric] || METRIC_CFG.score;
-  const rangeDays = { '30d': 30, '60d': 60, '90d': 90 }[_segChartRange] || 60;
+  const rangeDays = _segRangeToDays(_segChartRange);
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - rangeDays);
   cutoff.setHours(0, 0, 0, 0);
@@ -12432,6 +13893,7 @@ function _buildSegChartAnalysis(data) {
     risk:     _ai('<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'),
     dollar:   _ai('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'),
     signal:   _ai('<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>'),
+    drop:     _ai('<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>'),
   };
 
   const insights = [];
@@ -12624,6 +14086,152 @@ function _buildSegChartAnalysis(data) {
     });
   }
 
+  // ── 6. Drop attribution — find the worst anomalous drop and decompose what caused it ──
+  {
+    let worstSeg = null, worstDrop = 0, worstPeakPt = null, worstTroughPt = null, worstPeakIdx = 0, worstTroughIdx = 0;
+    series.forEach(s => {
+      if (s.pts.length < 5) return;
+      let peakVal = s.pts[0].avg, peakIdx = 0;
+      let bestDrop = 0, bestPI = 0, bestTI = 0;
+      for (let i = 1; i < s.pts.length; i++) {
+        if (s.pts[i].avg > peakVal) { peakVal = s.pts[i].avg; peakIdx = i; }
+        const dd = peakVal - s.pts[i].avg;
+        if (dd > bestDrop) { bestDrop = dd; bestPI = peakIdx; bestTI = i; }
+      }
+      const isScore = metric === 'score';
+      if (isScore && bestDrop < 5) return;
+      if (!isScore && (bestDrop / (s.pts[bestPI].avg || 1)) * 100 < 10) return;
+      // Recovery check: if metric recovered >50% after the trough, skip
+      const finalVal = s.pts[s.pts.length - 1].avg;
+      const recov = finalVal - s.pts[bestTI].avg;
+      if (bestDrop > 0 && recov / bestDrop > 0.5) return;
+      const dts = [];
+      for (let i = 1; i < s.pts.length; i++) dts.push(s.pts[i].avg - s.pts[i - 1].avg);
+      const md = dts.reduce((a, b) => a + b, 0) / (dts.length || 1);
+      const sd = Math.sqrt(dts.reduce((a, b) => a + Math.pow(b - md, 2), 0) / (dts.length || 1));
+      if (sd > 0 && bestDrop < sd * 1.5) return;
+      if (bestDrop > worstDrop) {
+        worstDrop = bestDrop; worstSeg = s;
+        worstPeakPt = s.pts[bestPI]; worstTroughPt = s.pts[bestTI];
+        worstPeakIdx = bestPI; worstTroughIdx = bestTI;
+      }
+    });
+
+    if (worstSeg && worstPeakPt && worstTroughPt) {
+      const fmtD = d => { const dt = new Date(d); return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
+      const pv = Math.round(worstPeakPt.avg), tv = Math.round(worstTroughPt.avg);
+      const dropAbs = Math.round(worstDrop);
+      const segCusts = worstSeg.seg.custs;
+
+      // ── Per-customer concentration analysis ──
+      const peakT = new Date(worstPeakPt.date).getTime();
+      const troughT = new Date(worstTroughPt.date).getTime();
+      const custDeltas = [];
+      segCusts.forEach(c => {
+        const hist = (c.history || []).filter(h => h.date).sort((a, b) => a.date.localeCompare(b.date));
+        if (!hist.length) return;
+        const findClosest = (tgt) => hist.reduce((best, h) =>
+          Math.abs(new Date(h.date).getTime() - tgt) < Math.abs(new Date(best.date).getTime() - tgt) ? h : best
+        );
+        const pe = findClosest(peakT), te = findClosest(troughT);
+        const sv = cfg.val(pe, c), ev = cfg.val(te, c);
+        if (sv != null && ev != null) custDeltas.push({ name: c.name, delta: ev - sv });
+      });
+      let concentrationNote = '';
+      if (custDeltas.length >= 2) {
+        const declined = custDeltas.filter(d => d.delta < -0.5);
+        const improved = custDeltas.filter(d => d.delta > 0.5);
+        const pctDeclined = Math.round((declined.length / custDeltas.length) * 100);
+        const fv2 = v => { const c2 = METRIC_CFG[metric]; return c2?.fmt ? c2.fmt(Math.abs(v)) : Math.round(Math.abs(v) * 10) / 10; };
+        if (declined.length <= 2 && declined.length > 0 && custDeltas.length > 3) {
+          declined.sort((a, b) => a.delta - b.delta);
+          if (declined.length === 1) {
+            concentrationNote = ` This was driven primarily by <strong>${escHtml(declined[0].name)}</strong> (down ${fv2(declined[0].delta)}) — the remaining ${custDeltas.length - 1} accounts were relatively flat.`;
+          } else {
+            concentrationNote = ` Driven primarily by <strong>${escHtml(declined[0].name)}</strong> (down ${fv2(declined[0].delta)}) and <strong>${escHtml(declined[1].name)}</strong> (down ${fv2(declined[1].delta)}) — most of the other ${custDeltas.length - 2} accounts were relatively flat.`;
+          }
+        } else if (pctDeclined >= 60) {
+          if (custDeltas.length <= 5) {
+            concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts in this segment declined during this period.`;
+          } else {
+            concentrationNote = ` This was a broad-based decline — <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) dropped during this period.`;
+          }
+        } else if (pctDeclined >= 30) {
+          concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) declined while ${improved.length} improved — a split trend worth investigating.`;
+        }
+      }
+
+      // ── Day-over-day spikes (±7% or more) ──
+      const dropSlice = worstSeg.pts.slice(worstPeakIdx, worstTroughIdx + 1);
+      const dodSpikes = [];
+      for (let i = 1; i < dropSlice.length; i++) {
+        const prev = dropSlice[i - 1].avg, curr = dropSlice[i].avg;
+        if (prev === 0) continue;
+        const changePct = ((curr - prev) / Math.abs(prev)) * 100;
+        if (Math.abs(changePct) >= 7) dodSpikes.push({ date: dropSlice[i].date, changePct, prev, curr });
+      }
+      let spikeNote = '';
+      if (dodSpikes.length > 0) {
+        dodSpikes.sort((a, b) => a.changePct - b.changePct);
+        const worst = dodSpikes[0];
+        const fvS = v => { const c2 = METRIC_CFG[metric]; return c2?.fmt ? c2.fmt(v) : Math.round(v * 10) / 10; };
+        spikeNote = ` Sharpest single-day drop was <strong>${Math.abs(Math.round(worst.changePct))}%</strong> on ${fmtD(worst.date)} (${fvS(worst.prev)} → ${fvS(worst.curr)}).`;
+        if (dodSpikes.length > 1) spikeNote += ` There were <strong>${dodSpikes.length} days</strong> during this window with day-over-day changes exceeding 7%.`;
+      }
+
+      if (metric === 'score') {
+        const attribs = (typeof _attributeScoreDrop === 'function')
+          ? _attributeScoreDrop(segCusts, worstPeakPt.date, worstTroughPt.date) : [];
+        const negatives = attribs.filter(a => a.contribution < -0.3);
+        if (negatives.length > 0) {
+          const topN = negatives.slice(0, 3);
+          const drivers = topN.map(a => {
+            const fRaw = v => {
+              if (a.unit === '%') return Math.round(v) + '%';
+              if (a.unit === 'd') return Math.round(v) + ' days';
+              return Math.round(v * 10) / 10;
+            };
+            const impact = Math.abs(Math.round(a.contribution * 10) / 10);
+            if (a.signal === 'growth') {
+              const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : 'None';
+              if (a.rawStart === a.rawEnd) return null;
+              return `<strong>${a.label}</strong> shifted from ${cap(a.rawStart)} to ${cap(a.rawEnd)}, costing ~${impact} pts`;
+            }
+            if (a.signal === 'tickets') return `<strong>${a.label}</strong> increased from ${fRaw(a.rawStart)} to ${fRaw(a.rawEnd)}, costing ~${impact} pts on the score`;
+            if (a.signal === 'days') return `<strong>${a.label}</strong> increased from ${fRaw(a.rawStart)} to ${fRaw(a.rawEnd)}, costing ~${impact} pts`;
+            if (a.rawEnd < a.rawStart) return `<strong>${a.label}</strong> dropped from ${fRaw(a.rawStart)} to ${fRaw(a.rawEnd)}, costing ~${impact} pts`;
+            return `<strong>${a.label}</strong> moved from ${fRaw(a.rawStart)} to ${fRaw(a.rawEnd)}, costing ~${impact} pts`;
+          }).filter(Boolean);
+          if (drivers.length) {
+            const othersStable = series.filter(s => s !== worstSeg && Math.abs(s.delta) < dropAbs * 0.3);
+            const otherNote = othersStable.length > 0 ? ` Other segments held relatively steady.` : '';
+            insights.push({
+              score: dropAbs + 5, icon: icons.drop, color: 'var(--red)', bg: 'var(--red-l)',
+              label: 'Decline Drivers', tags: [worstSeg.tag],
+              text: `<strong>${escHtml(worstSeg.label)}</strong> dropped <strong>${dropAbs} points</strong> (${pv} → ${tv}) between ${fmtD(worstPeakPt.date)} and ${fmtD(worstTroughPt.date)}. ${drivers.length === 1 ? 'The primary driver was ' + drivers[0] : 'The biggest factors: ' + drivers.join('; ')}.${concentrationNote}${spikeNote}${otherNote}`
+            });
+          }
+        }
+      } else {
+        const label = cfg.label;
+        const fv = v => cfg.fmt ? cfg.fmt(v) : Math.round(v * 10) / 10;
+        let text = `<strong>${escHtml(worstSeg.label)}</strong>'s ${label} fell <strong>${fv(worstDrop)}</strong> (${fv(worstPeakPt.avg)} → ${fv(worstTroughPt.avg)}) between ${fmtD(worstPeakPt.date)} and ${fmtD(worstTroughPt.date)}, which is larger than typical day-to-day variation for this metric.${concentrationNote}${spikeNote}`;
+        const scorePts = aggregateSegmentByDay(segCusts, 'score', cutoff);
+        if (scorePts.length >= 2) {
+          const fn = (arr, d) => arr.reduce((best, p) => Math.abs(new Date(p.date).getTime() - new Date(d).getTime()) < Math.abs(new Date(best.date).getTime() - new Date(d).getTime()) ? p : best);
+          const sp = fn(scorePts, worstPeakPt.date), st = fn(scorePts, worstTroughPt.date);
+          const sd = Math.round(st.avg - sp.avg);
+          if (sd < -2) text += ` During the same window, Health Score also dropped <strong>${Math.abs(sd)} points</strong>.`;
+          else if (Math.abs(sd) <= 2) text += ` Health Score stayed stable during this window — other signals offset the impact.`;
+        }
+        insights.push({
+          score: dropAbs + 3, icon: icons.drop, color: 'var(--red)', bg: 'var(--red-l)',
+          label: 'Significant Decline', tags: [worstSeg.tag], text
+        });
+      }
+    }
+  }
+
   // Sort by score desc, show top 3
   insights.sort((a, b) => b.score - a.score);
   const top = insights.slice(0, 3);
@@ -12772,6 +14380,7 @@ function renderTrends() {
     const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
     const isSumMetric = cfg.agg === 'sum';
     const isCountMetric = cfg.agg === 'count';
+    const _todayStr = new Date().toISOString().slice(0,10);
 
     if (isSumMetric || isCountMetric) {
       // Sum/Count metrics: forward-fill each customer's value so all
@@ -12790,7 +14399,7 @@ function renderTrends() {
         const sortedDates = Object.keys(valForDate).sort();
         if (sortedDates.length) {
           custEntries.push({ valForDate, sortedDates });
-          sortedDates.forEach(d => { if (d >= cutoff.toISOString().slice(0,10)) allDates.add(d); });
+          sortedDates.forEach(d => { if (d >= cutoff.toISOString().slice(0,10) && d < _todayStr) allDates.add(d); });
         }
       });
       const dates = [...allDates].sort();
@@ -12824,7 +14433,7 @@ function renderTrends() {
       const sortedDates = Object.keys(dateMap).sort();
       if (sortedDates.length) {
         custData.push({ dateMap, sortedDates });
-        sortedDates.forEach(d => { if (d >= cutoff.toISOString().slice(0,10)) allDates.add(d); });
+        sortedDates.forEach(d => { if (d >= cutoff.toISOString().slice(0,10) && d < _todayStr) allDates.add(d); });
       }
     });
 
@@ -12916,7 +14525,7 @@ function renderTrends() {
   `;
 
   // ── Build primary metric chart lines ──
-  const OVERLAY_COLORS = ['#7c3aed','#ea580c','#0891b2','#db2777','#059669'];
+  const OVERLAY_COLORS = ['#7c3aed','#ea580c','#0891b2','#db2777','#059669','#2563eb','#d97706','#dc2626','#16a34a','#64748b'];
   const lines = [];
   const m1AggLabel = m1Cfg.agg === 'sum' ? 'Total' : 'Avg';
 
@@ -12934,8 +14543,11 @@ function renderTrends() {
   _trendClientOverlays.forEach((id, idx) => {
     const c = customers.find(x => x.id === id);
     if (!c) return;
+    const _olTodayStr = new Date().toISOString().slice(0,10);
     const hist = (c.history || []).filter(h => {
       if (!h.date) return false;
+      const ds = new Date(h.date).toISOString().slice(0,10);
+      if (ds >= _olTodayStr) return false;
       if (new Date(h.date) < cutoff) return false;
       const v = m1Cfg.val(h, c);
       return v != null && typeof v === 'number' && !isNaN(v);
@@ -13072,7 +14684,7 @@ function renderTrendMovers() {
   }
 
   const arrow = (key) => _trendSortKey === key ? (_trendSortDir === 1 ? ' ▲' : ' ▼') : '';
-  const thStyle = 'padding:8px 12px;font-weight:700;color:var(--fg);cursor:pointer;user-select:none;white-space:nowrap;position:sticky;top:0;background:var(--card-bg);z-index:1';
+  const thStyle = 'padding:8px 12px;font-weight:700;color:var(--fg);cursor:pointer;user-select:none;white-space:nowrap;position:sticky;top:0;background:var(--surface);z-index:1';
 
   wrap.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:.82rem">
     <thead><tr style="text-align:left;border-bottom:2px solid var(--border)">
@@ -13254,13 +14866,14 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
   const dateIdx = {};
   dates.forEach((d,i) => { dateIdx[d] = i; });
 
+  const _hasBreakdown = lines.some(l => l.dashed);
   lines.forEach((line, lineIdx) => {
     const pts = line.points.filter(p => dateIdx[p.date] !== undefined && !isNaN(p.avg))
       .sort((a,b) => a.date.localeCompare(b.date));
     if (pts.length < 2) return;
 
-    // Area fill under the main line (first line only)
-    if (lineIdx === 0) {
+    // Area fill under the main line (first line only, skip in breakdown mode)
+    if (lineIdx === 0 && !_hasBreakdown) {
       const areaBottom = yScaleL(yL.min);
       const areaPts = pts.map(p => `${xScale(dateIdx[p.date])},${yScaleL(p.avg)}`);
       const firstX = xScale(dateIdx[pts[0].date]);
@@ -13275,22 +14888,27 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
 
     // Line
     const polyPts = pts.map(p => `${xScale(dateIdx[p.date])},${yScaleL(p.avg)}`).join(' ');
-    linesSVG += `<polyline points="${polyPts}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linejoin="round" stroke-linecap="round" opacity="0.9"/>`;
+    const dashAttr = line.dashed ? ' stroke-dasharray="6,4"' : '';
+    const lineOp = line.dashed ? '0.45' : '0.9';
+    linesSVG += `<polyline points="${polyPts}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linejoin="round" stroke-linecap="round" opacity="${lineOp}"${dashAttr}/>`;
 
-    // Dots — larger for main, smaller for overlays
-    const dotR = lineIdx === 0 ? 3 : 2.2;
-    pts.forEach((p, pi) => {
-      const cx = xScale(dateIdx[p.date]);
-      const cy = yScaleL(p.avg);
-      // White outline for readability
-      linesSVG += `<circle cx="${cx}" cy="${cy}" r="${dotR+1}" fill="var(--surface)" opacity="0.8"/>`;
-      linesSVG += `<circle cx="${cx}" cy="${cy}" r="${dotR}" fill="${line.color}"/>`;
-      // Value labels on main line dots (if not too crowded)
-      const labelSkip = pts.length <= 15 ? 1 : pts.length <= 30 ? 2 : pts.length <= 60 ? 4 : 7;
-      if (lineIdx === 0 && (pi % labelSkip === 0 || pi === pts.length - 1)) {
-        linesSVG += `<text x="${cx}" y="${cy - dotR - 4}" text-anchor="middle" font-size="7" font-weight="700" fill="${line.color}">${m1Cfg.fmt(p.avg)}</text>`;
-      }
-    });
+    // Dots — skip for dashed reference lines, smaller in breakdown mode
+    if (!line.dashed) {
+      const dotR = _hasBreakdown ? 2 : (lineIdx === 0 ? 3 : 2.2);
+      pts.forEach((p, pi) => {
+        const cx = xScale(dateIdx[p.date]);
+        const cy = yScaleL(p.avg);
+        linesSVG += `<circle cx="${cx}" cy="${cy}" r="${dotR+1}" fill="var(--surface)" opacity="0.8"/>`;
+        linesSVG += `<circle cx="${cx}" cy="${cy}" r="${dotR}" fill="${line.color}"/>`;
+        // Value labels on main line only (skip in breakdown mode for clarity)
+        if (!_hasBreakdown && lineIdx === 0) {
+          const labelSkip = pts.length <= 15 ? 1 : pts.length <= 30 ? 2 : pts.length <= 60 ? 4 : 7;
+          if (pi % labelSkip === 0 || pi === pts.length - 1) {
+            linesSVG += `<text x="${cx}" y="${cy - dotR - 4}" text-anchor="middle" font-size="7" font-weight="700" fill="${line.color}">${m1Cfg.fmt(p.avg)}</text>`;
+          }
+        }
+      });
+    }
   });
 
   // ── Draw secondary metric line (dashed, right Y-axis) ──
@@ -13411,7 +15029,8 @@ const _taSvg = {
   zap:    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
   clock:  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
   users:  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
-  bar:    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>'
+  bar:    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+  drop:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>'
 };
 
 function _fmtTaVal(v, metricKey) {
@@ -13774,6 +15393,244 @@ function _taCrossSignal(active, cutoff, metricKey) {
   return { priority: 3, icon: _taSvg.signal, iconBg: isHealthyPattern ? 'var(--green-l)' : 'var(--amber-l)', iconColor: isHealthyPattern ? 'var(--green)' : 'var(--amber)', accent, title, detail };
 }
 
+/* ── Drop Attribution — decompose score drops into signal contributions ── */
+
+function _attributeScoreDrop(custs, peakDate, troughDate) {
+  const SIGNALS = [
+    { key: 'logins',   label: 'Logins',   unit: '',  norm: v => v != null ? Math.min(v / 30, 1) * 100 : 50 },
+    { key: 'adoption', label: 'Adoption', unit: '%', norm: v => v != null ? Math.min(v, 100) : 50 },
+    { key: 'tickets',  label: 'Tickets',  unit: '',  norm: v => v != null ? Math.max(0, 100 - v * 20) : 50 },
+    { key: 'nps',      label: 'NPS',      unit: '',  norm: v => npsNormalized(v) },
+    { key: 'csat',     label: 'CSAT',     unit: '',  norm: v => csatNormalized(v) },
+    { key: 'days',     label: 'Days Since Contact', unit: 'd', norm: v => v != null ? Math.max(0, 100 - (v / 180) * 100) : 50 },
+    { key: 'growth',   label: 'Growth',   unit: '',  norm: v => ({ none: 25, mild: 65, strong: 100 }[v] || 25) }
+  ];
+  const w = weights;
+  const totalW = (w.logins + w.adoption + w.tickets + (w.nps || 0) + (w.csat || 0) + w.days + w.growth) || 100;
+  const activeSignals = SIGNALS.filter(s => (w[s.key] || 0) > 0);
+  if (!activeSignals.length) return [];
+
+  const peakT = new Date(peakDate).getTime();
+  const troughT = new Date(troughDate).getTime();
+  const peakSums = {}, troughSums = {};
+  activeSignals.forEach(s => { peakSums[s.key] = []; troughSums[s.key] = []; });
+
+  custs.forEach(c => {
+    const hist = (c.history || []).filter(h => h.date).sort((a, b) => a.date.localeCompare(b.date));
+    if (!hist.length) return;
+    const findClosest = (tgt) => hist.reduce((best, h) =>
+      Math.abs(new Date(h.date).getTime() - tgt) < Math.abs(new Date(best.date).getTime() - tgt) ? h : best
+    );
+    const pe = findClosest(peakT);
+    const te = findClosest(troughT);
+    activeSignals.forEach(s => {
+      const pv = pe.signals?.[s.key] ?? c[s.key] ?? null;
+      const tv = te.signals?.[s.key] ?? c[s.key] ?? null;
+      if (pv != null) peakSums[s.key].push(pv);
+      if (tv != null) troughSums[s.key].push(tv);
+    });
+  });
+
+  return activeSignals.map(s => {
+    const pArr = peakSums[s.key], tArr = troughSums[s.key];
+    if (!pArr.length || !tArr.length) return null;
+    let rawStart, rawEnd, normStart, normEnd;
+    if (s.key === 'growth') {
+      // Growth is categorical (none/mild/strong) — use mode, not numeric average
+      const mode = arr => { const freq = {}; arr.forEach(v => freq[v] = (freq[v]||0)+1); return Object.entries(freq).sort((a,b) => b[1]-a[1])[0]?.[0] || 'none'; };
+      rawStart = mode(pArr);
+      rawEnd   = mode(tArr);
+      normStart = s.norm(rawStart);
+      normEnd   = s.norm(rawEnd);
+    } else {
+      rawStart = pArr.reduce((a, b) => a + (typeof b === 'number' ? b : 0), 0) / pArr.length;
+      rawEnd   = tArr.reduce((a, b) => a + (typeof b === 'number' ? b : 0), 0) / tArr.length;
+      normStart = s.norm(rawStart);
+      normEnd   = s.norm(rawEnd);
+    }
+    const contribution = (normEnd - normStart) * ((w[s.key] || 0) / totalW);
+    return { signal: s.key, label: s.label, contribution, rawStart, rawEnd, normStart, normEnd, unit: s.unit };
+  }).filter(Boolean).sort((a, b) => a.contribution - b.contribution);
+}
+
+function _taDropAttribution(active, data1, metricKey, cutoff, rangeDays) {
+  if (!data1 || data1.length < 5) return null;
+  const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
+
+  // Find largest peak-to-trough drawdown
+  let peakVal = data1[0].avg, peakIdx = 0;
+  let bestDrop = 0, bestPeakIdx = 0, bestTroughIdx = 0;
+  for (let i = 1; i < data1.length; i++) {
+    if (data1[i].avg > peakVal) { peakVal = data1[i].avg; peakIdx = i; }
+    const drawdown = peakVal - data1[i].avg;
+    if (drawdown > bestDrop) { bestDrop = drawdown; bestPeakIdx = peakIdx; bestTroughIdx = i; }
+  }
+  if (bestDrop < 0.5) return null;
+
+  const peakPt = data1[bestPeakIdx];
+  const troughPt = data1[bestTroughIdx];
+  const dropAbs = peakPt.avg - troughPt.avg;
+  const dropPct = peakPt.avg !== 0 ? (dropAbs / peakPt.avg) * 100 : 0;
+
+  // Recovery check: if the metric recovered >50% of the drop after the trough, skip
+  const finalPt = data1[data1.length - 1];
+  const recovery = finalPt.avg - troughPt.avg;
+  if (dropAbs > 0 && recovery / dropAbs > 0.5) return null; // recovered — not a current concern
+
+  // Significance check: compute std dev of daily changes
+  const deltas = [];
+  for (let i = 1; i < data1.length; i++) deltas.push(data1[i].avg - data1[i - 1].avg);
+  const meanDelta = deltas.reduce((s, v) => s + v, 0) / (deltas.length || 1);
+  const stdDev = Math.sqrt(deltas.reduce((s, v) => s + Math.pow(v - meanDelta, 2), 0) / (deltas.length || 1));
+
+  // Must be significant: > 5 pts (score) or > 10% (other), AND > 1.5× std dev
+  const isScore = metricKey === 'score';
+  if (isScore && dropAbs < 5) return null;
+  if (!isScore && dropPct < 10) return null;
+  if (stdDev > 0 && dropAbs < stdDev * 1.5) return null;
+
+  // Format dates
+  const fmtDate = d => { const dt = new Date(d); return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
+  const peakDateStr = fmtDate(peakPt.date);
+  const troughDateStr = fmtDate(troughPt.date);
+
+  // ── Per-customer concentration analysis ──
+  const peakT = new Date(peakPt.date).getTime();
+  const troughT = new Date(troughPt.date).getTime();
+  const custDeltas = [];
+  active.forEach(c => {
+    const hist = (c.history || []).filter(h => h.date).sort((a, b) => a.date.localeCompare(b.date));
+    if (!hist.length) return;
+    const findClosest = (tgt) => hist.reduce((best, h) =>
+      Math.abs(new Date(h.date).getTime() - tgt) < Math.abs(new Date(best.date).getTime() - tgt) ? h : best
+    );
+    const pe = findClosest(peakT);
+    const te = findClosest(troughT);
+    const sv = cfg.val(pe, c), ev = cfg.val(te, c);
+    if (sv != null && ev != null) custDeltas.push({ name: c.name, delta: ev - sv });
+  });
+
+  let concentrationNote = '';
+  if (custDeltas.length >= 2) {
+    const declined = custDeltas.filter(d => d.delta < -0.5);
+    const improved = custDeltas.filter(d => d.delta > 0.5);
+    const pctDeclined = Math.round((declined.length / custDeltas.length) * 100);
+
+    if (declined.length <= 2 && declined.length > 0 && custDeltas.length > 3) {
+      // Concentrated: 1-2 accounts drove the decline
+      declined.sort((a, b) => a.delta - b.delta);
+      const fv = v => _fmtTaVal(Math.abs(v), metricKey);
+      if (declined.length === 1) {
+        concentrationNote = ` This was driven primarily by <strong>${escHtml(declined[0].name)}</strong> (down ${fv(declined[0].delta)}) — the remaining ${custDeltas.length - 1} accounts were relatively flat.`;
+      } else {
+        concentrationNote = ` Driven primarily by <strong>${escHtml(declined[0].name)}</strong> (down ${fv(declined[0].delta)}) and <strong>${escHtml(declined[1].name)}</strong> (down ${fv(declined[1].delta)}) — most of the other ${custDeltas.length - 2} accounts were relatively flat.`;
+      }
+    } else if (pctDeclined >= 60) {
+      if (custDeltas.length <= 5) {
+        concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts declined during this period.`;
+      } else {
+        concentrationNote = ` This was a broad-based decline across the portfolio — <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) dropped during this period.`;
+      }
+    } else if (pctDeclined >= 30) {
+      concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) declined while ${improved.length} improved — a split trend worth investigating by segment.`;
+    }
+  }
+
+  // ── Day-over-day spikes (changes of ±7% or more) ──
+  const dropSlice = data1.slice(bestPeakIdx, bestTroughIdx + 1);
+  const dodSpikes = [];
+  for (let i = 1; i < dropSlice.length; i++) {
+    const prev = dropSlice[i - 1].avg;
+    const curr = dropSlice[i].avg;
+    if (prev === 0) continue;
+    const changePct = ((curr - prev) / Math.abs(prev)) * 100;
+    if (Math.abs(changePct) >= 7) {
+      dodSpikes.push({ date: dropSlice[i].date, changePct, prev, curr });
+    }
+  }
+  let spikeNote = '';
+  if (dodSpikes.length > 0) {
+    dodSpikes.sort((a, b) => a.changePct - b.changePct); // most negative first
+    const worst = dodSpikes[0];
+    const fv = v => _fmtTaVal(v, metricKey);
+    spikeNote = ` Sharpest single-day drop was <strong>${Math.abs(Math.round(worst.changePct))}%</strong> on ${fmtDate(worst.date)} (${fv(worst.prev)} → ${fv(worst.curr)}).`;
+    if (dodSpikes.length > 1) {
+      spikeNote += ` There were <strong>${dodSpikes.length} days</strong> during this window with day-over-day changes exceeding 7%.`;
+    }
+  }
+
+  let title, detail;
+
+  if (isScore) {
+    // Decompose into signal contributions
+    const attribs = _attributeScoreDrop(active, peakPt.date, troughPt.date);
+    const negatives = attribs.filter(a => a.contribution < -0.3);
+    if (!negatives.length) return null;
+
+    title = 'Decline Drivers';
+    const topN = negatives.slice(0, 3);
+    const drivers = topN.map(a => {
+      const fRaw = v => {
+        if (a.unit === '%') return Math.round(v) + '%';
+        if (a.unit === 'd') return Math.round(v) + ' days';
+        return Math.round(v * 10) / 10;
+      };
+      const impact = Math.abs(Math.round(a.contribution * 10) / 10);
+      if (a.signal === 'growth') {
+        const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : 'None';
+        if (a.rawStart === a.rawEnd) return null; // no change in mode — skip
+        return `<strong>${a.label}</strong> shifted from ${cap(a.rawStart)} to ${cap(a.rawEnd)}, costing ~${impact} pts`;
+      }
+      if (a.signal === 'tickets') {
+        return `<strong>${a.label}</strong> increased from ${fRaw(a.rawStart)} to ${fRaw(a.rawEnd)}, costing ~${impact} pts on the score`;
+      }
+      if (a.signal === 'days') {
+        return `<strong>${a.label}</strong> increased from ${fRaw(a.rawStart)} to ${fRaw(a.rawEnd)}, costing ~${impact} pts`;
+      }
+      if (a.rawEnd < a.rawStart) {
+        return `<strong>${a.label}</strong> dropped from ${fRaw(a.rawStart)} to ${fRaw(a.rawEnd)}, costing ~${impact} pts`;
+      }
+      return `<strong>${a.label}</strong> moved from ${fRaw(a.rawStart)} to ${fRaw(a.rawEnd)}, costing ~${impact} pts`;
+    }).filter(Boolean);
+
+    if (!drivers.length) return null;
+    detail = `Health Score fell <strong>${Math.round(dropAbs)} points</strong> (${Math.round(peakPt.avg)} → ${Math.round(troughPt.avg)}) between ${peakDateStr} and ${troughDateStr}. `;
+    if (drivers.length === 1) {
+      detail += `The primary driver was ${drivers[0]}.`;
+    } else {
+      detail += `The biggest factors: ${drivers.join('; ')}.`;
+    }
+    detail += concentrationNote + spikeNote;
+  } else {
+    // Non-score metric: report the drop and cross-reference with health score
+    title = 'Significant Decline';
+    const label = cfg.label;
+    const fv = v => _fmtTaVal(v, metricKey);
+    detail = `${label} fell <strong>${fv(dropAbs)}</strong> (${fv(peakPt.avg)} → ${fv(troughPt.avg)}) between ${peakDateStr} and ${troughDateStr}, which is larger than typical day-to-day variation for this metric.`;
+    detail += concentrationNote + spikeNote;
+
+    // Cross-reference with health score
+    try {
+      const scoreData = aggregateByDay(active, 'score', cutoff);
+      if (scoreData.length >= 2) {
+        const findNearest = (arr, date) => arr.reduce((best, p) =>
+          Math.abs(new Date(p.date).getTime() - new Date(date).getTime()) < Math.abs(new Date(best.date).getTime() - new Date(date).getTime()) ? p : best
+        );
+        const sPeak = findNearest(scoreData, peakPt.date);
+        const sTrough = findNearest(scoreData, troughPt.date);
+        const sDelta = Math.round(sTrough.avg - sPeak.avg);
+        if (sDelta < -2) {
+          detail += ` During the same window, Health Score also dropped <strong>${Math.abs(sDelta)} points</strong>.`;
+        } else if (Math.abs(sDelta) <= 2) {
+          detail += ` Health Score stayed stable during this window — other signals offset the impact.`;
+        }
+      }
+    } catch (e) { /* aggregateByDay may fail for non-standard metrics */ }
+  }
+
+  return { priority: 1, icon: _taSvg.drop, iconBg: 'var(--red-l)', iconColor: 'var(--red)', accent: 'red', title, detail };
+}
+
 /* ── Orchestrator ─────────────────────────────── */
 function _buildTrendAnalysis(active, data1, data2, cutoff, rangeDays, m1, m2) {
   const wrap = el('trend-analysis-wrap');
@@ -13786,7 +15643,8 @@ function _buildTrendAnalysis(active, data1, data2, cutoff, rangeDays, m1, m2) {
     _taInflection(data1, m1, rangeDays),
     _taVolatility(data1, m1),
     _taCsmDivergence(data1, active, cutoff, rangeDays, m1),
-    _taCrossSignal(active, cutoff, m1)
+    _taCrossSignal(active, cutoff, m1),
+    _taDropAttribution(active, data1, m1, cutoff, rangeDays)
   ].filter(Boolean);
 
   results.sort((a, b) => a.priority - b.priority);
@@ -15737,6 +17595,8 @@ function renderAuditLog() {
   const table = document.getElementById('audit-table');
   const tbody = document.getElementById('audit-tbody');
   const empty = document.getElementById('audit-empty');
+  const pagTop = document.getElementById('audit-pag-top');
+  const pagBot = document.getElementById('audit-pag-bot');
   if (!tbody) return;
 
   // Apply filter
@@ -15748,13 +17608,22 @@ function renderAuditLog() {
   if (filtered.length === 0) {
     table.style.display = 'none';
     empty.style.display = 'block';
+    if (pagTop) pagTop.innerHTML = '';
+    if (pagBot) pagBot.innerHTML = '';
     return;
   }
 
   table.style.display = '';
   empty.style.display = 'none';
 
-  tbody.innerHTML = filtered.map(e => {
+  // Paginate
+  const pg = _pagGet('auditLog');
+  const slice = filtered.slice(pg * PAGE_SIZE, (pg + 1) * PAGE_SIZE);
+  const pagNav = _pagHTML(filtered.length, 'auditLog', 'renderAuditLog');
+  if (pagTop) pagTop.innerHTML = pagNav;
+  if (pagBot) pagBot.innerHTML = pagNav;
+
+  tbody.innerHTML = slice.map(e => {
     const dt   = new Date(e.created_at);
     const time = dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const label = AUDIT_ACTION_LABELS[e.action] || e.action;

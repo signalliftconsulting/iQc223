@@ -283,18 +283,71 @@ function _renderHomeBase() {
     _briefOpener = `Your book is running at ${healthyPct}% healthy with $${fmtNum(atRiskMRR)} MRR exposed.`;
   }
 
+  // Portfolio health score (avg across all accounts)
+  const _portfolioScore = total ? Math.round(active.reduce((s,c) => s + (c.score || 0), 0) / total) : 0;
+  const _portfolioStatus = getStatus(_portfolioScore);
+  const _portfolioColor = STATUS_COLOR[_portfolioStatus] || '#16a34a';
+  const _ringCirc = 2 * Math.PI * 40;
+  const _ringOffset = _ringCirc - (_portfolioScore / 100) * _ringCirc;
+
+  // Bullet priority icons
+  const _bIcon = (i) => {
+    const icons = [
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
+    ];
+    return icons[i % icons.length];
+  };
+
   html += '<div class="hb-welcome">';
+  html += '<div class="hb-welcome-grid">';
+
+  // Left column: portfolio health ring + quick stats (front and center)
+  html += '<div class="hb-welcome-left">';
   html += `<div class="hb-greeting">${greeting}${userName ? ', ' + escHtml(userName) : ''}</div>`;
   html += `<div class="hb-date">${dateStr}</div>`;
-  html += `<div class="hb-summary">${_briefOpener}</div>`;
+  html += `<div class="hb-summary" style="margin-top:10px">${_briefOpener}</div>`;
+  html += '<div style="display:flex;align-items:center;gap:24px;margin-top:16px">';
+  html += `<div class="hb-pulse-ring">
+    <svg viewBox="0 0 100 100" width="110" height="110">
+      <circle cx="50" cy="50" r="40" fill="none" stroke="var(--border)" stroke-width="7" opacity=".3"/>
+      <circle cx="50" cy="50" r="40" fill="none" stroke="${_portfolioColor}" stroke-width="7"
+        stroke-dasharray="${_ringCirc}" stroke-dashoffset="${_ringOffset}"
+        stroke-linecap="round" style="transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset .8s cubic-bezier(.4,0,.2,1)"/>
+    </svg>
+    <div class="hb-pulse-center">
+      <div class="hb-pulse-num">${_portfolioScore}</div>
+      <div class="hb-pulse-lbl">Portfolio</div>
+    </div>
+  </div>`;
+  html += '<div class="hb-quick-stats">';
+  html += `<div class="hb-qs"><span class="hb-qs-num" style="color:var(--green)">${healthyPct}%</span><span class="hb-qs-lbl">Healthy</span></div>`;
+  html += `<div class="hb-qs"><span class="hb-qs-num" style="color:var(--red)">${atRisk.length}</span><span class="hb-qs-lbl">At Risk</span></div>`;
+  html += `<div class="hb-qs"><span class="hb-qs-num" style="color:var(--green)">${improving}</span><span class="hb-qs-lbl">\u2191 Up</span></div>`;
+  html += `<div class="hb-qs"><span class="hb-qs-num" style="color:var(--red)">${declining}</span><span class="hb-qs-lbl">\u2193 Down</span></div>`;
+  html += '</div>';
+  html += '</div>'; // close flex row
+  html += '</div>';
+
+  // Right column: briefing action cards
+  html += '<div class="hb-welcome-right">';
   if (_briefBullets.length) {
-    html += '<ul class="hb-brief-list">';
-    _briefBullets.forEach(b => {
-      html += `<li class="hb-brief-item" onclick="${b.action.replace(/"/g,'&quot;')}">${b.text}</li>`;
+    html += '<div class="hb-brief-cards">';
+    _briefBullets.forEach((b, i) => {
+      html += `<div class="hb-brief-card" onclick="${b.action.replace(/"/g,'&quot;')}">
+        <div class="hb-brief-icon">${_bIcon(i)}</div>
+        <div class="hb-brief-text">${b.text}</div>
+        <svg class="hb-brief-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>`;
     });
-    html += '</ul>';
+    html += '</div>';
   }
   html += '</div>';
+
+  html += '</div>'; // close grid
+  html += '</div>'; // close welcome
 
   // ── 5 KPI Cards Row (from Dashboard) ──
   const _kpiIcon = (svg) => `<div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${svg}</div>`;
@@ -332,7 +385,8 @@ function _renderHomeBase() {
   </div>`;
 
   // Card 2: Revenue at Risk
-  html += `<div class="dash-kpi-card dash-kpi-red" onclick="nav('customers');setFilter('risk')">
+  const _arIds = JSON.stringify(atRisk.map(c => c.id)).replace(/"/g,'&quot;');
+  html += `<div class="dash-kpi-card dash-kpi-red" onclick="setInsightFilter('${atRisk.length} at-risk accounts (Critical + Risk)',${_arIds})">
     <div class="dash-kpi-top">${_kpiIcon(_kpiSvg.alert)}<span class="dash-kpi-label">Revenue at Risk</span></div>
     <div class="dash-kpi-num">$${fmtNum(atRiskMRR)}</div>
     <div class="dash-kpi-sub">MRR in At Risk accounts</div>
@@ -340,7 +394,8 @@ function _renderHomeBase() {
   </div>`;
 
   // Card 3: Upcoming Renewals
-  html += `<div class="dash-kpi-card dash-kpi-teal" onclick="nav('alerts')">
+  const _r30Ids = JSON.stringify(renewals30.map(c => c.id)).replace(/"/g,'&quot;');
+  html += `<div class="dash-kpi-card dash-kpi-teal" onclick="setInsightFilter('${renewals30.length} upcoming renewals (30 days)',${_r30Ids})">
     <div class="dash-kpi-top">${_kpiIcon(_kpiSvg.cal)}<span class="dash-kpi-label">Upcoming Renewals</span></div>
     <div class="dash-kpi-num">${renewals30.length}</div>
     <div class="dash-kpi-sub">Due in next 30 days</div>
@@ -1213,7 +1268,8 @@ function renderRenewalPipeline(active) {
       const riskBadge = r.atRisk ? `<span style="color:${r.color};font-size:.68rem;font-weight:700">⚠ ${r.atRisk} at risk</span>` : '';
       const countText = r.count ? `${r.count} acct${r.count!==1?'s':''}` : `<span style="color:var(--subtle)">—</span>`;
       const clickable = r.count > 0;
-      return `<div style="border-left:3px solid ${r.color};background:${r.bg};border-radius:6px;padding:9px 12px;${clickable?'cursor:pointer;transition:transform .15s,box-shadow .15s':''}" ${clickable?`onclick="filterRenewalBucket('Renewal ${r.label}',${JSON.stringify(r.ids)})" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,.1)'" onmouseout="this.style.transform='';this.style.boxShadow=''"`:''}>
+      const _rIds = JSON.stringify(r.ids).replace(/"/g,'&quot;');
+      return `<div style="border-left:3px solid ${r.color};background:${r.bg};border-radius:6px;padding:9px 12px;${clickable?'cursor:pointer;transition:transform .15s,box-shadow .15s':''}" ${clickable?`onclick="filterRenewalBucket('Renewal ${r.label}',${_rIds})" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,.1)'" onmouseout="this.style.transform='';this.style.boxShadow=''"`:''}>
         <div style="font-size:.65rem;font-weight:700;color:${r.color};text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${r.label}</div>
         <div style="font-size:1.05rem;font-weight:800;color:#1e293b;margin-bottom:2px">${r.mrr ? '$'+fmtNum(r.mrr) : '—'}</div>
         <div style="font-size:.7rem;color:var(--muted);display:flex;gap:5px;align-items:center;flex-wrap:wrap">${countText}${r.atRisk?' · ':''}${riskBadge}</div>
@@ -1225,10 +1281,9 @@ function renderRenewalPipeline(active) {
 // Navigate to customers tab filtered to a renewal pipeline bucket
 function filterRenewalBucket(label, ids) {
   if (!ids || !ids.length) return;
-  mrrExposureFilter = { label, ids: new Set(ids) };
   sortKey = 'renewal';
   sortDir = 1;
-  nav('customers');
+  setInsightFilter(label, ids);
 }
 
 // Navigate to customers page pre-filtered to all improvers or all decliners this week

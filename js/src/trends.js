@@ -107,6 +107,7 @@ function renderTrends() {
     const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
     const isSumMetric = cfg.agg === 'sum';
     const isCountMetric = cfg.agg === 'count';
+    const _todayStr = new Date().toISOString().slice(0,10);
 
     if (isSumMetric || isCountMetric) {
       // Sum/Count metrics: forward-fill each customer's value so all
@@ -125,7 +126,7 @@ function renderTrends() {
         const sortedDates = Object.keys(valForDate).sort();
         if (sortedDates.length) {
           custEntries.push({ valForDate, sortedDates });
-          sortedDates.forEach(d => { if (d >= cutoff.toISOString().slice(0,10)) allDates.add(d); });
+          sortedDates.forEach(d => { if (d >= cutoff.toISOString().slice(0,10) && d < _todayStr) allDates.add(d); });
         }
       });
       const dates = [...allDates].sort();
@@ -159,7 +160,7 @@ function renderTrends() {
       const sortedDates = Object.keys(dateMap).sort();
       if (sortedDates.length) {
         custData.push({ dateMap, sortedDates });
-        sortedDates.forEach(d => { if (d >= cutoff.toISOString().slice(0,10)) allDates.add(d); });
+        sortedDates.forEach(d => { if (d >= cutoff.toISOString().slice(0,10) && d < _todayStr) allDates.add(d); });
       }
     });
 
@@ -251,7 +252,7 @@ function renderTrends() {
   `;
 
   // ── Build primary metric chart lines ──
-  const OVERLAY_COLORS = ['#7c3aed','#ea580c','#0891b2','#db2777','#059669'];
+  const OVERLAY_COLORS = ['#7c3aed','#ea580c','#0891b2','#db2777','#059669','#2563eb','#d97706','#dc2626','#16a34a','#64748b'];
   const lines = [];
   const m1AggLabel = m1Cfg.agg === 'sum' ? 'Total' : 'Avg';
 
@@ -269,8 +270,11 @@ function renderTrends() {
   _trendClientOverlays.forEach((id, idx) => {
     const c = customers.find(x => x.id === id);
     if (!c) return;
+    const _olTodayStr = new Date().toISOString().slice(0,10);
     const hist = (c.history || []).filter(h => {
       if (!h.date) return false;
+      const ds = new Date(h.date).toISOString().slice(0,10);
+      if (ds >= _olTodayStr) return false;
       if (new Date(h.date) < cutoff) return false;
       const v = m1Cfg.val(h, c);
       return v != null && typeof v === 'number' && !isNaN(v);
@@ -407,7 +411,7 @@ function renderTrendMovers() {
   }
 
   const arrow = (key) => _trendSortKey === key ? (_trendSortDir === 1 ? ' ▲' : ' ▼') : '';
-  const thStyle = 'padding:8px 12px;font-weight:700;color:var(--fg);cursor:pointer;user-select:none;white-space:nowrap;position:sticky;top:0;background:var(--card-bg);z-index:1';
+  const thStyle = 'padding:8px 12px;font-weight:700;color:var(--fg);cursor:pointer;user-select:none;white-space:nowrap;position:sticky;top:0;background:var(--surface);z-index:1';
 
   wrap.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:.82rem">
     <thead><tr style="text-align:left;border-bottom:2px solid var(--border)">
@@ -589,13 +593,14 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
   const dateIdx = {};
   dates.forEach((d,i) => { dateIdx[d] = i; });
 
+  const _hasBreakdown = lines.some(l => l.dashed);
   lines.forEach((line, lineIdx) => {
     const pts = line.points.filter(p => dateIdx[p.date] !== undefined && !isNaN(p.avg))
       .sort((a,b) => a.date.localeCompare(b.date));
     if (pts.length < 2) return;
 
-    // Area fill under the main line (first line only)
-    if (lineIdx === 0) {
+    // Area fill under the main line (first line only, skip in breakdown mode)
+    if (lineIdx === 0 && !_hasBreakdown) {
       const areaBottom = yScaleL(yL.min);
       const areaPts = pts.map(p => `${xScale(dateIdx[p.date])},${yScaleL(p.avg)}`);
       const firstX = xScale(dateIdx[pts[0].date]);
@@ -610,22 +615,27 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
 
     // Line
     const polyPts = pts.map(p => `${xScale(dateIdx[p.date])},${yScaleL(p.avg)}`).join(' ');
-    linesSVG += `<polyline points="${polyPts}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linejoin="round" stroke-linecap="round" opacity="0.9"/>`;
+    const dashAttr = line.dashed ? ' stroke-dasharray="6,4"' : '';
+    const lineOp = line.dashed ? '0.45' : '0.9';
+    linesSVG += `<polyline points="${polyPts}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linejoin="round" stroke-linecap="round" opacity="${lineOp}"${dashAttr}/>`;
 
-    // Dots — larger for main, smaller for overlays
-    const dotR = lineIdx === 0 ? 3 : 2.2;
-    pts.forEach((p, pi) => {
-      const cx = xScale(dateIdx[p.date]);
-      const cy = yScaleL(p.avg);
-      // White outline for readability
-      linesSVG += `<circle cx="${cx}" cy="${cy}" r="${dotR+1}" fill="var(--surface)" opacity="0.8"/>`;
-      linesSVG += `<circle cx="${cx}" cy="${cy}" r="${dotR}" fill="${line.color}"/>`;
-      // Value labels on main line dots (if not too crowded)
-      const labelSkip = pts.length <= 15 ? 1 : pts.length <= 30 ? 2 : pts.length <= 60 ? 4 : 7;
-      if (lineIdx === 0 && (pi % labelSkip === 0 || pi === pts.length - 1)) {
-        linesSVG += `<text x="${cx}" y="${cy - dotR - 4}" text-anchor="middle" font-size="7" font-weight="700" fill="${line.color}">${m1Cfg.fmt(p.avg)}</text>`;
-      }
-    });
+    // Dots — skip for dashed reference lines, smaller in breakdown mode
+    if (!line.dashed) {
+      const dotR = _hasBreakdown ? 2 : (lineIdx === 0 ? 3 : 2.2);
+      pts.forEach((p, pi) => {
+        const cx = xScale(dateIdx[p.date]);
+        const cy = yScaleL(p.avg);
+        linesSVG += `<circle cx="${cx}" cy="${cy}" r="${dotR+1}" fill="var(--surface)" opacity="0.8"/>`;
+        linesSVG += `<circle cx="${cx}" cy="${cy}" r="${dotR}" fill="${line.color}"/>`;
+        // Value labels on main line only (skip in breakdown mode for clarity)
+        if (!_hasBreakdown && lineIdx === 0) {
+          const labelSkip = pts.length <= 15 ? 1 : pts.length <= 30 ? 2 : pts.length <= 60 ? 4 : 7;
+          if (pi % labelSkip === 0 || pi === pts.length - 1) {
+            linesSVG += `<text x="${cx}" y="${cy - dotR - 4}" text-anchor="middle" font-size="7" font-weight="700" fill="${line.color}">${m1Cfg.fmt(p.avg)}</text>`;
+          }
+        }
+      });
+    }
   });
 
   // ── Draw secondary metric line (dashed, right Y-axis) ──
@@ -746,7 +756,8 @@ const _taSvg = {
   zap:    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
   clock:  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
   users:  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
-  bar:    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>'
+  bar:    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+  drop:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>'
 };
 
 function _fmtTaVal(v, metricKey) {
@@ -1109,6 +1120,244 @@ function _taCrossSignal(active, cutoff, metricKey) {
   return { priority: 3, icon: _taSvg.signal, iconBg: isHealthyPattern ? 'var(--green-l)' : 'var(--amber-l)', iconColor: isHealthyPattern ? 'var(--green)' : 'var(--amber)', accent, title, detail };
 }
 
+/* ── Drop Attribution — decompose score drops into signal contributions ── */
+
+function _attributeScoreDrop(custs, peakDate, troughDate) {
+  const SIGNALS = [
+    { key: 'logins',   label: 'Logins',   unit: '',  norm: v => v != null ? Math.min(v / 30, 1) * 100 : 50 },
+    { key: 'adoption', label: 'Adoption', unit: '%', norm: v => v != null ? Math.min(v, 100) : 50 },
+    { key: 'tickets',  label: 'Tickets',  unit: '',  norm: v => v != null ? Math.max(0, 100 - v * 20) : 50 },
+    { key: 'nps',      label: 'NPS',      unit: '',  norm: v => npsNormalized(v) },
+    { key: 'csat',     label: 'CSAT',     unit: '',  norm: v => csatNormalized(v) },
+    { key: 'days',     label: 'Days Since Contact', unit: 'd', norm: v => v != null ? Math.max(0, 100 - (v / 180) * 100) : 50 },
+    { key: 'growth',   label: 'Growth',   unit: '',  norm: v => ({ none: 25, mild: 65, strong: 100 }[v] || 25) }
+  ];
+  const w = weights;
+  const totalW = (w.logins + w.adoption + w.tickets + (w.nps || 0) + (w.csat || 0) + w.days + w.growth) || 100;
+  const activeSignals = SIGNALS.filter(s => (w[s.key] || 0) > 0);
+  if (!activeSignals.length) return [];
+
+  const peakT = new Date(peakDate).getTime();
+  const troughT = new Date(troughDate).getTime();
+  const peakSums = {}, troughSums = {};
+  activeSignals.forEach(s => { peakSums[s.key] = []; troughSums[s.key] = []; });
+
+  custs.forEach(c => {
+    const hist = (c.history || []).filter(h => h.date).sort((a, b) => a.date.localeCompare(b.date));
+    if (!hist.length) return;
+    const findClosest = (tgt) => hist.reduce((best, h) =>
+      Math.abs(new Date(h.date).getTime() - tgt) < Math.abs(new Date(best.date).getTime() - tgt) ? h : best
+    );
+    const pe = findClosest(peakT);
+    const te = findClosest(troughT);
+    activeSignals.forEach(s => {
+      const pv = pe.signals?.[s.key] ?? c[s.key] ?? null;
+      const tv = te.signals?.[s.key] ?? c[s.key] ?? null;
+      if (pv != null) peakSums[s.key].push(pv);
+      if (tv != null) troughSums[s.key].push(tv);
+    });
+  });
+
+  return activeSignals.map(s => {
+    const pArr = peakSums[s.key], tArr = troughSums[s.key];
+    if (!pArr.length || !tArr.length) return null;
+    let rawStart, rawEnd, normStart, normEnd;
+    if (s.key === 'growth') {
+      // Growth is categorical (none/mild/strong) — use mode, not numeric average
+      const mode = arr => { const freq = {}; arr.forEach(v => freq[v] = (freq[v]||0)+1); return Object.entries(freq).sort((a,b) => b[1]-a[1])[0]?.[0] || 'none'; };
+      rawStart = mode(pArr);
+      rawEnd   = mode(tArr);
+      normStart = s.norm(rawStart);
+      normEnd   = s.norm(rawEnd);
+    } else {
+      rawStart = pArr.reduce((a, b) => a + (typeof b === 'number' ? b : 0), 0) / pArr.length;
+      rawEnd   = tArr.reduce((a, b) => a + (typeof b === 'number' ? b : 0), 0) / tArr.length;
+      normStart = s.norm(rawStart);
+      normEnd   = s.norm(rawEnd);
+    }
+    const contribution = (normEnd - normStart) * ((w[s.key] || 0) / totalW);
+    return { signal: s.key, label: s.label, contribution, rawStart, rawEnd, normStart, normEnd, unit: s.unit };
+  }).filter(Boolean).sort((a, b) => a.contribution - b.contribution);
+}
+
+function _taDropAttribution(active, data1, metricKey, cutoff, rangeDays) {
+  if (!data1 || data1.length < 5) return null;
+  const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
+
+  // Find largest peak-to-trough drawdown
+  let peakVal = data1[0].avg, peakIdx = 0;
+  let bestDrop = 0, bestPeakIdx = 0, bestTroughIdx = 0;
+  for (let i = 1; i < data1.length; i++) {
+    if (data1[i].avg > peakVal) { peakVal = data1[i].avg; peakIdx = i; }
+    const drawdown = peakVal - data1[i].avg;
+    if (drawdown > bestDrop) { bestDrop = drawdown; bestPeakIdx = peakIdx; bestTroughIdx = i; }
+  }
+  if (bestDrop < 0.5) return null;
+
+  const peakPt = data1[bestPeakIdx];
+  const troughPt = data1[bestTroughIdx];
+  const dropAbs = peakPt.avg - troughPt.avg;
+  const dropPct = peakPt.avg !== 0 ? (dropAbs / peakPt.avg) * 100 : 0;
+
+  // Recovery check: if the metric recovered >50% of the drop after the trough, skip
+  const finalPt = data1[data1.length - 1];
+  const recovery = finalPt.avg - troughPt.avg;
+  if (dropAbs > 0 && recovery / dropAbs > 0.5) return null; // recovered — not a current concern
+
+  // Significance check: compute std dev of daily changes
+  const deltas = [];
+  for (let i = 1; i < data1.length; i++) deltas.push(data1[i].avg - data1[i - 1].avg);
+  const meanDelta = deltas.reduce((s, v) => s + v, 0) / (deltas.length || 1);
+  const stdDev = Math.sqrt(deltas.reduce((s, v) => s + Math.pow(v - meanDelta, 2), 0) / (deltas.length || 1));
+
+  // Must be significant: > 5 pts (score) or > 10% (other), AND > 1.5× std dev
+  const isScore = metricKey === 'score';
+  if (isScore && dropAbs < 5) return null;
+  if (!isScore && dropPct < 10) return null;
+  if (stdDev > 0 && dropAbs < stdDev * 1.5) return null;
+
+  // Format dates
+  const fmtDate = d => { const dt = new Date(d); return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
+  const peakDateStr = fmtDate(peakPt.date);
+  const troughDateStr = fmtDate(troughPt.date);
+
+  // ── Per-customer concentration analysis ──
+  const peakT = new Date(peakPt.date).getTime();
+  const troughT = new Date(troughPt.date).getTime();
+  const custDeltas = [];
+  active.forEach(c => {
+    const hist = (c.history || []).filter(h => h.date).sort((a, b) => a.date.localeCompare(b.date));
+    if (!hist.length) return;
+    const findClosest = (tgt) => hist.reduce((best, h) =>
+      Math.abs(new Date(h.date).getTime() - tgt) < Math.abs(new Date(best.date).getTime() - tgt) ? h : best
+    );
+    const pe = findClosest(peakT);
+    const te = findClosest(troughT);
+    const sv = cfg.val(pe, c), ev = cfg.val(te, c);
+    if (sv != null && ev != null) custDeltas.push({ name: c.name, delta: ev - sv });
+  });
+
+  let concentrationNote = '';
+  if (custDeltas.length >= 2) {
+    const declined = custDeltas.filter(d => d.delta < -0.5);
+    const improved = custDeltas.filter(d => d.delta > 0.5);
+    const pctDeclined = Math.round((declined.length / custDeltas.length) * 100);
+
+    if (declined.length <= 2 && declined.length > 0 && custDeltas.length > 3) {
+      // Concentrated: 1-2 accounts drove the decline
+      declined.sort((a, b) => a.delta - b.delta);
+      const fv = v => _fmtTaVal(Math.abs(v), metricKey);
+      if (declined.length === 1) {
+        concentrationNote = ` This was driven primarily by <strong>${escHtml(declined[0].name)}</strong> (down ${fv(declined[0].delta)}) — the remaining ${custDeltas.length - 1} accounts were relatively flat.`;
+      } else {
+        concentrationNote = ` Driven primarily by <strong>${escHtml(declined[0].name)}</strong> (down ${fv(declined[0].delta)}) and <strong>${escHtml(declined[1].name)}</strong> (down ${fv(declined[1].delta)}) — most of the other ${custDeltas.length - 2} accounts were relatively flat.`;
+      }
+    } else if (pctDeclined >= 60) {
+      if (custDeltas.length <= 5) {
+        concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts declined during this period.`;
+      } else {
+        concentrationNote = ` This was a broad-based decline across the portfolio — <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) dropped during this period.`;
+      }
+    } else if (pctDeclined >= 30) {
+      concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) declined while ${improved.length} improved — a split trend worth investigating by segment.`;
+    }
+  }
+
+  // ── Day-over-day spikes (changes of ±7% or more) ──
+  const dropSlice = data1.slice(bestPeakIdx, bestTroughIdx + 1);
+  const dodSpikes = [];
+  for (let i = 1; i < dropSlice.length; i++) {
+    const prev = dropSlice[i - 1].avg;
+    const curr = dropSlice[i].avg;
+    if (prev === 0) continue;
+    const changePct = ((curr - prev) / Math.abs(prev)) * 100;
+    if (Math.abs(changePct) >= 7) {
+      dodSpikes.push({ date: dropSlice[i].date, changePct, prev, curr });
+    }
+  }
+  let spikeNote = '';
+  if (dodSpikes.length > 0) {
+    dodSpikes.sort((a, b) => a.changePct - b.changePct); // most negative first
+    const worst = dodSpikes[0];
+    const fv = v => _fmtTaVal(v, metricKey);
+    spikeNote = ` Sharpest single-day drop was <strong>${Math.abs(Math.round(worst.changePct))}%</strong> on ${fmtDate(worst.date)} (${fv(worst.prev)} → ${fv(worst.curr)}).`;
+    if (dodSpikes.length > 1) {
+      spikeNote += ` There were <strong>${dodSpikes.length} days</strong> during this window with day-over-day changes exceeding 7%.`;
+    }
+  }
+
+  let title, detail;
+
+  if (isScore) {
+    // Decompose into signal contributions
+    const attribs = _attributeScoreDrop(active, peakPt.date, troughPt.date);
+    const negatives = attribs.filter(a => a.contribution < -0.3);
+    if (!negatives.length) return null;
+
+    title = 'Decline Drivers';
+    const topN = negatives.slice(0, 3);
+    const drivers = topN.map(a => {
+      const fRaw = v => {
+        if (a.unit === '%') return Math.round(v) + '%';
+        if (a.unit === 'd') return Math.round(v) + ' days';
+        return Math.round(v * 10) / 10;
+      };
+      const impact = Math.abs(Math.round(a.contribution * 10) / 10);
+      if (a.signal === 'growth') {
+        const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : 'None';
+        if (a.rawStart === a.rawEnd) return null; // no change in mode — skip
+        return `<strong>${a.label}</strong> shifted from ${cap(a.rawStart)} to ${cap(a.rawEnd)}, costing ~${impact} pts`;
+      }
+      if (a.signal === 'tickets') {
+        return `<strong>${a.label}</strong> increased from ${fRaw(a.rawStart)} to ${fRaw(a.rawEnd)}, costing ~${impact} pts on the score`;
+      }
+      if (a.signal === 'days') {
+        return `<strong>${a.label}</strong> increased from ${fRaw(a.rawStart)} to ${fRaw(a.rawEnd)}, costing ~${impact} pts`;
+      }
+      if (a.rawEnd < a.rawStart) {
+        return `<strong>${a.label}</strong> dropped from ${fRaw(a.rawStart)} to ${fRaw(a.rawEnd)}, costing ~${impact} pts`;
+      }
+      return `<strong>${a.label}</strong> moved from ${fRaw(a.rawStart)} to ${fRaw(a.rawEnd)}, costing ~${impact} pts`;
+    }).filter(Boolean);
+
+    if (!drivers.length) return null;
+    detail = `Health Score fell <strong>${Math.round(dropAbs)} points</strong> (${Math.round(peakPt.avg)} → ${Math.round(troughPt.avg)}) between ${peakDateStr} and ${troughDateStr}. `;
+    if (drivers.length === 1) {
+      detail += `The primary driver was ${drivers[0]}.`;
+    } else {
+      detail += `The biggest factors: ${drivers.join('; ')}.`;
+    }
+    detail += concentrationNote + spikeNote;
+  } else {
+    // Non-score metric: report the drop and cross-reference with health score
+    title = 'Significant Decline';
+    const label = cfg.label;
+    const fv = v => _fmtTaVal(v, metricKey);
+    detail = `${label} fell <strong>${fv(dropAbs)}</strong> (${fv(peakPt.avg)} → ${fv(troughPt.avg)}) between ${peakDateStr} and ${troughDateStr}, which is larger than typical day-to-day variation for this metric.`;
+    detail += concentrationNote + spikeNote;
+
+    // Cross-reference with health score
+    try {
+      const scoreData = aggregateByDay(active, 'score', cutoff);
+      if (scoreData.length >= 2) {
+        const findNearest = (arr, date) => arr.reduce((best, p) =>
+          Math.abs(new Date(p.date).getTime() - new Date(date).getTime()) < Math.abs(new Date(best.date).getTime() - new Date(date).getTime()) ? p : best
+        );
+        const sPeak = findNearest(scoreData, peakPt.date);
+        const sTrough = findNearest(scoreData, troughPt.date);
+        const sDelta = Math.round(sTrough.avg - sPeak.avg);
+        if (sDelta < -2) {
+          detail += ` During the same window, Health Score also dropped <strong>${Math.abs(sDelta)} points</strong>.`;
+        } else if (Math.abs(sDelta) <= 2) {
+          detail += ` Health Score stayed stable during this window — other signals offset the impact.`;
+        }
+      }
+    } catch (e) { /* aggregateByDay may fail for non-standard metrics */ }
+  }
+
+  return { priority: 1, icon: _taSvg.drop, iconBg: 'var(--red-l)', iconColor: 'var(--red)', accent: 'red', title, detail };
+}
+
 /* ── Orchestrator ─────────────────────────────── */
 function _buildTrendAnalysis(active, data1, data2, cutoff, rangeDays, m1, m2) {
   const wrap = el('trend-analysis-wrap');
@@ -1121,7 +1370,8 @@ function _buildTrendAnalysis(active, data1, data2, cutoff, rangeDays, m1, m2) {
     _taInflection(data1, m1, rangeDays),
     _taVolatility(data1, m1),
     _taCsmDivergence(data1, active, cutoff, rangeDays, m1),
-    _taCrossSignal(active, cutoff, m1)
+    _taCrossSignal(active, cutoff, m1),
+    _taDropAttribution(active, data1, m1, cutoff, rangeDays)
   ].filter(Boolean);
 
   results.sort((a, b) => a.priority - b.priority);

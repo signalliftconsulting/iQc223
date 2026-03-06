@@ -584,7 +584,7 @@ function showDhDetail(type) {
 function logConfigChange(action, details) {
   const hist = JSON.parse(localStorage.getItem('iqc_config_history') || '[]');
   hist.unshift({ action, details: details || '', ts: Date.now(), user: currentUser?.email || '' });
-  if (hist.length > 20) hist.length = 20;
+  if (hist.length > 500) hist.length = 500;
   localStorage.setItem('iqc_config_history', JSON.stringify(hist));
   renderConfigHistory();
 }
@@ -597,8 +597,12 @@ function renderConfigHistory() {
     wrap.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:.85rem">No config changes recorded yet.</div>';
     return;
   }
-  let h = '<table class="ct" style="width:100%;min-width:0"><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Details</th></tr></thead><tbody>';
-  hist.slice(0, 20).forEach(e => {
+  const pg = _pagGet('cfgHist');
+  const slice = hist.slice(pg * PAGE_SIZE, (pg + 1) * PAGE_SIZE);
+  const pagNav = _pagHTML(hist.length, 'cfgHist', 'renderConfigHistory');
+  let h = pagNav;
+  h += '<table class="ct" style="width:100%;min-width:0"><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Details</th></tr></thead><tbody>';
+  slice.forEach(e => {
     const dt = new Date(e.ts);
     const time = dt.toLocaleDateString('en-US', { month:'short', day:'numeric' }) + ' ' + dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const user = e.user ? escHtml(e.user) : '<span style="color:var(--subtle)">—</span>';
@@ -611,6 +615,7 @@ function renderConfigHistory() {
     </tr>`;
   });
   h += '</tbody></table>';
+  h += pagNav;
   wrap.innerHTML = h;
 }
 

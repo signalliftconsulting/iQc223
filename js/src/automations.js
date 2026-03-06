@@ -1,15 +1,6 @@
 // ─── AUTOMATIONS (Zapier Webhook Integration) ──────────────
 
 function saveAutomationsCfg() {
-  // Auto-sync selected_alerts to all enabled channels
-  const selected = automationsCfg.selected_alerts || [];
-  if (automationsCfg.channels) {
-    ['slack', 'teams', 'email'].forEach(chKey => {
-      if (automationsCfg.channels[chKey]?.enabled) {
-        automationsCfg.channels[chKey].alerts = [...selected];
-      }
-    });
-  }
   localStorage.setItem('iqc_automations', JSON.stringify(automationsCfg));
   if (currentUser) {
     sb.from('settings').upsert({
@@ -196,30 +187,38 @@ const CHANNELS = [
     desc: 'Post alerts to a Slack channel via Incoming Webhook.',
     inputType: 'url', placeholder: 'https://hooks.slack.com/services/T.../B.../xxxx',
     setup: `<ol style="margin:6px 0 0 18px;font-size:.76rem;line-height:1.6;color:var(--muted)">
-      <li>Go to <a href="https://api.slack.com/apps" target="_blank" rel="noopener" style="color:var(--blue)">api.slack.com/apps</a> → <strong>Create New App</strong> → From Scratch</li>
-      <li>Under <strong>Incoming Webhooks</strong>, toggle it <strong>On</strong></li>
-      <li>Click <strong>Add New Webhook to Workspace</strong> → pick a channel → <strong>Allow</strong></li>
-      <li>Copy the <strong>Webhook URL</strong> and paste it above</li>
-    </ol>`
+      <li>Go to <a href="https://api.slack.com/apps" target="_blank" rel="noopener" style="color:var(--blue)">api.slack.com/apps</a> and click <strong>Create New App</strong> → choose <strong>From Scratch</strong></li>
+      <li>Name your app (e.g. "iQcadence Alerts") and select your workspace, then click <strong>Create App</strong></li>
+      <li>In the left sidebar, click <strong>Incoming Webhooks</strong> and toggle <strong>Activate Incoming Webhooks</strong> to <strong>On</strong></li>
+      <li>Scroll down and click <strong>Add New Webhook to Workspace</strong></li>
+      <li>Select the channel where alerts should post (e.g. #cs-alerts) and click <strong>Allow</strong></li>
+      <li>Copy the <strong>Webhook URL</strong> (starts with <code style="font-size:.7rem;background:var(--bg);padding:1px 4px;border-radius:3px">https://hooks.slack.com/services/...</code>) and paste it above</li>
+      <li>Click <strong>Send Test</strong> below to verify — you should see a test message appear in your channel</li>
+    </ol>
+    <p style="margin:8px 0 0;font-size:.72rem;color:var(--subtle)"><strong>Tip:</strong> You can customize the bot name and icon in your Slack app settings under <strong>Basic Information</strong> → <strong>Display Information</strong>. Alerts will include customer name, score, status, and the triggering event.</p>`
   },
   {
     key: 'teams', label: 'Microsoft Teams', icon: _aico(AUTO_ICONS.teams),
-    desc: 'Post alerts to a Teams channel via Workflow webhook.',
+    desc: 'Post alerts to a Teams channel via Workflows webhook.',
     inputType: 'url', placeholder: 'https://prod-xx.westus.logic.azure.com:443/workflows/...',
     setup: `<ol style="margin:6px 0 0 18px;font-size:.76rem;line-height:1.6;color:var(--muted)">
-      <li>In Teams, go to the channel → <strong>Manage Channel</strong> → <strong>Connectors</strong> (or use <strong>Workflows</strong>)</li>
-      <li>Search for <strong>"Incoming Webhook"</strong> → <strong>Configure</strong></li>
-      <li>Give it a name (e.g. "iQcadence Alerts") → <strong>Create</strong></li>
-      <li>Copy the <strong>Webhook URL</strong> and paste it above</li>
-    </ol>`
+      <li>Open <strong>Microsoft Teams</strong> and go to the channel where you want alerts</li>
+      <li>Click the <strong>+</strong> (Add a tab) or go to <strong>Apps</strong> → search for <strong>Workflows</strong></li>
+      <li>Select the template <strong>"Post to a channel when a webhook request is received"</strong></li>
+      <li>Name the workflow (e.g. "iQcadence Alerts"), select the target <strong>Team</strong> and <strong>Channel</strong>, then click <strong>Add workflow</strong></li>
+      <li>Copy the <strong>Webhook URL</strong> provided (starts with <code style="font-size:.7rem;background:var(--bg);padding:1px 4px;border-radius:3px">https://prod-xx.westus.logic.azure.com...</code>) and paste it above</li>
+      <li>Click <strong>Send Test</strong> below to verify — you should see a test card appear in your channel</li>
+    </ol>
+    <p style="margin:8px 0 0;font-size:.72rem;color:var(--subtle)"><strong>Note:</strong> Microsoft retired the old "Incoming Webhook" connector. Use the <strong>Workflows</strong> app instead. If you don\'t see Workflows, ask your Teams admin to enable it.</p>`
   },
   {
     key: 'email', label: 'Email', icon: _aico(AUTO_ICONS.email),
     desc: 'Send HTML email alerts to one or more recipients.',
     inputType: 'email', placeholder: 'alerts@yourcompany.com, csm-team@company.com',
-    setup: `<p style="margin:6px 0 0;font-size:.76rem;line-height:1.6;color:var(--muted)">
-      Enter one or more email addresses separated by commas. Requires Resend API key configured in Supabase secrets.
-    </p>`
+    setup: `<div style="margin:6px 0 0;font-size:.76rem;line-height:1.6;color:var(--muted)">
+      <p style="margin:0 0 6px">Enter one or more email addresses separated by commas. Each recipient gets a formatted HTML email with customer details, score changes, and the triggering event.</p>
+      <p style="margin:0;font-size:.72rem;color:var(--subtle)"><strong>Requires setup:</strong> Email delivery uses <a href="https://resend.com" target="_blank" rel="noopener" style="color:var(--blue)">Resend</a>. Your Supabase project must have the <code style="font-size:.68rem;background:var(--bg);padding:1px 4px;border-radius:3px">RESEND_API_KEY</code> secret configured. Contact your admin if emails are not being delivered.</p>
+    </div>`
   }
 ];
 
@@ -246,12 +245,13 @@ function truncateUrl(url, maxLen) {
   return s.length > maxLen ? escHtml(s.slice(0, maxLen) + '…') : escHtml(s);
 }
 
-function sentToHtml() {
+function sentToHtml(alertKey) {
   const ch = automationsCfg.channels || {};
   const parts = [];
-  if (ch.slack?.enabled) parts.push('<span class="dest-tag" title="' + escHtml(ch.slack.url || 'No URL configured') + '">' + _aicoSm(AUTO_ICONS.slack) + ' Slack</span>');
-  if (ch.teams?.enabled) parts.push('<span class="dest-tag" title="' + escHtml(ch.teams.url || 'No URL configured') + '">' + _aicoSm(AUTO_ICONS.teams) + ' Teams</span>');
-  if (ch.email?.enabled) parts.push('<span class="dest-tag" title="' + escHtml(ch.email.recipients || 'No recipients configured') + '">' + _aicoSm(AUTO_ICONS.email) + ' Email</span>');
+  const subscribed = (chKey) => !alertKey || (ch[chKey]?.alerts || []).includes(alertKey);
+  if (ch.slack?.enabled && subscribed('slack')) parts.push('<span class="dest-tag" title="' + escHtml(ch.slack.url || 'No URL configured') + '">' + _aicoSm(AUTO_ICONS.slack) + ' Slack</span>');
+  if (ch.teams?.enabled && subscribed('teams')) parts.push('<span class="dest-tag" title="' + escHtml(ch.teams.url || 'No URL configured') + '">' + _aicoSm(AUTO_ICONS.teams) + ' Teams</span>');
+  if (ch.email?.enabled && subscribed('email')) parts.push('<span class="dest-tag" title="' + escHtml(ch.email.recipients || 'No recipients configured') + '">' + _aicoSm(AUTO_ICONS.email) + ' Email</span>');
   return parts.length
     ? parts.join(' ')
     : '<span style="color:var(--muted);font-size:.78rem">' + _aicoSm(AUTO_ICONS.warning) + ' None</span>';
@@ -294,7 +294,12 @@ function renderActiveAlerts() {
     ? mgrScope.managers.map(m => escHtml(m)).join(', ')
     : 'All';
   const creatorDisplay = currentUser?.email || '\u2014';
-  const sentToNames = ['slack','teams','email'].filter(k => channels[k]?.enabled).map(k => k === 'teams' ? 'Teams' : k.charAt(0).toUpperCase()+k.slice(1)).join(', ') || 'None';
+  function alertSentToNames(alertKey) {
+    return ['slack','teams','email']
+      .filter(k => channels[k]?.enabled && (channels[k]?.alerts || []).includes(alertKey))
+      .map(k => k === 'teams' ? 'Teams' : k.charAt(0).toUpperCase()+k.slice(1))
+      .join(', ') || 'None';
+  }
   const timingLabel = schedule.mode === 'daily' ? 'Daily' : schedule.mode === 'weekly' ? 'Weekly' : 'Real-time';
 
   function conditionText(at) {
@@ -316,7 +321,7 @@ function renderActiveAlerts() {
     switch (key) {
       case 'label':     return at.label;
       case 'condition': return conditionText(at);
-      case 'sentTo':    return sentToNames;
+      case 'sentTo':    return alertSentToNames(at.key);
       case 'timing':    return timingLabel;
       case 'scope':     return scopeDisplay;
       case 'creator':   return creatorDisplay;
@@ -334,10 +339,12 @@ function renderActiveAlerts() {
         const v = alertColValue(at, key).toLowerCase();
         if (f.type === 'text' && !v.includes(f.q)) return false;
         if (f.type === 'enum') {
-          // For sentTo, check if any enabled channel matches
+          // For sentTo, check per-alert channel subscriptions
           if (key === 'sentTo') {
-            const enabledNames = ['slack','teams','email'].filter(k => channels[k]?.enabled).map(k => k === 'teams' ? 'Teams' : k.charAt(0).toUpperCase()+k.slice(1));
-            if (!enabledNames.some(n => f.vals.has(n))) return false;
+            const subscribedNames = ['slack','teams','email']
+              .filter(k => channels[k]?.enabled && (channels[k]?.alerts || []).includes(at.key))
+              .map(k => k === 'teams' ? 'Teams' : k.charAt(0).toUpperCase()+k.slice(1));
+            if (!subscribedNames.some(n => f.vals.has(n))) return false;
           } else {
             if (!f.vals.has(alertColValue(at, key))) return false;
           }
@@ -391,12 +398,15 @@ function renderActiveAlerts() {
         '</div>';
       }
 
-      // Channel toggles
+      // Channel toggles (per-alert subscriptions)
       const channelToggles = CHANNELS.map(ch => {
-        const isOn = !!channels[ch.key]?.enabled;
-        return '<label>' +
+        const chCfg = channels[ch.key];
+        const isConfigured = !!chCfg?.enabled;
+        const isOn = isConfigured && (chCfg?.alerts || []).includes(at.key);
+        return '<label' + (!isConfigured ? ' style="opacity:.5" title="Enable ' + escHtml(ch.label) + ' in Create tab first"' : '') + '>' +
           '<input type="checkbox" ' + (isOn ? 'checked' : '') +
-          ' onchange="toggleChannelInline(\'' + ch.key + '\', this.checked)"/>' +
+          (!isConfigured ? ' disabled' : '') +
+          ' onchange="toggleChannelInline(\'' + ch.key + '\', \'' + at.key + '\', this.checked)"/>' +
           ' ' + ch.icon + ' ' + escHtml(ch.label) +
         '</label>';
       }).join('');
@@ -456,7 +466,7 @@ function renderActiveAlerts() {
     return '<tr class="' + (isEditing ? 'editing' : '') + '">' +
       '<td><span style="margin-right:6px;display:inline-flex;vertical-align:middle;color:var(--blue)">' + _aicoSm(AUTO_ICONS[at.key]) + '</span>' + escHtml(at.label) + '</td>' +
       '<td style="color:var(--muted);font-size:.82rem">' + conditionText(at) + '</td>' +
-      '<td>' + sentToHtml() + '</td>' +
+      '<td>' + sentToHtml(at.key) + '</td>' +
       '<td style="font-size:.78rem;white-space:nowrap">' + scheduleText() + '</td>' +
       '<td style="font-size:.78rem;color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis" title="' + escHtml(scopeDisplay) + '">' + scopeDisplay + '</td>' +
       '<td style="font-size:.78rem;color:var(--muted)">' + escHtml(creatorDisplay) + '</td>' +
@@ -509,20 +519,24 @@ function closeInlineEdit() {
   renderAlertSummary();
 }
 
-function toggleChannelInline(channelKey, enabled) {
+function toggleChannelInline(channelKey, alertKey, enabled) {
   if (!automationsCfg.channels) automationsCfg.channels = {};
-  if (!automationsCfg.channels[channelKey]) automationsCfg.channels[channelKey] = {};
-  automationsCfg.channels[channelKey].enabled = enabled;
-  if (enabled && !automationsCfg.channels[channelKey].alerts) {
-    automationsCfg.channels[channelKey].alerts = [...(automationsCfg.selected_alerts || ALERT_TYPES.map(a => a.key))];
-  }
+  if (!automationsCfg.channels[channelKey]) automationsCfg.channels[channelKey] = { enabled: true, alerts: [] };
+  if (!automationsCfg.channels[channelKey].alerts) automationsCfg.channels[channelKey].alerts = [];
+  const arr = automationsCfg.channels[channelKey].alerts;
+  if (enabled && !arr.includes(alertKey)) arr.push(alertKey);
+  if (!enabled) automationsCfg.channels[channelKey].alerts = arr.filter(a => a !== alertKey);
   saveAutomationsCfg();
   renderAlertSummary();
-  if (_wizardStep === 3) renderWizardStep3();
 }
 
 function wizardRemoveAlert(key) {
   automationsCfg.selected_alerts = (automationsCfg.selected_alerts || []).filter(a => a !== key);
+  // Remove from all channels' alerts arrays
+  ['slack','teams','email'].forEach(chKey => {
+    if (automationsCfg.channels?.[chKey]?.alerts)
+      automationsCfg.channels[chKey].alerts = automationsCfg.channels[chKey].alerts.filter(a => a !== key);
+  });
   if (_inlineEditKey === key) _inlineEditKey = null;
   saveAutomationsCfg();
   renderAlertSummary();
@@ -753,8 +767,23 @@ function renderWizardStep1() {
 function wizardToggleAlert(key) {
   if (!automationsCfg.selected_alerts) automationsCfg.selected_alerts = [];
   const idx = automationsCfg.selected_alerts.indexOf(key);
-  if (idx >= 0) automationsCfg.selected_alerts.splice(idx, 1);
-  else automationsCfg.selected_alerts.push(key);
+  if (idx >= 0) {
+    automationsCfg.selected_alerts.splice(idx, 1);
+    // Remove from all channels' alerts arrays
+    ['slack','teams','email'].forEach(chKey => {
+      if (automationsCfg.channels?.[chKey]?.alerts)
+        automationsCfg.channels[chKey].alerts = automationsCfg.channels[chKey].alerts.filter(a => a !== key);
+    });
+  } else {
+    automationsCfg.selected_alerts.push(key);
+    // Subscribe to all enabled channels
+    ['slack','teams','email'].forEach(chKey => {
+      if (automationsCfg.channels?.[chKey]?.enabled) {
+        if (!automationsCfg.channels[chKey].alerts) automationsCfg.channels[chKey].alerts = [];
+        if (!automationsCfg.channels[chKey].alerts.includes(key)) automationsCfg.channels[chKey].alerts.push(key);
+      }
+    });
+  }
   saveAutomationsCfg();
   renderWizardStep1();
   renderAlertSummary();
@@ -762,6 +791,11 @@ function wizardToggleAlert(key) {
 
 function wizardSelectAll() {
   automationsCfg.selected_alerts = ALERT_TYPES.map(a => a.key);
+  // Subscribe all to every enabled channel
+  ['slack','teams','email'].forEach(chKey => {
+    if (automationsCfg.channels?.[chKey]?.enabled)
+      automationsCfg.channels[chKey].alerts = [...automationsCfg.selected_alerts];
+  });
   saveAutomationsCfg();
   renderWizardStep1();
   renderAlertSummary();
@@ -769,6 +803,11 @@ function wizardSelectAll() {
 
 function wizardClearAll() {
   automationsCfg.selected_alerts = [];
+  // Clear all channels' alerts arrays
+  ['slack','teams','email'].forEach(chKey => {
+    if (automationsCfg.channels?.[chKey]?.alerts)
+      automationsCfg.channels[chKey].alerts = [];
+  });
   saveAutomationsCfg();
   renderWizardStep1();
   renderAlertSummary();
@@ -993,9 +1032,12 @@ function toggleChannel(key, enabled) {
   if (!automationsCfg.channels) automationsCfg.channels = {};
   if (!automationsCfg.channels[key]) automationsCfg.channels[key] = {};
   automationsCfg.channels[key].enabled = enabled;
-  if (enabled && !automationsCfg.channels[key].alerts) {
-    // Subscribe to currently selected alerts (not necessarily all)
+  if (enabled) {
+    // Subscribe all currently selected alerts to this channel
     automationsCfg.channels[key].alerts = [...(automationsCfg.selected_alerts || ALERT_TYPES.map(a => a.key))];
+  } else {
+    // Clear subscriptions when channel is disabled
+    automationsCfg.channels[key].alerts = [];
   }
   saveAutomationsCfg();
   renderWizardStep3();
@@ -1385,14 +1427,25 @@ function renderWebhookLog() {
     : webhookEvents.filter(e => e.direction === filterVal);
 
   const tbody = el('auto-log-tbody');
+  const pagTop = el('auto-log-pag-top');
+  const pagBot = el('auto-log-pag-bot');
   if (!tbody) return;
 
   if (!filtered.length) {
     tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted);font-size:.85rem">No ${filterVal === 'all' ? '' : filterVal + ' '}events found</td></tr>`;
+    if (pagTop) pagTop.innerHTML = '';
+    if (pagBot) pagBot.innerHTML = '';
     return;
   }
 
-  tbody.innerHTML = filtered.map(e => {
+  // Paginate
+  const pg = _pagGet('webhookLog');
+  const slice = filtered.slice(pg * PAGE_SIZE, (pg + 1) * PAGE_SIZE);
+  const pagNav = _pagHTML(filtered.length, 'webhookLog', 'renderWebhookLog');
+  if (pagTop) pagTop.innerHTML = pagNav;
+  if (pagBot) pagBot.innerHTML = pagNav;
+
+  tbody.innerHTML = slice.map(e => {
     const time = new Date(e.created_at).toLocaleString();
     const dirLabel = e.direction === 'outbound' ? '↑ Out' : '↓ In';
     const dirClass = e.direction === 'outbound' ? 'auto-dir-out' : 'auto-dir-in';

@@ -9,17 +9,26 @@ let tierSortDir = 'desc';
 
 // ── Segment Chart State ──
 let _segChartMetric = 'score';
-let _segChartRange = '60d';
+let _segChartRange = '90d';
 let _segChartSelected = []; // empty = all segments
 let _segChartTipData = [];
 
 const SEG_CHART_COLORS = ['#3b82f6','#ef4444','#10b981','#f59e0b','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316','#6366f1'];
+
+function _segRangeToDays(range) {
+  if (range === 'ytd') {
+    const now = new Date();
+    return Math.ceil((now - new Date(now.getFullYear(), 0, 1)) / 86400000);
+  }
+  return { '7d': 7, '30d': 30, '90d': 90, '6m': 180, '1y': 365, '2y': 730 }[range] || 90;
+}
 
 function aggregateSegmentByDay(custs, metricKey, cutoff) {
   const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
   const isSumMetric = cfg.agg === 'sum';
   const isCountMetric = cfg.agg === 'count';
   const cutoffStr = cutoff.toISOString().slice(0, 10);
+  const _todayStr = new Date().toISOString().slice(0, 10);
 
   if (isSumMetric || isCountMetric) {
     const allDates = new Set();
@@ -36,7 +45,7 @@ function aggregateSegmentByDay(custs, metricKey, cutoff) {
       const sortedDates = Object.keys(valForDate).sort();
       if (sortedDates.length) {
         custEntries.push({ valForDate, sortedDates });
-        sortedDates.forEach(d => { if (d >= cutoffStr) allDates.add(d); });
+        sortedDates.forEach(d => { if (d >= cutoffStr && d < _todayStr) allDates.add(d); });
       }
     });
     const dates = [...allDates].sort();
@@ -68,7 +77,7 @@ function aggregateSegmentByDay(custs, metricKey, cutoff) {
     const sortedDates = Object.keys(dateMap).sort();
     if (sortedDates.length) {
       custData.push({ dateMap, sortedDates });
-      sortedDates.forEach(d => { if (d >= cutoffStr) allDates.add(d); });
+      sortedDates.forEach(d => { if (d >= cutoffStr && d < _todayStr) allDates.add(d); });
     }
   });
   const dates = [...allDates].sort();
@@ -90,14 +99,18 @@ function toggleSegView(view) {
   _segChartSelected = []; // reset selection on view switch
   const segBtn = document.getElementById('seg-view-segments');
   const tierBtn = document.getElementById('seg-view-tiers');
+  const stageBtn = document.getElementById('seg-view-stage');
   if (segBtn) segBtn.classList.toggle('active', view === 'segments');
   if (tierBtn) tierBtn.classList.toggle('active', view === 'tiers');
+  if (stageBtn) stageBtn.classList.toggle('active', view === 'stage');
+  const active = window._segActive;
+  const dc = window._segDeltaCache;
   if (view === 'segments') {
     const segs = window._segData;
-    if (segs) { renderSegTable(segs); renderSegChart(segs, window._segActive, window._segDeltaCache); }
+    if (segs) { renderSegTable(segs); renderSegChart(segs, active, dc); }
+  } else if (view === 'stage') {
+    if (active) { renderStageTable(active, dc); renderSegChart(window._segData, active, dc); }
   } else {
-    const active = window._segActive;
-    const dc = window._segDeltaCache;
     if (active) { renderTierTable(active, dc); renderSegChart(window._segData, active, dc); }
   }
 }
@@ -190,6 +203,8 @@ function renderSegments() {
   renderSegKPIs(visibleSegments, active);
   if (_segView === 'tiers') {
     renderTierTable(active, deltaCache);
+  } else if (_segView === 'stage') {
+    renderStageTable(active, deltaCache);
   } else {
     renderSegTable(visibleSegments);
   }
@@ -397,18 +412,6 @@ function drillTier(tierKey) {
     return;
   }
 
-  // Collapse any other open expand
-  const prevExpanded = tbody.querySelector('tr.seg-table-expand-row');
-  if (prevExpanded) {
-    const prevParent = prevExpanded.previousElementSibling;
-    if (prevParent) {
-      prevParent.classList.remove('seg-row-expanded');
-      const prevBtn = prevParent.querySelector('.csm-expand-btn');
-      if (prevBtn) prevBtn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg> Expand`;
-    }
-    prevExpanded.remove();
-  }
-
   parentRow.classList.add('seg-row-expanded');
   const btn = parentRow.querySelector('.csm-expand-btn');
   if (btn) btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg> Collapse`;
@@ -510,6 +513,254 @@ function buildTierDrillHTML(tierKey) {
   const viewBtn = `<div style="text-align:right;margin-top:12px"><button class="btn-sm" onclick="filterByTier('${tierKey}')" style="gap:4px">View in Customers <span style="font-size:.8rem">\u2192</span></button></div>`;
 
   return summaryHTML + tableHTML + viewBtn;
+}
+
+/* ── Stage (Lifecycle) Table ─────────────────────────────────── */
+let stageSortKey = 'mrr';
+let stageSortDir = 'desc';
+
+function _buildStageData(active, deltaCache) {
+  const stageDefs = [
+    { key: 'onboarding', label: 'Onboarding', pill: 'stage-pill-onb' },
+    { key: 'active',     label: 'Active',     pill: 'stage-pill-act' },
+    { key: 'atrisk',     label: 'At Risk',    pill: 'stage-pill-risk' },
+    { key: 'won',        label: 'Won / Upsold', pill: 'stage-pill-won' },
+    { key: 'churned',    label: 'Churned',    pill: 'stage-pill-churn' }
+  ];
+  return stageDefs.map(sd => {
+    const custs = active.filter(c => (c.lifecycle || 'active') === sd.key);
+    const count = custs.length;
+    const totalMRR = custs.reduce((s, c) => s + (c.mrr || 0), 0);
+    const avgScore = count ? Math.round(custs.reduce((s, c) => s + c.score, 0) / count) : 0;
+    const avgDelta = count ? Math.round(custs.reduce((s, c) => s + (deltaCache.get(c.id) || 0), 0) / count * 10) / 10 : 0;
+    const healthy = custs.filter(c => c.status === 'healthy' || c.status === 'expand').length;
+    const watch = custs.filter(c => c.status === 'watch').length;
+    const atRisk = custs.filter(c => c.status === 'critical' || c.status === 'risk').length;
+    const riskPct = count ? Math.round((atRisk / count) * 100) : 0;
+    const overdueCount = custs.filter(c => c.days != null && c.days >= 14).length;
+    const renewals90 = custs.filter(c => c.renewal != null && c.renewal > 0 && c.renewal <= 3).length;
+    const withDays = custs.filter(c => c.days != null);
+    const avgDays = withDays.length ? Math.round(withDays.reduce((s, c) => s + c.days, 0) / withDays.length) : null;
+    return { key: sd.key, label: sd.label, pill: sd.pill, custs, count, totalMRR, avgScore, avgDelta, healthy, watch, atRisk, riskPct, overdueCount, renewals90, avgDays };
+  }).filter(s => s.count > 0);
+}
+
+function renderStageTable(active, deltaCache) {
+  const wrap = el('seg-table-wrap');
+  if (!wrap) return;
+
+  const stages = _buildStageData(active, deltaCache);
+  window._stageData = stages;
+
+  const sortIcon = key => {
+    if (stageSortKey !== key) return '';
+    return stageSortDir === 'asc' ? ' ▲' : ' ▼';
+  };
+  const activeClass = key => stageSortKey === key ? 'seg-sort-active' : '';
+
+  const sorted = [...stages].sort((a, b) => {
+    let va, vb;
+    switch (stageSortKey) {
+      case 'label':    va = a.label.toLowerCase(); vb = b.label.toLowerCase(); return stageSortDir === 'asc' ? (va < vb ? -1 : 1) : (va > vb ? -1 : 1);
+      case 'count':    va = a.count; vb = b.count; break;
+      case 'avgScore': va = a.avgScore; vb = b.avgScore; break;
+      case 'avgDelta': va = a.avgDelta; vb = b.avgDelta; break;
+      case 'mrr':      va = a.totalMRR; vb = b.totalMRR; break;
+      case 'riskPct':  va = a.riskPct; vb = b.riskPct; break;
+      case 'avgDays':  va = a.avgDays || 0; vb = b.avgDays || 0; break;
+      case 'renewals': va = a.renewals90; vb = b.renewals90; break;
+      default:         va = a.totalMRR; vb = b.totalMRR;
+    }
+    return stageSortDir === 'asc' ? va - vb : vb - va;
+  });
+
+  const chevronDown = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+  const scoreColor = v => v >= (thresholds.healthy || 80) ? 'var(--green)' : v >= (thresholds.watch || 65) ? 'var(--amber)' : v >= (thresholds.risk || 50) ? 'var(--orange,#ea580c)' : 'var(--red)';
+
+  const stageColors = { onboarding:'#3b82f6', active:'#10b981', atrisk:'#ef4444', won:'#8b5cf6', churned:'#64748b' };
+
+  const colCount = 9;
+  window._stageColCount = colCount;
+
+  wrap.innerHTML = `<div class="seg-table-wrap-scroll">
+    <table class="ct" style="min-width:900px">
+      <thead><tr>
+        <th class="seg-sort-btn ${activeClass('label')}" onclick="sortStageTable('label')">Stage${sortIcon('label')}</th>
+        <th class="seg-sort-btn ${activeClass('count')}" onclick="sortStageTable('count')">Accounts${sortIcon('count')}</th>
+        <th class="seg-sort-btn ${activeClass('avgScore')}" onclick="sortStageTable('avgScore')">Avg Score${sortIcon('avgScore')}</th>
+        <th class="seg-sort-btn ${activeClass('avgDelta')}" onclick="sortStageTable('avgDelta')">Trend (7d)${sortIcon('avgDelta')}</th>
+        <th class="seg-sort-btn ${activeClass('mrr')}" onclick="sortStageTable('mrr')">MRR${sortIcon('mrr')}</th>
+        <th class="seg-sort-btn ${activeClass('riskPct')}" onclick="sortStageTable('riskPct')">At-Risk %${sortIcon('riskPct')}</th>
+        <th class="seg-sort-btn ${activeClass('avgDays')}" onclick="sortStageTable('avgDays')">Avg Contact${sortIcon('avgDays')}</th>
+        <th class="seg-sort-btn ${activeClass('renewals')}" onclick="sortStageTable('renewals')">Renewals \u226490d${sortIcon('renewals')}</th>
+        <th style="width:90px"></th>
+      </tr></thead>
+      <tbody id="seg-table-tbody">${sorted.map(t => {
+        const trendCls = t.avgDelta > 0 ? 'up' : t.avgDelta < 0 ? 'dn' : 'flat';
+        const trendIcon = t.avgDelta > 0 ? '▲' : t.avgDelta < 0 ? '▼' : '—';
+        const trendTxt = t.avgDelta > 0 ? '+' + t.avgDelta : '' + t.avgDelta;
+        const contactStr = t.avgDays != null ? t.avgDays + 'd' : '—';
+        const sc = stageColors[t.key] || '#64748b';
+        return `<tr class="seg-table-row" data-stage="${t.key}">
+          <td><span class="stage-pill" style="background:${sc}15;color:${sc};border:1px solid ${sc}30;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700">${t.label}</span></td>
+          <td>${t.count}</td>
+          <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${scoreColor(t.avgScore)};background:${t.avgScore >= 65 ? 'var(--green-l)' : t.avgScore >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${t.avgScore}</span></td>
+          <td><span class="csm-trend ${trendCls}" style="font-size:.68rem;padding:1px 6px">${trendIcon} ${trendTxt}</span></td>
+          <td>$${fmtNum(t.totalMRR)}</td>
+          <td><span style="font-weight:700;color:${t.riskPct > 30 ? 'var(--red)' : t.riskPct > 0 ? 'var(--amber)' : 'var(--green)'}">${t.riskPct}%</span> <span style="font-size:.7rem;color:var(--muted)">(${t.atRisk})</span></td>
+          <td>${contactStr}</td>
+          <td>${t.renewals90}</td>
+          <td><button class="btn-sm csm-expand-btn" onclick="event.stopPropagation();drillStage('${t.key}')">${chevronDown} Expand</button></td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>
+  </div>`;
+}
+
+function sortStageTable(key) {
+  if (stageSortKey === key) stageSortDir = stageSortDir === 'asc' ? 'desc' : 'asc';
+  else { stageSortKey = key; stageSortDir = key === 'label' ? 'asc' : 'desc'; }
+  const active = window._segActive;
+  const dc = window._segDeltaCache;
+  if (active) renderStageTable(active, dc);
+}
+
+function drillStage(stageKey) {
+  const tbody = el('seg-table-tbody');
+  if (!tbody) return;
+  const colCount = window._stageColCount || 9;
+
+  const parentRow = tbody.querySelector(`tr.seg-table-row[data-stage="${stageKey}"]`);
+  if (!parentRow) return;
+
+  // Toggle off if already expanded
+  const existingExpand = parentRow.nextElementSibling;
+  if (existingExpand && existingExpand.classList.contains('seg-table-expand-row')) {
+    existingExpand.remove();
+    parentRow.classList.remove('seg-row-expanded');
+    const btn = parentRow.querySelector('.csm-expand-btn');
+    if (btn) btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg> Expand`;
+    return;
+  }
+
+  parentRow.classList.add('seg-row-expanded');
+  const btn = parentRow.querySelector('.csm-expand-btn');
+  if (btn) btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg> Collapse`;
+
+  const expandRow = document.createElement('tr');
+  expandRow.className = 'seg-table-expand-row';
+  expandRow.innerHTML = `<td colspan="${colCount}" class="seg-table-expand-cell">${buildStageDrillHTML(stageKey)}</td>`;
+  parentRow.after(expandRow);
+}
+
+function buildStageDrillHTML(stageKey) {
+  const stages = window._stageData || [];
+  const deltaCache = window._segDeltaCache || new Map();
+  const stage = stages.find(t => t.key === stageKey);
+  if (!stage) return '<p>No data for this stage.</p>';
+
+  const accs = stage.custs;
+  const avgScore = stage.avgScore;
+  const totalMRR = stage.totalMRR;
+  const hmColor = v => v >= 65 ? 'var(--green)' : v >= 50 ? 'var(--amber)' : 'var(--red)';
+  const dColor = stage.avgDelta > 0 ? 'var(--green)' : stage.avgDelta < 0 ? 'var(--red)' : 'var(--muted)';
+  const dIcon = stage.avgDelta > 0 ? '▲' : stage.avgDelta < 0 ? '▼' : '—';
+
+  let summaryHTML = `<div class="csm-drill-stats">
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val" style="color:${hmColor(avgScore)}">${avgScore}</div>
+      <div class="csm-drill-stat__label">Avg Score</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val" style="color:${dColor}">${dIcon} ${Math.abs(stage.avgDelta)}</div>
+      <div class="csm-drill-stat__label">7d Trend</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val">${stage.count}</div>
+      <div class="csm-drill-stat__label">Accounts</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val">$${fmtNum(totalMRR)}</div>
+      <div class="csm-drill-stat__label">Total MRR</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val" style="color:var(--green)">${stage.healthy}</div>
+      <div class="csm-drill-stat__label">Healthy</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val" style="color:${stage.atRisk ? 'var(--red)' : 'var(--muted)'}">${stage.atRisk}</div>
+      <div class="csm-drill-stat__label">At Risk</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val" style="color:${stage.overdueCount ? 'var(--red)' : 'var(--muted)'}">${stage.overdueCount}</div>
+      <div class="csm-drill-stat__label">Overdue</div>
+    </div>
+    <div class="csm-drill-stat">
+      <div class="csm-drill-stat__val">${stage.renewals90}</div>
+      <div class="csm-drill-stat__label">Renewals \u226490d</div>
+    </div>
+  </div>`;
+
+  // Sort by urgency
+  const urgency = c => {
+    const statusW = c.status === 'critical' ? 5 : c.status === 'risk' ? 4 : c.status === 'watch' ? 3 : c.status === 'healthy' ? 2 : 1;
+    const renewalW = c.renewal != null && c.renewal > 0 ? Math.max(0, 13 - c.renewal) : 0;
+    const mrrW = (c.mrr || 0) / 10000;
+    const contactW = (c.days != null && c.days >= 14) ? 2 : 0;
+    return (statusW * 10) + renewalW + mrrW + contactW;
+  };
+  const sorted = [...accs].sort((a, b) => urgency(b) - urgency(a));
+
+  const OVERDUE_DAYS = 14;
+  const tableHTML = `<table class="ct" style="min-width:auto;margin:0">
+    <thead><tr>
+      <th>Customer</th><th>Score</th><th>Trend</th><th>Status</th><th>MRR</th><th>Last Contact</th><th>Renewal</th><th>Tier</th>
+    </tr></thead>
+    <tbody>${sorted.map(c => {
+      const renewStr = c.renewal_date ? new Date(c.renewal_date).toLocaleDateString() : (c.renewal ? c.renewal + 'mo' : '—');
+      const isOverdue = c.days != null && c.days >= OVERDUE_DAYS;
+      const delta = deltaCache.get(c.id) || 0;
+      const trendHTML = delta > 0
+        ? `<span class="csm-trend up" style="font-size:.68rem;padding:1px 6px">▲ +${delta}</span>`
+        : delta < 0
+          ? `<span class="csm-trend dn" style="font-size:.68rem;padding:1px 6px">▼ ${delta}</span>`
+          : `<span class="csm-trend flat" style="font-size:.68rem;padding:1px 6px">— 0</span>`;
+      const contactCell = isOverdue
+        ? `<span style="font-weight:700;color:var(--red)">${c.days}d ago</span> <span class="csm-overdue">OVERDUE</span>`
+        : (c.days != null ? c.days + 'd ago' : '—');
+      const tierLabel = c.tier === 'enterprise' ? 'Enterprise' : c.tier === 'smb' ? 'SMB' : 'Mid-Market';
+      return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
+        <td><strong>${escHtml(c.name)}</strong></td>
+        <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${c.score >= 65 ? 'var(--green)' : c.score >= 50 ? 'var(--amber)' : 'var(--red)'};background:${c.score >= 65 ? 'var(--green-l)' : c.score >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${c.score}</span></td>
+        <td>${trendHTML}</td>
+        <td>${badgeHTML(c.status)}</td>
+        <td>$${fmtNum(c.mrr || 0)}</td>
+        <td>${contactCell}</td>
+        <td>${renewStr}</td>
+        <td style="font-size:.78rem;color:var(--muted)">${tierLabel}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+
+  const viewBtn = `<div style="text-align:right;margin-top:12px"><button class="btn-sm" onclick="filterByStage('${stageKey}')" style="gap:4px">View in Customers <span style="font-size:.8rem">\u2192</span></button></div>`;
+
+  return summaryHTML + tableHTML + viewBtn;
+}
+
+function filterByStage(stageKey) {
+  columnFilters = {};
+  insightFilter = null;
+  mrrExposureFilter = null;
+  filterMode = stageKey === 'churned' ? 'churned' : 'all';
+  _filterTier = null;
+  _filterStage = stageKey;
+  nav('customers');
+  renderCustomers();
+}
+
+function clearStageFilter() {
+  _filterStage = null;
+  renderCustomers();
 }
 
 /* ── Segment Cards (enriched) ──────────────────────────────── */
@@ -753,18 +1004,6 @@ function drillSeg(tagName) {
     return;
   }
 
-  // Collapse any other open expand
-  const prevExpanded = tbody.querySelector('tr.seg-table-expand-row');
-  if (prevExpanded) {
-    const prevParent = prevExpanded.previousElementSibling;
-    if (prevParent) {
-      prevParent.classList.remove('seg-row-expanded');
-      const prevBtn = prevParent.querySelector('.csm-expand-btn');
-      if (prevBtn) prevBtn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg> Expand`;
-    }
-    prevExpanded.remove();
-  }
-
   parentRow.classList.add('seg-row-expanded');
   const btn = parentRow.querySelector('.csm-expand-btn');
   if (btn) btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg> Collapse`;
@@ -952,7 +1191,6 @@ function toggleSegChartPill(tag) {
   if (idx >= 0) {
     _segChartSelected.splice(idx, 1);
   } else {
-    if (_segChartSelected.length >= 3) _segChartSelected.shift(); // drop oldest
     _segChartSelected.push(tag);
   }
   _renderSegChartOnly();
@@ -964,7 +1202,7 @@ function segChartSelectAll() {
 }
 
 function _renderSegChartOnly() {
-  const data = _segView === 'tiers' ? window._tierData : window._segData;
+  const data = _segView === 'tiers' ? window._tierData : _segView === 'stage' ? window._stageData : window._segData;
   if (!data || !data.length) return;
   _buildSegChartPills(data);
   _buildSegChartSVG(data);
@@ -984,7 +1222,7 @@ function renderSegChart(segments, active, deltaCache) {
     ).join('');
   }
 
-  const data = _segView === 'tiers' ? window._tierData : segments;
+  const data = _segView === 'tiers' ? window._tierData : _segView === 'stage' ? window._stageData : segments;
   if (!data || !data.length) {
     const wrap = el('seg-chart-wrap');
     if (wrap) wrap.innerHTML = '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:.88rem">Not enough data to display a comparison chart.</p>';
@@ -1022,7 +1260,7 @@ function _buildSegChartSVG(data) {
 
   const metric = _segChartMetric || 'score';
   const cfg = METRIC_CFG[metric] || METRIC_CFG.score;
-  const rangeDays = { '30d': 30, '60d': 60, '90d': 90 }[_segChartRange] || 60;
+  const rangeDays = _segRangeToDays(_segChartRange);
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - rangeDays);
   cutoff.setHours(0, 0, 0, 0);
@@ -1253,7 +1491,7 @@ function _buildSegChartAnalysis(data) {
 
   const metric = _segChartMetric || 'score';
   const cfg = METRIC_CFG[metric] || METRIC_CFG.score;
-  const rangeDays = { '30d': 30, '60d': 60, '90d': 90 }[_segChartRange] || 60;
+  const rangeDays = _segRangeToDays(_segChartRange);
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - rangeDays);
   cutoff.setHours(0, 0, 0, 0);
@@ -1298,6 +1536,7 @@ function _buildSegChartAnalysis(data) {
     risk:     _ai('<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'),
     dollar:   _ai('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'),
     signal:   _ai('<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>'),
+    drop:     _ai('<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>'),
   };
 
   const insights = [];
@@ -1488,6 +1727,152 @@ function _buildSegChartAnalysis(data) {
         });
       }
     });
+  }
+
+  // ── 6. Drop attribution — find the worst anomalous drop and decompose what caused it ──
+  {
+    let worstSeg = null, worstDrop = 0, worstPeakPt = null, worstTroughPt = null, worstPeakIdx = 0, worstTroughIdx = 0;
+    series.forEach(s => {
+      if (s.pts.length < 5) return;
+      let peakVal = s.pts[0].avg, peakIdx = 0;
+      let bestDrop = 0, bestPI = 0, bestTI = 0;
+      for (let i = 1; i < s.pts.length; i++) {
+        if (s.pts[i].avg > peakVal) { peakVal = s.pts[i].avg; peakIdx = i; }
+        const dd = peakVal - s.pts[i].avg;
+        if (dd > bestDrop) { bestDrop = dd; bestPI = peakIdx; bestTI = i; }
+      }
+      const isScore = metric === 'score';
+      if (isScore && bestDrop < 5) return;
+      if (!isScore && (bestDrop / (s.pts[bestPI].avg || 1)) * 100 < 10) return;
+      // Recovery check: if metric recovered >50% after the trough, skip
+      const finalVal = s.pts[s.pts.length - 1].avg;
+      const recov = finalVal - s.pts[bestTI].avg;
+      if (bestDrop > 0 && recov / bestDrop > 0.5) return;
+      const dts = [];
+      for (let i = 1; i < s.pts.length; i++) dts.push(s.pts[i].avg - s.pts[i - 1].avg);
+      const md = dts.reduce((a, b) => a + b, 0) / (dts.length || 1);
+      const sd = Math.sqrt(dts.reduce((a, b) => a + Math.pow(b - md, 2), 0) / (dts.length || 1));
+      if (sd > 0 && bestDrop < sd * 1.5) return;
+      if (bestDrop > worstDrop) {
+        worstDrop = bestDrop; worstSeg = s;
+        worstPeakPt = s.pts[bestPI]; worstTroughPt = s.pts[bestTI];
+        worstPeakIdx = bestPI; worstTroughIdx = bestTI;
+      }
+    });
+
+    if (worstSeg && worstPeakPt && worstTroughPt) {
+      const fmtD = d => { const dt = new Date(d); return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
+      const pv = Math.round(worstPeakPt.avg), tv = Math.round(worstTroughPt.avg);
+      const dropAbs = Math.round(worstDrop);
+      const segCusts = worstSeg.seg.custs;
+
+      // ── Per-customer concentration analysis ──
+      const peakT = new Date(worstPeakPt.date).getTime();
+      const troughT = new Date(worstTroughPt.date).getTime();
+      const custDeltas = [];
+      segCusts.forEach(c => {
+        const hist = (c.history || []).filter(h => h.date).sort((a, b) => a.date.localeCompare(b.date));
+        if (!hist.length) return;
+        const findClosest = (tgt) => hist.reduce((best, h) =>
+          Math.abs(new Date(h.date).getTime() - tgt) < Math.abs(new Date(best.date).getTime() - tgt) ? h : best
+        );
+        const pe = findClosest(peakT), te = findClosest(troughT);
+        const sv = cfg.val(pe, c), ev = cfg.val(te, c);
+        if (sv != null && ev != null) custDeltas.push({ name: c.name, delta: ev - sv });
+      });
+      let concentrationNote = '';
+      if (custDeltas.length >= 2) {
+        const declined = custDeltas.filter(d => d.delta < -0.5);
+        const improved = custDeltas.filter(d => d.delta > 0.5);
+        const pctDeclined = Math.round((declined.length / custDeltas.length) * 100);
+        const fv2 = v => { const c2 = METRIC_CFG[metric]; return c2?.fmt ? c2.fmt(Math.abs(v)) : Math.round(Math.abs(v) * 10) / 10; };
+        if (declined.length <= 2 && declined.length > 0 && custDeltas.length > 3) {
+          declined.sort((a, b) => a.delta - b.delta);
+          if (declined.length === 1) {
+            concentrationNote = ` This was driven primarily by <strong>${escHtml(declined[0].name)}</strong> (down ${fv2(declined[0].delta)}) — the remaining ${custDeltas.length - 1} accounts were relatively flat.`;
+          } else {
+            concentrationNote = ` Driven primarily by <strong>${escHtml(declined[0].name)}</strong> (down ${fv2(declined[0].delta)}) and <strong>${escHtml(declined[1].name)}</strong> (down ${fv2(declined[1].delta)}) — most of the other ${custDeltas.length - 2} accounts were relatively flat.`;
+          }
+        } else if (pctDeclined >= 60) {
+          if (custDeltas.length <= 5) {
+            concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts in this segment declined during this period.`;
+          } else {
+            concentrationNote = ` This was a broad-based decline — <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) dropped during this period.`;
+          }
+        } else if (pctDeclined >= 30) {
+          concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) declined while ${improved.length} improved — a split trend worth investigating.`;
+        }
+      }
+
+      // ── Day-over-day spikes (±7% or more) ──
+      const dropSlice = worstSeg.pts.slice(worstPeakIdx, worstTroughIdx + 1);
+      const dodSpikes = [];
+      for (let i = 1; i < dropSlice.length; i++) {
+        const prev = dropSlice[i - 1].avg, curr = dropSlice[i].avg;
+        if (prev === 0) continue;
+        const changePct = ((curr - prev) / Math.abs(prev)) * 100;
+        if (Math.abs(changePct) >= 7) dodSpikes.push({ date: dropSlice[i].date, changePct, prev, curr });
+      }
+      let spikeNote = '';
+      if (dodSpikes.length > 0) {
+        dodSpikes.sort((a, b) => a.changePct - b.changePct);
+        const worst = dodSpikes[0];
+        const fvS = v => { const c2 = METRIC_CFG[metric]; return c2?.fmt ? c2.fmt(v) : Math.round(v * 10) / 10; };
+        spikeNote = ` Sharpest single-day drop was <strong>${Math.abs(Math.round(worst.changePct))}%</strong> on ${fmtD(worst.date)} (${fvS(worst.prev)} → ${fvS(worst.curr)}).`;
+        if (dodSpikes.length > 1) spikeNote += ` There were <strong>${dodSpikes.length} days</strong> during this window with day-over-day changes exceeding 7%.`;
+      }
+
+      if (metric === 'score') {
+        const attribs = (typeof _attributeScoreDrop === 'function')
+          ? _attributeScoreDrop(segCusts, worstPeakPt.date, worstTroughPt.date) : [];
+        const negatives = attribs.filter(a => a.contribution < -0.3);
+        if (negatives.length > 0) {
+          const topN = negatives.slice(0, 3);
+          const drivers = topN.map(a => {
+            const fRaw = v => {
+              if (a.unit === '%') return Math.round(v) + '%';
+              if (a.unit === 'd') return Math.round(v) + ' days';
+              return Math.round(v * 10) / 10;
+            };
+            const impact = Math.abs(Math.round(a.contribution * 10) / 10);
+            if (a.signal === 'growth') {
+              const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : 'None';
+              if (a.rawStart === a.rawEnd) return null;
+              return `<strong>${a.label}</strong> shifted from ${cap(a.rawStart)} to ${cap(a.rawEnd)}, costing ~${impact} pts`;
+            }
+            if (a.signal === 'tickets') return `<strong>${a.label}</strong> increased from ${fRaw(a.rawStart)} to ${fRaw(a.rawEnd)}, costing ~${impact} pts on the score`;
+            if (a.signal === 'days') return `<strong>${a.label}</strong> increased from ${fRaw(a.rawStart)} to ${fRaw(a.rawEnd)}, costing ~${impact} pts`;
+            if (a.rawEnd < a.rawStart) return `<strong>${a.label}</strong> dropped from ${fRaw(a.rawStart)} to ${fRaw(a.rawEnd)}, costing ~${impact} pts`;
+            return `<strong>${a.label}</strong> moved from ${fRaw(a.rawStart)} to ${fRaw(a.rawEnd)}, costing ~${impact} pts`;
+          }).filter(Boolean);
+          if (drivers.length) {
+            const othersStable = series.filter(s => s !== worstSeg && Math.abs(s.delta) < dropAbs * 0.3);
+            const otherNote = othersStable.length > 0 ? ` Other segments held relatively steady.` : '';
+            insights.push({
+              score: dropAbs + 5, icon: icons.drop, color: 'var(--red)', bg: 'var(--red-l)',
+              label: 'Decline Drivers', tags: [worstSeg.tag],
+              text: `<strong>${escHtml(worstSeg.label)}</strong> dropped <strong>${dropAbs} points</strong> (${pv} → ${tv}) between ${fmtD(worstPeakPt.date)} and ${fmtD(worstTroughPt.date)}. ${drivers.length === 1 ? 'The primary driver was ' + drivers[0] : 'The biggest factors: ' + drivers.join('; ')}.${concentrationNote}${spikeNote}${otherNote}`
+            });
+          }
+        }
+      } else {
+        const label = cfg.label;
+        const fv = v => cfg.fmt ? cfg.fmt(v) : Math.round(v * 10) / 10;
+        let text = `<strong>${escHtml(worstSeg.label)}</strong>'s ${label} fell <strong>${fv(worstDrop)}</strong> (${fv(worstPeakPt.avg)} → ${fv(worstTroughPt.avg)}) between ${fmtD(worstPeakPt.date)} and ${fmtD(worstTroughPt.date)}, which is larger than typical day-to-day variation for this metric.${concentrationNote}${spikeNote}`;
+        const scorePts = aggregateSegmentByDay(segCusts, 'score', cutoff);
+        if (scorePts.length >= 2) {
+          const fn = (arr, d) => arr.reduce((best, p) => Math.abs(new Date(p.date).getTime() - new Date(d).getTime()) < Math.abs(new Date(best.date).getTime() - new Date(d).getTime()) ? p : best);
+          const sp = fn(scorePts, worstPeakPt.date), st = fn(scorePts, worstTroughPt.date);
+          const sd = Math.round(st.avg - sp.avg);
+          if (sd < -2) text += ` During the same window, Health Score also dropped <strong>${Math.abs(sd)} points</strong>.`;
+          else if (Math.abs(sd) <= 2) text += ` Health Score stayed stable during this window — other signals offset the impact.`;
+        }
+        insights.push({
+          score: dropAbs + 3, icon: icons.drop, color: 'var(--red)', bg: 'var(--red-l)',
+          label: 'Significant Decline', tags: [worstSeg.tag], text
+        });
+      }
+    }
   }
 
   // Sort by score desc, show top 3

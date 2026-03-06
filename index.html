@@ -205,51 +205,56 @@ svg.sparkline{display:block}
 .alert-grp-open::after{transform:rotate(90deg)}
 .alert-group-body{display:none;padding-top:6px;margin-bottom:8px}
 .alert-item__icon{display:flex;align-items:center;justify-content:center;width:22px;flex-shrink:0;opacity:.7}
-/* Alerts page — top panels + full-width list */
-.alerts-top-panels{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
-.alerts-top-panels>.dash-kpi-card{padding:22px 24px;cursor:default}
-.alerts-top-panels .alert-panel-title{font-size:.88rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;opacity:1;color:#fff;margin-bottom:14px;display:flex;align-items:center;gap:8px}
-.alerts-top-panels .alert-panel-title .info-tip{color:rgba(255,255,255,.6);opacity:1}
-.alerts-top-panels .alert-panel-title .info-tip:hover{color:#fff}
-/* KPI cells inside gradient */
-.dash-kpi-card .alert-kpi-cell{background:rgba(255,255,255,.13);border-left-color:rgba(255,255,255,.35)}
-.dash-kpi-card .alert-kpi-cell.red,.dash-kpi-card .alert-kpi-cell.amber,.dash-kpi-card .alert-kpi-cell.blue,.dash-kpi-card .alert-kpi-cell.green{background:rgba(255,255,255,.18);border-left-color:rgba(255,255,255,.5)}
-.dash-kpi-card .alert-kpi-val{color:#fff}
-.dash-kpi-card .alert-kpi-lbl{color:rgba(255,255,255,.7)}
-/* MRR rows inside gradient */
-.dash-kpi-card .alert-mrr-dot{border:1.5px solid rgba(255,255,255,.3)}
-.dash-kpi-card .alert-mrr-label{color:rgba(255,255,255,.85)}
-.dash-kpi-card .alert-mrr-val{color:#fff}
-/* Category bars inside gradient */
-.dash-kpi-card .alert-cat-row:hover{background:rgba(255,255,255,.1)}
-.dash-kpi-card .alert-cat-name{color:rgba(255,255,255,.9)}
-.dash-kpi-card .alert-cat-count{color:rgba(255,255,255,.65)}
-.dash-kpi-card .alert-cat-track{background:rgba(255,255,255,.15)}
-.dash-kpi-card .alert-cat-bar{background:#fff !important;opacity:.85}
-/* Action rows inside gradient */
-.dash-kpi-card .alert-action-row:hover{background:rgba(255,255,255,.1)}
-.dash-kpi-card .alert-action-dot{border:1.5px solid rgba(255,255,255,.3)}
-.dash-kpi-card .alert-action-cust{color:#fff}
-.dash-kpi-card .alert-action-text{color:rgba(255,255,255,.7)}
-@media(max-width:1100px){.alerts-top-panels{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:600px){.alerts-top-panels{grid-template-columns:1fr}}
+/* Alerts page — stat cards + detail row */
+.alerts-detail-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+@media(max-width:900px){.alerts-detail-row{grid-template-columns:1fr}}
+.alert-detail-card.card{padding:0;overflow:hidden}
+
+/* Alert detail cards — colored left accent + icon */
+.alert-detail-card{position:relative}
+.alert-detail-hdr{padding:12px 16px;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.alert-detail-hdr--mrr{background:linear-gradient(135deg,#7c3aed 0%,#a78bfa 100%)}
+.alert-detail-hdr--cat{background:linear-gradient(135deg,#0891b2 0%,#06b6d4 100%)}
+.alert-detail-hdr-left{display:flex;align-items:center;gap:8px}
+.alert-detail-hdr-icon{width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center}
+.alert-detail-hdr h3{font-size:.78rem;font-weight:600;margin:0;opacity:.9}
+.alert-detail-hdr-total{font-size:1.2rem;font-weight:800;line-height:1;letter-spacing:-.02em;text-align:right}
+.alert-detail-hdr-sub{font-size:.6rem;opacity:.75;margin-top:1px;text-align:right}
+.alert-detail-body{padding:10px 14px}
+.alert-detail-icon{width:28px;height:28px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+
+/* Alert summary pills (kept for compat) */
+.alert-sum-pill{display:inline-flex;align-items:center;padding:5px 12px;border-radius:100px;font-size:.73rem;font-weight:700;letter-spacing:.01em;cursor:pointer;transition:transform .15s,background .15s}
+.alert-sum-pill:hover{transform:translateY(-1px)}
+
+/* MRR rows in white card context */
+.alerts-detail-row .alert-mrr-row{padding:5px 8px;margin:0;border-radius:6px;transition:background .12s}
+.alerts-detail-row .alert-mrr-row:hover{background:var(--bg)}
+.alerts-detail-row .alert-mrr-dot{border:none}
+.alerts-detail-row .alert-mrr-label{color:var(--text);font-size:.75rem}
+.alerts-detail-row .alert-mrr-val{color:var(--text)}
+/* Category bars in white card context */
+.alerts-detail-row .alert-cat-row{padding:5px 8px;margin:0;border-radius:6px;transition:background .12s}
+.alerts-detail-row .alert-cat-row:hover{background:var(--bg)}
+.alerts-detail-row .alert-cat-name{color:var(--text);display:flex;align-items:center}
+.alerts-detail-row .alert-cat-count{color:var(--muted)}
+.alerts-detail-row .alert-cat-track{background:var(--border);height:6px;border-radius:6px}
+/* Empty state for detail cards */
+.alerts-detail-empty{font-size:.82rem;color:var(--muted);text-align:center;padding:20px 10px}
+/* Pagination controls */
+.pag-wrap{display:flex;align-items:center;justify-content:center;gap:4px;padding:10px 0;flex-wrap:wrap}
+.pag-btn{min-width:32px;height:32px;padding:0 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:.78rem;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;justify-content:center}
+.pag-btn:hover:not(.disabled):not(.active){background:var(--bg);border-color:var(--accent)}
+.pag-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.pag-btn.disabled{opacity:.35;cursor:default}
+.pag-ellipsis{font-size:.78rem;color:var(--muted);padding:0 4px}
+.pag-info{font-size:.72rem;color:var(--muted);margin-left:8px;font-weight:500}
 /* Alert score circle */
 .alert-score-circle{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:800;color:#fff;flex-shrink:0}
 /* Alert tier + meta chips */
 .alert-tier-chip{font-size:.62rem;font-weight:700;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
 .alert-meta-csm{font-size:.68rem;color:var(--muted);white-space:nowrap}
 .alert-meta-days{font-size:.68rem;color:var(--muted);white-space:nowrap}
-/* Alert KPI cells */
-.alert-kpi-cell{background:var(--bg);border-radius:12px;padding:18px 20px;border-left:4px solid var(--border)}
-.alert-kpi-click{cursor:pointer;transition:transform .15s,box-shadow .15s,background .15s}
-.alert-kpi-click:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.12)}
-.dash-kpi-card .alert-kpi-click:hover{background:rgba(255,255,255,.28);box-shadow:0 4px 14px rgba(0,0,0,.25)}
-.alert-kpi-cell.red{background:var(--red-l);border-left-color:#dc2626}
-.alert-kpi-cell.amber{background:var(--amber-l);border-left-color:#d97706}
-.alert-kpi-cell.blue{background:var(--blue-l);border-left-color:#2563eb}
-.alert-kpi-cell.green{background:var(--green-l);border-left-color:#16a34a}
-.alert-kpi-val{font-size:2rem;font-weight:800;color:var(--text);line-height:1}
-.alert-kpi-lbl{font-size:.72rem;color:var(--muted);margin-top:6px;font-weight:600}
 /* MRR exposure rows */
 .alert-mrr-row{display:flex;align-items:center;gap:10px;margin-bottom:13px}
 .alert-mrr-row:last-child{margin-bottom:0}
@@ -298,17 +303,33 @@ svg.sparkline{display:block}
 
 /* HOME BASE */
 /* Home Base Welcome Banner */
-.hb-welcome{background:linear-gradient(135deg,#f0f4ff 0%,#f5f0ff 50%,#f0faff 100%);border:1px solid color-mix(in srgb,var(--blue) 15%,var(--border));border-radius:var(--rlg);padding:28px 28px 22px;margin-bottom:20px;position:relative;overflow:hidden}
-.hb-welcome::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--blue),var(--purple),var(--teal));opacity:.85}
-.hb-welcome::after{content:'';position:absolute;top:-40px;right:-40px;width:180px;height:180px;background:radial-gradient(circle,rgba(37,99,235,.06) 0%,transparent 70%);border-radius:50%;pointer-events:none}
-.hb-greeting{font-size:1.5rem;font-weight:800;color:var(--text);letter-spacing:-.02em;line-height:1.2}
-.hb-date{font-size:.78rem;color:var(--muted);font-weight:500;margin-top:4px}
-.hb-summary{font-size:.88rem;color:var(--text);opacity:.75;line-height:1.6;margin-top:12px;max-width:680px}
+.hb-welcome{background:#fff;border:2px solid transparent;border-radius:var(--rlg);padding:32px 32px 28px;margin-bottom:20px;position:relative;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.06);background-clip:padding-box}
+.hb-welcome::before{content:'';position:absolute;inset:-2px;border-radius:inherit;padding:2px;background:linear-gradient(135deg,#3b82f6,#8b5cf6,#06b6d4,#10b981,#3b82f6);background-size:300% 300%;animation:hb-shimmer 4s linear infinite;-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+@keyframes hb-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.hb-welcome::after{content:'';position:absolute;top:-40px;right:-40px;width:250px;height:250px;background:radial-gradient(circle,rgba(99,102,241,.06) 0%,rgba(59,130,246,.03) 40%,transparent 70%);border-radius:50%;pointer-events:none}
+.hb-welcome-grid{display:grid;grid-template-columns:auto 1fr;gap:32px;align-items:center}
+.hb-welcome-left{min-width:0}
+.hb-welcome-right{display:flex;flex-direction:column;align-items:flex-start;gap:14px}
+.hb-greeting{font-size:1.7rem;font-weight:800;letter-spacing:-.03em;line-height:1.2;background:linear-gradient(135deg,#2563eb,#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hb-date{font-size:.76rem;color:var(--muted);font-weight:500;margin-top:5px;letter-spacing:.02em}
+.hb-summary{font-size:.86rem;color:var(--text);opacity:.75;line-height:1.6;margin-top:12px;max-width:600px}
 .hb-summary strong{color:var(--text);font-weight:700}
-.hb-brief-list{list-style:none;padding:0;margin:10px 0 0;display:flex;flex-direction:column;gap:6px;max-width:680px}
-.hb-brief-item{font-size:.82rem;color:var(--text);opacity:.8;line-height:1.5;padding:6px 10px 6px 22px;position:relative;cursor:pointer;border-radius:var(--rsm);transition:background .15s,opacity .15s}
-.hb-brief-item:hover{background:rgba(37,99,235,.06);opacity:1}
-.hb-brief-item::before{content:'\2022';position:absolute;left:8px;top:6px;color:var(--blue);font-weight:700;font-size:.9rem}
+.hb-brief-cards{display:flex;flex-direction:column;gap:6px;margin-top:14px}
+.hb-brief-card{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:background .15s,border-color .15s,transform .15s,box-shadow .15s}
+.hb-brief-card:hover{background:#f0f4ff;border-color:#c7d2fe;transform:translateX(3px);box-shadow:0 2px 8px rgba(99,102,241,.08)}
+.hb-brief-icon{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#eff6ff,#ede9fe);color:#6366f1;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hb-brief-text{flex:1;font-size:.79rem;color:var(--text);line-height:1.45}
+.hb-brief-arrow{color:var(--border);flex-shrink:0;transition:color .15s,transform .15s}
+.hb-brief-card:hover .hb-brief-arrow{color:#6366f1;transform:translateX(2px)}
+.hb-pulse-ring{position:relative;width:110px;height:110px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hb-pulse-ring svg{position:absolute;top:0;left:0;filter:drop-shadow(0 0 6px rgba(99,102,241,.2))}
+.hb-pulse-center{position:relative;z-index:1;text-align:center}
+.hb-pulse-num{font-size:1.8rem;font-weight:800;color:var(--heading);line-height:1;letter-spacing:-.03em}
+.hb-pulse-lbl{font-size:.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-top:2px;font-weight:600}
+.hb-quick-stats{display:grid;grid-template-columns:1fr 1fr;gap:4px 16px}
+.hb-qs{display:flex;flex-direction:column;align-items:center;gap:1px}
+.hb-qs-num{font-size:1.05rem;font-weight:800;line-height:1}
+.hb-qs-lbl{font-size:.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
 .hb-stats-bar{display:flex;gap:6px;flex-wrap:wrap;margin-top:16px}
 .hb-stat{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:8px 14px;transition:border-color .15s,box-shadow .15s}
 .hb-stat:hover{border-color:var(--blue-m);box-shadow:0 2px 8px rgba(0,0,0,.04)}
@@ -319,7 +340,8 @@ svg.sparkline{display:block}
 .hb-stat-delta{font-size:.68rem;font-weight:700;margin-left:2px}
 .hb-stat-delta .up{color:var(--green)}
 .hb-stat-delta .down{color:var(--red)}
-@media(max-width:600px){.hb-welcome{padding:20px 18px 16px}.hb-greeting{font-size:1.2rem}.hb-welcome::after{display:none}}
+@media(max-width:700px){.hb-welcome-grid{grid-template-columns:1fr;text-align:center}.hb-welcome-right{flex-direction:row;justify-content:center;gap:24px}.hb-brief-cards{align-items:stretch}}
+@media(max-width:480px){.hb-welcome{padding:22px 18px 18px}.hb-greeting{font-size:1.25rem}.hb-welcome::after{display:none}.hb-pulse-ring{width:80px;height:80px}.hb-pulse-ring svg{width:80px;height:80px}.hb-pulse-num{font-size:1.3rem}}
 
 .hb-movers-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
 @media(max-width:700px){.hb-movers-grid{grid-template-columns:1fr}}
@@ -611,11 +633,13 @@ svg.sparkline{display:block}
 .alert-summary-table td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
 .alert-summary-table tr:last-child td{border-bottom:none}
 .alert-summary-table tr:hover{background:var(--bg)}
+.sched-disabled td{opacity:.5}
+.sched-disabled td:first-child{text-decoration:line-through}
 .channel-pill{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:12px;font-size:.71rem;font-weight:600;background:rgba(59,130,246,.08);color:var(--blue);margin-right:4px;white-space:nowrap}
 /* Report cards */
-.rpt-section{margin-bottom:24px}
-.rpt-section-hd{display:flex;align-items:center;gap:8px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
-.rpt-section-hd h2{font-size:.9rem;font-weight:700;margin:0}
+.rpt-section{margin-bottom:28px}
+.rpt-section-hd{display:flex;flex-direction:column;gap:2px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.rpt-section-hd h2{font-size:.92rem;font-weight:700;margin:0}
 .rpt-section-hd .tier-badge{margin-left:auto}
 .rpt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
 .rpt-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--sh);position:relative;transition:box-shadow .18s,border-color .18s}
@@ -1173,6 +1197,193 @@ td .sparkline{vertical-align:middle}
 @media(max-width:900px){.cal-stats{grid-template-columns:repeat(2,1fr)}.cal-cell{height:80px;padding:4px 5px}.cal-pill{font-size:.55rem}}
 @media(max-width:500px){.cal-stats{grid-template-columns:1fr}}
 @media(max-width:600px){.cal-header{flex-direction:column;align-items:flex-start}.cal-legend{gap:10px}}
+
+/* ─── SITE-WIDE POLISH ─── */
+
+/* Selection color */
+::selection{background:rgba(37,99,235,.15);color:var(--text)}
+
+/* Global scrollbar styling */
+*{scrollbar-width:thin;scrollbar-color:rgba(148,163,184,.35) transparent}
+*::-webkit-scrollbar{width:6px;height:6px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background:rgba(148,163,184,.3);border-radius:100px}
+*::-webkit-scrollbar-thumb:hover{background:rgba(148,163,184,.55)}
+
+/* Smoother global transitions */
+a{transition:color .14s,opacity .14s}
+
+/* Better focus-visible rings for keyboard users */
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:4px}
+button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+
+/* Subtle card lift on hover site-wide */
+.card{transition:box-shadow .2s,border-color .2s,transform .2s}
+.card:hover{box-shadow:0 2px 8px rgba(0,0,0,.07)}
+
+/* Better stat-card micro-interaction */
+.stat-card{transition:box-shadow .22s cubic-bezier(.4,0,.2,1),transform .22s cubic-bezier(.4,0,.2,1),border-color .22s}
+
+/* Smoother table row transitions */
+.ct tbody tr{transition:background .12s ease}
+.ct tbody tr:hover{background:color-mix(in srgb, var(--blue) 4%, var(--bg))}
+.ct td{transition:border-color .12s}
+
+/* Table header refinement — subtle bottom gradient */
+.ct th{background:linear-gradient(180deg,var(--bg) 0%,color-mix(in srgb, var(--bg) 90%, var(--border)) 100%);border-bottom:2px solid var(--border)}
+
+/* Alternating row tinting for readability */
+.ct tbody tr:nth-child(even){background:color-mix(in srgb, var(--bg) 30%, var(--surface))}
+.ct tbody tr:nth-child(even):hover{background:color-mix(in srgb, var(--blue) 4%, var(--bg))}
+
+/* Alert summary table polish */
+.alert-summary-table tr{transition:background .12s}
+.alert-summary-table th{background:linear-gradient(180deg,var(--bg) 0%,color-mix(in srgb, var(--bg) 90%, var(--border)) 100%)}
+
+/* Heatmap table polish */
+.heatmap table tr{transition:background .1s}
+.heatmap tbody tr:hover{background:color-mix(in srgb, var(--blue) 3%, transparent)}
+
+/* Modal polish: smoother backdrop + slide-in */
+.modal-bg{transition:opacity .2s ease;opacity:0;pointer-events:none}
+.modal-bg.open{opacity:1;pointer-events:auto}
+.modal{transform:translateY(12px) scale(.98);transition:transform .25s cubic-bezier(.4,0,.2,1),opacity .2s ease;opacity:0}
+.modal-bg.open .modal{transform:translateY(0) scale(1);opacity:1}
+
+/* Modal close button refinement */
+.modal-close{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px;transition:background .15s,color .15s,transform .15s}
+.modal-close:hover{background:var(--red-l);color:var(--red);transform:scale(1.05)}
+
+/* Button press effect */
+.btn:active:not(:disabled){transform:translateY(0) scale(.97)}
+.btn-primary:active:not(:disabled){transform:translateY(0) scale(.97);box-shadow:0 1px 2px rgba(37,99,235,.2)}
+
+/* Smoother nav-item transitions */
+.nav-item{transition:color .18s ease,background .18s ease,padding-left .15s ease}
+.nav-item:hover{padding-left:14px}
+.nav-item.active{padding-left:14px}
+
+/* Sidebar bottom fade */
+.sidebar::after{content:'';position:absolute;bottom:0;left:0;right:0;height:32px;background:linear-gradient(transparent,#0f172a);pointer-events:none;border-radius:0 0 0 0}
+
+/* Toast refinement */
+.toast{border-radius:10px;backdrop-filter:blur(8px);font-size:.8rem;letter-spacing:-.01em;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+.toast.show{animation:toastSlideIn .28s cubic-bezier(.4,0,.2,1)}
+@keyframes toastSlideIn{from{opacity:0;transform:translateY(12px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+/* Search input polish */
+.search-box{transition:border-color .18s ease,box-shadow .18s ease,background .15s}
+.search-box:hover:not(:focus){border-color:var(--subtle)}
+
+/* Filter chip polish */
+.fchip{transition:all .16s ease;user-select:none}
+.fchip:active{transform:scale(.96)}
+
+/* Dropdown menu polish */
+.mgr-filter__dropdown{animation:dropdownIn .18s cubic-bezier(.4,0,.2,1)}
+.snooze-dd__menu.open{animation:dropdownIn .18s cubic-bezier(.4,0,.2,1)}
+.col-filter-menu.open{animation:dropdownIn .18s cubic-bezier(.4,0,.2,1)}
+@keyframes dropdownIn{from{opacity:0;transform:translateY(-6px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+/* Score ring animated via JS rAF + CSS transition (see .sr-fill transition rule) */
+
+/* Chart card polish */
+.chart-card{transition:box-shadow .2s,border-color .2s}
+.chart-card:hover{box-shadow:0 2px 10px rgba(0,0,0,.06);border-color:color-mix(in srgb, var(--blue) 15%, var(--border))}
+
+/* Report card richer hover */
+.rpt-card{transition:box-shadow .22s cubic-bezier(.4,0,.2,1),border-color .22s,transform .2s}
+.rpt-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.08);border-color:color-mix(in srgb, var(--blue) 25%, var(--border));transform:translateY(-2px)}
+
+/* Seg card hover improvement */
+.seg-card{transition:transform .2s cubic-bezier(.4,0,.2,1),box-shadow .2s,border-color .2s}
+
+/* Wizard step polish */
+.wizard-step__circle{transition:all .2s cubic-bezier(.4,0,.2,1)}
+.wizard-step__line{transition:background .35s ease}
+
+/* KPI card subtle inner glow */
+.dash-kpi-card{overflow:hidden}
+.dash-kpi-card::after{content:'';position:absolute;top:-40%;right:-20%;width:140px;height:140px;background:radial-gradient(circle,rgba(255,255,255,.12) 0%,transparent 70%);border-radius:50%;pointer-events:none}
+
+/* Playbook item hover */
+.play-item{transition:background .14s,transform .14s,box-shadow .14s}
+.play-item:hover{background:color-mix(in srgb, var(--blue) 3%, var(--bg));transform:translateX(3px);box-shadow:0 1px 4px rgba(0,0,0,.04)}
+
+/* Note item hover */
+.note-item{transition:background .14s,box-shadow .14s}
+.note-item:hover{background:color-mix(in srgb, var(--blue) 3%, var(--bg));box-shadow:0 1px 4px rgba(0,0,0,.04)}
+
+/* Priority card smoother */
+.priority-card{transition:box-shadow .18s cubic-bezier(.4,0,.2,1),border-color .18s,transform .18s}
+
+/* Badge count animation */
+.badge-count{transition:transform .2s cubic-bezier(.4,0,.2,1)}
+@keyframes badgePop{0%{transform:scale(1)}50%{transform:scale(1.2)}100%{transform:scale(1)}}
+
+/* Empty states consistency */
+.empty-st{border-radius:var(--rlg);background:color-mix(in srgb, var(--bg) 70%, var(--surface));border:1px dashed var(--border);transition:opacity .3s}
+.empty-st .ei{filter:grayscale(.3);transition:filter .2s}
+.empty-st:hover .ei{filter:grayscale(0)}
+
+/* Calendar cell hover */
+.cal-cell{transition:background .14s ease,box-shadow .14s}
+.cal-cell:hover:not(.cal-cell--empty){box-shadow:inset 0 0 0 2px color-mix(in srgb, var(--blue) 20%, transparent)}
+
+/* Toggle switch smooth */
+.toggle-slider{transition:background .25s cubic-bezier(.4,0,.2,1)}
+.toggle-slider::before{transition:transform .25s cubic-bezier(.4,0,.2,1),box-shadow .15s}
+.toggle-switch input:checked + .toggle-slider::before{box-shadow:0 1px 4px rgba(37,99,235,.3)}
+
+/* Page header subtlety */
+.page-hd h1{background:linear-gradient(135deg,var(--text) 0%,color-mix(in srgb, var(--text) 75%, var(--blue)) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+
+/* Weight row refined hover */
+.weight-row{transition:background .14s,transform .12s}
+.weight-row:hover{transform:translateX(2px)}
+
+/* Profile row polish */
+.profile-row{transition:box-shadow .18s,border-color .18s,background .14s,transform .14s}
+.profile-row:hover{transform:translateX(2px)}
+
+/* Print report styles */
+@media print{.page-hd h1{-webkit-text-fill-color:var(--text);background:none}}
+
+/* QBR Prep rich layout */
+.qbr-hdr{display:flex;gap:16px;align-items:center;padding:18px;background:linear-gradient(135deg,#f8fafc 0%,#f0f4ff 100%);border:1px solid var(--border);border-radius:var(--r);margin-bottom:18px}
+.qbr-score{width:72px;height:72px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-weight:800;flex-shrink:0;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.qbr-score-num{font-size:1.5rem;line-height:1}.qbr-score-lbl{font-size:.58rem;text-transform:uppercase;letter-spacing:.5px;opacity:.9;margin-top:2px}
+.qbr-meta h3{margin:0 0 4px;font-size:1.05rem;color:var(--heading)}.qbr-meta-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.qbr-tag{font-size:.68rem;padding:2px 9px;background:#fff;border:1px solid var(--border);border-radius:100px;color:var(--text);font-weight:500}
+.qbr-section{margin-bottom:18px}
+.qbr-section-title{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:7px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.qbr-summary{font-size:.82rem;color:var(--text);line-height:1.7;padding:12px 14px;background:linear-gradient(135deg,#f8fafc,#f0f4ff);border:1px solid var(--border);border-radius:var(--r)}
+.qbr-wins{display:grid;gap:2px}
+.qbr-win-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:6px;font-size:.8rem;color:var(--text)}
+.qbr-win-row:nth-child(odd){background:var(--bg)}
+.qbr-win-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:#16a34a}
+.qbr-risks{display:grid;gap:2px}
+.qbr-risk-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:6px;font-size:.8rem;color:var(--text)}
+.qbr-risk-row:nth-child(odd){background:var(--bg)}
+.qbr-risk-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.qbr-risk--high .qbr-risk-dot{background:#dc2626}
+.qbr-risk--med .qbr-risk-dot{background:#d97706}
+.qbr-agenda{display:grid;gap:6px}
+.qbr-agenda-item{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border-radius:var(--r);border:1px solid var(--border);background:#fff}
+.qbr-agenda-num{width:26px;height:26px;border-radius:50%;background:var(--blue);color:#fff;font-size:.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.qbr-agenda-body{flex:1;min-width:0}
+.qbr-agenda-topic{font-weight:700;font-size:.82rem;color:var(--heading)}
+.qbr-agenda-time{font-weight:500;font-size:.68rem;color:var(--muted);margin-left:6px}
+.qbr-agenda-detail{font-size:.76rem;color:var(--muted);line-height:1.5;margin-top:3px}
+.qbr-questions{display:grid;gap:2px}
+.qbr-q-row{display:flex;align-items:flex-start;gap:10px;padding:7px 10px;border-radius:6px;font-size:.8rem;color:var(--text)}
+.qbr-q-row:nth-child(odd){background:var(--bg)}
+.qbr-q-bullet{width:20px;height:20px;border-radius:50%;background:var(--blue)0f;color:var(--blue);font-size:.7rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.qbr-notes{display:grid;gap:8px}
+.qbr-note{padding:8px 12px;border-left:3px solid var(--blue);background:var(--bg);border-radius:0 6px 6px 0;font-size:.78rem;color:var(--text);line-height:1.5}
+.qbr-note-date{font-size:.66rem;color:var(--muted);font-weight:600;margin-bottom:2px;text-transform:uppercase;letter-spacing:.3px}
+.qbr-footer{text-align:center;font-size:.64rem;color:var(--muted);padding-top:10px;border-top:1px solid var(--border);margin-top:8px}
+@media(max-width:600px){.qbr-hdr{flex-direction:column;text-align:center}.qbr-meta-tags{justify-content:center}}
 </style>
 </head>
 <body>
@@ -1358,51 +1569,82 @@ td .sparkline{vertical-align:middle}
     <div><h1>Alerts</h1><p>Accounts that need your attention</p></div>
   </div>
 
-  <!-- 4 stat widgets across the top -->
-  <div class="alerts-top-panels">
+  <!-- Alert KPI cards -->
+  <div class="dash-kpi-row" id="alert-stat-grid">
+    <div class="dash-kpi-card dash-kpi-indigo" style="cursor:pointer" onclick="filterByAlertKpi('all')">
+      <div class="dash-kpi-top">
+        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
+        <span class="dash-kpi-label">Active Alerts</span>
+      </div>
+      <div class="dash-kpi-num" id="akpi-total">—</div>
+      <div class="dash-kpi-sub" id="akpi-total-sub">active alerts</div>
+    </div>
+    <div class="dash-kpi-card dash-kpi-red" style="cursor:pointer" onclick="filterByAlertKpi('critical')">
+      <div class="dash-kpi-top">
+        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+        <span class="dash-kpi-label">Critical / Risk</span>
+      </div>
+      <div class="dash-kpi-num" id="akpi-critical">—</div>
+      <div class="dash-kpi-sub" id="akpi-critical-sub">health alerts</div>
+    </div>
+    <div class="dash-kpi-card dash-kpi-amber" style="cursor:pointer" onclick="filterByAlertKpi('mrr')">
+      <div class="dash-kpi-top">
+        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+        <span class="dash-kpi-label">MRR Exposed</span>
+      </div>
+      <div class="dash-kpi-num" id="akpi-mrr">—</div>
+      <div class="dash-kpi-sub" id="akpi-mrr-sub">at risk</div>
+    </div>
+    <div class="dash-kpi-card dash-kpi-purple" style="cursor:pointer" onclick="filterByAlertKpi('accounts')">
+      <div class="dash-kpi-top">
+        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+        <span class="dash-kpi-label">Accounts</span>
+      </div>
+      <div class="dash-kpi-num" id="akpi-accounts">—</div>
+      <div class="dash-kpi-sub" id="akpi-acct-pct">affected</div>
+    </div>
+    <div class="dash-kpi-card dash-kpi-cyan" style="cursor:pointer" onclick="filterByAlertKpi('snoozed')">
+      <div class="dash-kpi-top">
+        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <span class="dash-kpi-label">Snoozed</span>
+      </div>
+      <div class="dash-kpi-num" id="akpi-snoozed">—</div>
+      <div class="dash-kpi-sub" id="akpi-snoozed-sub">paused</div>
+    </div>
+  </div>
 
-    <!-- Alert Summary KPIs -->
-    <div class="dash-kpi-card dash-kpi-indigo">
-      <div class="alert-panel-title">Alert Summary <span class="info-tip" data-tip="Overview of active alerts across your book. Includes critical/risk accounts, upcoming renewals, and snoozed items.">ⓘ</span></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px" id="alert-kpi-grid">
-        <div class="alert-kpi-cell alert-kpi-click" id="akpi-total" onclick="filterByAlertKpi('total')">
-          <div class="alert-kpi-val">—</div>
-          <div class="alert-kpi-lbl">Total Active</div>
+  <!-- MRR Exposure + Category breakdown -->
+  <div class="alerts-detail-row">
+    <div class="card alert-detail-card">
+      <div class="alert-detail-hdr alert-detail-hdr--mrr">
+        <div class="alert-detail-hdr-left">
+          <div class="alert-detail-hdr-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+          <h3>MRR Exposure</h3>
         </div>
-        <div class="alert-kpi-cell red alert-kpi-click" id="akpi-critical" onclick="filterByAlertKpi('critical')">
-          <div class="alert-kpi-val">—</div>
-          <div class="alert-kpi-lbl">Critical / Risk</div>
-        </div>
-        <div class="alert-kpi-cell blue alert-kpi-click" id="akpi-renewal" onclick="filterByAlertKpi('renewal')">
-          <div class="alert-kpi-val">—</div>
-          <div class="alert-kpi-lbl">Renewing ≤60d</div>
-        </div>
-        <div class="alert-kpi-cell amber alert-kpi-click" id="akpi-snoozed" onclick="filterByAlertKpi('snoozed')">
-          <div class="alert-kpi-val">—</div>
-          <div class="alert-kpi-lbl">Snoozed</div>
+        <div>
+          <div class="alert-detail-hdr-total" id="alert-mrr-total">$0</div>
+          <div class="alert-detail-hdr-sub">total at risk</div>
         </div>
       </div>
+      <div class="alert-detail-body" id="alert-mrr-wrap"></div>
     </div>
-
-    <!-- MRR Exposure -->
-    <div class="dash-kpi-card dash-kpi-rose">
-      <div class="alert-panel-title">MRR Exposure <span class="info-tip" data-tip="Monthly recurring revenue at risk from accounts in Critical or At Risk health bands.">ⓘ</span></div>
-      <div id="alert-mrr-wrap"></div>
+    <div class="card alert-detail-card">
+      <div class="alert-detail-hdr alert-detail-hdr--cat">
+        <div class="alert-detail-hdr-left">
+          <div class="alert-detail-hdr-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></div>
+          <h3>Alerts by Category</h3>
+        </div>
+        <div>
+          <div class="alert-detail-hdr-total" id="alert-cat-total">0</div>
+          <div class="alert-detail-hdr-sub">active alerts</div>
+        </div>
+      </div>
+      <div class="alert-detail-body" id="alert-cat-wrap"></div>
     </div>
-
-    <!-- By Category -->
-    <div class="dash-kpi-card dash-kpi-cyan">
-      <div class="alert-panel-title">By Category <span class="info-tip" data-tip="Alert breakdown by type: health drops, upcoming renewals, overdue contacts, and NPS changes.">ⓘ</span></div>
-      <div id="alert-cat-wrap"></div>
-    </div>
-
-    <!-- Priority Actions -->
-    <div class="dash-kpi-card dash-kpi-violet">
-      <div class="alert-panel-title">Priority Actions <span class="info-tip" data-tip="Top recommended actions based on alert urgency. Click a customer to open their detail view.">ⓘ</span></div>
-      <div id="alert-actions-wrap"></div>
-    </div>
-
   </div>
+
+  <!-- Alert Insights (below widgets, same style as Trends analysis) -->
+  <div id="alert-insights-wrap" style="margin-bottom:16px"></div>
 
   <!-- Sticky toolbar: view toggle + action buttons -->
   <div class="alert-sticky-bar" id="alert-sticky-bar">
@@ -1523,6 +1765,7 @@ td .sparkline{vertical-align:middle}
         <div class="alert-view-toggle" id="seg-view-toggle">
           <button class="alert-view-btn active" id="seg-view-segments" onclick="toggleSegView('segments')">Segments</button>
           <button class="alert-view-btn" id="seg-view-tiers" onclick="toggleSegView('tiers')">Tiers</button>
+          <button class="alert-view-btn" id="seg-view-stage" onclick="toggleSegView('stage')">Stage</button>
         </div>
       </div>
       <div class="trend-ctrl-sep"></div>
@@ -1543,9 +1786,13 @@ td .sparkline{vertical-align:middle}
     <div style="display:flex;align-items:center;gap:12px;margin:0 0 18px">
       <span style="font-size:.82rem;font-weight:700;color:var(--text);letter-spacing:.02em;white-space:nowrap">Date Range</span>
       <div class="dtab-row trend-range-bar" style="margin:0" id="seg-chart-range-row">
+        <button class="dtab" data-range="7d" onclick="setSegChartRange('7d')">7 Days</button>
         <button class="dtab" data-range="30d" onclick="setSegChartRange('30d')">30 Days</button>
-        <button class="dtab active" data-range="60d" onclick="setSegChartRange('60d')">60 Days</button>
-        <button class="dtab" data-range="90d" onclick="setSegChartRange('90d')">90 Days</button>
+        <button class="dtab active" data-range="90d" onclick="setSegChartRange('90d')">90 Days</button>
+        <button class="dtab" data-range="6m" onclick="setSegChartRange('6m')">6 Months</button>
+        <button class="dtab" data-range="1y" onclick="setSegChartRange('1y')">1 Year</button>
+        <button class="dtab" data-range="2y" onclick="setSegChartRange('2y')">2 Years</button>
+        <button class="dtab" data-range="ytd" onclick="setSegChartRange('ytd')">YTD</button>
       </div>
     </div>
     <div id="seg-chart-pills" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
@@ -1601,7 +1848,6 @@ td .sparkline{vertical-align:middle}
     </div>
     <div class="trend-ctrl-sep"></div>
     <div class="trend-ctrl-group">
-      <span class="trend-ctrl-label">Breakdown <span class="trend-ctrl-hint">(primary metric)</span></span>
       <select id="trend-csm-overlay" onchange="setTrendCsmOverlay(this.value)">
         <option value="">No CSM Overlay</option>
       </select>
@@ -1708,7 +1954,13 @@ td .sparkline{vertical-align:middle}
     <div id="reports-wrap"></div>
   </div>
   <div class="dtab-pane" id="rpt-pane-schedules">
-    <div id="scheduled-reports-container"></div>
+    <div class="card" style="max-width:100%">
+      <div class="card-hd">
+        <h2>Scheduled Reports</h2>
+        <span id="sched-active-badge" class="badge-count" style="font-size:.75rem;padding:2px 10px;border-radius:12px;background:rgba(59,130,246,.1);color:var(--blue);font-weight:700"></span>
+      </div>
+      <div id="scheduled-reports-container"></div>
+    </div>
   </div>
 </div><!-- /reports -->
 
@@ -2080,7 +2332,7 @@ td .sparkline{vertical-align:middle}
   <!-- Activity Log pane -->
   <div class="dtab-pane active" id="audit-pane-activity">
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
-      <select id="audit-filter-action" onchange="renderAuditLog()" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.8rem;font-family:var(--font);color:var(--text);background:var(--surface)">
+      <select id="audit-filter-action" onchange="_pagState.auditLog=0;renderAuditLog()" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.8rem;font-family:var(--font);color:var(--text);background:var(--surface)">
         <option value="all">All Actions</option>
         <optgroup label="Customers">
           <option value="customer_created">Customer Created</option>
@@ -2113,6 +2365,7 @@ td .sparkline{vertical-align:middle}
     </div>
     <div class="card">
       <div id="audit-loading" style="text-align:center;padding:32px;color:var(--muted);font-size:.85rem">Loading audit log…</div>
+      <div id="audit-pag-top"></div>
       <table class="ct" id="audit-table" style="display:none">
         <thead><tr>
           <th>Time</th>
@@ -2128,8 +2381,9 @@ td .sparkline{vertical-align:middle}
         <h3 style="margin-bottom:4px">No audit entries yet</h3>
         <p style="font-size:.85rem">Actions you take will be recorded here automatically.</p>
       </div>
+      <div id="audit-pag-bot"></div>
       <div id="audit-pagination" style="display:none;padding:14px 0 4px;text-align:center">
-        <button class="btn btn-sm btn-ghost" id="audit-load-more" onclick="loadMoreAudit()">Load more…</button>
+        <button class="btn btn-sm btn-ghost" id="audit-load-more" onclick="loadMoreAudit()">Load more from server…</button>
       </div>
     </div>
   </div>
@@ -2222,7 +2476,7 @@ td .sparkline{vertical-align:middle}
       <div class="card-hd">
         <h2>Event Log</h2>
         <div style="display:flex;gap:8px;align-items:center">
-          <select id="auto-log-filter" onchange="renderWebhookLog()" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.78rem;font-family:var(--font);color:var(--text);background:var(--surface)">
+          <select id="auto-log-filter" onchange="_pagState.webhookLog=0;renderWebhookLog()" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.78rem;font-family:var(--font);color:var(--text);background:var(--surface)">
             <option value="all">All Events</option>
             <option value="outbound">Outbound Only</option>
             <option value="inbound">Inbound Only</option>
@@ -2231,6 +2485,7 @@ td .sparkline{vertical-align:middle}
         </div>
       </div>
       <div id="auto-log-loading" style="text-align:center;padding:32px;color:var(--muted);font-size:.85rem">Loading event log…</div>
+      <div id="auto-log-pag-top"></div>
       <table class="ct" id="auto-log-table" style="display:none">
         <thead><tr>
           <th>Time</th>
@@ -2247,8 +2502,9 @@ td .sparkline{vertical-align:middle}
         <h3 style="margin-bottom:4px">No webhook events yet</h3>
         <p style="font-size:.85rem">Events will appear here when webhooks fire or API calls are received.</p>
       </div>
+      <div id="auto-log-pag-bot"></div>
       <div id="auto-log-pagination" style="display:none;padding:14px 0 4px;text-align:center">
-        <button class="btn btn-sm btn-ghost" onclick="loadMoreWebhookLog()">Load more…</button>
+        <button class="btn btn-sm btn-ghost" onclick="loadMoreWebhookLog()">Load more from server…</button>
       </div>
     </div>
   </div>
@@ -2975,18 +3231,18 @@ td .sparkline{vertical-align:middle}
 
 <!-- QBR PREP MODAL -->
 <div class="modal-bg" id="qbr-modal">
-  <div class="modal" style="max-width:680px">
+  <div class="modal" style="max-width:720px">
     <div class="modal-hd">
-      <div><h2>QBR Prep — <span id="qbr-title">—</span></h2><p style="font-size:.78rem;color:var(--muted);margin-top:2px">Copy and paste into your deck, email, or doc</p></div>
-      <button class="modal-close" onclick="closeModal('qbr-modal')">✕</button>
+      <div><h2 style="display:flex;align-items:center;gap:8px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>QBR Prep</h2><p style="font-size:.78rem;color:var(--muted);margin-top:2px">Review, copy, or print for your next quarterly business review</p></div>
+      <button class="modal-close" onclick="closeQBR()">✕</button>
     </div>
-    <div style="display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap">
-      <button class="btn btn-primary btn-sm" onclick="copyQBR()">Copy to Clipboard</button>
-      <button class="btn btn-ghost btn-sm" onclick="printQBR()">Print</button>
+    <div style="display:flex;gap:7px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" onclick="copyQBR()" style="display:flex;align-items:center;gap:5px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy Plain Text</button>
+      <button class="btn btn-ghost btn-sm" onclick="printQBR()" style="display:flex;align-items:center;gap:5px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Print</button>
     </div>
-    <div id="qbr-content" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:18px;font-size:.82rem;line-height:1.7;white-space:pre-wrap;font-family:'Courier New',monospace;max-height:60vh;overflow-y:auto;color:var(--text)"></div>
+    <div id="qbr-content" style="max-height:62vh;overflow-y:auto;padding:2px"></div>
     <div class="modal-ft">
-      <button class="btn btn-ghost btn-sm" onclick="closeModal('qbr-modal')">Close</button>
+      <button class="btn btn-ghost btn-sm" onclick="closeQBR()">Close</button>
     </div>
   </div>
 </div>
@@ -3141,6 +3397,6 @@ td .sparkline{vertical-align:middle}
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=241"></script>
+<script src="js/app.js?v=286"></script>
 </body>
 </html>

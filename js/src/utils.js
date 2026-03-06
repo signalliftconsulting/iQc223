@@ -45,6 +45,7 @@ function openModal(id) {
 // Close modal on backdrop click
 document.addEventListener('click', e => {
   if (e.target.classList.contains('modal-bg')) {
+    if (e.target.id === 'qbr-modal' && typeof closeQBR === 'function') { closeQBR(); return; }
     e.target.classList.remove('open');
   }
   // Close preset dropdown on outside click

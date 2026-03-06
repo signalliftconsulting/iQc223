@@ -150,6 +150,8 @@ function renderAuditLog() {
   const table = document.getElementById('audit-table');
   const tbody = document.getElementById('audit-tbody');
   const empty = document.getElementById('audit-empty');
+  const pagTop = document.getElementById('audit-pag-top');
+  const pagBot = document.getElementById('audit-pag-bot');
   if (!tbody) return;
 
   // Apply filter
@@ -161,13 +163,22 @@ function renderAuditLog() {
   if (filtered.length === 0) {
     table.style.display = 'none';
     empty.style.display = 'block';
+    if (pagTop) pagTop.innerHTML = '';
+    if (pagBot) pagBot.innerHTML = '';
     return;
   }
 
   table.style.display = '';
   empty.style.display = 'none';
 
-  tbody.innerHTML = filtered.map(e => {
+  // Paginate
+  const pg = _pagGet('auditLog');
+  const slice = filtered.slice(pg * PAGE_SIZE, (pg + 1) * PAGE_SIZE);
+  const pagNav = _pagHTML(filtered.length, 'auditLog', 'renderAuditLog');
+  if (pagTop) pagTop.innerHTML = pagNav;
+  if (pagBot) pagBot.innerHTML = pagNav;
+
+  tbody.innerHTML = slice.map(e => {
     const dt   = new Date(e.created_at);
     const time = dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const label = AUDIT_ACTION_LABELS[e.action] || e.action;

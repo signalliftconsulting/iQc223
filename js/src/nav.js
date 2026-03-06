@@ -88,6 +88,11 @@ function nav(v) {
   if (v !== 'score') {
     document.getElementById('score-form').dataset.editId = '';
     document.getElementById('form-title').textContent = 'Score a Customer';
+    // Return to customer detail modal if rescore was opened from there
+    if (typeof _returnToDetail !== 'undefined' && _returnToDetail) {
+      const rid = _returnToDetail; _returnToDetail = '';
+      setTimeout(() => openDetail(rid), 80);
+    }
   }
 
   if (v === 'homebase')  renderHomeBase();
@@ -103,6 +108,20 @@ function nav(v) {
   if (v === 'automations') renderAutomations();
   if (v === 'users')     renderUsers();
   if (v === 'clients')   renderClients();
+}
+
+/* Refresh the currently active page (used after saving from detail modal) */
+function refreshCurrentPage() {
+  const v = document.querySelector('.view.active');
+  if (!v) return;
+  const id = (v.id || '').replace('view-', '');
+  if (id === 'homebase')  renderHomeBase();
+  if (id === 'alerts')    renderAlerts();
+  if (id === 'customers') renderCustomers();
+  if (id === 'segments')  renderSegments();
+  if (id === 'trends')    renderTrends();
+  if (id === 'csmperf')   renderCSMPerformance();
+  if (id === 'calendar')  renderCalendar();
 }
 
 // ─── NOTIFICATION BELL (v86) ───────────────────────────────────
