@@ -389,6 +389,12 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='customers' AND column_name='renewal_date') THEN
+    ALTER TABLE customers ADD COLUMN renewal_date TEXT DEFAULT '';
+  END IF;
+END $$;
+
 
 -- ─────────────────────────────────────────────────────────────────
 -- 10. INTEGRATIONS TABLE (native Stripe/HubSpot connections)

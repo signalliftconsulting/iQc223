@@ -658,7 +658,8 @@ function fromRow(row) {
     touch_history:      tryParse(row.touch_history, []),
     external_id:        row.external_id        || '',
     stripe_customer_id: row.stripe_customer_id || '',
-    hubspot_company_id: row.hubspot_company_id || ''
+    hubspot_company_id: row.hubspot_company_id || '',
+    renewal_date:       row.renewal_date       || ''
   };
 }
 
@@ -18242,6 +18243,7 @@ const APP_FIELDS = {
   external_id:         { label:'External ID',          required:false },
   stripe_customer_id:  { label:'Stripe Customer ID',   required:false },
   hubspot_company_id:  { label:'HubSpot Company ID',   required:false },
+  renewal_date:        { label:'Renewal Date',          required:false },
   note:                { label:'Note',                  required:false },
   sentiment:           { label:'Sentiment',             required:false }
 };

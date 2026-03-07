@@ -171,7 +171,7 @@ serve(async (req) => {
     // Load all existing customers for this client
     const { data: customers } = await serviceClient
       .from('customers')
-      .select('id, name, mrr, tier, growth, stripe_customer_id, external_id')
+      .select('id, name, mrr, arr, tier, growth, tags, stripe_customer_id, external_id, renewal_date, renewal')
       .eq('client_id', clientId)
       .is('deleted_at', null);
 
@@ -208,14 +208,48 @@ serve(async (req) => {
       stats.matched++;
 
       const newMrr = Math.round(calculateMRR(sub));
+      const newArr = newMrr * 12;
       const newTier = detectTier(sub);
       const newGrowth = detectGrowth(newMrr, match.mrr || 0);
+
+      // Renewal date from current_period_end
+      const periodEnd = sub.current_period_end;
+      const newRenewalDate = periodEnd ? new Date(periodEnd * 1000).toISOString().split('T')[0] : '';
+
+      // Billing interval tag (monthly, annual, etc.)
+      const firstItem = sub.items?.data?.[0]?.price?.recurring;
+      const interval = firstItem?.interval || '';
+      const intervalCount = firstItem?.interval_count || 1;
+      let billingTag = '';
+      if (interval === 'month' && intervalCount === 1) billingTag = 'monthly';
+      else if (interval === 'month' && intervalCount === 3) billingTag = 'quarterly';
+      else if (interval === 'year') billingTag = 'annual';
+      else if (interval === 'week') billingTag = 'weekly';
+      else if (interval) billingTag = `${intervalCount}-${interval}`;
 
       // Only update if something changed
       const changes: any = {};
       if (newMrr !== (match.mrr || 0)) changes.mrr = newMrr;
+      if (newArr !== (match.arr || 0)) changes.arr = newArr;
       if (newTier && newTier !== match.tier) changes.tier = newTier;
       if (newGrowth !== match.growth) changes.growth = newGrowth;
+      if (newRenewalDate && newRenewalDate !== (match.renewal_date || '')) {
+        changes.renewal_date = newRenewalDate;
+        // Calculate months to renewal
+        const msToRenewal = new Date(newRenewalDate).getTime() - Date.now();
+        changes.renewal = Math.max(0, Math.round(msToRenewal / (1000 * 60 * 60 * 24 * 30.44)));
+      }
+
+      // Add billing interval tag if not already present
+      if (billingTag) {
+        const existingTags = (match.tags || '').split(',').map((t: string) => t.trim()).filter(Boolean);
+        const billingTags = ['monthly', 'quarterly', 'annual', 'weekly'];
+        const cleaned = existingTags.filter((t: string) => !billingTags.includes(t.toLowerCase()));
+        cleaned.push(billingTag);
+        const newTagStr = cleaned.join(',');
+        if (newTagStr !== (match.tags || '')) changes.tags = newTagStr;
+      }
+
       if (stripeCustomerId && stripeCustomerId !== match.stripe_customer_id) {
         changes.stripe_customer_id = stripeCustomerId;
       }

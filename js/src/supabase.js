@@ -216,7 +216,8 @@ function fromRow(row) {
     touch_history:      tryParse(row.touch_history, []),
     external_id:        row.external_id        || '',
     stripe_customer_id: row.stripe_customer_id || '',
-    hubspot_company_id: row.hubspot_company_id || ''
+    hubspot_company_id: row.hubspot_company_id || '',
+    renewal_date:       row.renewal_date       || ''
   };
 }
 
