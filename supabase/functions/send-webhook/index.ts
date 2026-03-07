@@ -12,6 +12,8 @@ const ALLOWED_ORIGINS = [
   'https://iqcadence.pages.dev',
   'https://iqcadence.com',
   'https://www.iqcadence.com',
+  'https://iqc223.com',
+  'https://www.iqc223.com',
 ];
 
 function getCorsHeaders(req: Request) {

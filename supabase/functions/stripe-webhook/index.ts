@@ -76,7 +76,7 @@ function detectTier(subscription: any): string | null {
 }
 
 serve(async (req) => {
-  // Stripe webhooks are POST only, no CORS needed
+  // Stripe webhooks are POST only, no CORS needed (no origin list needed here)
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
@@ -170,7 +170,7 @@ serve(async (req) => {
 
     if (!customer) {
       // Log skipped event
-      await serviceClient.from('webhook_events').insert({
+      try { await serviceClient.from('webhook_events').insert({
         user_id: integration.config?.user_id || '00000000-0000-0000-0000-000000000000',
         direction: 'inbound',
         event_type: `stripe_webhook_${eventType}`,
@@ -178,7 +178,7 @@ serve(async (req) => {
         status: 'success',
         status_code: 200,
         customer_name: 'unmatched'
-      }).catch(() => {});
+      }); } catch(_) {}
 
       return new Response(JSON.stringify({ received: true, matched: false }), { status: 200 });
     }
@@ -219,7 +219,7 @@ serve(async (req) => {
     }
 
     // Log event
-    await serviceClient.from('webhook_events').insert({
+    try { await serviceClient.from('webhook_events').insert({
       user_id: integration.config?.user_id || '00000000-0000-0000-0000-000000000000',
       direction: 'inbound',
       event_type: `stripe_webhook_${eventType}`,
@@ -228,7 +228,7 @@ serve(async (req) => {
       status_code: 200,
       customer_id: customer.id,
       customer_name: customer.name
-    }).catch(() => {});
+    }); } catch(_) {}
 
     return new Response(JSON.stringify({
       received: true,
@@ -239,14 +239,14 @@ serve(async (req) => {
 
   } catch (err) {
     // Log error
-    await serviceClient.from('webhook_events').insert({
+    try { await serviceClient.from('webhook_events').insert({
       user_id: '00000000-0000-0000-0000-000000000000',
       direction: 'inbound',
       event_type: 'stripe_webhook_error',
       payload: JSON.stringify({ error: err.message }),
       status: 'failed',
       error_msg: err.message
-    }).catch(() => {});
+    }); } catch(_) {}
 
     return new Response(JSON.stringify({ error: err.message }), { status: 400 });
   }

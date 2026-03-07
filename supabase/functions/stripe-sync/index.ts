@@ -12,6 +12,8 @@ const ALLOWED_ORIGINS = [
   'https://iqcadence.pages.dev',
   'https://iqcadence.com',
   'https://www.iqcadence.com',
+  'https://iqc223.com',
+  'https://www.iqc223.com',
 ];
 
 function getCorsHeaders(req: Request) {
@@ -239,14 +241,14 @@ serve(async (req) => {
       .eq('platform', 'stripe');
 
     // Log event
-    await serviceClient.from('webhook_events').insert({
+    try { await serviceClient.from('webhook_events').insert({
       user_id: user.id,
       direction: 'inbound',
       event_type: 'stripe_sync',
       payload: JSON.stringify({ stats, updates: updates.map(u => ({ name: u.name, ...u.changes })) }),
       status: 'success',
       status_code: 200
-    }).catch(() => {});
+    }); } catch(_) {}
 
     return new Response(JSON.stringify({
       success: true,

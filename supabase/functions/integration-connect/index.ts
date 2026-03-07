@@ -12,6 +12,8 @@ const ALLOWED_ORIGINS = [
   'https://iqcadence.pages.dev',
   'https://iqcadence.com',
   'https://www.iqcadence.com',
+  'https://iqc223.com',
+  'https://www.iqc223.com',
 ];
 
 function getCorsHeaders(req: Request) {
@@ -124,7 +126,7 @@ serve(async (req) => {
       const secretDesc = `${platform} API key for client ${clientId}`;
 
       // Delete any existing secret with this name first
-      await serviceClient.rpc('vault_delete_secret_by_name', { secret_name: secretName }).catch(() => {});
+      try { await serviceClient.rpc('vault_delete_secret_by_name', { secret_name: secretName }); } catch(_) {}
 
       // Create new secret
       const { data: secretData, error: vaultError } = await serviceClient
@@ -171,14 +173,14 @@ serve(async (req) => {
       }
 
       // Log event
-      await serviceClient.from('webhook_events').insert({
+      try { await serviceClient.from('webhook_events').insert({
         user_id: user.id,
         direction: 'inbound',
         event_type: `${platform}_connected`,
         payload: JSON.stringify({ platform, account_name: validationResult.name || '' }),
         status: 'success',
         status_code: 200
-      }).catch(() => {});
+      }); } catch(_) {}
 
       return new Response(JSON.stringify({
         success: true,
@@ -201,7 +203,7 @@ serve(async (req) => {
       if (existing?.vault_secret_id) {
         // Delete from Vault
         const secretName = `${platform}_key_${clientId}`;
-        await serviceClient.rpc('vault_delete_secret_by_name', { secret_name: secretName }).catch(() => {});
+        try { await serviceClient.rpc('vault_delete_secret_by_name', { secret_name: secretName }); } catch(_) {}
       }
 
       // Update status
@@ -217,14 +219,14 @@ serve(async (req) => {
         }, { onConflict: 'client_id,platform' });
 
       // Log event
-      await serviceClient.from('webhook_events').insert({
+      try { await serviceClient.from('webhook_events').insert({
         user_id: user.id,
         direction: 'inbound',
         event_type: `${platform}_disconnected`,
         payload: JSON.stringify({ platform }),
         status: 'success',
         status_code: 200
-      }).catch(() => {});
+      }); } catch(_) {}
 
       return new Response(JSON.stringify({
         success: true,
