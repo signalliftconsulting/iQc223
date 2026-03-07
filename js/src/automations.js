@@ -86,7 +86,8 @@ function helpSearch() {
 function helpTab(t) {
   document.querySelectorAll('#view-help .dtab').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('#view-help .dtab-pane').forEach(p => p.classList.remove('active'));
-  const btn = [...document.querySelectorAll('#view-help .dtab')].find(b => b.textContent.trim().toLowerCase().includes(t));
+  const btn = document.querySelector('#view-help .dtab[data-htab="' + t + '"]')
+           || [...document.querySelectorAll('#view-help .dtab')].find(b => b.textContent.trim().toLowerCase().includes(t));
   if (btn) btn.classList.add('active');
   const pane = document.getElementById('help-pane-' + t);
   if (pane) pane.classList.add('active');
@@ -186,38 +187,38 @@ const CHANNELS = [
     key: 'slack', label: 'Slack', icon: _aico(AUTO_ICONS.slack),
     desc: 'Post alerts to a Slack channel via Incoming Webhook.',
     inputType: 'url', placeholder: 'https://hooks.slack.com/services/T.../B.../xxxx',
-    setup: `<ol style="margin:6px 0 0 18px;font-size:.76rem;line-height:1.6;color:var(--muted)">
+    setup: `<ol style="margin:6px 0 0 18px;font-size:var(--fs-sm);line-height:1.6;color:var(--muted)">
       <li>Go to <a href="https://api.slack.com/apps" target="_blank" rel="noopener" style="color:var(--blue)">api.slack.com/apps</a> and click <strong>Create New App</strong> → choose <strong>From Scratch</strong></li>
       <li>Name your app (e.g. "iQcadence Alerts") and select your workspace, then click <strong>Create App</strong></li>
       <li>In the left sidebar, click <strong>Incoming Webhooks</strong> and toggle <strong>Activate Incoming Webhooks</strong> to <strong>On</strong></li>
       <li>Scroll down and click <strong>Add New Webhook to Workspace</strong></li>
       <li>Select the channel where alerts should post (e.g. #cs-alerts) and click <strong>Allow</strong></li>
-      <li>Copy the <strong>Webhook URL</strong> (starts with <code style="font-size:.7rem;background:var(--bg);padding:1px 4px;border-radius:3px">https://hooks.slack.com/services/...</code>) and paste it above</li>
+      <li>Copy the <strong>Webhook URL</strong> (starts with <code style="font-size:var(--fs-sm);background:var(--bg);padding:1px 4px;border-radius:3px">https://hooks.slack.com/services/...</code>) and paste it above</li>
       <li>Click <strong>Send Test</strong> below to verify — you should see a test message appear in your channel</li>
     </ol>
-    <p style="margin:8px 0 0;font-size:.72rem;color:var(--subtle)"><strong>Tip:</strong> You can customize the bot name and icon in your Slack app settings under <strong>Basic Information</strong> → <strong>Display Information</strong>. Alerts will include customer name, score, status, and the triggering event.</p>`
+    <p style="margin:8px 0 0;font-size:var(--fs-sm);color:var(--subtle)"><strong>Tip:</strong> You can customize the bot name and icon in your Slack app settings under <strong>Basic Information</strong> → <strong>Display Information</strong>. Alerts will include customer name, score, status, and the triggering event.</p>`
   },
   {
     key: 'teams', label: 'Microsoft Teams', icon: _aico(AUTO_ICONS.teams),
     desc: 'Post alerts to a Teams channel via Workflows webhook.',
     inputType: 'url', placeholder: 'https://prod-xx.westus.logic.azure.com:443/workflows/...',
-    setup: `<ol style="margin:6px 0 0 18px;font-size:.76rem;line-height:1.6;color:var(--muted)">
+    setup: `<ol style="margin:6px 0 0 18px;font-size:var(--fs-sm);line-height:1.6;color:var(--muted)">
       <li>Open <strong>Microsoft Teams</strong> and go to the channel where you want alerts</li>
       <li>Click the <strong>+</strong> (Add a tab) or go to <strong>Apps</strong> → search for <strong>Workflows</strong></li>
       <li>Select the template <strong>"Post to a channel when a webhook request is received"</strong></li>
       <li>Name the workflow (e.g. "iQcadence Alerts"), select the target <strong>Team</strong> and <strong>Channel</strong>, then click <strong>Add workflow</strong></li>
-      <li>Copy the <strong>Webhook URL</strong> provided (starts with <code style="font-size:.7rem;background:var(--bg);padding:1px 4px;border-radius:3px">https://prod-xx.westus.logic.azure.com...</code>) and paste it above</li>
+      <li>Copy the <strong>Webhook URL</strong> provided (starts with <code style="font-size:var(--fs-sm);background:var(--bg);padding:1px 4px;border-radius:3px">https://prod-xx.westus.logic.azure.com...</code>) and paste it above</li>
       <li>Click <strong>Send Test</strong> below to verify — you should see a test card appear in your channel</li>
     </ol>
-    <p style="margin:8px 0 0;font-size:.72rem;color:var(--subtle)"><strong>Note:</strong> Microsoft retired the old "Incoming Webhook" connector. Use the <strong>Workflows</strong> app instead. If you don\'t see Workflows, ask your Teams admin to enable it.</p>`
+    <p style="margin:8px 0 0;font-size:var(--fs-sm);color:var(--subtle)"><strong>Note:</strong> Microsoft retired the old "Incoming Webhook" connector. Use the <strong>Workflows</strong> app instead. If you don\'t see Workflows, ask your Teams admin to enable it.</p>`
   },
   {
     key: 'email', label: 'Email', icon: _aico(AUTO_ICONS.email),
     desc: 'Send HTML email alerts to one or more recipients.',
     inputType: 'email', placeholder: 'alerts@yourcompany.com, csm-team@company.com',
-    setup: `<div style="margin:6px 0 0;font-size:.76rem;line-height:1.6;color:var(--muted)">
+    setup: `<div style="margin:6px 0 0;font-size:var(--fs-sm);line-height:1.6;color:var(--muted)">
       <p style="margin:0 0 6px">Enter one or more email addresses separated by commas. Each recipient gets a formatted HTML email with customer details, score changes, and the triggering event.</p>
-      <p style="margin:0;font-size:.72rem;color:var(--subtle)"><strong>Requires setup:</strong> Email delivery uses <a href="https://resend.com" target="_blank" rel="noopener" style="color:var(--blue)">Resend</a>. Your Supabase project must have the <code style="font-size:.68rem;background:var(--bg);padding:1px 4px;border-radius:3px">RESEND_API_KEY</code> secret configured. Contact your admin if emails are not being delivered.</p>
+      <p style="margin:0;font-size:var(--fs-sm);color:var(--subtle)"><strong>Requires setup:</strong> Email delivery uses <a href="https://resend.com" target="_blank" rel="noopener" style="color:var(--blue)">Resend</a>. Your Supabase project must have the <code style="font-size:var(--fs-xs);background:var(--bg);padding:1px 4px;border-radius:3px">RESEND_API_KEY</code> secret configured. Contact your admin if emails are not being delivered.</p>
     </div>`
   }
 ];
@@ -254,7 +255,7 @@ function sentToHtml(alertKey) {
   if (ch.email?.enabled && subscribed('email')) parts.push('<span class="dest-tag" title="' + escHtml(ch.email.recipients || 'No recipients configured') + '">' + _aicoSm(AUTO_ICONS.email) + ' Email</span>');
   return parts.length
     ? parts.join(' ')
-    : '<span style="color:var(--muted);font-size:.78rem">' + _aicoSm(AUTO_ICONS.warning) + ' None</span>';
+    : '<span style="color:var(--muted);font-size:var(--fs-base)">' + _aicoSm(AUTO_ICONS.warning) + ' None</span>';
 }
 
 function scheduleText() {
@@ -282,7 +283,7 @@ function renderActiveAlerts() {
     container.innerHTML = '<div class="active-alerts-empty">' +
       '<div class="empty-icon">' + _aicoLg(AUTO_ICONS.bell) + '</div>' +
       '<h3 style="margin-bottom:6px">No alerts configured yet</h3>' +
-      '<p style="font-size:.85rem;margin-bottom:16px">Create your first alert to start monitoring customer health.</p>' +
+      '<p style="font-size:var(--fs-md);margin-bottom:16px">Create your first alert to start monitoring customer health.</p>' +
       '<button class="btn btn-sm btn-primary" onclick="autoTab(\'create\')">+ Create Alert</button>' +
     '</div>';
     return;
@@ -384,15 +385,15 @@ function renderActiveAlerts() {
       let thresholdFields = '';
       if (at.configFields.length > 0) {
         thresholdFields = '<div style="margin-bottom:12px">' +
-          '<div style="font-size:.78rem;font-weight:700;margin-bottom:8px;color:var(--text)">Thresholds</div>' +
+          '<div style="font-size:var(--fs-base);font-weight:700;margin-bottom:8px;color:var(--text)">Thresholds</div>' +
           at.configFields.map(f => {
             const val = (settings[at.key] || {})[f.name] ?? f.default;
             return '<div class="inline-field">' +
               '<label>' + escHtml(f.label) + '</label>' +
               '<input type="' + f.type + '" min="' + f.min + '" max="' + f.max + '" value="' + val + '"' +
               ' onblur="updateAlertSetting(\'' + at.key + '\', \'' + f.name + '\', +this.value)"' +
-              ' style="width:80px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:var(--font);color:var(--text);background:var(--surface);text-align:center"/>' +
-              '<span style="font-size:.72rem;color:var(--muted)">' + escHtml(f.hint) + '</span>' +
+              ' style="width:80px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface);text-align:center"/>' +
+              '<span style="font-size:var(--fs-sm);color:var(--muted)">' + escHtml(f.hint) + '</span>' +
             '</div>';
           }).join('') +
         '</div>';
@@ -415,12 +416,12 @@ function renderActiveAlerts() {
       let emailRecipientsHtml = '';
       if (channels.email?.enabled) {
         emailRecipientsHtml = '<div style="margin-top:12px">' +
-          '<div style="font-size:.78rem;font-weight:700;margin-bottom:6px;color:var(--text)">Email Recipients</div>' +
+          '<div style="font-size:var(--fs-base);font-weight:700;margin-bottom:6px;color:var(--text)">Email Recipients</div>' +
           '<input type="email" multiple value="' + escHtml(channels.email?.recipients || '') + '"' +
           ' placeholder="alerts@company.com, team@company.com"' +
           ' onblur="updateChannelValue(\'email\', this.value)"' +
-          ' style="width:100%;max-width:400px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:var(--font);color:var(--text);background:var(--surface)"/>' +
-          '<div style="font-size:.72rem;color:var(--muted);margin-top:3px">Comma-separated addresses</div>' +
+          ' style="width:100%;max-width:400px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)"/>' +
+          '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:3px">Comma-separated addresses</div>' +
         '</div>';
       }
 
@@ -428,19 +429,19 @@ function renderActiveAlerts() {
       const allManagers = [...new Set(customers.map(c => c.manager || '').filter(Boolean))].sort();
       const inlineMgrScope = automationsCfg.manager_scope || { mode: 'all', managers: [] };
       const mgrScopeHtml = '<div style="margin-top:12px">' +
-        '<div style="font-size:.78rem;font-weight:700;margin-bottom:6px;color:var(--text)">Manager Scope</div>' +
+        '<div style="font-size:var(--fs-base);font-weight:700;margin-bottom:6px;color:var(--text)">Manager Scope</div>' +
         '<div style="display:flex;gap:16px;align-items:center;margin-bottom:6px">' +
-          '<label style="display:flex;align-items:center;gap:4px;font-size:.78rem;cursor:pointer">' +
+          '<label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-base);cursor:pointer">' +
             '<input type="radio" name="inline-mgr-scope" value="all"' + (inlineMgrScope.mode === 'all' ? ' checked' : '') + ' onchange="setManagerScopeMode(\'all\')"/> All Managers' +
           '</label>' +
-          '<label style="display:flex;align-items:center;gap:4px;font-size:.78rem;cursor:pointer">' +
+          '<label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-base);cursor:pointer">' +
             '<input type="radio" name="inline-mgr-scope" value="selected"' + (inlineMgrScope.mode === 'selected' ? ' checked' : '') + ' onchange="setManagerScopeMode(\'selected\')"/> Selected Managers' +
           '</label>' +
         '</div>' +
         (inlineMgrScope.mode === 'selected' ? '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
           allManagers.map(m => {
             const checked = (inlineMgrScope.managers || []).includes(m);
-            return '<label style="display:flex;align-items:center;gap:4px;font-size:.78rem;cursor:pointer">' +
+            return '<label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-base);cursor:pointer">' +
               '<input type="checkbox"' + (checked ? ' checked' : '') + ' onchange="toggleManagerScope(\'' + escHtml(m).replace(/'/g, "\\'") + '\', this.checked)"/> ' + escHtml(m) +
             '</label>';
           }).join('') +
@@ -451,7 +452,7 @@ function renderActiveAlerts() {
         '<div class="summary-inline-edit">' +
           thresholdFields +
           '<div>' +
-            '<div style="font-size:.78rem;font-weight:700;margin-bottom:8px;color:var(--text)">Channels</div>' +
+            '<div style="font-size:var(--fs-base);font-weight:700;margin-bottom:8px;color:var(--text)">Channels</div>' +
             '<div class="summary-inline-channels">' + channelToggles + '</div>' +
           '</div>' +
           emailRecipientsHtml +
@@ -465,11 +466,11 @@ function renderActiveAlerts() {
 
     return '<tr class="' + (isEditing ? 'editing' : '') + '">' +
       '<td><span style="margin-right:6px;display:inline-flex;vertical-align:middle;color:var(--blue)">' + _aicoSm(AUTO_ICONS[at.key]) + '</span>' + escHtml(at.label) + '</td>' +
-      '<td style="color:var(--muted);font-size:.82rem">' + conditionText(at) + '</td>' +
+      '<td style="color:var(--muted);font-size:var(--fs-base)">' + conditionText(at) + '</td>' +
       '<td>' + sentToHtml(at.key) + '</td>' +
-      '<td style="font-size:.78rem;white-space:nowrap">' + scheduleText() + '</td>' +
-      '<td style="font-size:.78rem;color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis" title="' + escHtml(scopeDisplay) + '">' + scopeDisplay + '</td>' +
-      '<td style="font-size:.78rem;color:var(--muted)">' + escHtml(creatorDisplay) + '</td>' +
+      '<td style="font-size:var(--fs-base);white-space:nowrap">' + scheduleText() + '</td>' +
+      '<td style="font-size:var(--fs-base);color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis" title="' + escHtml(scopeDisplay) + '">' + scopeDisplay + '</td>' +
+      '<td style="font-size:var(--fs-base);color:var(--muted)">' + escHtml(creatorDisplay) + '</td>' +
       '<td>' +
         '<button class="btn btn-xs btn-ghost" onclick="toggleInlineEdit(\'' + at.key + '\')" title="' + (isEditing ? 'Close' : 'Edit') + '">' + (isEditing ? _aicoSm(AUTO_ICONS.check) : _aicoSm(AUTO_ICONS.edit)) + '</button> ' +
         '<button class="btn btn-xs btn-ghost" style="color:var(--red)" onclick="wizardRemoveAlert(\'' + at.key + '\')" title="Remove">' + _aicoSm(AUTO_ICONS.x) + '</button>' +
@@ -495,7 +496,7 @@ function renderActiveAlerts() {
         return '<span class="filter-pill">' + escHtml(label) + ': ' + escHtml(summary) +
           '<button class="filter-pill-x" onclick="event.stopPropagation();clearAlertFilter(\'' + key + '\')" title="Remove filter">' + _aicoSm(AUTO_ICONS.x) + '</button></span>';
       }).join('') +
-      '<button class="btn btn-xs btn-ghost" onclick="clearAllAlertFilters()" style="font-size:.72rem;color:var(--muted)">Clear all</button>' +
+      '<button class="btn btn-xs btn-ghost" onclick="clearAllAlertFilters()" style="font-size:var(--fs-sm);color:var(--muted)">Clear all</button>' +
     '</div>';
   }
 
@@ -717,8 +718,8 @@ function renderWizardStep1() {
       '<div class="wizard-alert-card__check">' + (isSel ? _aicoSm(AUTO_ICONS.check) : '') + '</div>' +
       '<span style="flex-shrink:0;display:flex;align-items:center;color:var(--blue)">' + at.icon + '</span>' +
       '<div style="flex:1;min-width:0">' +
-        '<div style="font-weight:600;font-size:.85rem">' + escHtml(at.label) + '</div>' +
-        '<div style="font-size:.75rem;color:var(--muted);margin-top:2px">' + escHtml(at.desc) + '</div>' +
+        '<div style="font-weight:600;font-size:var(--fs-md)">' + escHtml(at.label) + '</div>' +
+        '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px">' + escHtml(at.desc) + '</div>' +
       '</div>' +
     '</div>';
   }).join('');
@@ -728,21 +729,21 @@ function renderWizardStep1() {
   const allManagers = [...new Set(customers.map(c => c.manager || '').filter(Boolean))].sort();
   const mgrScopeHtml = '<div style="margin-top:24px;margin-bottom:14px">' +
     '<h3 style="margin:0;font-size:1rem">Who should alerts cover?</h3>' +
-    '<p style="font-size:.78rem;color:var(--muted);margin:4px 0 0">Scope alerts to specific managers or monitor all accounts.</p>' +
+    '<p style="font-size:var(--fs-base);color:var(--muted);margin:4px 0 0">Scope alerts to specific managers or monitor all accounts.</p>' +
   '</div>' +
   '<div class="wizard-schedule-option ' + (mgrScope.mode === 'all' ? 'active' : '') + '" onclick="setManagerScopeMode(\'all\')">' +
     '<input type="radio" name="mgr-scope-mode" value="all"' + (mgrScope.mode === 'all' ? ' checked' : '') + ' onclick="event.stopPropagation();setManagerScopeMode(\'all\')"/>' +
-    '<div style="flex:1"><div style="font-weight:600;font-size:.85rem;display:flex;align-items:center;gap:6px">' + _aico(AUTO_ICONS.allMgrs) + ' All Managers</div>' +
-    '<div style="font-size:.75rem;color:var(--muted);margin-top:2px">Alerts fire for every customer regardless of manager</div></div>' +
+    '<div style="flex:1"><div style="font-weight:600;font-size:var(--fs-md);display:flex;align-items:center;gap:6px">' + _aico(AUTO_ICONS.allMgrs) + ' All Managers</div>' +
+    '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px">Alerts fire for every customer regardless of manager</div></div>' +
   '</div>' +
   '<div class="wizard-schedule-option ' + (mgrScope.mode === 'selected' ? 'active' : '') + '" onclick="setManagerScopeMode(\'selected\')">' +
     '<input type="radio" name="mgr-scope-mode" value="selected"' + (mgrScope.mode === 'selected' ? ' checked' : '') + ' onclick="event.stopPropagation();setManagerScopeMode(\'selected\')"/>' +
-    '<div style="flex:1"><div style="font-weight:600;font-size:.85rem;display:flex;align-items:center;gap:6px">' + _aico(AUTO_ICONS.selMgrs) + ' Selected Managers</div>' +
-    '<div style="font-size:.75rem;color:var(--muted);margin-top:2px">Only fire alerts for accounts owned by chosen managers</div>' +
+    '<div style="flex:1"><div style="font-weight:600;font-size:var(--fs-md);display:flex;align-items:center;gap:6px">' + _aico(AUTO_ICONS.selMgrs) + ' Selected Managers</div>' +
+    '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px">Only fire alerts for accounts owned by chosen managers</div>' +
     (mgrScope.mode === 'selected' ? '<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px">' +
       allManagers.map(m => {
         const checked = (mgrScope.managers || []).includes(m);
-        return '<label onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:4px;font-size:.78rem;cursor:pointer">' +
+        return '<label onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:4px;font-size:var(--fs-base);cursor:pointer">' +
           '<input type="checkbox"' + (checked ? ' checked' : '') + ' onchange="event.stopPropagation();toggleManagerScope(\'' + escHtml(m).replace(/'/g, "\\'") + '\', this.checked)"/> ' + escHtml(m) +
         '</label>';
       }).join('') +
@@ -753,11 +754,11 @@ function renderWizardStep1() {
   pane.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">' +
     '<div>' +
       '<h3 style="margin:0;font-size:1rem">Which alerts do you want?</h3>' +
-      '<p style="font-size:.78rem;color:var(--muted);margin:4px 0 0">Select the conditions that should trigger notifications.</p>' +
+      '<p style="font-size:var(--fs-base);color:var(--muted);margin:4px 0 0">Select the conditions that should trigger notifications.</p>' +
     '</div>' +
     '<div style="display:flex;gap:8px">' +
-      '<button class="btn btn-xs btn-ghost" onclick="wizardSelectAll()" style="font-size:.75rem">Select All</button>' +
-      '<button class="btn btn-xs btn-ghost" onclick="wizardClearAll()" style="font-size:.75rem;color:var(--muted)">Clear</button>' +
+      '<button class="btn btn-xs btn-ghost" onclick="wizardSelectAll()" style="font-size:var(--fs-sm)">Select All</button>' +
+      '<button class="btn btn-xs btn-ghost" onclick="wizardClearAll()" style="font-size:var(--fs-sm);color:var(--muted)">Clear</button>' +
     '</div>' +
   '</div>' +
   '<div class="wizard-alert-grid">' + cards + '</div>' +
@@ -828,7 +829,7 @@ function renderWizardStep2() {
     pane.innerHTML = '<div style="text-align:center;padding:40px 20px">' +
       '<div style="font-size:2rem;margin-bottom:12px;color:var(--green)">' + _aicoLg(AUTO_ICONS.checkCircle) + '</div>' +
       '<h3 style="margin:0;font-size:1rem">No thresholds to configure</h3>' +
-      '<p style="font-size:.82rem;color:var(--muted);margin-top:6px">Your selected alerts use automatic detection \u2014 no thresholds needed.</p>' +
+      '<p style="font-size:var(--fs-base);color:var(--muted);margin-top:6px">Your selected alerts use automatic detection \u2014 no thresholds needed.</p>' +
     '</div>';
     return;
   }
@@ -838,18 +839,18 @@ function renderWizardStep2() {
     const fields = at.configFields.map(f => {
       const val = atSettings[f.name] ?? f.default;
       return '<div style="display:flex;align-items:center;gap:10px;margin-top:10px">' +
-        '<label style="font-size:.8rem;font-weight:600;white-space:nowrap;min-width:160px">' + escHtml(f.label) + '</label>' +
+        '<label style="font-size:var(--fs-base);font-weight:600;white-space:nowrap;min-width:160px">' + escHtml(f.label) + '</label>' +
         '<input type="' + f.type + '" min="' + f.min + '" max="' + f.max + '" value="' + val + '"' +
         ' onchange="updateAlertSetting(\'' + at.key + '\', \'' + f.name + '\', +this.value)"' +
-        ' style="width:90px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.85rem;font-family:var(--font);color:var(--text);background:var(--surface);text-align:center"/>' +
-        '<span style="font-size:.75rem;color:var(--muted)">' + escHtml(f.hint) + '</span>' +
+        ' style="width:90px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-md);font-family:var(--font);color:var(--text);background:var(--surface);text-align:center"/>' +
+        '<span style="font-size:var(--fs-sm);color:var(--muted)">' + escHtml(f.hint) + '</span>' +
       '</div>';
     }).join('');
 
     return '<div class="wizard-threshold-card">' +
       '<div style="display:flex;align-items:center;gap:10px">' +
         '<span style="flex-shrink:0;display:flex;align-items:center;color:var(--blue)">' + at.icon + '</span>' +
-        '<div style="font-weight:600;font-size:.88rem">' + escHtml(at.label) + '</div>' +
+        '<div style="font-weight:600;font-size:var(--fs-md)">' + escHtml(at.label) + '</div>' +
       '</div>' +
       fields +
     '</div>';
@@ -857,7 +858,7 @@ function renderWizardStep2() {
 
   pane.innerHTML = '<div style="margin-bottom:16px">' +
     '<h3 style="margin:0;font-size:1rem">Set your thresholds</h3>' +
-    '<p style="font-size:.78rem;color:var(--muted);margin:4px 0 0">Configure when each alert should fire. Only alerts with adjustable thresholds are shown.</p>' +
+    '<p style="font-size:var(--fs-base);color:var(--muted);margin:4px 0 0">Configure when each alert should fire. Only alerts with adjustable thresholds are shown.</p>' +
   '</div>' + cards;
 }
 
@@ -887,28 +888,28 @@ function renderWizardStep3() {
     if (cfg.enabled) {
       configInputs = '<div style="margin-top:10px">' +
         '<div class="field" style="margin-bottom:8px">' +
-          '<label style="font-size:.76rem;font-weight:600;margin-bottom:3px;display:block">' + (isEmail ? 'Recipients' : 'Webhook URL') + '</label>' +
+          '<label style="font-size:var(--fs-sm);font-weight:600;margin-bottom:3px;display:block">' + (isEmail ? 'Recipients' : 'Webhook URL') + '</label>' +
           '<input type="' + ch.inputType + '" id="ch-val-' + ch.key + '"' +
             ' placeholder="' + escHtml(ch.placeholder) + '"' +
             ' value="' + escHtml(value) + '"' +
             ' onchange="updateChannelValue(\'' + ch.key + '\', this.value)"' +
-            ' style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:var(--font);color:var(--text);background:var(--surface)"/>' +
+            ' style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)"/>' +
         '</div>' +
         (isEmail ? '<div class="field" style="margin-bottom:8px;display:flex;align-items:center;gap:8px">' +
-          '<label style="font-size:.76rem;font-weight:600;white-space:nowrap">Subject Prefix</label>' +
+          '<label style="font-size:var(--fs-sm);font-weight:600;white-space:nowrap">Subject Prefix</label>' +
           '<input type="text" id="ch-subject-' + ch.key + '"' +
             ' placeholder="[iQcadence Alert]"' +
             ' value="' + escHtml(cfg.subject_prefix || '[iQcadence Alert]') + '"' +
             ' onchange="updateChannelMeta(\'' + ch.key + '\', \'subject_prefix\', this.value)"' +
-            ' style="width:200px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:var(--font);color:var(--text);background:var(--surface)"/>' +
+            ' style="width:200px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)"/>' +
         '</div>' : '') +
         '<div style="display:flex;gap:8px;align-items:center">' +
           '<button class="btn btn-xs btn-outline" onclick="testChannel(\'' + ch.key + '\')"' +
             (!value ? ' disabled title="Enter a ' + (isEmail ? 'recipient' : 'URL') + ' first"' : '') + '>' +
             _aicoSm(AUTO_ICONS.realtime) + ' Send Test</button>' +
-          '<span id="ch-test-status-' + ch.key + '" style="font-size:.76rem;color:var(--muted)"></span>' +
+          '<span id="ch-test-status-' + ch.key + '" style="font-size:var(--fs-sm);color:var(--muted)"></span>' +
         '</div>' +
-        '<details style="margin-top:8px"><summary style="cursor:pointer;color:var(--blue);font-size:.74rem;font-weight:600">Setup Instructions</summary>' + ch.setup + '</details>' +
+        '<details style="margin-top:8px"><summary style="cursor:pointer;color:var(--blue);font-size:var(--fs-sm);font-weight:600">Setup Instructions</summary>' + ch.setup + '</details>' +
       '</div>';
     }
 
@@ -917,8 +918,8 @@ function renderWizardStep3() {
         '<div style="display:flex;align-items:center;gap:10px">' +
           '<span style="flex-shrink:0;display:flex;align-items:center;color:var(--blue)">' + ch.icon + '</span>' +
           '<div>' +
-            '<div style="font-weight:600;font-size:.85rem">' + escHtml(ch.label) + '</div>' +
-            '<div style="font-size:.73rem;color:var(--muted)">' + escHtml(ch.desc) + '</div>' +
+            '<div style="font-weight:600;font-size:var(--fs-md)">' + escHtml(ch.label) + '</div>' +
+            '<div style="font-size:var(--fs-sm);color:var(--muted)">' + escHtml(ch.desc) + '</div>' +
           '</div>' +
         '</div>' +
         '<label class="toggle-switch">' +
@@ -943,36 +944,36 @@ function renderWizardStep3() {
     let extra = '';
     if (opt.mode === 'daily' && isActive) {
       extra = '<div style="margin-top:8px;display:flex;align-items:center;gap:8px">' +
-        '<label style="font-size:.76rem;font-weight:600">Time</label>' +
+        '<label style="font-size:var(--fs-sm);font-weight:600">Time</label>' +
         '<input type="time" value="' + (schedule.daily_time || '09:00') + '"' +
         ' onchange="updateSchedule(\'daily_time\', this.value)"' +
-        ' style="padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:var(--font);color:var(--text);background:var(--surface)"/>' +
+        ' style="padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)"/>' +
       '</div>';
     }
     if (opt.mode === 'weekly' && isActive) {
       extra = '<div style="margin-top:8px;display:flex;align-items:center;gap:12px">' +
         '<div style="display:flex;align-items:center;gap:6px">' +
-          '<label style="font-size:.76rem;font-weight:600">Day</label>' +
+          '<label style="font-size:var(--fs-sm);font-weight:600">Day</label>' +
           '<select onchange="updateSchedule(\'weekly_day\', this.value)"' +
-          ' style="padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:var(--font);color:var(--text);background:var(--surface)">' +
+          ' style="padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)">' +
             ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'].map(d =>
               '<option value="' + d + '"' + (schedule.weekly_day === d ? ' selected' : '') + '>' + d.charAt(0).toUpperCase() + d.slice(1) + '</option>'
             ).join('') +
           '</select>' +
         '</div>' +
         '<div style="display:flex;align-items:center;gap:6px">' +
-          '<label style="font-size:.76rem;font-weight:600">Time</label>' +
+          '<label style="font-size:var(--fs-sm);font-weight:600">Time</label>' +
           '<input type="time" value="' + (schedule.weekly_time || '09:00') + '"' +
           ' onchange="updateSchedule(\'weekly_time\', this.value)"' +
-          ' style="padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:var(--font);color:var(--text);background:var(--surface)"/>' +
+          ' style="padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)"/>' +
         '</div>' +
       '</div>';
     }
     return '<div class="wizard-schedule-option ' + (isActive ? 'active' : '') + '" onclick="setScheduleMode(\'' + opt.mode + '\')">' +
       '<input type="radio" name="schedule-mode" value="' + opt.mode + '"' + (isActive ? ' checked' : '') + ' onclick="event.stopPropagation();setScheduleMode(\'' + opt.mode + '\')"/>' +
       '<div style="flex:1">' +
-        '<div style="font-weight:600;font-size:.85rem;display:flex;align-items:center;gap:6px">' + opt.icon + ' ' + escHtml(opt.label) + '</div>' +
-        '<div style="font-size:.75rem;color:var(--muted);margin-top:2px">' + escHtml(opt.desc) + '</div>' +
+        '<div style="font-weight:600;font-size:var(--fs-md);display:flex;align-items:center;gap:6px">' + opt.icon + ' ' + escHtml(opt.label) + '</div>' +
+        '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px">' + escHtml(opt.desc) + '</div>' +
         extra +
       '</div>' +
     '</div>';
@@ -980,15 +981,15 @@ function renderWizardStep3() {
 
   pane.innerHTML = '<div style="margin-bottom:18px">' +
     '<h3 style="margin:0;font-size:1rem">Where should alerts be sent?</h3>' +
-    '<p style="font-size:.78rem;color:var(--muted);margin:4px 0 0">Enable your delivery channels and configure their connection details.</p>' +
+    '<p style="font-size:var(--fs-base);color:var(--muted);margin:4px 0 0">Enable your delivery channels and configure their connection details.</p>' +
   '</div>' +
   channelRows +
   '<div style="margin-top:24px;margin-bottom:14px">' +
     '<h3 style="margin:0;font-size:1rem">When should alerts fire?</h3>' +
-    '<p style="font-size:.78rem;color:var(--muted);margin:4px 0 0">Choose how quickly you want to be notified.</p>' +
+    '<p style="font-size:var(--fs-base);color:var(--muted);margin:4px 0 0">Choose how quickly you want to be notified.</p>' +
   '</div>' +
   scheduleHtml +
-  '<p style="font-size:.72rem;color:var(--muted);margin-top:12px;font-style:italic">' +
+  '<p style="font-size:var(--fs-sm);color:var(--muted);margin-top:12px;font-style:italic">' +
     'Note: Daily and weekly digests require server-side scheduling (coming soon). All alerts currently fire in real-time.' +
   '</p>';
 }
@@ -1083,7 +1084,7 @@ async function testChannel(key) {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✓ Test sent to Slack</span>';
+      if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">' + appIcon('check',12) + ' Test sent to Slack</span>';
       toast('Test sent to Slack', 'success');
     } catch (err) {
       if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">✗ ' + escHtml(err.message || 'Failed') + '</span>';
@@ -1100,7 +1101,7 @@ async function testChannel(key) {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✓ Test sent to Teams</span>';
+      if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">' + appIcon('check',12) + ' Test sent to Teams</span>';
       toast('Test sent to Teams', 'success');
     } catch (err) {
       if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">✗ ' + escHtml(err.message || 'Failed') + '</span>';
@@ -1112,7 +1113,7 @@ async function testChannel(key) {
     if (statusEl) statusEl.textContent = 'Sending test…';
     try {
       await fireEmailAlert('health_below_threshold', testCustomer, testExtra, cfg);
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✓ Test email sent</span>';
+      if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">' + appIcon('check',12) + ' Test email sent</span>';
       toast('Test email sent', 'success');
     } catch (err) {
       if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">✗ ' + escHtml(err.message || 'Failed') + '</span>';
@@ -1144,7 +1145,7 @@ function renderWebhookConfig() {
         <div class="auto-card-hd">
           <div style="flex:1">
             <h3>${escHtml(t.label)}</h3>
-            <p style="font-size:.78rem;color:var(--muted);margin-top:2px">${escHtml(t.desc)}</p>
+            <p style="font-size:var(--fs-base);color:var(--muted);margin-top:2px">${escHtml(t.desc)}</p>
           </div>
           <label class="toggle-switch">
             <input type="checkbox" ${cfg.enabled ? 'checked' : ''}
@@ -1153,28 +1154,28 @@ function renderWebhookConfig() {
           </label>
         </div>
         <div class="field" style="margin-bottom:10px">
-          <label style="font-size:.78rem;font-weight:600;margin-bottom:4px;display:block">Webhook URL</label>
+          <label style="font-size:var(--fs-base);font-weight:600;margin-bottom:4px;display:block">Webhook URL</label>
           <input type="url" id="wh-url-${t.key}" placeholder="https://hooks.zapier.com/hooks/catch/..."
             value="${escHtml(cfg.url || '')}"
             onchange="updateWebhookUrl('${t.key}', this.value)"
-            style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:var(--font);color:var(--text);background:var(--surface)"/>
+            style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)"/>
         </div>
         ${t.hasThreshold ? `
           <div class="field" style="margin-bottom:10px;display:flex;align-items:center;gap:8px">
-            <label style="font-size:.78rem;font-weight:600;white-space:nowrap">Score Threshold</label>
+            <label style="font-size:var(--fs-base);font-weight:600;white-space:nowrap">Score Threshold</label>
             <input type="number" id="wh-th-${t.key}" min="1" max="99"
               value="${cfg.threshold || t.defaultThreshold}"
               onchange="updateWebhookThreshold('${t.key}', +this.value)"
-              style="width:80px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:var(--font);color:var(--text);background:var(--surface)"/>
-            <span style="font-size:.75rem;color:var(--muted)">Fire when score drops below this value</span>
+              style="width:80px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)"/>
+            <span style="font-size:var(--fs-sm);color:var(--muted)">Fire when score drops below this value</span>
           </div>
         ` : ''}
         <div style="display:flex;gap:8px;align-items:center;margin-top:12px">
           <button class="btn btn-sm btn-outline" onclick="testWebhook('${t.key}')"
             ${!cfg.url ? 'disabled title="Enter a webhook URL first"' : ''}>
-            ⚡ Test Webhook
+            ${appIcon('bolt',14)} Test Webhook
           </button>
-          <span id="wh-test-status-${t.key}" style="font-size:.78rem;color:var(--muted)"></span>
+          <span id="wh-test-status-${t.key}" style="font-size:var(--fs-base);color:var(--muted)"></span>
         </div>
       </div>`;
   }).join('');
@@ -1235,7 +1236,7 @@ async function testWebhook(key) {
     });
     if (error) throw error;
     if (data?.error) throw new Error(data.error);
-    if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✓ Test sent successfully</span>';
+    if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">' + appIcon('check',12) + ' Test sent successfully</span>';
     toast('Test webhook sent', 'success');
   } catch (err) {
     if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">✗ Failed: ' + escHtml(err.message || 'Unknown error') + '</span>';
@@ -1263,10 +1264,10 @@ function renderApiKeySection() {
         </div>
         <button class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red)" onclick="regenerateApiKey()">Regenerate</button>
       </div>
-      <p style="font-size:.75rem;color:var(--muted)">Your full API key was shown only when generated. If you've lost it, regenerate a new one.</p>`;
+      <p style="font-size:var(--fs-sm);color:var(--muted)">Your full API key was shown only when generated. If you've lost it, regenerate a new one.</p>`;
   } else {
     container.innerHTML = `
-      <p style="font-size:.82rem;margin-bottom:12px;color:var(--muted)">No API key generated yet. Generate one to enable inbound API endpoints.</p>
+      <p style="font-size:var(--fs-base);margin-bottom:12px;color:var(--muted)">No API key generated yet. Generate one to enable inbound API endpoints.</p>
       <button class="btn btn-sm btn-primary" onclick="generateApiKey()">Generate API Key</button>`;
   }
 }
@@ -1314,10 +1315,10 @@ function regenerateApiKey() {
 function showApiKeyModal(fullKey) {
   el('confirm-msg').innerHTML = `
     <div style="margin-bottom:14px">
-      <p style="font-size:.85rem;font-weight:600;color:var(--red);margin-bottom:8px">
-        ⚠ Copy this key now — it will not be shown again.
+      <p style="font-size:var(--fs-md);font-weight:600;color:var(--red);margin-bottom:8px">
+        ${appIcon('warning',14)} Copy this key now — it will not be shown again.
       </p>
-      <div class="auto-endpoint" style="user-select:all;cursor:text;font-size:.82rem;padding:12px 14px">
+      <div class="auto-endpoint" style="user-select:all;cursor:text;font-size:var(--fs-base);padding:12px 14px">
         ${escHtml(fullKey)}
       </div>
     </div>`;
@@ -1356,19 +1357,19 @@ function renderApiEndpoints() {
   ];
 
   container.innerHTML = `
-    <p style="font-size:.82rem;color:var(--muted);margin-bottom:16px">All endpoints accept <strong>POST</strong> requests with JSON body and require the <code style="background:var(--bg);padding:1px 5px;border-radius:4px;font-size:.78rem">x-api-key</code> header.</p>
+    <p style="font-size:var(--fs-base);color:var(--muted);margin-bottom:16px">All endpoints accept <strong>POST</strong> requests with JSON body and require the <code style="background:var(--bg);padding:1px 5px;border-radius:4px;font-size:var(--fs-base)">x-api-key</code> header.</p>
     <div class="auto-endpoint" style="margin-bottom:16px">
       <strong>POST</strong> &nbsp;${escHtml(baseUrl)}
       <button class="btn btn-xs btn-ghost copy-btn" onclick="navigator.clipboard.writeText('${escHtml(baseUrl)}');toast('URL copied','success')">Copy</button>
     </div>
     ${endpoints.map(ep => `
       <div class="auto-card">
-        <h3 style="margin:0 0 4px;font-size:.85rem">${escHtml(ep.label)}</h3>
-        <p style="font-size:.78rem;color:var(--muted);margin-bottom:6px">${escHtml(ep.desc)}</p>
-        <p style="font-size:.72rem;color:var(--muted);margin-bottom:10px"><strong>Fields:</strong> ${escHtml(ep.fields)}</p>
-        <details style="font-size:.78rem">
+        <h3 style="margin:0 0 4px;font-size:var(--fs-md)">${escHtml(ep.label)}</h3>
+        <p style="font-size:var(--fs-base);color:var(--muted);margin-bottom:6px">${escHtml(ep.desc)}</p>
+        <p style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:10px"><strong>Fields:</strong> ${escHtml(ep.fields)}</p>
+        <details style="font-size:var(--fs-base)">
           <summary style="cursor:pointer;color:var(--blue);font-weight:600;margin-bottom:6px">Example payload</summary>
-          <pre style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;overflow-x:auto;font-size:.75rem;line-height:1.5;color:var(--text);white-space:pre-wrap">${escHtml(ep.example)}</pre>
+          <pre style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;overflow-x:auto;font-size:var(--fs-sm);line-height:1.5;color:var(--text);white-space:pre-wrap">${escHtml(ep.example)}</pre>
         </details>
       </div>
     `).join('')}`;
@@ -1432,7 +1433,7 @@ function renderWebhookLog() {
   if (!tbody) return;
 
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted);font-size:.85rem">No ${filterVal === 'all' ? '' : filterVal + ' '}events found</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted);font-size:var(--fs-md)">No ${filterVal === 'all' ? '' : filterVal + ' '}events found</td></tr>`;
     if (pagTop) pagTop.innerHTML = '';
     if (pagBot) pagBot.innerHTML = '';
     return;
@@ -1456,25 +1457,50 @@ function renderWebhookLog() {
     else if (e.status_code) detail = 'HTTP ' + e.status_code;
 
     return `<tr>
-      <td style="white-space:nowrap;font-size:.78rem;color:var(--muted)">${escHtml(time)}</td>
+      <td style="white-space:nowrap;font-size:var(--fs-sm);color:var(--muted)">${escHtml(time)}</td>
       <td><span class="${dirClass}">${dirLabel}</span></td>
-      <td style="font-size:.8rem">${escHtml(e.event_type || '')}</td>
-      <td style="font-weight:600;font-size:.82rem">${escHtml(e.customer_name || '—')}</td>
+      <td style="font-size:var(--fs-sm);word-break:break-all">${escHtml(e.event_type || '')}</td>
+      <td style="font-weight:600;font-size:var(--fs-base)">${escHtml(e.customer_name || '—')}</td>
       <td><span class="auto-status ${statusClass}">${escHtml(e.status || 'unknown')}</span></td>
-      <td style="font-size:.78rem;color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(detail)}</td>
+      <td style="font-size:var(--fs-sm);color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(detail)}</td>
     </tr>`;
   }).join('');
 }
 
 // ── Trigger Detection ──
+// Persist snapshots so alerts only fire on actual CHANGES, not every page load
+function _saveSnapshots() {
+  try {
+    const obj = {};
+    _prevCustomerStates.forEach((v, k) => { obj[k] = v; });
+    localStorage.setItem('iqc_trigger_snapshots', JSON.stringify(obj));
+  } catch(e){}
+}
+
 function snapshotCustomerStates() {
+  // Try to restore persisted snapshots first — this is what prevents repeat alerts
+  try {
+    const stored = localStorage.getItem('iqc_trigger_snapshots');
+    if (stored) {
+      const obj = JSON.parse(stored);
+      _prevCustomerStates.clear();
+      Object.keys(obj).forEach(k => _prevCustomerStates.set(k, obj[k]));
+      // Merge any NEW customers that aren't in the stored snapshot yet
+      customers.forEach(c => {
+        if (!_prevCustomerStates.has(c.id)) {
+          _prevCustomerStates.set(c.id, _snapFields(c));
+        }
+      });
+      _saveSnapshots();
+      return;
+    }
+  } catch(e){}
+  // No persisted data — first run: snapshot current state (won't trigger alerts since prev matches current)
   _prevCustomerStates.clear();
   customers.forEach(c => {
-    _prevCustomerStates.set(c.id, {
-      score: c.score, status: c.status, nps: c.nps, csat: c.csat,
-      lifecycle: c.lifecycle, renewal_date: c.renewal_date, days: c.days
-    });
+    _prevCustomerStates.set(c.id, _snapFields(c));
   });
+  _saveSnapshots();
 }
 
 function _snapFields(c) {
@@ -1545,7 +1571,7 @@ function checkWebhookTriggers(c) {
 
   // 5b. CSAT poor
   if (prev && !csatIsPoor(prev.csat) && csatIsPoor(c.csat)) {
-    triggeredEvents.push({ key: 'nps_detractor',
+    triggeredEvents.push({ key: 'csat_poor',
       extra: { trigger: 'csat_poor', previous_csat: csatDisplay(prev.csat), current_csat: csatDisplay(c.csat) } });
   }
 
@@ -1563,28 +1589,53 @@ function checkWebhookTriggers(c) {
       extra: { trigger: 'rapid_score_drop', previous_score: prev.score, drop_amount: prev.score - c.score, drop_threshold: dropThreshold } });
   }
 
+  // ── Cooldown dedup: skip if same alert fired for this customer within 24h ──
+  const COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
+  try { if (!Object.keys(_alertCooldowns).length) { const stored = localStorage.getItem('iqc_alert_cooldowns'); if (stored) _alertCooldowns = JSON.parse(stored); } } catch(e){}
+  const now = Date.now();
+  // Prune expired cooldowns
+  Object.keys(_alertCooldowns).forEach(k => { if (now - _alertCooldowns[k] > COOLDOWN_MS) delete _alertCooldowns[k]; });
+  const deduped = triggeredEvents.filter(evt => {
+    const cdKey = c.id + '|' + evt.key;
+    if (_alertCooldowns[cdKey] && (now - _alertCooldowns[cdKey]) < COOLDOWN_MS) return false;
+    _alertCooldowns[cdKey] = now;
+    return true;
+  });
+  try { localStorage.setItem('iqc_alert_cooldowns', JSON.stringify(_alertCooldowns)); } catch(e){}
+
   // ── Fire direct channels (per-channel filtering handled inside) ──
-  triggeredEvents.forEach(evt => {
+  deduped.forEach(evt => {
     fireDirectChannels(evt.key, c, evt.extra);
   });
 
   // ── Fire Zapier webhooks (only for original 2 trigger types) ──
   const hbt = (automationsCfg.webhooks || {}).health_below_threshold;
   if (hbt?.enabled && hbt?.url && prev && prev.score >= (hbt.threshold || 50) && c.score < (hbt.threshold || 50)) {
-    fireWebhook('health_below_threshold', hbt.url, c, {
-      trigger: 'health_below_threshold', threshold: hbt.threshold || 50, previous_score: prev.score
-    });
+    const cdKey = c.id + '|hbt_zapier';
+    if (!_alertCooldowns[cdKey] || (now - _alertCooldowns[cdKey]) >= COOLDOWN_MS) {
+      _alertCooldowns[cdKey] = now;
+      fireWebhook('health_below_threshold', hbt.url, c, {
+        trigger: 'health_below_threshold', threshold: hbt.threshold || 50, previous_score: prev.score
+      });
+    }
   }
 
   const aar = (automationsCfg.webhooks || {}).account_at_risk;
   if (aar?.enabled && aar?.url && wasNotRisk && isNowRisk) {
-    fireWebhook('account_at_risk', aar.url, c, {
-      trigger: 'account_at_risk', previous_status: prev?.status ?? null
-    });
+    const cdKey = c.id + '|aar_zapier';
+    if (!_alertCooldowns[cdKey] || (now - _alertCooldowns[cdKey]) >= COOLDOWN_MS) {
+      _alertCooldowns[cdKey] = now;
+      fireWebhook('account_at_risk', aar.url, c, {
+        trigger: 'account_at_risk', previous_status: prev?.status ?? null
+      });
+    }
   }
 
-  // Update snapshot
+  try { localStorage.setItem('iqc_alert_cooldowns', JSON.stringify(_alertCooldowns)); } catch(e){}
+
+  // Update snapshot & persist so we don't re-alert on next page load
   _prevCustomerStates.set(c.id, _snapFields(c));
+  _saveSnapshots();
 }
 
 async function fireWebhook(eventType, url, customer, extra, overridePayload) {

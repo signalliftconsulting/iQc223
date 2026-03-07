@@ -558,26 +558,29 @@ function calShowPopover(cellEl, dateStr) {
       if (ev.type !== 'renewal' && ev.type !== 'overdue') {
         h += '<div class="cal-log-form" id="cal-log-' + escHtml(c.id) + '" style="display:none" onclick="event.stopPropagation()">';
         h += '<div class="cal-log-sentiments">';
-        h += '<button class="cal-log-sent" data-val="positive" onclick="event.stopPropagation();calPickSentiment(\'' + escHtml(c.id) + '\',\'positive\',this)">😊</button>';
-        h += '<button class="cal-log-sent" data-val="neutral" onclick="event.stopPropagation();calPickSentiment(\'' + escHtml(c.id) + '\',\'neutral\',this)">😐</button>';
-        h += '<button class="cal-log-sent" data-val="negative" onclick="event.stopPropagation();calPickSentiment(\'' + escHtml(c.id) + '\',\'negative\',this)">😟</button>';
+        h += '<button class="cal-log-sent" data-val="positive" onclick="event.stopPropagation();calPickSentiment(\'' + escHtml(c.id) + '\',\'positive\',this)">' + appIcon('sentPositive',16) + '</button>';
+        h += '<button class="cal-log-sent" data-val="neutral" onclick="event.stopPropagation();calPickSentiment(\'' + escHtml(c.id) + '\',\'neutral\',this)">' + appIcon('sentNeutral',16) + '</button>';
+        h += '<button class="cal-log-sent" data-val="negative" onclick="event.stopPropagation();calPickSentiment(\'' + escHtml(c.id) + '\',\'negative\',this)">' + appIcon('sentNegative',16) + '</button>';
         h += '</div>';
         h += '<input type="text" class="cal-log-note" id="cal-log-note-' + escHtml(c.id) + '" placeholder="Add a note\u2026" />';
+        h += '<div style="display:flex;gap:6px">';
         h += '<button class="btn btn-primary btn-sm cal-log-save" onclick="event.stopPropagation();calSaveSentiment(\'' + escHtml(c.id) + '\')">Save</button>';
+        h += '<button class="btn btn-sm" style="background:var(--bg);color:var(--muted);border:1px solid var(--border)" onclick="event.stopPropagation();calToggleLogForm(\'' + escHtml(c.id) + '\')">Cancel</button>';
+        h += '</div>';
         h += '</div>';
       }
 
       h += '</div>';
     });
   } else {
-    h += '<div style="padding:10px 14px;color:var(--muted);font-size:.78rem">No events on this day</div>';
+    h += '<div style="padding:10px 14px;color:var(--muted);font-size:var(--fs-base)">No events on this day</div>';
   }
 
   h += '</div>';
 
   // Schedule a call button + inline form
   h += '<div class="cal-sched-trigger" style="padding:8px 14px;border-top:1px solid var(--border)">';
-  h += '<button class="btn btn-outline btn-sm" style="width:100%;font-size:.72rem" onclick="event.stopPropagation();calToggleScheduleForm(\'' + dateStr + '\')">';
+  h += '<button class="btn btn-outline btn-sm" style="width:100%;font-size:var(--fs-sm)" onclick="event.stopPropagation();calToggleScheduleForm(\'' + dateStr + '\')">';
   h += '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
   h += 'Schedule a call</button></div>';
   h += '<div id="cal-sched-form" class="cal-sched-form" style="display:none" onclick="event.stopPropagation()">';
@@ -648,6 +651,7 @@ async function calToggleTouchStatus(custId, histIdx, newStatus) {
 async function calRemoveTouch(custId, histIdx) {
   var c = customers.find(function(x) { return x.id === custId; });
   if (!c || !c.touch_history || !c.touch_history[histIdx]) return;
+  if (!confirm('Delete this touch entry for ' + c.name + '?')) return;
   c.touch_history.splice(histIdx, 1);
   _calSyncNextTouch(c);
   var { error } = await sb.from('customers').update({
@@ -694,6 +698,7 @@ async function calMarkScheduledMissed(custId) {
 async function calRemoveScheduled(custId) {
   var c = customers.find(function(x) { return x.id === custId; });
   if (!c || !c.next_touch) return;
+  if (!confirm('Remove scheduled touch for ' + c.name + '?')) return;
   var ntDate = c.next_touch.slice(0,10);
   // Remove matching scheduled entry from touch_history
   if (c.touch_history) {
@@ -754,7 +759,7 @@ function _calSchedShowResults(query) {
   var q = (query || '').toLowerCase().trim();
   var matches = q ? opts.filter(function(c) { return c.name.toLowerCase().indexOf(q) !== -1; }) : opts;
   if (!matches.length) {
-    box.innerHTML = '<div class="cal-search-empty" style="padding:6px 10px;font-size:.75rem;color:var(--muted)">No matches</div>';
+    box.innerHTML = '<div class="cal-search-empty" style="padding:6px 10px;font-size:var(--fs-sm);color:var(--muted)">No matches</div>';
     box.style.display = 'block';
     return;
   }
@@ -764,7 +769,7 @@ function _calSchedShowResults(query) {
     h += '<button class="cal-search-item" onmousedown="event.preventDefault();calSchedPickCust(\'' + c.id + '\',this)" data-name="' + escHtml(c.name) + '">' + escHtml(c.name) + '</button>';
   });
   if (matches.length > maxShow) {
-    h += '<div style="padding:4px 10px;font-size:.68rem;color:var(--muted)">' + (matches.length - maxShow) + ' more\u2026</div>';
+    h += '<div style="padding:4px 10px;font-size:var(--fs-xs);color:var(--muted)">' + (matches.length - maxShow) + ' more\u2026</div>';
   }
   box.innerHTML = h;
   box.style.display = 'block';

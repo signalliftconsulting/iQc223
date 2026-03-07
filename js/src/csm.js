@@ -140,11 +140,7 @@ function renderCSMPerformance() {
 
   // --- No CSMs ---
   if (displayList.length === 0 || (displayList.length === 1 && displayList[0].name === 'Unassigned')) {
-    tableWrap.innerHTML = `<div style="text-align:center;padding:40px;color:var(--muted)">
-      <div style="font-size:2rem;margin-bottom:8px;opacity:.3">👥</div>
-      <h3 style="margin-bottom:4px">No CSMs assigned yet</h3>
-      <p style="font-size:.85rem">Assign managers to your customers to see per-CSM performance metrics.</p>
-    </div>`;
+    tableWrap.innerHTML = `<div class="empty-st"><div class="ei">${appIcon('users',36)}</div><h3>No CSMs assigned yet</h3><p>Assign managers to customers via the Customer detail panel.</p></div>`;
     return;
   }
 
@@ -195,9 +191,9 @@ function renderCSMPerformance() {
       const safeName = escHtml(m.name).replace(/'/g, "\\'");
       return `<tr data-csm="${escHtml(m.name)}" class="csm-row">
       <td style="text-align:center">${rankBadge(m.rank)}</td>
-      <td><strong>${escHtml(m.name)}</strong>${m.overdueCount ? ` <span style="font-size:.66rem;color:var(--red);font-weight:700">${m.overdueCount} overdue</span>` : ''}</td>
-      <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${hmColor(m.avgScore)};background:${hmBg(m.avgScore)}">${m.avgScore}</span></td>
-      <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${hmColor(m.perfIndex)};background:${hmBg(m.perfIndex)}">${m.perfIndex}</span></td>
+      <td><strong>${escHtml(m.name)}</strong>${m.overdueCount ? ` <span style="font-size:var(--fs-xs);color:var(--red);font-weight:700">${m.overdueCount} overdue</span>` : ''}</td>
+      <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${hmColor(m.avgScore)};background:${hmBg(m.avgScore)}">${m.avgScore}</span></td>
+      <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${hmColor(m.perfIndex)};background:${hmBg(m.perfIndex)}">${m.perfIndex}</span></td>
       <td>${trendBadge(m.avgDelta)}</td>
       <td>${healthBar(m)}</td>
       <td>${m.count}</td>
@@ -227,7 +223,7 @@ function renderCSMWorkload(mgrList) {
   const wrap = el('csm-workload-wrap');
   if (!wrap) return;
   const list = mgrList.filter(m => m.name !== 'Unassigned');
-  if (!list.length) { wrap.innerHTML = '<p style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">No CSMs to display.</p>'; return; }
+  if (!list.length) { wrap.innerHTML = '<p style="padding:20px;text-align:center;color:var(--muted);font-size:var(--fs-base)">No CSMs to display.</p>'; return; }
 
   const maxAccounts = Math.max(...list.map(m => m.count), 1);
   const maxMRR      = Math.max(...list.map(m => m.totalMRR), 1);
@@ -237,7 +233,7 @@ function renderCSMWorkload(mgrList) {
   const activeTiers = ['enterprise','mid','smb'].filter(t => list.some(m => m.accs.some(c => (c.tier || 'smb') === t)));
 
   wrap.innerHTML = `
-    <div style="padding:10px 16px 4px;display:flex;gap:16px;font-size:.68rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">
+    <div style="padding:10px 16px 4px;display:flex;gap:16px;font-size:var(--fs-xs);font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">
       <span style="flex:0 0 110px">CSM</span>
       <span style="flex:1">Accounts</span>
       <span style="flex:1">MRR by Tier</span>
@@ -259,7 +255,7 @@ function renderCSMWorkload(mgrList) {
         tierMRR.mid ? 'Mid-Market $' + fmtNum(tierMRR.mid) : '',
         tierMRR.smb ? 'SMB $' + fmtNum(tierMRR.smb) : ''
       ].filter(Boolean).join(' · ');
-      return `<div class="csm-workload-row">
+      return `<div class="csm-workload-row" style="cursor:pointer" onclick="filterByManager('${escHtml(m.name).replace(/'/g,"\\'")}')">
         <div class="csm-workload-name">${escHtml(m.name)}</div>
         <div style="flex:1;display:flex;align-items:center;gap:8px">
           <div class="csm-workload-bar"><div class="csm-workload-fill" style="width:${accPct}%;background:${accColor}">${m.count}</div></div>
@@ -271,12 +267,12 @@ function renderCSMWorkload(mgrList) {
               ${midPct ? `<span style="width:${midPct}%;background:var(--purple);min-width:0"></span>` : ''}
               ${smbPct ? `<span style="width:${smbPct}%;background:var(--teal);min-width:0"></span>` : ''}
             </div>
-            <span style="position:absolute;inset:0;display:flex;align-items:center;padding:0 8px;font-size:.68rem;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.3)">$${fmtNum(m.totalMRR)}</span>
+            <span style="position:absolute;inset:0;display:flex;align-items:center;padding:0 8px;font-size:var(--fs-xs);font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.3)">$${fmtNum(m.totalMRR)}</span>
           </div>
         </div>
       </div>`;
     }).join('')}
-    <div style="padding:8px 16px;font-size:.68rem;color:var(--subtle);display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <div style="padding:8px 16px;font-size:var(--fs-xs);color:var(--subtle);display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <span>Average: ${avgAccounts} accounts per CSM</span>
       ${list.some(m => m.count > avgAccounts * 1.4) ? '<span style="color:var(--red);font-weight:700">Red bars = overloaded</span>' : ''}
       <span style="margin-left:auto;display:flex;gap:10px">${activeTiers.map(t => `<span style="display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:2px;background:${TIER_COLORS[t]}"></span>${TIER_LABELS[t]}</span>`).join('')}</span>
@@ -304,7 +300,7 @@ function renderCSMFocus(mgrList) {
   // ── Gather cross-team data ───────────────────────────────────
   const activeMgrs = mgrList.filter(m => m.name !== 'Unassigned' && m.count > 0);
   if (!activeMgrs.length) {
-    wrap.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:.82rem"><div style="font-size:1.4rem;margin-bottom:6px;opacity:.3">✓</div>No focus areas to show.</div>';
+    wrap.innerHTML = '<div class="empty-st" style="padding:24px"><div class="ei">' + appIcon('checkCircle',32) + '</div><h3>All clear</h3><p>No focus areas to show.</p></div>';
     return;
   }
   const allAccs = activeMgrs.flatMap(m => m.accs);
@@ -562,7 +558,7 @@ function renderCSMFocus(mgrList) {
   items.sort((a, b) => b.priority - a.priority);
 
   if (!items.length) {
-    wrap.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:.82rem"><div style="font-size:1.4rem;margin-bottom:6px;opacity:.3">✓</div>No urgent focus areas — all CSMs look good.</div>';
+    wrap.innerHTML = '<div class="empty-st" style="padding:24px"><div class="ei">' + appIcon('checkCircle',32) + '</div><h3>All clear</h3><p>No focus areas to show.</p></div>';
     window._csmFocusItems = [];
     return;
   }
@@ -642,7 +638,7 @@ function renderCSMMovement(mgrList) {
         const statusOrder = ['critical','risk','watch','healthy','expand'];
         const improved = statusOrder.indexOf(currentStatus) > statusOrder.indexOf(oldStatus);
         movements.push({
-          csm: m.name, customer: c.name, from: oldStatus, to: currentStatus,
+          csm: m.name, customer: c.name, cid: c.id, from: oldStatus, to: currentStatus,
           improved, scoreDelta: currentScore - oldScore, mrr: c.mrr || 0
         });
       }
@@ -650,7 +646,7 @@ function renderCSMMovement(mgrList) {
   });
 
   if (!movements.length) {
-    wrap.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:.82rem"><div style="font-size:1.4rem;margin-bottom:6px;opacity:.3">→</div>No health band changes in the last 7 days.</div>';
+    wrap.innerHTML = '<div class="empty-st" style="padding:24px"><div class="ei">' + appIcon('check',32) + '</div><h3>No changes</h3><p>No health band changes in the last 7 days.</p></div>';
     return;
   }
 
@@ -663,14 +659,31 @@ function renderCSMMovement(mgrList) {
     const arrowIcon = mv.improved ? '▲' : '▼';
     return `<div class="csm-movement-item">
       <span class="csm-movement-arrow ${arrowCls}">${arrowIcon}</span>
-      <strong>${escHtml(mv.customer)}</strong>
+      <a onclick="openDetail('${mv.cid}')" style="cursor:pointer;font-weight:700;color:var(--text);text-decoration:none;border-bottom:1px dashed var(--border);transition:color .15s" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text)'">${escHtml(mv.customer)}</a>
       <span style="color:var(--muted)">moved from</span>
       ${badgeHTML(mv.from)}
       <span style="color:var(--muted)">→</span>
       ${badgeHTML(mv.to)}
-      <span style="color:var(--muted);font-size:.72rem;margin-left:auto">${escHtml(mv.csm)} · $${fmtNum(mv.mrr)} MRR</span>
+      <span style="color:var(--muted);font-size:var(--fs-sm);margin-left:auto">${escHtml(mv.csm)} · $${fmtNum(mv.mrr)} MRR</span>
     </div>`;
-  }).join('') + (movements.length > 10 ? `<div style="padding:8px 16px;font-size:.72rem;color:var(--subtle);text-align:center">+ ${movements.length - 10} more changes</div>` : '');
+  }).join('') + (movements.length > 10 ? `<div style="padding:8px 16px;font-size:var(--fs-sm);color:var(--subtle);text-align:center">+ ${movements.length - 10} more changes</div>` : '');
+}
+
+/* ─── CSM click-through helpers ────────────────────────────────── */
+function filterByManager(name) {
+  columnFilters = {};
+  insightFilter = null;
+  mrrExposureFilter = null;
+  _filterTier = null;
+  _filterStage = null;
+  filterMode = 'all';
+  _filterManager = name;
+  nav('customers');
+  renderCustomers();
+}
+function clearManagerFilter() {
+  _filterManager = null;
+  renderCustomers();
 }
 
 /* ─── CSM ACTIVITY FEED ────────────────────────────────────────── */
@@ -690,7 +703,7 @@ function renderCSMActivity(mgrList) {
   }).filter(e => e.csm && csmNames.has(e.csm));
 
   if (!recent.length) {
-    wrap.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:.82rem"><div style="font-size:1.4rem;margin-bottom:6px;opacity:.3">📋</div>No recent CSM activity found.</div>';
+    wrap.innerHTML = '<div class="empty-st" style="padding:24px"><div class="ei">' + appIcon('clipboard',32) + '</div><h3>No activity</h3><p>No recent CSM activity found.</p></div>';
     return;
   }
 
@@ -713,7 +726,7 @@ function renderCSMActivity(mgrList) {
 
   let html = '';
   Object.entries(byCsm).forEach(([csm, entries]) => {
-    html += `<div style="padding:8px 16px 4px;font-size:.7rem;font-weight:700;color:var(--subtle);text-transform:uppercase;letter-spacing:.05em;background:var(--bg)">${escHtml(csm)}</div>`;
+    html += `<div style="padding:8px 16px 4px;font-size:var(--fs-sm);font-weight:700;color:var(--subtle);text-transform:uppercase;letter-spacing:.05em;background:var(--bg)">${escHtml(csm)}</div>`;
     entries.forEach(e => {
       let detail = '';
       try {
@@ -723,9 +736,9 @@ function renderCSMActivity(mgrList) {
       html += `<div class="csm-activity-item">
         <div class="csm-activity-time">${relTime(e.created_at)}</div>
         <div class="csm-activity-body">
-          <span style="display:inline-block;padding:1px 7px;border-radius:4px;font-size:.66rem;font-weight:700;color:${color(e.action)};background:color-mix(in srgb, ${color(e.action)} 12%, transparent)">${label(e.action)}</span>
+          <span style="display:inline-block;padding:1px 7px;border-radius:4px;font-size:var(--fs-xs);font-weight:700;color:${color(e.action)};background:color-mix(in srgb, ${color(e.action)} 12%, transparent)">${label(e.action)}</span>
           ${e.customer_name ? ` <strong>${escHtml(e.customer_name)}</strong>` : ''}
-          ${detail ? `<p style="font-size:.72rem;color:var(--muted);margin-top:2px">${detail}</p>` : ''}
+          ${detail ? `<p style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px">${detail}</p>` : ''}
         </div>
       </div>`;
     });
@@ -858,21 +871,21 @@ function drillCSM(mgrName) {
         : (c.renewal ? c.renewal + 'mo' : '—');
       const isOverdue = c.days != null && c.days >= OVERDUE_DAYS;
       const delta = getDelta7d(c);
-      const trendHTML = delta > 0 ? `<span class="csm-trend up" style="font-size:.68rem;padding:1px 6px">▲ +${delta}</span>`
-        : delta < 0 ? `<span class="csm-trend dn" style="font-size:.68rem;padding:1px 6px">▼ ${delta}</span>`
-        : `<span class="csm-trend flat" style="font-size:.68rem;padding:1px 6px">— 0</span>`;
+      const trendHTML = delta > 0 ? `<span class="csm-trend up" style="font-size:var(--fs-xs);padding:1px 6px">▲ +${delta}</span>`
+        : delta < 0 ? `<span class="csm-trend dn" style="font-size:var(--fs-xs);padding:1px 6px">▼ ${delta}</span>`
+        : `<span class="csm-trend flat" style="font-size:var(--fs-xs);padding:1px 6px">— 0</span>`;
       const contactCell = isOverdue
         ? `<span style="font-weight:700;color:var(--red)">${c.days}d ago</span> <span class="csm-overdue">OVERDUE</span>`
         : (c.days != null ? c.days + 'd ago' : '—');
       return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
         <td><strong>${escHtml(c.name)}</strong></td>
-        <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${c.score>=65?'var(--green)':c.score>=50?'var(--amber)':'var(--red)'};background:${c.score>=65?'var(--green-l)':c.score>=50?'var(--amber-l)':'var(--red-l)'}">${c.score}</span></td>
+        <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${c.score>=65?'var(--green)':c.score>=50?'var(--amber)':'var(--red)'};background:${c.score>=65?'var(--green-l)':c.score>=50?'var(--amber-l)':'var(--red-l)'}">${c.score}</span></td>
         <td>${trendHTML}</td>
         <td>${badgeHTML(c.status)}</td>
         <td>$${fmtNum(c.mrr||0)}</td>
         <td>${contactCell}</td>
         <td>${renewStr}</td>
-        <td style="font-size:.78rem;color:var(--muted)">${c.lifecycle || '—'}</td>
+        <td style="font-size:var(--fs-base);color:var(--muted)">${c.lifecycle || '—'}</td>
       </tr>`;
     }).join('')}</tbody>
   </table>`;

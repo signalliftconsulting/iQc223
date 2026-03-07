@@ -105,6 +105,26 @@ function getStatus(score) {
   return 'expand';
 }
 
+/* ── Auto-stage: move lifecycle to/from "atrisk" based on score ── */
+function applyAutoStage(c) {
+  if (!c) return false;
+  const lc = c.lifecycle || 'active';
+  // Don't touch onboarding, won, or churned — those are business decisions
+  if (lc === 'onboarding' || lc === 'won' || lc === 'churned') return false;
+  const st = c.status || getStatus(c.score || 50);
+  // Score fell to risk/critical → auto-set At Risk
+  if ((st === 'critical' || st === 'risk') && lc !== 'atrisk') {
+    c.lifecycle = 'atrisk';
+    return true;
+  }
+  // Score recovered past risk threshold → auto-restore Active
+  if (st !== 'critical' && st !== 'risk' && lc === 'atrisk') {
+    c.lifecycle = 'active';
+    return true;
+  }
+  return false;
+}
+
 // ─── WEIGHT-AWARE HELPER ─────────────────────────────────────
 // Returns the resolved weights for a customer (profile override or global)
 function getActiveWeights(c) {
@@ -152,9 +172,13 @@ function applyNextTouchTransition(c) {
   var today = new Date();
   today.setHours(0, 0, 0, 0);
   if (ntDate >= today) return false; // still in the future or today
+  // Archive to touch_history before clearing
+  if (!c.touch_history) c.touch_history = [];
+  c.touch_history.push({ date: c.next_touch, status: 'completed', time: c.next_touch_time || '' });
   // Promote: next_touch becomes last_contact_date
   c.last_contact_date = c.next_touch;
   c.next_touch = '';
+  c.next_touch_time = '';
   // Recalculate days from the new last_contact_date
   var daysSince = Math.max(0, Math.floor((Date.now() - ntDate.getTime()) / 86400000));
   c.days = daysSince;
@@ -179,6 +203,7 @@ function refreshLiveScores() {
     c.days   = effDays;
     c.score  = result.score;
     c.status = getStatus(result.score);
+    if (applyAutoStage(c) && !transitioned.includes(c)) transitioned.push(c);
   });
   // Persist transitioned customers (fire-and-forget)
   if (transitioned.length && typeof save === 'function') {

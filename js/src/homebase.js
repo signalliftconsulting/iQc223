@@ -437,7 +437,7 @@ function _renderHomeBase() {
   html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">';
   html += '<div class="hb-section-hd" style="margin-bottom:0">Insights' + (insights.length ? ` <span class="hb-count">(${insights.length})</span>` : '') + '</div>';
   html += '<div style="display:flex;align-items:center;gap:8px">';
-  html += `<select class="form-input" style="width:auto;padding:4px 10px;font-size:.76rem" onchange="_hbPeriodDays=+this.value;renderHomeBase()">
+  html += `<select class="form-input" style="width:auto;padding:4px 10px;font-size:var(--fs-sm)" onchange="_hbPeriodDays=+this.value;renderHomeBase()">
     <option value="7"${_hbPeriodDays===7?' selected':''}>7 days</option>
     <option value="14"${_hbPeriodDays===14?' selected':''}>14 days</option>
     <option value="30"${_hbPeriodDays===30?' selected':''}>30 days</option>
@@ -457,8 +457,8 @@ function _renderHomeBase() {
 
   // ── Most Improved / Biggest Drops (moved from Dashboard) ──
   html += '<div class="hb-movers-grid">';
-  html += '<div class="card" style="padding:16px 20px"><div class="card-hd" style="margin-bottom:8px"><div class="hb-section-hd" style="margin-bottom:0">Most Improved <span style="font-weight:500;font-size:.72rem;color:var(--muted)">7d</span></div></div><div id="wins-wrap"></div></div>';
-  html += '<div class="card" style="padding:16px 20px"><div class="card-hd" style="margin-bottom:8px"><div class="hb-section-hd" style="margin-bottom:0">Biggest Drops <span style="font-weight:500;font-size:.72rem;color:var(--muted)">7d</span></div></div><div id="drops-wrap"></div></div>';
+  html += '<div class="card" style="padding:16px 20px"><div class="card-hd" style="margin-bottom:8px"><div class="hb-section-hd" style="margin-bottom:0">Most Improved <span style="font-weight:500;font-size:var(--fs-sm);color:var(--muted)">7d</span></div></div><div id="wins-wrap"></div></div>';
+  html += '<div class="card" style="padding:16px 20px"><div class="card-hd" style="margin-bottom:8px"><div class="hb-section-hd" style="margin-bottom:0">Biggest Drops <span style="font-weight:500;font-size:var(--fs-sm);color:var(--muted)">7d</span></div></div><div id="drops-wrap"></div></div>';
   html += '</div>';
 
   // ── Signal Heatmap (moved from Dashboard) ──
@@ -1064,7 +1064,7 @@ function renderHeatmap(active) {
   const wrap = el('heatmap-wrap');
   if (!wrap) return;
   if (!active.length) {
-    wrap.innerHTML = '<div style="color:var(--subtle);font-size:.8rem;padding:16px 0;text-align:center">No customers yet</div>';
+    wrap.innerHTML = '<div style="color:var(--subtle);font-size:var(--fs-base);padding:16px 0;text-align:center">No customers yet</div>';
     return;
   }
 
@@ -1149,7 +1149,7 @@ function renderWins(active) {
   });
 
   if (!wins.length) {
-    wrap.innerHTML = '<div style="font-size:.78rem;color:var(--muted);padding:6px 0;text-align:center">No score improvements this week yet</div>';
+    wrap.innerHTML = '<div style="font-size:var(--fs-base);color:var(--muted);padding:6px 0;text-align:center">No score improvements this week yet</div>';
     return;
   }
 
@@ -1168,11 +1168,11 @@ function renderWins(active) {
     return `
     <div class="win-item" onclick="openDetail('${escHtml(c.id)}')">
       <div style="width:32px;height:32px;border-radius:50%;background:${badgeBg};border:2px solid ${badgeColor};display:flex;align-items:center;justify-content:center;flex-shrink:0">
-        <span style="font-size:.72rem;font-weight:800;color:${badgeColor}">${newScore}</span>
+        <span style="font-size:var(--fs-sm);font-weight:800;color:${badgeColor}">${newScore}</span>
       </div>
       <div style="flex:1;min-width:0">
         <div class="win-name">${escHtml(c.name)}</div>
-        <div style="font-size:.68rem;color:var(--muted)">${STATUS_LABEL[st]}</div>
+        <div style="font-size:var(--fs-xs);color:var(--muted)">${STATUS_LABEL[st]}</div>
       </div>
       <span class="win-delta" style="display:flex;align-items:center;gap:3px"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>+${delta}</span>
     </div>`;
@@ -1193,7 +1193,7 @@ function renderDrops(active) {
   });
 
   if (!drops.length) {
-    wrap.innerHTML = '<div style="font-size:.78rem;color:var(--muted);padding:6px 0;text-align:center">No score drops this week</div>';
+    wrap.innerHTML = '<div style="font-size:var(--fs-base);color:var(--muted);padding:6px 0;text-align:center">No score drops this week</div>';
     return;
   }
 
@@ -1214,13 +1214,13 @@ function renderDrops(active) {
     return `
     <div class="win-item" onclick="openDetail('${escHtml(c.id)}')">
       <div style="width:32px;height:32px;border-radius:50%;background:${badgeBg};border:2px solid ${badgeColor};display:flex;align-items:center;justify-content:center;flex-shrink:0">
-        <span style="font-size:.72rem;font-weight:800;color:${badgeColor}">${newScore}</span>
+        <span style="font-size:var(--fs-sm);font-weight:800;color:${badgeColor}">${newScore}</span>
       </div>
       <div style="flex:1;min-width:0">
         <div class="win-name">${escHtml(c.name)}</div>
-        <div style="font-size:.68rem;color:var(--muted)">${STATUS_LABEL[st]}</div>
+        <div style="font-size:var(--fs-xs);color:var(--muted)">${STATUS_LABEL[st]}</div>
       </div>
-      <span style="font-size:.75rem;font-weight:800;color:#dc2626;white-space:nowrap;display:flex;align-items:center;gap:3px"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>-${Math.abs(delta)}</span>
+      <span style="font-size:var(--fs-sm);font-weight:800;color:#dc2626;white-space:nowrap;display:flex;align-items:center;gap:3px"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>-${Math.abs(delta)}</span>
     </div>`;
   }).join('') + dropsSeeAll;
 }
@@ -1251,7 +1251,7 @@ function renderRenewalPipeline(active) {
   ];
   const withDate = active.filter(c => c.renewal_date);
   if (!withDate.length) {
-    wrap.innerHTML = '<div style="color:var(--subtle);font-size:.78rem;padding:8px 0;text-align:center">No accounts have a renewal date set. Add renewal dates when editing a customer.</div>';
+    wrap.innerHTML = '<div style="color:var(--subtle);font-size:var(--fs-base);padding:8px 0;text-align:center">No accounts have a renewal date set. Add renewal dates when editing a customer.</div>';
     return;
   }
   const rows = buckets.map(b => {
@@ -1265,14 +1265,14 @@ function renderRenewalPipeline(active) {
   });
   wrap.innerHTML = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
     ${rows.map(r => {
-      const riskBadge = r.atRisk ? `<span style="color:${r.color};font-size:.68rem;font-weight:700">⚠ ${r.atRisk} at risk</span>` : '';
+      const riskBadge = r.atRisk ? `<span style="color:${r.color};font-size:var(--fs-xs);font-weight:700">${appIcon('warning',11)} ${r.atRisk} at risk</span>` : '';
       const countText = r.count ? `${r.count} acct${r.count!==1?'s':''}` : `<span style="color:var(--subtle)">—</span>`;
       const clickable = r.count > 0;
       const _rIds = JSON.stringify(r.ids).replace(/"/g,'&quot;');
       return `<div style="border-left:3px solid ${r.color};background:${r.bg};border-radius:6px;padding:9px 12px;${clickable?'cursor:pointer;transition:transform .15s,box-shadow .15s':''}" ${clickable?`onclick="filterRenewalBucket('Renewal ${r.label}',${_rIds})" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,.1)'" onmouseout="this.style.transform='';this.style.boxShadow=''"`:''}>
-        <div style="font-size:.65rem;font-weight:700;color:${r.color};text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${r.label}</div>
+        <div style="font-size:var(--fs-xs);font-weight:700;color:${r.color};text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${r.label}</div>
         <div style="font-size:1.05rem;font-weight:800;color:#1e293b;margin-bottom:2px">${r.mrr ? '$'+fmtNum(r.mrr) : '—'}</div>
-        <div style="font-size:.7rem;color:var(--muted);display:flex;gap:5px;align-items:center;flex-wrap:wrap">${countText}${r.atRisk?' · ':''}${riskBadge}</div>
+        <div style="font-size:var(--fs-sm);color:var(--muted);display:flex;gap:5px;align-items:center;flex-wrap:wrap">${countText}${r.atRisk?' · ':''}${riskBadge}</div>
       </div>`;
     }).join('')}
   </div>`;

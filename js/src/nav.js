@@ -140,7 +140,7 @@ function renderBellDd() {
   const all = buildAlerts();
   const active = all.filter(a => !isSnoozed(a.id) && !isDismissed(a.id));
   if (!active.length) {
-    m.innerHTML = `<div style="padding:14px 16px;font-size:.8rem;color:var(--muted);text-align:center">✓ All clear — no active alerts</div>`;
+    m.innerHTML = `<div style="padding:14px 16px;font-size:var(--fs-base);color:var(--muted);text-align:center">${appIcon('check',13)} All clear — no active alerts</div>`;
     return;
   }
   const top5 = active.slice(0, 5);
@@ -150,16 +150,16 @@ function renderBellDd() {
     return `<button class="snooze-dd__item" onclick="toggleBellDd();${c ? `openDetail('${escHtml(c.id)}')` : `nav('alerts')`}" style="flex-direction:column;align-items:flex-start;gap:2px;padding:9px 14px">
       <div style="display:flex;align-items:center;gap:7px;width:100%">
         <span style="width:7px;height:7px;border-radius:50%;background:${dotColor[a.type]||'var(--muted)'};flex-shrink:0"></span>
-        <span style="font-size:.78rem;color:var(--text);flex:1;text-align:left">${a.msg}</span>
+        <span style="font-size:var(--fs-base);color:var(--text);flex:1;text-align:left">${a.msg}</span>
       </div>
-      ${a.sub ? `<div style="font-size:.7rem;color:var(--muted);padding-left:14px">${a.sub}</div>` : ''}
+      ${a.sub ? `<div style="font-size:var(--fs-sm);color:var(--muted);padding-left:14px">${a.sub}</div>` : ''}
     </button>`;
   }).join('');
   if (active.length > 5) {
-    html += `<div style="padding:5px 14px;font-size:.72rem;color:var(--muted)">+${active.length - 5} more alert${active.length - 5 !== 1 ? 's' : ''}</div>`;
+    html += `<div style="padding:5px 14px;font-size:var(--fs-sm);color:var(--muted)">+${active.length - 5} more alert${active.length - 5 !== 1 ? 's' : ''}</div>`;
   }
   html += `<div style="border-top:1px solid var(--border);padding:8px 14px">
-    <button class="snooze-dd__item" onclick="toggleBellDd();nav('alerts')" style="font-size:.78rem;color:var(--blue);font-weight:600;width:100%;justify-content:center">View all alerts →</button>
+    <button class="snooze-dd__item" onclick="toggleBellDd();nav('alerts')" style="font-size:var(--fs-base);color:var(--blue);font-weight:600;width:100%;justify-content:center">View all alerts →</button>
   </div>`;
   m.innerHTML = html;
 }

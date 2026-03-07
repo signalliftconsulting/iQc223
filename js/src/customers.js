@@ -219,7 +219,8 @@ function renderFilterPills() {
   const hasInsight = insightFilter && insightFilter.ids;
   const hasTier = !!_filterTier;
   const hasStage = !!_filterStage;
-  if (!keys.length && !hasMrr && !hasInsight && !hasTier && !hasStage) { bar.style.display = 'none'; return; }
+  const hasManager = !!_filterManager;
+  if (!keys.length && !hasMrr && !hasInsight && !hasTier && !hasStage && !hasManager) { bar.style.display = 'none'; return; }
 
   bar.innerHTML = keys.map(key => {
     const f = columnFilters[key];
@@ -261,6 +262,10 @@ function renderFilterPills() {
     const stageLabels = { onboarding:'Onboarding', active:'Active', atrisk:'At Risk', won:'Won / Upsold', churned:'Churned' };
     const stageLabel = stageLabels[_filterStage] || _filterStage;
     bar.innerHTML = `<span class="filter-pill" style="background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.4)">Stage: ${stageLabel}<button class="filter-pill-x" onclick="event.stopPropagation();clearStageFilter()" title="Remove filter">✕</button></span>` + bar.innerHTML;
+  }
+  // CSM filter pill
+  if (_filterManager) {
+    bar.innerHTML = `<span class="filter-pill" style="background:rgba(16,185,129,.15);border-color:rgba(16,185,129,.4)">CSM: ${escHtml(_filterManager)}<button class="filter-pill-x" onclick="event.stopPropagation();clearManagerFilter()" title="Remove filter">✕</button></span>` + bar.innerHTML;
   }
 
   bar.style.display = 'flex';
@@ -493,6 +498,7 @@ function _renderCustomers() {
   }).filter(c => passesManagerFilter(c)).filter(c => {
     if (_filterTier && c.tier !== _filterTier) return false;
     if (_filterStage && (c.lifecycle || 'active') !== _filterStage) return false;
+    if (_filterManager && (c.manager || '').trim() !== _filterManager) return false;
     if (!q) return true;
     return c.name.toLowerCase().includes(q) || (c.tags||[]).some(t=>t.toLowerCase().includes(q));
   });
@@ -534,9 +540,9 @@ function _renderCustomers() {
       empty.style.display = 'none';
       table.style.display = '';
       const hasFilters = Object.keys(columnFilters).length > 0;
-      tbody.innerHTML = `<tr><td colspan="20" style="text-align:center;padding:32px 16px;color:var(--muted);font-size:.85rem">
+      tbody.innerHTML = `<tr><td colspan="20" style="text-align:center;padding:32px 16px;color:var(--muted);font-size:var(--fs-md)">
         <div style="margin-bottom:6px">No matching customers</div>
-        ${hasFilters ? '<div style="font-size:.75rem">Try adjusting or clearing your filters</div>' : ''}
+        ${hasFilters ? '<div style="font-size:var(--fs-sm)">Try adjusting or clearing your filters</div>' : ''}
       </td></tr>`;
     }
     return;
@@ -551,9 +557,9 @@ function _renderCustomers() {
     return `
       <tr class="${isSel?'selected':''}" data-id="${c.id}">
         <td class="cb-col"><input type="checkbox" ${isSel?'checked':''} onchange="toggleSelect('${escHtml(c.id)}',this.checked)" onclick="event.stopPropagation()"/></td>
-        <td style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')"><strong>${escHtml(c.name)}</strong>${(()=>{ if (!c.next_touch) return ''; const ntd = Math.round((new Date(c.next_touch)-new Date())/86400000); return ntd < 0 ? ' <span class="nt-badge nt-overdue" style="font-size:.62rem;padding:1px 5px">Touch overdue</span>' : ''; })()}</td>
+        <td style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')"><strong>${escHtml(c.name)}</strong>${(()=>{ if (!c.next_touch) return ''; const ntd = Math.round((new Date(c.next_touch)-new Date())/86400000); return ntd < 0 ? ' <span class="nt-badge nt-overdue" style="font-size:var(--fs-xs);padding:1px 5px">Touch overdue</span>' : ''; })()}</td>
         <td>${c.manager ? escHtml(c.manager) : '<span style="color:var(--muted);font-style:italic">—</span>'}</td>
-        <td>${c.scoring_profile && c.scoring_profile !== 'Global Weights' ? `<span class="tag">${escHtml(c.scoring_profile)}</span>` : '<span style="color:var(--muted);font-style:italic;font-size:.75rem">Global</span>'}</td>
+        <td>${c.scoring_profile && c.scoring_profile !== 'Global Weights' ? `<span class="tag">${escHtml(c.scoring_profile)}</span>` : '<span style="color:var(--muted);font-style:italic;font-size:var(--fs-sm)">Global</span>'}</td>
         <td>${scoreHTML(c)}</td>
         <td>${momentumHTML(c)}</td>
         <td>${badgeHTML(c.status)}</td>
@@ -595,7 +601,7 @@ function _renderCustomers() {
           if (ntd < 0)  return `<span class="nt-badge nt-overdue">${dateStr}</span>`;
           if (ntd === 0) return `<span class="nt-badge nt-today">Today</span>`;
           if (ntd <= 7)  return `<span class="nt-badge nt-ok">${dateStr}</span>`;
-          return `<span style="font-size:.75rem;color:var(--muted)">${dateStr}</span>`;
+          return `<span style="font-size:var(--fs-sm);color:var(--muted)">${dateStr}</span>`;
         })()}</td>
         <td>${((tags) => {
           if (!tags.length) return '';
@@ -647,15 +653,13 @@ async function saveInlineNextTouch(custId, val) {
   if (!c) return;
   const oldVal = c.next_touch || '';
 
-  // Archive old next_touch to touch_history before overwriting
+  // Archive old next_touch to touch_history only if it's in the past (actually happened)
   if (oldVal) {
-    if (!c.touch_history) c.touch_history = [];
-    c.touch_history.push({ date: oldVal, status: 'completed' });
-
-    // Also promote to last_contact_date if in the past
     const oldDate = new Date(oldVal);
     const today = new Date(); today.setHours(0,0,0,0);
     if (oldDate <= today) {
+      if (!c.touch_history) c.touch_history = [];
+      c.touch_history.push({ date: oldVal, status: 'completed', time: c.next_touch_time || '' });
       c.last_contact_date = oldVal;
     }
   }
@@ -744,6 +748,7 @@ function toggleSelectAll(checked) {
   }).filter(c => passesManagerFilter(c)).filter(c => {
     if (_filterTier && c.tier !== _filterTier) return false;
     if (_filterStage && (c.lifecycle || 'active') !== _filterStage) return false;
+    if (_filterManager && (c.manager || '').trim() !== _filterManager) return false;
     if (!q) return true;
     return c.name.toLowerCase().includes(q) || (c.tags||[]).some(t=>t.toLowerCase().includes(q));
   });
@@ -798,9 +803,10 @@ function bulkRescore() {
       const { score } = calcScore(c, resolvedWeights);
       if (c.score !== score) {
         c.history = c.history || [];
-        c.history.push({ score, date: new Date().toISOString() });
+        c.history.push({ score, date: new Date().toISOString(), signals: buildHistorySnapshot(c) });
         c.score = score;
         c.status = getStatus(score);
+        applyAutoStage(c);
         changed.push(c);
       }
     });
@@ -903,7 +909,7 @@ function renderPresetDd() {
     html += `<div class="snooze-dd__item">
       <span style="flex:1;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="applyPreset(${i})">
         <strong>${escHtml(p.name)}</strong>
-        <span style="color:var(--muted);font-size:.72rem;margin-left:4px">${escHtml(desc)}</span>
+        <span style="color:var(--muted);font-size:var(--fs-sm);margin-left:4px">${escHtml(desc)}</span>
       </span>
       <button class="preset-del" onclick="event.stopPropagation();deletePreset(${i})" title="Remove preset">✕</button>
     </div>`;
@@ -962,9 +968,10 @@ function rescoreAllFromToolbar() {
       const { score } = calcScore(c, resolvedWeights);
       if (c.score !== score) {
         c.history = c.history || [];
-        c.history.push({ score, date: new Date().toISOString() });
+        c.history.push({ score, date: new Date().toISOString(), signals: buildHistorySnapshot(c) });
         c.score  = score;
         c.status = getStatus(score);
+        applyAutoStage(c);
         changed.push(c);
         n++;
       }

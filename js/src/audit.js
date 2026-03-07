@@ -234,11 +234,11 @@ function renderAuditLog() {
     }
 
     return `<tr>
-      <td style="white-space:nowrap;font-size:.78rem;color:var(--muted)">${time}</td>
-      <td style="font-size:.78rem;color:var(--text)">${escHtml(userEmail)}</td>
-      <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.75rem;font-weight:700;color:${color};background:color-mix(in srgb, ${color} 12%, transparent)">${label}</span></td>
-      <td style="font-weight:600;font-size:.85rem">${name}</td>
-      <td style="font-size:.8rem;color:var(--muted);max-width:480px;line-height:1.5">${detailStr}</td>
+      <td style="white-space:nowrap;font-size:var(--fs-base);color:var(--muted)">${time}</td>
+      <td style="font-size:var(--fs-base);color:var(--text)">${escHtml(userEmail)}</td>
+      <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-sm);font-weight:700;color:${color};background:color-mix(in srgb, ${color} 12%, transparent)">${label}</span></td>
+      <td style="font-weight:600;font-size:var(--fs-md)">${name}</td>
+      <td style="font-size:var(--fs-base);color:var(--muted);max-width:480px;line-height:1.5">${detailStr}</td>
     </tr>`;
   }).join('');
 }

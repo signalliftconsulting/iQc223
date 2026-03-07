@@ -188,7 +188,7 @@ async function renderClients() {
       <td>${tierBadgeHTML(c.plan_tier || 'starter')}</td>
       <td>${userCounts[c.id] || 0}</td>
       <td><strong>${cc}</strong></td>
-      <td style="color:var(--muted);font-size:.8rem">${escHtml(c.notes || '—')}</td>
+      <td style="color:var(--muted);font-size:var(--fs-base)">${escHtml(c.notes || '—')}</td>
       <td>
         <div style="display:flex;gap:4px">
           <button class="btn btn-xs btn-outline" onclick="openEditClientModal('${escHtml(c.id)}','${escHtml(c.name)}',\`${escHtml(c.notes||'')}\`,'${escHtml(c.plan_tier||'starter')}')">Edit</button>
@@ -339,16 +339,16 @@ async function renderUsers() {
         <tr>
           <td>
             <strong>${email || '—'}</strong>
-            ${isSelf ? '<span style="margin-left:6px;font-size:.7rem;background:var(--blue-l);color:var(--blue);padding:1px 6px;border-radius:4px;font-weight:700">YOU</span>' : ''}
+            ${isSelf ? '<span style="margin-left:6px;font-size:var(--fs-sm);background:var(--blue-l);color:var(--blue);padding:1px 6px;border-radius:4px;font-weight:700">YOU</span>' : ''}
           </td>
           <td>${clientName}</td>
           <td style="font-weight:600">${custCount}</td>
-          <td style="color:var(--muted);font-size:.78rem">${fmtDate(p.created_at)}</td>
+          <td style="color:var(--muted);font-size:var(--fs-base)">${fmtDate(p.created_at)}</td>
           <td>
             <div style="display:flex;gap:4px;flex-wrap:nowrap">
               <button class="btn btn-xs btn-outline" onclick="openEditUserModal('${uid}','${email}','${escHtml(clientId)}')">Edit</button>
               ${isSelf
-                ? '<span style="font-size:.75rem;color:var(--subtle);padding:2px 4px">Can\'t Delete</span>'
+                ? '<span style="font-size:var(--fs-sm);color:var(--subtle);padding:2px 4px">Can\'t Delete</span>'
                 : `<button class="btn btn-xs btn-danger" onclick="adminDeleteUser('${uid}','${email}')">Remove</button>`}
             </div>
           </td>

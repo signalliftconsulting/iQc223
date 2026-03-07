@@ -10,6 +10,60 @@
 const APP_VERSION = 'v93';
 console.log('%c IQcadence ' + APP_VERSION + ' loaded ', 'background:#6366f1;color:#fff;font-weight:bold;padding:2px 8px;border-radius:4px');
 
+// ─── UNIFIED ICON SYSTEM ─────────────────────────────────────
+// Feather-style SVG paths — 24×24 viewBox, stroke-based.
+// Usage: appIcon('check', 16) → <svg ...>
+const APP_ICONS = {
+  /* Sentiment */
+  sentPositive: '<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><circle cx="9" cy="9" r=".5" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r=".5" fill="currentColor" stroke="none"/>',
+  sentNeutral:  '<circle cx="12" cy="12" r="10"/><line x1="8" y1="15" x2="16" y2="15"/><circle cx="9" cy="9" r=".5" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r=".5" fill="currentColor" stroke="none"/>',
+  sentNegative: '<circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><circle cx="9" cy="9" r=".5" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r=".5" fill="currentColor" stroke="none"/>',
+  /* Validation */
+  check:       '<polyline points="20 6 9 17 4 12"/>',
+  checkCircle: '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
+  /* Alert / warning */
+  warning: '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+  /* Actions */
+  bolt:    '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  target:  '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  sparkle: '<path d="M12 3l1.8 5.4L19.2 10l-5.4 1.6L12 17l-1.8-5.4L4.8 10l5.4-1.6z"/>',
+  rocket:  '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 3 0 3 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-3 0-3"/>',
+  /* UI chrome */
+  bookmark: '<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>',
+  edit:     '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',
+  save:     '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>',
+  trash:    '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  x:        '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+  tag:      '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',
+  /* Content */
+  mailbox:   '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/>',
+  users:     '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  clipboard: '<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>',
+  lock:      '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  folder:    '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
+  mail:      '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/>',
+  /* Data viz */
+  trendUp:   '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
+  trendDown: '<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
+  chartBar:  '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+  calendar:  '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+  download:  '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+  refresh:   '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>'
+};
+
+function appIcon(key, size) {
+  size = size || 16;
+  var p = APP_ICONS[key];
+  if (!p) return '';
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;flex-shrink:0">'+p+'</svg>';
+}
+
+function statusDotSVG(status) {
+  var colors = { critical:'var(--red)', risk:'#ea580c', watch:'var(--amber)', healthy:'var(--green)', expand:'var(--purple)' };
+  var c = colors[status] || 'var(--subtle)';
+  return '<svg width="10" height="10" viewBox="0 0 10 10" style="display:inline-block;vertical-align:middle"><circle cx="5" cy="5" r="4" fill="'+c+'" stroke="none"/></svg>';
+}
+
 // ─── SUPABASE CLIENT ─────────────────────────────────────────
 // NOTE: The anon key is intentionally public — Supabase security comes from
 // Row Level Security (RLS) policies, not from hiding this key.
@@ -44,6 +98,7 @@ let filterPresets  = [];        // saved filter presets [{ name, filterMode, col
 let mrrExposureFilter = null;   // { label: string, ids: Set<string> } — set by clicking MRR Exposure rows
 let _filterTier       = null;   // tier filter for customers table (set by segment click-through)
 let _filterStage      = null;   // lifecycle stage filter for customers table (set by stage click-through)
+let _filterManager    = null;   // CSM name filter for customers table (set by workload click-through)
 let insightFilter     = null;   // { label: string, ids: Set<string> } — set by insight card click-through
 
 // ─── AUTOMATIONS STATE ──────────────────────────────────────
@@ -51,6 +106,7 @@ let automationsCfg    = {};        // { api_key_prefix, webhooks: { type: { url,
 let webhookEvents     = [];        // loaded from webhook_events table
 let webhookLogOffset  = 0;
 let _prevCustomerStates = new Map(); // id → { score, status } for trigger detection
+let _alertCooldowns     = {};       // "custId|eventKey" → timestamp — dedup same alert within 24h
 
 // ─── SHARED PAGINATION ──────────────────────────────────────
 const PAGE_SIZE = 50;
@@ -140,16 +196,16 @@ function getPlanLimit(key) {
 function tierBadgeHTML(tier) {
   const label = PLAN_TIER_LABELS[tier] || tier;
   const color = PLAN_TIER_COLORS[tier] || 'var(--muted)';
-  return `<span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.72rem;font-weight:700;color:${color};background:color-mix(in srgb, ${color} 12%, transparent);text-transform:uppercase;letter-spacing:.03em">${label}</span>`;
+  return `<span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-sm);font-weight:700;color:${color};background:color-mix(in srgb, ${color} 12%, transparent);text-transform:uppercase;letter-spacing:.03em">${label}</span>`;
 }
 
 function upgradeHTML(featureKey) {
   const needed = PLAN_FEATURES[featureKey] || 'starter';
   const label  = PLAN_TIER_LABELS[needed] || needed;
   return `<div style="text-align:center;padding:40px 20px;color:var(--muted)">
-    <div style="font-size:1.5rem;margin-bottom:10px">🔒</div>
+    <div style="margin-bottom:10px">${appIcon('lock',28)}</div>
     <h3 style="margin-bottom:6px;color:var(--text)">Upgrade to ${label}</h3>
-    <p style="font-size:.85rem;max-width:360px;margin:0 auto">This feature requires the ${label} plan or higher. Contact your admin to upgrade.</p>
+    <p style="font-size:var(--fs-md);max-width:360px;margin:0 auto">This feature requires the ${label} plan or higher. Contact your admin to upgrade.</p>
   </div>`;
 }
 
@@ -1870,6 +1926,26 @@ function getStatus(score) {
   return 'expand';
 }
 
+/* ── Auto-stage: move lifecycle to/from "atrisk" based on score ── */
+function applyAutoStage(c) {
+  if (!c) return false;
+  const lc = c.lifecycle || 'active';
+  // Don't touch onboarding, won, or churned — those are business decisions
+  if (lc === 'onboarding' || lc === 'won' || lc === 'churned') return false;
+  const st = c.status || getStatus(c.score || 50);
+  // Score fell to risk/critical → auto-set At Risk
+  if ((st === 'critical' || st === 'risk') && lc !== 'atrisk') {
+    c.lifecycle = 'atrisk';
+    return true;
+  }
+  // Score recovered past risk threshold → auto-restore Active
+  if (st !== 'critical' && st !== 'risk' && lc === 'atrisk') {
+    c.lifecycle = 'active';
+    return true;
+  }
+  return false;
+}
+
 // ─── WEIGHT-AWARE HELPER ─────────────────────────────────────
 // Returns the resolved weights for a customer (profile override or global)
 function getActiveWeights(c) {
@@ -1917,9 +1993,13 @@ function applyNextTouchTransition(c) {
   var today = new Date();
   today.setHours(0, 0, 0, 0);
   if (ntDate >= today) return false; // still in the future or today
+  // Archive to touch_history before clearing
+  if (!c.touch_history) c.touch_history = [];
+  c.touch_history.push({ date: c.next_touch, status: 'completed', time: c.next_touch_time || '' });
   // Promote: next_touch becomes last_contact_date
   c.last_contact_date = c.next_touch;
   c.next_touch = '';
+  c.next_touch_time = '';
   // Recalculate days from the new last_contact_date
   var daysSince = Math.max(0, Math.floor((Date.now() - ntDate.getTime()) / 86400000));
   c.days = daysSince;
@@ -1944,6 +2024,7 @@ function refreshLiveScores() {
     c.days   = effDays;
     c.score  = result.score;
     c.status = getStatus(result.score);
+    if (applyAutoStage(c) && !transitioned.includes(c)) transitioned.push(c);
   });
   // Persist transitioned customers (fire-and-forget)
   if (transitioned.length && typeof save === 'function') {
@@ -2510,7 +2591,7 @@ function renderBellDd() {
   const all = buildAlerts();
   const active = all.filter(a => !isSnoozed(a.id) && !isDismissed(a.id));
   if (!active.length) {
-    m.innerHTML = `<div style="padding:14px 16px;font-size:.8rem;color:var(--muted);text-align:center">✓ All clear — no active alerts</div>`;
+    m.innerHTML = `<div style="padding:14px 16px;font-size:var(--fs-base);color:var(--muted);text-align:center">${appIcon('check',13)} All clear — no active alerts</div>`;
     return;
   }
   const top5 = active.slice(0, 5);
@@ -2520,16 +2601,16 @@ function renderBellDd() {
     return `<button class="snooze-dd__item" onclick="toggleBellDd();${c ? `openDetail('${escHtml(c.id)}')` : `nav('alerts')`}" style="flex-direction:column;align-items:flex-start;gap:2px;padding:9px 14px">
       <div style="display:flex;align-items:center;gap:7px;width:100%">
         <span style="width:7px;height:7px;border-radius:50%;background:${dotColor[a.type]||'var(--muted)'};flex-shrink:0"></span>
-        <span style="font-size:.78rem;color:var(--text);flex:1;text-align:left">${a.msg}</span>
+        <span style="font-size:var(--fs-base);color:var(--text);flex:1;text-align:left">${a.msg}</span>
       </div>
-      ${a.sub ? `<div style="font-size:.7rem;color:var(--muted);padding-left:14px">${a.sub}</div>` : ''}
+      ${a.sub ? `<div style="font-size:var(--fs-sm);color:var(--muted);padding-left:14px">${a.sub}</div>` : ''}
     </button>`;
   }).join('');
   if (active.length > 5) {
-    html += `<div style="padding:5px 14px;font-size:.72rem;color:var(--muted)">+${active.length - 5} more alert${active.length - 5 !== 1 ? 's' : ''}</div>`;
+    html += `<div style="padding:5px 14px;font-size:var(--fs-sm);color:var(--muted)">+${active.length - 5} more alert${active.length - 5 !== 1 ? 's' : ''}</div>`;
   }
   html += `<div style="border-top:1px solid var(--border);padding:8px 14px">
-    <button class="snooze-dd__item" onclick="toggleBellDd();nav('alerts')" style="font-size:.78rem;color:var(--blue);font-weight:600;width:100%;justify-content:center">View all alerts →</button>
+    <button class="snooze-dd__item" onclick="toggleBellDd();nav('alerts')" style="font-size:var(--fs-base);color:var(--blue);font-weight:600;width:100%;justify-content:center">View all alerts →</button>
   </div>`;
   m.innerHTML = html;
 }
@@ -2973,7 +3054,7 @@ function _renderHomeBase() {
   html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">';
   html += '<div class="hb-section-hd" style="margin-bottom:0">Insights' + (insights.length ? ` <span class="hb-count">(${insights.length})</span>` : '') + '</div>';
   html += '<div style="display:flex;align-items:center;gap:8px">';
-  html += `<select class="form-input" style="width:auto;padding:4px 10px;font-size:.76rem" onchange="_hbPeriodDays=+this.value;renderHomeBase()">
+  html += `<select class="form-input" style="width:auto;padding:4px 10px;font-size:var(--fs-sm)" onchange="_hbPeriodDays=+this.value;renderHomeBase()">
     <option value="7"${_hbPeriodDays===7?' selected':''}>7 days</option>
     <option value="14"${_hbPeriodDays===14?' selected':''}>14 days</option>
     <option value="30"${_hbPeriodDays===30?' selected':''}>30 days</option>
@@ -2993,8 +3074,8 @@ function _renderHomeBase() {
 
   // ── Most Improved / Biggest Drops (moved from Dashboard) ──
   html += '<div class="hb-movers-grid">';
-  html += '<div class="card" style="padding:16px 20px"><div class="card-hd" style="margin-bottom:8px"><div class="hb-section-hd" style="margin-bottom:0">Most Improved <span style="font-weight:500;font-size:.72rem;color:var(--muted)">7d</span></div></div><div id="wins-wrap"></div></div>';
-  html += '<div class="card" style="padding:16px 20px"><div class="card-hd" style="margin-bottom:8px"><div class="hb-section-hd" style="margin-bottom:0">Biggest Drops <span style="font-weight:500;font-size:.72rem;color:var(--muted)">7d</span></div></div><div id="drops-wrap"></div></div>';
+  html += '<div class="card" style="padding:16px 20px"><div class="card-hd" style="margin-bottom:8px"><div class="hb-section-hd" style="margin-bottom:0">Most Improved <span style="font-weight:500;font-size:var(--fs-sm);color:var(--muted)">7d</span></div></div><div id="wins-wrap"></div></div>';
+  html += '<div class="card" style="padding:16px 20px"><div class="card-hd" style="margin-bottom:8px"><div class="hb-section-hd" style="margin-bottom:0">Biggest Drops <span style="font-weight:500;font-size:var(--fs-sm);color:var(--muted)">7d</span></div></div><div id="drops-wrap"></div></div>';
   html += '</div>';
 
   // ── Signal Heatmap (moved from Dashboard) ──
@@ -3600,7 +3681,7 @@ function renderHeatmap(active) {
   const wrap = el('heatmap-wrap');
   if (!wrap) return;
   if (!active.length) {
-    wrap.innerHTML = '<div style="color:var(--subtle);font-size:.8rem;padding:16px 0;text-align:center">No customers yet</div>';
+    wrap.innerHTML = '<div style="color:var(--subtle);font-size:var(--fs-base);padding:16px 0;text-align:center">No customers yet</div>';
     return;
   }
 
@@ -3685,7 +3766,7 @@ function renderWins(active) {
   });
 
   if (!wins.length) {
-    wrap.innerHTML = '<div style="font-size:.78rem;color:var(--muted);padding:6px 0;text-align:center">No score improvements this week yet</div>';
+    wrap.innerHTML = '<div style="font-size:var(--fs-base);color:var(--muted);padding:6px 0;text-align:center">No score improvements this week yet</div>';
     return;
   }
 
@@ -3704,11 +3785,11 @@ function renderWins(active) {
     return `
     <div class="win-item" onclick="openDetail('${escHtml(c.id)}')">
       <div style="width:32px;height:32px;border-radius:50%;background:${badgeBg};border:2px solid ${badgeColor};display:flex;align-items:center;justify-content:center;flex-shrink:0">
-        <span style="font-size:.72rem;font-weight:800;color:${badgeColor}">${newScore}</span>
+        <span style="font-size:var(--fs-sm);font-weight:800;color:${badgeColor}">${newScore}</span>
       </div>
       <div style="flex:1;min-width:0">
         <div class="win-name">${escHtml(c.name)}</div>
-        <div style="font-size:.68rem;color:var(--muted)">${STATUS_LABEL[st]}</div>
+        <div style="font-size:var(--fs-xs);color:var(--muted)">${STATUS_LABEL[st]}</div>
       </div>
       <span class="win-delta" style="display:flex;align-items:center;gap:3px"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>+${delta}</span>
     </div>`;
@@ -3729,7 +3810,7 @@ function renderDrops(active) {
   });
 
   if (!drops.length) {
-    wrap.innerHTML = '<div style="font-size:.78rem;color:var(--muted);padding:6px 0;text-align:center">No score drops this week</div>';
+    wrap.innerHTML = '<div style="font-size:var(--fs-base);color:var(--muted);padding:6px 0;text-align:center">No score drops this week</div>';
     return;
   }
 
@@ -3750,13 +3831,13 @@ function renderDrops(active) {
     return `
     <div class="win-item" onclick="openDetail('${escHtml(c.id)}')">
       <div style="width:32px;height:32px;border-radius:50%;background:${badgeBg};border:2px solid ${badgeColor};display:flex;align-items:center;justify-content:center;flex-shrink:0">
-        <span style="font-size:.72rem;font-weight:800;color:${badgeColor}">${newScore}</span>
+        <span style="font-size:var(--fs-sm);font-weight:800;color:${badgeColor}">${newScore}</span>
       </div>
       <div style="flex:1;min-width:0">
         <div class="win-name">${escHtml(c.name)}</div>
-        <div style="font-size:.68rem;color:var(--muted)">${STATUS_LABEL[st]}</div>
+        <div style="font-size:var(--fs-xs);color:var(--muted)">${STATUS_LABEL[st]}</div>
       </div>
-      <span style="font-size:.75rem;font-weight:800;color:#dc2626;white-space:nowrap;display:flex;align-items:center;gap:3px"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>-${Math.abs(delta)}</span>
+      <span style="font-size:var(--fs-sm);font-weight:800;color:#dc2626;white-space:nowrap;display:flex;align-items:center;gap:3px"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>-${Math.abs(delta)}</span>
     </div>`;
   }).join('') + dropsSeeAll;
 }
@@ -3787,7 +3868,7 @@ function renderRenewalPipeline(active) {
   ];
   const withDate = active.filter(c => c.renewal_date);
   if (!withDate.length) {
-    wrap.innerHTML = '<div style="color:var(--subtle);font-size:.78rem;padding:8px 0;text-align:center">No accounts have a renewal date set. Add renewal dates when editing a customer.</div>';
+    wrap.innerHTML = '<div style="color:var(--subtle);font-size:var(--fs-base);padding:8px 0;text-align:center">No accounts have a renewal date set. Add renewal dates when editing a customer.</div>';
     return;
   }
   const rows = buckets.map(b => {
@@ -3801,14 +3882,14 @@ function renderRenewalPipeline(active) {
   });
   wrap.innerHTML = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
     ${rows.map(r => {
-      const riskBadge = r.atRisk ? `<span style="color:${r.color};font-size:.68rem;font-weight:700">⚠ ${r.atRisk} at risk</span>` : '';
+      const riskBadge = r.atRisk ? `<span style="color:${r.color};font-size:var(--fs-xs);font-weight:700">${appIcon('warning',11)} ${r.atRisk} at risk</span>` : '';
       const countText = r.count ? `${r.count} acct${r.count!==1?'s':''}` : `<span style="color:var(--subtle)">—</span>`;
       const clickable = r.count > 0;
       const _rIds = JSON.stringify(r.ids).replace(/"/g,'&quot;');
       return `<div style="border-left:3px solid ${r.color};background:${r.bg};border-radius:6px;padding:9px 12px;${clickable?'cursor:pointer;transition:transform .15s,box-shadow .15s':''}" ${clickable?`onclick="filterRenewalBucket('Renewal ${r.label}',${_rIds})" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,.1)'" onmouseout="this.style.transform='';this.style.boxShadow=''"`:''}>
-        <div style="font-size:.65rem;font-weight:700;color:${r.color};text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${r.label}</div>
+        <div style="font-size:var(--fs-xs);font-weight:700;color:${r.color};text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${r.label}</div>
         <div style="font-size:1.05rem;font-weight:800;color:#1e293b;margin-bottom:2px">${r.mrr ? '$'+fmtNum(r.mrr) : '—'}</div>
-        <div style="font-size:.7rem;color:var(--muted);display:flex;gap:5px;align-items:center;flex-wrap:wrap">${countText}${r.atRisk?' · ':''}${riskBadge}</div>
+        <div style="font-size:var(--fs-sm);color:var(--muted);display:flex;gap:5px;align-items:center;flex-wrap:wrap">${countText}${r.atRisk?' · ':''}${riskBadge}</div>
       </div>`;
     }).join('')}
   </div>`;
@@ -4212,9 +4293,9 @@ function _renderAlerts() {
       custList.forEach(([cid, data]) => {
         const scoreColor = STATUS_COLOR[data.status] || '#94a3b8';
         html += `<div class="alert-group-hd" data-cid="${escHtml(cid)}" onclick="toggleAlertGroup(this)">
-          <span class="alert-score-circle" style="background:${scoreColor};width:26px;height:26px;font-size:.65rem;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-weight:800">${data.score}</span>
+          <span class="alert-score-circle" style="background:${scoreColor};width:26px;height:26px;font-size:var(--fs-xs);display:inline-flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-weight:800">${data.score}</span>
           <span style="cursor:pointer" onclick="event.stopPropagation();openDetail('${escHtml(cid)}')">${escHtml(data.name)}</span>
-          ${data.mrr ? `<span style="font-weight:400;color:var(--subtle);font-size:.75rem">$${fmtNum(data.mrr)} MRR</span>` : ''}
+          ${data.mrr ? `<span style="font-weight:400;color:var(--subtle);font-size:var(--fs-sm)">$${fmtNum(data.mrr)} MRR</span>` : ''}
           <span style="font-weight:400;color:var(--subtle)">(${data.alerts.length} alert${data.alerts.length !== 1 ? 's' : ''})</span>
         </div>`;
         // Sort alerts within customer by severity
@@ -4223,7 +4304,7 @@ function _renderAlerts() {
         html += `<div class="alert-group-body">${data.alerts.map(a => alertItemHTML(a, false)).join('')}</div>`;
       });
     } else if (custSearch) {
-      html += `<div style="text-align:center;padding:28px 16px;color:var(--muted);font-size:.85rem">No customers matching "${escHtml(custSearch)}"</div>`;
+      html += `<div style="text-align:center;padding:28px 16px;color:var(--muted);font-size:var(--fs-md)">No customers matching "${escHtml(custSearch)}"</div>`;
     }
   } else if (_alertViewMode === 'table') {
     // ── Table view: customer table inline ──
@@ -4255,8 +4336,8 @@ function _renderAlerts() {
 
     const filterLabel = _alertTableFilter ? _alertTableFilter.label : 'All Alerted Customers';
     html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-      <span style="font-size:.78rem;font-weight:700;color:var(--text)">${escHtml(filterLabel)}</span>
-      <span style="font-size:.72rem;color:var(--muted)">${tblList.length} customer${tblList.length!==1?'s':''}</span>
+      <span style="font-size:var(--fs-base);font-weight:700;color:var(--text)">${escHtml(filterLabel)}</span>
+      <span style="font-size:var(--fs-sm);color:var(--muted)">${tblList.length} customer${tblList.length!==1?'s':''}</span>
       ${_alertTableFilter ? `<button class="btn btn-xs btn-ghost" onclick="_alertTableFilter=null;renderAlerts()">✕ Clear filter</button>` : ''}
     </div>`;
 
@@ -4296,18 +4377,18 @@ function _renderAlerts() {
           return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
             <td style="padding:8px 12px"><strong>${escHtml(c.name)}</strong></td>
             <td style="padding:8px 12px">${scoreHTML(c)}</td>
-            <td style="padding:8px 12px;font-size:.78rem;font-weight:700;color:${d7Color}">${d7Str}</td>
+            <td style="padding:8px 12px;font-size:var(--fs-base);font-weight:700;color:${d7Color}">${d7Str}</td>
             <td style="padding:8px 12px">${badgeHTML(c.status)}</td>
             <td style="padding:8px 12px">${c.mrr ? '$'+fmtNum(c.mrr) : '—'}</td>
-            <td style="padding:8px 12px"><span class="${cad.cls}">${cad.label.replace(/\\s*\\(\\d+d\\)/,'')}</span> <span style="font-size:.72rem;color:var(--muted)">${c.days != null ? c.days + 'd' : 'N/A'}</span></td>
+            <td style="padding:8px 12px"><span class="${cad.cls}">${cad.label.replace(/\\s*\\(\\d+d\\)/,'')}</span> <span style="font-size:var(--fs-sm);color:var(--muted)">${c.days != null ? c.days + 'd' : 'N/A'}</span></td>
             <td style="padding:8px 12px">${renewalStr}</td>
-            <td style="padding:8px 12px"><span style="background:var(--red-l);color:var(--red);padding:2px 8px;border-radius:10px;font-size:.72rem;font-weight:700">${cnt}</span></td>
+            <td style="padding:8px 12px"><span style="background:var(--red-l);color:var(--red);padding:2px 8px;border-radius:10px;font-size:var(--fs-sm);font-weight:700">${cnt}</span></td>
             <td style="padding:8px 12px;color:${c.tickets != null && c.tickets > 0 ? '#dc2626' : 'var(--subtle)'};font-weight:${c.tickets != null && c.tickets > 0 ? '700' : '400'}">${c.tickets != null ? c.tickets : 'N/A'}</td>
-            <td style="padding:8px 12px;font-size:.82rem;color:var(--subtle)">${c.manager ? escHtml(c.manager) : '—'}</td>
+            <td style="padding:8px 12px;font-size:var(--fs-base);color:var(--subtle)">${c.manager ? escHtml(c.manager) : '—'}</td>
           </tr>`;
         }).join('') + '</tbody></table></div>';
     } else {
-      html += `<div style="text-align:center;padding:28px;color:var(--muted);font-size:.85rem">No matching customers</div>`;
+      html += `<div style="text-align:center;padding:28px;color:var(--muted);font-size:var(--fs-md)">No matching customers</div>`;
     }
   } else {
     // ── Category view (default) ──
@@ -4447,7 +4528,7 @@ function renderAlertPanel(all, active, snz) {
         <div style="height:7px;background:var(--border);border-radius:100px;overflow:hidden;cursor:pointer" onclick="filterByMrrBucket('${label}')">
           <div style="width:${pct}%;height:100%;background:${color};border-radius:100px;transition:width .4s"></div>
         </div>
-        <div class="alert-mrr-val" style="font-weight:800;color:${color};white-space:nowrap;text-align:right;font-size:.85rem;cursor:pointer" onclick="filterByMrrBucket('${label}')">$${fmtNum(mrr)}</div>`;
+        <div class="alert-mrr-val" style="font-weight:800;color:${color};white-space:nowrap;text-align:right;font-size:var(--fs-md);cursor:pointer" onclick="filterByMrrBucket('${label}')">$${fmtNum(mrr)}</div>`;
     }).join('');
     mrrWrap.innerHTML = mrrRows
       ? `<div style="display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center">${mrrRows}</div>`
@@ -4471,18 +4552,58 @@ function renderAlertPanel(all, active, snz) {
       const pct = Math.round((catCounts[c] / maxCount) * 100);
       return `
         <div style="display:flex;align-items:center;gap:5px;white-space:nowrap;cursor:pointer" onclick="filterByAlertCat('${c}')">
-          <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;background:${catColors[c]}15;font-size:.65rem">${def.icon}</span>
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;background:${catColors[c]}15;font-size:var(--fs-xs)">${def.icon}</span>
           <span class="alert-cat-name">${def.label}</span>
         </div>
         <div style="height:7px;background:var(--border);border-radius:100px;overflow:hidden;cursor:pointer" onclick="filterByAlertCat('${c}')">
           <div style="width:${pct}%;height:100%;background:${catColors[c]};border-radius:100px;transition:width .4s"></div>
         </div>
         <div style="text-align:right;cursor:pointer" onclick="filterByAlertCat('${c}')">
-          <span style="background:${catColors[c]}12;color:${catColors[c]};padding:2px 9px;border-radius:100px;font-size:.82rem;font-weight:800;white-space:nowrap">${catCounts[c]}</span>
+          <span style="background:${catColors[c]}12;color:${catColors[c]};padding:2px 9px;border-radius:100px;font-size:var(--fs-md);font-weight:800;white-space:nowrap">${catCounts[c]}</span>
         </div>`;
     }).join('');
     catWrap.innerHTML = catRows
       ? `<div style="display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center">${catRows}</div>`
+      : '<div class="alerts-detail-empty" style="padding:20px 0;text-align:center;color:var(--muted)">No active alerts — all clear!</div>';
+  }
+
+  // ── By Stage detail card ──
+  const stageWrap = el('alert-stage-wrap');
+  if (stageWrap) {
+    const stageDefs = [
+      { key: 'onboarding', label: 'Onboarding', color: '#3b82f6' },
+      { key: 'active',     label: 'Active',     color: '#10b981' },
+      { key: 'atrisk',     label: 'At Risk',    color: '#ef4444' },
+      { key: 'won',        label: 'Won / Upsold', color: '#8b5cf6' },
+      { key: 'churned',    label: 'Churned',    color: '#64748b' }
+    ];
+    const stageCounts = {};
+    stageDefs.forEach(s => stageCounts[s.key] = 0);
+    active.forEach(a => {
+      const c = customers.find(x => x.id === a.cid);
+      if (c) { const lc = c.lifecycle || 'active'; if (stageCounts[lc] !== undefined) stageCounts[lc]++; }
+    });
+    const stagesWithAlerts = stageDefs.filter(s => stageCounts[s.key] > 0);
+    const stageTotalEl = el('alert-stage-total');
+    if (stageTotalEl) stageTotalEl.textContent = stagesWithAlerts.length;
+    const maxStageCount = Math.max(1, ...Object.values(stageCounts));
+    const stageRows = stagesWithAlerts.map(s => {
+      const cnt = stageCounts[s.key];
+      const pct = Math.round((cnt / maxStageCount) * 100);
+      return `
+        <div style="display:flex;align-items:center;gap:6px;white-space:nowrap">
+          <div style="width:8px;height:8px;border-radius:50%;background:${s.color};flex-shrink:0"></div>
+          <span style="font-size:var(--fs-base);font-weight:600;color:var(--text)">${s.label}</span>
+        </div>
+        <div style="height:7px;background:var(--border);border-radius:100px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:${s.color};border-radius:100px;transition:width .4s"></div>
+        </div>
+        <div style="text-align:right">
+          <span style="background:${s.color}12;color:${s.color};padding:2px 9px;border-radius:100px;font-size:var(--fs-md);font-weight:800;white-space:nowrap">${cnt}</span>
+        </div>`;
+    }).join('');
+    stageWrap.innerHTML = stageRows
+      ? `<div style="display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center">${stageRows}</div>`
       : '<div class="alerts-detail-empty" style="padding:20px 0;text-align:center;color:var(--muted)">No active alerts — all clear!</div>';
   }
 
@@ -4648,7 +4769,7 @@ function renderAlertPanel(all, active, snz) {
     if (topIns.length) {
       // Store insight data for click navigation
       window._alertInsights = topIns;
-      insWrap.innerHTML = '<div style="font-size:.82rem;font-weight:700;color:var(--text);margin-bottom:8px">Insights</div>' +
+      insWrap.innerHTML = '<div style="font-size:var(--fs-base);font-weight:700;color:var(--text);margin-bottom:8px">Insights</div>' +
         topIns.map((ins, idx) => {
           const cls = ins.accent === 'green' ? 'ta-card-green' : ins.accent === 'red' ? 'ta-card-red' : ins.accent === 'amber' ? 'ta-card-amber' : '';
           const clickable = ins.cids && ins.cids.length > 0;
@@ -5155,7 +5276,8 @@ function renderFilterPills() {
   const hasInsight = insightFilter && insightFilter.ids;
   const hasTier = !!_filterTier;
   const hasStage = !!_filterStage;
-  if (!keys.length && !hasMrr && !hasInsight && !hasTier && !hasStage) { bar.style.display = 'none'; return; }
+  const hasManager = !!_filterManager;
+  if (!keys.length && !hasMrr && !hasInsight && !hasTier && !hasStage && !hasManager) { bar.style.display = 'none'; return; }
 
   bar.innerHTML = keys.map(key => {
     const f = columnFilters[key];
@@ -5197,6 +5319,10 @@ function renderFilterPills() {
     const stageLabels = { onboarding:'Onboarding', active:'Active', atrisk:'At Risk', won:'Won / Upsold', churned:'Churned' };
     const stageLabel = stageLabels[_filterStage] || _filterStage;
     bar.innerHTML = `<span class="filter-pill" style="background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.4)">Stage: ${stageLabel}<button class="filter-pill-x" onclick="event.stopPropagation();clearStageFilter()" title="Remove filter">✕</button></span>` + bar.innerHTML;
+  }
+  // CSM filter pill
+  if (_filterManager) {
+    bar.innerHTML = `<span class="filter-pill" style="background:rgba(16,185,129,.15);border-color:rgba(16,185,129,.4)">CSM: ${escHtml(_filterManager)}<button class="filter-pill-x" onclick="event.stopPropagation();clearManagerFilter()" title="Remove filter">✕</button></span>` + bar.innerHTML;
   }
 
   bar.style.display = 'flex';
@@ -5429,6 +5555,7 @@ function _renderCustomers() {
   }).filter(c => passesManagerFilter(c)).filter(c => {
     if (_filterTier && c.tier !== _filterTier) return false;
     if (_filterStage && (c.lifecycle || 'active') !== _filterStage) return false;
+    if (_filterManager && (c.manager || '').trim() !== _filterManager) return false;
     if (!q) return true;
     return c.name.toLowerCase().includes(q) || (c.tags||[]).some(t=>t.toLowerCase().includes(q));
   });
@@ -5470,9 +5597,9 @@ function _renderCustomers() {
       empty.style.display = 'none';
       table.style.display = '';
       const hasFilters = Object.keys(columnFilters).length > 0;
-      tbody.innerHTML = `<tr><td colspan="20" style="text-align:center;padding:32px 16px;color:var(--muted);font-size:.85rem">
+      tbody.innerHTML = `<tr><td colspan="20" style="text-align:center;padding:32px 16px;color:var(--muted);font-size:var(--fs-md)">
         <div style="margin-bottom:6px">No matching customers</div>
-        ${hasFilters ? '<div style="font-size:.75rem">Try adjusting or clearing your filters</div>' : ''}
+        ${hasFilters ? '<div style="font-size:var(--fs-sm)">Try adjusting or clearing your filters</div>' : ''}
       </td></tr>`;
     }
     return;
@@ -5487,9 +5614,9 @@ function _renderCustomers() {
     return `
       <tr class="${isSel?'selected':''}" data-id="${c.id}">
         <td class="cb-col"><input type="checkbox" ${isSel?'checked':''} onchange="toggleSelect('${escHtml(c.id)}',this.checked)" onclick="event.stopPropagation()"/></td>
-        <td style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')"><strong>${escHtml(c.name)}</strong>${(()=>{ if (!c.next_touch) return ''; const ntd = Math.round((new Date(c.next_touch)-new Date())/86400000); return ntd < 0 ? ' <span class="nt-badge nt-overdue" style="font-size:.62rem;padding:1px 5px">Touch overdue</span>' : ''; })()}</td>
+        <td style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')"><strong>${escHtml(c.name)}</strong>${(()=>{ if (!c.next_touch) return ''; const ntd = Math.round((new Date(c.next_touch)-new Date())/86400000); return ntd < 0 ? ' <span class="nt-badge nt-overdue" style="font-size:var(--fs-xs);padding:1px 5px">Touch overdue</span>' : ''; })()}</td>
         <td>${c.manager ? escHtml(c.manager) : '<span style="color:var(--muted);font-style:italic">—</span>'}</td>
-        <td>${c.scoring_profile && c.scoring_profile !== 'Global Weights' ? `<span class="tag">${escHtml(c.scoring_profile)}</span>` : '<span style="color:var(--muted);font-style:italic;font-size:.75rem">Global</span>'}</td>
+        <td>${c.scoring_profile && c.scoring_profile !== 'Global Weights' ? `<span class="tag">${escHtml(c.scoring_profile)}</span>` : '<span style="color:var(--muted);font-style:italic;font-size:var(--fs-sm)">Global</span>'}</td>
         <td>${scoreHTML(c)}</td>
         <td>${momentumHTML(c)}</td>
         <td>${badgeHTML(c.status)}</td>
@@ -5531,7 +5658,7 @@ function _renderCustomers() {
           if (ntd < 0)  return `<span class="nt-badge nt-overdue">${dateStr}</span>`;
           if (ntd === 0) return `<span class="nt-badge nt-today">Today</span>`;
           if (ntd <= 7)  return `<span class="nt-badge nt-ok">${dateStr}</span>`;
-          return `<span style="font-size:.75rem;color:var(--muted)">${dateStr}</span>`;
+          return `<span style="font-size:var(--fs-sm);color:var(--muted)">${dateStr}</span>`;
         })()}</td>
         <td>${((tags) => {
           if (!tags.length) return '';
@@ -5583,15 +5710,13 @@ async function saveInlineNextTouch(custId, val) {
   if (!c) return;
   const oldVal = c.next_touch || '';
 
-  // Archive old next_touch to touch_history before overwriting
+  // Archive old next_touch to touch_history only if it's in the past (actually happened)
   if (oldVal) {
-    if (!c.touch_history) c.touch_history = [];
-    c.touch_history.push({ date: oldVal, status: 'completed' });
-
-    // Also promote to last_contact_date if in the past
     const oldDate = new Date(oldVal);
     const today = new Date(); today.setHours(0,0,0,0);
     if (oldDate <= today) {
+      if (!c.touch_history) c.touch_history = [];
+      c.touch_history.push({ date: oldVal, status: 'completed', time: c.next_touch_time || '' });
       c.last_contact_date = oldVal;
     }
   }
@@ -5680,6 +5805,7 @@ function toggleSelectAll(checked) {
   }).filter(c => passesManagerFilter(c)).filter(c => {
     if (_filterTier && c.tier !== _filterTier) return false;
     if (_filterStage && (c.lifecycle || 'active') !== _filterStage) return false;
+    if (_filterManager && (c.manager || '').trim() !== _filterManager) return false;
     if (!q) return true;
     return c.name.toLowerCase().includes(q) || (c.tags||[]).some(t=>t.toLowerCase().includes(q));
   });
@@ -5734,9 +5860,10 @@ function bulkRescore() {
       const { score } = calcScore(c, resolvedWeights);
       if (c.score !== score) {
         c.history = c.history || [];
-        c.history.push({ score, date: new Date().toISOString() });
+        c.history.push({ score, date: new Date().toISOString(), signals: buildHistorySnapshot(c) });
         c.score = score;
         c.status = getStatus(score);
+        applyAutoStage(c);
         changed.push(c);
       }
     });
@@ -5839,7 +5966,7 @@ function renderPresetDd() {
     html += `<div class="snooze-dd__item">
       <span style="flex:1;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="applyPreset(${i})">
         <strong>${escHtml(p.name)}</strong>
-        <span style="color:var(--muted);font-size:.72rem;margin-left:4px">${escHtml(desc)}</span>
+        <span style="color:var(--muted);font-size:var(--fs-sm);margin-left:4px">${escHtml(desc)}</span>
       </span>
       <button class="preset-del" onclick="event.stopPropagation();deletePreset(${i})" title="Remove preset">✕</button>
     </div>`;
@@ -5898,9 +6025,10 @@ function rescoreAllFromToolbar() {
       const { score } = calcScore(c, resolvedWeights);
       if (c.score !== score) {
         c.history = c.history || [];
-        c.history.push({ score, date: new Date().toISOString() });
+        c.history.push({ score, date: new Date().toISOString(), signals: buildHistorySnapshot(c) });
         c.score  = score;
         c.status = getStatus(score);
+        applyAutoStage(c);
         changed.push(c);
         n++;
       }
@@ -6098,7 +6226,7 @@ function showResult({ data, score, signals, status, rec, plays }) {
   bd.innerHTML = signalDefs.map(s => {
     const off = !((bw[s.wkey] || 0) > 0);
     return `<div class="bd-row${off ? ' bd-row--off' : ''}">
-      <div class="bd-label">${s.label}${off ? ' <span style="font-size:.65rem;color:var(--muted)">(off)</span>' : ''}</div>
+      <div class="bd-label">${s.label}${off ? ' <span style="font-size:var(--fs-xs);color:var(--muted)">(off)</span>' : ''}</div>
       <div class="bd-bar"><div class="bd-fill" style="width:${off ? 0 : Math.round(signals[s.key])}%;background:${s.color}"></div></div>
       <div class="bd-score">${off ? '—' : Math.round(signals[s.key])}</div>
     </div>`;
@@ -6240,6 +6368,7 @@ function saveScore() {
         dupe.lifecycle       = data.lifecycle;
         dupe.tags            = data.tags;
         dupe.scoring_profile = data.profile || '';
+        applyAutoStage(dupe);
         if (data.note) {
           dupe.notes = dupe.notes || [];
           dupe.notes.unshift({ text: data.note, date: new Date().toISOString() });
@@ -6288,6 +6417,7 @@ function saveScore() {
     sentiment: [],
     created:  new Date().toISOString()
   };
+  applyAutoStage(cust);
   customers.unshift(cust);
   refreshMgrDropdown();
   setLoading(true);
@@ -6367,21 +6497,21 @@ function buildPrintHTML(name, score, status, rec, plays, data) {
       h1{font-size:1.6rem;font-weight:800;margin-bottom:4px}
       h2{font-size:1.1rem;font-weight:700;margin:20px 0 8px}
       .score-big{font-size:4rem;font-weight:900;color:${colors[status]};line-height:1}
-      .badge{display:inline-block;background:${colors[status]}22;color:${colors[status]};padding:4px 14px;border-radius:100px;font-weight:700;font-size:.88rem;border:1.5px solid ${colors[status]}55}
-      .rec{background:#f1f5f9;border-left:4px solid ${colors[status]};padding:10px 14px;border-radius:4px;font-size:.88rem;line-height:1.6;margin-bottom:16px}
-      .play{background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;margin-bottom:6px;font-size:.84rem}
-      table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:8px}
-      th{text-align:left;color:#64748b;font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid #e2e8f0;padding:5px 8px}
+      .badge{display:inline-block;background:${colors[status]}22;color:${colors[status]};padding:4px 14px;border-radius:100px;font-weight:700;font-size:var(--fs-md);border:1.5px solid ${colors[status]}55}
+      .rec{background:#f1f5f9;border-left:4px solid ${colors[status]};padding:10px 14px;border-radius:4px;font-size:var(--fs-md);line-height:1.6;margin-bottom:16px}
+      .play{background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;margin-bottom:6px;font-size:var(--fs-md)}
+      table{width:100%;border-collapse:collapse;font-size:var(--fs-base);margin-top:8px}
+      th{text-align:left;color:#64748b;font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid #e2e8f0;padding:5px 8px}
       td{padding:6px 8px;border-bottom:1px solid #f1f5f9}
-      .footer-p{margin-top:32px;font-size:.7rem;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:12px}
+      .footer-p{margin-top:32px;font-size:var(--fs-sm);color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:12px}
     </style>
     <h1>IQcadence Health Report — ${name}</h1>
-    <p style="color:#64748b;font-size:.82rem">Generated ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})} · IQcadence CS Health Score</p>
+    <p style="color:#64748b;font-size:var(--fs-base)">Generated ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})} · IQcadence CS Health Score</p>
     <div style="margin:16px 0;display:flex;align-items:center;gap:20px;flex-wrap:wrap">
       <div class="score-big">${score}</div>
       <div>
         <div class="badge">${labels[status]}</div>
-        <div style="margin-top:6px;font-size:.8rem;color:#64748b">MRR: $${(data.mrr||0).toLocaleString()} · Tier: ${(data.tier||'').toUpperCase()} · Stage: ${data.lifecycle||'—'}</div>
+        <div style="margin-top:6px;font-size:var(--fs-base);color:#64748b">MRR: $${(data.mrr||0).toLocaleString()} · Tier: ${(data.tier||'').toUpperCase()} · Stage: ${data.lifecycle||'—'}</div>
       </div>
     </div>
     <div class="rec">${rec.replace(/<[^>]+>/g,'')}</div>
@@ -6438,12 +6568,12 @@ function renderDetailSentiment() {
   catch(e) { logs = []; }
   // Sort newest-first by date (mixed unshift/push order can't be trusted)
   logs.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  const icons = { positive:'😊', neutral:'😐', negative:'😟' };
+  const icons = { positive: appIcon('sentPositive',18), neutral: appIcon('sentNeutral',18), negative: appIcon('sentNegative',18) };
   const labels = { positive:'Positive', neutral:'Neutral', negative:'Negative' };
 
   const sentWrap = el('dm-sentiment-list');
   if (!logs.length) {
-    sentWrap.innerHTML = '<p style="font-size:.82rem;color:var(--muted)">No sentiment logs yet. Log one above.</p>';
+    sentWrap.innerHTML = '<p style="font-size:var(--fs-base);color:var(--muted)">No sentiment logs yet. Log one above.</p>';
     return;
   }
   const pg = _pagGet('sentLog');
@@ -6452,10 +6582,10 @@ function renderDetailSentiment() {
   sentWrap.innerHTML = pagNav + slice.map((s,si) => {
     const idx = pg * PAGE_SIZE + si; // original index for delete
     return `<div class="sent-log">
-          <div class="sent-log__icon">${icons[s.val]||'😐'}</div>
+          <div class="sent-log__icon">${icons[s.val]||appIcon('sentNeutral',18)}</div>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:700;font-size:.8rem">${labels[s.val]||s.val}</div>
-            ${s.note ? `<div style="font-size:.75rem;color:var(--muted);margin-top:1px">${escHtml(s.note)}</div>` : ''}
+            <div style="font-weight:700;font-size:var(--fs-base)">${labels[s.val]||s.val}</div>
+            ${s.note ? `<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:1px">${escHtml(s.note)}</div>` : ''}
           </div>
           <div class="sent-log__meta">${fmtDate(s.date)}</div>
           <button class="btn btn-xs btn-danger" style="margin-left:6px" onclick="deleteSentiment(${idx})">✕</button>
@@ -6550,9 +6680,7 @@ function renderDetailAlerts() {
   const dism   = mine.filter(a => isDismissed(a.id) && !isSnoozed(a.id));
 
   if (!mine.length) {
-    wrap.innerHTML = `<div style="text-align:center;padding:32px 16px;color:var(--muted);font-size:.85rem">
-      <div style="font-size:1.4rem;margin-bottom:6px">✅</div>
-      No active alerts for this customer</div>`;
+    wrap.innerHTML = `<div class="empty-st" style="padding:24px"><div class="ei" style="color:var(--green)">${appIcon('checkCircle',32)}</div><h3>All clear!</h3><p>No active alerts for this customer.</p></div>`;
     return;
   }
 
@@ -6563,9 +6691,9 @@ function renderDetailAlerts() {
     const color = sevColor[a.type] || 'var(--muted)';
     const opacity = state === 'dismissed' ? 'opacity:.45;' : state === 'snoozed' ? 'opacity:.6;' : '';
     const badge = state === 'snoozed'
-      ? `<span style="font-size:.68rem;color:var(--amber);font-weight:600;margin-left:auto;white-space:nowrap">⏸ Snoozed</span>`
+      ? `<span style="font-size:var(--fs-xs);color:var(--amber);font-weight:600;margin-left:auto;white-space:nowrap">⏸ Snoozed</span>`
       : state === 'dismissed'
-      ? `<span style="font-size:.68rem;color:var(--muted);font-weight:600;margin-left:auto;white-space:nowrap">Dismissed</span>`
+      ? `<span style="font-size:var(--fs-xs);color:var(--muted);font-weight:600;margin-left:auto;white-space:nowrap">Dismissed</span>`
       : '';
     const actions = state === 'snoozed'
       ? `<button class="btn btn-xs btn-ghost" onclick="unsnooze('${escHtml(a.id)}');renderDetailAlerts()">Wake</button>`
@@ -6577,9 +6705,9 @@ function renderDetailAlerts() {
       <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:var(--r);border:1.5px solid ${color}22;background:${color}08;${opacity}">
         <div style="color:${color};flex-shrink:0;margin-top:2px">${def.icon}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:.82rem;font-weight:600;color:var(--text)">${def.label}</div>
-          <div style="font-size:.78rem;color:var(--subtle);margin-top:2px">${a.msg.replace(/<strong>.*?<\/strong>\s*/, '')}</div>
-          ${a.sub ? `<div style="font-size:.72rem;color:var(--muted);margin-top:3px">${escHtml(a.sub)}</div>` : ''}
+          <div style="font-size:var(--fs-base);font-weight:600;color:var(--text)">${def.label}</div>
+          <div style="font-size:var(--fs-base);color:var(--subtle);margin-top:2px">${a.msg.replace(/<strong>.*?<\/strong>\s*/, '')}</div>
+          ${a.sub ? `<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:3px">${escHtml(a.sub)}</div>` : ''}
         </div>
         ${badge}
         <div style="display:flex;gap:4px;flex-shrink:0;align-items:center">${actions}</div>
@@ -6588,15 +6716,15 @@ function renderDetailAlerts() {
 
   let html = '';
   if (active.length) {
-    html += `<div style="font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Active (${active.length})</div>`;
+    html += `<div style="font-size:var(--fs-sm);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Active (${active.length})</div>`;
     html += `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px">${active.map(a => alertRow(a, 'active')).join('')}</div>`;
   }
   if (snzd.length) {
-    html += `<div style="font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Snoozed (${snzd.length})</div>`;
+    html += `<div style="font-size:var(--fs-sm);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Snoozed (${snzd.length})</div>`;
     html += `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px">${snzd.map(a => alertRow(a, 'snoozed')).join('')}</div>`;
   }
   if (dism.length) {
-    html += `<div style="font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Dismissed (${dism.length})</div>`;
+    html += `<div style="font-size:var(--fs-sm);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Dismissed (${dism.length})</div>`;
     html += `<div style="display:flex;flex-direction:column;gap:6px">${dism.map(a => alertRow(a, 'dismissed')).join('')}</div>`;
   }
   wrap.innerHTML = html;
@@ -6611,7 +6739,7 @@ function renderDetailOverview() {
   const cad    = getCadenceStatus(c);
   const sent   = latestSentiment(c);
   const nba    = buildNextBestAction(c);
-  const sentIcon = sent ? ({ positive:'😊', neutral:'😐', negative:'😟' }[sent.val]||'') : null;
+  const sentIcon = sent ? ({ positive: appIcon('sentPositive',20), neutral: appIcon('sentNeutral',20), negative: appIcon('sentNegative',20) }[sent.val]||'') : null;
   // Map nba.level to urgency color
   const nbaColors = {
     urgent:'var(--red)', warn:'var(--amber)', expand:'var(--green)',
@@ -6621,37 +6749,37 @@ function renderDetailOverview() {
 
   el('dm-overview').innerHTML = `
     <!-- Next Best Action banner -->
-    <div style="background:${nbaColor}0f;border:1.5px solid ${nbaColor}33;border-radius:var(--r);padding:13px 15px;margin-bottom:16px">
-      <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:${nbaColor};margin-bottom:5px">Next Best Action</div>
-      <div style="font-weight:700;font-size:.9rem;color:var(--text);margin-bottom:5px">${nba.action}</div>
-      <div style="font-size:.79rem;color:var(--muted);line-height:1.6">${nba.talk}</div>
+    <div class="nba-banner" style="background:${nbaColor}0f;border:1.5px solid ${nbaColor}33">
+      <div class="nba-banner__title" style="color:${nbaColor}">Next Best Action</div>
+      <div class="nba-banner__action">${nba.action}</div>
+      <div class="nba-banner__talk">${nba.talk}</div>
     </div>
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;flex-wrap:wrap">
       ${buildRingHTML(c.score, c.status)}
       <div style="flex:1;min-width:0">
-        <div style="font-size:2rem;font-weight:800;line-height:1;letter-spacing:-.03em">${c.score}<span style="font-size:.9rem;font-weight:500;color:var(--muted)"> / 100</span></div>
+        <div style="font-size:2rem;font-weight:800;line-height:1;letter-spacing:-.03em">${c.score}<span style="font-size:var(--fs-lg);font-weight:500;color:var(--muted)"> / 100</span></div>
         <div style="margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           ${badgeHTML(c.status)}
           ${momentumHTML(c)}
           ${deltaHTML(delta)}
         </div>
-        <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;font-size:.78rem">
+        <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;font-size:var(--fs-base)">
           <div>
-            <label style="display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:2px">Manager</label>
-            <select id="di-manager" onchange="if(this.value==='__add_new__'){this.style.display='none';document.getElementById('di-manager-new').style.display='';document.getElementById('di-manager-new').focus()}" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;background:var(--bg);color:var(--text)">${buildManagerSelectOptions(c.manager||'')}</select>
-            <input type="text" id="di-manager-new" placeholder="New manager name..." style="display:none;width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;background:var(--bg);color:var(--text);margin-top:4px" onblur="if(!this.value){this.style.display='none';document.getElementById('di-manager').style.display='';document.getElementById('di-manager').value=''}" />
+            <label class="di-label">Manager</label>
+            <select id="di-manager" class="di-select" onchange="if(this.value==='__add_new__'){this.style.display='none';document.getElementById('di-manager-new').style.display='';document.getElementById('di-manager-new').focus()}">${buildManagerSelectOptions(c.manager||'')}</select>
+            <input type="text" id="di-manager-new" class="di-input" placeholder="New manager name..." style="display:none;margin-top:4px" onblur="if(!this.value){this.style.display='none';document.getElementById('di-manager').style.display='';document.getElementById('di-manager').value=''}" />
           </div>
           <div>
-            <label style="display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:2px">Tier</label>
-            <select id="di-tier" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;background:var(--bg);color:var(--text)">
+            <label class="di-label">Tier</label>
+            <select id="di-tier" class="di-select">
               <option value="smb" ${c.tier==='smb'?'selected':''}>SMB</option>
               <option value="mid" ${c.tier==='mid'?'selected':''}>Mid-Market</option>
               <option value="enterprise" ${c.tier==='enterprise'?'selected':''}>Enterprise</option>
             </select>
           </div>
           <div>
-            <label style="display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:2px">Lifecycle</label>
-            <select id="di-lifecycle" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;background:var(--bg);color:var(--text)">
+            <label class="di-label">Lifecycle</label>
+            <select id="di-lifecycle" class="di-select">
               <option value="onboarding" ${c.lifecycle==='onboarding'?'selected':''}>Onboarding</option>
               <option value="active" ${c.lifecycle==='active'?'selected':''}>Active</option>
               <option value="atrisk" ${c.lifecycle==='atrisk'?'selected':''}>At Risk</option>
@@ -6660,41 +6788,46 @@ function renderDetailOverview() {
             </select>
           </div>
           <div>
-            <label style="display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:2px">Next Touch</label>
+            <label class="di-label">Next Touch</label>
             <div style="display:flex;gap:4px">
-              <input type="date" id="di-next-touch" value="${c.next_touch||''}" style="flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;background:var(--bg);color:var(--text)" />
-              <input type="time" id="di-next-touch-time" value="${c.next_touch_time||''}" style="width:90px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;background:var(--bg);color:var(--text)" />
+              <input type="date" id="di-next-touch" class="di-input" value="${c.next_touch||''}" style="flex:1" />
+              <input type="time" id="di-next-touch-time" class="di-input" value="${c.next_touch_time||''}" style="width:90px" />
             </div>
           </div>
+          <div>
+            <label class="di-label">MRR ($)</label>
+            <input type="number" id="di-mrr" class="di-input" value="${c.mrr||0}" min="0" step="1" />
+          </div>
+          <div>
+            <label class="di-label">ARR ($)</label>
+            <input type="number" id="di-arr" class="di-input" value="${c.arr||0}" min="0" step="1" />
+          </div>
           <div style="grid-column:1/-1">
-            <label style="display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:2px">Tags</label>
-            <input type="text" id="di-tags" value="${escHtml((c.tags||[]).join(', '))}" placeholder="Comma-separated" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;background:var(--bg);color:var(--text)" />
+            <label class="di-label">Tags</label>
+            <input type="text" id="di-tags" class="di-input" value="${escHtml((c.tags||[]).join(', '))}" placeholder="Comma-separated" />
           </div>
         </div>
-        <div style="margin-top:6px;font-size:.76rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:10px">
-          <span>MRR: <strong style="color:var(--text)">${c.mrr ? '$'+fmtNum(c.mrr) : '—'}</strong></span>
-          ${c.scoring_profile ? `<span>Profile: <strong style="color:var(--text)">${escHtml(c.scoring_profile)}</strong></span>` : ''}
-        </div>
+        ${c.scoring_profile ? `<div style="margin-top:6px;font-size:var(--fs-sm);color:var(--muted)"><span>Profile: <strong style="color:var(--text)">${escHtml(c.scoring_profile)}</strong></span></div>` : ''}
       </div>
     </div>
     <!-- Signals row: last contact + next touch + renewal + sentiment -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;padding:10px 12px;background:var(--bg);border-radius:var(--r);border:1px solid var(--border)">
       <div>
-        <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:3px">Last Contact</div>
+        <div class="sig-label">Last Contact</div>
         ${(()=>{
           if (c.last_contact_date) {
             const lcd = new Date(c.last_contact_date);
             const daysAgo = Math.max(0, Math.floor((Date.now() - lcd.getTime()) / 86400000));
-            return `<span style="font-size:.78rem;font-weight:600">${lcd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span> <span style="font-size:.7rem;color:var(--muted)">(${daysAgo}d ago)</span>`;
+            return `<span style="font-size:var(--fs-base);font-weight:600">${lcd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span> <span style="font-size:var(--fs-sm);color:var(--muted)">(${daysAgo}d ago)</span>`;
           }
-          if (c.days != null) return `<span style="font-size:.78rem;font-weight:600">${c.days}d ago</span>`;
-          return '<span style="font-size:.75rem;color:var(--muted)">—</span>';
+          if (c.days != null) return `<span style="font-size:var(--fs-base);font-weight:600">${c.days}d ago</span>`;
+          return '<span style="font-size:var(--fs-sm);color:var(--muted)">—</span>';
         })()}
       </div>
       <div>
-        <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:3px">Next Touch</div>
+        <div class="sig-label">Next Touch</div>
         ${(()=>{
-          if (!c.next_touch) return '<span style="font-size:.75rem;color:var(--muted)">Not scheduled</span>';
+          if (!c.next_touch) return '<span style="font-size:var(--fs-sm);color:var(--muted)">Not scheduled</span>';
           const ntDays = Math.round((new Date(c.next_touch) - new Date()) / 86400000);
           const tDisp = c.next_touch_time ? ' at ' + fmtTime12(c.next_touch_time) : '';
           if (ntDays < 0)  return `<span class="nt-badge nt-overdue">Overdue ${Math.abs(ntDays)}d${tDisp}</span>`;
@@ -6703,17 +6836,17 @@ function renderDetailOverview() {
         })()}
       </div>
       <div>
-        <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:3px">Renewal</div>
-        ${c.renewal != null ? urgencyHTML(c) + ` <span style="font-size:.7rem;color:var(--muted);margin-left:4px">(${c.renewal}mo)</span>` : '<span style="font-size:.75rem;color:var(--muted)">—</span>'}
+        <div class="sig-label">Renewal</div>
+        ${c.renewal != null ? urgencyHTML(c) + ` <span style="font-size:var(--fs-sm);color:var(--muted);margin-left:4px">(${c.renewal}mo)</span>` : '<span style="font-size:var(--fs-sm);color:var(--muted)">—</span>'}
       </div>
       <div>
-        <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:3px">Last Vibe</div>
-        ${sentIcon ? `<span style="font-size:.85rem">${sentIcon}</span> <span style="font-size:.75rem;color:var(--muted)">${fmtDate(sent.date)}</span>` : '<span style="font-size:.75rem;color:var(--muted)">—</span>'}
+        <div class="sig-label">Last Vibe</div>
+        ${sentIcon ? `<span style="font-size:var(--fs-md)">${sentIcon}</span> <span style="font-size:var(--fs-sm);color:var(--muted)">${fmtDate(sent.date)}</span>` : '<span style="font-size:var(--fs-sm);color:var(--muted)">—</span>'}
       </div>
     </div>
     <div class="rec-box" style="margin-bottom:14px">${rec}</div>
     <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
-      <button class="btn btn-primary btn-sm" onclick="saveDetailInline()" style="gap:4px">💾 Save Changes</button>
+      <button class="btn btn-primary btn-sm" onclick="saveDetailInline()" style="gap:4px">${appIcon('save',14)} Save Changes</button>
     </div>
     <div class="bd-title">Signal Breakdown</div>
     ${buildBreakdownHTML(signals, c)}
@@ -6730,6 +6863,8 @@ async function saveDetailInline() {
   const lcInput  = document.getElementById('di-lifecycle');
   const ntInput  = document.getElementById('di-next-touch');
   const tagsInput = document.getElementById('di-tags');
+  const mrrInput = document.getElementById('di-mrr');
+  const arrInput = document.getElementById('di-arr');
 
   if (mgrNew && mgrNew.style.display !== 'none' && mgrNew.value.trim()) {
     c.manager = mgrNew.value.trim();
@@ -6738,6 +6873,7 @@ async function saveDetailInline() {
   }
   if (tierInput) c.tier      = tierInput.value;
   if (lcInput)   c.lifecycle = lcInput.value;
+  applyAutoStage(c);
   if (ntInput) {
     const newNt = ntInput.value || '';
     const oldNt = c.next_touch || '';
@@ -6762,6 +6898,16 @@ async function saveDetailInline() {
   }
   if (tagsInput) {
     c.tags = tagsInput.value.split(',').map(t => t.trim()).filter(Boolean);
+  }
+  if (mrrInput) c.mrr = parseFloat(mrrInput.value) || 0;
+  if (arrInput) c.arr = parseFloat(arrInput.value) || 0;
+
+  /* Recalculate score — days/lifecycle/tier may have changed above */
+  const { score: newSc, signals: newSig } = calcScore(c);
+  if (newSc !== c.score) {
+    c.score = newSc;
+    c.status = getStatus(newSc);
+    applyAutoStage(c);
   }
 
   try {
@@ -6813,7 +6959,7 @@ function buildBreakdownHTML(signals, c) {
   return defs.map(d => {
     const off = !(d.weight > 0);
     return `<div class="bd-row${off ? ' bd-row--off' : ''}">
-      <div class="bd-label">${d.label}${off ? ' <span style="font-size:.65rem;color:var(--muted)">(off)</span>' : ''}</div>
+      <div class="bd-label">${d.label}${off ? ' <span style="font-size:var(--fs-xs);color:var(--muted)">(off)</span>' : ''}</div>
       <div class="bd-weight">${off ? '—' : Math.round((d.weight / total) * 100) + '%'}</div>
       <div class="bd-bar"><div class="bd-fill" style="width:${off ? 0 : Math.round(signals[d.key])}%;background:${d.color}"></div></div>
       <div class="bd-score">${off ? '—' : Math.round(signals[d.key])}</div>
@@ -6822,19 +6968,43 @@ function buildBreakdownHTML(signals, c) {
   }).join('');
 }
 
+/* stable key for a play — type + bold title (survives index shifts) */
+function playKey(p) {
+  const t = (p.text.match(/<strong>([^<]+)</) || [])[1] || '';
+  return p.type + '|' + t.replace(/:?\s*$/, '');
+}
+
 function renderDetailPlaybook() {
   const c = customers.find(x => x.id === detailId);
   if (!c) return;
   const plays = buildPlaybook(c.score, c);
   const playTypeMap2 = { urgent:'U', engage:'E', coach:'C', adopt:'A', support:'S', expand:'X', renew:'R', ok:'OK' };
   const playClsMap2  = { urgent:'play-urgent', engage:'play-engage', coach:'play-coach', adopt:'play-adopt', support:'play-support', expand:'play-expand', renew:'play-renew', ok:'play-ok' };
-  const checks = c.playbook_checks || {};
+
+  /* ── Auto-clear: migrate old index-based checks → key-based, prune stale ── */
+  let checks = c.playbook_checks || {};
+  let dirty = false;
+  const numKeys = Object.keys(checks).filter(k => /^\d+$/.test(k));
+  if (numKeys.length) {
+    const migrated = {};
+    Object.keys(checks).forEach(k => { if (!/^\d+$/.test(k)) migrated[k] = true; });
+    numKeys.forEach(k => { const idx = +k; if (plays[idx]) migrated[playKey(plays[idx])] = true; });
+    checks = migrated;
+    c.playbook_checks = checks;
+    dirty = true;
+  }
+  const validKeys = new Set(plays.map(playKey));
+  Object.keys(checks).forEach(k => {
+    if (!validKeys.has(k)) { delete checks[k]; dirty = true; }
+  });
+  if (dirty) atUpdate(c).catch(() => {});
+
   const done = Object.keys(checks).length;
   const pct  = plays.length ? Math.round((done / plays.length) * 100) : 0;
   const header = plays.length > 1
     ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
         <div class="playbook-title" style="margin:0">Action Playbook for ${escHtml(c.name)}</div>
-        <span style="margin-left:auto;font-size:.72rem;color:var(--muted)">${done}/${plays.length} done</span>
+        <span style="margin-left:auto;font-size:var(--fs-sm);color:var(--muted)">${done}/${plays.length} done</span>
         <div style="width:60px;height:5px;background:var(--border);border-radius:3px;overflow:hidden">
           <div style="width:${pct}%;height:100%;background:var(--green);border-radius:3px"></div>
         </div>
@@ -6842,7 +7012,7 @@ function renderDetailPlaybook() {
     : `<div class="playbook-title" style="margin-bottom:10px">Action Playbook for ${escHtml(c.name)}</div>`;
   el('dm-playbook').innerHTML = header +
     plays.map((p, i) => {
-      const checked = !!checks[i];
+      const checked = !!checks[playKey(p)];
       const cls = playClsMap2[p.type] || '';
       const ltr = playTypeMap2[p.type] || '!';
       return `<label class="play-item${checked ? ' play-done' : ''}">
@@ -6856,9 +7026,12 @@ function renderDetailPlaybook() {
 function togglePlayCheck(idx, checked) {
   const c = customers.find(x => x.id === detailId);
   if (!c) return;
+  const plays = buildPlaybook(c.score, c);
+  if (!plays[idx]) return;
+  const key = playKey(plays[idx]);
   c.playbook_checks = c.playbook_checks || {};
-  if (checked) c.playbook_checks[idx] = true;
-  else delete c.playbook_checks[idx];
+  if (checked) c.playbook_checks[key] = true;
+  else delete c.playbook_checks[key];
   atUpdate(c).catch(() => {});
   renderDetailPlaybook();
 }
@@ -6876,7 +7049,7 @@ function renderDetailNotes() {
           </div>
           <div class="note-text">${escHtml(n.text)}</div>
         </div>`).join('')
-    : '<p style="font-size:.82rem;color:var(--muted)">No notes yet. Add one below.</p>';
+    : '<p style="font-size:var(--fs-base);color:var(--muted)">No notes yet. Add one below.</p>';
   el('note-input').value = '';
 }
 
@@ -6909,13 +7082,13 @@ function renderDetailHistory() {
   // Sparkline
   el('dm-history-sparkline').innerHTML = hist.length >= 2
     ? buildSparkline(hist.map(h=>h.score), 260, 60)
-    : '<p style="font-size:.8rem;color:var(--muted)">Score at least twice to see trend.</p>';
+    : '<p style="font-size:var(--fs-base);color:var(--muted)">Score at least twice to see trend.</p>';
 
   // List — newest first; arr[i+1] = previous (older) entry
   const histList = el('dm-history-list');
   const reversed = [...hist].reverse();
   if (!reversed.length) {
-    histList.innerHTML = '<p style="font-size:.82rem;color:var(--muted)">No history yet.</p>';
+    histList.innerHTML = '<p style="font-size:var(--fs-base);color:var(--muted)">No history yet.</p>';
     return;
   }
   const pg = _pagGet('scoreHist');
@@ -6932,9 +7105,9 @@ function renderDetailHistory() {
     let deltaHtml = '';
     if (prev != null) {
       const d = h.score - prev.score;
-      if      (d > 0) deltaHtml = `<span class="delta-up" style="font-size:.72rem">▲${d}</span>`;
-      else if (d < 0) deltaHtml = `<span class="delta-dn" style="font-size:.72rem">▼${Math.abs(d)}</span>`;
-      else             deltaHtml = `<span class="delta-eq" style="font-size:.72rem">→0</span>`;
+      if      (d > 0) deltaHtml = `<span class="delta-up" style="font-size:var(--fs-sm)">▲${d}</span>`;
+      else if (d < 0) deltaHtml = `<span class="delta-dn" style="font-size:var(--fs-sm)">▼${Math.abs(d)}</span>`;
+      else             deltaHtml = `<span class="delta-eq" style="font-size:var(--fs-sm)">→0</span>`;
     }
 
     // Signal diff — what actually changed
@@ -6989,7 +7162,7 @@ function buildSparkline(values, w, h) {
 // Mini sparkline for customer table cells — reuses buildSparkline() at small scale
 function buildSparklineMini(c) {
   const hist = (c.history||[]).slice(-10); // last 10 score points
-  if (hist.length < 2) return '<span style="color:var(--subtle);font-size:.7rem">—</span>';
+  if (hist.length < 2) return '<span style="color:var(--subtle);font-size:var(--fs-sm)">—</span>';
   return buildSparkline(hist.map(h=>h.score), 72, 22);
 }
 
@@ -7044,10 +7217,10 @@ function editCustomer(id) {
       const lcd = new Date(c.last_contact_date);
       const daysAgo = Math.max(0, Math.floor((Date.now() - lcd.getTime()) / 86400000));
       const dateStr = lcd.toLocaleDateString('en-US', { month:'short', day:'numeric' });
-      daysDisp.innerHTML = `<span>${daysAgo} days</span> <span style="font-weight:400;font-size:.75rem;color:var(--muted)">since ${dateStr}</span>`;
+      daysDisp.innerHTML = `<span>${daysAgo} days</span> <span style="font-weight:400;font-size:var(--fs-sm);color:var(--muted)">since ${dateStr}</span>`;
       daysDisp.style.color = daysAgo > 30 ? 'var(--red)' : daysAgo > 14 ? 'var(--amber)' : 'var(--green)';
     } else if (c.days != null) {
-      daysDisp.innerHTML = `<span>${c.days} days</span> <span style="font-weight:400;font-size:.75rem;color:var(--muted)">(no contact date tracked)</span>`;
+      daysDisp.innerHTML = `<span>${c.days} days</span> <span style="font-weight:400;font-size:var(--fs-sm);color:var(--muted)">(no contact date tracked)</span>`;
       daysDisp.style.color = c.days > 30 ? 'var(--red)' : c.days > 14 ? 'var(--amber)' : '';
     } else {
       daysDisp.textContent = 'N/A';
@@ -7368,9 +7541,9 @@ function buildQBRHTML(c) {
         <div class="qbr-score-lbl">${statusLabel}</div>
       </div>
       <div class="qbr-meta">
-        <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--blue);margin-bottom:2px">Quarterly Business Review</div>
+        <div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--blue);margin-bottom:2px">Quarterly Business Review</div>
         <h3>${escHtml(c.name)}</h3>
-        <div style="font-size:.78rem;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:2px">
+        <div style="font-size:var(--fs-base);color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:2px">
           <span style="color:${momColors[mom] || '#94a3b8'};font-weight:700">${momIcons[mom] || ''} ${momLabels[mom] || '\u2014'}</span>
           ${histLine ? `<span style="color:var(--border)">\u00b7</span><span style="font-weight:600">${histLine}</span>` : ''}
         </div>
@@ -7559,26 +7732,26 @@ function printQBR() {
       body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;padding:32px;max-width:800px;margin:0 auto}
       .qbr-hdr{display:flex;gap:16px;align-items:center;padding:16px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:16px}
       .qbr-score{width:72px;height:72px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-weight:800;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-      .qbr-score-num{font-size:1.5rem;line-height:1}.qbr-score-lbl{font-size:.6rem;text-transform:uppercase;letter-spacing:.5px;opacity:.9;margin-top:2px}
+      .qbr-score-num{font-size:1.5rem;line-height:1}.qbr-score-lbl{font-size:var(--fs-2xs);text-transform:uppercase;letter-spacing:.5px;opacity:.9;margin-top:2px}
       .qbr-meta h3{margin:0 0 4px;font-size:1rem}
-      .qbr-section{margin-bottom:14px}.qbr-section-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#64748b;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:7px}
-      .qbr-summary{font-size:.82rem;line-height:1.7;padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .qbr-section{margin-bottom:14px}.qbr-section-title{font-size:var(--fs-sm);font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#64748b;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:7px}
+      .qbr-summary{font-size:var(--fs-base);line-height:1.7;padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
       .qbr-wins,.qbr-risks,.qbr-questions{display:grid;gap:2px}
-      .qbr-win-row,.qbr-risk-row,.qbr-q-row{display:flex;align-items:center;gap:10px;padding:5px 8px;font-size:.82rem}
+      .qbr-win-row,.qbr-risk-row,.qbr-q-row{display:flex;align-items:center;gap:10px;padding:5px 8px;font-size:var(--fs-base)}
       .qbr-win-row:nth-child(odd),.qbr-risk-row:nth-child(odd),.qbr-q-row:nth-child(odd){background:#f8fafc;-webkit-print-color-adjust:exact;print-color-adjust:exact}
       .qbr-win-dot{width:8px;height:8px;border-radius:50%;background:#16a34a;-webkit-print-color-adjust:exact;print-color-adjust:exact}
       .qbr-risk-dot{width:8px;height:8px;border-radius:50%;-webkit-print-color-adjust:exact;print-color-adjust:exact}
       .qbr-risk--high .qbr-risk-dot{background:#dc2626}.qbr-risk--med .qbr-risk-dot{background:#d97706}
       .qbr-agenda{display:grid;gap:6px}
       .qbr-agenda-item{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px}
-      .qbr-agenda-num{width:26px;height:26px;border-radius:50%;background:#2563eb;color:#fff;font-size:.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-      .qbr-agenda-topic{font-weight:700;font-size:.82rem}.qbr-agenda-time{font-weight:500;font-size:.68rem;color:#64748b;margin-left:6px}
-      .qbr-agenda-detail{font-size:.76rem;color:#64748b;line-height:1.5;margin-top:3px}
-      .qbr-q-bullet{width:20px;height:20px;border-radius:50%;background:#eff6ff;color:#2563eb;font-size:.7rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-      .qbr-note{padding:6px 10px;border-left:3px solid #2563eb;background:#f8fafc;border-radius:0 6px 6px 0;font-size:.8rem;margin-bottom:6px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-      .qbr-note-date{font-size:.68rem;color:#64748b;font-weight:600;margin-bottom:2px;text-transform:uppercase;letter-spacing:.3px}
-      .qbr-tag{font-size:.7rem;padding:2px 8px;border:1px solid #e2e8f0;border-radius:100px;display:inline-block;margin-right:4px}
-      .qbr-meta-tags{margin-top:6px}.qbr-footer{text-align:center;font-size:.64rem;color:#94a3b8;padding-top:10px;border-top:1px solid #e2e8f0;margin-top:8px}
+      .qbr-agenda-num{width:26px;height:26px;border-radius:50%;background:#2563eb;color:#fff;font-size:var(--fs-sm);font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .qbr-agenda-topic{font-weight:700;font-size:var(--fs-base)}.qbr-agenda-time{font-weight:500;font-size:var(--fs-xs);color:#64748b;margin-left:6px}
+      .qbr-agenda-detail{font-size:var(--fs-sm);color:#64748b;line-height:1.5;margin-top:3px}
+      .qbr-q-bullet{width:20px;height:20px;border-radius:50%;background:#eff6ff;color:#2563eb;font-size:var(--fs-sm);font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .qbr-note{padding:6px 10px;border-left:3px solid #2563eb;background:#f8fafc;border-radius:0 6px 6px 0;font-size:var(--fs-base);margin-bottom:6px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .qbr-note-date{font-size:var(--fs-xs);color:#64748b;font-weight:600;margin-bottom:2px;text-transform:uppercase;letter-spacing:.3px}
+      .qbr-tag{font-size:var(--fs-sm);padding:2px 8px;border:1px solid #e2e8f0;border-radius:100px;display:inline-block;margin-right:4px}
+      .qbr-meta-tags{margin-top:6px}.qbr-footer{text-align:center;font-size:var(--fs-xs);color:#94a3b8;padding-top:10px;border-top:1px solid #e2e8f0;margin-top:8px}
     </style>
     ${el('qbr-content').innerHTML}`;
   window.print();
@@ -7673,8 +7846,8 @@ function renderWeightRows() {
         oninput="updateWeightFromSlider('${k}',this.value)" style="flex:1;cursor:pointer;accent-color:var(--blue)"/>
       <div class="weight-pct"><input type="number" min="0" max="100" value="${weights[k]}" id="wp-${k}"
         oninput="updateWeightFromInput('${k}',this.value)"
-        style="width:42px;text-align:center;border:1.5px solid var(--border);border-radius:6px;padding:2px 2px;font-size:.78rem;font-weight:700;font-family:var(--font);color:var(--text);outline:none;background:var(--surface);-moz-appearance:textfield"
-        onfocus="this.select()"/><span style="font-size:.78rem;font-weight:700;margin-left:1px">%</span></div>
+        style="width:42px;text-align:center;border:1.5px solid var(--border);border-radius:6px;padding:2px 2px;font-size:var(--fs-base);font-weight:700;font-family:var(--font);color:var(--text);outline:none;background:var(--surface);-moz-appearance:textfield"
+        onfocus="this.select()"/><span style="font-size:var(--fs-base);font-weight:700;margin-left:1px">%</span></div>
     </div>`).join('');
   updateTotalBar();
 }
@@ -7773,9 +7946,10 @@ function rescoreAll() {
     const { score } = calcScore(c, resolvedWeights);
     if (c.score !== score) {
       c.history = c.history || [];
-      c.history.push({ score, date: new Date().toISOString() });
+      c.history.push({ score, date: new Date().toISOString(), signals: buildHistorySnapshot(c) });
       c.score  = score;
       c.status = getStatus(score);
+      applyAutoStage(c);
       changed.push(c);
       n++;
     }
@@ -8062,7 +8236,7 @@ function cfgTimeAgo(ts) {
 function renderScoreDistribution(previewWeights) {
   const wrap = el('cfg-score-dist');
   if (!wrap) return;
-  if (!customers.length) { wrap.innerHTML = '<p style="font-size:.8rem;color:var(--muted)">No customer data loaded.</p>'; return; }
+  if (!customers.length) { wrap.innerHTML = '<p style="font-size:var(--fs-base);color:var(--muted)">No customer data loaded.</p>'; return; }
   const bands = { critical: 0, risk: 0, watch: 0, healthy: 0, expand: 0 };
   customers.forEach(c => {
     const w = previewWeights || getActiveWeights(c);
@@ -8087,7 +8261,7 @@ function renderScoreDistribution(previewWeights) {
 function renderDataHealth() {
   const wrap = el('cfg-data-health');
   if (!wrap) return;
-  if (!customers.length) { wrap.innerHTML = '<p style="font-size:.8rem;color:var(--muted)">No customer data loaded.</p>'; return; }
+  if (!customers.length) { wrap.innerHTML = '<p style="font-size:var(--fs-base);color:var(--muted)">No customer data loaded.</p>'; return; }
   const total = customers.length;
   let stale = 0, missing = 0;
   const sigKeys = ['logins','adoption','tickets','nps','csat','days'];
@@ -8105,13 +8279,13 @@ function renderDataHealth() {
       <div class="dh-row"><span>Total Customers</span><span class="dh-val">${total}</span></div>
       <div class="dh-row"><span>Last Refresh</span><span class="dh-val">${refreshTxt}</span></div>
       <div style="border-top:1px solid var(--border);margin:2px 0"></div>
-      <div class="dh-row"><span>Stale Accounts (30d+)</span><span class="dh-val ${stale ? 'warn' : 'good'}">${stale ? `<a href="#" onclick="event.preventDefault();showDhDetail('stale')" style="color:inherit;text-decoration:underline;cursor:pointer">${stale} ⚠</a>` : '0'}</span></div>
-      <div class="dh-row"><span>Incomplete Signals</span><span class="dh-val ${missing ? 'warn' : 'good'}">${missing ? `<a href="#" onclick="event.preventDefault();showDhDetail('incomplete')" style="color:inherit;text-decoration:underline;cursor:pointer">${missing} ⚠</a>` : '0'}</span></div>
+      <div class="dh-row"><span>Stale Accounts (30d+)</span><span class="dh-val ${stale ? 'warn' : 'good'}">${stale ? `<a href="#" onclick="event.preventDefault();showDhDetail('stale')" style="color:inherit;text-decoration:underline;cursor:pointer">${stale} ${appIcon('warning',12)}</a>` : '0'}</span></div>
+      <div class="dh-row"><span>Incomplete Signals</span><span class="dh-val ${missing ? 'warn' : 'good'}">${missing ? `<a href="#" onclick="event.preventDefault();showDhDetail('incomplete')" style="color:inherit;text-decoration:underline;cursor:pointer">${missing} ${appIcon('warning',12)}</a>` : '0'}</span></div>
       <div class="dh-row"><span>Complete Data</span><span class="dh-val good">${complete}</span></div>
     </div>
-    <div style="font-size:.72rem;color:var(--muted);margin-bottom:6px">Data completeness</div>
+    <div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:6px">Data completeness</div>
     <div class="dh-bar"><div style="width:${pct}%"></div></div>
-    <div style="font-size:.72rem;font-weight:700;margin-top:4px">${pct}%</div>`;
+    <div style="font-size:var(--fs-sm);font-weight:700;margin-top:4px">${pct}%</div>`;
 }
 
 function showDhDetail(type) {
@@ -8137,7 +8311,7 @@ function showDhDetail(type) {
             <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${statusColors[st]||'#888'};margin-right:4px"></span>${c.score}</td>
             <td style="font-weight:600;color:${c.days != null && c.days>=60?'#ef4444':c.days != null && c.days>=30?'#f59e0b':'inherit'}">${c.days != null ? c.days+'d' : 'N/A'}</td>
             <td>${c.logins != null ? c.logins : 'N/A'}</td>
-            <td style="text-transform:uppercase;font-size:.72rem">${escHtml(c.tier)}</td>
+            <td style="text-transform:uppercase;font-size:var(--fs-sm)">${escHtml(c.tier)}</td>
             <td>$${fmtNum(c.mrr||0)}</td>
           </tr>`;
         }).join('')
@@ -8159,8 +8333,8 @@ function showDhDetail(type) {
           return `<tr>
             <td><a href="#" onclick="event.preventDefault();closeModal('dh-detail-modal');openDetail('${escHtml(c.id)}')" style="color:var(--blue);font-weight:700;text-decoration:none">${escHtml(c.name)}</a></td>
             <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${statusColors[st]||'#888'};margin-right:4px"></span>${c.score}</td>
-            <td style="font-size:.78rem">${miss.map(s => `<span style="display:inline-block;background:rgba(239,68,68,.08);color:#b91c1c;padding:1px 6px;border-radius:4px;margin:1px 2px;font-size:.72rem">${sigLabels[s]||s}</span>`).join('')}</td>
-            <td style="text-transform:uppercase;font-size:.72rem">${escHtml(c.tier)}</td>
+            <td style="font-size:var(--fs-base)">${miss.map(s => `<span style="display:inline-block;background:rgba(239,68,68,.08);color:#b91c1c;padding:1px 6px;border-radius:4px;margin:1px 2px;font-size:var(--fs-sm)">${sigLabels[s]||s}</span>`).join('')}</td>
+            <td style="text-transform:uppercase;font-size:var(--fs-sm)">${escHtml(c.tier)}</td>
           </tr>`;
         }).join('')
       }</tbody></table>`;
@@ -8182,7 +8356,7 @@ function renderConfigHistory() {
   if (!wrap) return;
   const hist = JSON.parse(localStorage.getItem('iqc_config_history') || '[]');
   if (!hist.length) {
-    wrap.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:.85rem">No config changes recorded yet.</div>';
+    wrap.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:var(--fs-md)">No config changes recorded yet.</div>';
     return;
   }
   const pg = _pagGet('cfgHist');
@@ -8196,10 +8370,10 @@ function renderConfigHistory() {
     const user = e.user ? escHtml(e.user) : '<span style="color:var(--subtle)">—</span>';
     const detail = e.details ? escHtml(e.details) : '<span style="color:var(--subtle)">—</span>';
     h += `<tr>
-      <td style="font-size:.76rem;color:var(--muted);white-space:nowrap">${time}</td>
-      <td style="font-size:.76rem;color:var(--text)">${user}</td>
-      <td style="font-size:.78rem;color:var(--text);font-weight:600;white-space:nowrap">${escHtml(e.action)}</td>
-      <td style="font-size:.76rem;color:var(--muted);line-height:1.4">${detail}</td>
+      <td style="font-size:var(--fs-sm);color:var(--muted);white-space:nowrap">${time}</td>
+      <td style="font-size:var(--fs-sm);color:var(--text)">${user}</td>
+      <td style="font-size:var(--fs-base);color:var(--text);font-weight:600;white-space:nowrap">${escHtml(e.action)}</td>
+      <td style="font-size:var(--fs-sm);color:var(--muted);line-height:1.4">${detail}</td>
     </tr>`;
   });
   h += '</tbody></table>';
@@ -8257,7 +8431,7 @@ function resetAllDefaults() {
 function renderProfiles() {
   const wrap = el('profiles-list');
   if (!profiles.length) {
-    wrap.innerHTML = '<p style="font-size:.82rem;color:var(--muted)">No profiles yet.</p>';
+    wrap.innerHTML = '<p style="font-size:var(--fs-base);color:var(--muted)">No profiles yet.</p>';
     return;
   }
   wrap.innerHTML = profiles.map((p,i) => {
@@ -8267,7 +8441,7 @@ function renderProfiles() {
     <div class="profile-row${isActive ? ' profile-active' : ''}" onclick="previewProfile(${i})">
       <div class="profile-row__name">
         ${escHtml(p.name)}
-        ${isGlobal ? '<span style="font-size:.68rem;color:var(--muted);margin-left:6px;font-style:italic">default</span>' : ''}
+        ${isGlobal ? '<span style="font-size:var(--fs-xs);color:var(--muted);margin-left:6px;font-style:italic">default</span>' : ''}
       </div>
       <button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();editProfile(${i})">Edit</button>
       ${!isGlobal ? `<button class="btn btn-xs btn-danger" onclick="event.stopPropagation();deleteProfile(${i})">✕</button>` : ''}
@@ -8405,6 +8579,7 @@ function rescoreByProfile(profileName) {
       c.history.push({ score, date: new Date().toISOString(), signals: buildHistorySnapshot(c) });
       c.score  = score;
       c.status = getStatus(score);
+      applyAutoStage(c);
       changed.push(c);
     }
   });
@@ -8687,7 +8862,7 @@ function renderReporting() {
     html += '<div class="rpt-section">' +
       '<div class="rpt-section-hd">' +
         '<div style="display:flex;align-items:center;gap:8px"><span style="color:var(--muted);display:flex">' + (sec.icon || '') + '</span><h2>' + sec.label + '</h2></div>' +
-        '<p style="margin:0;font-size:.78rem;color:var(--muted);font-weight:400">' + (sec.sub || '') + '</p>' +
+        '<p style="margin:0;font-size:var(--fs-base);color:var(--muted);font-weight:400">' + (sec.sub || '') + '</p>' +
       '</div>' +
       '<div class="rpt-grid">';
     secReports.forEach(r => {
@@ -8711,7 +8886,7 @@ function openReportActions(idx) {
   if (!r) return;
   el('ram-icon').innerHTML = '<div class="rpt-card__icon" style="background:' + r.iconBg + ';color:' + r.iconColor + '">' + r.icon + '</div>';
   el('ram-title').textContent = r.title;
-  let html = '<p style="font-size:.82rem;color:var(--muted);margin:0 0 16px">' + r.desc + '</p>';
+  let html = '<p style="font-size:var(--fs-base);color:var(--muted);margin:0 0 16px">' + r.desc + '</p>';
   html += '<div style="display:flex;flex-direction:column;gap:8px">';
   r.actions.forEach(a => {
     html += '<button class="btn ' + a.cls + '" style="width:100%;justify-content:center" onclick="closeModal(\'report-actions-modal\');' + a.fn + '">' + a.label + '</button>';
@@ -8753,20 +8928,20 @@ function rptPrintCSS() {
     '.rpt-hdr{border-top:4px solid #4f46e5;padding-top:18px;margin-bottom:22px;page-break-inside:avoid}' +
     '.rpt-hdr-inner{display:flex;justify-content:space-between;align-items:flex-start}' +
     '.rpt-hdr h1{font-size:1.55rem;font-weight:800;margin:0 0 3px;letter-spacing:-.02em;color:#1e293b}' +
-    '.rpt-hdr .sub{color:#64748b;font-size:.82rem;margin:0}' +
-    '.rpt-brand{font-size:.7rem;color:#94a3b8;text-align:right;line-height:1.4;letter-spacing:.02em}' +
-    '.rpt-brand strong{color:#4f46e5;font-weight:700;font-size:.75rem}' +
+    '.rpt-hdr .sub{color:#64748b;font-size:var(--fs-base);margin:0}' +
+    '.rpt-brand{font-size:var(--fs-sm);color:#94a3b8;text-align:right;line-height:1.4;letter-spacing:.02em}' +
+    '.rpt-brand strong{color:#4f46e5;font-weight:700;font-size:var(--fs-sm)}' +
     // section headings
     'h2{font-size:1.05rem;font-weight:700;margin:20px 0 8px;padding-bottom:5px;border-bottom:2px solid #e2e8f0;color:#1e293b;letter-spacing:-.01em}' +
     // KPI cards
     '.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:14px 0;page-break-inside:avoid}' +
     '.kpi{border:1px solid #e2e8f0;border-top:3px solid #4f46e5;border-radius:10px;padding:16px 12px;text-align:center;background:#fff}' +
     '.kpi-num{font-size:1.45rem;font-weight:800;line-height:1.2;color:#1e293b}' +
-    '.kpi-label{font-size:.68rem;color:#64748b;text-transform:uppercase;margin-top:5px;letter-spacing:.05em;font-weight:600}' +
+    '.kpi-label{font-size:var(--fs-xs);color:#64748b;text-transform:uppercase;margin-top:5px;letter-spacing:.05em;font-weight:600}' +
     // tables
-    'table{width:100%;border-collapse:collapse;font-size:.8rem;margin-top:10px;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden}' +
-    'thead th{text-align:left;color:#fff;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;padding:9px 10px;white-space:nowrap;background:#475569;font-weight:600}' +
-    'th{text-align:left;color:#fff;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;padding:9px 10px;white-space:nowrap;background:#475569;font-weight:600}' +
+    'table{width:100%;border-collapse:collapse;font-size:var(--fs-base);margin-top:10px;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden}' +
+    'thead th{text-align:left;color:#fff;font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:.06em;padding:9px 10px;white-space:nowrap;background:#475569;font-weight:600}' +
+    'th{text-align:left;color:#fff;font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:.06em;padding:9px 10px;white-space:nowrap;background:#475569;font-weight:600}' +
     'td{padding:8px 10px;border-bottom:1px solid #f1f5f9;color:#334155}' +
     'tr:nth-child(even) td{background:#f8fafc}' +
     'tr:last-child td{border-bottom:none}' +
@@ -8776,10 +8951,10 @@ function rptPrintCSS() {
     '.bar{display:flex;height:24px;border-radius:6px;overflow:hidden;margin:10px 0;border:1px solid #e2e8f0}' +
     '.bar span{display:block}' +
     // footer
-    '.rpt-footer{margin-top:16px;padding-top:10px;border-top:1.5px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;font-size:.68rem;color:#94a3b8;page-break-inside:avoid}' +
+    '.rpt-footer{margin-top:16px;padding-top:10px;border-top:1.5px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;font-size:var(--fs-xs);color:#94a3b8;page-break-inside:avoid}' +
     // bucket headers
-    '.bucket-hd{font-size:.95rem;font-weight:700;margin:20px 0 6px;display:flex;align-items:center;gap:8px;color:#1e293b}' +
-    '.bucket-hd .ct{font-weight:400;color:#64748b;font-size:.82rem}' +
+    '.bucket-hd{font-size:var(--fs-lg);font-weight:700;margin:20px 0 6px;display:flex;align-items:center;gap:8px;color:#1e293b}' +
+    '.bucket-hd .ct{font-weight:400;color:#64748b;font-size:var(--fs-base)}' +
     // page break controls
     'table{page-break-inside:auto}tr{page-break-inside:avoid}' +
     'h2{page-break-after:avoid}.bucket-hd{page-break-after:avoid}' +
@@ -8835,7 +9010,7 @@ function svgDonut(segments, size) {
   });
   const legend = segments.filter(s => s.value > 0).map(seg => {
     const pct = Math.round(seg.value / total * 100);
-    return '<div style="display:flex;align-items:center;gap:6px;font-size:.72rem;color:#334155;margin:3px 0">' +
+    return '<div style="display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);color:#334155;margin:3px 0">' +
       '<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:' + seg.color + ';flex-shrink:0"></span>' +
       seg.label + ' <strong>' + seg.value + '</strong> (' + pct + '%)</div>';
   }).join('');
@@ -8928,7 +9103,7 @@ function svgRiskBands(scored) {
   var w = 780, barH = 32;
   var legend = bands.map(function(b) {
     var pct = Math.round(b.count / total * 100);
-    return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:.72rem;color:#334155;margin-right:16px">' +
+    return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-sm);color:#334155;margin-right:16px">' +
       '<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:' + b.color + '"></span>' +
       b.label + ': <strong>' + b.count + '</strong> (' + pct + '%)</span>';
   }).join('');
@@ -8946,7 +9121,7 @@ function svgMiniBar(items) {
   return items.map(function(item) {
     var pct = Math.min(100, Math.max(2, item.value));
     var col = item.value >= 80 ? '#16a34a' : item.value >= 60 ? '#4f46e5' : item.value >= 40 ? '#d97706' : '#dc2626';
-    return '<div style="display:flex;align-items:center;gap:8px;margin:4px 0;font-size:.75rem">' +
+    return '<div style="display:flex;align-items:center;gap:8px;margin:4px 0;font-size:var(--fs-sm)">' +
       '<span style="width:100px;text-align:right;font-weight:600;color:#334155;flex-shrink:0">' + item.label + '</span>' +
       '<div style="flex:1;height:18px;background:#f1f5f9;border-radius:4px;overflow:hidden">' +
         '<div style="width:' + pct + '%;height:100%;background:' + col + ';border-radius:4px;opacity:.8"></div></div>' +
@@ -9185,10 +9360,10 @@ function _rptInsights(key) {
 
   if (!items.length) return '';
   return '<div class="rpt-insights" style="margin-top:24px;padding:16px 20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;page-break-inside:avoid">' +
-    '<h2 style="margin:0 0 10px;font-size:.88rem;color:#334155;display:flex;align-items:center;gap:6px">' +
+    '<h2 style="margin:0 0 10px;font-size:var(--fs-md);color:#334155;display:flex;align-items:center;gap:6px">' +
       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' +
       ' Insights &amp; Action Items</h2>' +
-    '<ul style="margin:0;padding-left:18px;font-size:.8rem;line-height:1.7;color:#475569">' +
+    '<ul style="margin:0;padding-left:18px;font-size:var(--fs-base);line-height:1.7;color:#475569">' +
       items.map(i => '<li>' + i + '</li>').join('') +
     '</ul></div>';
 }
@@ -9345,7 +9520,7 @@ function buildRenewalForecastHTML() {
         b.items.map(c => '<tr><td><strong>' + escHtml(c.name) + '</strong></td><td>' + escHtml(c.manager || '\u2014') + '</td><td style="font-weight:700;color:' + STATUS_COLOR[c.status] + '">' + c.score + '</td><td><span class="st-dot" style="background:' + STATUS_COLOR[c.status] + '"></span>' + STATUS_LABEL[c.status] + '</td><td style="text-align:right">$' + fmtNum(c.mrr || 0) + '</td><td>' + fmtDate(c.renewal_date) + '</td></tr>').join('') +
         '</table>';
     } else {
-      html += '<p style="color:#94a3b8;font-size:.82rem;margin:4px 0 12px">No renewals in this window.</p>';
+      html += '<p style="color:#94a3b8;font-size:var(--fs-base);margin:4px 0 12px">No renewals in this window.</p>';
     }
   });
 
@@ -9752,7 +9927,7 @@ function printDigestReport() {
   if (!digestHtml) { toast('No data to generate digest', 'warn'); return; }
   // Strip the inline email styles and wrap in our report CSS
   let html = rptHeader('Weekly Health Digest') +
-    '<div style="font-size:.85rem;line-height:1.6">' + digestHtml + '</div>' +
+    '<div style="font-size:var(--fs-md);line-height:1.6">' + digestHtml + '</div>' +
     rptFooter();
   rptPrint(html);
 }
@@ -9862,7 +10037,7 @@ function buildDigestHTML() {
 
   const week = new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
   const dayName = new Date().toLocaleDateString('en-US',{weekday:'long'});
-  const sdot = s=>({critical:'🔴',risk:'🟠',watch:'🟡',healthy:'🟢',expand:'✨'}[s]||'⚪');
+  const sdot = s => statusDotSVG(s);
   const arrow = d => d>0?'<span style="color:#16a34a;font-weight:700">▲+'+d+'</span>':d<0?'<span style="color:#dc2626;font-weight:700">▼'+d+'</span>':'<span style="color:#64748b">→ 0</span>';
 
   return `<div style="max-width:620px;margin:0 auto;font-family:Arial,sans-serif">
@@ -9888,12 +10063,12 @@ function buildDigestHTML() {
       </div>
 
       ${actions.length?`<div style="margin-bottom:18px">
-        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">🎯 Action Items This Week</div>
+        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">${appIcon('target',13)} Action Items This Week</div>
         ${actions.map(a=>`<div style="font-size:12px;padding:6px 0;border-bottom:1px solid #f1f5f9;color:#334155;line-height:1.5">• ${a}</div>`).join('')}
       </div>`:''}
 
       ${topRisk.length?`<div style="margin-bottom:18px">
-        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">🚨 Accounts Needing Attention</div>
+        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">${appIcon('alert',13)} Accounts Needing Attention</div>
         ${topRisk.map(c=>{
           const d7 = getDelta7d(c);
           const trend = d7>0?'<span style="color:#16a34a">▲+'+d7+'</span>':d7<0?'<span style="color:#dc2626">▼'+d7+'</span>':'<span style="color:#94a3b8">→0</span>';
@@ -9905,7 +10080,7 @@ function buildDigestHTML() {
       </div>`:``}
 
       ${upcoming.length?`<div style="margin-bottom:18px">
-        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">📅 Renewals Coming Up</div>
+        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">${appIcon('calendar',13)} Renewals Coming Up</div>
         ${upcoming.map(c=>{
           const days=Math.round((new Date(c.renewal_date)-now)/86400000);
           return `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9">
@@ -9917,17 +10092,17 @@ function buildDigestHTML() {
 
       ${(improved.length||dropped.length)?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px">
         ${improved.length?`<div>
-          <div style="font-size:12px;font-weight:700;color:#16a34a;margin-bottom:6px">📈 Most Improved</div>
+          <div style="font-size:12px;font-weight:700;color:#16a34a;margin-bottom:6px">${appIcon('trendUp',13)} Most Improved</div>
           ${improved.map(({c,delta})=>`<div style="font-size:12px;padding:4px 0">${escHtml(c.name)} <span style="color:#16a34a;font-weight:700">+${Math.abs(delta)}</span></div>`).join('')}
         </div>`:''}
         ${dropped.length?`<div>
-          <div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:6px">📉 Biggest Drops</div>
+          <div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:6px">${appIcon('trendDown',13)} Biggest Drops</div>
           ${dropped.map(({c,delta})=>`<div style="font-size:12px;padding:4px 0">${escHtml(c.name)} <span style="color:#dc2626;font-weight:700">${delta}</span></div>`).join('')}
         </div>`:''}
       </div>`:``}
 
       ${signalChanges.length?`<div style="margin-bottom:18px">
-        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">📊 Signal Trends This Week</div>
+        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">${appIcon('barChart',13)} Signal Trends This Week</div>
         <div style="display:flex;gap:16px;flex-wrap:wrap">
           ${signalChanges.map(s=>`<div style="font-size:12px;color:#334155"><strong>${s.label}</strong> ${s.delta>0?'<span style="color:#16a34a">▲+'+s.delta+s.unit+'</span>':'<span style="color:#dc2626">▼'+s.delta+s.unit+'</span>'} (avg ${s.avg}${s.unit})</div>`).join('')}
         </div>
@@ -10036,15 +10211,15 @@ function reportEmailTab(which) {
   if (which === 'send') {
     body.innerHTML = tabHtml +
       '<div style="display:flex;flex-direction:column;gap:10px">' +
-        '<label style="font-size:.75rem;font-weight:600;color:var(--text)">Recipients <span style="font-weight:400;color:var(--muted)">(comma-separated emails)</span></label>' +
-        '<input type="text" id="rem-recipients" class="form-input" placeholder="team@company.com, manager@company.com" value="' + escHtml(cfg.recipients || '') + '" style="font-size:.82rem"/>' +
-        '<label style="font-size:.75rem;font-weight:600;color:var(--text)">Subject Prefix</label>' +
-        '<input type="text" id="rem-prefix" class="form-input" placeholder="[iQcadence Report]" value="' + escHtml(cfg.subject_prefix || '[iQcadence Report]') + '" style="font-size:.82rem"/>' +
+        '<label style="font-size:var(--fs-sm);font-weight:600;color:var(--text)">Recipients <span style="font-weight:400;color:var(--muted)">(comma-separated emails)</span></label>' +
+        '<input type="text" id="rem-recipients" class="form-input" placeholder="team@company.com, manager@company.com" value="' + escHtml(cfg.recipients || '') + '" style="font-size:var(--fs-base)"/>' +
+        '<label style="font-size:var(--fs-sm);font-weight:600;color:var(--text)">Subject Prefix</label>' +
+        '<input type="text" id="rem-prefix" class="form-input" placeholder="[iQcadence Report]" value="' + escHtml(cfg.subject_prefix || '[iQcadence Report]') + '" style="font-size:var(--fs-base)"/>' +
         '<div style="display:flex;gap:8px;margin-top:4px">' +
           '<button class="btn btn-primary btn-sm" onclick="sendReportEmailNow()">Send Now</button>' +
           '<button class="btn btn-outline btn-sm" onclick="sendReportEmailTest()">Send Test to Me</button>' +
         '</div>' +
-        '<p style="font-size:.7rem;color:var(--muted);margin-top:4px">Send Now delivers the report to all listed recipients. Send Test sends only to your email.</p>' +
+        '<p style="font-size:var(--fs-sm);color:var(--muted);margin-top:4px">Send Now delivers the report to all listed recipients. Send Test sends only to your email.</p>' +
       '</div>';
   } else {
     const schedOn = cfg.enabled !== false; // default on when opening schedule tab
@@ -10052,29 +10227,29 @@ function reportEmailTab(which) {
     body.innerHTML = tabHtml +
       '<div style="display:flex;flex-direction:column;gap:10px">' +
         '<div style="display:flex;align-items:center;gap:10px">' +
-          '<label style="font-size:.82rem;font-weight:600;color:var(--text)">Enable scheduled delivery</label>' +
+          '<label style="font-size:var(--fs-base);font-weight:600;color:var(--text)">Enable scheduled delivery</label>' +
           '<label class="toggle-switch" style="margin-left:auto"><input type="checkbox" id="rem-sched-enabled" ' + (schedOn ? 'checked' : '') + ' onchange="toggleReportSchedule()"/><span class="toggle-slider"></span></label>' +
         '</div>' +
         '<div id="rem-sched-opts" style="' + (schedOn ? '' : 'opacity:.5;pointer-events:none;') + 'display:flex;flex-direction:column;gap:10px">' +
-          '<label style="font-size:.75rem;font-weight:600;color:var(--text)">Frequency</label>' +
+          '<label style="font-size:var(--fs-sm);font-weight:600;color:var(--text)">Frequency</label>' +
           '<div style="display:flex;gap:8px">' +
-            '<label style="font-size:.82rem;display:flex;align-items:center;gap:4px"><input type="radio" name="rem-freq" value="daily" ' + (cfg.frequency === 'daily' ? 'checked' : '') + '/> Daily</label>' +
-            '<label style="font-size:.82rem;display:flex;align-items:center;gap:4px"><input type="radio" name="rem-freq" value="weekly" ' + (cfg.frequency !== 'daily' ? 'checked' : '') + '/> Weekly</label>' +
+            '<label style="font-size:var(--fs-base);display:flex;align-items:center;gap:4px"><input type="radio" name="rem-freq" value="daily" ' + (cfg.frequency === 'daily' ? 'checked' : '') + '/> Daily</label>' +
+            '<label style="font-size:var(--fs-base);display:flex;align-items:center;gap:4px"><input type="radio" name="rem-freq" value="weekly" ' + (cfg.frequency !== 'daily' ? 'checked' : '') + '/> Weekly</label>' +
           '</div>' +
           '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
-            '<div><label style="font-size:.75rem;font-weight:600;color:var(--text)">Day</label>' +
-              '<select id="rem-sched-day" class="form-input" style="font-size:.82rem;margin-top:4px">' +
+            '<div><label style="font-size:var(--fs-sm);font-weight:600;color:var(--text)">Day</label>' +
+              '<select id="rem-sched-day" class="form-input" style="font-size:var(--fs-base);margin-top:4px">' +
                 days.map(d => '<option value="' + d + '"' + (cfg.day === d ? ' selected' : '') + '>' + d.charAt(0).toUpperCase() + d.slice(1) + '</option>').join('') +
               '</select></div>' +
-            '<div><label style="font-size:.75rem;font-weight:600;color:var(--text)">Time</label>' +
-              '<input type="time" id="rem-sched-time" class="form-input" value="' + (cfg.time || '09:00') + '" style="font-size:.82rem;margin-top:4px"/></div>' +
+            '<div><label style="font-size:var(--fs-sm);font-weight:600;color:var(--text)">Time</label>' +
+              '<input type="time" id="rem-sched-time" class="form-input" value="' + (cfg.time || '09:00') + '" style="font-size:var(--fs-base);margin-top:4px"/></div>' +
           '</div>' +
-          '<label style="font-size:.75rem;font-weight:600;color:var(--text)">Recipients</label>' +
-          '<input type="text" id="rem-sched-recip" class="form-input" placeholder="team@company.com" value="' + escHtml(cfg.recipients || '') + '" style="font-size:.82rem"/>' +
-          '<label style="font-size:.75rem;font-weight:600;color:var(--text)">Subject Prefix</label>' +
-          '<input type="text" id="rem-sched-prefix" class="form-input" placeholder="[iQcadence Report]" value="' + escHtml(cfg.subject_prefix || '[iQcadence Report]') + '" style="font-size:.82rem"/>' +
+          '<label style="font-size:var(--fs-sm);font-weight:600;color:var(--text)">Recipients</label>' +
+          '<input type="text" id="rem-sched-recip" class="form-input" placeholder="team@company.com" value="' + escHtml(cfg.recipients || '') + '" style="font-size:var(--fs-base)"/>' +
+          '<label style="font-size:var(--fs-sm);font-weight:600;color:var(--text)">Subject Prefix</label>' +
+          '<input type="text" id="rem-sched-prefix" class="form-input" placeholder="[iQcadence Report]" value="' + escHtml(cfg.subject_prefix || '[iQcadence Report]') + '" style="font-size:var(--fs-base)"/>' +
           '<button class="btn btn-primary btn-sm" onclick="saveReportSchedule()" style="align-self:flex-start">Save Schedule</button>' +
-          '<p style="font-size:.7rem;color:var(--muted);font-style:italic;margin-top:2px">Scheduled reports are sent automatically by the server at the configured time, even if the app is not open.</p>' +
+          '<p style="font-size:var(--fs-sm);color:var(--muted);font-style:italic;margin-top:2px">Scheduled reports are sent automatically by the server at the configured time, even if the app is not open.</p>' +
         '</div>' +
       '</div>';
   }
@@ -10251,8 +10426,8 @@ function renderScheduledReports() {
     container.innerHTML =
       '<div style="text-align:center;padding:40px 20px">' +
         '<div style="font-size:2rem;margin-bottom:8px">\u{1F4E7}</div>' +
-        '<p style="font-size:.92rem;color:var(--text);font-weight:600;margin-bottom:4px">No report schedules configured</p>' +
-        '<p style="font-size:.82rem;color:var(--muted)">Switch to <strong>Report Templates</strong> and click the <strong>Email</strong> button on any report to set up a schedule.</p>' +
+        '<p style="font-size:var(--fs-lg);color:var(--text);font-weight:600;margin-bottom:4px">No report schedules configured</p>' +
+        '<p style="font-size:var(--fs-base);color:var(--muted)">Switch to <strong>Report Templates</strong> and click the <strong>Email</strong> button on any report to set up a schedule.</p>' +
       '</div>';
     return;
   }
@@ -10298,27 +10473,27 @@ function renderScheduledReports() {
           '<div class="inline-field">' +
             '<label>Frequency</label>' +
             '<div style="display:flex;gap:10px">' +
-              '<label style="font-size:.82rem;display:flex;align-items:center;gap:4px"><input type="radio" name="sched-freq-' + r.key + '" value="daily" ' + (cfg.frequency === 'daily' ? 'checked' : '') + '/> Daily</label>' +
-              '<label style="font-size:.82rem;display:flex;align-items:center;gap:4px"><input type="radio" name="sched-freq-' + r.key + '" value="weekly" ' + (cfg.frequency !== 'daily' ? 'checked' : '') + '/> Weekly</label>' +
+              '<label style="font-size:var(--fs-base);display:flex;align-items:center;gap:4px"><input type="radio" name="sched-freq-' + r.key + '" value="daily" ' + (cfg.frequency === 'daily' ? 'checked' : '') + '/> Daily</label>' +
+              '<label style="font-size:var(--fs-base);display:flex;align-items:center;gap:4px"><input type="radio" name="sched-freq-' + r.key + '" value="weekly" ' + (cfg.frequency !== 'daily' ? 'checked' : '') + '/> Weekly</label>' +
             '</div>' +
           '</div>' +
           '<div class="inline-field">' +
             '<label>Day</label>' +
-            '<select id="sched-day-' + r.key + '" class="form-input" style="font-size:.82rem;max-width:160px">' +
+            '<select id="sched-day-' + r.key + '" class="form-input" style="font-size:var(--fs-base);max-width:160px">' +
               days.map(d => '<option value="' + d + '"' + (cfg.day === d ? ' selected' : '') + '>' + dayLabel(d) + '</option>').join('') +
             '</select>' +
           '</div>' +
           '<div class="inline-field">' +
             '<label>Time</label>' +
-            '<input type="time" id="sched-time-' + r.key + '" class="form-input" value="' + (cfg.time || '09:00') + '" style="font-size:.82rem;max-width:140px"/>' +
+            '<input type="time" id="sched-time-' + r.key + '" class="form-input" value="' + (cfg.time || '09:00') + '" style="font-size:var(--fs-base);max-width:140px"/>' +
           '</div>' +
           '<div class="inline-field">' +
             '<label>Recipients</label>' +
-            '<input type="text" id="sched-recip-' + r.key + '" class="form-input" placeholder="team@company.com" value="' + escHtml(cfg.recipients || '') + '" style="font-size:.82rem;flex:1"/>' +
+            '<input type="text" id="sched-recip-' + r.key + '" class="form-input" placeholder="team@company.com" value="' + escHtml(cfg.recipients || '') + '" style="font-size:var(--fs-base);flex:1"/>' +
           '</div>' +
           '<div class="inline-field">' +
             '<label>Subject Prefix</label>' +
-            '<input type="text" id="sched-prefix-' + r.key + '" class="form-input" placeholder="[iQcadence Report]" value="' + escHtml(cfg.subject_prefix || '[iQcadence Report]') + '" style="font-size:.82rem;flex:1"/>' +
+            '<input type="text" id="sched-prefix-' + r.key + '" class="form-input" placeholder="[iQcadence Report]" value="' + escHtml(cfg.subject_prefix || '[iQcadence Report]') + '" style="font-size:var(--fs-base);flex:1"/>' +
           '</div>' +
           '<div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">' +
             '<button class="btn btn-xs btn-ghost" style="color:var(--red)" onclick="removeReportSchedule(\'' + r.key + '\')">Remove Schedule</button>' +
@@ -10332,13 +10507,13 @@ function renderScheduledReports() {
     return '<tr class="' + (isEditing ? 'editing' : '') + (!cfg.enabled ? ' sched-disabled' : '') + '">' +
       '<td><strong>' + escHtml(r.label) + '</strong></td>' +
       '<td>' + enabledHtml + '</td>' +
-      '<td style="font-size:.82rem">' + freqText + '</td>' +
-      '<td style="font-size:.82rem;color:var(--muted)">' + dayTimeText + '</td>' +
-      '<td style="font-size:.82rem;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis" title="' + escHtml(cfg.recipients || '') + '">' + recipText + '</td>' +
-      '<td style="font-size:.78rem;color:var(--muted)">' + lastSentText + '</td>' +
+      '<td style="font-size:var(--fs-base)">' + freqText + '</td>' +
+      '<td style="font-size:var(--fs-base);color:var(--muted)">' + dayTimeText + '</td>' +
+      '<td style="font-size:var(--fs-base);color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis" title="' + escHtml(cfg.recipients || '') + '">' + recipText + '</td>' +
+      '<td style="font-size:var(--fs-base);color:var(--muted)">' + lastSentText + '</td>' +
       '<td style="white-space:nowrap">' +
-        '<button class="btn btn-xs btn-ghost" onclick="schedSendNow(\'' + r.key + '\')" title="Send Now" style="font-size:.68rem;padding:2px 6px">Send</button>' +
-        '<button class="btn btn-xs btn-ghost" onclick="schedTestSend(\'' + r.key + '\')" title="Test (sends to you)" style="font-size:.68rem;padding:2px 6px;color:var(--muted)">Test</button>' +
+        '<button class="btn btn-xs btn-ghost" onclick="schedSendNow(\'' + r.key + '\')" title="Send Now" style="font-size:var(--fs-xs);padding:2px 6px">Send</button>' +
+        '<button class="btn btn-xs btn-ghost" onclick="schedTestSend(\'' + r.key + '\')" title="Test (sends to you)" style="font-size:var(--fs-xs);padding:2px 6px;color:var(--muted)">Test</button>' +
         '<button class="btn btn-xs btn-ghost" onclick="toggleSchedInlineEdit(\'' + r.key + '\')" title="' + (isEditing ? 'Close' : 'Edit') + '">' + (isEditing ? checkSvg : editSvg) + '</button>' +
       '</td></tr>' +
       inlineEditHtml;
@@ -10349,7 +10524,7 @@ function renderScheduledReports() {
       '<thead><tr>' + theadCols + '</tr></thead>' +
       '<tbody>' + rows + '</tbody>' +
     '</table>' +
-    '<p style="font-size:.72rem;color:var(--muted);margin-top:12px;font-style:italic">To add a new schedule, switch to Report Templates and click the Email button on any report.</p>';
+    '<p style="font-size:var(--fs-sm);color:var(--muted);margin-top:12px;font-style:italic">To add a new schedule, switch to Report Templates and click the Email button on any report.</p>';
 }
 
 function toggleSchedInlineEdit(reportKey) {
@@ -10530,7 +10705,8 @@ function helpSearch() {
 function helpTab(t) {
   document.querySelectorAll('#view-help .dtab').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('#view-help .dtab-pane').forEach(p => p.classList.remove('active'));
-  const btn = [...document.querySelectorAll('#view-help .dtab')].find(b => b.textContent.trim().toLowerCase().includes(t));
+  const btn = document.querySelector('#view-help .dtab[data-htab="' + t + '"]')
+           || [...document.querySelectorAll('#view-help .dtab')].find(b => b.textContent.trim().toLowerCase().includes(t));
   if (btn) btn.classList.add('active');
   const pane = document.getElementById('help-pane-' + t);
   if (pane) pane.classList.add('active');
@@ -10630,38 +10806,38 @@ const CHANNELS = [
     key: 'slack', label: 'Slack', icon: _aico(AUTO_ICONS.slack),
     desc: 'Post alerts to a Slack channel via Incoming Webhook.',
     inputType: 'url', placeholder: 'https://hooks.slack.com/services/T.../B.../xxxx',
-    setup: `<ol style="margin:6px 0 0 18px;font-size:.76rem;line-height:1.6;color:var(--muted)">
+    setup: `<ol style="margin:6px 0 0 18px;font-size:var(--fs-sm);line-height:1.6;color:var(--muted)">
       <li>Go to <a href="https://api.slack.com/apps" target="_blank" rel="noopener" style="color:var(--blue)">api.slack.com/apps</a> and click <strong>Create New App</strong> → choose <strong>From Scratch</strong></li>
       <li>Name your app (e.g. "iQcadence Alerts") and select your workspace, then click <strong>Create App</strong></li>
       <li>In the left sidebar, click <strong>Incoming Webhooks</strong> and toggle <strong>Activate Incoming Webhooks</strong> to <strong>On</strong></li>
       <li>Scroll down and click <strong>Add New Webhook to Workspace</strong></li>
       <li>Select the channel where alerts should post (e.g. #cs-alerts) and click <strong>Allow</strong></li>
-      <li>Copy the <strong>Webhook URL</strong> (starts with <code style="font-size:.7rem;background:var(--bg);padding:1px 4px;border-radius:3px">https://hooks.slack.com/services/...</code>) and paste it above</li>
+      <li>Copy the <strong>Webhook URL</strong> (starts with <code style="font-size:var(--fs-sm);background:var(--bg);padding:1px 4px;border-radius:3px">https://hooks.slack.com/services/...</code>) and paste it above</li>
       <li>Click <strong>Send Test</strong> below to verify — you should see a test message appear in your channel</li>
     </ol>
-    <p style="margin:8px 0 0;font-size:.72rem;color:var(--subtle)"><strong>Tip:</strong> You can customize the bot name and icon in your Slack app settings under <strong>Basic Information</strong> → <strong>Display Information</strong>. Alerts will include customer name, score, status, and the triggering event.</p>`
+    <p style="margin:8px 0 0;font-size:var(--fs-sm);color:var(--subtle)"><strong>Tip:</strong> You can customize the bot name and icon in your Slack app settings under <strong>Basic Information</strong> → <strong>Display Information</strong>. Alerts will include customer name, score, status, and the triggering event.</p>`
   },
   {
     key: 'teams', label: 'Microsoft Teams', icon: _aico(AUTO_ICONS.teams),
     desc: 'Post alerts to a Teams channel via Workflows webhook.',
     inputType: 'url', placeholder: 'https://prod-xx.westus.logic.azure.com:443/workflows/...',
-    setup: `<ol style="margin:6px 0 0 18px;font-size:.76rem;line-height:1.6;color:var(--muted)">
+    setup: `<ol style="margin:6px 0 0 18px;font-size:var(--fs-sm);line-height:1.6;color:var(--muted)">
       <li>Open <strong>Microsoft Teams</strong> and go to the channel where you want alerts</li>
       <li>Click the <strong>+</strong> (Add a tab) or go to <strong>Apps</strong> → search for <strong>Workflows</strong></li>
       <li>Select the template <strong>"Post to a channel when a webhook request is received"</strong></li>
       <li>Name the workflow (e.g. "iQcadence Alerts"), select the target <strong>Team</strong> and <strong>Channel</strong>, then click <strong>Add workflow</strong></li>
-      <li>Copy the <strong>Webhook URL</strong> provided (starts with <code style="font-size:.7rem;background:var(--bg);padding:1px 4px;border-radius:3px">https://prod-xx.westus.logic.azure.com...</code>) and paste it above</li>
+      <li>Copy the <strong>Webhook URL</strong> provided (starts with <code style="font-size:var(--fs-sm);background:var(--bg);padding:1px 4px;border-radius:3px">https://prod-xx.westus.logic.azure.com...</code>) and paste it above</li>
       <li>Click <strong>Send Test</strong> below to verify — you should see a test card appear in your channel</li>
     </ol>
-    <p style="margin:8px 0 0;font-size:.72rem;color:var(--subtle)"><strong>Note:</strong> Microsoft retired the old "Incoming Webhook" connector. Use the <strong>Workflows</strong> app instead. If you don\'t see Workflows, ask your Teams admin to enable it.</p>`
+    <p style="margin:8px 0 0;font-size:var(--fs-sm);color:var(--subtle)"><strong>Note:</strong> Microsoft retired the old "Incoming Webhook" connector. Use the <strong>Workflows</strong> app instead. If you don\'t see Workflows, ask your Teams admin to enable it.</p>`
   },
   {
     key: 'email', label: 'Email', icon: _aico(AUTO_ICONS.email),
     desc: 'Send HTML email alerts to one or more recipients.',
     inputType: 'email', placeholder: 'alerts@yourcompany.com, csm-team@company.com',
-    setup: `<div style="margin:6px 0 0;font-size:.76rem;line-height:1.6;color:var(--muted)">
+    setup: `<div style="margin:6px 0 0;font-size:var(--fs-sm);line-height:1.6;color:var(--muted)">
       <p style="margin:0 0 6px">Enter one or more email addresses separated by commas. Each recipient gets a formatted HTML email with customer details, score changes, and the triggering event.</p>
-      <p style="margin:0;font-size:.72rem;color:var(--subtle)"><strong>Requires setup:</strong> Email delivery uses <a href="https://resend.com" target="_blank" rel="noopener" style="color:var(--blue)">Resend</a>. Your Supabase project must have the <code style="font-size:.68rem;background:var(--bg);padding:1px 4px;border-radius:3px">RESEND_API_KEY</code> secret configured. Contact your admin if emails are not being delivered.</p>
+      <p style="margin:0;font-size:var(--fs-sm);color:var(--subtle)"><strong>Requires setup:</strong> Email delivery uses <a href="https://resend.com" target="_blank" rel="noopener" style="color:var(--blue)">Resend</a>. Your Supabase project must have the <code style="font-size:var(--fs-xs);background:var(--bg);padding:1px 4px;border-radius:3px">RESEND_API_KEY</code> secret configured. Contact your admin if emails are not being delivered.</p>
     </div>`
   }
 ];
@@ -10698,7 +10874,7 @@ function sentToHtml(alertKey) {
   if (ch.email?.enabled && subscribed('email')) parts.push('<span class="dest-tag" title="' + escHtml(ch.email.recipients || 'No recipients configured') + '">' + _aicoSm(AUTO_ICONS.email) + ' Email</span>');
   return parts.length
     ? parts.join(' ')
-    : '<span style="color:var(--muted);font-size:.78rem">' + _aicoSm(AUTO_ICONS.warning) + ' None</span>';
+    : '<span style="color:var(--muted);font-size:var(--fs-base)">' + _aicoSm(AUTO_ICONS.warning) + ' None</span>';
 }
 
 function scheduleText() {
@@ -10726,7 +10902,7 @@ function renderActiveAlerts() {
     container.innerHTML = '<div class="active-alerts-empty">' +
       '<div class="empty-icon">' + _aicoLg(AUTO_ICONS.bell) + '</div>' +
       '<h3 style="margin-bottom:6px">No alerts configured yet</h3>' +
-      '<p style="font-size:.85rem;margin-bottom:16px">Create your first alert to start monitoring customer health.</p>' +
+      '<p style="font-size:var(--fs-md);margin-bottom:16px">Create your first alert to start monitoring customer health.</p>' +
       '<button class="btn btn-sm btn-primary" onclick="autoTab(\'create\')">+ Create Alert</button>' +
     '</div>';
     return;
@@ -10828,15 +11004,15 @@ function renderActiveAlerts() {
       let thresholdFields = '';
       if (at.configFields.length > 0) {
         thresholdFields = '<div style="margin-bottom:12px">' +
-          '<div style="font-size:.78rem;font-weight:700;margin-bottom:8px;color:var(--text)">Thresholds</div>' +
+          '<div style="font-size:var(--fs-base);font-weight:700;margin-bottom:8px;color:var(--text)">Thresholds</div>' +
           at.configFields.map(f => {
             const val = (settings[at.key] || {})[f.name] ?? f.default;
             return '<div class="inline-field">' +
               '<label>' + escHtml(f.label) + '</label>' +
               '<input type="' + f.type + '" min="' + f.min + '" max="' + f.max + '" value="' + val + '"' +
               ' onblur="updateAlertSetting(\'' + at.key + '\', \'' + f.name + '\', +this.value)"' +
-              ' style="width:80px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:var(--font);color:var(--text);background:var(--surface);text-align:center"/>' +
-              '<span style="font-size:.72rem;color:var(--muted)">' + escHtml(f.hint) + '</span>' +
+              ' style="width:80px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface);text-align:center"/>' +
+              '<span style="font-size:var(--fs-sm);color:var(--muted)">' + escHtml(f.hint) + '</span>' +
             '</div>';
           }).join('') +
         '</div>';
@@ -10859,12 +11035,12 @@ function renderActiveAlerts() {
       let emailRecipientsHtml = '';
       if (channels.email?.enabled) {
         emailRecipientsHtml = '<div style="margin-top:12px">' +
-          '<div style="font-size:.78rem;font-weight:700;margin-bottom:6px;color:var(--text)">Email Recipients</div>' +
+          '<div style="font-size:var(--fs-base);font-weight:700;margin-bottom:6px;color:var(--text)">Email Recipients</div>' +
           '<input type="email" multiple value="' + escHtml(channels.email?.recipients || '') + '"' +
           ' placeholder="alerts@company.com, team@company.com"' +
           ' onblur="updateChannelValue(\'email\', this.value)"' +
-          ' style="width:100%;max-width:400px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:var(--font);color:var(--text);background:var(--surface)"/>' +
-          '<div style="font-size:.72rem;color:var(--muted);margin-top:3px">Comma-separated addresses</div>' +
+          ' style="width:100%;max-width:400px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)"/>' +
+          '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:3px">Comma-separated addresses</div>' +
         '</div>';
       }
 
@@ -10872,19 +11048,19 @@ function renderActiveAlerts() {
       const allManagers = [...new Set(customers.map(c => c.manager || '').filter(Boolean))].sort();
       const inlineMgrScope = automationsCfg.manager_scope || { mode: 'all', managers: [] };
       const mgrScopeHtml = '<div style="margin-top:12px">' +
-        '<div style="font-size:.78rem;font-weight:700;margin-bottom:6px;color:var(--text)">Manager Scope</div>' +
+        '<div style="font-size:var(--fs-base);font-weight:700;margin-bottom:6px;color:var(--text)">Manager Scope</div>' +
         '<div style="display:flex;gap:16px;align-items:center;margin-bottom:6px">' +
-          '<label style="display:flex;align-items:center;gap:4px;font-size:.78rem;cursor:pointer">' +
+          '<label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-base);cursor:pointer">' +
             '<input type="radio" name="inline-mgr-scope" value="all"' + (inlineMgrScope.mode === 'all' ? ' checked' : '') + ' onchange="setManagerScopeMode(\'all\')"/> All Managers' +
           '</label>' +
-          '<label style="display:flex;align-items:center;gap:4px;font-size:.78rem;cursor:pointer">' +
+          '<label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-base);cursor:pointer">' +
             '<input type="radio" name="inline-mgr-scope" value="selected"' + (inlineMgrScope.mode === 'selected' ? ' checked' : '') + ' onchange="setManagerScopeMode(\'selected\')"/> Selected Managers' +
           '</label>' +
         '</div>' +
         (inlineMgrScope.mode === 'selected' ? '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
           allManagers.map(m => {
             const checked = (inlineMgrScope.managers || []).includes(m);
-            return '<label style="display:flex;align-items:center;gap:4px;font-size:.78rem;cursor:pointer">' +
+            return '<label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-base);cursor:pointer">' +
               '<input type="checkbox"' + (checked ? ' checked' : '') + ' onchange="toggleManagerScope(\'' + escHtml(m).replace(/'/g, "\\'") + '\', this.checked)"/> ' + escHtml(m) +
             '</label>';
           }).join('') +
@@ -10895,7 +11071,7 @@ function renderActiveAlerts() {
         '<div class="summary-inline-edit">' +
           thresholdFields +
           '<div>' +
-            '<div style="font-size:.78rem;font-weight:700;margin-bottom:8px;color:var(--text)">Channels</div>' +
+            '<div style="font-size:var(--fs-base);font-weight:700;margin-bottom:8px;color:var(--text)">Channels</div>' +
             '<div class="summary-inline-channels">' + channelToggles + '</div>' +
           '</div>' +
           emailRecipientsHtml +
@@ -10909,11 +11085,11 @@ function renderActiveAlerts() {
 
     return '<tr class="' + (isEditing ? 'editing' : '') + '">' +
       '<td><span style="margin-right:6px;display:inline-flex;vertical-align:middle;color:var(--blue)">' + _aicoSm(AUTO_ICONS[at.key]) + '</span>' + escHtml(at.label) + '</td>' +
-      '<td style="color:var(--muted);font-size:.82rem">' + conditionText(at) + '</td>' +
+      '<td style="color:var(--muted);font-size:var(--fs-base)">' + conditionText(at) + '</td>' +
       '<td>' + sentToHtml(at.key) + '</td>' +
-      '<td style="font-size:.78rem;white-space:nowrap">' + scheduleText() + '</td>' +
-      '<td style="font-size:.78rem;color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis" title="' + escHtml(scopeDisplay) + '">' + scopeDisplay + '</td>' +
-      '<td style="font-size:.78rem;color:var(--muted)">' + escHtml(creatorDisplay) + '</td>' +
+      '<td style="font-size:var(--fs-base);white-space:nowrap">' + scheduleText() + '</td>' +
+      '<td style="font-size:var(--fs-base);color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis" title="' + escHtml(scopeDisplay) + '">' + scopeDisplay + '</td>' +
+      '<td style="font-size:var(--fs-base);color:var(--muted)">' + escHtml(creatorDisplay) + '</td>' +
       '<td>' +
         '<button class="btn btn-xs btn-ghost" onclick="toggleInlineEdit(\'' + at.key + '\')" title="' + (isEditing ? 'Close' : 'Edit') + '">' + (isEditing ? _aicoSm(AUTO_ICONS.check) : _aicoSm(AUTO_ICONS.edit)) + '</button> ' +
         '<button class="btn btn-xs btn-ghost" style="color:var(--red)" onclick="wizardRemoveAlert(\'' + at.key + '\')" title="Remove">' + _aicoSm(AUTO_ICONS.x) + '</button>' +
@@ -10939,7 +11115,7 @@ function renderActiveAlerts() {
         return '<span class="filter-pill">' + escHtml(label) + ': ' + escHtml(summary) +
           '<button class="filter-pill-x" onclick="event.stopPropagation();clearAlertFilter(\'' + key + '\')" title="Remove filter">' + _aicoSm(AUTO_ICONS.x) + '</button></span>';
       }).join('') +
-      '<button class="btn btn-xs btn-ghost" onclick="clearAllAlertFilters()" style="font-size:.72rem;color:var(--muted)">Clear all</button>' +
+      '<button class="btn btn-xs btn-ghost" onclick="clearAllAlertFilters()" style="font-size:var(--fs-sm);color:var(--muted)">Clear all</button>' +
     '</div>';
   }
 
@@ -11161,8 +11337,8 @@ function renderWizardStep1() {
       '<div class="wizard-alert-card__check">' + (isSel ? _aicoSm(AUTO_ICONS.check) : '') + '</div>' +
       '<span style="flex-shrink:0;display:flex;align-items:center;color:var(--blue)">' + at.icon + '</span>' +
       '<div style="flex:1;min-width:0">' +
-        '<div style="font-weight:600;font-size:.85rem">' + escHtml(at.label) + '</div>' +
-        '<div style="font-size:.75rem;color:var(--muted);margin-top:2px">' + escHtml(at.desc) + '</div>' +
+        '<div style="font-weight:600;font-size:var(--fs-md)">' + escHtml(at.label) + '</div>' +
+        '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px">' + escHtml(at.desc) + '</div>' +
       '</div>' +
     '</div>';
   }).join('');
@@ -11172,21 +11348,21 @@ function renderWizardStep1() {
   const allManagers = [...new Set(customers.map(c => c.manager || '').filter(Boolean))].sort();
   const mgrScopeHtml = '<div style="margin-top:24px;margin-bottom:14px">' +
     '<h3 style="margin:0;font-size:1rem">Who should alerts cover?</h3>' +
-    '<p style="font-size:.78rem;color:var(--muted);margin:4px 0 0">Scope alerts to specific managers or monitor all accounts.</p>' +
+    '<p style="font-size:var(--fs-base);color:var(--muted);margin:4px 0 0">Scope alerts to specific managers or monitor all accounts.</p>' +
   '</div>' +
   '<div class="wizard-schedule-option ' + (mgrScope.mode === 'all' ? 'active' : '') + '" onclick="setManagerScopeMode(\'all\')">' +
     '<input type="radio" name="mgr-scope-mode" value="all"' + (mgrScope.mode === 'all' ? ' checked' : '') + ' onclick="event.stopPropagation();setManagerScopeMode(\'all\')"/>' +
-    '<div style="flex:1"><div style="font-weight:600;font-size:.85rem;display:flex;align-items:center;gap:6px">' + _aico(AUTO_ICONS.allMgrs) + ' All Managers</div>' +
-    '<div style="font-size:.75rem;color:var(--muted);margin-top:2px">Alerts fire for every customer regardless of manager</div></div>' +
+    '<div style="flex:1"><div style="font-weight:600;font-size:var(--fs-md);display:flex;align-items:center;gap:6px">' + _aico(AUTO_ICONS.allMgrs) + ' All Managers</div>' +
+    '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px">Alerts fire for every customer regardless of manager</div></div>' +
   '</div>' +
   '<div class="wizard-schedule-option ' + (mgrScope.mode === 'selected' ? 'active' : '') + '" onclick="setManagerScopeMode(\'selected\')">' +
     '<input type="radio" name="mgr-scope-mode" value="selected"' + (mgrScope.mode === 'selected' ? ' checked' : '') + ' onclick="event.stopPropagation();setManagerScopeMode(\'selected\')"/>' +
-    '<div style="flex:1"><div style="font-weight:600;font-size:.85rem;display:flex;align-items:center;gap:6px">' + _aico(AUTO_ICONS.selMgrs) + ' Selected Managers</div>' +
-    '<div style="font-size:.75rem;color:var(--muted);margin-top:2px">Only fire alerts for accounts owned by chosen managers</div>' +
+    '<div style="flex:1"><div style="font-weight:600;font-size:var(--fs-md);display:flex;align-items:center;gap:6px">' + _aico(AUTO_ICONS.selMgrs) + ' Selected Managers</div>' +
+    '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px">Only fire alerts for accounts owned by chosen managers</div>' +
     (mgrScope.mode === 'selected' ? '<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px">' +
       allManagers.map(m => {
         const checked = (mgrScope.managers || []).includes(m);
-        return '<label onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:4px;font-size:.78rem;cursor:pointer">' +
+        return '<label onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:4px;font-size:var(--fs-base);cursor:pointer">' +
           '<input type="checkbox"' + (checked ? ' checked' : '') + ' onchange="event.stopPropagation();toggleManagerScope(\'' + escHtml(m).replace(/'/g, "\\'") + '\', this.checked)"/> ' + escHtml(m) +
         '</label>';
       }).join('') +
@@ -11197,11 +11373,11 @@ function renderWizardStep1() {
   pane.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">' +
     '<div>' +
       '<h3 style="margin:0;font-size:1rem">Which alerts do you want?</h3>' +
-      '<p style="font-size:.78rem;color:var(--muted);margin:4px 0 0">Select the conditions that should trigger notifications.</p>' +
+      '<p style="font-size:var(--fs-base);color:var(--muted);margin:4px 0 0">Select the conditions that should trigger notifications.</p>' +
     '</div>' +
     '<div style="display:flex;gap:8px">' +
-      '<button class="btn btn-xs btn-ghost" onclick="wizardSelectAll()" style="font-size:.75rem">Select All</button>' +
-      '<button class="btn btn-xs btn-ghost" onclick="wizardClearAll()" style="font-size:.75rem;color:var(--muted)">Clear</button>' +
+      '<button class="btn btn-xs btn-ghost" onclick="wizardSelectAll()" style="font-size:var(--fs-sm)">Select All</button>' +
+      '<button class="btn btn-xs btn-ghost" onclick="wizardClearAll()" style="font-size:var(--fs-sm);color:var(--muted)">Clear</button>' +
     '</div>' +
   '</div>' +
   '<div class="wizard-alert-grid">' + cards + '</div>' +
@@ -11272,7 +11448,7 @@ function renderWizardStep2() {
     pane.innerHTML = '<div style="text-align:center;padding:40px 20px">' +
       '<div style="font-size:2rem;margin-bottom:12px;color:var(--green)">' + _aicoLg(AUTO_ICONS.checkCircle) + '</div>' +
       '<h3 style="margin:0;font-size:1rem">No thresholds to configure</h3>' +
-      '<p style="font-size:.82rem;color:var(--muted);margin-top:6px">Your selected alerts use automatic detection \u2014 no thresholds needed.</p>' +
+      '<p style="font-size:var(--fs-base);color:var(--muted);margin-top:6px">Your selected alerts use automatic detection \u2014 no thresholds needed.</p>' +
     '</div>';
     return;
   }
@@ -11282,18 +11458,18 @@ function renderWizardStep2() {
     const fields = at.configFields.map(f => {
       const val = atSettings[f.name] ?? f.default;
       return '<div style="display:flex;align-items:center;gap:10px;margin-top:10px">' +
-        '<label style="font-size:.8rem;font-weight:600;white-space:nowrap;min-width:160px">' + escHtml(f.label) + '</label>' +
+        '<label style="font-size:var(--fs-base);font-weight:600;white-space:nowrap;min-width:160px">' + escHtml(f.label) + '</label>' +
         '<input type="' + f.type + '" min="' + f.min + '" max="' + f.max + '" value="' + val + '"' +
         ' onchange="updateAlertSetting(\'' + at.key + '\', \'' + f.name + '\', +this.value)"' +
-        ' style="width:90px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.85rem;font-family:var(--font);color:var(--text);background:var(--surface);text-align:center"/>' +
-        '<span style="font-size:.75rem;color:var(--muted)">' + escHtml(f.hint) + '</span>' +
+        ' style="width:90px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-md);font-family:var(--font);color:var(--text);background:var(--surface);text-align:center"/>' +
+        '<span style="font-size:var(--fs-sm);color:var(--muted)">' + escHtml(f.hint) + '</span>' +
       '</div>';
     }).join('');
 
     return '<div class="wizard-threshold-card">' +
       '<div style="display:flex;align-items:center;gap:10px">' +
         '<span style="flex-shrink:0;display:flex;align-items:center;color:var(--blue)">' + at.icon + '</span>' +
-        '<div style="font-weight:600;font-size:.88rem">' + escHtml(at.label) + '</div>' +
+        '<div style="font-weight:600;font-size:var(--fs-md)">' + escHtml(at.label) + '</div>' +
       '</div>' +
       fields +
     '</div>';
@@ -11301,7 +11477,7 @@ function renderWizardStep2() {
 
   pane.innerHTML = '<div style="margin-bottom:16px">' +
     '<h3 style="margin:0;font-size:1rem">Set your thresholds</h3>' +
-    '<p style="font-size:.78rem;color:var(--muted);margin:4px 0 0">Configure when each alert should fire. Only alerts with adjustable thresholds are shown.</p>' +
+    '<p style="font-size:var(--fs-base);color:var(--muted);margin:4px 0 0">Configure when each alert should fire. Only alerts with adjustable thresholds are shown.</p>' +
   '</div>' + cards;
 }
 
@@ -11331,28 +11507,28 @@ function renderWizardStep3() {
     if (cfg.enabled) {
       configInputs = '<div style="margin-top:10px">' +
         '<div class="field" style="margin-bottom:8px">' +
-          '<label style="font-size:.76rem;font-weight:600;margin-bottom:3px;display:block">' + (isEmail ? 'Recipients' : 'Webhook URL') + '</label>' +
+          '<label style="font-size:var(--fs-sm);font-weight:600;margin-bottom:3px;display:block">' + (isEmail ? 'Recipients' : 'Webhook URL') + '</label>' +
           '<input type="' + ch.inputType + '" id="ch-val-' + ch.key + '"' +
             ' placeholder="' + escHtml(ch.placeholder) + '"' +
             ' value="' + escHtml(value) + '"' +
             ' onchange="updateChannelValue(\'' + ch.key + '\', this.value)"' +
-            ' style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:var(--font);color:var(--text);background:var(--surface)"/>' +
+            ' style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)"/>' +
         '</div>' +
         (isEmail ? '<div class="field" style="margin-bottom:8px;display:flex;align-items:center;gap:8px">' +
-          '<label style="font-size:.76rem;font-weight:600;white-space:nowrap">Subject Prefix</label>' +
+          '<label style="font-size:var(--fs-sm);font-weight:600;white-space:nowrap">Subject Prefix</label>' +
           '<input type="text" id="ch-subject-' + ch.key + '"' +
             ' placeholder="[iQcadence Alert]"' +
             ' value="' + escHtml(cfg.subject_prefix || '[iQcadence Alert]') + '"' +
             ' onchange="updateChannelMeta(\'' + ch.key + '\', \'subject_prefix\', this.value)"' +
-            ' style="width:200px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:var(--font);color:var(--text);background:var(--surface)"/>' +
+            ' style="width:200px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)"/>' +
         '</div>' : '') +
         '<div style="display:flex;gap:8px;align-items:center">' +
           '<button class="btn btn-xs btn-outline" onclick="testChannel(\'' + ch.key + '\')"' +
             (!value ? ' disabled title="Enter a ' + (isEmail ? 'recipient' : 'URL') + ' first"' : '') + '>' +
             _aicoSm(AUTO_ICONS.realtime) + ' Send Test</button>' +
-          '<span id="ch-test-status-' + ch.key + '" style="font-size:.76rem;color:var(--muted)"></span>' +
+          '<span id="ch-test-status-' + ch.key + '" style="font-size:var(--fs-sm);color:var(--muted)"></span>' +
         '</div>' +
-        '<details style="margin-top:8px"><summary style="cursor:pointer;color:var(--blue);font-size:.74rem;font-weight:600">Setup Instructions</summary>' + ch.setup + '</details>' +
+        '<details style="margin-top:8px"><summary style="cursor:pointer;color:var(--blue);font-size:var(--fs-sm);font-weight:600">Setup Instructions</summary>' + ch.setup + '</details>' +
       '</div>';
     }
 
@@ -11361,8 +11537,8 @@ function renderWizardStep3() {
         '<div style="display:flex;align-items:center;gap:10px">' +
           '<span style="flex-shrink:0;display:flex;align-items:center;color:var(--blue)">' + ch.icon + '</span>' +
           '<div>' +
-            '<div style="font-weight:600;font-size:.85rem">' + escHtml(ch.label) + '</div>' +
-            '<div style="font-size:.73rem;color:var(--muted)">' + escHtml(ch.desc) + '</div>' +
+            '<div style="font-weight:600;font-size:var(--fs-md)">' + escHtml(ch.label) + '</div>' +
+            '<div style="font-size:var(--fs-sm);color:var(--muted)">' + escHtml(ch.desc) + '</div>' +
           '</div>' +
         '</div>' +
         '<label class="toggle-switch">' +
@@ -11387,36 +11563,36 @@ function renderWizardStep3() {
     let extra = '';
     if (opt.mode === 'daily' && isActive) {
       extra = '<div style="margin-top:8px;display:flex;align-items:center;gap:8px">' +
-        '<label style="font-size:.76rem;font-weight:600">Time</label>' +
+        '<label style="font-size:var(--fs-sm);font-weight:600">Time</label>' +
         '<input type="time" value="' + (schedule.daily_time || '09:00') + '"' +
         ' onchange="updateSchedule(\'daily_time\', this.value)"' +
-        ' style="padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:var(--font);color:var(--text);background:var(--surface)"/>' +
+        ' style="padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)"/>' +
       '</div>';
     }
     if (opt.mode === 'weekly' && isActive) {
       extra = '<div style="margin-top:8px;display:flex;align-items:center;gap:12px">' +
         '<div style="display:flex;align-items:center;gap:6px">' +
-          '<label style="font-size:.76rem;font-weight:600">Day</label>' +
+          '<label style="font-size:var(--fs-sm);font-weight:600">Day</label>' +
           '<select onchange="updateSchedule(\'weekly_day\', this.value)"' +
-          ' style="padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:var(--font);color:var(--text);background:var(--surface)">' +
+          ' style="padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)">' +
             ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'].map(d =>
               '<option value="' + d + '"' + (schedule.weekly_day === d ? ' selected' : '') + '>' + d.charAt(0).toUpperCase() + d.slice(1) + '</option>'
             ).join('') +
           '</select>' +
         '</div>' +
         '<div style="display:flex;align-items:center;gap:6px">' +
-          '<label style="font-size:.76rem;font-weight:600">Time</label>' +
+          '<label style="font-size:var(--fs-sm);font-weight:600">Time</label>' +
           '<input type="time" value="' + (schedule.weekly_time || '09:00') + '"' +
           ' onchange="updateSchedule(\'weekly_time\', this.value)"' +
-          ' style="padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:var(--font);color:var(--text);background:var(--surface)"/>' +
+          ' style="padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)"/>' +
         '</div>' +
       '</div>';
     }
     return '<div class="wizard-schedule-option ' + (isActive ? 'active' : '') + '" onclick="setScheduleMode(\'' + opt.mode + '\')">' +
       '<input type="radio" name="schedule-mode" value="' + opt.mode + '"' + (isActive ? ' checked' : '') + ' onclick="event.stopPropagation();setScheduleMode(\'' + opt.mode + '\')"/>' +
       '<div style="flex:1">' +
-        '<div style="font-weight:600;font-size:.85rem;display:flex;align-items:center;gap:6px">' + opt.icon + ' ' + escHtml(opt.label) + '</div>' +
-        '<div style="font-size:.75rem;color:var(--muted);margin-top:2px">' + escHtml(opt.desc) + '</div>' +
+        '<div style="font-weight:600;font-size:var(--fs-md);display:flex;align-items:center;gap:6px">' + opt.icon + ' ' + escHtml(opt.label) + '</div>' +
+        '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px">' + escHtml(opt.desc) + '</div>' +
         extra +
       '</div>' +
     '</div>';
@@ -11424,15 +11600,15 @@ function renderWizardStep3() {
 
   pane.innerHTML = '<div style="margin-bottom:18px">' +
     '<h3 style="margin:0;font-size:1rem">Where should alerts be sent?</h3>' +
-    '<p style="font-size:.78rem;color:var(--muted);margin:4px 0 0">Enable your delivery channels and configure their connection details.</p>' +
+    '<p style="font-size:var(--fs-base);color:var(--muted);margin:4px 0 0">Enable your delivery channels and configure their connection details.</p>' +
   '</div>' +
   channelRows +
   '<div style="margin-top:24px;margin-bottom:14px">' +
     '<h3 style="margin:0;font-size:1rem">When should alerts fire?</h3>' +
-    '<p style="font-size:.78rem;color:var(--muted);margin:4px 0 0">Choose how quickly you want to be notified.</p>' +
+    '<p style="font-size:var(--fs-base);color:var(--muted);margin:4px 0 0">Choose how quickly you want to be notified.</p>' +
   '</div>' +
   scheduleHtml +
-  '<p style="font-size:.72rem;color:var(--muted);margin-top:12px;font-style:italic">' +
+  '<p style="font-size:var(--fs-sm);color:var(--muted);margin-top:12px;font-style:italic">' +
     'Note: Daily and weekly digests require server-side scheduling (coming soon). All alerts currently fire in real-time.' +
   '</p>';
 }
@@ -11527,7 +11703,7 @@ async function testChannel(key) {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✓ Test sent to Slack</span>';
+      if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">' + appIcon('check',12) + ' Test sent to Slack</span>';
       toast('Test sent to Slack', 'success');
     } catch (err) {
       if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">✗ ' + escHtml(err.message || 'Failed') + '</span>';
@@ -11544,7 +11720,7 @@ async function testChannel(key) {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✓ Test sent to Teams</span>';
+      if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">' + appIcon('check',12) + ' Test sent to Teams</span>';
       toast('Test sent to Teams', 'success');
     } catch (err) {
       if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">✗ ' + escHtml(err.message || 'Failed') + '</span>';
@@ -11556,7 +11732,7 @@ async function testChannel(key) {
     if (statusEl) statusEl.textContent = 'Sending test…';
     try {
       await fireEmailAlert('health_below_threshold', testCustomer, testExtra, cfg);
-      if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✓ Test email sent</span>';
+      if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">' + appIcon('check',12) + ' Test email sent</span>';
       toast('Test email sent', 'success');
     } catch (err) {
       if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">✗ ' + escHtml(err.message || 'Failed') + '</span>';
@@ -11588,7 +11764,7 @@ function renderWebhookConfig() {
         <div class="auto-card-hd">
           <div style="flex:1">
             <h3>${escHtml(t.label)}</h3>
-            <p style="font-size:.78rem;color:var(--muted);margin-top:2px">${escHtml(t.desc)}</p>
+            <p style="font-size:var(--fs-base);color:var(--muted);margin-top:2px">${escHtml(t.desc)}</p>
           </div>
           <label class="toggle-switch">
             <input type="checkbox" ${cfg.enabled ? 'checked' : ''}
@@ -11597,28 +11773,28 @@ function renderWebhookConfig() {
           </label>
         </div>
         <div class="field" style="margin-bottom:10px">
-          <label style="font-size:.78rem;font-weight:600;margin-bottom:4px;display:block">Webhook URL</label>
+          <label style="font-size:var(--fs-base);font-weight:600;margin-bottom:4px;display:block">Webhook URL</label>
           <input type="url" id="wh-url-${t.key}" placeholder="https://hooks.zapier.com/hooks/catch/..."
             value="${escHtml(cfg.url || '')}"
             onchange="updateWebhookUrl('${t.key}', this.value)"
-            style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:var(--font);color:var(--text);background:var(--surface)"/>
+            style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)"/>
         </div>
         ${t.hasThreshold ? `
           <div class="field" style="margin-bottom:10px;display:flex;align-items:center;gap:8px">
-            <label style="font-size:.78rem;font-weight:600;white-space:nowrap">Score Threshold</label>
+            <label style="font-size:var(--fs-base);font-weight:600;white-space:nowrap">Score Threshold</label>
             <input type="number" id="wh-th-${t.key}" min="1" max="99"
               value="${cfg.threshold || t.defaultThreshold}"
               onchange="updateWebhookThreshold('${t.key}', +this.value)"
-              style="width:80px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:.82rem;font-family:var(--font);color:var(--text);background:var(--surface)"/>
-            <span style="font-size:.75rem;color:var(--muted)">Fire when score drops below this value</span>
+              style="width:80px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)"/>
+            <span style="font-size:var(--fs-sm);color:var(--muted)">Fire when score drops below this value</span>
           </div>
         ` : ''}
         <div style="display:flex;gap:8px;align-items:center;margin-top:12px">
           <button class="btn btn-sm btn-outline" onclick="testWebhook('${t.key}')"
             ${!cfg.url ? 'disabled title="Enter a webhook URL first"' : ''}>
-            ⚡ Test Webhook
+            ${appIcon('bolt',14)} Test Webhook
           </button>
-          <span id="wh-test-status-${t.key}" style="font-size:.78rem;color:var(--muted)"></span>
+          <span id="wh-test-status-${t.key}" style="font-size:var(--fs-base);color:var(--muted)"></span>
         </div>
       </div>`;
   }).join('');
@@ -11679,7 +11855,7 @@ async function testWebhook(key) {
     });
     if (error) throw error;
     if (data?.error) throw new Error(data.error);
-    if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">✓ Test sent successfully</span>';
+    if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">' + appIcon('check',12) + ' Test sent successfully</span>';
     toast('Test webhook sent', 'success');
   } catch (err) {
     if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">✗ Failed: ' + escHtml(err.message || 'Unknown error') + '</span>';
@@ -11707,10 +11883,10 @@ function renderApiKeySection() {
         </div>
         <button class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red)" onclick="regenerateApiKey()">Regenerate</button>
       </div>
-      <p style="font-size:.75rem;color:var(--muted)">Your full API key was shown only when generated. If you've lost it, regenerate a new one.</p>`;
+      <p style="font-size:var(--fs-sm);color:var(--muted)">Your full API key was shown only when generated. If you've lost it, regenerate a new one.</p>`;
   } else {
     container.innerHTML = `
-      <p style="font-size:.82rem;margin-bottom:12px;color:var(--muted)">No API key generated yet. Generate one to enable inbound API endpoints.</p>
+      <p style="font-size:var(--fs-base);margin-bottom:12px;color:var(--muted)">No API key generated yet. Generate one to enable inbound API endpoints.</p>
       <button class="btn btn-sm btn-primary" onclick="generateApiKey()">Generate API Key</button>`;
   }
 }
@@ -11758,10 +11934,10 @@ function regenerateApiKey() {
 function showApiKeyModal(fullKey) {
   el('confirm-msg').innerHTML = `
     <div style="margin-bottom:14px">
-      <p style="font-size:.85rem;font-weight:600;color:var(--red);margin-bottom:8px">
-        ⚠ Copy this key now — it will not be shown again.
+      <p style="font-size:var(--fs-md);font-weight:600;color:var(--red);margin-bottom:8px">
+        ${appIcon('warning',14)} Copy this key now — it will not be shown again.
       </p>
-      <div class="auto-endpoint" style="user-select:all;cursor:text;font-size:.82rem;padding:12px 14px">
+      <div class="auto-endpoint" style="user-select:all;cursor:text;font-size:var(--fs-base);padding:12px 14px">
         ${escHtml(fullKey)}
       </div>
     </div>`;
@@ -11800,19 +11976,19 @@ function renderApiEndpoints() {
   ];
 
   container.innerHTML = `
-    <p style="font-size:.82rem;color:var(--muted);margin-bottom:16px">All endpoints accept <strong>POST</strong> requests with JSON body and require the <code style="background:var(--bg);padding:1px 5px;border-radius:4px;font-size:.78rem">x-api-key</code> header.</p>
+    <p style="font-size:var(--fs-base);color:var(--muted);margin-bottom:16px">All endpoints accept <strong>POST</strong> requests with JSON body and require the <code style="background:var(--bg);padding:1px 5px;border-radius:4px;font-size:var(--fs-base)">x-api-key</code> header.</p>
     <div class="auto-endpoint" style="margin-bottom:16px">
       <strong>POST</strong> &nbsp;${escHtml(baseUrl)}
       <button class="btn btn-xs btn-ghost copy-btn" onclick="navigator.clipboard.writeText('${escHtml(baseUrl)}');toast('URL copied','success')">Copy</button>
     </div>
     ${endpoints.map(ep => `
       <div class="auto-card">
-        <h3 style="margin:0 0 4px;font-size:.85rem">${escHtml(ep.label)}</h3>
-        <p style="font-size:.78rem;color:var(--muted);margin-bottom:6px">${escHtml(ep.desc)}</p>
-        <p style="font-size:.72rem;color:var(--muted);margin-bottom:10px"><strong>Fields:</strong> ${escHtml(ep.fields)}</p>
-        <details style="font-size:.78rem">
+        <h3 style="margin:0 0 4px;font-size:var(--fs-md)">${escHtml(ep.label)}</h3>
+        <p style="font-size:var(--fs-base);color:var(--muted);margin-bottom:6px">${escHtml(ep.desc)}</p>
+        <p style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:10px"><strong>Fields:</strong> ${escHtml(ep.fields)}</p>
+        <details style="font-size:var(--fs-base)">
           <summary style="cursor:pointer;color:var(--blue);font-weight:600;margin-bottom:6px">Example payload</summary>
-          <pre style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;overflow-x:auto;font-size:.75rem;line-height:1.5;color:var(--text);white-space:pre-wrap">${escHtml(ep.example)}</pre>
+          <pre style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px;overflow-x:auto;font-size:var(--fs-sm);line-height:1.5;color:var(--text);white-space:pre-wrap">${escHtml(ep.example)}</pre>
         </details>
       </div>
     `).join('')}`;
@@ -11876,7 +12052,7 @@ function renderWebhookLog() {
   if (!tbody) return;
 
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted);font-size:.85rem">No ${filterVal === 'all' ? '' : filterVal + ' '}events found</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--muted);font-size:var(--fs-md)">No ${filterVal === 'all' ? '' : filterVal + ' '}events found</td></tr>`;
     if (pagTop) pagTop.innerHTML = '';
     if (pagBot) pagBot.innerHTML = '';
     return;
@@ -11900,25 +12076,50 @@ function renderWebhookLog() {
     else if (e.status_code) detail = 'HTTP ' + e.status_code;
 
     return `<tr>
-      <td style="white-space:nowrap;font-size:.78rem;color:var(--muted)">${escHtml(time)}</td>
+      <td style="white-space:nowrap;font-size:var(--fs-sm);color:var(--muted)">${escHtml(time)}</td>
       <td><span class="${dirClass}">${dirLabel}</span></td>
-      <td style="font-size:.8rem">${escHtml(e.event_type || '')}</td>
-      <td style="font-weight:600;font-size:.82rem">${escHtml(e.customer_name || '—')}</td>
+      <td style="font-size:var(--fs-sm);word-break:break-all">${escHtml(e.event_type || '')}</td>
+      <td style="font-weight:600;font-size:var(--fs-base)">${escHtml(e.customer_name || '—')}</td>
       <td><span class="auto-status ${statusClass}">${escHtml(e.status || 'unknown')}</span></td>
-      <td style="font-size:.78rem;color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(detail)}</td>
+      <td style="font-size:var(--fs-sm);color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(detail)}</td>
     </tr>`;
   }).join('');
 }
 
 // ── Trigger Detection ──
+// Persist snapshots so alerts only fire on actual CHANGES, not every page load
+function _saveSnapshots() {
+  try {
+    const obj = {};
+    _prevCustomerStates.forEach((v, k) => { obj[k] = v; });
+    localStorage.setItem('iqc_trigger_snapshots', JSON.stringify(obj));
+  } catch(e){}
+}
+
 function snapshotCustomerStates() {
+  // Try to restore persisted snapshots first — this is what prevents repeat alerts
+  try {
+    const stored = localStorage.getItem('iqc_trigger_snapshots');
+    if (stored) {
+      const obj = JSON.parse(stored);
+      _prevCustomerStates.clear();
+      Object.keys(obj).forEach(k => _prevCustomerStates.set(k, obj[k]));
+      // Merge any NEW customers that aren't in the stored snapshot yet
+      customers.forEach(c => {
+        if (!_prevCustomerStates.has(c.id)) {
+          _prevCustomerStates.set(c.id, _snapFields(c));
+        }
+      });
+      _saveSnapshots();
+      return;
+    }
+  } catch(e){}
+  // No persisted data — first run: snapshot current state (won't trigger alerts since prev matches current)
   _prevCustomerStates.clear();
   customers.forEach(c => {
-    _prevCustomerStates.set(c.id, {
-      score: c.score, status: c.status, nps: c.nps, csat: c.csat,
-      lifecycle: c.lifecycle, renewal_date: c.renewal_date, days: c.days
-    });
+    _prevCustomerStates.set(c.id, _snapFields(c));
   });
+  _saveSnapshots();
 }
 
 function _snapFields(c) {
@@ -11989,7 +12190,7 @@ function checkWebhookTriggers(c) {
 
   // 5b. CSAT poor
   if (prev && !csatIsPoor(prev.csat) && csatIsPoor(c.csat)) {
-    triggeredEvents.push({ key: 'nps_detractor',
+    triggeredEvents.push({ key: 'csat_poor',
       extra: { trigger: 'csat_poor', previous_csat: csatDisplay(prev.csat), current_csat: csatDisplay(c.csat) } });
   }
 
@@ -12007,28 +12208,53 @@ function checkWebhookTriggers(c) {
       extra: { trigger: 'rapid_score_drop', previous_score: prev.score, drop_amount: prev.score - c.score, drop_threshold: dropThreshold } });
   }
 
+  // ── Cooldown dedup: skip if same alert fired for this customer within 24h ──
+  const COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
+  try { if (!Object.keys(_alertCooldowns).length) { const stored = localStorage.getItem('iqc_alert_cooldowns'); if (stored) _alertCooldowns = JSON.parse(stored); } } catch(e){}
+  const now = Date.now();
+  // Prune expired cooldowns
+  Object.keys(_alertCooldowns).forEach(k => { if (now - _alertCooldowns[k] > COOLDOWN_MS) delete _alertCooldowns[k]; });
+  const deduped = triggeredEvents.filter(evt => {
+    const cdKey = c.id + '|' + evt.key;
+    if (_alertCooldowns[cdKey] && (now - _alertCooldowns[cdKey]) < COOLDOWN_MS) return false;
+    _alertCooldowns[cdKey] = now;
+    return true;
+  });
+  try { localStorage.setItem('iqc_alert_cooldowns', JSON.stringify(_alertCooldowns)); } catch(e){}
+
   // ── Fire direct channels (per-channel filtering handled inside) ──
-  triggeredEvents.forEach(evt => {
+  deduped.forEach(evt => {
     fireDirectChannels(evt.key, c, evt.extra);
   });
 
   // ── Fire Zapier webhooks (only for original 2 trigger types) ──
   const hbt = (automationsCfg.webhooks || {}).health_below_threshold;
   if (hbt?.enabled && hbt?.url && prev && prev.score >= (hbt.threshold || 50) && c.score < (hbt.threshold || 50)) {
-    fireWebhook('health_below_threshold', hbt.url, c, {
-      trigger: 'health_below_threshold', threshold: hbt.threshold || 50, previous_score: prev.score
-    });
+    const cdKey = c.id + '|hbt_zapier';
+    if (!_alertCooldowns[cdKey] || (now - _alertCooldowns[cdKey]) >= COOLDOWN_MS) {
+      _alertCooldowns[cdKey] = now;
+      fireWebhook('health_below_threshold', hbt.url, c, {
+        trigger: 'health_below_threshold', threshold: hbt.threshold || 50, previous_score: prev.score
+      });
+    }
   }
 
   const aar = (automationsCfg.webhooks || {}).account_at_risk;
   if (aar?.enabled && aar?.url && wasNotRisk && isNowRisk) {
-    fireWebhook('account_at_risk', aar.url, c, {
-      trigger: 'account_at_risk', previous_status: prev?.status ?? null
-    });
+    const cdKey = c.id + '|aar_zapier';
+    if (!_alertCooldowns[cdKey] || (now - _alertCooldowns[cdKey]) >= COOLDOWN_MS) {
+      _alertCooldowns[cdKey] = now;
+      fireWebhook('account_at_risk', aar.url, c, {
+        trigger: 'account_at_risk', previous_status: prev?.status ?? null
+      });
+    }
   }
 
-  // Update snapshot
+  try { localStorage.setItem('iqc_alert_cooldowns', JSON.stringify(_alertCooldowns)); } catch(e){}
+
+  // Update snapshot & persist so we don't re-alert on next page load
   _prevCustomerStates.set(c.id, _snapFields(c));
+  _saveSnapshots();
 }
 
 async function fireWebhook(eventType, url, customer, extra, overridePayload) {
@@ -12730,10 +12956,10 @@ function renderTierTable(active, deltaCache) {
         return `<tr class="seg-table-row" data-tier="${t.key}">
           <td><span class="tier-pill ${t.pill}">${t.label}</span></td>
           <td>${t.count}</td>
-          <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${scoreColor(t.avgScore)};background:${t.avgScore >= 65 ? 'var(--green-l)' : t.avgScore >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${t.avgScore}</span></td>
-          <td><span class="csm-trend ${trendCls}" style="font-size:.68rem;padding:1px 6px">${trendIcon} ${trendTxt}</span></td>
+          <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${scoreColor(t.avgScore)};background:${t.avgScore >= 65 ? 'var(--green-l)' : t.avgScore >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${t.avgScore}</span></td>
+          <td><span class="csm-trend ${trendCls}" style="font-size:var(--fs-xs);padding:1px 6px">${trendIcon} ${trendTxt}</span></td>
           <td>$${fmtNum(t.totalMRR)}</td>
-          <td><span style="font-weight:700;color:${t.riskPct > 30 ? 'var(--red)' : t.riskPct > 0 ? 'var(--amber)' : 'var(--green)'}">${t.riskPct}%</span> <span style="font-size:.7rem;color:var(--muted)">(${t.atRisk})</span></td>
+          <td><span style="font-weight:700;color:${t.riskPct > 30 ? 'var(--red)' : t.riskPct > 0 ? 'var(--amber)' : 'var(--green)'}">${t.riskPct}%</span> <span style="font-size:var(--fs-sm);color:var(--muted)">(${t.atRisk})</span></td>
           <td>${contactStr}</td>
           <td>${t.renewals90}</td>
           <td><button class="btn-sm csm-expand-btn" onclick="event.stopPropagation();drillTier('${t.key}')">${chevronDown} Expand</button></td>
@@ -12847,27 +13073,27 @@ function buildTierDrillHTML(tierKey) {
       const isOverdue = c.days != null && c.days >= OVERDUE_DAYS;
       const delta = deltaCache.get(c.id) || 0;
       const trendHTML = delta > 0
-        ? `<span class="csm-trend up" style="font-size:.68rem;padding:1px 6px">▲ +${delta}</span>`
+        ? `<span class="csm-trend up" style="font-size:var(--fs-xs);padding:1px 6px">▲ +${delta}</span>`
         : delta < 0
-          ? `<span class="csm-trend dn" style="font-size:.68rem;padding:1px 6px">▼ ${delta}</span>`
-          : `<span class="csm-trend flat" style="font-size:.68rem;padding:1px 6px">— 0</span>`;
+          ? `<span class="csm-trend dn" style="font-size:var(--fs-xs);padding:1px 6px">▼ ${delta}</span>`
+          : `<span class="csm-trend flat" style="font-size:var(--fs-xs);padding:1px 6px">— 0</span>`;
       const contactCell = isOverdue
         ? `<span style="font-weight:700;color:var(--red)">${c.days}d ago</span> <span class="csm-overdue">OVERDUE</span>`
         : (c.days != null ? c.days + 'd ago' : '—');
       return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
         <td><strong>${escHtml(c.name)}</strong></td>
-        <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${c.score >= 65 ? 'var(--green)' : c.score >= 50 ? 'var(--amber)' : 'var(--red)'};background:${c.score >= 65 ? 'var(--green-l)' : c.score >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${c.score}</span></td>
+        <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${c.score >= 65 ? 'var(--green)' : c.score >= 50 ? 'var(--amber)' : 'var(--red)'};background:${c.score >= 65 ? 'var(--green-l)' : c.score >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${c.score}</span></td>
         <td>${trendHTML}</td>
         <td>${badgeHTML(c.status)}</td>
         <td>$${fmtNum(c.mrr || 0)}</td>
         <td>${contactCell}</td>
         <td>${renewStr}</td>
-        <td style="font-size:.78rem;color:var(--muted)">${c.lifecycle || '—'}</td>
+        <td style="font-size:var(--fs-base);color:var(--muted)">${c.lifecycle || '—'}</td>
       </tr>`;
     }).join('')}</tbody>
   </table>`;
 
-  const viewBtn = `<div style="text-align:right;margin-top:12px"><button class="btn-sm" onclick="filterByTier('${tierKey}')" style="gap:4px">View in Customers <span style="font-size:.8rem">\u2192</span></button></div>`;
+  const viewBtn = `<div style="text-align:right;margin-top:12px"><button class="btn-sm" onclick="filterByTier('${tierKey}')" style="gap:4px">View in Customers <span style="font-size:var(--fs-base)">\u2192</span></button></div>`;
 
   return summaryHTML + tableHTML + viewBtn;
 }
@@ -12959,12 +13185,12 @@ function renderStageTable(active, deltaCache) {
         const contactStr = t.avgDays != null ? t.avgDays + 'd' : '—';
         const sc = stageColors[t.key] || '#64748b';
         return `<tr class="seg-table-row" data-stage="${t.key}">
-          <td><span class="stage-pill" style="background:${sc}15;color:${sc};border:1px solid ${sc}30;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700">${t.label}</span></td>
+          <td><span class="stage-pill" style="background:${sc}15;color:${sc};border:1px solid ${sc}30;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700">${t.label}</span></td>
           <td>${t.count}</td>
-          <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${scoreColor(t.avgScore)};background:${t.avgScore >= 65 ? 'var(--green-l)' : t.avgScore >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${t.avgScore}</span></td>
-          <td><span class="csm-trend ${trendCls}" style="font-size:.68rem;padding:1px 6px">${trendIcon} ${trendTxt}</span></td>
+          <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${scoreColor(t.avgScore)};background:${t.avgScore >= 65 ? 'var(--green-l)' : t.avgScore >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${t.avgScore}</span></td>
+          <td><span class="csm-trend ${trendCls}" style="font-size:var(--fs-xs);padding:1px 6px">${trendIcon} ${trendTxt}</span></td>
           <td>$${fmtNum(t.totalMRR)}</td>
-          <td><span style="font-weight:700;color:${t.riskPct > 30 ? 'var(--red)' : t.riskPct > 0 ? 'var(--amber)' : 'var(--green)'}">${t.riskPct}%</span> <span style="font-size:.7rem;color:var(--muted)">(${t.atRisk})</span></td>
+          <td><span style="font-weight:700;color:${t.riskPct > 30 ? 'var(--red)' : t.riskPct > 0 ? 'var(--amber)' : 'var(--green)'}">${t.riskPct}%</span> <span style="font-size:var(--fs-sm);color:var(--muted)">(${t.atRisk})</span></td>
           <td>${contactStr}</td>
           <td>${t.renewals90}</td>
           <td><button class="btn-sm csm-expand-btn" onclick="event.stopPropagation();drillStage('${t.key}')">${chevronDown} Expand</button></td>
@@ -13078,28 +13304,28 @@ function buildStageDrillHTML(stageKey) {
       const isOverdue = c.days != null && c.days >= OVERDUE_DAYS;
       const delta = deltaCache.get(c.id) || 0;
       const trendHTML = delta > 0
-        ? `<span class="csm-trend up" style="font-size:.68rem;padding:1px 6px">▲ +${delta}</span>`
+        ? `<span class="csm-trend up" style="font-size:var(--fs-xs);padding:1px 6px">▲ +${delta}</span>`
         : delta < 0
-          ? `<span class="csm-trend dn" style="font-size:.68rem;padding:1px 6px">▼ ${delta}</span>`
-          : `<span class="csm-trend flat" style="font-size:.68rem;padding:1px 6px">— 0</span>`;
+          ? `<span class="csm-trend dn" style="font-size:var(--fs-xs);padding:1px 6px">▼ ${delta}</span>`
+          : `<span class="csm-trend flat" style="font-size:var(--fs-xs);padding:1px 6px">— 0</span>`;
       const contactCell = isOverdue
         ? `<span style="font-weight:700;color:var(--red)">${c.days}d ago</span> <span class="csm-overdue">OVERDUE</span>`
         : (c.days != null ? c.days + 'd ago' : '—');
       const tierLabel = c.tier === 'enterprise' ? 'Enterprise' : c.tier === 'smb' ? 'SMB' : 'Mid-Market';
       return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
         <td><strong>${escHtml(c.name)}</strong></td>
-        <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${c.score >= 65 ? 'var(--green)' : c.score >= 50 ? 'var(--amber)' : 'var(--red)'};background:${c.score >= 65 ? 'var(--green-l)' : c.score >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${c.score}</span></td>
+        <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${c.score >= 65 ? 'var(--green)' : c.score >= 50 ? 'var(--amber)' : 'var(--red)'};background:${c.score >= 65 ? 'var(--green-l)' : c.score >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${c.score}</span></td>
         <td>${trendHTML}</td>
         <td>${badgeHTML(c.status)}</td>
         <td>$${fmtNum(c.mrr || 0)}</td>
         <td>${contactCell}</td>
         <td>${renewStr}</td>
-        <td style="font-size:.78rem;color:var(--muted)">${tierLabel}</td>
+        <td style="font-size:var(--fs-base);color:var(--muted)">${tierLabel}</td>
       </tr>`;
     }).join('')}</tbody>
   </table>`;
 
-  const viewBtn = `<div style="text-align:right;margin-top:12px"><button class="btn-sm" onclick="filterByStage('${stageKey}')" style="gap:4px">View in Customers <span style="font-size:.8rem">\u2192</span></button></div>`;
+  const viewBtn = `<div style="text-align:right;margin-top:12px"><button class="btn-sm" onclick="filterByStage('${stageKey}')" style="gap:4px">View in Customers <span style="font-size:var(--fs-base)">\u2192</span></button></div>`;
 
   return summaryHTML + tableHTML + viewBtn;
 }
@@ -13142,14 +13368,14 @@ function renderSegCardGrid(segments) {
 
     return `<div class="card seg-card" data-seg="${escHtml(seg.tag)}" onclick="drillSegFromCard('${safeTag}')" style="cursor:pointer">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <span class="tag" style="font-size:.78rem">${escHtml(segDisplayLabel(seg.tag))}</span>
+        <span class="tag" style="font-size:var(--fs-base)">${escHtml(segDisplayLabel(seg.tag))}</span>
         <span class="seg-score-badge" style="color:${scoreColor(seg.avgScore)};background:${scoreBg(seg.avgScore)}">${seg.avgScore}</span>
       </div>
       <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">
         <span style="font-size:1.7rem;font-weight:800;line-height:1">${seg.count}</span>
         <span class="seg-card-trend ${trendCls}">${trendIcon} ${trendTxt}</span>
       </div>
-      <div style="font-size:.7rem;color:var(--muted);margin-bottom:10px">account${seg.count !== 1 ? 's' : ''}</div>
+      <div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:10px">account${seg.count !== 1 ? 's' : ''}</div>
       <div class="seg-health-bar" style="height:6px;margin-bottom:12px" title="${seg.healthy} healthy · ${seg.watch} watch · ${seg.atRisk} at risk">
         ${hPct ? `<span class="seg-health-seg" style="width:${hPct}%;background:var(--green)"></span>` : ''}
         ${wPct ? `<span class="seg-health-seg" style="width:${wPct}%;background:var(--amber)"></span>` : ''}
@@ -13227,10 +13453,10 @@ function renderSegTable(segments) {
         return `<tr class="seg-table-row" data-seg="${escHtml(seg.tag)}">
           <td><strong>${escHtml(segDisplayLabel(seg.tag))}</strong></td>
           <td>${seg.count}</td>
-          <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${scoreColor(seg.avgScore)};background:${seg.avgScore >= 65 ? 'var(--green-l)' : seg.avgScore >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${seg.avgScore}</span></td>
-          <td><span class="csm-trend ${trendCls}" style="font-size:.68rem;padding:1px 6px">${trendIcon} ${trendTxt}</span></td>
+          <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${scoreColor(seg.avgScore)};background:${seg.avgScore >= 65 ? 'var(--green-l)' : seg.avgScore >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${seg.avgScore}</span></td>
+          <td><span class="csm-trend ${trendCls}" style="font-size:var(--fs-xs);padding:1px 6px">${trendIcon} ${trendTxt}</span></td>
           <td>$${fmtNum(seg.totalMRR)}</td>
-          <td><span style="font-weight:700;color:${seg.riskPct > 30 ? 'var(--red)' : seg.riskPct > 0 ? 'var(--amber)' : 'var(--green)'}">${seg.riskPct}%</span> <span style="font-size:.7rem;color:var(--muted)">(${seg.atRisk})</span></td>
+          <td><span style="font-weight:700;color:${seg.riskPct > 30 ? 'var(--red)' : seg.riskPct > 0 ? 'var(--amber)' : 'var(--green)'}">${seg.riskPct}%</span> <span style="font-size:var(--fs-sm);color:var(--muted)">(${seg.atRisk})</span></td>
           <td>${contactStr}</td>
           <td>${seg.renewals90}</td>
           <td><button class="btn-sm csm-expand-btn" onclick="event.stopPropagation();drillSeg('${safeTag}')">${chevronDown} Expand</button></td>
@@ -13316,28 +13542,28 @@ function buildSegDrillHTML(tagName) {
       const isOverdue = c.days != null && c.days >= OVERDUE_DAYS;
       const delta = deltaCache.get(c.id) || 0;
       const trendHTML = delta > 0
-        ? `<span class="csm-trend up" style="font-size:.68rem;padding:1px 6px">▲ +${delta}</span>`
+        ? `<span class="csm-trend up" style="font-size:var(--fs-xs);padding:1px 6px">▲ +${delta}</span>`
         : delta < 0
-          ? `<span class="csm-trend dn" style="font-size:.68rem;padding:1px 6px">▼ ${delta}</span>`
-          : `<span class="csm-trend flat" style="font-size:.68rem;padding:1px 6px">— 0</span>`;
+          ? `<span class="csm-trend dn" style="font-size:var(--fs-xs);padding:1px 6px">▼ ${delta}</span>`
+          : `<span class="csm-trend flat" style="font-size:var(--fs-xs);padding:1px 6px">— 0</span>`;
       const contactCell = isOverdue
         ? `<span style="font-weight:700;color:var(--red)">${c.days}d ago</span> <span class="csm-overdue">OVERDUE</span>`
         : (c.days != null ? c.days + 'd ago' : '—');
       return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
         <td><strong>${escHtml(c.name)}</strong></td>
-        <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${c.score >= 65 ? 'var(--green)' : c.score >= 50 ? 'var(--amber)' : 'var(--red)'};background:${c.score >= 65 ? 'var(--green-l)' : c.score >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${c.score}</span></td>
+        <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${c.score >= 65 ? 'var(--green)' : c.score >= 50 ? 'var(--amber)' : 'var(--red)'};background:${c.score >= 65 ? 'var(--green-l)' : c.score >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${c.score}</span></td>
         <td>${trendHTML}</td>
         <td>${badgeHTML(c.status)}</td>
         <td>$${fmtNum(c.mrr || 0)}</td>
         <td>${contactCell}</td>
         <td>${renewStr}</td>
-        <td style="font-size:.78rem;color:var(--muted)">${c.lifecycle || '—'}</td>
+        <td style="font-size:var(--fs-base);color:var(--muted)">${c.lifecycle || '—'}</td>
       </tr>`;
     }).join('')}</tbody>
   </table>`;
 
   const safeTag = tagName.replace(/'/g, "\\'");
-  const viewBtn = `<div style="text-align:right;margin-top:12px"><button class="btn-sm" onclick="filterByTag('${safeTag}')" style="gap:4px">View in Customers <span style="font-size:.8rem">\u2192</span></button></div>`;
+  const viewBtn = `<div style="text-align:right;margin-top:12px"><button class="btn-sm" onclick="filterByTag('${safeTag}')" style="gap:4px">View in Customers <span style="font-size:var(--fs-base)">\u2192</span></button></div>`;
 
   return summaryHTML + tableHTML + viewBtn;
 }
@@ -13582,7 +13808,7 @@ function renderSegChart(segments, active, deltaCache) {
   const data = _segView === 'tiers' ? window._tierData : _segView === 'stage' ? window._stageData : segments;
   if (!data || !data.length) {
     const wrap = el('seg-chart-wrap');
-    if (wrap) wrap.innerHTML = '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:.88rem">Not enough data to display a comparison chart.</p>';
+    if (wrap) wrap.innerHTML = '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:var(--fs-md)">Not enough data to display a comparison chart.</p>';
     return;
   }
 
@@ -13646,7 +13872,7 @@ function _buildSegChartSVG(data) {
   });
 
   if (!lines.length) {
-    wrap.innerHTML = '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:.88rem">Not enough history data for the selected segments.</p>';
+    wrap.innerHTML = '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:var(--fs-md)">Not enough history data for the selected segments.</p>';
     return;
   }
 
@@ -13818,7 +14044,7 @@ function showSegChartTip(evt, cx, colIdx) {
     rows += `<div style="display:flex;align-items:center;gap:6px;margin-top:3px"><span style="width:8px;height:8px;border-radius:50%;background:${v.color};flex-shrink:0"></span><span>${escHtml(v.label)}</span><strong style="margin-left:auto">${v.val}</strong></div>`;
   });
 
-  tip.innerHTML = `<div style="font-weight:700;margin-bottom:4px;font-size:.82rem">${data.dateLabel}</div>${rows}`;
+  tip.innerHTML = `<div style="font-weight:700;margin-bottom:4px;font-size:var(--fs-base)">${data.dateLabel}</div>${rows}`;
   const wrap = el('seg-chart-wrap');
   const svg = wrap.querySelector('svg');
   if (!svg) return;
@@ -14339,7 +14565,7 @@ function trendClientAutocomplete() {
   ).slice(0, 8);
   if (!matches.length) { ac.style.display = 'none'; return; }
   ac.innerHTML = matches.map(c =>
-    `<div onclick="addTrendClient('${escHtml(c.id)}')">${escHtml(c.name)} <span style="color:var(--subtle);font-size:.72rem">(${c.score})</span></div>`
+    `<div onclick="addTrendClient('${escHtml(c.id)}')">${escHtml(c.name)} <span style="color:var(--subtle);font-size:var(--fs-sm)">(${c.score})</span></div>`
   ).join('');
   ac.style.display = 'block';
 }
@@ -14679,14 +14905,14 @@ function renderTrendMovers() {
   });
 
   if (!sorted.length) {
-    wrap.innerHTML = '<p style="color:var(--subtle);font-size:.84rem;padding:12px">No score history available for this period.</p>';
+    wrap.innerHTML = '<p style="color:var(--subtle);font-size:var(--fs-md);padding:12px">No score history available for this period.</p>';
     return;
   }
 
   const arrow = (key) => _trendSortKey === key ? (_trendSortDir === 1 ? ' ▲' : ' ▼') : '';
   const thStyle = 'padding:8px 12px;font-weight:700;color:var(--fg);cursor:pointer;user-select:none;white-space:nowrap;position:sticky;top:0;background:var(--surface);z-index:1';
 
-  wrap.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:.82rem">
+  wrap.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:var(--fs-base)">
     <thead><tr style="text-align:left;border-bottom:2px solid var(--border)">
       <th style="${thStyle}" onclick="sortTrendMovers('name')">Customer${arrow('name')}</th>
       <th style="${thStyle}" onclick="sortTrendMovers('score')">Score${arrow('score')}</th>
@@ -14750,7 +14976,7 @@ function _trendNiceScale(linesArr, fixedRange) {
 
 function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
   if (!lines.length || !lines[0].points.length) {
-    return '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:.88rem">Not enough history to display a trend chart. Score a few customers to get started.</p>';
+    return '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:var(--fs-md)">Not enough history to display a trend chart. Score a few customers to get started.</p>';
   }
 
   const m1Cfg = METRIC_CFG[m1Key] || METRIC_CFG.score;
@@ -14768,7 +14994,7 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
   if (hasM2) m2Line.points.forEach(p => allDates.add(p.date));
   const dates = [...allDates].sort();
   if (!dates.length) {
-    return '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:.88rem">No data points in this range.</p>';
+    return '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:var(--fs-md)">No data points in this range.</p>';
   }
 
   const xScale = (i) => pad.left + (dates.length === 1 ? cW/2 : (i / (dates.length - 1)) * cW);
@@ -15001,7 +15227,7 @@ function showTrendTip(evt, cx, colIdx) {
     rows += `<div style="display:flex;align-items:center;gap:6px;margin-top:4px;border-top:1px solid var(--border);padding-top:4px"><span style="width:14px;height:0;border-top:2.5px dashed ${data.secondaryVal.color};flex-shrink:0"></span><span>${data.secondaryVal.label}</span><strong style="margin-left:auto">${data.secondaryVal.val}</strong></div>`;
   }
 
-  tip.innerHTML = `<div style="font-weight:700;margin-bottom:4px;font-size:.82rem">${data.dateLabel}</div>${rows}`;
+  tip.innerHTML = `<div style="font-weight:700;margin-bottom:4px;font-size:var(--fs-base)">${data.dateLabel}</div>${rows}`;
   // Position relative to the chart-wrap container
   const wrap = el('trend-chart-wrap');
   const svg = wrap.querySelector('svg');
@@ -15655,7 +15881,7 @@ function _buildTrendAnalysis(active, data1, data2, cutoff, rangeDays, m1, m2) {
     return;
   }
 
-  wrap.innerHTML = '<div style="font-size:.82rem;font-weight:700;color:var(--text);margin-bottom:8px">Analysis</div>' +
+  wrap.innerHTML = '<div style="font-size:var(--fs-base);font-weight:700;color:var(--text);margin-bottom:8px">Analysis</div>' +
     top.map(ins => {
       const cls = ins.accent === 'green' ? 'ta-card-green' : ins.accent === 'red' ? 'ta-card-red' : ins.accent === 'amber' ? 'ta-card-amber' : '';
       return `<div class="ta-card ${cls}">
@@ -15808,11 +16034,7 @@ function renderCSMPerformance() {
 
   // --- No CSMs ---
   if (displayList.length === 0 || (displayList.length === 1 && displayList[0].name === 'Unassigned')) {
-    tableWrap.innerHTML = `<div style="text-align:center;padding:40px;color:var(--muted)">
-      <div style="font-size:2rem;margin-bottom:8px;opacity:.3">👥</div>
-      <h3 style="margin-bottom:4px">No CSMs assigned yet</h3>
-      <p style="font-size:.85rem">Assign managers to your customers to see per-CSM performance metrics.</p>
-    </div>`;
+    tableWrap.innerHTML = `<div class="empty-st"><div class="ei">${appIcon('users',36)}</div><h3>No CSMs assigned yet</h3><p>Assign managers to customers via the Customer detail panel.</p></div>`;
     return;
   }
 
@@ -15863,9 +16085,9 @@ function renderCSMPerformance() {
       const safeName = escHtml(m.name).replace(/'/g, "\\'");
       return `<tr data-csm="${escHtml(m.name)}" class="csm-row">
       <td style="text-align:center">${rankBadge(m.rank)}</td>
-      <td><strong>${escHtml(m.name)}</strong>${m.overdueCount ? ` <span style="font-size:.66rem;color:var(--red);font-weight:700">${m.overdueCount} overdue</span>` : ''}</td>
-      <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${hmColor(m.avgScore)};background:${hmBg(m.avgScore)}">${m.avgScore}</span></td>
-      <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${hmColor(m.perfIndex)};background:${hmBg(m.perfIndex)}">${m.perfIndex}</span></td>
+      <td><strong>${escHtml(m.name)}</strong>${m.overdueCount ? ` <span style="font-size:var(--fs-xs);color:var(--red);font-weight:700">${m.overdueCount} overdue</span>` : ''}</td>
+      <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${hmColor(m.avgScore)};background:${hmBg(m.avgScore)}">${m.avgScore}</span></td>
+      <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${hmColor(m.perfIndex)};background:${hmBg(m.perfIndex)}">${m.perfIndex}</span></td>
       <td>${trendBadge(m.avgDelta)}</td>
       <td>${healthBar(m)}</td>
       <td>${m.count}</td>
@@ -15895,7 +16117,7 @@ function renderCSMWorkload(mgrList) {
   const wrap = el('csm-workload-wrap');
   if (!wrap) return;
   const list = mgrList.filter(m => m.name !== 'Unassigned');
-  if (!list.length) { wrap.innerHTML = '<p style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">No CSMs to display.</p>'; return; }
+  if (!list.length) { wrap.innerHTML = '<p style="padding:20px;text-align:center;color:var(--muted);font-size:var(--fs-base)">No CSMs to display.</p>'; return; }
 
   const maxAccounts = Math.max(...list.map(m => m.count), 1);
   const maxMRR      = Math.max(...list.map(m => m.totalMRR), 1);
@@ -15905,7 +16127,7 @@ function renderCSMWorkload(mgrList) {
   const activeTiers = ['enterprise','mid','smb'].filter(t => list.some(m => m.accs.some(c => (c.tier || 'smb') === t)));
 
   wrap.innerHTML = `
-    <div style="padding:10px 16px 4px;display:flex;gap:16px;font-size:.68rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">
+    <div style="padding:10px 16px 4px;display:flex;gap:16px;font-size:var(--fs-xs);font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">
       <span style="flex:0 0 110px">CSM</span>
       <span style="flex:1">Accounts</span>
       <span style="flex:1">MRR by Tier</span>
@@ -15927,7 +16149,7 @@ function renderCSMWorkload(mgrList) {
         tierMRR.mid ? 'Mid-Market $' + fmtNum(tierMRR.mid) : '',
         tierMRR.smb ? 'SMB $' + fmtNum(tierMRR.smb) : ''
       ].filter(Boolean).join(' · ');
-      return `<div class="csm-workload-row">
+      return `<div class="csm-workload-row" style="cursor:pointer" onclick="filterByManager('${escHtml(m.name).replace(/'/g,"\\'")}')">
         <div class="csm-workload-name">${escHtml(m.name)}</div>
         <div style="flex:1;display:flex;align-items:center;gap:8px">
           <div class="csm-workload-bar"><div class="csm-workload-fill" style="width:${accPct}%;background:${accColor}">${m.count}</div></div>
@@ -15939,12 +16161,12 @@ function renderCSMWorkload(mgrList) {
               ${midPct ? `<span style="width:${midPct}%;background:var(--purple);min-width:0"></span>` : ''}
               ${smbPct ? `<span style="width:${smbPct}%;background:var(--teal);min-width:0"></span>` : ''}
             </div>
-            <span style="position:absolute;inset:0;display:flex;align-items:center;padding:0 8px;font-size:.68rem;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.3)">$${fmtNum(m.totalMRR)}</span>
+            <span style="position:absolute;inset:0;display:flex;align-items:center;padding:0 8px;font-size:var(--fs-xs);font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.3)">$${fmtNum(m.totalMRR)}</span>
           </div>
         </div>
       </div>`;
     }).join('')}
-    <div style="padding:8px 16px;font-size:.68rem;color:var(--subtle);display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <div style="padding:8px 16px;font-size:var(--fs-xs);color:var(--subtle);display:flex;align-items:center;gap:12px;flex-wrap:wrap">
       <span>Average: ${avgAccounts} accounts per CSM</span>
       ${list.some(m => m.count > avgAccounts * 1.4) ? '<span style="color:var(--red);font-weight:700">Red bars = overloaded</span>' : ''}
       <span style="margin-left:auto;display:flex;gap:10px">${activeTiers.map(t => `<span style="display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:2px;background:${TIER_COLORS[t]}"></span>${TIER_LABELS[t]}</span>`).join('')}</span>
@@ -15972,7 +16194,7 @@ function renderCSMFocus(mgrList) {
   // ── Gather cross-team data ───────────────────────────────────
   const activeMgrs = mgrList.filter(m => m.name !== 'Unassigned' && m.count > 0);
   if (!activeMgrs.length) {
-    wrap.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:.82rem"><div style="font-size:1.4rem;margin-bottom:6px;opacity:.3">✓</div>No focus areas to show.</div>';
+    wrap.innerHTML = '<div class="empty-st" style="padding:24px"><div class="ei">' + appIcon('checkCircle',32) + '</div><h3>All clear</h3><p>No focus areas to show.</p></div>';
     return;
   }
   const allAccs = activeMgrs.flatMap(m => m.accs);
@@ -16230,7 +16452,7 @@ function renderCSMFocus(mgrList) {
   items.sort((a, b) => b.priority - a.priority);
 
   if (!items.length) {
-    wrap.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:.82rem"><div style="font-size:1.4rem;margin-bottom:6px;opacity:.3">✓</div>No urgent focus areas — all CSMs look good.</div>';
+    wrap.innerHTML = '<div class="empty-st" style="padding:24px"><div class="ei">' + appIcon('checkCircle',32) + '</div><h3>All clear</h3><p>No focus areas to show.</p></div>';
     window._csmFocusItems = [];
     return;
   }
@@ -16310,7 +16532,7 @@ function renderCSMMovement(mgrList) {
         const statusOrder = ['critical','risk','watch','healthy','expand'];
         const improved = statusOrder.indexOf(currentStatus) > statusOrder.indexOf(oldStatus);
         movements.push({
-          csm: m.name, customer: c.name, from: oldStatus, to: currentStatus,
+          csm: m.name, customer: c.name, cid: c.id, from: oldStatus, to: currentStatus,
           improved, scoreDelta: currentScore - oldScore, mrr: c.mrr || 0
         });
       }
@@ -16318,7 +16540,7 @@ function renderCSMMovement(mgrList) {
   });
 
   if (!movements.length) {
-    wrap.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:.82rem"><div style="font-size:1.4rem;margin-bottom:6px;opacity:.3">→</div>No health band changes in the last 7 days.</div>';
+    wrap.innerHTML = '<div class="empty-st" style="padding:24px"><div class="ei">' + appIcon('check',32) + '</div><h3>No changes</h3><p>No health band changes in the last 7 days.</p></div>';
     return;
   }
 
@@ -16331,14 +16553,31 @@ function renderCSMMovement(mgrList) {
     const arrowIcon = mv.improved ? '▲' : '▼';
     return `<div class="csm-movement-item">
       <span class="csm-movement-arrow ${arrowCls}">${arrowIcon}</span>
-      <strong>${escHtml(mv.customer)}</strong>
+      <a onclick="openDetail('${mv.cid}')" style="cursor:pointer;font-weight:700;color:var(--text);text-decoration:none;border-bottom:1px dashed var(--border);transition:color .15s" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text)'">${escHtml(mv.customer)}</a>
       <span style="color:var(--muted)">moved from</span>
       ${badgeHTML(mv.from)}
       <span style="color:var(--muted)">→</span>
       ${badgeHTML(mv.to)}
-      <span style="color:var(--muted);font-size:.72rem;margin-left:auto">${escHtml(mv.csm)} · $${fmtNum(mv.mrr)} MRR</span>
+      <span style="color:var(--muted);font-size:var(--fs-sm);margin-left:auto">${escHtml(mv.csm)} · $${fmtNum(mv.mrr)} MRR</span>
     </div>`;
-  }).join('') + (movements.length > 10 ? `<div style="padding:8px 16px;font-size:.72rem;color:var(--subtle);text-align:center">+ ${movements.length - 10} more changes</div>` : '');
+  }).join('') + (movements.length > 10 ? `<div style="padding:8px 16px;font-size:var(--fs-sm);color:var(--subtle);text-align:center">+ ${movements.length - 10} more changes</div>` : '');
+}
+
+/* ─── CSM click-through helpers ────────────────────────────────── */
+function filterByManager(name) {
+  columnFilters = {};
+  insightFilter = null;
+  mrrExposureFilter = null;
+  _filterTier = null;
+  _filterStage = null;
+  filterMode = 'all';
+  _filterManager = name;
+  nav('customers');
+  renderCustomers();
+}
+function clearManagerFilter() {
+  _filterManager = null;
+  renderCustomers();
 }
 
 /* ─── CSM ACTIVITY FEED ────────────────────────────────────────── */
@@ -16358,7 +16597,7 @@ function renderCSMActivity(mgrList) {
   }).filter(e => e.csm && csmNames.has(e.csm));
 
   if (!recent.length) {
-    wrap.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:.82rem"><div style="font-size:1.4rem;margin-bottom:6px;opacity:.3">📋</div>No recent CSM activity found.</div>';
+    wrap.innerHTML = '<div class="empty-st" style="padding:24px"><div class="ei">' + appIcon('clipboard',32) + '</div><h3>No activity</h3><p>No recent CSM activity found.</p></div>';
     return;
   }
 
@@ -16381,7 +16620,7 @@ function renderCSMActivity(mgrList) {
 
   let html = '';
   Object.entries(byCsm).forEach(([csm, entries]) => {
-    html += `<div style="padding:8px 16px 4px;font-size:.7rem;font-weight:700;color:var(--subtle);text-transform:uppercase;letter-spacing:.05em;background:var(--bg)">${escHtml(csm)}</div>`;
+    html += `<div style="padding:8px 16px 4px;font-size:var(--fs-sm);font-weight:700;color:var(--subtle);text-transform:uppercase;letter-spacing:.05em;background:var(--bg)">${escHtml(csm)}</div>`;
     entries.forEach(e => {
       let detail = '';
       try {
@@ -16391,9 +16630,9 @@ function renderCSMActivity(mgrList) {
       html += `<div class="csm-activity-item">
         <div class="csm-activity-time">${relTime(e.created_at)}</div>
         <div class="csm-activity-body">
-          <span style="display:inline-block;padding:1px 7px;border-radius:4px;font-size:.66rem;font-weight:700;color:${color(e.action)};background:color-mix(in srgb, ${color(e.action)} 12%, transparent)">${label(e.action)}</span>
+          <span style="display:inline-block;padding:1px 7px;border-radius:4px;font-size:var(--fs-xs);font-weight:700;color:${color(e.action)};background:color-mix(in srgb, ${color(e.action)} 12%, transparent)">${label(e.action)}</span>
           ${e.customer_name ? ` <strong>${escHtml(e.customer_name)}</strong>` : ''}
-          ${detail ? `<p style="font-size:.72rem;color:var(--muted);margin-top:2px">${detail}</p>` : ''}
+          ${detail ? `<p style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px">${detail}</p>` : ''}
         </div>
       </div>`;
     });
@@ -16526,21 +16765,21 @@ function drillCSM(mgrName) {
         : (c.renewal ? c.renewal + 'mo' : '—');
       const isOverdue = c.days != null && c.days >= OVERDUE_DAYS;
       const delta = getDelta7d(c);
-      const trendHTML = delta > 0 ? `<span class="csm-trend up" style="font-size:.68rem;padding:1px 6px">▲ +${delta}</span>`
-        : delta < 0 ? `<span class="csm-trend dn" style="font-size:.68rem;padding:1px 6px">▼ ${delta}</span>`
-        : `<span class="csm-trend flat" style="font-size:.68rem;padding:1px 6px">— 0</span>`;
+      const trendHTML = delta > 0 ? `<span class="csm-trend up" style="font-size:var(--fs-xs);padding:1px 6px">▲ +${delta}</span>`
+        : delta < 0 ? `<span class="csm-trend dn" style="font-size:var(--fs-xs);padding:1px 6px">▼ ${delta}</span>`
+        : `<span class="csm-trend flat" style="font-size:var(--fs-xs);padding:1px 6px">— 0</span>`;
       const contactCell = isOverdue
         ? `<span style="font-weight:700;color:var(--red)">${c.days}d ago</span> <span class="csm-overdue">OVERDUE</span>`
         : (c.days != null ? c.days + 'd ago' : '—');
       return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
         <td><strong>${escHtml(c.name)}</strong></td>
-        <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${c.score>=65?'var(--green)':c.score>=50?'var(--amber)':'var(--red)'};background:${c.score>=65?'var(--green-l)':c.score>=50?'var(--amber-l)':'var(--red-l)'}">${c.score}</span></td>
+        <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${c.score>=65?'var(--green)':c.score>=50?'var(--amber)':'var(--red)'};background:${c.score>=65?'var(--green-l)':c.score>=50?'var(--amber-l)':'var(--red-l)'}">${c.score}</span></td>
         <td>${trendHTML}</td>
         <td>${badgeHTML(c.status)}</td>
         <td>$${fmtNum(c.mrr||0)}</td>
         <td>${contactCell}</td>
         <td>${renewStr}</td>
-        <td style="font-size:.78rem;color:var(--muted)">${c.lifecycle || '—'}</td>
+        <td style="font-size:var(--fs-base);color:var(--muted)">${c.lifecycle || '—'}</td>
       </tr>`;
     }).join('')}</tbody>
   </table>`;
@@ -17114,26 +17353,29 @@ function calShowPopover(cellEl, dateStr) {
       if (ev.type !== 'renewal' && ev.type !== 'overdue') {
         h += '<div class="cal-log-form" id="cal-log-' + escHtml(c.id) + '" style="display:none" onclick="event.stopPropagation()">';
         h += '<div class="cal-log-sentiments">';
-        h += '<button class="cal-log-sent" data-val="positive" onclick="event.stopPropagation();calPickSentiment(\'' + escHtml(c.id) + '\',\'positive\',this)">😊</button>';
-        h += '<button class="cal-log-sent" data-val="neutral" onclick="event.stopPropagation();calPickSentiment(\'' + escHtml(c.id) + '\',\'neutral\',this)">😐</button>';
-        h += '<button class="cal-log-sent" data-val="negative" onclick="event.stopPropagation();calPickSentiment(\'' + escHtml(c.id) + '\',\'negative\',this)">😟</button>';
+        h += '<button class="cal-log-sent" data-val="positive" onclick="event.stopPropagation();calPickSentiment(\'' + escHtml(c.id) + '\',\'positive\',this)">' + appIcon('sentPositive',16) + '</button>';
+        h += '<button class="cal-log-sent" data-val="neutral" onclick="event.stopPropagation();calPickSentiment(\'' + escHtml(c.id) + '\',\'neutral\',this)">' + appIcon('sentNeutral',16) + '</button>';
+        h += '<button class="cal-log-sent" data-val="negative" onclick="event.stopPropagation();calPickSentiment(\'' + escHtml(c.id) + '\',\'negative\',this)">' + appIcon('sentNegative',16) + '</button>';
         h += '</div>';
         h += '<input type="text" class="cal-log-note" id="cal-log-note-' + escHtml(c.id) + '" placeholder="Add a note\u2026" />';
+        h += '<div style="display:flex;gap:6px">';
         h += '<button class="btn btn-primary btn-sm cal-log-save" onclick="event.stopPropagation();calSaveSentiment(\'' + escHtml(c.id) + '\')">Save</button>';
+        h += '<button class="btn btn-sm" style="background:var(--bg);color:var(--muted);border:1px solid var(--border)" onclick="event.stopPropagation();calToggleLogForm(\'' + escHtml(c.id) + '\')">Cancel</button>';
+        h += '</div>';
         h += '</div>';
       }
 
       h += '</div>';
     });
   } else {
-    h += '<div style="padding:10px 14px;color:var(--muted);font-size:.78rem">No events on this day</div>';
+    h += '<div style="padding:10px 14px;color:var(--muted);font-size:var(--fs-base)">No events on this day</div>';
   }
 
   h += '</div>';
 
   // Schedule a call button + inline form
   h += '<div class="cal-sched-trigger" style="padding:8px 14px;border-top:1px solid var(--border)">';
-  h += '<button class="btn btn-outline btn-sm" style="width:100%;font-size:.72rem" onclick="event.stopPropagation();calToggleScheduleForm(\'' + dateStr + '\')">';
+  h += '<button class="btn btn-outline btn-sm" style="width:100%;font-size:var(--fs-sm)" onclick="event.stopPropagation();calToggleScheduleForm(\'' + dateStr + '\')">';
   h += '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
   h += 'Schedule a call</button></div>';
   h += '<div id="cal-sched-form" class="cal-sched-form" style="display:none" onclick="event.stopPropagation()">';
@@ -17204,6 +17446,7 @@ async function calToggleTouchStatus(custId, histIdx, newStatus) {
 async function calRemoveTouch(custId, histIdx) {
   var c = customers.find(function(x) { return x.id === custId; });
   if (!c || !c.touch_history || !c.touch_history[histIdx]) return;
+  if (!confirm('Delete this touch entry for ' + c.name + '?')) return;
   c.touch_history.splice(histIdx, 1);
   _calSyncNextTouch(c);
   var { error } = await sb.from('customers').update({
@@ -17250,6 +17493,7 @@ async function calMarkScheduledMissed(custId) {
 async function calRemoveScheduled(custId) {
   var c = customers.find(function(x) { return x.id === custId; });
   if (!c || !c.next_touch) return;
+  if (!confirm('Remove scheduled touch for ' + c.name + '?')) return;
   var ntDate = c.next_touch.slice(0,10);
   // Remove matching scheduled entry from touch_history
   if (c.touch_history) {
@@ -17310,7 +17554,7 @@ function _calSchedShowResults(query) {
   var q = (query || '').toLowerCase().trim();
   var matches = q ? opts.filter(function(c) { return c.name.toLowerCase().indexOf(q) !== -1; }) : opts;
   if (!matches.length) {
-    box.innerHTML = '<div class="cal-search-empty" style="padding:6px 10px;font-size:.75rem;color:var(--muted)">No matches</div>';
+    box.innerHTML = '<div class="cal-search-empty" style="padding:6px 10px;font-size:var(--fs-sm);color:var(--muted)">No matches</div>';
     box.style.display = 'block';
     return;
   }
@@ -17320,7 +17564,7 @@ function _calSchedShowResults(query) {
     h += '<button class="cal-search-item" onmousedown="event.preventDefault();calSchedPickCust(\'' + c.id + '\',this)" data-name="' + escHtml(c.name) + '">' + escHtml(c.name) + '</button>';
   });
   if (matches.length > maxShow) {
-    h += '<div style="padding:4px 10px;font-size:.68rem;color:var(--muted)">' + (matches.length - maxShow) + ' more\u2026</div>';
+    h += '<div style="padding:4px 10px;font-size:var(--fs-xs);color:var(--muted)">' + (matches.length - maxShow) + ' more\u2026</div>';
   }
   box.innerHTML = h;
   box.style.display = 'block';
@@ -17679,11 +17923,11 @@ function renderAuditLog() {
     }
 
     return `<tr>
-      <td style="white-space:nowrap;font-size:.78rem;color:var(--muted)">${time}</td>
-      <td style="font-size:.78rem;color:var(--text)">${escHtml(userEmail)}</td>
-      <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.75rem;font-weight:700;color:${color};background:color-mix(in srgb, ${color} 12%, transparent)">${label}</span></td>
-      <td style="font-weight:600;font-size:.85rem">${name}</td>
-      <td style="font-size:.8rem;color:var(--muted);max-width:480px;line-height:1.5">${detailStr}</td>
+      <td style="white-space:nowrap;font-size:var(--fs-base);color:var(--muted)">${time}</td>
+      <td style="font-size:var(--fs-base);color:var(--text)">${escHtml(userEmail)}</td>
+      <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-sm);font-weight:700;color:${color};background:color-mix(in srgb, ${color} 12%, transparent)">${label}</span></td>
+      <td style="font-weight:600;font-size:var(--fs-md)">${name}</td>
+      <td style="font-size:var(--fs-base);color:var(--muted);max-width:480px;line-height:1.5">${detailStr}</td>
     </tr>`;
   }).join('');
 }
@@ -18004,7 +18248,7 @@ async function importCSV() {
       Object.assign(dupe, { ...r, score, status });
       dupe._baseDays = dupe.days != null ? dupe.days : null;
       dupe.history = dupe.history || [];
-      dupe.history.push({ score, date: now });
+      dupe.history.push({ score, date: now, signals: buildHistorySnapshot(dupe) });
       // Append note if provided
       if (importNote) {
         dupe.notes = dupe.notes || [];
@@ -18015,6 +18259,7 @@ async function importCSV() {
         dupe.sentiment = dupe.sentiment || [];
         dupe.sentiment.push({ val: importSentiment, note: 'CSV import', date: now });
       }
+      applyAutoStage(dupe);
       toUpdate.push(dupe);
     } else {
       const notes = importNote ? [{ text: importNote, date: now }] : [];
@@ -18028,6 +18273,8 @@ async function importCSV() {
         history: [{ score, date: now }],
         created: now
       };
+      newCust.history[0].signals = buildHistorySnapshot(newCust);
+      applyAutoStage(newCust);
       customers.unshift(newCust);
       toCreate.push(newCust);
     }
@@ -18294,7 +18541,7 @@ async function renderClients() {
       <td>${tierBadgeHTML(c.plan_tier || 'starter')}</td>
       <td>${userCounts[c.id] || 0}</td>
       <td><strong>${cc}</strong></td>
-      <td style="color:var(--muted);font-size:.8rem">${escHtml(c.notes || '—')}</td>
+      <td style="color:var(--muted);font-size:var(--fs-base)">${escHtml(c.notes || '—')}</td>
       <td>
         <div style="display:flex;gap:4px">
           <button class="btn btn-xs btn-outline" onclick="openEditClientModal('${escHtml(c.id)}','${escHtml(c.name)}',\`${escHtml(c.notes||'')}\`,'${escHtml(c.plan_tier||'starter')}')">Edit</button>
@@ -18445,16 +18692,16 @@ async function renderUsers() {
         <tr>
           <td>
             <strong>${email || '—'}</strong>
-            ${isSelf ? '<span style="margin-left:6px;font-size:.7rem;background:var(--blue-l);color:var(--blue);padding:1px 6px;border-radius:4px;font-weight:700">YOU</span>' : ''}
+            ${isSelf ? '<span style="margin-left:6px;font-size:var(--fs-sm);background:var(--blue-l);color:var(--blue);padding:1px 6px;border-radius:4px;font-weight:700">YOU</span>' : ''}
           </td>
           <td>${clientName}</td>
           <td style="font-weight:600">${custCount}</td>
-          <td style="color:var(--muted);font-size:.78rem">${fmtDate(p.created_at)}</td>
+          <td style="color:var(--muted);font-size:var(--fs-base)">${fmtDate(p.created_at)}</td>
           <td>
             <div style="display:flex;gap:4px;flex-wrap:nowrap">
               <button class="btn btn-xs btn-outline" onclick="openEditUserModal('${uid}','${email}','${escHtml(clientId)}')">Edit</button>
               ${isSelf
-                ? '<span style="font-size:.75rem;color:var(--subtle);padding:2px 4px">Can\'t Delete</span>'
+                ? '<span style="font-size:var(--fs-sm);color:var(--subtle);padding:2px 4px">Can\'t Delete</span>'
                 : `<button class="btn btn-xs btn-danger" onclick="adminDeleteUser('${uid}','${email}')">Remove</button>`}
             </div>
           </td>

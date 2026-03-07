@@ -2,7 +2,8 @@
 // api-inbound — Supabase Edge Function
 // Receives inbound API calls from Zapier (or any HTTP client)
 // Authenticates via x-api-key header → SHA-256 hash lookup
-// Supports: upsert_account, update_health
+// Supports: upsert_account, update_health, list_customers,
+//           get_customer, delete_customer, score_customer
 // ═══════════════════════════════════════════════════════════════
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -24,13 +25,141 @@ function getCorsHeaders(req: Request) {
   };
 }
 
-// Replicate client-side getStatus logic with default thresholds
-function getStatusFromScore(score: number): string {
-  if (score < 25) return 'critical';
-  if (score < 50) return 'risk';
-  if (score < 65) return 'watch';
-  if (score < 80) return 'healthy';
+// ── Status from score (replicate client-side getStatus) ──
+function getStatusFromScore(score: number, thresholds?: Record<string, number>): string {
+  const t = thresholds || { critical: 25, risk: 50, watch: 65, healthy: 80 };
+  if (score < t.critical) return 'critical';
+  if (score < t.risk)     return 'risk';
+  if (score < t.watch)    return 'watch';
+  if (score < t.healthy)  return 'healthy';
   return 'expand';
+}
+
+// ── Server-side scoring engine (replicates client-side calcScore) ──
+const DEFAULT_WEIGHTS: Record<string, number> = {
+  logins: 25, adoption: 25, tickets: 20, nps: 10, csat: 5, days: 10, growth: 5
+};
+
+function npsNormalized(score: number | null): number {
+  if (score == null) return 50;
+  return Math.round((score / 10) * 100);
+}
+function csatNormalized(score: number | null): number {
+  if (score == null) return 50;
+  return Math.round(((score - 1) / 4) * 100);
+}
+
+function calcScoreServer(
+  customer: Record<string, any>,
+  w: Record<string, number>
+): { score: number; status: string; signals: Record<string, number> } {
+  const logins_n   = customer.logins   != null ? Math.min(customer.logins / 30, 1) * 100 : 50;
+  const adoption_n = customer.adoption != null ? Math.min(customer.adoption, 100) : 50;
+  const tickets_n  = customer.tickets  != null ? Math.max(0, 100 - customer.tickets * 20) : 50;
+  const nps_n      = npsNormalized(customer.nps);
+  const csat_n     = csatNormalized(customer.csat);
+  const days_n     = customer.days     != null ? Math.max(0, 100 - (customer.days / 180) * 100) : 50;
+  const growth_n   = ({ none: 25, mild: 65, strong: 100 } as Record<string, number>)[customer.growth] || 25;
+
+  const total = (w.logins + w.adoption + w.tickets + (w.nps || 0) + (w.csat || 0) + w.days + w.growth) || 100;
+  const raw = (
+    logins_n   * (w.logins   / total) +
+    adoption_n * (w.adoption / total) +
+    tickets_n  * (w.tickets  / total) +
+    nps_n      * ((w.nps || 0) / total) +
+    csat_n     * ((w.csat || 0) / total) +
+    days_n     * (w.days     / total) +
+    growth_n   * (w.growth   / total)
+  );
+  const score = Math.round(Math.max(0, Math.min(100, raw)));
+  return { score, status: getStatusFromScore(score), signals: { logins_n, adoption_n, tickets_n, nps_n, csat_n, days_n, growth_n } };
+}
+
+// ── Signal fields that affect scoring ──
+const SIGNAL_FIELDS = ['logins', 'adoption', 'tickets', 'nps', 'csat', 'days', 'growth'];
+
+// ── Fetch user's scoring weights + profiles (shared helper) ──
+async function getUserScoringConfig(
+  serviceClient: any, userId: string, scoringProfile?: string
+): Promise<{ weights: Record<string, number>; thresholds: Record<string, number> }> {
+  const { data: settingsRow } = await serviceClient
+    .from('settings')
+    .select('weights, thresholds, profiles')
+    .eq('user_id', userId)
+    .single();
+
+  const baseWeights = settingsRow?.weights
+    ? { ...DEFAULT_WEIGHTS, ...JSON.parse(settingsRow.weights) }
+    : { ...DEFAULT_WEIGHTS };
+  const thresholds = settingsRow?.thresholds
+    ? { critical: 25, risk: 50, watch: 65, healthy: 80, ...JSON.parse(settingsRow.thresholds) }
+    : { critical: 25, risk: 50, watch: 65, healthy: 80 };
+
+  // Check for scoring profile override
+  let weights = baseWeights;
+  if (scoringProfile && settingsRow?.profiles) {
+    try {
+      const profiles = JSON.parse(settingsRow.profiles);
+      const match = profiles.find((p: any) => p.name === scoringProfile);
+      if (match?.weights) weights = { ...DEFAULT_WEIGHTS, ...match.weights };
+    } catch { /* use base weights */ }
+  }
+
+  return { weights, thresholds };
+}
+
+// ── Auto-rescore a customer and return the update fields ──
+function buildRescoreUpdate(
+  cust: Record<string, any>,
+  weights: Record<string, number>
+): Record<string, any> {
+  const { score, status } = calcScoreServer(cust, weights);
+  const update: Record<string, any> = { score, status };
+
+  // Apply auto-stage lifecycle transition
+  const custCopy = { ...cust, score, status };
+  if (applyAutoStage(custCopy)) {
+    update.lifecycle = custCopy.lifecycle;
+  }
+
+  // Append history entry
+  let history: any[] = [];
+  try { history = typeof cust.history === 'string' ? JSON.parse(cust.history) : (cust.history || []); } catch { history = []; }
+  history.push({
+    score,
+    date: new Date().toISOString(),
+    signals: {
+      logins:    cust.logins    ?? null,
+      adoption:  cust.adoption  ?? null,
+      tickets:   cust.tickets   ?? null,
+      nps:       cust.nps       ?? null,
+      csat:      cust.csat      ?? null,
+      days:      cust.days      ?? null,
+      growth:    cust.growth    ?? null,
+      lifecycle: custCopy.lifecycle ?? null,
+      mrr:       cust.mrr       ?? null,
+      arr:       cust.arr       ?? null,
+    }
+  });
+  update.history = JSON.stringify(history);
+
+  return update;
+}
+
+// ── Auto-stage: move lifecycle based on status ──
+function applyAutoStage(customer: Record<string, any>): boolean {
+  const lc = customer.lifecycle || 'active';
+  if (lc === 'onboarding' || lc === 'won' || lc === 'churned') return false;
+  const st = customer.status || 'healthy';
+  if ((st === 'critical' || st === 'risk') && lc !== 'atrisk') {
+    customer.lifecycle = 'atrisk';
+    return true;
+  }
+  if (st !== 'critical' && st !== 'risk' && lc === 'atrisk') {
+    customer.lifecycle = 'active';
+    return true;
+  }
+  return false;
 }
 
 // ── Input validation helpers ──
@@ -107,18 +236,107 @@ serve(async (req) => {
       .single();
     const clientId = userProfile?.client_id || null;
 
-    // ── Parse request body ──
-    const body = await req.json();
-    const { action, data } = body;
-    if (!action || !data) throw new Error('Missing action or data in request body');
+    // ── Parse request: GET uses query params, POST uses JSON body ──
+    let action: string;
+    let data: Record<string, any>;
+
+    if (req.method === 'GET') {
+      const url = new URL(req.url);
+      action = url.searchParams.get('action') || '';
+      data = Object.fromEntries(url.searchParams.entries());
+      delete data.action; // action is separate
+    } else {
+      const body = await req.json();
+      action = body.action || '';
+      data = body.data || {};
+    }
+
+    if (!action) throw new Error('Missing action parameter');
 
     let result: Record<string, any> = {};
     let customerName = data.name || '';
 
     // ════════════════════════════════════════════════════════
-    // ACTION: upsert_account
+    // ACTION: list_customers (GET/POST)
+    // Paginated list with filters — ideal for Zapier polling
     // ════════════════════════════════════════════════════════
-    if (action === 'upsert_account') {
+    if (action === 'list_customers') {
+      const limit  = Math.min(validateNumber(data.limit  || 100, 1, 500, 'limit'),  500);
+      const offset = validateNumber(data.offset || 0, 0, null, 'offset');
+      const sortField = data.sort || 'updated_at';
+      const sortOrder = data.order === 'asc' ? true : false; // false = desc (default)
+
+      // Allowed sort fields
+      const allowedSorts = ['updated_at', 'created_at', 'name', 'score', 'status', 'mrr', 'arr'];
+      if (!allowedSorts.includes(sortField)) {
+        throw new Error('Invalid sort field: ' + sortField + '. Allowed: ' + allowedSorts.join(', '));
+      }
+
+      // Build query
+      let query = serviceClient
+        .from('customers')
+        .select('*', { count: 'exact' })
+        .eq('client_id', clientId)
+        .is('deleted_at', null);
+
+      // Apply filters
+      if (data.status)    query = query.eq('status', data.status);
+      if (data.lifecycle) query = query.eq('lifecycle', data.lifecycle);
+      if (data.tier)      query = query.eq('tier', data.tier);
+      if (data.manager)   query = query.ilike('manager', data.manager);
+      if (data.tag)       query = query.contains('tags', [data.tag]);
+
+      // updated_since filter — key for Zapier polling triggers
+      if (data.updated_since) {
+        const since = validateDate(data.updated_since, 'updated_since');
+        query = query.gte('updated_at', since);
+      }
+
+      // Sort + paginate
+      query = query.order(sortField, { ascending: sortOrder })
+                   .range(offset, offset + limit - 1);
+
+      const { data: rows, error, count } = await query;
+      if (error) throw error;
+
+      result = {
+        action: 'list_customers',
+        customers: rows || [],
+        total: count || 0,
+        limit,
+        offset
+      };
+
+    // ════════════════════════════════════════════════════════
+    // ACTION: get_customer (GET/POST)
+    // Single customer by ID or name
+    // ════════════════════════════════════════════════════════
+    } else if (action === 'get_customer') {
+      if (!data.id && !data.name) throw new Error('id or name is required');
+
+      let query = serviceClient
+        .from('customers')
+        .select('*')
+        .eq('client_id', clientId)
+        .is('deleted_at', null);
+
+      if (data.id) {
+        query = query.eq('id', data.id);
+      } else {
+        query = query.ilike('name', data.name);
+      }
+
+      const { data: rows, error } = await query.limit(1);
+      if (error) throw error;
+      if (!rows || !rows.length) throw new Error('Customer not found');
+
+      customerName = rows[0].name;
+      result = { action: 'get_customer', customer: rows[0] };
+
+    // ════════════════════════════════════════════════════════
+    // ACTION: upsert_account (POST)
+    // ════════════════════════════════════════════════════════
+    } else if (action === 'upsert_account') {
       if (!data.name) throw new Error('Account name is required');
 
       // Check if customer exists by name (case-insensitive) within this client
@@ -153,26 +371,45 @@ serve(async (req) => {
       if (data.since)              row.since = validateDate(data.since, 'since');
       if (data.next_touch)         row.next_touch = validateDate(data.next_touch, 'next_touch');
 
+      // Check if any signal fields were provided (triggers auto-rescore)
+      const hasSignalChange = SIGNAL_FIELDS.some(f => row[f] !== undefined);
+
       if (existing && existing.length > 0) {
-        // Update existing customer
+        // Update existing customer — auto-rescore if signals changed
+        if (hasSignalChange && data.score == null) {
+          const merged = { ...existing[0], ...row };
+          const { weights } = await getUserScoringConfig(serviceClient, userId!, merged.scoring_profile);
+          const rescoreFields = buildRescoreUpdate(merged, weights);
+          Object.assign(row, rescoreFields);
+        }
         const { error } = await serviceClient
           .from('customers')
           .update(row)
           .eq('id', existing[0].id);
         if (error) throw error;
-        result = { action: 'updated', id: existing[0].id, name: data.name };
+        result = { action: 'updated', id: existing[0].id, name: data.name, score: row.score, status: row.status };
       } else {
-        // Create new customer
+        // Create new customer — auto-score from provided signals
         row.id = crypto.randomUUID();
         row.created_at = new Date().toISOString();
-        if (!row.score) { row.score = 0; row.status = 'healthy'; }
+        if (data.score == null) {
+          if (hasSignalChange) {
+            const { weights } = await getUserScoringConfig(serviceClient, userId!);
+            const { score, status } = calcScoreServer(row, weights);
+            row.score = score;
+            row.status = status;
+          } else {
+            row.score = 0;
+            row.status = 'healthy';
+          }
+        }
         const { error } = await serviceClient.from('customers').insert(row);
         if (error) throw error;
-        result = { action: 'created', id: row.id, name: data.name };
+        result = { action: 'created', id: row.id, name: data.name, score: row.score, status: row.status };
       }
 
     // ════════════════════════════════════════════════════════
-    // ACTION: update_health
+    // ACTION: update_health (POST)
     // ════════════════════════════════════════════════════════
     } else if (action === 'update_health') {
       if (!data.name || !data.field) throw new Error('name and field are required');
@@ -186,10 +423,10 @@ serve(async (req) => {
         throw new Error('Invalid field: ' + data.field + '. Allowed: ' + allowedFields.join(', '));
       }
 
-      // Find customer by name within this client
+      // Find customer by name within this client (full row for auto-rescore)
       const { data: existing } = await serviceClient
         .from('customers')
-        .select('id, score')
+        .select('*')
         .eq('client_id', clientId)
         .ilike('name', data.name)
         .is('deleted_at', null)
@@ -219,9 +456,17 @@ serve(async (req) => {
       }
 
       const update: Record<string, any> = { [data.field]: validatedValue };
-      // If updating score, also update derived status
+
+      // If updating score directly, just update derived status
       if (data.field === 'score') {
         update.status = getStatusFromScore(validatedValue);
+      }
+      // If updating a signal field, auto-rescore the customer
+      else if (SIGNAL_FIELDS.includes(data.field)) {
+        const merged = { ...existing[0], [data.field]: validatedValue };
+        const { weights } = await getUserScoringConfig(serviceClient, userId!, merged.scoring_profile);
+        const rescoreFields = buildRescoreUpdate(merged, weights);
+        Object.assign(update, rescoreFields);
       }
 
       const { error } = await serviceClient
@@ -229,10 +474,103 @@ serve(async (req) => {
         .update(update)
         .eq('id', existing[0].id);
       if (error) throw error;
-      result = { action: 'updated', id: existing[0].id, field: data.field, value: data.value };
+      result = {
+        action: 'updated', id: existing[0].id, field: data.field, value: data.value,
+        score: update.score ?? existing[0].score, status: update.status ?? existing[0].status
+      };
+
+    // ════════════════════════════════════════════════════════
+    // ACTION: delete_customer (POST)
+    // Soft-delete: sets deleted_at timestamp
+    // ════════════════════════════════════════════════════════
+    } else if (action === 'delete_customer') {
+      if (!data.id && !data.name) throw new Error('id or name is required');
+
+      // Find customer
+      let query = serviceClient
+        .from('customers')
+        .select('id, name')
+        .eq('client_id', clientId)
+        .is('deleted_at', null);
+
+      if (data.id) {
+        query = query.eq('id', data.id);
+      } else {
+        query = query.ilike('name', data.name);
+      }
+
+      const { data: existing } = await query.limit(1);
+      if (!existing || !existing.length) throw new Error('Customer not found');
+
+      const target = existing[0];
+      customerName = target.name;
+
+      // Soft-delete
+      const { error } = await serviceClient
+        .from('customers')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', target.id);
+      if (error) throw error;
+
+      result = { action: 'deleted', id: target.id, name: target.name };
+
+    // ════════════════════════════════════════════════════════
+    // ACTION: score_customer (POST)
+    // Re-score using server-side weights, update status + history
+    // ════════════════════════════════════════════════════════
+    } else if (action === 'score_customer') {
+      if (!data.id && !data.name) throw new Error('id or name is required');
+
+      // Find customer (full row needed for scoring)
+      let query = serviceClient
+        .from('customers')
+        .select('*')
+        .eq('client_id', clientId)
+        .is('deleted_at', null);
+
+      if (data.id) {
+        query = query.eq('id', data.id);
+      } else {
+        query = query.ilike('name', data.name);
+      }
+
+      const { data: existing } = await query.limit(1);
+      if (!existing || !existing.length) throw new Error('Customer not found');
+
+      const cust = existing[0];
+      customerName = cust.name;
+      const previousScore = cust.score;
+
+      // Fetch user's scoring config (weights + profiles)
+      const { weights } = await getUserScoringConfig(serviceClient, userId!, cust.scoring_profile);
+
+      // Run scoring engine + build update with history
+      const { score, status, signals } = calcScoreServer(cust, weights);
+      const update = buildRescoreUpdate(cust, weights);
+
+      // Persist
+      const { error } = await serviceClient
+        .from('customers')
+        .update(update)
+        .eq('id', cust.id);
+      if (error) throw error;
+
+      result = {
+        action: 'scored',
+        id: cust.id,
+        name: cust.name,
+        score,
+        status,
+        previous_score: previousScore,
+        lifecycle: update.lifecycle || cust.lifecycle,
+        signals
+      };
 
     } else {
-      throw new Error('Unknown action: ' + action + '. Supported: upsert_account, update_health');
+      throw new Error(
+        'Unknown action: ' + action +
+        '. Supported: list_customers, get_customer, upsert_account, update_health, delete_customer, score_customer'
+      );
     }
 
     // ── Log the inbound event ──
@@ -240,7 +578,7 @@ serve(async (req) => {
       user_id:       userId,
       direction:     'inbound',
       event_type:    action,
-      payload:       JSON.stringify(body),
+      payload:       JSON.stringify(req.method === 'GET' ? { action, ...data } : { action, data }),
       status:        'success',
       status_code:   200,
       customer_name: customerName

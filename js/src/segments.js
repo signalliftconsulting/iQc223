@@ -373,10 +373,10 @@ function renderTierTable(active, deltaCache) {
         return `<tr class="seg-table-row" data-tier="${t.key}">
           <td><span class="tier-pill ${t.pill}">${t.label}</span></td>
           <td>${t.count}</td>
-          <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${scoreColor(t.avgScore)};background:${t.avgScore >= 65 ? 'var(--green-l)' : t.avgScore >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${t.avgScore}</span></td>
-          <td><span class="csm-trend ${trendCls}" style="font-size:.68rem;padding:1px 6px">${trendIcon} ${trendTxt}</span></td>
+          <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${scoreColor(t.avgScore)};background:${t.avgScore >= 65 ? 'var(--green-l)' : t.avgScore >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${t.avgScore}</span></td>
+          <td><span class="csm-trend ${trendCls}" style="font-size:var(--fs-xs);padding:1px 6px">${trendIcon} ${trendTxt}</span></td>
           <td>$${fmtNum(t.totalMRR)}</td>
-          <td><span style="font-weight:700;color:${t.riskPct > 30 ? 'var(--red)' : t.riskPct > 0 ? 'var(--amber)' : 'var(--green)'}">${t.riskPct}%</span> <span style="font-size:.7rem;color:var(--muted)">(${t.atRisk})</span></td>
+          <td><span style="font-weight:700;color:${t.riskPct > 30 ? 'var(--red)' : t.riskPct > 0 ? 'var(--amber)' : 'var(--green)'}">${t.riskPct}%</span> <span style="font-size:var(--fs-sm);color:var(--muted)">(${t.atRisk})</span></td>
           <td>${contactStr}</td>
           <td>${t.renewals90}</td>
           <td><button class="btn-sm csm-expand-btn" onclick="event.stopPropagation();drillTier('${t.key}')">${chevronDown} Expand</button></td>
@@ -490,27 +490,27 @@ function buildTierDrillHTML(tierKey) {
       const isOverdue = c.days != null && c.days >= OVERDUE_DAYS;
       const delta = deltaCache.get(c.id) || 0;
       const trendHTML = delta > 0
-        ? `<span class="csm-trend up" style="font-size:.68rem;padding:1px 6px">▲ +${delta}</span>`
+        ? `<span class="csm-trend up" style="font-size:var(--fs-xs);padding:1px 6px">▲ +${delta}</span>`
         : delta < 0
-          ? `<span class="csm-trend dn" style="font-size:.68rem;padding:1px 6px">▼ ${delta}</span>`
-          : `<span class="csm-trend flat" style="font-size:.68rem;padding:1px 6px">— 0</span>`;
+          ? `<span class="csm-trend dn" style="font-size:var(--fs-xs);padding:1px 6px">▼ ${delta}</span>`
+          : `<span class="csm-trend flat" style="font-size:var(--fs-xs);padding:1px 6px">— 0</span>`;
       const contactCell = isOverdue
         ? `<span style="font-weight:700;color:var(--red)">${c.days}d ago</span> <span class="csm-overdue">OVERDUE</span>`
         : (c.days != null ? c.days + 'd ago' : '—');
       return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
         <td><strong>${escHtml(c.name)}</strong></td>
-        <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${c.score >= 65 ? 'var(--green)' : c.score >= 50 ? 'var(--amber)' : 'var(--red)'};background:${c.score >= 65 ? 'var(--green-l)' : c.score >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${c.score}</span></td>
+        <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${c.score >= 65 ? 'var(--green)' : c.score >= 50 ? 'var(--amber)' : 'var(--red)'};background:${c.score >= 65 ? 'var(--green-l)' : c.score >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${c.score}</span></td>
         <td>${trendHTML}</td>
         <td>${badgeHTML(c.status)}</td>
         <td>$${fmtNum(c.mrr || 0)}</td>
         <td>${contactCell}</td>
         <td>${renewStr}</td>
-        <td style="font-size:.78rem;color:var(--muted)">${c.lifecycle || '—'}</td>
+        <td style="font-size:var(--fs-base);color:var(--muted)">${c.lifecycle || '—'}</td>
       </tr>`;
     }).join('')}</tbody>
   </table>`;
 
-  const viewBtn = `<div style="text-align:right;margin-top:12px"><button class="btn-sm" onclick="filterByTier('${tierKey}')" style="gap:4px">View in Customers <span style="font-size:.8rem">\u2192</span></button></div>`;
+  const viewBtn = `<div style="text-align:right;margin-top:12px"><button class="btn-sm" onclick="filterByTier('${tierKey}')" style="gap:4px">View in Customers <span style="font-size:var(--fs-base)">\u2192</span></button></div>`;
 
   return summaryHTML + tableHTML + viewBtn;
 }
@@ -602,12 +602,12 @@ function renderStageTable(active, deltaCache) {
         const contactStr = t.avgDays != null ? t.avgDays + 'd' : '—';
         const sc = stageColors[t.key] || '#64748b';
         return `<tr class="seg-table-row" data-stage="${t.key}">
-          <td><span class="stage-pill" style="background:${sc}15;color:${sc};border:1px solid ${sc}30;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700">${t.label}</span></td>
+          <td><span class="stage-pill" style="background:${sc}15;color:${sc};border:1px solid ${sc}30;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700">${t.label}</span></td>
           <td>${t.count}</td>
-          <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${scoreColor(t.avgScore)};background:${t.avgScore >= 65 ? 'var(--green-l)' : t.avgScore >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${t.avgScore}</span></td>
-          <td><span class="csm-trend ${trendCls}" style="font-size:.68rem;padding:1px 6px">${trendIcon} ${trendTxt}</span></td>
+          <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${scoreColor(t.avgScore)};background:${t.avgScore >= 65 ? 'var(--green-l)' : t.avgScore >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${t.avgScore}</span></td>
+          <td><span class="csm-trend ${trendCls}" style="font-size:var(--fs-xs);padding:1px 6px">${trendIcon} ${trendTxt}</span></td>
           <td>$${fmtNum(t.totalMRR)}</td>
-          <td><span style="font-weight:700;color:${t.riskPct > 30 ? 'var(--red)' : t.riskPct > 0 ? 'var(--amber)' : 'var(--green)'}">${t.riskPct}%</span> <span style="font-size:.7rem;color:var(--muted)">(${t.atRisk})</span></td>
+          <td><span style="font-weight:700;color:${t.riskPct > 30 ? 'var(--red)' : t.riskPct > 0 ? 'var(--amber)' : 'var(--green)'}">${t.riskPct}%</span> <span style="font-size:var(--fs-sm);color:var(--muted)">(${t.atRisk})</span></td>
           <td>${contactStr}</td>
           <td>${t.renewals90}</td>
           <td><button class="btn-sm csm-expand-btn" onclick="event.stopPropagation();drillStage('${t.key}')">${chevronDown} Expand</button></td>
@@ -721,28 +721,28 @@ function buildStageDrillHTML(stageKey) {
       const isOverdue = c.days != null && c.days >= OVERDUE_DAYS;
       const delta = deltaCache.get(c.id) || 0;
       const trendHTML = delta > 0
-        ? `<span class="csm-trend up" style="font-size:.68rem;padding:1px 6px">▲ +${delta}</span>`
+        ? `<span class="csm-trend up" style="font-size:var(--fs-xs);padding:1px 6px">▲ +${delta}</span>`
         : delta < 0
-          ? `<span class="csm-trend dn" style="font-size:.68rem;padding:1px 6px">▼ ${delta}</span>`
-          : `<span class="csm-trend flat" style="font-size:.68rem;padding:1px 6px">— 0</span>`;
+          ? `<span class="csm-trend dn" style="font-size:var(--fs-xs);padding:1px 6px">▼ ${delta}</span>`
+          : `<span class="csm-trend flat" style="font-size:var(--fs-xs);padding:1px 6px">— 0</span>`;
       const contactCell = isOverdue
         ? `<span style="font-weight:700;color:var(--red)">${c.days}d ago</span> <span class="csm-overdue">OVERDUE</span>`
         : (c.days != null ? c.days + 'd ago' : '—');
       const tierLabel = c.tier === 'enterprise' ? 'Enterprise' : c.tier === 'smb' ? 'SMB' : 'Mid-Market';
       return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
         <td><strong>${escHtml(c.name)}</strong></td>
-        <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${c.score >= 65 ? 'var(--green)' : c.score >= 50 ? 'var(--amber)' : 'var(--red)'};background:${c.score >= 65 ? 'var(--green-l)' : c.score >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${c.score}</span></td>
+        <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${c.score >= 65 ? 'var(--green)' : c.score >= 50 ? 'var(--amber)' : 'var(--red)'};background:${c.score >= 65 ? 'var(--green-l)' : c.score >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${c.score}</span></td>
         <td>${trendHTML}</td>
         <td>${badgeHTML(c.status)}</td>
         <td>$${fmtNum(c.mrr || 0)}</td>
         <td>${contactCell}</td>
         <td>${renewStr}</td>
-        <td style="font-size:.78rem;color:var(--muted)">${tierLabel}</td>
+        <td style="font-size:var(--fs-base);color:var(--muted)">${tierLabel}</td>
       </tr>`;
     }).join('')}</tbody>
   </table>`;
 
-  const viewBtn = `<div style="text-align:right;margin-top:12px"><button class="btn-sm" onclick="filterByStage('${stageKey}')" style="gap:4px">View in Customers <span style="font-size:.8rem">\u2192</span></button></div>`;
+  const viewBtn = `<div style="text-align:right;margin-top:12px"><button class="btn-sm" onclick="filterByStage('${stageKey}')" style="gap:4px">View in Customers <span style="font-size:var(--fs-base)">\u2192</span></button></div>`;
 
   return summaryHTML + tableHTML + viewBtn;
 }
@@ -785,14 +785,14 @@ function renderSegCardGrid(segments) {
 
     return `<div class="card seg-card" data-seg="${escHtml(seg.tag)}" onclick="drillSegFromCard('${safeTag}')" style="cursor:pointer">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <span class="tag" style="font-size:.78rem">${escHtml(segDisplayLabel(seg.tag))}</span>
+        <span class="tag" style="font-size:var(--fs-base)">${escHtml(segDisplayLabel(seg.tag))}</span>
         <span class="seg-score-badge" style="color:${scoreColor(seg.avgScore)};background:${scoreBg(seg.avgScore)}">${seg.avgScore}</span>
       </div>
       <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">
         <span style="font-size:1.7rem;font-weight:800;line-height:1">${seg.count}</span>
         <span class="seg-card-trend ${trendCls}">${trendIcon} ${trendTxt}</span>
       </div>
-      <div style="font-size:.7rem;color:var(--muted);margin-bottom:10px">account${seg.count !== 1 ? 's' : ''}</div>
+      <div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:10px">account${seg.count !== 1 ? 's' : ''}</div>
       <div class="seg-health-bar" style="height:6px;margin-bottom:12px" title="${seg.healthy} healthy · ${seg.watch} watch · ${seg.atRisk} at risk">
         ${hPct ? `<span class="seg-health-seg" style="width:${hPct}%;background:var(--green)"></span>` : ''}
         ${wPct ? `<span class="seg-health-seg" style="width:${wPct}%;background:var(--amber)"></span>` : ''}
@@ -870,10 +870,10 @@ function renderSegTable(segments) {
         return `<tr class="seg-table-row" data-seg="${escHtml(seg.tag)}">
           <td><strong>${escHtml(segDisplayLabel(seg.tag))}</strong></td>
           <td>${seg.count}</td>
-          <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${scoreColor(seg.avgScore)};background:${seg.avgScore >= 65 ? 'var(--green-l)' : seg.avgScore >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${seg.avgScore}</span></td>
-          <td><span class="csm-trend ${trendCls}" style="font-size:.68rem;padding:1px 6px">${trendIcon} ${trendTxt}</span></td>
+          <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${scoreColor(seg.avgScore)};background:${seg.avgScore >= 65 ? 'var(--green-l)' : seg.avgScore >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${seg.avgScore}</span></td>
+          <td><span class="csm-trend ${trendCls}" style="font-size:var(--fs-xs);padding:1px 6px">${trendIcon} ${trendTxt}</span></td>
           <td>$${fmtNum(seg.totalMRR)}</td>
-          <td><span style="font-weight:700;color:${seg.riskPct > 30 ? 'var(--red)' : seg.riskPct > 0 ? 'var(--amber)' : 'var(--green)'}">${seg.riskPct}%</span> <span style="font-size:.7rem;color:var(--muted)">(${seg.atRisk})</span></td>
+          <td><span style="font-weight:700;color:${seg.riskPct > 30 ? 'var(--red)' : seg.riskPct > 0 ? 'var(--amber)' : 'var(--green)'}">${seg.riskPct}%</span> <span style="font-size:var(--fs-sm);color:var(--muted)">(${seg.atRisk})</span></td>
           <td>${contactStr}</td>
           <td>${seg.renewals90}</td>
           <td><button class="btn-sm csm-expand-btn" onclick="event.stopPropagation();drillSeg('${safeTag}')">${chevronDown} Expand</button></td>
@@ -959,28 +959,28 @@ function buildSegDrillHTML(tagName) {
       const isOverdue = c.days != null && c.days >= OVERDUE_DAYS;
       const delta = deltaCache.get(c.id) || 0;
       const trendHTML = delta > 0
-        ? `<span class="csm-trend up" style="font-size:.68rem;padding:1px 6px">▲ +${delta}</span>`
+        ? `<span class="csm-trend up" style="font-size:var(--fs-xs);padding:1px 6px">▲ +${delta}</span>`
         : delta < 0
-          ? `<span class="csm-trend dn" style="font-size:.68rem;padding:1px 6px">▼ ${delta}</span>`
-          : `<span class="csm-trend flat" style="font-size:.68rem;padding:1px 6px">— 0</span>`;
+          ? `<span class="csm-trend dn" style="font-size:var(--fs-xs);padding:1px 6px">▼ ${delta}</span>`
+          : `<span class="csm-trend flat" style="font-size:var(--fs-xs);padding:1px 6px">— 0</span>`;
       const contactCell = isOverdue
         ? `<span style="font-weight:700;color:var(--red)">${c.days}d ago</span> <span class="csm-overdue">OVERDUE</span>`
         : (c.days != null ? c.days + 'd ago' : '—');
       return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
         <td><strong>${escHtml(c.name)}</strong></td>
-        <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:.78rem;font-weight:700;color:${c.score >= 65 ? 'var(--green)' : c.score >= 50 ? 'var(--amber)' : 'var(--red)'};background:${c.score >= 65 ? 'var(--green-l)' : c.score >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${c.score}</span></td>
+        <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${c.score >= 65 ? 'var(--green)' : c.score >= 50 ? 'var(--amber)' : 'var(--red)'};background:${c.score >= 65 ? 'var(--green-l)' : c.score >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${c.score}</span></td>
         <td>${trendHTML}</td>
         <td>${badgeHTML(c.status)}</td>
         <td>$${fmtNum(c.mrr || 0)}</td>
         <td>${contactCell}</td>
         <td>${renewStr}</td>
-        <td style="font-size:.78rem;color:var(--muted)">${c.lifecycle || '—'}</td>
+        <td style="font-size:var(--fs-base);color:var(--muted)">${c.lifecycle || '—'}</td>
       </tr>`;
     }).join('')}</tbody>
   </table>`;
 
   const safeTag = tagName.replace(/'/g, "\\'");
-  const viewBtn = `<div style="text-align:right;margin-top:12px"><button class="btn-sm" onclick="filterByTag('${safeTag}')" style="gap:4px">View in Customers <span style="font-size:.8rem">\u2192</span></button></div>`;
+  const viewBtn = `<div style="text-align:right;margin-top:12px"><button class="btn-sm" onclick="filterByTag('${safeTag}')" style="gap:4px">View in Customers <span style="font-size:var(--fs-base)">\u2192</span></button></div>`;
 
   return summaryHTML + tableHTML + viewBtn;
 }
@@ -1225,7 +1225,7 @@ function renderSegChart(segments, active, deltaCache) {
   const data = _segView === 'tiers' ? window._tierData : _segView === 'stage' ? window._stageData : segments;
   if (!data || !data.length) {
     const wrap = el('seg-chart-wrap');
-    if (wrap) wrap.innerHTML = '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:.88rem">Not enough data to display a comparison chart.</p>';
+    if (wrap) wrap.innerHTML = '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:var(--fs-md)">Not enough data to display a comparison chart.</p>';
     return;
   }
 
@@ -1289,7 +1289,7 @@ function _buildSegChartSVG(data) {
   });
 
   if (!lines.length) {
-    wrap.innerHTML = '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:.88rem">Not enough history data for the selected segments.</p>';
+    wrap.innerHTML = '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:var(--fs-md)">Not enough history data for the selected segments.</p>';
     return;
   }
 
@@ -1461,7 +1461,7 @@ function showSegChartTip(evt, cx, colIdx) {
     rows += `<div style="display:flex;align-items:center;gap:6px;margin-top:3px"><span style="width:8px;height:8px;border-radius:50%;background:${v.color};flex-shrink:0"></span><span>${escHtml(v.label)}</span><strong style="margin-left:auto">${v.val}</strong></div>`;
   });
 
-  tip.innerHTML = `<div style="font-weight:700;margin-bottom:4px;font-size:.82rem">${data.dateLabel}</div>${rows}`;
+  tip.innerHTML = `<div style="font-weight:700;margin-bottom:4px;font-size:var(--fs-base)">${data.dateLabel}</div>${rows}`;
   const wrap = el('seg-chart-wrap');
   const svg = wrap.querySelector('svg');
   if (!svg) return;

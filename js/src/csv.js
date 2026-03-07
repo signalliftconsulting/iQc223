@@ -290,7 +290,7 @@ async function importCSV() {
       Object.assign(dupe, { ...r, score, status });
       dupe._baseDays = dupe.days != null ? dupe.days : null;
       dupe.history = dupe.history || [];
-      dupe.history.push({ score, date: now });
+      dupe.history.push({ score, date: now, signals: buildHistorySnapshot(dupe) });
       // Append note if provided
       if (importNote) {
         dupe.notes = dupe.notes || [];
@@ -301,6 +301,7 @@ async function importCSV() {
         dupe.sentiment = dupe.sentiment || [];
         dupe.sentiment.push({ val: importSentiment, note: 'CSV import', date: now });
       }
+      applyAutoStage(dupe);
       toUpdate.push(dupe);
     } else {
       const notes = importNote ? [{ text: importNote, date: now }] : [];
@@ -314,6 +315,8 @@ async function importCSV() {
         history: [{ score, date: now }],
         created: now
       };
+      newCust.history[0].signals = buildHistorySnapshot(newCust);
+      applyAutoStage(newCust);
       customers.unshift(newCust);
       toCreate.push(newCust);
     }

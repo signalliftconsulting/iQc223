@@ -136,7 +136,7 @@ function renderReporting() {
     html += '<div class="rpt-section">' +
       '<div class="rpt-section-hd">' +
         '<div style="display:flex;align-items:center;gap:8px"><span style="color:var(--muted);display:flex">' + (sec.icon || '') + '</span><h2>' + sec.label + '</h2></div>' +
-        '<p style="margin:0;font-size:.78rem;color:var(--muted);font-weight:400">' + (sec.sub || '') + '</p>' +
+        '<p style="margin:0;font-size:var(--fs-base);color:var(--muted);font-weight:400">' + (sec.sub || '') + '</p>' +
       '</div>' +
       '<div class="rpt-grid">';
     secReports.forEach(r => {
@@ -160,7 +160,7 @@ function openReportActions(idx) {
   if (!r) return;
   el('ram-icon').innerHTML = '<div class="rpt-card__icon" style="background:' + r.iconBg + ';color:' + r.iconColor + '">' + r.icon + '</div>';
   el('ram-title').textContent = r.title;
-  let html = '<p style="font-size:.82rem;color:var(--muted);margin:0 0 16px">' + r.desc + '</p>';
+  let html = '<p style="font-size:var(--fs-base);color:var(--muted);margin:0 0 16px">' + r.desc + '</p>';
   html += '<div style="display:flex;flex-direction:column;gap:8px">';
   r.actions.forEach(a => {
     html += '<button class="btn ' + a.cls + '" style="width:100%;justify-content:center" onclick="closeModal(\'report-actions-modal\');' + a.fn + '">' + a.label + '</button>';
@@ -202,20 +202,20 @@ function rptPrintCSS() {
     '.rpt-hdr{border-top:4px solid #4f46e5;padding-top:18px;margin-bottom:22px;page-break-inside:avoid}' +
     '.rpt-hdr-inner{display:flex;justify-content:space-between;align-items:flex-start}' +
     '.rpt-hdr h1{font-size:1.55rem;font-weight:800;margin:0 0 3px;letter-spacing:-.02em;color:#1e293b}' +
-    '.rpt-hdr .sub{color:#64748b;font-size:.82rem;margin:0}' +
-    '.rpt-brand{font-size:.7rem;color:#94a3b8;text-align:right;line-height:1.4;letter-spacing:.02em}' +
-    '.rpt-brand strong{color:#4f46e5;font-weight:700;font-size:.75rem}' +
+    '.rpt-hdr .sub{color:#64748b;font-size:var(--fs-base);margin:0}' +
+    '.rpt-brand{font-size:var(--fs-sm);color:#94a3b8;text-align:right;line-height:1.4;letter-spacing:.02em}' +
+    '.rpt-brand strong{color:#4f46e5;font-weight:700;font-size:var(--fs-sm)}' +
     // section headings
     'h2{font-size:1.05rem;font-weight:700;margin:20px 0 8px;padding-bottom:5px;border-bottom:2px solid #e2e8f0;color:#1e293b;letter-spacing:-.01em}' +
     // KPI cards
     '.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:14px 0;page-break-inside:avoid}' +
     '.kpi{border:1px solid #e2e8f0;border-top:3px solid #4f46e5;border-radius:10px;padding:16px 12px;text-align:center;background:#fff}' +
     '.kpi-num{font-size:1.45rem;font-weight:800;line-height:1.2;color:#1e293b}' +
-    '.kpi-label{font-size:.68rem;color:#64748b;text-transform:uppercase;margin-top:5px;letter-spacing:.05em;font-weight:600}' +
+    '.kpi-label{font-size:var(--fs-xs);color:#64748b;text-transform:uppercase;margin-top:5px;letter-spacing:.05em;font-weight:600}' +
     // tables
-    'table{width:100%;border-collapse:collapse;font-size:.8rem;margin-top:10px;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden}' +
-    'thead th{text-align:left;color:#fff;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;padding:9px 10px;white-space:nowrap;background:#475569;font-weight:600}' +
-    'th{text-align:left;color:#fff;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;padding:9px 10px;white-space:nowrap;background:#475569;font-weight:600}' +
+    'table{width:100%;border-collapse:collapse;font-size:var(--fs-base);margin-top:10px;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden}' +
+    'thead th{text-align:left;color:#fff;font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:.06em;padding:9px 10px;white-space:nowrap;background:#475569;font-weight:600}' +
+    'th{text-align:left;color:#fff;font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:.06em;padding:9px 10px;white-space:nowrap;background:#475569;font-weight:600}' +
     'td{padding:8px 10px;border-bottom:1px solid #f1f5f9;color:#334155}' +
     'tr:nth-child(even) td{background:#f8fafc}' +
     'tr:last-child td{border-bottom:none}' +
@@ -225,10 +225,10 @@ function rptPrintCSS() {
     '.bar{display:flex;height:24px;border-radius:6px;overflow:hidden;margin:10px 0;border:1px solid #e2e8f0}' +
     '.bar span{display:block}' +
     // footer
-    '.rpt-footer{margin-top:16px;padding-top:10px;border-top:1.5px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;font-size:.68rem;color:#94a3b8;page-break-inside:avoid}' +
+    '.rpt-footer{margin-top:16px;padding-top:10px;border-top:1.5px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;font-size:var(--fs-xs);color:#94a3b8;page-break-inside:avoid}' +
     // bucket headers
-    '.bucket-hd{font-size:.95rem;font-weight:700;margin:20px 0 6px;display:flex;align-items:center;gap:8px;color:#1e293b}' +
-    '.bucket-hd .ct{font-weight:400;color:#64748b;font-size:.82rem}' +
+    '.bucket-hd{font-size:var(--fs-lg);font-weight:700;margin:20px 0 6px;display:flex;align-items:center;gap:8px;color:#1e293b}' +
+    '.bucket-hd .ct{font-weight:400;color:#64748b;font-size:var(--fs-base)}' +
     // page break controls
     'table{page-break-inside:auto}tr{page-break-inside:avoid}' +
     'h2{page-break-after:avoid}.bucket-hd{page-break-after:avoid}' +
@@ -284,7 +284,7 @@ function svgDonut(segments, size) {
   });
   const legend = segments.filter(s => s.value > 0).map(seg => {
     const pct = Math.round(seg.value / total * 100);
-    return '<div style="display:flex;align-items:center;gap:6px;font-size:.72rem;color:#334155;margin:3px 0">' +
+    return '<div style="display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);color:#334155;margin:3px 0">' +
       '<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:' + seg.color + ';flex-shrink:0"></span>' +
       seg.label + ' <strong>' + seg.value + '</strong> (' + pct + '%)</div>';
   }).join('');
@@ -377,7 +377,7 @@ function svgRiskBands(scored) {
   var w = 780, barH = 32;
   var legend = bands.map(function(b) {
     var pct = Math.round(b.count / total * 100);
-    return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:.72rem;color:#334155;margin-right:16px">' +
+    return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-sm);color:#334155;margin-right:16px">' +
       '<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:' + b.color + '"></span>' +
       b.label + ': <strong>' + b.count + '</strong> (' + pct + '%)</span>';
   }).join('');
@@ -395,7 +395,7 @@ function svgMiniBar(items) {
   return items.map(function(item) {
     var pct = Math.min(100, Math.max(2, item.value));
     var col = item.value >= 80 ? '#16a34a' : item.value >= 60 ? '#4f46e5' : item.value >= 40 ? '#d97706' : '#dc2626';
-    return '<div style="display:flex;align-items:center;gap:8px;margin:4px 0;font-size:.75rem">' +
+    return '<div style="display:flex;align-items:center;gap:8px;margin:4px 0;font-size:var(--fs-sm)">' +
       '<span style="width:100px;text-align:right;font-weight:600;color:#334155;flex-shrink:0">' + item.label + '</span>' +
       '<div style="flex:1;height:18px;background:#f1f5f9;border-radius:4px;overflow:hidden">' +
         '<div style="width:' + pct + '%;height:100%;background:' + col + ';border-radius:4px;opacity:.8"></div></div>' +
@@ -634,10 +634,10 @@ function _rptInsights(key) {
 
   if (!items.length) return '';
   return '<div class="rpt-insights" style="margin-top:24px;padding:16px 20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;page-break-inside:avoid">' +
-    '<h2 style="margin:0 0 10px;font-size:.88rem;color:#334155;display:flex;align-items:center;gap:6px">' +
+    '<h2 style="margin:0 0 10px;font-size:var(--fs-md);color:#334155;display:flex;align-items:center;gap:6px">' +
       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>' +
       ' Insights &amp; Action Items</h2>' +
-    '<ul style="margin:0;padding-left:18px;font-size:.8rem;line-height:1.7;color:#475569">' +
+    '<ul style="margin:0;padding-left:18px;font-size:var(--fs-base);line-height:1.7;color:#475569">' +
       items.map(i => '<li>' + i + '</li>').join('') +
     '</ul></div>';
 }
@@ -794,7 +794,7 @@ function buildRenewalForecastHTML() {
         b.items.map(c => '<tr><td><strong>' + escHtml(c.name) + '</strong></td><td>' + escHtml(c.manager || '\u2014') + '</td><td style="font-weight:700;color:' + STATUS_COLOR[c.status] + '">' + c.score + '</td><td><span class="st-dot" style="background:' + STATUS_COLOR[c.status] + '"></span>' + STATUS_LABEL[c.status] + '</td><td style="text-align:right">$' + fmtNum(c.mrr || 0) + '</td><td>' + fmtDate(c.renewal_date) + '</td></tr>').join('') +
         '</table>';
     } else {
-      html += '<p style="color:#94a3b8;font-size:.82rem;margin:4px 0 12px">No renewals in this window.</p>';
+      html += '<p style="color:#94a3b8;font-size:var(--fs-base);margin:4px 0 12px">No renewals in this window.</p>';
     }
   });
 
@@ -1201,7 +1201,7 @@ function printDigestReport() {
   if (!digestHtml) { toast('No data to generate digest', 'warn'); return; }
   // Strip the inline email styles and wrap in our report CSS
   let html = rptHeader('Weekly Health Digest') +
-    '<div style="font-size:.85rem;line-height:1.6">' + digestHtml + '</div>' +
+    '<div style="font-size:var(--fs-md);line-height:1.6">' + digestHtml + '</div>' +
     rptFooter();
   rptPrint(html);
 }
@@ -1311,7 +1311,7 @@ function buildDigestHTML() {
 
   const week = new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
   const dayName = new Date().toLocaleDateString('en-US',{weekday:'long'});
-  const sdot = s=>({critical:'🔴',risk:'🟠',watch:'🟡',healthy:'🟢',expand:'✨'}[s]||'⚪');
+  const sdot = s => statusDotSVG(s);
   const arrow = d => d>0?'<span style="color:#16a34a;font-weight:700">▲+'+d+'</span>':d<0?'<span style="color:#dc2626;font-weight:700">▼'+d+'</span>':'<span style="color:#64748b">→ 0</span>';
 
   return `<div style="max-width:620px;margin:0 auto;font-family:Arial,sans-serif">
@@ -1337,12 +1337,12 @@ function buildDigestHTML() {
       </div>
 
       ${actions.length?`<div style="margin-bottom:18px">
-        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">🎯 Action Items This Week</div>
+        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">${appIcon('target',13)} Action Items This Week</div>
         ${actions.map(a=>`<div style="font-size:12px;padding:6px 0;border-bottom:1px solid #f1f5f9;color:#334155;line-height:1.5">• ${a}</div>`).join('')}
       </div>`:''}
 
       ${topRisk.length?`<div style="margin-bottom:18px">
-        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">🚨 Accounts Needing Attention</div>
+        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">${appIcon('alert',13)} Accounts Needing Attention</div>
         ${topRisk.map(c=>{
           const d7 = getDelta7d(c);
           const trend = d7>0?'<span style="color:#16a34a">▲+'+d7+'</span>':d7<0?'<span style="color:#dc2626">▼'+d7+'</span>':'<span style="color:#94a3b8">→0</span>';
@@ -1354,7 +1354,7 @@ function buildDigestHTML() {
       </div>`:``}
 
       ${upcoming.length?`<div style="margin-bottom:18px">
-        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">📅 Renewals Coming Up</div>
+        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">${appIcon('calendar',13)} Renewals Coming Up</div>
         ${upcoming.map(c=>{
           const days=Math.round((new Date(c.renewal_date)-now)/86400000);
           return `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9">
@@ -1366,17 +1366,17 @@ function buildDigestHTML() {
 
       ${(improved.length||dropped.length)?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px">
         ${improved.length?`<div>
-          <div style="font-size:12px;font-weight:700;color:#16a34a;margin-bottom:6px">📈 Most Improved</div>
+          <div style="font-size:12px;font-weight:700;color:#16a34a;margin-bottom:6px">${appIcon('trendUp',13)} Most Improved</div>
           ${improved.map(({c,delta})=>`<div style="font-size:12px;padding:4px 0">${escHtml(c.name)} <span style="color:#16a34a;font-weight:700">+${Math.abs(delta)}</span></div>`).join('')}
         </div>`:''}
         ${dropped.length?`<div>
-          <div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:6px">📉 Biggest Drops</div>
+          <div style="font-size:12px;font-weight:700;color:#dc2626;margin-bottom:6px">${appIcon('trendDown',13)} Biggest Drops</div>
           ${dropped.map(({c,delta})=>`<div style="font-size:12px;padding:4px 0">${escHtml(c.name)} <span style="color:#dc2626;font-weight:700">${delta}</span></div>`).join('')}
         </div>`:''}
       </div>`:``}
 
       ${signalChanges.length?`<div style="margin-bottom:18px">
-        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">📊 Signal Trends This Week</div>
+        <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #e2e8f0">${appIcon('barChart',13)} Signal Trends This Week</div>
         <div style="display:flex;gap:16px;flex-wrap:wrap">
           ${signalChanges.map(s=>`<div style="font-size:12px;color:#334155"><strong>${s.label}</strong> ${s.delta>0?'<span style="color:#16a34a">▲+'+s.delta+s.unit+'</span>':'<span style="color:#dc2626">▼'+s.delta+s.unit+'</span>'} (avg ${s.avg}${s.unit})</div>`).join('')}
         </div>
@@ -1485,15 +1485,15 @@ function reportEmailTab(which) {
   if (which === 'send') {
     body.innerHTML = tabHtml +
       '<div style="display:flex;flex-direction:column;gap:10px">' +
-        '<label style="font-size:.75rem;font-weight:600;color:var(--text)">Recipients <span style="font-weight:400;color:var(--muted)">(comma-separated emails)</span></label>' +
-        '<input type="text" id="rem-recipients" class="form-input" placeholder="team@company.com, manager@company.com" value="' + escHtml(cfg.recipients || '') + '" style="font-size:.82rem"/>' +
-        '<label style="font-size:.75rem;font-weight:600;color:var(--text)">Subject Prefix</label>' +
-        '<input type="text" id="rem-prefix" class="form-input" placeholder="[iQcadence Report]" value="' + escHtml(cfg.subject_prefix || '[iQcadence Report]') + '" style="font-size:.82rem"/>' +
+        '<label style="font-size:var(--fs-sm);font-weight:600;color:var(--text)">Recipients <span style="font-weight:400;color:var(--muted)">(comma-separated emails)</span></label>' +
+        '<input type="text" id="rem-recipients" class="form-input" placeholder="team@company.com, manager@company.com" value="' + escHtml(cfg.recipients || '') + '" style="font-size:var(--fs-base)"/>' +
+        '<label style="font-size:var(--fs-sm);font-weight:600;color:var(--text)">Subject Prefix</label>' +
+        '<input type="text" id="rem-prefix" class="form-input" placeholder="[iQcadence Report]" value="' + escHtml(cfg.subject_prefix || '[iQcadence Report]') + '" style="font-size:var(--fs-base)"/>' +
         '<div style="display:flex;gap:8px;margin-top:4px">' +
           '<button class="btn btn-primary btn-sm" onclick="sendReportEmailNow()">Send Now</button>' +
           '<button class="btn btn-outline btn-sm" onclick="sendReportEmailTest()">Send Test to Me</button>' +
         '</div>' +
-        '<p style="font-size:.7rem;color:var(--muted);margin-top:4px">Send Now delivers the report to all listed recipients. Send Test sends only to your email.</p>' +
+        '<p style="font-size:var(--fs-sm);color:var(--muted);margin-top:4px">Send Now delivers the report to all listed recipients. Send Test sends only to your email.</p>' +
       '</div>';
   } else {
     const schedOn = cfg.enabled !== false; // default on when opening schedule tab
@@ -1501,29 +1501,29 @@ function reportEmailTab(which) {
     body.innerHTML = tabHtml +
       '<div style="display:flex;flex-direction:column;gap:10px">' +
         '<div style="display:flex;align-items:center;gap:10px">' +
-          '<label style="font-size:.82rem;font-weight:600;color:var(--text)">Enable scheduled delivery</label>' +
+          '<label style="font-size:var(--fs-base);font-weight:600;color:var(--text)">Enable scheduled delivery</label>' +
           '<label class="toggle-switch" style="margin-left:auto"><input type="checkbox" id="rem-sched-enabled" ' + (schedOn ? 'checked' : '') + ' onchange="toggleReportSchedule()"/><span class="toggle-slider"></span></label>' +
         '</div>' +
         '<div id="rem-sched-opts" style="' + (schedOn ? '' : 'opacity:.5;pointer-events:none;') + 'display:flex;flex-direction:column;gap:10px">' +
-          '<label style="font-size:.75rem;font-weight:600;color:var(--text)">Frequency</label>' +
+          '<label style="font-size:var(--fs-sm);font-weight:600;color:var(--text)">Frequency</label>' +
           '<div style="display:flex;gap:8px">' +
-            '<label style="font-size:.82rem;display:flex;align-items:center;gap:4px"><input type="radio" name="rem-freq" value="daily" ' + (cfg.frequency === 'daily' ? 'checked' : '') + '/> Daily</label>' +
-            '<label style="font-size:.82rem;display:flex;align-items:center;gap:4px"><input type="radio" name="rem-freq" value="weekly" ' + (cfg.frequency !== 'daily' ? 'checked' : '') + '/> Weekly</label>' +
+            '<label style="font-size:var(--fs-base);display:flex;align-items:center;gap:4px"><input type="radio" name="rem-freq" value="daily" ' + (cfg.frequency === 'daily' ? 'checked' : '') + '/> Daily</label>' +
+            '<label style="font-size:var(--fs-base);display:flex;align-items:center;gap:4px"><input type="radio" name="rem-freq" value="weekly" ' + (cfg.frequency !== 'daily' ? 'checked' : '') + '/> Weekly</label>' +
           '</div>' +
           '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
-            '<div><label style="font-size:.75rem;font-weight:600;color:var(--text)">Day</label>' +
-              '<select id="rem-sched-day" class="form-input" style="font-size:.82rem;margin-top:4px">' +
+            '<div><label style="font-size:var(--fs-sm);font-weight:600;color:var(--text)">Day</label>' +
+              '<select id="rem-sched-day" class="form-input" style="font-size:var(--fs-base);margin-top:4px">' +
                 days.map(d => '<option value="' + d + '"' + (cfg.day === d ? ' selected' : '') + '>' + d.charAt(0).toUpperCase() + d.slice(1) + '</option>').join('') +
               '</select></div>' +
-            '<div><label style="font-size:.75rem;font-weight:600;color:var(--text)">Time</label>' +
-              '<input type="time" id="rem-sched-time" class="form-input" value="' + (cfg.time || '09:00') + '" style="font-size:.82rem;margin-top:4px"/></div>' +
+            '<div><label style="font-size:var(--fs-sm);font-weight:600;color:var(--text)">Time</label>' +
+              '<input type="time" id="rem-sched-time" class="form-input" value="' + (cfg.time || '09:00') + '" style="font-size:var(--fs-base);margin-top:4px"/></div>' +
           '</div>' +
-          '<label style="font-size:.75rem;font-weight:600;color:var(--text)">Recipients</label>' +
-          '<input type="text" id="rem-sched-recip" class="form-input" placeholder="team@company.com" value="' + escHtml(cfg.recipients || '') + '" style="font-size:.82rem"/>' +
-          '<label style="font-size:.75rem;font-weight:600;color:var(--text)">Subject Prefix</label>' +
-          '<input type="text" id="rem-sched-prefix" class="form-input" placeholder="[iQcadence Report]" value="' + escHtml(cfg.subject_prefix || '[iQcadence Report]') + '" style="font-size:.82rem"/>' +
+          '<label style="font-size:var(--fs-sm);font-weight:600;color:var(--text)">Recipients</label>' +
+          '<input type="text" id="rem-sched-recip" class="form-input" placeholder="team@company.com" value="' + escHtml(cfg.recipients || '') + '" style="font-size:var(--fs-base)"/>' +
+          '<label style="font-size:var(--fs-sm);font-weight:600;color:var(--text)">Subject Prefix</label>' +
+          '<input type="text" id="rem-sched-prefix" class="form-input" placeholder="[iQcadence Report]" value="' + escHtml(cfg.subject_prefix || '[iQcadence Report]') + '" style="font-size:var(--fs-base)"/>' +
           '<button class="btn btn-primary btn-sm" onclick="saveReportSchedule()" style="align-self:flex-start">Save Schedule</button>' +
-          '<p style="font-size:.7rem;color:var(--muted);font-style:italic;margin-top:2px">Scheduled reports are sent automatically by the server at the configured time, even if the app is not open.</p>' +
+          '<p style="font-size:var(--fs-sm);color:var(--muted);font-style:italic;margin-top:2px">Scheduled reports are sent automatically by the server at the configured time, even if the app is not open.</p>' +
         '</div>' +
       '</div>';
   }
@@ -1700,8 +1700,8 @@ function renderScheduledReports() {
     container.innerHTML =
       '<div style="text-align:center;padding:40px 20px">' +
         '<div style="font-size:2rem;margin-bottom:8px">\u{1F4E7}</div>' +
-        '<p style="font-size:.92rem;color:var(--text);font-weight:600;margin-bottom:4px">No report schedules configured</p>' +
-        '<p style="font-size:.82rem;color:var(--muted)">Switch to <strong>Report Templates</strong> and click the <strong>Email</strong> button on any report to set up a schedule.</p>' +
+        '<p style="font-size:var(--fs-lg);color:var(--text);font-weight:600;margin-bottom:4px">No report schedules configured</p>' +
+        '<p style="font-size:var(--fs-base);color:var(--muted)">Switch to <strong>Report Templates</strong> and click the <strong>Email</strong> button on any report to set up a schedule.</p>' +
       '</div>';
     return;
   }
@@ -1747,27 +1747,27 @@ function renderScheduledReports() {
           '<div class="inline-field">' +
             '<label>Frequency</label>' +
             '<div style="display:flex;gap:10px">' +
-              '<label style="font-size:.82rem;display:flex;align-items:center;gap:4px"><input type="radio" name="sched-freq-' + r.key + '" value="daily" ' + (cfg.frequency === 'daily' ? 'checked' : '') + '/> Daily</label>' +
-              '<label style="font-size:.82rem;display:flex;align-items:center;gap:4px"><input type="radio" name="sched-freq-' + r.key + '" value="weekly" ' + (cfg.frequency !== 'daily' ? 'checked' : '') + '/> Weekly</label>' +
+              '<label style="font-size:var(--fs-base);display:flex;align-items:center;gap:4px"><input type="radio" name="sched-freq-' + r.key + '" value="daily" ' + (cfg.frequency === 'daily' ? 'checked' : '') + '/> Daily</label>' +
+              '<label style="font-size:var(--fs-base);display:flex;align-items:center;gap:4px"><input type="radio" name="sched-freq-' + r.key + '" value="weekly" ' + (cfg.frequency !== 'daily' ? 'checked' : '') + '/> Weekly</label>' +
             '</div>' +
           '</div>' +
           '<div class="inline-field">' +
             '<label>Day</label>' +
-            '<select id="sched-day-' + r.key + '" class="form-input" style="font-size:.82rem;max-width:160px">' +
+            '<select id="sched-day-' + r.key + '" class="form-input" style="font-size:var(--fs-base);max-width:160px">' +
               days.map(d => '<option value="' + d + '"' + (cfg.day === d ? ' selected' : '') + '>' + dayLabel(d) + '</option>').join('') +
             '</select>' +
           '</div>' +
           '<div class="inline-field">' +
             '<label>Time</label>' +
-            '<input type="time" id="sched-time-' + r.key + '" class="form-input" value="' + (cfg.time || '09:00') + '" style="font-size:.82rem;max-width:140px"/>' +
+            '<input type="time" id="sched-time-' + r.key + '" class="form-input" value="' + (cfg.time || '09:00') + '" style="font-size:var(--fs-base);max-width:140px"/>' +
           '</div>' +
           '<div class="inline-field">' +
             '<label>Recipients</label>' +
-            '<input type="text" id="sched-recip-' + r.key + '" class="form-input" placeholder="team@company.com" value="' + escHtml(cfg.recipients || '') + '" style="font-size:.82rem;flex:1"/>' +
+            '<input type="text" id="sched-recip-' + r.key + '" class="form-input" placeholder="team@company.com" value="' + escHtml(cfg.recipients || '') + '" style="font-size:var(--fs-base);flex:1"/>' +
           '</div>' +
           '<div class="inline-field">' +
             '<label>Subject Prefix</label>' +
-            '<input type="text" id="sched-prefix-' + r.key + '" class="form-input" placeholder="[iQcadence Report]" value="' + escHtml(cfg.subject_prefix || '[iQcadence Report]') + '" style="font-size:.82rem;flex:1"/>' +
+            '<input type="text" id="sched-prefix-' + r.key + '" class="form-input" placeholder="[iQcadence Report]" value="' + escHtml(cfg.subject_prefix || '[iQcadence Report]') + '" style="font-size:var(--fs-base);flex:1"/>' +
           '</div>' +
           '<div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">' +
             '<button class="btn btn-xs btn-ghost" style="color:var(--red)" onclick="removeReportSchedule(\'' + r.key + '\')">Remove Schedule</button>' +
@@ -1781,13 +1781,13 @@ function renderScheduledReports() {
     return '<tr class="' + (isEditing ? 'editing' : '') + (!cfg.enabled ? ' sched-disabled' : '') + '">' +
       '<td><strong>' + escHtml(r.label) + '</strong></td>' +
       '<td>' + enabledHtml + '</td>' +
-      '<td style="font-size:.82rem">' + freqText + '</td>' +
-      '<td style="font-size:.82rem;color:var(--muted)">' + dayTimeText + '</td>' +
-      '<td style="font-size:.82rem;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis" title="' + escHtml(cfg.recipients || '') + '">' + recipText + '</td>' +
-      '<td style="font-size:.78rem;color:var(--muted)">' + lastSentText + '</td>' +
+      '<td style="font-size:var(--fs-base)">' + freqText + '</td>' +
+      '<td style="font-size:var(--fs-base);color:var(--muted)">' + dayTimeText + '</td>' +
+      '<td style="font-size:var(--fs-base);color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis" title="' + escHtml(cfg.recipients || '') + '">' + recipText + '</td>' +
+      '<td style="font-size:var(--fs-base);color:var(--muted)">' + lastSentText + '</td>' +
       '<td style="white-space:nowrap">' +
-        '<button class="btn btn-xs btn-ghost" onclick="schedSendNow(\'' + r.key + '\')" title="Send Now" style="font-size:.68rem;padding:2px 6px">Send</button>' +
-        '<button class="btn btn-xs btn-ghost" onclick="schedTestSend(\'' + r.key + '\')" title="Test (sends to you)" style="font-size:.68rem;padding:2px 6px;color:var(--muted)">Test</button>' +
+        '<button class="btn btn-xs btn-ghost" onclick="schedSendNow(\'' + r.key + '\')" title="Send Now" style="font-size:var(--fs-xs);padding:2px 6px">Send</button>' +
+        '<button class="btn btn-xs btn-ghost" onclick="schedTestSend(\'' + r.key + '\')" title="Test (sends to you)" style="font-size:var(--fs-xs);padding:2px 6px;color:var(--muted)">Test</button>' +
         '<button class="btn btn-xs btn-ghost" onclick="toggleSchedInlineEdit(\'' + r.key + '\')" title="' + (isEditing ? 'Close' : 'Edit') + '">' + (isEditing ? checkSvg : editSvg) + '</button>' +
       '</td></tr>' +
       inlineEditHtml;
@@ -1798,7 +1798,7 @@ function renderScheduledReports() {
       '<thead><tr>' + theadCols + '</tr></thead>' +
       '<tbody>' + rows + '</tbody>' +
     '</table>' +
-    '<p style="font-size:.72rem;color:var(--muted);margin-top:12px;font-style:italic">To add a new schedule, switch to Report Templates and click the Email button on any report.</p>';
+    '<p style="font-size:var(--fs-sm);color:var(--muted);margin-top:12px;font-style:italic">To add a new schedule, switch to Report Templates and click the Email button on any report.</p>';
 }
 
 function toggleSchedInlineEdit(reportKey) {

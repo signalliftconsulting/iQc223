@@ -377,9 +377,9 @@ function _renderAlerts() {
       custList.forEach(([cid, data]) => {
         const scoreColor = STATUS_COLOR[data.status] || '#94a3b8';
         html += `<div class="alert-group-hd" data-cid="${escHtml(cid)}" onclick="toggleAlertGroup(this)">
-          <span class="alert-score-circle" style="background:${scoreColor};width:26px;height:26px;font-size:.65rem;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-weight:800">${data.score}</span>
+          <span class="alert-score-circle" style="background:${scoreColor};width:26px;height:26px;font-size:var(--fs-xs);display:inline-flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-weight:800">${data.score}</span>
           <span style="cursor:pointer" onclick="event.stopPropagation();openDetail('${escHtml(cid)}')">${escHtml(data.name)}</span>
-          ${data.mrr ? `<span style="font-weight:400;color:var(--subtle);font-size:.75rem">$${fmtNum(data.mrr)} MRR</span>` : ''}
+          ${data.mrr ? `<span style="font-weight:400;color:var(--subtle);font-size:var(--fs-sm)">$${fmtNum(data.mrr)} MRR</span>` : ''}
           <span style="font-weight:400;color:var(--subtle)">(${data.alerts.length} alert${data.alerts.length !== 1 ? 's' : ''})</span>
         </div>`;
         // Sort alerts within customer by severity
@@ -388,7 +388,7 @@ function _renderAlerts() {
         html += `<div class="alert-group-body">${data.alerts.map(a => alertItemHTML(a, false)).join('')}</div>`;
       });
     } else if (custSearch) {
-      html += `<div style="text-align:center;padding:28px 16px;color:var(--muted);font-size:.85rem">No customers matching "${escHtml(custSearch)}"</div>`;
+      html += `<div style="text-align:center;padding:28px 16px;color:var(--muted);font-size:var(--fs-md)">No customers matching "${escHtml(custSearch)}"</div>`;
     }
   } else if (_alertViewMode === 'table') {
     // ── Table view: customer table inline ──
@@ -420,8 +420,8 @@ function _renderAlerts() {
 
     const filterLabel = _alertTableFilter ? _alertTableFilter.label : 'All Alerted Customers';
     html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-      <span style="font-size:.78rem;font-weight:700;color:var(--text)">${escHtml(filterLabel)}</span>
-      <span style="font-size:.72rem;color:var(--muted)">${tblList.length} customer${tblList.length!==1?'s':''}</span>
+      <span style="font-size:var(--fs-base);font-weight:700;color:var(--text)">${escHtml(filterLabel)}</span>
+      <span style="font-size:var(--fs-sm);color:var(--muted)">${tblList.length} customer${tblList.length!==1?'s':''}</span>
       ${_alertTableFilter ? `<button class="btn btn-xs btn-ghost" onclick="_alertTableFilter=null;renderAlerts()">✕ Clear filter</button>` : ''}
     </div>`;
 
@@ -461,18 +461,18 @@ function _renderAlerts() {
           return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
             <td style="padding:8px 12px"><strong>${escHtml(c.name)}</strong></td>
             <td style="padding:8px 12px">${scoreHTML(c)}</td>
-            <td style="padding:8px 12px;font-size:.78rem;font-weight:700;color:${d7Color}">${d7Str}</td>
+            <td style="padding:8px 12px;font-size:var(--fs-base);font-weight:700;color:${d7Color}">${d7Str}</td>
             <td style="padding:8px 12px">${badgeHTML(c.status)}</td>
             <td style="padding:8px 12px">${c.mrr ? '$'+fmtNum(c.mrr) : '—'}</td>
-            <td style="padding:8px 12px"><span class="${cad.cls}">${cad.label.replace(/\\s*\\(\\d+d\\)/,'')}</span> <span style="font-size:.72rem;color:var(--muted)">${c.days != null ? c.days + 'd' : 'N/A'}</span></td>
+            <td style="padding:8px 12px"><span class="${cad.cls}">${cad.label.replace(/\\s*\\(\\d+d\\)/,'')}</span> <span style="font-size:var(--fs-sm);color:var(--muted)">${c.days != null ? c.days + 'd' : 'N/A'}</span></td>
             <td style="padding:8px 12px">${renewalStr}</td>
-            <td style="padding:8px 12px"><span style="background:var(--red-l);color:var(--red);padding:2px 8px;border-radius:10px;font-size:.72rem;font-weight:700">${cnt}</span></td>
+            <td style="padding:8px 12px"><span style="background:var(--red-l);color:var(--red);padding:2px 8px;border-radius:10px;font-size:var(--fs-sm);font-weight:700">${cnt}</span></td>
             <td style="padding:8px 12px;color:${c.tickets != null && c.tickets > 0 ? '#dc2626' : 'var(--subtle)'};font-weight:${c.tickets != null && c.tickets > 0 ? '700' : '400'}">${c.tickets != null ? c.tickets : 'N/A'}</td>
-            <td style="padding:8px 12px;font-size:.82rem;color:var(--subtle)">${c.manager ? escHtml(c.manager) : '—'}</td>
+            <td style="padding:8px 12px;font-size:var(--fs-base);color:var(--subtle)">${c.manager ? escHtml(c.manager) : '—'}</td>
           </tr>`;
         }).join('') + '</tbody></table></div>';
     } else {
-      html += `<div style="text-align:center;padding:28px;color:var(--muted);font-size:.85rem">No matching customers</div>`;
+      html += `<div style="text-align:center;padding:28px;color:var(--muted);font-size:var(--fs-md)">No matching customers</div>`;
     }
   } else {
     // ── Category view (default) ──
@@ -612,7 +612,7 @@ function renderAlertPanel(all, active, snz) {
         <div style="height:7px;background:var(--border);border-radius:100px;overflow:hidden;cursor:pointer" onclick="filterByMrrBucket('${label}')">
           <div style="width:${pct}%;height:100%;background:${color};border-radius:100px;transition:width .4s"></div>
         </div>
-        <div class="alert-mrr-val" style="font-weight:800;color:${color};white-space:nowrap;text-align:right;font-size:.85rem;cursor:pointer" onclick="filterByMrrBucket('${label}')">$${fmtNum(mrr)}</div>`;
+        <div class="alert-mrr-val" style="font-weight:800;color:${color};white-space:nowrap;text-align:right;font-size:var(--fs-md);cursor:pointer" onclick="filterByMrrBucket('${label}')">$${fmtNum(mrr)}</div>`;
     }).join('');
     mrrWrap.innerHTML = mrrRows
       ? `<div style="display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center">${mrrRows}</div>`
@@ -636,18 +636,58 @@ function renderAlertPanel(all, active, snz) {
       const pct = Math.round((catCounts[c] / maxCount) * 100);
       return `
         <div style="display:flex;align-items:center;gap:5px;white-space:nowrap;cursor:pointer" onclick="filterByAlertCat('${c}')">
-          <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;background:${catColors[c]}15;font-size:.65rem">${def.icon}</span>
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;background:${catColors[c]}15;font-size:var(--fs-xs)">${def.icon}</span>
           <span class="alert-cat-name">${def.label}</span>
         </div>
         <div style="height:7px;background:var(--border);border-radius:100px;overflow:hidden;cursor:pointer" onclick="filterByAlertCat('${c}')">
           <div style="width:${pct}%;height:100%;background:${catColors[c]};border-radius:100px;transition:width .4s"></div>
         </div>
         <div style="text-align:right;cursor:pointer" onclick="filterByAlertCat('${c}')">
-          <span style="background:${catColors[c]}12;color:${catColors[c]};padding:2px 9px;border-radius:100px;font-size:.82rem;font-weight:800;white-space:nowrap">${catCounts[c]}</span>
+          <span style="background:${catColors[c]}12;color:${catColors[c]};padding:2px 9px;border-radius:100px;font-size:var(--fs-md);font-weight:800;white-space:nowrap">${catCounts[c]}</span>
         </div>`;
     }).join('');
     catWrap.innerHTML = catRows
       ? `<div style="display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center">${catRows}</div>`
+      : '<div class="alerts-detail-empty" style="padding:20px 0;text-align:center;color:var(--muted)">No active alerts — all clear!</div>';
+  }
+
+  // ── By Stage detail card ──
+  const stageWrap = el('alert-stage-wrap');
+  if (stageWrap) {
+    const stageDefs = [
+      { key: 'onboarding', label: 'Onboarding', color: '#3b82f6' },
+      { key: 'active',     label: 'Active',     color: '#10b981' },
+      { key: 'atrisk',     label: 'At Risk',    color: '#ef4444' },
+      { key: 'won',        label: 'Won / Upsold', color: '#8b5cf6' },
+      { key: 'churned',    label: 'Churned',    color: '#64748b' }
+    ];
+    const stageCounts = {};
+    stageDefs.forEach(s => stageCounts[s.key] = 0);
+    active.forEach(a => {
+      const c = customers.find(x => x.id === a.cid);
+      if (c) { const lc = c.lifecycle || 'active'; if (stageCounts[lc] !== undefined) stageCounts[lc]++; }
+    });
+    const stagesWithAlerts = stageDefs.filter(s => stageCounts[s.key] > 0);
+    const stageTotalEl = el('alert-stage-total');
+    if (stageTotalEl) stageTotalEl.textContent = stagesWithAlerts.length;
+    const maxStageCount = Math.max(1, ...Object.values(stageCounts));
+    const stageRows = stagesWithAlerts.map(s => {
+      const cnt = stageCounts[s.key];
+      const pct = Math.round((cnt / maxStageCount) * 100);
+      return `
+        <div style="display:flex;align-items:center;gap:6px;white-space:nowrap">
+          <div style="width:8px;height:8px;border-radius:50%;background:${s.color};flex-shrink:0"></div>
+          <span style="font-size:var(--fs-base);font-weight:600;color:var(--text)">${s.label}</span>
+        </div>
+        <div style="height:7px;background:var(--border);border-radius:100px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:${s.color};border-radius:100px;transition:width .4s"></div>
+        </div>
+        <div style="text-align:right">
+          <span style="background:${s.color}12;color:${s.color};padding:2px 9px;border-radius:100px;font-size:var(--fs-md);font-weight:800;white-space:nowrap">${cnt}</span>
+        </div>`;
+    }).join('');
+    stageWrap.innerHTML = stageRows
+      ? `<div style="display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center">${stageRows}</div>`
       : '<div class="alerts-detail-empty" style="padding:20px 0;text-align:center;color:var(--muted)">No active alerts — all clear!</div>';
   }
 
@@ -813,7 +853,7 @@ function renderAlertPanel(all, active, snz) {
     if (topIns.length) {
       // Store insight data for click navigation
       window._alertInsights = topIns;
-      insWrap.innerHTML = '<div style="font-size:.82rem;font-weight:700;color:var(--text);margin-bottom:8px">Insights</div>' +
+      insWrap.innerHTML = '<div style="font-size:var(--fs-base);font-weight:700;color:var(--text);margin-bottom:8px">Insights</div>' +
         topIns.map((ins, idx) => {
           const cls = ins.accent === 'green' ? 'ta-card-green' : ins.accent === 'red' ? 'ta-card-red' : ins.accent === 'amber' ? 'ta-card-amber' : '';
           const clickable = ins.cids && ins.cids.length > 0;

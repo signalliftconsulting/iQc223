@@ -85,8 +85,8 @@ function renderWeightRows() {
         oninput="updateWeightFromSlider('${k}',this.value)" style="flex:1;cursor:pointer;accent-color:var(--blue)"/>
       <div class="weight-pct"><input type="number" min="0" max="100" value="${weights[k]}" id="wp-${k}"
         oninput="updateWeightFromInput('${k}',this.value)"
-        style="width:42px;text-align:center;border:1.5px solid var(--border);border-radius:6px;padding:2px 2px;font-size:.78rem;font-weight:700;font-family:var(--font);color:var(--text);outline:none;background:var(--surface);-moz-appearance:textfield"
-        onfocus="this.select()"/><span style="font-size:.78rem;font-weight:700;margin-left:1px">%</span></div>
+        style="width:42px;text-align:center;border:1.5px solid var(--border);border-radius:6px;padding:2px 2px;font-size:var(--fs-base);font-weight:700;font-family:var(--font);color:var(--text);outline:none;background:var(--surface);-moz-appearance:textfield"
+        onfocus="this.select()"/><span style="font-size:var(--fs-base);font-weight:700;margin-left:1px">%</span></div>
     </div>`).join('');
   updateTotalBar();
 }
@@ -185,9 +185,10 @@ function rescoreAll() {
     const { score } = calcScore(c, resolvedWeights);
     if (c.score !== score) {
       c.history = c.history || [];
-      c.history.push({ score, date: new Date().toISOString() });
+      c.history.push({ score, date: new Date().toISOString(), signals: buildHistorySnapshot(c) });
       c.score  = score;
       c.status = getStatus(score);
+      applyAutoStage(c);
       changed.push(c);
       n++;
     }
@@ -474,7 +475,7 @@ function cfgTimeAgo(ts) {
 function renderScoreDistribution(previewWeights) {
   const wrap = el('cfg-score-dist');
   if (!wrap) return;
-  if (!customers.length) { wrap.innerHTML = '<p style="font-size:.8rem;color:var(--muted)">No customer data loaded.</p>'; return; }
+  if (!customers.length) { wrap.innerHTML = '<p style="font-size:var(--fs-base);color:var(--muted)">No customer data loaded.</p>'; return; }
   const bands = { critical: 0, risk: 0, watch: 0, healthy: 0, expand: 0 };
   customers.forEach(c => {
     const w = previewWeights || getActiveWeights(c);
@@ -499,7 +500,7 @@ function renderScoreDistribution(previewWeights) {
 function renderDataHealth() {
   const wrap = el('cfg-data-health');
   if (!wrap) return;
-  if (!customers.length) { wrap.innerHTML = '<p style="font-size:.8rem;color:var(--muted)">No customer data loaded.</p>'; return; }
+  if (!customers.length) { wrap.innerHTML = '<p style="font-size:var(--fs-base);color:var(--muted)">No customer data loaded.</p>'; return; }
   const total = customers.length;
   let stale = 0, missing = 0;
   const sigKeys = ['logins','adoption','tickets','nps','csat','days'];
@@ -517,13 +518,13 @@ function renderDataHealth() {
       <div class="dh-row"><span>Total Customers</span><span class="dh-val">${total}</span></div>
       <div class="dh-row"><span>Last Refresh</span><span class="dh-val">${refreshTxt}</span></div>
       <div style="border-top:1px solid var(--border);margin:2px 0"></div>
-      <div class="dh-row"><span>Stale Accounts (30d+)</span><span class="dh-val ${stale ? 'warn' : 'good'}">${stale ? `<a href="#" onclick="event.preventDefault();showDhDetail('stale')" style="color:inherit;text-decoration:underline;cursor:pointer">${stale} ⚠</a>` : '0'}</span></div>
-      <div class="dh-row"><span>Incomplete Signals</span><span class="dh-val ${missing ? 'warn' : 'good'}">${missing ? `<a href="#" onclick="event.preventDefault();showDhDetail('incomplete')" style="color:inherit;text-decoration:underline;cursor:pointer">${missing} ⚠</a>` : '0'}</span></div>
+      <div class="dh-row"><span>Stale Accounts (30d+)</span><span class="dh-val ${stale ? 'warn' : 'good'}">${stale ? `<a href="#" onclick="event.preventDefault();showDhDetail('stale')" style="color:inherit;text-decoration:underline;cursor:pointer">${stale} ${appIcon('warning',12)}</a>` : '0'}</span></div>
+      <div class="dh-row"><span>Incomplete Signals</span><span class="dh-val ${missing ? 'warn' : 'good'}">${missing ? `<a href="#" onclick="event.preventDefault();showDhDetail('incomplete')" style="color:inherit;text-decoration:underline;cursor:pointer">${missing} ${appIcon('warning',12)}</a>` : '0'}</span></div>
       <div class="dh-row"><span>Complete Data</span><span class="dh-val good">${complete}</span></div>
     </div>
-    <div style="font-size:.72rem;color:var(--muted);margin-bottom:6px">Data completeness</div>
+    <div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:6px">Data completeness</div>
     <div class="dh-bar"><div style="width:${pct}%"></div></div>
-    <div style="font-size:.72rem;font-weight:700;margin-top:4px">${pct}%</div>`;
+    <div style="font-size:var(--fs-sm);font-weight:700;margin-top:4px">${pct}%</div>`;
 }
 
 function showDhDetail(type) {
@@ -549,7 +550,7 @@ function showDhDetail(type) {
             <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${statusColors[st]||'#888'};margin-right:4px"></span>${c.score}</td>
             <td style="font-weight:600;color:${c.days != null && c.days>=60?'#ef4444':c.days != null && c.days>=30?'#f59e0b':'inherit'}">${c.days != null ? c.days+'d' : 'N/A'}</td>
             <td>${c.logins != null ? c.logins : 'N/A'}</td>
-            <td style="text-transform:uppercase;font-size:.72rem">${escHtml(c.tier)}</td>
+            <td style="text-transform:uppercase;font-size:var(--fs-sm)">${escHtml(c.tier)}</td>
             <td>$${fmtNum(c.mrr||0)}</td>
           </tr>`;
         }).join('')
@@ -571,8 +572,8 @@ function showDhDetail(type) {
           return `<tr>
             <td><a href="#" onclick="event.preventDefault();closeModal('dh-detail-modal');openDetail('${escHtml(c.id)}')" style="color:var(--blue);font-weight:700;text-decoration:none">${escHtml(c.name)}</a></td>
             <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${statusColors[st]||'#888'};margin-right:4px"></span>${c.score}</td>
-            <td style="font-size:.78rem">${miss.map(s => `<span style="display:inline-block;background:rgba(239,68,68,.08);color:#b91c1c;padding:1px 6px;border-radius:4px;margin:1px 2px;font-size:.72rem">${sigLabels[s]||s}</span>`).join('')}</td>
-            <td style="text-transform:uppercase;font-size:.72rem">${escHtml(c.tier)}</td>
+            <td style="font-size:var(--fs-base)">${miss.map(s => `<span style="display:inline-block;background:rgba(239,68,68,.08);color:#b91c1c;padding:1px 6px;border-radius:4px;margin:1px 2px;font-size:var(--fs-sm)">${sigLabels[s]||s}</span>`).join('')}</td>
+            <td style="text-transform:uppercase;font-size:var(--fs-sm)">${escHtml(c.tier)}</td>
           </tr>`;
         }).join('')
       }</tbody></table>`;
@@ -594,7 +595,7 @@ function renderConfigHistory() {
   if (!wrap) return;
   const hist = JSON.parse(localStorage.getItem('iqc_config_history') || '[]');
   if (!hist.length) {
-    wrap.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:.85rem">No config changes recorded yet.</div>';
+    wrap.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:var(--fs-md)">No config changes recorded yet.</div>';
     return;
   }
   const pg = _pagGet('cfgHist');
@@ -608,10 +609,10 @@ function renderConfigHistory() {
     const user = e.user ? escHtml(e.user) : '<span style="color:var(--subtle)">—</span>';
     const detail = e.details ? escHtml(e.details) : '<span style="color:var(--subtle)">—</span>';
     h += `<tr>
-      <td style="font-size:.76rem;color:var(--muted);white-space:nowrap">${time}</td>
-      <td style="font-size:.76rem;color:var(--text)">${user}</td>
-      <td style="font-size:.78rem;color:var(--text);font-weight:600;white-space:nowrap">${escHtml(e.action)}</td>
-      <td style="font-size:.76rem;color:var(--muted);line-height:1.4">${detail}</td>
+      <td style="font-size:var(--fs-sm);color:var(--muted);white-space:nowrap">${time}</td>
+      <td style="font-size:var(--fs-sm);color:var(--text)">${user}</td>
+      <td style="font-size:var(--fs-base);color:var(--text);font-weight:600;white-space:nowrap">${escHtml(e.action)}</td>
+      <td style="font-size:var(--fs-sm);color:var(--muted);line-height:1.4">${detail}</td>
     </tr>`;
   });
   h += '</tbody></table>';
@@ -669,7 +670,7 @@ function resetAllDefaults() {
 function renderProfiles() {
   const wrap = el('profiles-list');
   if (!profiles.length) {
-    wrap.innerHTML = '<p style="font-size:.82rem;color:var(--muted)">No profiles yet.</p>';
+    wrap.innerHTML = '<p style="font-size:var(--fs-base);color:var(--muted)">No profiles yet.</p>';
     return;
   }
   wrap.innerHTML = profiles.map((p,i) => {
@@ -679,7 +680,7 @@ function renderProfiles() {
     <div class="profile-row${isActive ? ' profile-active' : ''}" onclick="previewProfile(${i})">
       <div class="profile-row__name">
         ${escHtml(p.name)}
-        ${isGlobal ? '<span style="font-size:.68rem;color:var(--muted);margin-left:6px;font-style:italic">default</span>' : ''}
+        ${isGlobal ? '<span style="font-size:var(--fs-xs);color:var(--muted);margin-left:6px;font-style:italic">default</span>' : ''}
       </div>
       <button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();editProfile(${i})">Edit</button>
       ${!isGlobal ? `<button class="btn btn-xs btn-danger" onclick="event.stopPropagation();deleteProfile(${i})">✕</button>` : ''}
@@ -817,6 +818,7 @@ function rescoreByProfile(profileName) {
       c.history.push({ score, date: new Date().toISOString(), signals: buildHistorySnapshot(c) });
       c.score  = score;
       c.status = getStatus(score);
+      applyAutoStage(c);
       changed.push(c);
     }
   });

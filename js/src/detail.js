@@ -179,7 +179,7 @@ function showResult({ data, score, signals, status, rec, plays }) {
   bd.innerHTML = signalDefs.map(s => {
     const off = !((bw[s.wkey] || 0) > 0);
     return `<div class="bd-row${off ? ' bd-row--off' : ''}">
-      <div class="bd-label">${s.label}${off ? ' <span style="font-size:.65rem;color:var(--muted)">(off)</span>' : ''}</div>
+      <div class="bd-label">${s.label}${off ? ' <span style="font-size:var(--fs-xs);color:var(--muted)">(off)</span>' : ''}</div>
       <div class="bd-bar"><div class="bd-fill" style="width:${off ? 0 : Math.round(signals[s.key])}%;background:${s.color}"></div></div>
       <div class="bd-score">${off ? '—' : Math.round(signals[s.key])}</div>
     </div>`;
@@ -321,6 +321,7 @@ function saveScore() {
         dupe.lifecycle       = data.lifecycle;
         dupe.tags            = data.tags;
         dupe.scoring_profile = data.profile || '';
+        applyAutoStage(dupe);
         if (data.note) {
           dupe.notes = dupe.notes || [];
           dupe.notes.unshift({ text: data.note, date: new Date().toISOString() });
@@ -369,6 +370,7 @@ function saveScore() {
     sentiment: [],
     created:  new Date().toISOString()
   };
+  applyAutoStage(cust);
   customers.unshift(cust);
   refreshMgrDropdown();
   setLoading(true);
@@ -448,21 +450,21 @@ function buildPrintHTML(name, score, status, rec, plays, data) {
       h1{font-size:1.6rem;font-weight:800;margin-bottom:4px}
       h2{font-size:1.1rem;font-weight:700;margin:20px 0 8px}
       .score-big{font-size:4rem;font-weight:900;color:${colors[status]};line-height:1}
-      .badge{display:inline-block;background:${colors[status]}22;color:${colors[status]};padding:4px 14px;border-radius:100px;font-weight:700;font-size:.88rem;border:1.5px solid ${colors[status]}55}
-      .rec{background:#f1f5f9;border-left:4px solid ${colors[status]};padding:10px 14px;border-radius:4px;font-size:.88rem;line-height:1.6;margin-bottom:16px}
-      .play{background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;margin-bottom:6px;font-size:.84rem}
-      table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:8px}
-      th{text-align:left;color:#64748b;font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid #e2e8f0;padding:5px 8px}
+      .badge{display:inline-block;background:${colors[status]}22;color:${colors[status]};padding:4px 14px;border-radius:100px;font-weight:700;font-size:var(--fs-md);border:1.5px solid ${colors[status]}55}
+      .rec{background:#f1f5f9;border-left:4px solid ${colors[status]};padding:10px 14px;border-radius:4px;font-size:var(--fs-md);line-height:1.6;margin-bottom:16px}
+      .play{background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;margin-bottom:6px;font-size:var(--fs-md)}
+      table{width:100%;border-collapse:collapse;font-size:var(--fs-base);margin-top:8px}
+      th{text-align:left;color:#64748b;font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid #e2e8f0;padding:5px 8px}
       td{padding:6px 8px;border-bottom:1px solid #f1f5f9}
-      .footer-p{margin-top:32px;font-size:.7rem;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:12px}
+      .footer-p{margin-top:32px;font-size:var(--fs-sm);color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:12px}
     </style>
     <h1>IQcadence Health Report — ${name}</h1>
-    <p style="color:#64748b;font-size:.82rem">Generated ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})} · IQcadence CS Health Score</p>
+    <p style="color:#64748b;font-size:var(--fs-base)">Generated ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})} · IQcadence CS Health Score</p>
     <div style="margin:16px 0;display:flex;align-items:center;gap:20px;flex-wrap:wrap">
       <div class="score-big">${score}</div>
       <div>
         <div class="badge">${labels[status]}</div>
-        <div style="margin-top:6px;font-size:.8rem;color:#64748b">MRR: $${(data.mrr||0).toLocaleString()} · Tier: ${(data.tier||'').toUpperCase()} · Stage: ${data.lifecycle||'—'}</div>
+        <div style="margin-top:6px;font-size:var(--fs-base);color:#64748b">MRR: $${(data.mrr||0).toLocaleString()} · Tier: ${(data.tier||'').toUpperCase()} · Stage: ${data.lifecycle||'—'}</div>
       </div>
     </div>
     <div class="rec">${rec.replace(/<[^>]+>/g,'')}</div>
@@ -519,12 +521,12 @@ function renderDetailSentiment() {
   catch(e) { logs = []; }
   // Sort newest-first by date (mixed unshift/push order can't be trusted)
   logs.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  const icons = { positive:'😊', neutral:'😐', negative:'😟' };
+  const icons = { positive: appIcon('sentPositive',18), neutral: appIcon('sentNeutral',18), negative: appIcon('sentNegative',18) };
   const labels = { positive:'Positive', neutral:'Neutral', negative:'Negative' };
 
   const sentWrap = el('dm-sentiment-list');
   if (!logs.length) {
-    sentWrap.innerHTML = '<p style="font-size:.82rem;color:var(--muted)">No sentiment logs yet. Log one above.</p>';
+    sentWrap.innerHTML = '<p style="font-size:var(--fs-base);color:var(--muted)">No sentiment logs yet. Log one above.</p>';
     return;
   }
   const pg = _pagGet('sentLog');
@@ -533,10 +535,10 @@ function renderDetailSentiment() {
   sentWrap.innerHTML = pagNav + slice.map((s,si) => {
     const idx = pg * PAGE_SIZE + si; // original index for delete
     return `<div class="sent-log">
-          <div class="sent-log__icon">${icons[s.val]||'😐'}</div>
+          <div class="sent-log__icon">${icons[s.val]||appIcon('sentNeutral',18)}</div>
           <div style="flex:1;min-width:0">
-            <div style="font-weight:700;font-size:.8rem">${labels[s.val]||s.val}</div>
-            ${s.note ? `<div style="font-size:.75rem;color:var(--muted);margin-top:1px">${escHtml(s.note)}</div>` : ''}
+            <div style="font-weight:700;font-size:var(--fs-base)">${labels[s.val]||s.val}</div>
+            ${s.note ? `<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:1px">${escHtml(s.note)}</div>` : ''}
           </div>
           <div class="sent-log__meta">${fmtDate(s.date)}</div>
           <button class="btn btn-xs btn-danger" style="margin-left:6px" onclick="deleteSentiment(${idx})">✕</button>
@@ -631,9 +633,7 @@ function renderDetailAlerts() {
   const dism   = mine.filter(a => isDismissed(a.id) && !isSnoozed(a.id));
 
   if (!mine.length) {
-    wrap.innerHTML = `<div style="text-align:center;padding:32px 16px;color:var(--muted);font-size:.85rem">
-      <div style="font-size:1.4rem;margin-bottom:6px">✅</div>
-      No active alerts for this customer</div>`;
+    wrap.innerHTML = `<div class="empty-st" style="padding:24px"><div class="ei" style="color:var(--green)">${appIcon('checkCircle',32)}</div><h3>All clear!</h3><p>No active alerts for this customer.</p></div>`;
     return;
   }
 
@@ -644,9 +644,9 @@ function renderDetailAlerts() {
     const color = sevColor[a.type] || 'var(--muted)';
     const opacity = state === 'dismissed' ? 'opacity:.45;' : state === 'snoozed' ? 'opacity:.6;' : '';
     const badge = state === 'snoozed'
-      ? `<span style="font-size:.68rem;color:var(--amber);font-weight:600;margin-left:auto;white-space:nowrap">⏸ Snoozed</span>`
+      ? `<span style="font-size:var(--fs-xs);color:var(--amber);font-weight:600;margin-left:auto;white-space:nowrap">⏸ Snoozed</span>`
       : state === 'dismissed'
-      ? `<span style="font-size:.68rem;color:var(--muted);font-weight:600;margin-left:auto;white-space:nowrap">Dismissed</span>`
+      ? `<span style="font-size:var(--fs-xs);color:var(--muted);font-weight:600;margin-left:auto;white-space:nowrap">Dismissed</span>`
       : '';
     const actions = state === 'snoozed'
       ? `<button class="btn btn-xs btn-ghost" onclick="unsnooze('${escHtml(a.id)}');renderDetailAlerts()">Wake</button>`
@@ -658,9 +658,9 @@ function renderDetailAlerts() {
       <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:var(--r);border:1.5px solid ${color}22;background:${color}08;${opacity}">
         <div style="color:${color};flex-shrink:0;margin-top:2px">${def.icon}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:.82rem;font-weight:600;color:var(--text)">${def.label}</div>
-          <div style="font-size:.78rem;color:var(--subtle);margin-top:2px">${a.msg.replace(/<strong>.*?<\/strong>\s*/, '')}</div>
-          ${a.sub ? `<div style="font-size:.72rem;color:var(--muted);margin-top:3px">${escHtml(a.sub)}</div>` : ''}
+          <div style="font-size:var(--fs-base);font-weight:600;color:var(--text)">${def.label}</div>
+          <div style="font-size:var(--fs-base);color:var(--subtle);margin-top:2px">${a.msg.replace(/<strong>.*?<\/strong>\s*/, '')}</div>
+          ${a.sub ? `<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:3px">${escHtml(a.sub)}</div>` : ''}
         </div>
         ${badge}
         <div style="display:flex;gap:4px;flex-shrink:0;align-items:center">${actions}</div>
@@ -669,15 +669,15 @@ function renderDetailAlerts() {
 
   let html = '';
   if (active.length) {
-    html += `<div style="font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Active (${active.length})</div>`;
+    html += `<div style="font-size:var(--fs-sm);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Active (${active.length})</div>`;
     html += `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px">${active.map(a => alertRow(a, 'active')).join('')}</div>`;
   }
   if (snzd.length) {
-    html += `<div style="font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Snoozed (${snzd.length})</div>`;
+    html += `<div style="font-size:var(--fs-sm);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Snoozed (${snzd.length})</div>`;
     html += `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px">${snzd.map(a => alertRow(a, 'snoozed')).join('')}</div>`;
   }
   if (dism.length) {
-    html += `<div style="font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Dismissed (${dism.length})</div>`;
+    html += `<div style="font-size:var(--fs-sm);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Dismissed (${dism.length})</div>`;
     html += `<div style="display:flex;flex-direction:column;gap:6px">${dism.map(a => alertRow(a, 'dismissed')).join('')}</div>`;
   }
   wrap.innerHTML = html;
@@ -692,7 +692,7 @@ function renderDetailOverview() {
   const cad    = getCadenceStatus(c);
   const sent   = latestSentiment(c);
   const nba    = buildNextBestAction(c);
-  const sentIcon = sent ? ({ positive:'😊', neutral:'😐', negative:'😟' }[sent.val]||'') : null;
+  const sentIcon = sent ? ({ positive: appIcon('sentPositive',20), neutral: appIcon('sentNeutral',20), negative: appIcon('sentNegative',20) }[sent.val]||'') : null;
   // Map nba.level to urgency color
   const nbaColors = {
     urgent:'var(--red)', warn:'var(--amber)', expand:'var(--green)',
@@ -702,37 +702,37 @@ function renderDetailOverview() {
 
   el('dm-overview').innerHTML = `
     <!-- Next Best Action banner -->
-    <div style="background:${nbaColor}0f;border:1.5px solid ${nbaColor}33;border-radius:var(--r);padding:13px 15px;margin-bottom:16px">
-      <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:${nbaColor};margin-bottom:5px">Next Best Action</div>
-      <div style="font-weight:700;font-size:.9rem;color:var(--text);margin-bottom:5px">${nba.action}</div>
-      <div style="font-size:.79rem;color:var(--muted);line-height:1.6">${nba.talk}</div>
+    <div class="nba-banner" style="background:${nbaColor}0f;border:1.5px solid ${nbaColor}33">
+      <div class="nba-banner__title" style="color:${nbaColor}">Next Best Action</div>
+      <div class="nba-banner__action">${nba.action}</div>
+      <div class="nba-banner__talk">${nba.talk}</div>
     </div>
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;flex-wrap:wrap">
       ${buildRingHTML(c.score, c.status)}
       <div style="flex:1;min-width:0">
-        <div style="font-size:2rem;font-weight:800;line-height:1;letter-spacing:-.03em">${c.score}<span style="font-size:.9rem;font-weight:500;color:var(--muted)"> / 100</span></div>
+        <div style="font-size:2rem;font-weight:800;line-height:1;letter-spacing:-.03em">${c.score}<span style="font-size:var(--fs-lg);font-weight:500;color:var(--muted)"> / 100</span></div>
         <div style="margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
           ${badgeHTML(c.status)}
           ${momentumHTML(c)}
           ${deltaHTML(delta)}
         </div>
-        <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;font-size:.78rem">
+        <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;font-size:var(--fs-base)">
           <div>
-            <label style="display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:2px">Manager</label>
-            <select id="di-manager" onchange="if(this.value==='__add_new__'){this.style.display='none';document.getElementById('di-manager-new').style.display='';document.getElementById('di-manager-new').focus()}" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;background:var(--bg);color:var(--text)">${buildManagerSelectOptions(c.manager||'')}</select>
-            <input type="text" id="di-manager-new" placeholder="New manager name..." style="display:none;width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;background:var(--bg);color:var(--text);margin-top:4px" onblur="if(!this.value){this.style.display='none';document.getElementById('di-manager').style.display='';document.getElementById('di-manager').value=''}" />
+            <label class="di-label">Manager</label>
+            <select id="di-manager" class="di-select" onchange="if(this.value==='__add_new__'){this.style.display='none';document.getElementById('di-manager-new').style.display='';document.getElementById('di-manager-new').focus()}">${buildManagerSelectOptions(c.manager||'')}</select>
+            <input type="text" id="di-manager-new" class="di-input" placeholder="New manager name..." style="display:none;margin-top:4px" onblur="if(!this.value){this.style.display='none';document.getElementById('di-manager').style.display='';document.getElementById('di-manager').value=''}" />
           </div>
           <div>
-            <label style="display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:2px">Tier</label>
-            <select id="di-tier" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;background:var(--bg);color:var(--text)">
+            <label class="di-label">Tier</label>
+            <select id="di-tier" class="di-select">
               <option value="smb" ${c.tier==='smb'?'selected':''}>SMB</option>
               <option value="mid" ${c.tier==='mid'?'selected':''}>Mid-Market</option>
               <option value="enterprise" ${c.tier==='enterprise'?'selected':''}>Enterprise</option>
             </select>
           </div>
           <div>
-            <label style="display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:2px">Lifecycle</label>
-            <select id="di-lifecycle" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;background:var(--bg);color:var(--text)">
+            <label class="di-label">Lifecycle</label>
+            <select id="di-lifecycle" class="di-select">
               <option value="onboarding" ${c.lifecycle==='onboarding'?'selected':''}>Onboarding</option>
               <option value="active" ${c.lifecycle==='active'?'selected':''}>Active</option>
               <option value="atrisk" ${c.lifecycle==='atrisk'?'selected':''}>At Risk</option>
@@ -741,41 +741,46 @@ function renderDetailOverview() {
             </select>
           </div>
           <div>
-            <label style="display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:2px">Next Touch</label>
+            <label class="di-label">Next Touch</label>
             <div style="display:flex;gap:4px">
-              <input type="date" id="di-next-touch" value="${c.next_touch||''}" style="flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;background:var(--bg);color:var(--text)" />
-              <input type="time" id="di-next-touch-time" value="${c.next_touch_time||''}" style="width:90px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;background:var(--bg);color:var(--text)" />
+              <input type="date" id="di-next-touch" class="di-input" value="${c.next_touch||''}" style="flex:1" />
+              <input type="time" id="di-next-touch-time" class="di-input" value="${c.next_touch_time||''}" style="width:90px" />
             </div>
           </div>
+          <div>
+            <label class="di-label">MRR ($)</label>
+            <input type="number" id="di-mrr" class="di-input" value="${c.mrr||0}" min="0" step="1" />
+          </div>
+          <div>
+            <label class="di-label">ARR ($)</label>
+            <input type="number" id="di-arr" class="di-input" value="${c.arr||0}" min="0" step="1" />
+          </div>
           <div style="grid-column:1/-1">
-            <label style="display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:2px">Tags</label>
-            <input type="text" id="di-tags" value="${escHtml((c.tags||[]).join(', '))}" placeholder="Comma-separated" style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:.78rem;background:var(--bg);color:var(--text)" />
+            <label class="di-label">Tags</label>
+            <input type="text" id="di-tags" class="di-input" value="${escHtml((c.tags||[]).join(', '))}" placeholder="Comma-separated" />
           </div>
         </div>
-        <div style="margin-top:6px;font-size:.76rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:10px">
-          <span>MRR: <strong style="color:var(--text)">${c.mrr ? '$'+fmtNum(c.mrr) : '—'}</strong></span>
-          ${c.scoring_profile ? `<span>Profile: <strong style="color:var(--text)">${escHtml(c.scoring_profile)}</strong></span>` : ''}
-        </div>
+        ${c.scoring_profile ? `<div style="margin-top:6px;font-size:var(--fs-sm);color:var(--muted)"><span>Profile: <strong style="color:var(--text)">${escHtml(c.scoring_profile)}</strong></span></div>` : ''}
       </div>
     </div>
     <!-- Signals row: last contact + next touch + renewal + sentiment -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;padding:10px 12px;background:var(--bg);border-radius:var(--r);border:1px solid var(--border)">
       <div>
-        <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:3px">Last Contact</div>
+        <div class="sig-label">Last Contact</div>
         ${(()=>{
           if (c.last_contact_date) {
             const lcd = new Date(c.last_contact_date);
             const daysAgo = Math.max(0, Math.floor((Date.now() - lcd.getTime()) / 86400000));
-            return `<span style="font-size:.78rem;font-weight:600">${lcd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span> <span style="font-size:.7rem;color:var(--muted)">(${daysAgo}d ago)</span>`;
+            return `<span style="font-size:var(--fs-base);font-weight:600">${lcd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span> <span style="font-size:var(--fs-sm);color:var(--muted)">(${daysAgo}d ago)</span>`;
           }
-          if (c.days != null) return `<span style="font-size:.78rem;font-weight:600">${c.days}d ago</span>`;
-          return '<span style="font-size:.75rem;color:var(--muted)">—</span>';
+          if (c.days != null) return `<span style="font-size:var(--fs-base);font-weight:600">${c.days}d ago</span>`;
+          return '<span style="font-size:var(--fs-sm);color:var(--muted)">—</span>';
         })()}
       </div>
       <div>
-        <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:3px">Next Touch</div>
+        <div class="sig-label">Next Touch</div>
         ${(()=>{
-          if (!c.next_touch) return '<span style="font-size:.75rem;color:var(--muted)">Not scheduled</span>';
+          if (!c.next_touch) return '<span style="font-size:var(--fs-sm);color:var(--muted)">Not scheduled</span>';
           const ntDays = Math.round((new Date(c.next_touch) - new Date()) / 86400000);
           const tDisp = c.next_touch_time ? ' at ' + fmtTime12(c.next_touch_time) : '';
           if (ntDays < 0)  return `<span class="nt-badge nt-overdue">Overdue ${Math.abs(ntDays)}d${tDisp}</span>`;
@@ -784,17 +789,17 @@ function renderDetailOverview() {
         })()}
       </div>
       <div>
-        <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:3px">Renewal</div>
-        ${c.renewal != null ? urgencyHTML(c) + ` <span style="font-size:.7rem;color:var(--muted);margin-left:4px">(${c.renewal}mo)</span>` : '<span style="font-size:.75rem;color:var(--muted)">—</span>'}
+        <div class="sig-label">Renewal</div>
+        ${c.renewal != null ? urgencyHTML(c) + ` <span style="font-size:var(--fs-sm);color:var(--muted);margin-left:4px">(${c.renewal}mo)</span>` : '<span style="font-size:var(--fs-sm);color:var(--muted)">—</span>'}
       </div>
       <div>
-        <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);margin-bottom:3px">Last Vibe</div>
-        ${sentIcon ? `<span style="font-size:.85rem">${sentIcon}</span> <span style="font-size:.75rem;color:var(--muted)">${fmtDate(sent.date)}</span>` : '<span style="font-size:.75rem;color:var(--muted)">—</span>'}
+        <div class="sig-label">Last Vibe</div>
+        ${sentIcon ? `<span style="font-size:var(--fs-md)">${sentIcon}</span> <span style="font-size:var(--fs-sm);color:var(--muted)">${fmtDate(sent.date)}</span>` : '<span style="font-size:var(--fs-sm);color:var(--muted)">—</span>'}
       </div>
     </div>
     <div class="rec-box" style="margin-bottom:14px">${rec}</div>
     <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
-      <button class="btn btn-primary btn-sm" onclick="saveDetailInline()" style="gap:4px">💾 Save Changes</button>
+      <button class="btn btn-primary btn-sm" onclick="saveDetailInline()" style="gap:4px">${appIcon('save',14)} Save Changes</button>
     </div>
     <div class="bd-title">Signal Breakdown</div>
     ${buildBreakdownHTML(signals, c)}
@@ -811,6 +816,8 @@ async function saveDetailInline() {
   const lcInput  = document.getElementById('di-lifecycle');
   const ntInput  = document.getElementById('di-next-touch');
   const tagsInput = document.getElementById('di-tags');
+  const mrrInput = document.getElementById('di-mrr');
+  const arrInput = document.getElementById('di-arr');
 
   if (mgrNew && mgrNew.style.display !== 'none' && mgrNew.value.trim()) {
     c.manager = mgrNew.value.trim();
@@ -819,6 +826,7 @@ async function saveDetailInline() {
   }
   if (tierInput) c.tier      = tierInput.value;
   if (lcInput)   c.lifecycle = lcInput.value;
+  applyAutoStage(c);
   if (ntInput) {
     const newNt = ntInput.value || '';
     const oldNt = c.next_touch || '';
@@ -843,6 +851,16 @@ async function saveDetailInline() {
   }
   if (tagsInput) {
     c.tags = tagsInput.value.split(',').map(t => t.trim()).filter(Boolean);
+  }
+  if (mrrInput) c.mrr = parseFloat(mrrInput.value) || 0;
+  if (arrInput) c.arr = parseFloat(arrInput.value) || 0;
+
+  /* Recalculate score — days/lifecycle/tier may have changed above */
+  const { score: newSc, signals: newSig } = calcScore(c);
+  if (newSc !== c.score) {
+    c.score = newSc;
+    c.status = getStatus(newSc);
+    applyAutoStage(c);
   }
 
   try {
@@ -894,7 +912,7 @@ function buildBreakdownHTML(signals, c) {
   return defs.map(d => {
     const off = !(d.weight > 0);
     return `<div class="bd-row${off ? ' bd-row--off' : ''}">
-      <div class="bd-label">${d.label}${off ? ' <span style="font-size:.65rem;color:var(--muted)">(off)</span>' : ''}</div>
+      <div class="bd-label">${d.label}${off ? ' <span style="font-size:var(--fs-xs);color:var(--muted)">(off)</span>' : ''}</div>
       <div class="bd-weight">${off ? '—' : Math.round((d.weight / total) * 100) + '%'}</div>
       <div class="bd-bar"><div class="bd-fill" style="width:${off ? 0 : Math.round(signals[d.key])}%;background:${d.color}"></div></div>
       <div class="bd-score">${off ? '—' : Math.round(signals[d.key])}</div>
@@ -903,19 +921,43 @@ function buildBreakdownHTML(signals, c) {
   }).join('');
 }
 
+/* stable key for a play — type + bold title (survives index shifts) */
+function playKey(p) {
+  const t = (p.text.match(/<strong>([^<]+)</) || [])[1] || '';
+  return p.type + '|' + t.replace(/:?\s*$/, '');
+}
+
 function renderDetailPlaybook() {
   const c = customers.find(x => x.id === detailId);
   if (!c) return;
   const plays = buildPlaybook(c.score, c);
   const playTypeMap2 = { urgent:'U', engage:'E', coach:'C', adopt:'A', support:'S', expand:'X', renew:'R', ok:'OK' };
   const playClsMap2  = { urgent:'play-urgent', engage:'play-engage', coach:'play-coach', adopt:'play-adopt', support:'play-support', expand:'play-expand', renew:'play-renew', ok:'play-ok' };
-  const checks = c.playbook_checks || {};
+
+  /* ── Auto-clear: migrate old index-based checks → key-based, prune stale ── */
+  let checks = c.playbook_checks || {};
+  let dirty = false;
+  const numKeys = Object.keys(checks).filter(k => /^\d+$/.test(k));
+  if (numKeys.length) {
+    const migrated = {};
+    Object.keys(checks).forEach(k => { if (!/^\d+$/.test(k)) migrated[k] = true; });
+    numKeys.forEach(k => { const idx = +k; if (plays[idx]) migrated[playKey(plays[idx])] = true; });
+    checks = migrated;
+    c.playbook_checks = checks;
+    dirty = true;
+  }
+  const validKeys = new Set(plays.map(playKey));
+  Object.keys(checks).forEach(k => {
+    if (!validKeys.has(k)) { delete checks[k]; dirty = true; }
+  });
+  if (dirty) atUpdate(c).catch(() => {});
+
   const done = Object.keys(checks).length;
   const pct  = plays.length ? Math.round((done / plays.length) * 100) : 0;
   const header = plays.length > 1
     ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
         <div class="playbook-title" style="margin:0">Action Playbook for ${escHtml(c.name)}</div>
-        <span style="margin-left:auto;font-size:.72rem;color:var(--muted)">${done}/${plays.length} done</span>
+        <span style="margin-left:auto;font-size:var(--fs-sm);color:var(--muted)">${done}/${plays.length} done</span>
         <div style="width:60px;height:5px;background:var(--border);border-radius:3px;overflow:hidden">
           <div style="width:${pct}%;height:100%;background:var(--green);border-radius:3px"></div>
         </div>
@@ -923,7 +965,7 @@ function renderDetailPlaybook() {
     : `<div class="playbook-title" style="margin-bottom:10px">Action Playbook for ${escHtml(c.name)}</div>`;
   el('dm-playbook').innerHTML = header +
     plays.map((p, i) => {
-      const checked = !!checks[i];
+      const checked = !!checks[playKey(p)];
       const cls = playClsMap2[p.type] || '';
       const ltr = playTypeMap2[p.type] || '!';
       return `<label class="play-item${checked ? ' play-done' : ''}">
@@ -937,9 +979,12 @@ function renderDetailPlaybook() {
 function togglePlayCheck(idx, checked) {
   const c = customers.find(x => x.id === detailId);
   if (!c) return;
+  const plays = buildPlaybook(c.score, c);
+  if (!plays[idx]) return;
+  const key = playKey(plays[idx]);
   c.playbook_checks = c.playbook_checks || {};
-  if (checked) c.playbook_checks[idx] = true;
-  else delete c.playbook_checks[idx];
+  if (checked) c.playbook_checks[key] = true;
+  else delete c.playbook_checks[key];
   atUpdate(c).catch(() => {});
   renderDetailPlaybook();
 }
@@ -957,7 +1002,7 @@ function renderDetailNotes() {
           </div>
           <div class="note-text">${escHtml(n.text)}</div>
         </div>`).join('')
-    : '<p style="font-size:.82rem;color:var(--muted)">No notes yet. Add one below.</p>';
+    : '<p style="font-size:var(--fs-base);color:var(--muted)">No notes yet. Add one below.</p>';
   el('note-input').value = '';
 }
 
@@ -990,13 +1035,13 @@ function renderDetailHistory() {
   // Sparkline
   el('dm-history-sparkline').innerHTML = hist.length >= 2
     ? buildSparkline(hist.map(h=>h.score), 260, 60)
-    : '<p style="font-size:.8rem;color:var(--muted)">Score at least twice to see trend.</p>';
+    : '<p style="font-size:var(--fs-base);color:var(--muted)">Score at least twice to see trend.</p>';
 
   // List — newest first; arr[i+1] = previous (older) entry
   const histList = el('dm-history-list');
   const reversed = [...hist].reverse();
   if (!reversed.length) {
-    histList.innerHTML = '<p style="font-size:.82rem;color:var(--muted)">No history yet.</p>';
+    histList.innerHTML = '<p style="font-size:var(--fs-base);color:var(--muted)">No history yet.</p>';
     return;
   }
   const pg = _pagGet('scoreHist');
@@ -1013,9 +1058,9 @@ function renderDetailHistory() {
     let deltaHtml = '';
     if (prev != null) {
       const d = h.score - prev.score;
-      if      (d > 0) deltaHtml = `<span class="delta-up" style="font-size:.72rem">▲${d}</span>`;
-      else if (d < 0) deltaHtml = `<span class="delta-dn" style="font-size:.72rem">▼${Math.abs(d)}</span>`;
-      else             deltaHtml = `<span class="delta-eq" style="font-size:.72rem">→0</span>`;
+      if      (d > 0) deltaHtml = `<span class="delta-up" style="font-size:var(--fs-sm)">▲${d}</span>`;
+      else if (d < 0) deltaHtml = `<span class="delta-dn" style="font-size:var(--fs-sm)">▼${Math.abs(d)}</span>`;
+      else             deltaHtml = `<span class="delta-eq" style="font-size:var(--fs-sm)">→0</span>`;
     }
 
     // Signal diff — what actually changed
@@ -1070,7 +1115,7 @@ function buildSparkline(values, w, h) {
 // Mini sparkline for customer table cells — reuses buildSparkline() at small scale
 function buildSparklineMini(c) {
   const hist = (c.history||[]).slice(-10); // last 10 score points
-  if (hist.length < 2) return '<span style="color:var(--subtle);font-size:.7rem">—</span>';
+  if (hist.length < 2) return '<span style="color:var(--subtle);font-size:var(--fs-sm)">—</span>';
   return buildSparkline(hist.map(h=>h.score), 72, 22);
 }
 
@@ -1125,10 +1170,10 @@ function editCustomer(id) {
       const lcd = new Date(c.last_contact_date);
       const daysAgo = Math.max(0, Math.floor((Date.now() - lcd.getTime()) / 86400000));
       const dateStr = lcd.toLocaleDateString('en-US', { month:'short', day:'numeric' });
-      daysDisp.innerHTML = `<span>${daysAgo} days</span> <span style="font-weight:400;font-size:.75rem;color:var(--muted)">since ${dateStr}</span>`;
+      daysDisp.innerHTML = `<span>${daysAgo} days</span> <span style="font-weight:400;font-size:var(--fs-sm);color:var(--muted)">since ${dateStr}</span>`;
       daysDisp.style.color = daysAgo > 30 ? 'var(--red)' : daysAgo > 14 ? 'var(--amber)' : 'var(--green)';
     } else if (c.days != null) {
-      daysDisp.innerHTML = `<span>${c.days} days</span> <span style="font-weight:400;font-size:.75rem;color:var(--muted)">(no contact date tracked)</span>`;
+      daysDisp.innerHTML = `<span>${c.days} days</span> <span style="font-weight:400;font-size:var(--fs-sm);color:var(--muted)">(no contact date tracked)</span>`;
       daysDisp.style.color = c.days > 30 ? 'var(--red)' : c.days > 14 ? 'var(--amber)' : '';
     } else {
       daysDisp.textContent = 'N/A';
@@ -1449,9 +1494,9 @@ function buildQBRHTML(c) {
         <div class="qbr-score-lbl">${statusLabel}</div>
       </div>
       <div class="qbr-meta">
-        <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--blue);margin-bottom:2px">Quarterly Business Review</div>
+        <div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--blue);margin-bottom:2px">Quarterly Business Review</div>
         <h3>${escHtml(c.name)}</h3>
-        <div style="font-size:.78rem;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:2px">
+        <div style="font-size:var(--fs-base);color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:2px">
           <span style="color:${momColors[mom] || '#94a3b8'};font-weight:700">${momIcons[mom] || ''} ${momLabels[mom] || '\u2014'}</span>
           ${histLine ? `<span style="color:var(--border)">\u00b7</span><span style="font-weight:600">${histLine}</span>` : ''}
         </div>
@@ -1640,26 +1685,26 @@ function printQBR() {
       body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;padding:32px;max-width:800px;margin:0 auto}
       .qbr-hdr{display:flex;gap:16px;align-items:center;padding:16px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:16px}
       .qbr-score{width:72px;height:72px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font-weight:800;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-      .qbr-score-num{font-size:1.5rem;line-height:1}.qbr-score-lbl{font-size:.6rem;text-transform:uppercase;letter-spacing:.5px;opacity:.9;margin-top:2px}
+      .qbr-score-num{font-size:1.5rem;line-height:1}.qbr-score-lbl{font-size:var(--fs-2xs);text-transform:uppercase;letter-spacing:.5px;opacity:.9;margin-top:2px}
       .qbr-meta h3{margin:0 0 4px;font-size:1rem}
-      .qbr-section{margin-bottom:14px}.qbr-section-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#64748b;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:7px}
-      .qbr-summary{font-size:.82rem;line-height:1.7;padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .qbr-section{margin-bottom:14px}.qbr-section-title{font-size:var(--fs-sm);font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#64748b;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:7px}
+      .qbr-summary{font-size:var(--fs-base);line-height:1.7;padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
       .qbr-wins,.qbr-risks,.qbr-questions{display:grid;gap:2px}
-      .qbr-win-row,.qbr-risk-row,.qbr-q-row{display:flex;align-items:center;gap:10px;padding:5px 8px;font-size:.82rem}
+      .qbr-win-row,.qbr-risk-row,.qbr-q-row{display:flex;align-items:center;gap:10px;padding:5px 8px;font-size:var(--fs-base)}
       .qbr-win-row:nth-child(odd),.qbr-risk-row:nth-child(odd),.qbr-q-row:nth-child(odd){background:#f8fafc;-webkit-print-color-adjust:exact;print-color-adjust:exact}
       .qbr-win-dot{width:8px;height:8px;border-radius:50%;background:#16a34a;-webkit-print-color-adjust:exact;print-color-adjust:exact}
       .qbr-risk-dot{width:8px;height:8px;border-radius:50%;-webkit-print-color-adjust:exact;print-color-adjust:exact}
       .qbr-risk--high .qbr-risk-dot{background:#dc2626}.qbr-risk--med .qbr-risk-dot{background:#d97706}
       .qbr-agenda{display:grid;gap:6px}
       .qbr-agenda-item{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px}
-      .qbr-agenda-num{width:26px;height:26px;border-radius:50%;background:#2563eb;color:#fff;font-size:.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-      .qbr-agenda-topic{font-weight:700;font-size:.82rem}.qbr-agenda-time{font-weight:500;font-size:.68rem;color:#64748b;margin-left:6px}
-      .qbr-agenda-detail{font-size:.76rem;color:#64748b;line-height:1.5;margin-top:3px}
-      .qbr-q-bullet{width:20px;height:20px;border-radius:50%;background:#eff6ff;color:#2563eb;font-size:.7rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-      .qbr-note{padding:6px 10px;border-left:3px solid #2563eb;background:#f8fafc;border-radius:0 6px 6px 0;font-size:.8rem;margin-bottom:6px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-      .qbr-note-date{font-size:.68rem;color:#64748b;font-weight:600;margin-bottom:2px;text-transform:uppercase;letter-spacing:.3px}
-      .qbr-tag{font-size:.7rem;padding:2px 8px;border:1px solid #e2e8f0;border-radius:100px;display:inline-block;margin-right:4px}
-      .qbr-meta-tags{margin-top:6px}.qbr-footer{text-align:center;font-size:.64rem;color:#94a3b8;padding-top:10px;border-top:1px solid #e2e8f0;margin-top:8px}
+      .qbr-agenda-num{width:26px;height:26px;border-radius:50%;background:#2563eb;color:#fff;font-size:var(--fs-sm);font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .qbr-agenda-topic{font-weight:700;font-size:var(--fs-base)}.qbr-agenda-time{font-weight:500;font-size:var(--fs-xs);color:#64748b;margin-left:6px}
+      .qbr-agenda-detail{font-size:var(--fs-sm);color:#64748b;line-height:1.5;margin-top:3px}
+      .qbr-q-bullet{width:20px;height:20px;border-radius:50%;background:#eff6ff;color:#2563eb;font-size:var(--fs-sm);font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .qbr-note{padding:6px 10px;border-left:3px solid #2563eb;background:#f8fafc;border-radius:0 6px 6px 0;font-size:var(--fs-base);margin-bottom:6px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .qbr-note-date{font-size:var(--fs-xs);color:#64748b;font-weight:600;margin-bottom:2px;text-transform:uppercase;letter-spacing:.3px}
+      .qbr-tag{font-size:var(--fs-sm);padding:2px 8px;border:1px solid #e2e8f0;border-radius:100px;display:inline-block;margin-right:4px}
+      .qbr-meta-tags{margin-top:6px}.qbr-footer{text-align:center;font-size:var(--fs-xs);color:#94a3b8;padding-top:10px;border-top:1px solid #e2e8f0;margin-top:8px}
     </style>
     ${el('qbr-content').innerHTML}`;
   window.print();

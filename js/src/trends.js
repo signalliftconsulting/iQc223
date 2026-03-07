@@ -66,7 +66,7 @@ function trendClientAutocomplete() {
   ).slice(0, 8);
   if (!matches.length) { ac.style.display = 'none'; return; }
   ac.innerHTML = matches.map(c =>
-    `<div onclick="addTrendClient('${escHtml(c.id)}')">${escHtml(c.name)} <span style="color:var(--subtle);font-size:.72rem">(${c.score})</span></div>`
+    `<div onclick="addTrendClient('${escHtml(c.id)}')">${escHtml(c.name)} <span style="color:var(--subtle);font-size:var(--fs-sm)">(${c.score})</span></div>`
   ).join('');
   ac.style.display = 'block';
 }
@@ -406,14 +406,14 @@ function renderTrendMovers() {
   });
 
   if (!sorted.length) {
-    wrap.innerHTML = '<p style="color:var(--subtle);font-size:.84rem;padding:12px">No score history available for this period.</p>';
+    wrap.innerHTML = '<p style="color:var(--subtle);font-size:var(--fs-md);padding:12px">No score history available for this period.</p>';
     return;
   }
 
   const arrow = (key) => _trendSortKey === key ? (_trendSortDir === 1 ? ' ▲' : ' ▼') : '';
   const thStyle = 'padding:8px 12px;font-weight:700;color:var(--fg);cursor:pointer;user-select:none;white-space:nowrap;position:sticky;top:0;background:var(--surface);z-index:1';
 
-  wrap.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:.82rem">
+  wrap.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:var(--fs-base)">
     <thead><tr style="text-align:left;border-bottom:2px solid var(--border)">
       <th style="${thStyle}" onclick="sortTrendMovers('name')">Customer${arrow('name')}</th>
       <th style="${thStyle}" onclick="sortTrendMovers('score')">Score${arrow('score')}</th>
@@ -477,7 +477,7 @@ function _trendNiceScale(linesArr, fixedRange) {
 
 function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
   if (!lines.length || !lines[0].points.length) {
-    return '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:.88rem">Not enough history to display a trend chart. Score a few customers to get started.</p>';
+    return '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:var(--fs-md)">Not enough history to display a trend chart. Score a few customers to get started.</p>';
   }
 
   const m1Cfg = METRIC_CFG[m1Key] || METRIC_CFG.score;
@@ -495,7 +495,7 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
   if (hasM2) m2Line.points.forEach(p => allDates.add(p.date));
   const dates = [...allDates].sort();
   if (!dates.length) {
-    return '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:.88rem">No data points in this range.</p>';
+    return '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:var(--fs-md)">No data points in this range.</p>';
   }
 
   const xScale = (i) => pad.left + (dates.length === 1 ? cW/2 : (i / (dates.length - 1)) * cW);
@@ -728,7 +728,7 @@ function showTrendTip(evt, cx, colIdx) {
     rows += `<div style="display:flex;align-items:center;gap:6px;margin-top:4px;border-top:1px solid var(--border);padding-top:4px"><span style="width:14px;height:0;border-top:2.5px dashed ${data.secondaryVal.color};flex-shrink:0"></span><span>${data.secondaryVal.label}</span><strong style="margin-left:auto">${data.secondaryVal.val}</strong></div>`;
   }
 
-  tip.innerHTML = `<div style="font-weight:700;margin-bottom:4px;font-size:.82rem">${data.dateLabel}</div>${rows}`;
+  tip.innerHTML = `<div style="font-weight:700;margin-bottom:4px;font-size:var(--fs-base)">${data.dateLabel}</div>${rows}`;
   // Position relative to the chart-wrap container
   const wrap = el('trend-chart-wrap');
   const svg = wrap.querySelector('svg');
@@ -1382,7 +1382,7 @@ function _buildTrendAnalysis(active, data1, data2, cutoff, rangeDays, m1, m2) {
     return;
   }
 
-  wrap.innerHTML = '<div style="font-size:.82rem;font-weight:700;color:var(--text);margin-bottom:8px">Analysis</div>' +
+  wrap.innerHTML = '<div style="font-size:var(--fs-base);font-weight:700;color:var(--text);margin-bottom:8px">Analysis</div>' +
     top.map(ins => {
       const cls = ins.accent === 'green' ? 'ta-card-green' : ins.accent === 'red' ? 'ta-card-red' : ins.accent === 'amber' ? 'ta-card-amber' : '';
       return `<div class="ta-card ${cls}">
