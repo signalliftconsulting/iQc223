@@ -190,6 +190,11 @@ serve(async (req) => {
     const stats = { total: subscriptions.length, matched: 0, updated: 0, skipped: 0 };
     const updates: any[] = [];
 
+    // ── Phase 1: Group subscriptions by matched customer ──
+    // A customer may have multiple Stripe subscriptions — we need to
+    // aggregate MRR, pick the best tier, and the latest renewal date
+    const grouped = new Map<string, { customer: any; subs: any[]; stripeCustomerId: string }>();
+
     for (const sub of subscriptions) {
       const stripeCustomerId = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id;
       const stripeCustomerName = (typeof sub.customer === 'object' ? sub.customer?.name : '') || '';
@@ -207,51 +212,82 @@ serve(async (req) => {
 
       stats.matched++;
 
-      const newMrr = Math.round(calculateMRR(sub));
+      const key = match.id;
+      if (!grouped.has(key)) {
+        grouped.set(key, { customer: match, subs: [], stripeCustomerId: stripeCustomerId || '' });
+      }
+      grouped.get(key)!.subs.push(sub);
+      // Keep the stripe customer ID if we have one
+      if (stripeCustomerId) grouped.get(key)!.stripeCustomerId = stripeCustomerId;
+    }
+
+    // ── Phase 2: Aggregate per customer and build updates ──
+    const TIER_RANK: Record<string, number> = { enterprise: 3, mid: 2, smb: 1 };
+
+    for (const [, group] of grouped) {
+      const match = group.customer;
+
+      // Sum MRR across all subscriptions
+      let totalMrr = 0;
+      let bestTier: string | null = null;
+      let latestRenewal = '';
+      const billingTags = new Set<string>();
+
+      for (const sub of group.subs) {
+        totalMrr += calculateMRR(sub);
+
+        // Detect tier — keep the highest-ranked one
+        const tier = detectTier(sub);
+        if (tier && (!bestTier || (TIER_RANK[tier] || 0) > (TIER_RANK[bestTier] || 0))) {
+          bestTier = tier;
+        }
+
+        // Renewal date — keep the latest (furthest in the future)
+        const periodEnd = sub.current_period_end;
+        if (periodEnd) {
+          const rd = new Date(periodEnd * 1000).toISOString().split('T')[0];
+          if (!latestRenewal || rd > latestRenewal) latestRenewal = rd;
+        }
+
+        // Billing interval tag
+        const firstItem = sub.items?.data?.[0]?.price?.recurring;
+        const interval = firstItem?.interval || '';
+        const intervalCount = firstItem?.interval_count || 1;
+        if (interval === 'month' && intervalCount === 1) billingTags.add('monthly');
+        else if (interval === 'month' && intervalCount === 3) billingTags.add('quarterly');
+        else if (interval === 'year') billingTags.add('annual');
+        else if (interval === 'week') billingTags.add('weekly');
+        else if (interval) billingTags.add(`${intervalCount}-${interval}`);
+      }
+
+      const newMrr = Math.round(totalMrr);
       const newArr = newMrr * 12;
-      const newTier = detectTier(sub);
       const newGrowth = detectGrowth(newMrr, match.mrr || 0);
-
-      // Renewal date from current_period_end
-      const periodEnd = sub.current_period_end;
-      const newRenewalDate = periodEnd ? new Date(periodEnd * 1000).toISOString().split('T')[0] : '';
-
-      // Billing interval tag (monthly, annual, etc.)
-      const firstItem = sub.items?.data?.[0]?.price?.recurring;
-      const interval = firstItem?.interval || '';
-      const intervalCount = firstItem?.interval_count || 1;
-      let billingTag = '';
-      if (interval === 'month' && intervalCount === 1) billingTag = 'monthly';
-      else if (interval === 'month' && intervalCount === 3) billingTag = 'quarterly';
-      else if (interval === 'year') billingTag = 'annual';
-      else if (interval === 'week') billingTag = 'weekly';
-      else if (interval) billingTag = `${intervalCount}-${interval}`;
 
       // Only update if something changed
       const changes: any = {};
       if (newMrr !== (match.mrr || 0)) changes.mrr = newMrr;
       if (newArr !== (match.arr || 0)) changes.arr = newArr;
-      if (newTier && newTier !== match.tier) changes.tier = newTier;
+      if (bestTier && bestTier !== match.tier) changes.tier = bestTier;
       if (newGrowth !== match.growth) changes.growth = newGrowth;
-      if (newRenewalDate && newRenewalDate !== (match.renewal_date || '')) {
-        changes.renewal_date = newRenewalDate;
-        // Calculate months to renewal
-        const msToRenewal = new Date(newRenewalDate).getTime() - Date.now();
+      if (latestRenewal && latestRenewal !== (match.renewal_date || '')) {
+        changes.renewal_date = latestRenewal;
+        const msToRenewal = new Date(latestRenewal).getTime() - Date.now();
         changes.renewal = Math.max(0, Math.round(msToRenewal / (1000 * 60 * 60 * 24 * 30.44)));
       }
 
-      // Add billing interval tag if not already present
-      if (billingTag) {
+      // Add billing interval tags
+      if (billingTags.size > 0) {
         const existingTags = (match.tags || '').split(',').map((t: string) => t.trim()).filter(Boolean);
-        const billingTags = ['monthly', 'quarterly', 'annual', 'weekly'];
-        const cleaned = existingTags.filter((t: string) => !billingTags.includes(t.toLowerCase()));
-        cleaned.push(billingTag);
+        const allBillingTags = ['monthly', 'quarterly', 'annual', 'weekly'];
+        const cleaned = existingTags.filter((t: string) => !allBillingTags.includes(t.toLowerCase()));
+        for (const bt of billingTags) cleaned.push(bt);
         const newTagStr = cleaned.join(',');
         if (newTagStr !== (match.tags || '')) changes.tags = newTagStr;
       }
 
-      if (stripeCustomerId && stripeCustomerId !== match.stripe_customer_id) {
-        changes.stripe_customer_id = stripeCustomerId;
+      if (group.stripeCustomerId && group.stripeCustomerId !== match.stripe_customer_id) {
+        changes.stripe_customer_id = group.stripeCustomerId;
       }
 
       if (Object.keys(changes).length > 0) {

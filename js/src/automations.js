@@ -1148,6 +1148,10 @@ async function renderIntegrationsSection() {
   const stripeInt = _integrationCache['stripe'] || null;
   const hubspotInt = _integrationCache['hubspot'] || null;
 
+  // Update topbar sync button visibility
+  const topSyncBtn = el('topbar-sync-btn');
+  if (topSyncBtn) topSyncBtn.style.display = stripeInt?.status === 'connected' ? '' : 'none';
+
   wrap.innerHTML = `
     <div class="card" style="max-width:720px;margin-bottom:18px">
       <div class="card-hd">
@@ -1294,6 +1298,132 @@ async function syncStripeUI() {
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Sync Now';
+  }
+}
+
+// ── Topbar Stripe Sync (quick access from header) ──
+async function topbarSyncStripe() {
+  const btn = el('topbar-sync-btn');
+  if (!btn || btn.classList.contains('syncing')) return;
+
+  btn.classList.add('syncing');
+  btn.disabled = true;
+
+  try {
+    const result = await syncIntegration('stripe');
+    const stats = result.stats || {};
+    toast(`Stripe sync: ${stats.updated || 0} of ${stats.matched || 0} customers updated`, 'success');
+
+    if (stats.updated > 0) {
+      _lastSyncTime = 0;
+      await silentSync();
+      renderCustomers();
+    }
+
+    _integrationCache['stripe'] = {
+      ...(_integrationCache['stripe'] || {}),
+      last_sync_at: new Date().toISOString(),
+      last_sync_status: 'success',
+      last_sync_message: `Synced ${stats.matched} of ${stats.total} subscriptions, ${stats.updated} updated`,
+      sync_stats: stats
+    };
+  } catch(e) {
+    toast('Stripe sync failed: ' + e.message, 'error');
+  } finally {
+    btn.classList.remove('syncing');
+    btn.disabled = false;
+  }
+}
+
+// Show/hide topbar sync button based on Stripe connection status
+async function updateTopbarSyncVisibility() {
+  const btn = el('topbar-sync-btn');
+  if (!btn) return;
+  try {
+    if (!_integrationCache['stripe']) {
+      const integrations = await loadIntegrationStatus();
+      for (const i of integrations) _integrationCache[i.platform] = i;
+    }
+    btn.style.display = _integrationCache['stripe']?.status === 'connected' ? '' : 'none';
+  } catch(e) {
+    btn.style.display = 'none';
+  }
+}
+
+// ── Topbar Customer Search ──
+let _topbarSearchHL = -1; // highlighted index for keyboard nav
+
+function topbarSearchInput() {
+  const input = el('topbar-search');
+  const results = el('topbar-search-results');
+  if (!input || !results) return;
+
+  const q = input.value.trim().toLowerCase();
+  if (!q) {
+    results.style.display = 'none';
+    _topbarSearchHL = -1;
+    return;
+  }
+
+  const matches = customers
+    .filter(c => c.name.toLowerCase().includes(q) || (c.tags || []).some(t => t.toLowerCase().includes(q)))
+    .slice(0, 8);
+
+  if (matches.length === 0) {
+    results.innerHTML = '<div class="topbar-sr-empty">No matching customers</div>';
+  } else {
+    results.innerHTML = matches.map((c, i) => `
+      <div class="topbar-sr-item${i === _topbarSearchHL ? ' highlighted' : ''}" onmousedown="topbarSearchSelect('${escHtml(c.id)}')">
+        <span class="topbar-sr-name">${escHtml(c.name)}</span>
+        <span class="topbar-sr-meta">${scoreHTML(c)} ${badgeHTML(c.status)}</span>
+      </div>
+    `).join('');
+  }
+  results.style.display = 'block';
+}
+
+function topbarSearchSelect(id) {
+  const input = el('topbar-search');
+  const results = el('topbar-search-results');
+  if (input) input.value = '';
+  if (results) results.style.display = 'none';
+  _topbarSearchHL = -1;
+  openDetail(id);
+}
+
+function topbarSearchBlur() {
+  setTimeout(() => {
+    const results = el('topbar-search-results');
+    if (results) results.style.display = 'none';
+    _topbarSearchHL = -1;
+  }, 180);
+}
+
+function topbarSearchKeydown(e) {
+  const results = el('topbar-search-results');
+  if (!results || results.style.display === 'none') return;
+
+  const items = results.querySelectorAll('.topbar-sr-item');
+  if (!items.length) return;
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _topbarSearchHL = Math.min(_topbarSearchHL + 1, items.length - 1);
+    items.forEach((it, i) => it.classList.toggle('highlighted', i === _topbarSearchHL));
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _topbarSearchHL = Math.max(_topbarSearchHL - 1, 0);
+    items.forEach((it, i) => it.classList.toggle('highlighted', i === _topbarSearchHL));
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (_topbarSearchHL >= 0 && _topbarSearchHL < items.length) {
+      items[_topbarSearchHL].dispatchEvent(new MouseEvent('mousedown'));
+    }
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    results.style.display = 'none';
+    _topbarSearchHL = -1;
+    el('topbar-search').blur();
   }
 }
 

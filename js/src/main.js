@@ -63,6 +63,8 @@
       renderSettings();
       // Check and send any due scheduled reports
       if (typeof checkScheduledReports === 'function') setTimeout(checkScheduledReports, 3000);
+      // Show/hide topbar Stripe sync button based on integration status
+      if (typeof updateTopbarSyncVisibility === 'function') updateTopbarSyncVisibility();
     }
 
   } else {
