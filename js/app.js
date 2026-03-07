@@ -11975,15 +11975,23 @@ async function syncStripeUI() {
     status.innerHTML = `<span style="color:var(--green)">✓ Synced ${stats.matched || 0} of ${stats.total || 0} subscriptions, ${stats.updated || 0} updated, ${stats.skipped || 0} skipped</span>`;
     toast(`Stripe sync complete: ${stats.updated || 0} customers updated`, 'success');
 
+    // Force-reload customer data after sync (bypass all silentSync guards)
     if (stats.updated > 0) {
-      _lastSyncTime = 0; // bypass 30-second guard so data reloads immediately
-      await silentSync();
+      try {
+        if (isAdmin() && activeClientId !== '__own__') {
+          await loadClientCustomers(activeClientId, true);
+        } else {
+          await loadCustomersFromSupabase();
+        }
+      } catch(e) { console.warn('Post-sync reload:', e); }
+      _lastSyncTime = Date.now();
       refreshLiveScores();
-      // Re-render whichever view is currently active
+      refreshMgrDropdown();
       const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
       if (active === 'homebase')  renderHomeBase();
       if (active === 'customers') renderCustomers();
       if (active === 'alerts')    renderAlerts();
+      if (active === 'trends')    renderTrends();
     }
 
     _integrationCache['stripe'] = {
@@ -12017,13 +12025,21 @@ async function topbarSyncStripe() {
     toast(`Stripe sync: ${stats.updated || 0} of ${stats.matched || 0} customers updated`, 'success');
 
     if (stats.updated > 0) {
-      _lastSyncTime = 0;
-      await silentSync();
+      try {
+        if (isAdmin() && activeClientId !== '__own__') {
+          await loadClientCustomers(activeClientId, true);
+        } else {
+          await loadCustomersFromSupabase();
+        }
+      } catch(e) { console.warn('Post-sync reload:', e); }
+      _lastSyncTime = Date.now();
       refreshLiveScores();
+      refreshMgrDropdown();
       const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
       if (active === 'homebase')  renderHomeBase();
       if (active === 'customers') renderCustomers();
       if (active === 'alerts')    renderAlerts();
+      if (active === 'trends')    renderTrends();
     }
 
     _integrationCache['stripe'] = {
