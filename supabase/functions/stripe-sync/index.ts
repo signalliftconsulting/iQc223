@@ -242,17 +242,34 @@ serve(async (req) => {
           bestTier = tier;
         }
 
-        // Renewal date — keep the latest (furthest in the future)
-        const periodEnd = sub.current_period_end;
-        if (periodEnd) {
-          const rd = new Date(periodEnd * 1000).toISOString().split('T')[0];
-          if (!latestRenewal || rd > latestRenewal) latestRenewal = rd;
-        }
-
-        // Billing interval tag
+        // Renewal date — calculate next billing date
+        // Newer Stripe API versions don't include current_period_end on subscriptions
+        // Use billing_cycle_anchor + interval to calculate next renewal
         const firstItem = sub.items?.data?.[0]?.price?.recurring;
         const interval = firstItem?.interval || '';
         const intervalCount = firstItem?.interval_count || 1;
+
+        let nextRenewal = '';
+        if (sub.current_period_end) {
+          // Legacy API: use current_period_end directly
+          nextRenewal = new Date(sub.current_period_end * 1000).toISOString().split('T')[0];
+        } else if (sub.billing_cycle_anchor && interval) {
+          // New API: calculate from billing_cycle_anchor + interval
+          const anchor = new Date(sub.billing_cycle_anchor * 1000);
+          const now = new Date();
+          // Advance the anchor by intervals until it's in the future
+          while (anchor <= now) {
+            if (interval === 'month') anchor.setMonth(anchor.getMonth() + intervalCount);
+            else if (interval === 'year') anchor.setFullYear(anchor.getFullYear() + intervalCount);
+            else if (interval === 'week') anchor.setDate(anchor.getDate() + 7 * intervalCount);
+            else if (interval === 'day') anchor.setDate(anchor.getDate() + intervalCount);
+            else break;
+          }
+          nextRenewal = anchor.toISOString().split('T')[0];
+        }
+        if (nextRenewal && (!latestRenewal || nextRenewal > latestRenewal)) {
+          latestRenewal = nextRenewal;
+        }
         if (interval === 'month' && intervalCount === 1) billingTags.add('monthly');
         else if (interval === 'month' && intervalCount === 3) billingTags.add('quarterly');
         else if (interval === 'year') billingTags.add('annual');
@@ -270,7 +287,8 @@ serve(async (req) => {
       if (newArr !== (match.arr || 0)) changes.arr = newArr;
       if (bestTier && bestTier !== match.tier) changes.tier = bestTier;
       if (newGrowth !== match.growth) changes.growth = newGrowth;
-      if (latestRenewal && latestRenewal !== (match.renewal_date || '')) {
+      // Always write renewal_date from Stripe if we have one
+      if (latestRenewal) {
         changes.renewal_date = latestRenewal;
         const msToRenewal = new Date(latestRenewal).getTime() - Date.now();
         changes.renewal = Math.max(0, Math.round(msToRenewal / (1000 * 60 * 60 * 24 * 30.44)));
@@ -290,27 +308,9 @@ serve(async (req) => {
         changes.stripe_customer_id = group.stripeCustomerId;
       }
 
-      // Build debug breakdown for this customer
-      const subBreakdown = group.subs.map(sub => ({
-        sub_id: sub.id,
-        stripe_customer: typeof sub.customer === 'string' ? sub.customer : sub.customer?.id,
-        mrr: Math.round(calculateMRR(sub) * 100) / 100,
-        period_end: sub.current_period_end,
-        period_end_date: sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString().split('T')[0] : null,
-        items: (sub.items?.data || []).map((it: any) => ({
-          amount: (it.price?.unit_amount || 0) / 100,
-          qty: it.quantity || 1,
-          interval: it.price?.recurring?.interval,
-          interval_count: it.price?.recurring?.interval_count
-        }))
-      }));
-
       if (Object.keys(changes).length > 0) {
-        updates.push({ id: match.id, name: match.name, changes, _debug: { totalMrr, latestRenewal, subCount: group.subs.length, subs: subBreakdown } });
+        updates.push({ id: match.id, name: match.name, changes });
         stats.updated++;
-      } else {
-        // Even if no changes, include in debug for visibility
-        updates.push({ id: match.id, name: match.name, changes: {}, _debug: { totalMrr, latestRenewal, subCount: group.subs.length, subs: subBreakdown, noChanges: true } });
       }
     }
 
