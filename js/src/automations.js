@@ -1274,6 +1274,7 @@ async function syncStripeUI() {
 
     // Refresh customer data if any updates were made
     if (stats.updated > 0) {
+      _lastSyncTime = 0; // bypass 30-second guard so data reloads immediately
       await silentSync();
       renderCustomers();
     }

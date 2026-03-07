@@ -6893,7 +6893,19 @@ function renderDetailOverview() {
       </div>
       <div>
         <div class="sig-label">Renewal</div>
-        ${c.renewal != null ? urgencyHTML(c) + ` <span style="font-size:var(--fs-sm);color:var(--muted);margin-left:4px">(${c.renewal}mo)</span>` : '<span style="font-size:var(--fs-sm);color:var(--muted)">—</span>'}
+        ${(()=>{
+          if (c.renewal_date) {
+            const d = new Date(c.renewal_date);
+            const today = new Date(); today.setHours(0,0,0,0);
+            const days = Math.round((d - today) / 86400000);
+            const dateStr = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+            const color = days <= 0 ? '#dc2626' : days <= 30 ? '#ea580c' : days <= 90 ? '#d97706' : 'var(--muted)';
+            const label = days < 0 ? 'Overdue' : days === 0 ? 'Today' : `${days}d left`;
+            return `<span style="font-weight:700;color:${color}">${label}</span> <span style="font-size:var(--fs-sm);color:var(--muted);margin-left:4px">${dateStr}</span>`;
+          }
+          if (c.renewal != null && c.renewal > 0) return urgencyHTML(c) + ` <span style="font-size:var(--fs-sm);color:var(--muted);margin-left:4px">(${c.renewal}mo)</span>`;
+          return '<span style="font-size:var(--fs-sm);color:var(--muted)">—</span>';
+        })()}
       </div>
       <div>
         <div class="sig-label">Last Vibe</div>
@@ -11960,6 +11972,7 @@ async function syncStripeUI() {
     toast(`Stripe sync complete: ${stats.updated || 0} customers updated`, 'success');
 
     if (stats.updated > 0) {
+      _lastSyncTime = 0; // bypass 30-second guard so data reloads immediately
       await silentSync();
       renderCustomers();
     }
