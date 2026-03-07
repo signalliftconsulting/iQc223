@@ -45,19 +45,26 @@ function calculateMRR(subscription: any): number {
   }, 0);
 }
 
-// Detect tier from Stripe product metadata or product name
+// Detect tier from Stripe price nickname or product name (if product is expanded)
 function detectTier(subscription: any): string | null {
   for (const item of (subscription?.items?.data || [])) {
-    const product = item.price?.product;
-    if (!product) continue;
-    // Check metadata first
-    const metaTier = (product.metadata?.tier || '').toLowerCase();
-    if (['enterprise', 'mid', 'smb'].includes(metaTier)) return metaTier;
-    // Check product name
-    const name = (product.name || '').toLowerCase();
-    if (name.includes('enterprise')) return 'enterprise';
-    if (name.includes('mid') || name.includes('business') || name.includes('professional') || name.includes('pro')) return 'mid';
-    if (name.includes('starter') || name.includes('basic') || name.includes('smb')) return 'smb';
+    const price = item.price;
+    if (!price) continue;
+    // Check price nickname (always available)
+    const nickname = (price.nickname || '').toLowerCase();
+    if (nickname.includes('enterprise')) return 'enterprise';
+    if (nickname.includes('mid') || nickname.includes('business') || nickname.includes('professional') || nickname.includes('pro')) return 'mid';
+    if (nickname.includes('starter') || nickname.includes('basic') || nickname.includes('smb')) return 'smb';
+    // Check product if it's an expanded object (not just a string ID)
+    const product = price.product;
+    if (product && typeof product === 'object') {
+      const metaTier = (product.metadata?.tier || '').toLowerCase();
+      if (['enterprise', 'mid', 'smb'].includes(metaTier)) return metaTier;
+      const name = (product.name || '').toLowerCase();
+      if (name.includes('enterprise')) return 'enterprise';
+      if (name.includes('mid') || name.includes('business') || name.includes('professional') || name.includes('pro')) return 'mid';
+      if (name.includes('starter') || name.includes('basic') || name.includes('smb')) return 'smb';
+    }
   }
   return null;
 }
@@ -92,7 +99,7 @@ async function fetchAllSubscriptions(stripeKey: string): Promise<any[]> {
 
   while (hasMore) {
     let url = 'https://api.stripe.com/v1/subscriptions?status=active&limit=100';
-    url += '&expand[]=data.customer&expand[]=data.items.data.price.product';
+    url += '&expand[]=data.customer&expand[]=data.items.data.price';
     if (startingAfter) url += `&starting_after=${startingAfter}`;
 
     const resp = await fetch(url, {
@@ -208,7 +215,7 @@ serve(async (req) => {
       const changes: any = {};
       if (newMrr !== (match.mrr || 0)) changes.mrr = newMrr;
       if (newTier && newTier !== match.tier) changes.tier = newTier;
-      if (newGrowth !== 'none' && newGrowth !== match.growth) changes.growth = newGrowth;
+      if (newGrowth !== match.growth) changes.growth = newGrowth;
       if (stripeCustomerId && stripeCustomerId !== match.stripe_customer_id) {
         changes.stripe_customer_id = stripeCustomerId;
       }
