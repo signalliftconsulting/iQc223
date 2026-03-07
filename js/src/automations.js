@@ -95,23 +95,17 @@ function helpTab(t) {
 
 // ── Tab switching ──
 function autoTab(which) {
+  if (which === 'advanced') {
+    // Redirect to Settings → API & Integrations tab
+    nav('settings'); cfgTab('api');
+    return;
+  }
   ['active','create','advanced'].forEach(t => {
     el('auto-tab-'+t)?.classList.toggle('active', t === which);
     el('auto-pane-'+t)?.classList.toggle('active', t === which);
   });
   if (which === 'active') renderActiveAlerts();
   if (which === 'create') { wizardGoToStep(_wizardStep); renderWizardNav(); }
-  if (which === 'advanced') {
-    // Pro+ only — show upgrade wall if not available
-    if (!hasFeature('api_webhooks')) {
-      const pane = el('auto-pane-advanced');
-      if (pane) pane.innerHTML = upgradeHTML('api_webhooks');
-      return;
-    }
-    renderWebhookConfig();
-    renderApiSection();
-    loadWebhookLog();
-  }
 }
 
 // ── Main render ──
@@ -1131,6 +1125,176 @@ const WEBHOOK_TRIGGERS = [
     desc: 'Fires when an account\'s status changes to "risk" or "critical".',
     hasThreshold: false }
 ];
+
+// ── Native Integrations UI ──
+
+let _integrationCache = {};
+
+async function renderIntegrationsSection() {
+  const wrap = el('integrations-section');
+  if (!wrap) return;
+
+  // Show loading
+  wrap.innerHTML = '<div class="card" style="max-width:720px;margin-bottom:18px"><div class="card-hd"><h2>Native Integrations</h2></div><p style="padding:16px;color:var(--muted)">Loading integrations…</p></div>';
+
+  try {
+    const integrations = await loadIntegrationStatus();
+    _integrationCache = {};
+    for (const i of integrations) _integrationCache[i.platform] = i;
+  } catch (e) {
+    console.warn('Failed to load integrations:', e);
+  }
+
+  const stripeInt = _integrationCache['stripe'] || null;
+  const hubspotInt = _integrationCache['hubspot'] || null;
+
+  wrap.innerHTML = `
+    <div class="card" style="max-width:720px;margin-bottom:18px">
+      <div class="card-hd">
+        <h2>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom;margin-right:6px"><path d="M6 3v12"/><path d="M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>Stripe
+          <span class="info-tip" data-tip="Connect your Stripe account to auto-sync subscription data: MRR, plan tier, and growth signals. Use a restricted API key with read-only access to Subscriptions and Products.">ⓘ</span>
+        </h2>
+        ${stripeInt?.status === 'connected' ? '<span style="font-size:var(--fs-sm);color:var(--green);font-weight:700">● Connected</span>' : '<span style="font-size:var(--fs-sm);color:var(--muted)">Not connected</span>'}
+      </div>
+      <div id="integration-stripe-body"></div>
+    </div>
+    <div class="card" style="max-width:720px;margin-bottom:18px">
+      <div class="card-hd">
+        <h2>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom;margin-right:6px"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>HubSpot
+          <span class="info-tip" data-tip="Connect your HubSpot account to sync company activity data. Coming soon — use the API or Zapier for now.">ⓘ</span>
+        </h2>
+        <span style="font-size:var(--fs-sm);color:var(--muted);font-style:italic">Coming soon</span>
+      </div>
+      <p style="font-size:var(--fs-base);color:var(--muted);padding:0 0 8px">HubSpot integration is on the roadmap. In the meantime, use the <strong>API endpoints</strong> below or connect via <strong>Zapier webhooks</strong> to push HubSpot data into iQcadence.</p>
+    </div>`;
+
+  renderStripeCard(stripeInt);
+}
+
+function renderStripeCard(integration) {
+  const body = el('integration-stripe-body');
+  if (!body) return;
+
+  if (!integration || integration.status !== 'connected') {
+    // Disconnected state
+    body.innerHTML = `
+      <p style="font-size:var(--fs-base);color:var(--muted);margin-bottom:14px">
+        Connect your Stripe account to auto-sync MRR, plan tier, and growth signals from your subscriptions.
+        Use a <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener" style="color:var(--blue)">restricted API key</a> with <strong>read-only</strong> access to Customers, Subscriptions, and Products.
+      </p>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="password" id="stripe-key-input" placeholder="sk_live_... or rk_live_..."
+          style="flex:1;min-width:240px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font-mono,monospace);color:var(--text);background:var(--surface)" />
+        <button class="btn btn-sm btn-success" onclick="connectStripeUI()" id="stripe-connect-btn">Connect Stripe</button>
+      </div>
+      <div id="stripe-connect-status" style="margin-top:8px;font-size:var(--fs-sm)"></div>`;
+  } else {
+    // Connected state
+    const syncAt = integration.last_sync_at
+      ? new Date(integration.last_sync_at).toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })
+      : 'Never';
+    const stats = integration.sync_stats || {};
+    const accountName = integration.config?.account_name || '';
+
+    body.innerHTML = `
+      <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:14px">
+        ${accountName ? `<div style="font-size:var(--fs-base)"><span style="color:var(--muted)">Account:</span> <strong>${escHtml(accountName)}</strong></div>` : ''}
+        <div style="font-size:var(--fs-base)"><span style="color:var(--muted)">Last sync:</span> <strong>${syncAt}</strong></div>
+        ${stats.matched != null ? `<div style="font-size:var(--fs-base)"><span style="color:var(--muted)">Matched:</span> <strong>${stats.matched}/${stats.total || 0}</strong></div>` : ''}
+        ${stats.updated != null ? `<div style="font-size:var(--fs-base)"><span style="color:var(--muted)">Updated:</span> <strong>${stats.updated}</strong></div>` : ''}
+        ${stats.skipped != null ? `<div style="font-size:var(--fs-base)"><span style="color:var(--muted)">Skipped:</span> <strong>${stats.skipped}</strong></div>` : ''}
+      </div>
+      ${integration.last_sync_message ? `<p style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:12px">${escHtml(integration.last_sync_message)}</p>` : ''}
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-primary" onclick="syncStripeUI()" id="stripe-sync-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Sync Now
+        </button>
+        <button class="btn btn-sm btn-danger" onclick="disconnectStripeUI()">Disconnect</button>
+      </div>
+      <div id="stripe-sync-status" style="margin-top:8px;font-size:var(--fs-sm)"></div>`;
+  }
+}
+
+async function connectStripeUI() {
+  const input = el('stripe-key-input');
+  const btn = el('stripe-connect-btn');
+  const status = el('stripe-connect-status');
+  const key = input?.value?.trim();
+  if (!key) { toast('Enter your Stripe API key', 'error'); return; }
+  if (!key.startsWith('sk_') && !key.startsWith('rk_')) {
+    toast('Key should start with sk_live_ or rk_live_', 'error'); return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Connecting…';
+  status.innerHTML = '<span style="color:var(--muted)">Validating key with Stripe…</span>';
+
+  try {
+    const result = await connectIntegration('stripe', key);
+    toast('Stripe connected!', 'success');
+    input.value = '';
+    renderIntegrationsSection(); // refresh the card
+  } catch(e) {
+    status.innerHTML = `<span style="color:var(--red)">${escHtml(e.message)}</span>`;
+    toast('Connection failed: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Connect Stripe';
+  }
+}
+
+async function disconnectStripeUI() {
+  confirmAction('Disconnect Stripe? This will remove the stored API key.', async () => {
+    try {
+      await disconnectIntegration('stripe');
+      toast('Stripe disconnected', 'warn');
+      renderIntegrationsSection();
+    } catch(e) {
+      toast('Disconnect failed: ' + e.message, 'error');
+    }
+  });
+}
+
+async function syncStripeUI() {
+  const btn = el('stripe-sync-btn');
+  const status = el('stripe-sync-status');
+  if (!btn) return;
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-sm"></span> Syncing…';
+  status.innerHTML = '<span style="color:var(--muted)">Pulling subscriptions from Stripe…</span>';
+
+  try {
+    const result = await syncIntegration('stripe');
+    const stats = result.stats || {};
+    status.innerHTML = `<span style="color:var(--green)">✓ Synced ${stats.matched || 0} of ${stats.total || 0} subscriptions, ${stats.updated || 0} updated, ${stats.skipped || 0} skipped</span>`;
+    toast(`Stripe sync complete: ${stats.updated || 0} customers updated`, 'success');
+
+    // Refresh customer data if any updates were made
+    if (stats.updated > 0) {
+      await silentSync();
+      renderCustomers();
+    }
+
+    // Refresh the card to show updated sync stats
+    _integrationCache['stripe'] = {
+      ...(_integrationCache['stripe'] || {}),
+      last_sync_at: new Date().toISOString(),
+      last_sync_status: 'success',
+      last_sync_message: `Synced ${stats.matched} of ${stats.total} subscriptions, ${stats.updated} updated`,
+      sync_stats: stats
+    };
+    renderStripeCard(_integrationCache['stripe']);
+  } catch(e) {
+    status.innerHTML = `<span style="color:var(--red)">✗ ${escHtml(e.message)}</span>`;
+    toast('Sync failed: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Sync Now';
+  }
+}
 
 // ── Webhook config UI ──
 function renderWebhookConfig() {

@@ -173,7 +173,10 @@ CREATE TABLE IF NOT EXISTS customers (
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   next_touch        TEXT DEFAULT '',
   playbook_checks   TEXT DEFAULT '{}',
-  last_contact_date TEXT DEFAULT ''
+  last_contact_date TEXT DEFAULT '',
+  external_id       TEXT DEFAULT '',
+  stripe_customer_id TEXT DEFAULT '',
+  hubspot_company_id TEXT DEFAULT ''
 );
 
 -- Add last_contact_date column (safe to re-run)
@@ -366,7 +369,71 @@ CREATE POLICY "api_keys_owner" ON api_keys
 
 
 -- ─────────────────────────────────────────────────────────────────
--- 9. INDEXES
+-- 9. INTEGRATION ID COLUMNS (safe to re-run)
+-- ─────────────────────────────────────────────────────────────────
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='customers' AND column_name='external_id') THEN
+    ALTER TABLE customers ADD COLUMN external_id TEXT DEFAULT '';
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='customers' AND column_name='stripe_customer_id') THEN
+    ALTER TABLE customers ADD COLUMN stripe_customer_id TEXT DEFAULT '';
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='customers' AND column_name='hubspot_company_id') THEN
+    ALTER TABLE customers ADD COLUMN hubspot_company_id TEXT DEFAULT '';
+  END IF;
+END $$;
+
+
+-- ─────────────────────────────────────────────────────────────────
+-- 10. INTEGRATIONS TABLE (native Stripe/HubSpot connections)
+-- ─────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS integrations (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id         UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  platform          TEXT NOT NULL CHECK (platform IN ('stripe', 'hubspot')),
+  vault_secret_id   UUID DEFAULT NULL,
+  config            JSONB DEFAULT '{}'::jsonb,
+  status            TEXT DEFAULT 'disconnected' CHECK (status IN ('connected', 'disconnected', 'error')),
+  last_sync_at      TIMESTAMPTZ DEFAULT NULL,
+  last_sync_status  TEXT DEFAULT NULL,
+  last_sync_message TEXT DEFAULT '',
+  sync_stats        JSONB DEFAULT '{}'::jsonb,
+  webhook_secret_id UUID DEFAULT NULL,
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(client_id, platform)
+);
+
+ALTER TABLE integrations ENABLE ROW LEVEL SECURITY;
+
+-- Nuke existing policies on integrations
+DO $$
+DECLARE pol RECORD;
+BEGIN
+  FOR pol IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = 'integrations'
+  LOOP EXECUTE format('DROP POLICY IF EXISTS %I ON integrations', pol.policyname); END LOOP;
+END;
+$$;
+
+CREATE POLICY "integrations_client_member" ON integrations
+  FOR ALL
+  USING  (client_id = get_my_client_id())
+  WITH CHECK (client_id = get_my_client_id());
+
+CREATE POLICY "integrations_admin" ON integrations
+  FOR ALL
+  USING      ((auth.jwt() ->> 'email') = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']))
+  WITH CHECK ((auth.jwt() ->> 'email') = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']));
+
+
+-- ─────────────────────────────────────────────────────────────────
+-- 11. INDEXES
 -- ─────────────────────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_customers_user_id    ON customers(user_id);
 CREATE INDEX IF NOT EXISTS idx_customers_client_id  ON customers(client_id);
@@ -377,10 +444,14 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_created   ON audit_logs(created_at DES
 CREATE INDEX IF NOT EXISTS idx_webhook_events_user  ON webhook_events(user_id);
 CREATE INDEX IF NOT EXISTS idx_webhook_events_date  ON webhook_events(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_api_keys_hash        ON api_keys(key_hash);
+CREATE INDEX IF NOT EXISTS idx_integrations_client   ON integrations(client_id);
+CREATE INDEX IF NOT EXISTS idx_customers_ext_id      ON customers(external_id)        WHERE external_id != '';
+CREATE INDEX IF NOT EXISTS idx_customers_stripe_id   ON customers(stripe_customer_id)  WHERE stripe_customer_id != '';
+CREATE INDEX IF NOT EXISTS idx_customers_hubspot_id  ON customers(hubspot_company_id)  WHERE hubspot_company_id != '';
 
 
 -- ─────────────────────────────────────────────────────────────────
--- 10. BACKFILL: Populate client_id on existing customer rows
+-- 12. BACKFILL: Populate client_id on existing customer rows
 -- Run this ONCE after deploying the schema changes above.
 -- ─────────────────────────────────────────────────────────────────
 UPDATE customers c

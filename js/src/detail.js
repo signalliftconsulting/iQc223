@@ -759,6 +759,17 @@ function renderDetailOverview() {
             <label class="di-label">Tags</label>
             <input type="text" id="di-tags" class="di-input" value="${escHtml((c.tags||[]).join(', '))}" placeholder="Comma-separated" />
           </div>
+          <div>
+            <label class="di-label">External ID</label>
+            <input type="text" id="di-external-id" class="di-input" value="${escHtml(c.external_id||'')}" placeholder="CRM / billing ID" />
+          </div>
+          <div>
+            <label class="di-label">Stripe ID</label>
+            <div style="display:flex;gap:4px;align-items:center">
+              <input type="text" id="di-stripe-id" class="di-input" value="${escHtml(c.stripe_customer_id||'')}" placeholder="cus_..." style="flex:1" readonly />
+              ${c.stripe_customer_id ? `<a href="https://dashboard.stripe.com/customers/${encodeURIComponent(c.stripe_customer_id)}" target="_blank" rel="noopener" style="color:var(--blue);font-size:var(--fs-sm)" title="Open in Stripe">↗</a>` : ''}
+            </div>
+          </div>
         </div>
         ${c.scoring_profile ? `<div style="margin-top:6px;font-size:var(--fs-sm);color:var(--muted)"><span>Profile: <strong style="color:var(--text)">${escHtml(c.scoring_profile)}</strong></span></div>` : ''}
       </div>
@@ -854,6 +865,10 @@ async function saveDetailInline() {
   }
   if (mrrInput) c.mrr = parseFloat(mrrInput.value) || 0;
   if (arrInput) c.arr = parseFloat(arrInput.value) || 0;
+
+  // Integration IDs
+  const extIdInput = document.getElementById('di-external-id');
+  if (extIdInput) c.external_id = extIdInput.value.trim();
 
   /* Recalculate score — days/lifecycle/tier may have changed above */
   const { score: newSc, signals: newSig } = calcScore(c);

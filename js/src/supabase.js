@@ -212,8 +212,11 @@ function fromRow(row) {
     next_touch:        row.next_touch        || '',
     next_touch_time:   row.next_touch_time   || '',
     playbook_checks:   tryParse(row.playbook_checks, {}),
-    last_contact_date: row.last_contact_date || '',
-    touch_history:     tryParse(row.touch_history, [])
+    last_contact_date:  row.last_contact_date  || '',
+    touch_history:      tryParse(row.touch_history, []),
+    external_id:        row.external_id        || '',
+    stripe_customer_id: row.stripe_customer_id || '',
+    hubspot_company_id: row.hubspot_company_id || ''
   };
 }
 
@@ -253,8 +256,11 @@ function toRow(c) {
     next_touch:        c.next_touch        || '',
     next_touch_time:   c.next_touch_time   || '',
     playbook_checks:   JSON.stringify(c.playbook_checks || {}),
-    last_contact_date: c.last_contact_date || '',
-    touch_history:     JSON.stringify(c.touch_history || [])
+    last_contact_date:  c.last_contact_date  || '',
+    touch_history:      JSON.stringify(c.touch_history || []),
+    external_id:        c.external_id        || '',
+    stripe_customer_id: c.stripe_customer_id || '',
+    hubspot_company_id: c.hubspot_company_id || ''
   };
   // Only include client_id if the DB column exists (detected during load)
   if (_dbHasClientId && _userClientId) row.client_id = _userClientId;
@@ -484,6 +490,48 @@ function renderTrash() {
 // atUpdate(c) — alias for save
 async function atUpdate(c) { return save(c); }
 async function atCreate(c) { return save(c); }
+
+// ─── INTEGRATIONS ────────────────────────────────────────────
+
+// Load integration status for the current client
+async function loadIntegrationStatus(platform) {
+  try {
+    let q = sb.from('integrations').select('*');
+    if (platform) q = q.eq('platform', platform);
+    const { data, error } = await q;
+    if (error) { console.warn('loadIntegrationStatus:', error.message); return []; }
+    return data || [];
+  } catch(e) { console.warn('loadIntegrationStatus:', e); return []; }
+}
+
+// Connect an integration (calls Edge Function)
+async function connectIntegration(platform, credential) {
+  const { data, error } = await sb.functions.invoke('integration-connect', {
+    body: { platform, action: 'connect', credential }
+  });
+  if (error) throw new Error(error.message || 'Connection failed');
+  if (data && !data.success) throw new Error(data.error || 'Connection failed');
+  return data;
+}
+
+// Disconnect an integration (calls Edge Function)
+async function disconnectIntegration(platform) {
+  const { data, error } = await sb.functions.invoke('integration-connect', {
+    body: { platform, action: 'disconnect' }
+  });
+  if (error) throw new Error(error.message || 'Disconnect failed');
+  if (data && !data.success) throw new Error(data.error || 'Disconnect failed');
+  return data;
+}
+
+// Trigger a sync (calls Edge Function)
+async function syncIntegration(platform) {
+  const fnName = platform + '-sync'; // e.g. 'stripe-sync'
+  const { data, error } = await sb.functions.invoke(fnName, { body: {} });
+  if (error) throw new Error(error.message || 'Sync failed');
+  if (data && !data.success) throw new Error(data.error || 'Sync failed');
+  return data;
+}
 
 // ─── DEMO DATA ───────────────────────────────────────────────
 

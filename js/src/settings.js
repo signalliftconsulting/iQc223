@@ -1,9 +1,20 @@
 // ─── SETTINGS ───────────────────────────────────────────────
 function cfgTab(which) {
-  ['config','account'].forEach(t => {
+  ['config','account','api'].forEach(t => {
     el('cfg-tab-'+t)?.classList.toggle('active', t === which);
     el('cfg-pane-'+t)?.classList.toggle('active', t === which);
   });
+  if (which === 'api') {
+    if (!hasFeature('api_webhooks')) {
+      const pane = el('cfg-pane-api');
+      if (pane) pane.innerHTML = upgradeHTML('api_webhooks');
+      return;
+    }
+    renderIntegrationsSection();
+    renderWebhookConfig();
+    renderApiSection();
+    loadWebhookLog();
+  }
 }
 
 function auditTab(which) {

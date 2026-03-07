@@ -312,7 +312,7 @@ serve(async (req) => {
     // Single customer by ID or name
     // ════════════════════════════════════════════════════════
     } else if (action === 'get_customer') {
-      if (!data.id && !data.name) throw new Error('id or name is required');
+      if (!data.id && !data.name && !data.external_id) throw new Error('id, name, or external_id is required');
 
       let query = serviceClient
         .from('customers')
@@ -322,6 +322,8 @@ serve(async (req) => {
 
       if (data.id) {
         query = query.eq('id', data.id);
+      } else if (data.external_id) {
+        query = query.eq('external_id', data.external_id);
       } else {
         query = query.ilike('name', data.name);
       }
@@ -337,23 +339,40 @@ serve(async (req) => {
     // ACTION: upsert_account (POST)
     // ════════════════════════════════════════════════════════
     } else if (action === 'upsert_account') {
-      if (!data.name) throw new Error('Account name is required');
+      if (!data.name && !data.external_id) throw new Error('Account name or external_id is required');
 
-      // Check if customer exists by name (case-insensitive) within this client
-      const { data: existing } = await serviceClient
-        .from('customers')
-        .select('*')
-        .eq('client_id', clientId)
-        .ilike('name', data.name)
-        .is('deleted_at', null)
-        .limit(1);
+      // Match cascade: external_id → name (case-insensitive)
+      let existing: any[] | null = null;
+      if (data.external_id) {
+        const { data: byExtId } = await serviceClient
+          .from('customers')
+          .select('*')
+          .eq('client_id', clientId)
+          .eq('external_id', data.external_id)
+          .is('deleted_at', null)
+          .limit(1);
+        if (byExtId?.length) existing = byExtId;
+      }
+      if (!existing?.length && data.name) {
+        const { data: byName } = await serviceClient
+          .from('customers')
+          .select('*')
+          .eq('client_id', clientId)
+          .ilike('name', data.name)
+          .is('deleted_at', null)
+          .limit(1);
+        if (byName?.length) existing = byName;
+      }
 
       // Build row with only the provided fields (validated)
       const row: Record<string, any> = {
         user_id: userId,
         client_id: clientId,
-        name: validateString(data.name, 255, 'name'),
       };
+      if (data.name) row.name = validateString(data.name, 255, 'name');
+      if (data.external_id)        row.external_id = validateString(data.external_id, 255, 'external_id');
+      if (data.stripe_customer_id) row.stripe_customer_id = validateString(data.stripe_customer_id, 255, 'stripe_customer_id');
+      if (data.hubspot_company_id) row.hubspot_company_id = validateString(data.hubspot_company_id, 255, 'hubspot_company_id');
       if (data.mrr != null)        row.mrr = validateNumber(data.mrr, 0, null, 'mrr');
       if (data.arr != null)        row.arr = validateNumber(data.arr, 0, null, 'arr');
       if (data.score != null)      { row.score = validateNumber(data.score, 0, 100, 'score'); row.status = getStatusFromScore(row.score); }
@@ -387,9 +406,10 @@ serve(async (req) => {
           .update(row)
           .eq('id', existing[0].id);
         if (error) throw error;
-        result = { action: 'updated', id: existing[0].id, name: data.name, score: row.score, status: row.status };
+        result = { action: 'updated', id: existing[0].id, name: row.name || existing[0].name, score: row.score, status: row.status };
       } else {
-        // Create new customer — auto-score from provided signals
+        // Create new customer — name is required for new records
+        if (!row.name) throw new Error('Account name is required when creating a new customer');
         row.id = crypto.randomUUID();
         row.created_at = new Date().toISOString();
         if (data.score == null) {
@@ -412,27 +432,41 @@ serve(async (req) => {
     // ACTION: update_health (POST)
     // ════════════════════════════════════════════════════════
     } else if (action === 'update_health') {
-      if (!data.name || !data.field) throw new Error('name and field are required');
+      if ((!data.name && !data.external_id) || !data.field) throw new Error('(name or external_id) and field are required');
 
       const allowedFields = [
         'score', 'nps', 'logins', 'adoption', 'tickets', 'days',
         'renewal_date', 'growth', 'mrr', 'arr', 'tier', 'lifecycle',
-        'manager', 'next_touch'
+        'manager', 'next_touch', 'external_id', 'stripe_customer_id', 'hubspot_company_id'
       ];
       if (!allowedFields.includes(data.field)) {
         throw new Error('Invalid field: ' + data.field + '. Allowed: ' + allowedFields.join(', '));
       }
 
-      // Find customer by name within this client (full row for auto-rescore)
-      const { data: existing } = await serviceClient
-        .from('customers')
-        .select('*')
-        .eq('client_id', clientId)
-        .ilike('name', data.name)
-        .is('deleted_at', null)
-        .limit(1);
+      // Find customer: external_id → name (cascade)
+      let existing: any[] | null = null;
+      if (data.external_id) {
+        const { data: byExtId } = await serviceClient
+          .from('customers')
+          .select('*')
+          .eq('client_id', clientId)
+          .eq('external_id', data.external_id)
+          .is('deleted_at', null)
+          .limit(1);
+        if (byExtId?.length) existing = byExtId;
+      }
+      if (!existing?.length && data.name) {
+        const { data: byName } = await serviceClient
+          .from('customers')
+          .select('*')
+          .eq('client_id', clientId)
+          .ilike('name', data.name)
+          .is('deleted_at', null)
+          .limit(1);
+        if (byName?.length) existing = byName;
+      }
 
-      if (!existing || !existing.length) throw new Error('Account not found: ' + data.name);
+      if (!existing || !existing.length) throw new Error('Account not found: ' + (data.external_id || data.name));
 
       // Validate value matches expected type for the field
       const numericFieldLimits: Record<string, [number, number | null]> = {

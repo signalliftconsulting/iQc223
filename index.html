@@ -2166,12 +2166,13 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 
 <!-- ═══════════════ SETTINGS ═══════════════ -->
 <div class="view" id="view-settings">
-  <div class="page-hd"><div><h1>Settings</h1><p>Customize scoring, thresholds, and scoring profiles.</p></div></div>
+  <div class="page-hd"><div><h1>Settings</h1><p>Customize scoring, thresholds, scoring profiles, and API integrations.</p></div></div>
 
   <!-- Tab bar -->
   <div class="dtab-row" style="margin-bottom:18px">
     <button class="dtab active" id="cfg-tab-config"  onclick="cfgTab('config')">Config</button>
     <button class="dtab"        id="cfg-tab-account" onclick="cfgTab('account')">Account</button>
+    <button class="dtab"        id="cfg-tab-api"     onclick="cfgTab('api')">API &amp; Integrations</button>
   </div>
 
   <!-- Config tab -->
@@ -2332,6 +2333,64 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
     </div>
   </div>
 
+  <!-- API & Integrations tab -->
+  <div class="dtab-pane" id="cfg-pane-api">
+    <!-- Native Integrations -->
+    <div id="integrations-section"></div>
+    <!-- Custom Webhooks -->
+    <div class="card" style="max-width:720px;margin-bottom:18px">
+      <div class="card-hd"><h2>Custom Webhooks <span class="info-tip" data-tip="Advanced: POST JSON to custom webhook URLs (e.g. Zapier 'Webhooks by Zapier' trigger) for routing to any of 5,000+ apps.">ⓘ</span></h2></div>
+      <p style="font-size:var(--fs-base);color:var(--muted);margin-bottom:16px">Configure per-trigger webhook URLs for Zapier or custom integrations. For simple Slack/Teams/Email alerts, use the Create Alert tab instead.</p>
+      <div id="auto-webhooks-list"></div>
+    </div>
+    <!-- API Key -->
+    <div class="card" style="max-width:720px;margin-bottom:18px">
+      <div class="card-hd"><h2>API Key <span class="info-tip" data-tip="Your API key authenticates inbound requests from Zapier or other services. Include it in the x-api-key header.">ⓘ</span></h2></div>
+      <p style="font-size:var(--fs-base);color:var(--muted);margin-bottom:14px">All inbound API requests require this key in the <code style="background:var(--bg);padding:1px 5px;border-radius:4px;font-size:var(--fs-base)">x-api-key</code> header.</p>
+      <div id="auto-api-key-section"></div>
+    </div>
+    <!-- Available Endpoints -->
+    <div class="card" style="max-width:720px;margin-bottom:18px">
+      <div class="card-hd"><h2>Available Endpoints <span class="info-tip" data-tip="Use these endpoints from Zapier's 'Webhooks by Zapier' action, or any HTTP client like curl or Postman.">ⓘ</span></h2></div>
+      <div id="auto-api-endpoints"></div>
+    </div>
+    <!-- Event Log -->
+    <div class="card" style="max-width:860px;overflow-x:auto">
+      <div class="card-hd">
+        <h2>Event Log</h2>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="auto-log-filter" onchange="_pagState.webhookLog=0;renderWebhookLog()" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)">
+            <option value="all">All Events</option>
+            <option value="outbound">Outbound Only</option>
+            <option value="inbound">Inbound Only</option>
+          </select>
+          <button class="btn btn-sm btn-ghost" onclick="loadWebhookLog(true)">Refresh</button>
+        </div>
+      </div>
+      <div id="auto-log-loading" style="text-align:center;padding:32px;color:var(--muted);font-size:.85rem">Loading event log…</div>
+      <div id="auto-log-pag-top"></div>
+      <table class="ct" id="auto-log-table" style="display:none">
+        <thead><tr>
+          <th>Time</th>
+          <th>Direction</th>
+          <th>Event</th>
+          <th>Customer</th>
+          <th>Status</th>
+          <th>Details</th>
+        </tr></thead>
+        <tbody id="auto-log-tbody"></tbody>
+      </table>
+      <div id="auto-log-empty" class="empty-st" style="display:none">
+        <div class="ei"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+        <h3>No webhook events yet</h3>
+        <p>Events will appear here when webhooks fire or API calls are received.</p>
+      </div>
+      <div id="auto-log-pag-bot"></div>
+      <div id="auto-log-pagination" style="display:none;padding:14px 0 4px;text-align:center">
+        <button class="btn btn-sm btn-ghost" onclick="loadMoreWebhookLog()">Load more from server…</button>
+      </div>
+    </div>
+  </div>
 
 </div><!-- /settings -->
 
@@ -2473,7 +2532,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <div class="dtab-row" style="margin-bottom:18px">
     <button class="dtab active" id="auto-tab-active" onclick="autoTab('active')">Active Alerts</button>
     <button class="dtab" id="auto-tab-create" onclick="autoTab('create')">Create Alert</button>
-    <button class="dtab" id="auto-tab-advanced" onclick="autoTab('advanced')">Advanced</button>
+    <button class="dtab" id="auto-tab-advanced" onclick="nav('settings');cfgTab('api')">API &amp; Integrations</button>
   </div>
 
   <!-- ── Tab 1: Active Alerts ── -->
@@ -2516,62 +2575,8 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
     </div>
   </div>
 
-  <!-- ── Tab 3: Advanced ── -->
-  <div class="dtab-pane" id="auto-pane-advanced">
-    <!-- Custom Webhooks -->
-    <div class="card" style="max-width:720px;margin-bottom:18px">
-      <div class="card-hd"><h2>Custom Webhooks <span class="info-tip" data-tip="Advanced: POST JSON to custom webhook URLs (e.g. Zapier 'Webhooks by Zapier' trigger) for routing to any of 5,000+ apps.">ⓘ</span></h2></div>
-      <p style="font-size:var(--fs-base);color:var(--muted);margin-bottom:16px">Configure per-trigger webhook URLs for Zapier or custom integrations. For simple Slack/Teams/Email alerts, use the Create Alert tab instead.</p>
-      <div id="auto-webhooks-list"></div>
-    </div>
-    <!-- API Key -->
-    <div class="card" style="max-width:720px;margin-bottom:18px">
-      <div class="card-hd"><h2>API Key <span class="info-tip" data-tip="Your API key authenticates inbound requests from Zapier or other services. Include it in the x-api-key header.">ⓘ</span></h2></div>
-      <p style="font-size:var(--fs-base);color:var(--muted);margin-bottom:14px">All inbound API requests require this key in the <code style="background:var(--bg);padding:1px 5px;border-radius:4px;font-size:var(--fs-base)">x-api-key</code> header.</p>
-      <div id="auto-api-key-section"></div>
-    </div>
-    <!-- Available Endpoints -->
-    <div class="card" style="max-width:720px;margin-bottom:18px">
-      <div class="card-hd"><h2>Available Endpoints <span class="info-tip" data-tip="Use these endpoints from Zapier's 'Webhooks by Zapier' action, or any HTTP client like curl or Postman.">ⓘ</span></h2></div>
-      <div id="auto-api-endpoints"></div>
-    </div>
-    <!-- Event Log -->
-    <div class="card" style="max-width:860px;overflow-x:auto">
-      <div class="card-hd">
-        <h2>Event Log</h2>
-        <div style="display:flex;gap:8px;align-items:center">
-          <select id="auto-log-filter" onchange="_pagState.webhookLog=0;renderWebhookLog()" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)">
-            <option value="all">All Events</option>
-            <option value="outbound">Outbound Only</option>
-            <option value="inbound">Inbound Only</option>
-          </select>
-          <button class="btn btn-sm btn-ghost" onclick="loadWebhookLog(true)">Refresh</button>
-        </div>
-      </div>
-      <div id="auto-log-loading" style="text-align:center;padding:32px;color:var(--muted);font-size:.85rem">Loading event log…</div>
-      <div id="auto-log-pag-top"></div>
-      <table class="ct" id="auto-log-table" style="display:none">
-        <thead><tr>
-          <th>Time</th>
-          <th>Direction</th>
-          <th>Event</th>
-          <th>Customer</th>
-          <th>Status</th>
-          <th>Details</th>
-        </tr></thead>
-        <tbody id="auto-log-tbody"></tbody>
-      </table>
-      <div id="auto-log-empty" class="empty-st" style="display:none">
-        <div class="ei"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
-        <h3>No webhook events yet</h3>
-        <p>Events will appear here when webhooks fire or API calls are received.</p>
-      </div>
-      <div id="auto-log-pag-bot"></div>
-      <div id="auto-log-pagination" style="display:none;padding:14px 0 4px;text-align:center">
-        <button class="btn btn-sm btn-ghost" onclick="loadMoreWebhookLog()">Load more from server…</button>
-      </div>
-    </div>
-  </div>
+  <!-- Advanced content moved to Settings → API & Integrations tab -->
+  <div class="dtab-pane" id="auto-pane-advanced" style="display:none"></div>
 
 </div><!-- /automations -->
 
@@ -3597,6 +3602,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=300"></script>
+<script src="js/app.js?v=302"></script>
 </body>
 </html>

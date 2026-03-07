@@ -51,9 +51,12 @@ const APP_FIELDS = {
   since:           { label:'Customer Since', required:false },
   next_touch:        { label:'Next Touch Date',    required:false },
   last_contact_date: { label:'Last Contact Date',  required:false },
-  scoring_profile:   { label:'Scoring Profile',    required:false },
-  note:            { label:'Note',            required:false },
-  sentiment:       { label:'Sentiment',       required:false }
+  scoring_profile:     { label:'Scoring Profile',      required:false },
+  external_id:         { label:'External ID',          required:false },
+  stripe_customer_id:  { label:'Stripe Customer ID',   required:false },
+  hubspot_company_id:  { label:'HubSpot Company ID',   required:false },
+  note:                { label:'Note',                  required:false },
+  sentiment:           { label:'Sentiment',             required:false }
 };
 
 const FIELD_ALIASES = {
@@ -76,9 +79,12 @@ const FIELD_ALIASES = {
   since:           ['since','customer since','customer_since','start date','start_date','joined'],
   next_touch:        ['next_touch','next touch','next contact','next_contact','scheduled touch'],
   last_contact_date: ['last_contact_date','last contact date','last_contact','last touch date'],
-  scoring_profile:   ['scoring_profile','scoring profile','profile','score profile'],
-  note:            ['note','notes','comment','comments'],
-  sentiment:       ['sentiment','sentiment value','customer sentiment']
+  scoring_profile:     ['scoring_profile','scoring profile','profile','score profile'],
+  external_id:         ['external_id','external id','crm id','external identifier'],
+  stripe_customer_id:  ['stripe_customer_id','stripe id','stripe customer id'],
+  hubspot_company_id:  ['hubspot_company_id','hubspot id','hubspot company id'],
+  note:                ['note','notes','comment','comments'],
+  sentiment:           ['sentiment','sentiment value','customer sentiment']
 };
 
 function autoMap() {
