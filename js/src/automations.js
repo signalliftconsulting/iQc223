@@ -1272,6 +1272,7 @@ async function syncStripeUI() {
 
   try {
     const result = await syncIntegration('stripe');
+    console.log('[Stripe Sync Result]', JSON.stringify(result, null, 2));
     const stats = result.stats || {};
     status.innerHTML = `<span style="color:var(--green)">✓ Synced ${stats.matched || 0} of ${stats.total || 0} subscriptions, ${stats.updated || 0} updated, ${stats.skipped || 0} skipped</span>`;
     toast(`Stripe sync complete: ${stats.updated || 0} customers updated`, 'success');

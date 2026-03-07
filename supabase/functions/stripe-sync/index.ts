@@ -290,9 +290,27 @@ serve(async (req) => {
         changes.stripe_customer_id = group.stripeCustomerId;
       }
 
+      // Build debug breakdown for this customer
+      const subBreakdown = group.subs.map(sub => ({
+        sub_id: sub.id,
+        stripe_customer: typeof sub.customer === 'string' ? sub.customer : sub.customer?.id,
+        mrr: Math.round(calculateMRR(sub) * 100) / 100,
+        period_end: sub.current_period_end,
+        period_end_date: sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString().split('T')[0] : null,
+        items: (sub.items?.data || []).map((it: any) => ({
+          amount: (it.price?.unit_amount || 0) / 100,
+          qty: it.quantity || 1,
+          interval: it.price?.recurring?.interval,
+          interval_count: it.price?.recurring?.interval_count
+        }))
+      }));
+
       if (Object.keys(changes).length > 0) {
-        updates.push({ id: match.id, name: match.name, changes });
+        updates.push({ id: match.id, name: match.name, changes, _debug: { totalMrr, latestRenewal, subCount: group.subs.length, subs: subBreakdown } });
         stats.updated++;
+      } else {
+        // Even if no changes, include in debug for visibility
+        updates.push({ id: match.id, name: match.name, changes: {}, _debug: { totalMrr, latestRenewal, subCount: group.subs.length, subs: subBreakdown, noChanges: true } });
       }
     }
 
