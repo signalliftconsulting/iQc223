@@ -11977,6 +11977,7 @@ async function syncStripeUI() {
 
     // Force-reload customer data after sync (bypass all silentSync guards)
     if (stats.updated > 0) {
+      const preScores = new Map(customers.map(c => [c.id, c.score]));
       try {
         if (isAdmin() && activeClientId !== '__own__') {
           await loadClientCustomers(activeClientId, true);
@@ -11986,6 +11987,21 @@ async function syncStripeUI() {
       } catch(e) { console.warn('Post-sync reload:', e); }
       _lastSyncTime = Date.now();
       refreshLiveScores();
+      const syncedNames = (result.updates || []).map(u => u.name?.toLowerCase());
+      const toSave = [];
+      for (const c of customers) {
+        if (!syncedNames.includes(c.name.toLowerCase())) continue;
+        const oldScore = preScores.get(c.id);
+        if (oldScore != null && oldScore !== c.score) {
+          c.history = c.history || [];
+          c.history.push({ score: c.score, date: new Date().toISOString(), signals: buildHistorySnapshot(c) });
+          toSave.push(c);
+        }
+      }
+      if (toSave.length) {
+        pauseSync(10000);
+        for (const c of toSave) { try { await save(c); } catch(_) {} }
+      }
       refreshMgrDropdown();
       const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
       if (active === 'homebase')  renderHomeBase();
@@ -12025,6 +12041,7 @@ async function topbarSyncStripe() {
     toast(`Stripe sync: ${stats.updated || 0} of ${stats.matched || 0} customers updated`, 'success');
 
     if (stats.updated > 0) {
+      const preScores = new Map(customers.map(c => [c.id, c.score]));
       try {
         if (isAdmin() && activeClientId !== '__own__') {
           await loadClientCustomers(activeClientId, true);
@@ -12034,6 +12051,21 @@ async function topbarSyncStripe() {
       } catch(e) { console.warn('Post-sync reload:', e); }
       _lastSyncTime = Date.now();
       refreshLiveScores();
+      const syncedNames = (result.updates || []).map(u => u.name?.toLowerCase());
+      const toSave = [];
+      for (const c of customers) {
+        if (!syncedNames.includes(c.name.toLowerCase())) continue;
+        const oldScore = preScores.get(c.id);
+        if (oldScore != null && oldScore !== c.score) {
+          c.history = c.history || [];
+          c.history.push({ score: c.score, date: new Date().toISOString(), signals: buildHistorySnapshot(c) });
+          toSave.push(c);
+        }
+      }
+      if (toSave.length) {
+        pauseSync(10000);
+        for (const c of toSave) { try { await save(c); } catch(_) {} }
+      }
       refreshMgrDropdown();
       const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
       if (active === 'homebase')  renderHomeBase();
