@@ -1375,15 +1375,21 @@ function buildQBRHTML(c) {
   const svgDollar    = svgi('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>', 12);
   const svgRenewal   = svgi('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>', 12);
 
+  const lc   = c.lifecycle || 'active';
+  const lcCtx = LIFECYCLE_CONTEXT[lc] || LIFECYCLE_CONTEXT.active;
+
   /* ── Wins & Highlights ── */
   const wins = [];
+  // Lifecycle-aware wins
+  if (lc === 'onboarding' && c.adoption != null && c.adoption >= 40) wins.push(`Strong early adoption during onboarding (${c.adoption}%)`);
+  if (lc === 'won' && c.logins != null && c.logins >= 10) wins.push('Smooth transition after expansion \u2014 engagement remains strong');
   if (c.logins != null && c.logins >= 15) wins.push(`Strong engagement \u2014 ${c.logins} logins in the past 30 days`);
   if (c.adoption != null && c.adoption >= 60) wins.push(`High feature adoption at ${c.adoption}%`);
   if (c.tickets != null && c.tickets <= 1) wins.push(`Clean support queue \u2014 ${c.tickets === 0 ? 'no' : 'only 1'} open ticket${c.tickets === 1 ? '' : 's'}`);
   if (c.nps != null && npsIsPromoter(c.nps)) wins.push(`NPS promoter (${npsDisplay(c.nps)}) \u2014 strong advocacy potential`);
   if (c.csat != null && csatIsGood(c.csat)) wins.push(`High satisfaction (CSAT ${csatDisplay(c.csat)})`);
-  if (c.growth === 'strong') wins.push('Strong growth trajectory \u2014 expansion opportunity');
-  else if (c.growth === 'mild') wins.push('Positive growth trend emerging');
+  if (c.growth === 'strong' && lc !== 'onboarding' && lc !== 'won') wins.push('Strong growth trajectory \u2014 expansion opportunity');
+  else if (c.growth === 'mild' && lc !== 'onboarding' && lc !== 'won') wins.push('Positive growth trend emerging');
   if (sent && sent.val === 'positive') wins.push(`Positive sentiment logged on ${fmtDate(sent.date)}`);
   if (mom === 'up') wins.push('Health score is trending upward');
   if (c.days != null && c.days <= 7) wins.push('Recently engaged \u2014 last contact within 7 days');
@@ -1407,6 +1413,14 @@ function buildQBRHTML(c) {
 
   /* ── Executive Summary ── */
   let summary = '';
+  // Lifecycle context prefix
+  if (lc === 'onboarding')
+    summary += `<em style="color:var(--blue)">This customer is in their onboarding phase \u2014 the focus should be on driving adoption and confirming early value, not expansion.</em><br><br>`;
+  else if (lc === 'won')
+    summary += `<em style="color:var(--purple)">This customer recently expanded \u2014 the focus should be on value realization of the new purchase before exploring further growth.</em><br><br>`;
+  else if (lc === 'churned')
+    summary += `<em style="color:var(--muted)">This customer has churned. This review should focus on lessons learned and assessing winback potential.</em><br><br>`;
+
   if (c.status === 'critical' || c.status === 'risk') {
     summary = `${name} is currently in a <strong>${statusLabel}</strong> state with a health score of ${c.score}/100. `;
     if (mom === 'dn') summary += 'The score has been declining, which warrants immediate attention. ';
@@ -1434,24 +1448,44 @@ function buildQBRHTML(c) {
   /* ── Suggested Agenda ── */
   const agenda = [];
   agenda.push({ time:'5 min', topic:'Welcome & Relationship Check-in', detail:'Open with a personal check-in. Ask how things are going overall before diving into business.' });
+  // Lifecycle-specific agenda items
+  if (lc === 'onboarding') {
+    agenda.push({ time:'10 min', topic:'Onboarding Progress & Milestones', detail:'Review where they are in the onboarding journey. Confirm key milestones have been hit and identify any blockers.' });
+    agenda.push({ time:'10 min', topic:'Adoption & Enablement Needs', detail:`Current adoption is at ${c.adoption != null ? c.adoption + '%' : 'TBD'}. Walk through which features are being used and schedule training for gaps.` });
+  }
+  if (lc === 'won') {
+    agenda.push({ time:'10 min', topic:'Value Realization of Recent Expansion', detail:'Review whether the new capabilities are being used and delivering the expected outcomes.' });
+    agenda.push({ time:'5 min', topic:'New Capabilities Adoption Check', detail:'Confirm the expanded scope is fully onboarded and users are trained.' });
+  }
   if (wins.length)
     agenda.push({ time:'10 min', topic:'Celebrate Wins & Value Delivered', detail:'Walk through key successes and metrics that demonstrate ROI. Let the customer see the impact.' });
   if (risks.some(r => r.sev === 'high'))
     agenda.push({ time:'10 min', topic:'Address Key Concerns', detail:'Proactively raise the high-priority concerns identified below. Show you\'re aware and have a plan.' });
   else if (risks.length)
     agenda.push({ time:'5 min', topic:'Areas for Improvement', detail:'Brief discussion on areas where there\'s room to grow.' });
-  if (c.adoption != null && c.adoption < 60)
+  if (lc !== 'onboarding' && c.adoption != null && c.adoption < 60)
     agenda.push({ time:'10 min', topic:'Product Adoption & Enablement', detail:`Current adoption is at ${c.adoption}%. Walk through underutilized features and their business impact.` });
   agenda.push({ time:'10 min', topic:'Goals for Next Quarter', detail:'Align on what success looks like for Q+1. Document concrete objectives together.' });
-  if (c.renewal != null && c.renewal <= 6)
+  if (lc !== 'churned' && c.renewal != null && c.renewal <= 6)
     agenda.push({ time:'5 min', topic:'Renewal & Partnership Discussion', detail:`Renewal is ${c.renewal} month${c.renewal === 1 ? '' : 's'} out. Address timeline, scope, and any expansion interest.` });
-  if (c.growth === 'strong' || c.growth === 'mild' || c.status === 'expand')
+  if (lc !== 'onboarding' && lc !== 'won' && lc !== 'churned' && (c.growth === 'strong' || c.growth === 'mild' || c.status === 'expand'))
     agenda.push({ time:'5 min', topic:'Expansion Opportunities', detail:'Explore where additional value could be unlocked \u2014 new users, features, or tiers.' });
   agenda.push({ time:'5 min', topic:'Action Items & Next Steps', detail:'Summarize agreed-upon action items with owners and timelines.' });
 
   /* ── Questions to Ask ── */
   const questions = [];
-  questions.push('What\'s top of mind for your team heading into next quarter?');
+  // Lifecycle-specific questions
+  if (lc === 'onboarding') {
+    questions.push('Are you getting the value you expected from the platform so far?');
+    questions.push('What would make the onboarding process smoother for your team?');
+    questions.push('Who else on your team should we bring into the fold to drive adoption?');
+  } else if (lc === 'won') {
+    questions.push('How are the new capabilities working for your team?');
+    questions.push('Is the expanded scope meeting the expectations we discussed?');
+    questions.push('Are there any users who still need training on the new features?');
+  } else {
+    questions.push('What\'s top of mind for your team heading into next quarter?');
+  }
   questions.push('Are there any internal changes (team, strategy, budget) we should be aware of?');
   if (c.logins != null && c.logins < 10)
     questions.push('What does a typical week look like for your team using the platform? Are there barriers to more frequent usage?');
@@ -1461,7 +1495,7 @@ function buildQBRHTML(c) {
     questions.push('How has your experience with our support team been? Is there anything we can do to resolve these issues faster?');
   if (c.nps != null && npsIsDetractor(c.nps))
     questions.push('Your recent NPS feedback was lower than expected \u2014 can you help me understand what fell short?');
-  if (c.growth === 'strong' || c.status === 'expand')
+  if (lc !== 'onboarding' && lc !== 'won' && (c.growth === 'strong' || c.status === 'expand'))
     questions.push('Your team has been growing \u2014 are there additional users or departments that could benefit from the platform?');
   if (c.renewal != null && c.renewal <= 6)
     questions.push('As we approach renewal, is there anything you\'d like to see from us to make the decision easier?');
@@ -1573,16 +1607,19 @@ function buildQBRText(c) {
     : `${c.score} (first score)`;
   const tierMap = { smb:'SMB', mid:'Mid-Market', enterprise:'Enterprise' };
   const name = c.name || 'This account';
+  const lc   = c.lifecycle || 'active';
 
   // Wins
   const wins = [];
+  if (lc === 'onboarding' && c.adoption != null && c.adoption >= 40) wins.push(`Strong early adoption during onboarding (${c.adoption}%)`);
+  if (lc === 'won' && c.logins != null && c.logins >= 10) wins.push('Smooth transition after expansion — engagement remains strong');
   if (c.logins != null && c.logins >= 15) wins.push(`Strong engagement — ${c.logins} logins in the past 30 days`);
   if (c.adoption != null && c.adoption >= 60) wins.push(`High feature adoption at ${c.adoption}%`);
   if (c.tickets != null && c.tickets <= 1) wins.push(`Clean support queue — ${c.tickets === 0 ? 'no' : 'only 1'} open ticket${c.tickets === 1 ? '' : 's'}`);
   if (c.nps != null && npsIsPromoter(c.nps)) wins.push(`NPS promoter (${npsDisplay(c.nps)}) — strong advocacy potential`);
   if (c.csat != null && csatIsGood(c.csat)) wins.push(`High satisfaction (CSAT ${csatDisplay(c.csat)})`);
-  if (c.growth === 'strong') wins.push('Strong growth trajectory — expansion opportunity');
-  else if (c.growth === 'mild') wins.push('Positive growth trend emerging');
+  if (c.growth === 'strong' && lc !== 'onboarding' && lc !== 'won') wins.push('Strong growth trajectory — expansion opportunity');
+  else if (c.growth === 'mild' && lc !== 'onboarding' && lc !== 'won') wins.push('Positive growth trend emerging');
   if (sent && sent.val === 'positive') wins.push(`Positive sentiment logged on ${fmtDate(sent.date)}`);
   if (mom === 'up') wins.push('Health score is trending upward');
   if (c.days != null && c.days <= 7) wins.push('Recently engaged — last contact within 7 days');
@@ -1607,36 +1644,63 @@ function buildQBRText(c) {
   // Summary
   let summary = '';
   const sl = STATUS_LABEL[c.status] || 'Healthy';
+  if (lc === 'onboarding')
+    summary += '[ONBOARDING] Focus should be on driving adoption and confirming early value, not expansion. ';
+  else if (lc === 'won')
+    summary += '[RECENTLY EXPANDED] Focus should be on value realization of the new purchase. ';
+  else if (lc === 'churned')
+    summary += '[CHURNED] Focus on lessons learned and winback potential. ';
+
   if (c.status === 'critical' || c.status === 'risk') {
-    summary = `${name} is currently in a ${sl} state with a health score of ${c.score}/100. `;
+    summary += `${name} is currently in a ${sl} state with a health score of ${c.score}/100. `;
     if (mom === 'dn') summary += 'The score has been declining. ';
     if (risks.length) summary += `There are ${risks.length} concern(s) to address. `;
     if (c.renewal != null && c.renewal <= 3) summary += `Renewal is ${c.renewal <= 1 ? 'imminent' : 'in ' + c.renewal + ' months'}. `;
     summary += 'Focus this meeting on understanding root causes and building a joint recovery plan.';
   } else if (c.status === 'expand') {
-    summary = `${name} is performing strongly at ${c.score}/100 (${sl}). This QBR is an opportunity to deepen the partnership, explore expansion, and build advocacy.`;
+    summary += `${name} is performing strongly at ${c.score}/100 (${sl}). `;
+    summary += lc === 'onboarding' || lc === 'won' ? 'This QBR should reinforce early wins and confirm value delivery.' : 'This QBR is an opportunity to deepen the partnership, explore expansion, and build advocacy.';
   } else {
-    summary = `${name} is in a ${sl} state (${c.score}/100). This meeting should reinforce value, address concerns, and align on goals for next quarter.`;
+    summary += `${name} is in a ${sl} state (${c.score}/100). This meeting should reinforce value, address concerns, and align on goals for next quarter.`;
   }
 
   // Agenda
   const agenda = [];
   agenda.push('1. Welcome & Relationship Check-in (5 min)');
-  if (wins.length) agenda.push('2. Celebrate Wins & Value Delivered (10 min)');
+  if (lc === 'onboarding') {
+    agenda.push(`${agenda.length + 1}. Onboarding Progress & Milestones (10 min)`);
+    agenda.push(`${agenda.length + 1}. Adoption & Enablement Needs (10 min)`);
+  }
+  if (lc === 'won') {
+    agenda.push(`${agenda.length + 1}. Value Realization of Recent Expansion (10 min)`);
+    agenda.push(`${agenda.length + 1}. New Capabilities Adoption Check (5 min)`);
+  }
+  if (wins.length) agenda.push(`${agenda.length + 1}. Celebrate Wins & Value Delivered (10 min)`);
   if (risks.length) agenda.push(`${agenda.length + 1}. Address Concerns (10 min)`);
-  if (c.adoption != null && c.adoption < 60) agenda.push(`${agenda.length + 1}. Product Adoption & Enablement (10 min)`);
+  if (lc !== 'onboarding' && c.adoption != null && c.adoption < 60) agenda.push(`${agenda.length + 1}. Product Adoption & Enablement (10 min)`);
   agenda.push(`${agenda.length + 1}. Goals for Next Quarter (10 min)`);
-  if (c.renewal != null && c.renewal <= 6) agenda.push(`${agenda.length + 1}. Renewal & Partnership Discussion (5 min)`);
-  if (c.growth === 'strong' || c.growth === 'mild' || c.status === 'expand') agenda.push(`${agenda.length + 1}. Expansion Opportunities (5 min)`);
+  if (lc !== 'churned' && c.renewal != null && c.renewal <= 6) agenda.push(`${agenda.length + 1}. Renewal & Partnership Discussion (5 min)`);
+  if (lc !== 'onboarding' && lc !== 'won' && lc !== 'churned' && (c.growth === 'strong' || c.growth === 'mild' || c.status === 'expand')) agenda.push(`${agenda.length + 1}. Expansion Opportunities (5 min)`);
   agenda.push(`${agenda.length + 1}. Action Items & Next Steps (5 min)`);
 
   // Questions
   const questions = [];
-  questions.push('What\'s top of mind for your team heading into next quarter?');
+  if (lc === 'onboarding') {
+    questions.push('Are you getting the value you expected from the platform so far?');
+    questions.push('What would make the onboarding process smoother for your team?');
+    questions.push('Who else on your team should we bring into the fold to drive adoption?');
+  } else if (lc === 'won') {
+    questions.push('How are the new capabilities working for your team?');
+    questions.push('Is the expanded scope meeting the expectations we discussed?');
+    questions.push('Are there any users who still need training on the new features?');
+  } else {
+    questions.push('What\'s top of mind for your team heading into next quarter?');
+  }
   questions.push('Are there any internal changes (team, strategy, budget) we should be aware of?');
   if (c.logins != null && c.logins < 10) questions.push('What does a typical week look like for your team using the platform?');
   if (c.adoption != null && c.adoption < 50) questions.push('Are there specific features you\'ve wanted to explore?');
   if (c.tickets != null && c.tickets >= 3) questions.push('How has your experience with our support team been?');
+  if (lc !== 'onboarding' && lc !== 'won' && (c.growth === 'strong' || c.status === 'expand')) questions.push('Are there additional users or departments that could benefit from the platform?');
   if (c.renewal != null && c.renewal <= 6) questions.push('As we approach renewal, is there anything you\'d like to see from us?');
   questions.push('What would make our partnership even more valuable over the next 6 months?');
 
