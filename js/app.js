@@ -4984,6 +4984,7 @@ function renderAlertPanel(all, active, snz) {
   if (insWrap) {
     const insights = [];
     const _iSvg = (d) => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+    const _nameLink = (c) => `<strong class="ta-name-link" onclick="event.stopPropagation();openDetail('${c.id}')">${escHtml(c.name)}</strong>`;
 
     // Helper: build unique affected-customer list from alert array
     const uniqueCusts = (alerts) => {
@@ -5000,7 +5001,7 @@ function renderAlertPanel(all, active, snz) {
       if (atRiskRenewals.length > 0) {
         const custs = uniqueCusts(atRiskRenewals);
         const renewMrr = custs.reduce((s, c) => s + (c.mrr || 0), 0);
-        const nameList = custs.slice(0, 2).map(c => `<strong>${escHtml(c.name)}</strong>`);
+        const nameList = custs.slice(0, 2).map(c => _nameLink(c));
         const extra = custs.length > 2 ? ` and ${custs.length - 2} more` : '';
         const rCids = custs.map(c => c.id);
         insights.push({
@@ -5034,7 +5035,7 @@ function renderAlertPanel(all, active, snz) {
           icon: _iSvg('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'),
           iconBg: 'var(--red-l)', iconColor: 'var(--red)',
           cids: [top.id], navMode: 'customer', navLabel: 'Highest MRR at Risk',
-          text: `<strong>${escHtml(top.name)}</strong> is your biggest dollar risk — <strong>$${fmtNum(top.mrr)} MRR</strong> at a score of <strong>${top.score}</strong>${issueText}. Start here today.`
+          text: `${_nameLink(top)} is your biggest dollar risk — <strong>$${fmtNum(top.mrr)} MRR</strong> at a score of <strong>${top.score}</strong>${issueText}. Start here today.`
         });
       }
     }
@@ -5054,9 +5055,9 @@ function renderAlertPanel(all, active, snz) {
       const biggestMrr = decliningCusts.slice().sort((a, b) => (b.mrr || 0) - (a.mrr || 0))[0];
       let callout = '';
       if (steepest.c.id === biggestMrr.id) {
-        callout = `<strong>${escHtml(steepest.c.name)}</strong> (${Math.abs(Math.round(steepest.delta))} pt drop, $${fmtNum(steepest.c.mrr || 0)} MRR) is the biggest concern.`;
+        callout = `${_nameLink(steepest.c)} (${Math.abs(Math.round(steepest.delta))} pt drop, $${fmtNum(steepest.c.mrr || 0)} MRR) is the biggest concern.`;
       } else {
-        callout = `<strong>${escHtml(steepest.c.name)}</strong> has the steepest drop (${Math.abs(Math.round(steepest.delta))} pts), while <strong>${escHtml(biggestMrr.name)}</strong> ($${fmtNum(biggestMrr.mrr || 0)} MRR) carries the most revenue risk.`;
+        callout = `${_nameLink(steepest.c)} has the steepest drop (${Math.abs(Math.round(steepest.delta))} pts), while ${_nameLink(biggestMrr)} ($${fmtNum(biggestMrr.mrr || 0)} MRR) carries the most revenue risk.`;
       }
       insights.push({
         score: 60 + pct, label: 'Scores Still Falling', accent: 'red',
@@ -5088,7 +5089,7 @@ function renderAlertPanel(all, active, snz) {
         icon: _iSvg('<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'),
         iconBg: 'var(--amber-l)', iconColor: 'var(--amber)',
         cids: msCids, navMode: msCids.length === 1 ? 'customer' : 'table', navLabel: 'Multiple Red Flags',
-        text: `<strong>${escHtml(top.c.name)}</strong> is flagged across <strong>${top.cats} categories</strong> — ${topCats.join(', ')}. When issues stack up like this, a single check-in call can uncover the root cause.${others}`
+        text: `${_nameLink(top.c)} is flagged across <strong>${top.cats} categories</strong> — ${topCats.join(', ')}. When issues stack up like this, a single check-in call can uncover the root cause.${others}`
       });
     }
 
@@ -5129,7 +5130,7 @@ function renderAlertPanel(all, active, snz) {
           icon: _iSvg('<path d="M18.36 6.64A9 9 0 0 1 20.77 15"/><path d="M6.16 6.16a9 9 0 1 0 12.68 12.68"/><line x1="2" y1="2" x2="22" y2="22"/>'),
           iconBg: 'var(--amber-l)', iconColor: 'var(--amber)',
           cids: qCids, navMode: qCids.length === 1 ? 'customer' : 'table', navLabel: 'Quiet Accounts',
-          text: `<strong>${quietCusts.length} ${quietCusts.length === 1 ? 'account' : 'accounts'}</strong> worth <strong>$${fmtNum(totalQuietMrr)} MRR</strong> ${quietCusts.length === 1 ? 'has' : 'have'} gone dark — zero logins, zero tickets, no contact. <strong>${escHtml(topQ.name)}</strong> ($${fmtNum(topQ.mrr || 0)} MRR) has been quiet for <strong>${qDays} days</strong>. Reach out now — the longer the silence, the harder the save.`
+          text: `<strong>${quietCusts.length} ${quietCusts.length === 1 ? 'account' : 'accounts'}</strong> worth <strong>$${fmtNum(totalQuietMrr)} MRR</strong> ${quietCusts.length === 1 ? 'has' : 'have'} gone dark — zero logins, zero tickets, no contact. ${_nameLink(topQ)} ($${fmtNum(topQ.mrr || 0)} MRR) has been quiet for <strong>${qDays} days</strong>. Reach out now — the longer the silence, the harder the save.`
         });
       }
     }
