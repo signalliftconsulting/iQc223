@@ -201,6 +201,7 @@ function renderSegments() {
   }
 
   renderSegKPIs(visibleSegments, active);
+  _buildSegInsights(visibleSegments, active);
   if (_segView === 'tiers') {
     renderTierTable(active, deltaCache);
   } else if (_segView === 'stage') {
@@ -1041,86 +1042,218 @@ function drillSegFromCard(tagName) {
   panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-/* ── Segment Insights (auto-generated) ─────────────────────── */
-function renderSegInsights(segments) {
+/* ── Cross-Segment Portfolio Insights ──────────────────────── */
+function _buildSegInsights(segments, active) {
   const wrap = el('seg-insights-wrap');
   if (!wrap) return;
+  if (segments.length < 2) { wrap.innerHTML = ''; return; }
 
   const _si = (path) => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
-  const iconAlert    = _si('<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>');
-  const iconCalendar = _si('<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>');
-  const iconTrendDn  = _si('<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>');
-  const iconPhone    = _si('<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>');
-  const iconTrendUp  = _si('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>');
-  const iconCheck    = _si('<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>');
+  const icCorr    = _si('<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>');
+  const icDollar  = _si('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>');
+  const icAlert   = _si('<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>');
+  const icGap     = _si('<path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/>');
+  const icTrend   = _si('<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>');
+  const icPhone   = _si('<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>');
+  const icCal     = _si('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>');
+  const icOverlap = _si('<circle cx="9" cy="12" r="5.5"/><circle cx="15" cy="12" r="5.5"/>');
+  const icUp      = _si('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>');
 
   const insights = [];
+  const totalMRR = segments.reduce((s, seg) => s + (seg.totalMRR || 0), 0);
+  const totalCount = segments.reduce((s, seg) => s + seg.count, 0);
+  const portfolioAvgScore = totalCount > 0 ? Math.round(segments.reduce((s, seg) => s + seg.avgScore * seg.count, 0) / totalCount) : 0;
 
-  // --- Segment-specific insights (things only the Segments page can surface) ---
+  // ── 1. Contact-Score Correlation ──
+  const withDays = segments.filter(s => s.avgDays != null && s.count >= 2);
+  if (withDays.length >= 3) {
+    const n = withDays.length;
+    const xs = withDays.map(s => s.avgDays);
+    const ys = withDays.map(s => s.avgScore);
+    const mx = xs.reduce((a, b) => a + b, 0) / n;
+    const my = ys.reduce((a, b) => a + b, 0) / n;
+    let num = 0, dx2 = 0, dy2 = 0;
+    for (let i = 0; i < n; i++) {
+      const dx = xs[i] - mx, dy = ys[i] - my;
+      num += dx * dy; dx2 += dx * dx; dy2 += dy * dy;
+    }
+    const denom = Math.sqrt(dx2 * dy2);
+    const r = denom > 0 ? num / denom : 0;
+    if (Math.abs(r) > 0.5) {
+      const sorted = [...withDays].sort((a, b) => a.avgDays - b.avgDays);
+      const lo = sorted[0], hi = sorted[sorted.length - 1];
+      const gap = Math.abs(lo.avgScore - hi.avgScore);
+      if (r < -0.5) {
+        insights.push({ score: Math.abs(r) * 10, icon: icCorr, color: 'var(--green)', bg: 'var(--green-l)',
+          label: 'Contact Correlation', tags: [],
+          text: `Segments with more frequent contact tend to score higher \u2014 <strong>${Math.abs(Math.round(r * 100))}% correlation</strong> across ${n} segments. Average gap: <strong>${gap} points</strong> between most and least contacted.` });
+      } else {
+        insights.push({ score: Math.abs(r) * 10, icon: icCorr, color: 'var(--amber)', bg: 'var(--amber-l)',
+          label: 'Inverse Contact Pattern', tags: [],
+          text: `Segments contacted less frequently actually score higher \u2014 <strong>${Math.round(r * 100)}% positive correlation</strong>. This may indicate over-servicing struggling segments or that healthy segments need less touch.` });
+      }
+    }
+  }
 
-  // Total MRR across all segments for concentration calc
-  const totalSegMRR = segments.reduce((s, seg) => s + (seg.totalMRR || 0), 0);
+  // ── 2. MRR Concentration ──
+  if (totalMRR > 0 && segments.length >= 3) {
+    segments.forEach(seg => {
+      const pct = Math.round(seg.totalMRR / totalMRR * 100);
+      if (pct >= 40) {
+        insights.push({ score: pct * 0.2, icon: icDollar, color: 'var(--amber)', bg: 'var(--amber-l)',
+          label: 'MRR Concentration', tags: [seg.tag],
+          text: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> holds <strong>${pct}%</strong> of portfolio MRR ($${fmtNum(seg.totalMRR)} of $${fmtNum(totalMRR)}) \u2014 a concentrated risk if this segment's health declines.` });
+      }
+    });
+  }
 
+  // ── 3. Health Disparity ──
+  const scored = segments.filter(s => s.count >= 2);
+  if (scored.length >= 2) {
+    const best = scored.reduce((a, b) => a.avgScore > b.avgScore ? a : b);
+    const worst = scored.reduce((a, b) => a.avgScore < b.avgScore ? a : b);
+    const gap = best.avgScore - worst.avgScore;
+    if (gap >= 15) {
+      const acColor = gap >= 25 ? 'var(--red)' : 'var(--amber)';
+      const acBg = gap >= 25 ? 'var(--red-l)' : 'var(--amber-l)';
+      insights.push({ score: gap * 0.4, icon: icGap, color: acColor, bg: acBg,
+        label: 'Health Disparity', tags: [best.tag, worst.tag],
+        text: `<strong>${gap}-point</strong> health gap between segments: <strong>${escHtml(segDisplayLabel(best.tag))}</strong> averages ${best.avgScore} while <strong>${escHtml(segDisplayLabel(worst.tag))}</strong> averages ${worst.avgScore}.` });
+    }
+  }
+
+  // ── 4. Risk Clustering ──
+  const totalAtRisk = segments.reduce((s, seg) => s + seg.atRisk, 0);
+  if (totalAtRisk >= 3) {
+    segments.forEach(seg => {
+      const pct = Math.round(seg.atRisk / totalAtRisk * 100);
+      if (pct >= 50) {
+        insights.push({ score: pct * 0.2 + seg.atRisk, icon: icAlert, color: 'var(--red)', bg: 'var(--red-l)',
+          label: 'Risk Clustering', tags: [seg.tag],
+          text: `<strong>${pct}%</strong> of at-risk accounts (${seg.atRisk} of ${totalAtRisk}) are concentrated in <strong>${escHtml(segDisplayLabel(seg.tag))}</strong> \u2014 targeted intervention here would address the majority of portfolio risk.` });
+      }
+    });
+  }
+
+  // ── 5. Revenue-Health Inversion ──
+  if (totalMRR > 0 && segments.length >= 2) {
+    const byMRR = [...segments].sort((a, b) => b.totalMRR - a.totalMRR);
+    const topSeg = byMRR[0];
+    if (topSeg && topSeg.avgScore < portfolioAvgScore - 5) {
+      const diff = portfolioAvgScore - topSeg.avgScore;
+      insights.push({ score: diff * 0.5 + (topSeg.totalMRR / totalMRR) * 10, icon: icDollar, color: 'var(--red)', bg: 'var(--red-l)',
+        label: 'Revenue-Health Inversion', tags: [topSeg.tag],
+        text: `Your highest-revenue segment <strong>${escHtml(segDisplayLabel(topSeg.tag))}</strong> ($${fmtNum(topSeg.totalMRR)} MRR) scores <strong>${diff} points below</strong> the portfolio average of ${portfolioAvgScore} \u2014 revenue and health are misaligned.` });
+    }
+  }
+
+  // ── 6. Trend Divergence ──
+  const improving = segments.filter(s => s.avgDelta >= 1.0);
+  const declining = segments.filter(s => s.avgDelta <= -1.0);
+  if (improving.length >= 1 && declining.length >= 1) {
+    const portfolioAvgDelta = totalCount > 0 ? Math.round(segments.reduce((s, seg) => s + seg.avgDelta * seg.count, 0) / totalCount * 10) / 10 : 0;
+    if (Math.abs(portfolioAvgDelta) < 2) {
+      insights.push({ score: (improving.length + declining.length) * 2 + Math.abs(improving[0].avgDelta) + Math.abs(declining[0].avgDelta),
+        icon: icTrend, color: 'var(--amber)', bg: 'var(--amber-l)',
+        label: 'Trend Divergence', tags: [],
+        text: `<strong>${improving.length}</strong> segment${improving.length !== 1 ? 's' : ''} improving while <strong>${declining.length}</strong> ${declining.length !== 1 ? 'are' : 'is'} declining \u2014 the ${Math.abs(portfolioAvgDelta) < 0.5 ? 'flat' : 'near-flat'} portfolio average of ${portfolioAvgDelta >= 0 ? '+' : ''}${portfolioAvgDelta} masks real movement underneath.` });
+    }
+  }
+
+  // ── 7. Contact Gap Outlier ──
+  if (withDays.length >= 3) {
+    const sorted = [...withDays].sort((a, b) => a.avgDays - b.avgDays);
+    const median = sorted[Math.floor(sorted.length / 2)].avgDays;
+    if (median > 0) {
+      withDays.forEach(seg => {
+        if (seg.avgDays >= median * 2 && seg.avgDays >= 10) {
+          const ratio = Math.round(seg.avgDays / median * 10) / 10;
+          insights.push({ score: ratio * 3 + seg.count, icon: icPhone, color: 'var(--amber)', bg: 'var(--amber-l)',
+            label: 'Contact Gap', tags: [seg.tag],
+            text: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> averages <strong>${seg.avgDays} days</strong> since contact vs the ${median}-day median \u2014 a <strong>${ratio}x gap</strong> that may be contributing to ${seg.avgScore < portfolioAvgScore ? 'its below-average health score of ' + seg.avgScore : 'risk if left unaddressed'}.` });
+        }
+      });
+    }
+  }
+
+  // ── 8. Renewal Exposure ──
+  const totalRenewals = segments.reduce((s, seg) => s + seg.renewals90, 0);
+  if (totalRenewals >= 3) {
+    segments.forEach(seg => {
+      const pct = Math.round(seg.renewals90 / totalRenewals * 100);
+      if (pct >= 50) {
+        const rColor = seg.riskPct > 30 ? 'var(--red)' : 'var(--amber)';
+        const rBg = seg.riskPct > 30 ? 'var(--red-l)' : 'var(--amber-l)';
+        insights.push({ score: pct * 0.2 + seg.renewals90, icon: icCal, color: rColor, bg: rBg,
+          label: 'Renewal Exposure', tags: [seg.tag],
+          text: `<strong>${pct}%</strong> of upcoming renewals (${seg.renewals90} of ${totalRenewals}) are in <strong>${escHtml(segDisplayLabel(seg.tag))}</strong>${seg.riskPct > 30 ? ' which also has ' + seg.riskPct + '% at-risk accounts \u2014 a compounding concern' : ' \u2014 worth ensuring this segment is well-covered'}.` });
+      }
+    });
+  }
+
+  // ── 9. Segment Overlap ──
+  let bestOverlap = null;
+  for (let i = 0; i < segments.length; i++) {
+    const aIds = new Set(segments[i].custs.map(c => c.id));
+    for (let j = i + 1; j < segments.length; j++) {
+      const bIds = new Set(segments[j].custs.map(c => c.id));
+      const shared = [...aIds].filter(id => bIds.has(id)).length;
+      const smaller = Math.min(aIds.size, bIds.size);
+      if (smaller >= 2) {
+        const overlapPct = Math.round(shared / smaller * 100);
+        if (overlapPct >= 50 && (!bestOverlap || overlapPct > bestOverlap.pct)) {
+          bestOverlap = { pct: overlapPct, shared, smaller, a: segments[i], b: segments[j] };
+        }
+      }
+    }
+  }
+  if (bestOverlap) {
+    insights.push({ score: bestOverlap.pct * 0.08 + bestOverlap.shared, icon: icOverlap, color: 'var(--blue)', bg: 'var(--blue-l, #dbeafe)',
+      label: 'Segment Overlap', tags: [bestOverlap.a.tag, bestOverlap.b.tag],
+      text: `<strong>${escHtml(segDisplayLabel(bestOverlap.a.tag))}</strong> and <strong>${escHtml(segDisplayLabel(bestOverlap.b.tag))}</strong> share <strong>${bestOverlap.pct}%</strong> of accounts (${bestOverlap.shared} of ${bestOverlap.smaller}) \u2014 their health metrics will naturally track together.` });
+  }
+
+  // ── 10. Recovery Signal ──
   segments.forEach(seg => {
-    // High risk % (priority 4) — segment composition, not individual alerts
-    if (seg.riskPct > 40 && seg.count >= 3) {
-      insights.push({ priority: 4, icon: iconAlert, bg: 'var(--red-l)', color: 'var(--red)',
-        html: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> has <strong>${seg.riskPct}%</strong> at risk (${seg.atRisk}/${seg.count})` });
-    }
-    // MRR Concentration — one segment holds outsized revenue share (priority 3)
-    if (totalSegMRR > 0 && seg.totalMRR > 0) {
-      const mrrPct = Math.round(seg.totalMRR / totalSegMRR * 100);
-      if (mrrPct >= 40 && segments.length >= 3) {
-        insights.push({ priority: 3, icon: iconAlert, bg: 'var(--amber-l)', color: 'var(--amber)',
-          html: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> holds <strong>${mrrPct}%</strong> of total MRR ($${fmtNum(seg.totalMRR)}) — high concentration risk` });
-      }
-    }
-    // Score Spread — high variance within segment means inconsistent group (priority 2)
-    if (seg.count >= 4) {
-      const scores = seg.custs.map(c => c.score);
-      const min = Math.min(...scores);
-      const max = Math.max(...scores);
-      const spread = max - min;
-      if (spread >= 40) {
-        insights.push({ priority: 2, icon: iconTrendDn, bg: 'var(--amber-l)', color: 'var(--amber)',
-          html: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> has a wide score spread (${min}–${max}) — may need sub-segmenting` });
-      }
-    }
-    // Declining segment (priority 3) — segment-level trajectory
-    if (seg.avgDelta < -2) {
-      insights.push({ priority: 3, icon: iconTrendDn, bg: 'var(--amber-l)', color: 'var(--amber)',
-        html: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> is declining (${seg.avgDelta} avg this week)` });
+    if (seg.avgDelta >= 2.0 && seg.riskPct >= 30 && seg.count >= 3) {
+      insights.push({ score: seg.avgDelta * 2 + seg.riskPct * 0.2, icon: icUp, color: 'var(--green)', bg: 'var(--green-l)',
+        label: 'Recovery Signal', tags: [seg.tag],
+        text: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> is trending up (<strong>+${seg.avgDelta} pts/wk</strong>) but still has ${seg.riskPct}% at-risk accounts (${seg.atRisk}/${seg.count}) \u2014 recovery may be underway. Watch for accounts crossing back into healthy status.` });
     }
   });
 
-  // Positive callouts (priority 0)
-  const bestAvgScore = segments.reduce((a, b) => a.avgScore > b.avgScore ? a : b, segments[0]);
-  if (bestAvgScore && bestAvgScore.avgScore >= 70) {
-    insights.push({ priority: 0, icon: iconTrendUp, bg: 'var(--green-l)', color: 'var(--green)',
-      html: `<strong>${escHtml(segDisplayLabel(bestAvgScore.tag))}</strong> is your healthiest segment (avg ${bestAvgScore.avgScore})` });
-  }
-  const bestDelta = segments.reduce((a, b) => a.avgDelta > b.avgDelta ? a : b, segments[0]);
-  if (bestDelta && bestDelta.avgDelta >= 3) {
-    insights.push({ priority: 0, icon: iconTrendUp, bg: 'var(--green-l)', color: 'var(--green)',
-      html: `<strong>${escHtml(segDisplayLabel(bestDelta.tag))}</strong> is growing fastest (+${bestDelta.avgDelta} this week)` });
-  }
+  // ── Sort, cap at 4, render ──
+  insights.sort((a, b) => b.score - a.score);
+  const top = insights.slice(0, 4);
+  window._segCrossInsights = top;
 
-  // Sort by priority desc, show top 8
-  insights.sort((a, b) => b.priority - a.priority);
-  const top = insights.slice(0, 8);
+  if (!top.length) { wrap.innerHTML = ''; return; }
 
-  if (!top.length) {
-    wrap.innerHTML = `<div class="csm-focus-item" style="justify-content:center;padding:24px">
-      <div class="csm-focus-icon" style="background:var(--green-l);color:var(--green)">${iconCheck}</div>
-      <div class="csm-focus-text"><strong style="color:var(--muted)">No urgent segment focus areas</strong></div>
+  wrap.innerHTML = '<div style="font-size:var(--fs-base);font-weight:700;color:var(--text);margin-bottom:8px">Cross-Segment Insights</div>' +
+    top.map((ins, idx) => {
+      const accentCls = ins.color === 'var(--green)' ? ' ta-card-green' : ins.color === 'var(--red)' ? ' ta-card-red' : ins.color === 'var(--amber)' ? ' ta-card-amber' : '';
+      const clickable = ins.tags && ins.tags.length > 0;
+      return `<div class="ta-card${accentCls}${clickable ? ' ta-card-clickable' : ''}" style="border-left-color:${ins.color}" ${clickable ? `onclick="_segInsightFocus(${idx})"` : ''}>
+      <div class="ta-icon" style="background:${ins.bg};color:${ins.color}">${ins.icon}</div>
+      <div>
+        <div class="ta-label">${ins.label}</div>
+        <div class="ta-detail">${ins.text}</div>
+      </div>
     </div>`;
-    return;
-  }
+    }).join('');
+}
 
-  wrap.innerHTML = top.map(ins => `<div class="csm-focus-item">
-    <div class="csm-focus-icon" style="background:${ins.bg};color:${ins.color}">${ins.icon}</div>
-    <div class="csm-focus-text"><p style="margin:0">${ins.html}</p></div>
-  </div>`).join('');
+function _segInsightFocus(idx) {
+  const insights = window._segCrossInsights;
+  if (!insights || !insights[idx]) return;
+  const tags = insights[idx].tags || [];
+  if (!tags.length) return;
+  if (_segChartSelected.length === tags.length && tags.every(t => _segChartSelected.includes(t))) {
+    _segChartSelected = [];
+  } else {
+    _segChartSelected = [...tags];
+  }
+  _renderSegChartOnly();
 }
 
 function filterByTag(tag) {
