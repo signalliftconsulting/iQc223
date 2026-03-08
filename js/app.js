@@ -6381,6 +6381,26 @@ function diffSnapshots(curr, prev) {
     }
   }
 
+  // MRR
+  if (curr.mrr != null) {
+    if (!prev || prev.mrr == null) {
+      parts.push(`MRR: $${Number(curr.mrr).toLocaleString()}`);
+    } else if (curr.mrr !== prev.mrr) {
+      const dir = curr.mrr > prev.mrr ? '↑' : '↓';
+      parts.push(`MRR ${dir}: $${Number(prev.mrr).toLocaleString()}→$${Number(curr.mrr).toLocaleString()}`);
+    }
+  }
+
+  // ARR
+  if (curr.arr != null) {
+    if (!prev || prev.arr == null) {
+      parts.push(`ARR: $${Number(curr.arr).toLocaleString()}`);
+    } else if (curr.arr !== prev.arr) {
+      const dir = curr.arr > prev.arr ? '↑' : '↓';
+      parts.push(`ARR ${dir}: $${Number(prev.arr).toLocaleString()}→$${Number(curr.arr).toLocaleString()}`);
+    }
+  }
+
   return parts;
 }
 
@@ -11977,7 +11997,9 @@ async function syncStripeUI() {
 
     // Force-reload customer data after sync (bypass all silentSync guards)
     if (stats.updated > 0) {
+      // Snapshot scores AND signals before reload to detect any changes
       const preScores = new Map(customers.map(c => [c.id, c.score]));
+      const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
       try {
         if (isAdmin() && activeClientId !== '__own__') {
           await loadClientCustomers(activeClientId, true);
@@ -11987,14 +12009,19 @@ async function syncStripeUI() {
       } catch(e) { console.warn('Post-sync reload:', e); }
       _lastSyncTime = Date.now();
       refreshLiveScores();
+      // Log history entries for customers whose scores OR signals changed from the sync
       const syncedNames = (result.updates || []).map(u => u.name?.toLowerCase());
       const toSave = [];
       for (const c of customers) {
         if (!syncedNames.includes(c.name.toLowerCase())) continue;
         const oldScore = preScores.get(c.id);
-        if (oldScore != null && oldScore !== c.score) {
+        const oldSnap = preSignals.get(c.id);
+        const newSnap = buildHistorySnapshot(c);
+        const scoreChanged = oldScore != null && oldScore !== c.score;
+        const signalsChanged = JSON.stringify(oldSnap) !== JSON.stringify(newSnap);
+        if (scoreChanged || signalsChanged) {
           c.history = c.history || [];
-          c.history.push({ score: c.score, date: new Date().toISOString(), signals: buildHistorySnapshot(c) });
+          c.history.push({ score: c.score, date: new Date().toISOString(), signals: newSnap });
           toSave.push(c);
         }
       }
@@ -12042,6 +12069,7 @@ async function topbarSyncStripe() {
 
     if (stats.updated > 0) {
       const preScores = new Map(customers.map(c => [c.id, c.score]));
+      const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
       try {
         if (isAdmin() && activeClientId !== '__own__') {
           await loadClientCustomers(activeClientId, true);
@@ -12056,9 +12084,13 @@ async function topbarSyncStripe() {
       for (const c of customers) {
         if (!syncedNames.includes(c.name.toLowerCase())) continue;
         const oldScore = preScores.get(c.id);
-        if (oldScore != null && oldScore !== c.score) {
+        const oldSnap = preSignals.get(c.id);
+        const newSnap = buildHistorySnapshot(c);
+        const scoreChanged = oldScore != null && oldScore !== c.score;
+        const signalsChanged = JSON.stringify(oldSnap) !== JSON.stringify(newSnap);
+        if (scoreChanged || signalsChanged) {
           c.history = c.history || [];
-          c.history.push({ score: c.score, date: new Date().toISOString(), signals: buildHistorySnapshot(c) });
+          c.history.push({ score: c.score, date: new Date().toISOString(), signals: newSnap });
           toSave.push(c);
         }
       }

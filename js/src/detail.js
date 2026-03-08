@@ -289,6 +289,26 @@ function diffSnapshots(curr, prev) {
     }
   }
 
+  // MRR
+  if (curr.mrr != null) {
+    if (!prev || prev.mrr == null) {
+      parts.push(`MRR: $${Number(curr.mrr).toLocaleString()}`);
+    } else if (curr.mrr !== prev.mrr) {
+      const dir = curr.mrr > prev.mrr ? '↑' : '↓';
+      parts.push(`MRR ${dir}: $${Number(prev.mrr).toLocaleString()}→$${Number(curr.mrr).toLocaleString()}`);
+    }
+  }
+
+  // ARR
+  if (curr.arr != null) {
+    if (!prev || prev.arr == null) {
+      parts.push(`ARR: $${Number(curr.arr).toLocaleString()}`);
+    } else if (curr.arr !== prev.arr) {
+      const dir = curr.arr > prev.arr ? '↑' : '↓';
+      parts.push(`ARR ${dir}: $${Number(prev.arr).toLocaleString()}→$${Number(curr.arr).toLocaleString()}`);
+    }
+  }
+
   return parts;
 }
 
