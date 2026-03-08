@@ -1293,7 +1293,7 @@ function _buildSegChartSVG(data) {
     return;
   }
 
-  const W = 960, H = 220;
+  const W = 960, H = 260;
   const pad = { top: 14, right: 56, bottom: 36, left: 44 };
   const cW = W - pad.left - pad.right;
   const cH = H - pad.top - pad.bottom;

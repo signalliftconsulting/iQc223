@@ -938,6 +938,7 @@ async function atCreate(c) { return save(c); }
 
 // ─── INTEGRATIONS ────────────────────────────────────────────
 
+// Load integration status for the current client
 async function loadIntegrationStatus(platform) {
   try {
     let q = sb.from('integrations').select('*');
@@ -948,6 +949,7 @@ async function loadIntegrationStatus(platform) {
   } catch(e) { console.warn('loadIntegrationStatus:', e); return []; }
 }
 
+// Connect an integration (calls Edge Function)
 async function connectIntegration(platform, credential) {
   const { data, error } = await sb.functions.invoke('integration-connect', {
     body: { platform, action: 'connect', credential }
@@ -957,6 +959,7 @@ async function connectIntegration(platform, credential) {
   return data;
 }
 
+// Disconnect an integration (calls Edge Function)
 async function disconnectIntegration(platform) {
   const { data, error } = await sb.functions.invoke('integration-connect', {
     body: { platform, action: 'disconnect' }
@@ -966,8 +969,9 @@ async function disconnectIntegration(platform) {
   return data;
 }
 
+// Trigger a sync (calls Edge Function)
 async function syncIntegration(platform) {
-  const fnName = platform + '-sync';
+  const fnName = platform + '-sync'; // e.g. 'stripe-sync'
   const { data, error } = await sb.functions.invoke(fnName, { body: {} });
   if (error) throw new Error(error.message || 'Sync failed');
   if (data && !data.success) throw new Error(data.error || 'Sync failed');
@@ -2093,62 +2097,111 @@ function makeRec(score, data) {
   const status = getStatus(score);
   const name   = data.name ? `${data.name}` : 'This account';
   const lc     = data.lifecycle || 'active';
+  const mom    = getMomentum(data);
+  const delta  = (data.history && data.history.length >= 2) ? getDelta7d(data) : 0;
 
-  // ── Lifecycle-first overrides ──────────────────────────────
+  // ── Build signal snapshot ──────────────────────────────────
+  const strengths = [], weaknesses = [];
+  if (signalOn(data,'logins')) {
+    if (data.logins != null && data.logins >= 15) strengths.push('strong login activity (' + data.logins + '/mo)');
+    else if (data.logins != null && data.logins < 5) weaknesses.push('very low logins (' + data.logins + '/mo)');
+  }
+  if (signalOn(data,'adoption')) {
+    if (data.adoption != null && data.adoption >= 70) strengths.push('high feature adoption (' + data.adoption + '%)');
+    else if (data.adoption != null && data.adoption < 30) weaknesses.push('low feature adoption (' + data.adoption + '%)');
+  }
+  if (signalOn(data,'tickets')) {
+    if (data.tickets != null && data.tickets === 0) strengths.push('no open support tickets');
+    else if (data.tickets != null && data.tickets >= 3) weaknesses.push(data.tickets + ' open support tickets');
+  }
+  if (signalOn(data,'nps')) {
+    if (npsIsPromoter(data.nps)) strengths.push('NPS promoter (' + npsDisplay(data.nps) + ')');
+    else if (npsIsDetractor(data.nps)) weaknesses.push('NPS detractor (' + npsDisplay(data.nps) + ')');
+  }
+  if (signalOn(data,'csat')) {
+    if (data.csat != null && data.csat >= 4) strengths.push('good CSAT (' + csatDisplay(data.csat) + ')');
+    else if (csatIsPoor(data.csat)) weaknesses.push('poor CSAT (' + csatDisplay(data.csat) + ')');
+  }
+  if (signalOn(data,'days')) {
+    if (data.days != null && data.days <= 7) strengths.push('recent contact (' + data.days + 'd ago)');
+    else if (data.days != null && data.days > 30) weaknesses.push('no contact in ' + data.days + ' days');
+  }
+  if (signalOn(data,'growth')) {
+    if (data.growth === 'strong') strengths.push('strong growth signal');
+    else if (data.growth === 'none') weaknesses.push('no growth signal');
+  }
+
+  const momLabel = mom === 'up' ? 'Trending upward (+' + Math.abs(delta) + ' pts this week).'
+    : mom === 'dn' ? 'Trending downward (' + delta + ' pts this week).'
+    : mom === 'flat' ? 'Score is holding steady.' : '';
+
+  // ── Lifecycle-first overrides (status descriptions, not actions) ──
   if (lc === 'onboarding') {
     if (status === 'critical' || status === 'risk')
-      return `<strong>Onboarding At Risk:</strong> ${name} is a new customer showing early warning signs. Intervene now with hands-on enablement — schedule a dedicated session to remove blockers and rebuild confidence before this new relationship is damaged.`;
+      return `<strong>Onboarding At Risk:</strong> ${name} is a new customer already showing warning signs at a score of ${score}. ${weaknesses.length ? 'Key concerns: ' + weaknesses.slice(0,2).join(' and ') + '.' : ''} ${momLabel} Early health issues like this can undermine the entire relationship if not addressed quickly.`;
     if (status === 'watch')
-      return `<strong>Onboarding Needs Attention:</strong> ${name} is still ramping up but adoption is lagging. Schedule a hands-on session to demonstrate quick wins and ensure they're seeing value. This is normal for new customers — stay close.`;
-    return `<strong>Onboarding On Track:</strong> ${name} is off to a good start. Focus on driving deeper adoption, building champion relationships, and confirming time-to-value. Hold off on expansion conversations — they're still getting started.`;
+      return `<strong>Onboarding — Needs Attention:</strong> ${name} is still ramping up with a score of ${score}. ${weaknesses.length ? 'Soft spots: ' + weaknesses.slice(0,2).join(' and ') + '.' : 'Some signals are below target.'} This is common for new customers but worth watching closely. ${momLabel}`;
+    return `<strong>Onboarding — On Track:</strong> ${name} is off to a solid start at a score of ${score}. ${strengths.length ? 'Positives: ' + strengths.slice(0,2).join(' and ') + '.' : ''} ${momLabel} Still in the early adoption window — the focus should remain on time-to-value.`;
   }
 
   if (lc === 'won') {
     if (status === 'critical' || status === 'risk')
-      return `<strong>Expansion At Risk:</strong> ${name} recently expanded but health signals are dropping. Focus on ensuring the new capabilities are fully adopted and delivering value — reach out immediately to address any friction.`;
+      return `<strong>Post-Expansion — Struggling:</strong> ${name} recently expanded but health has deteriorated to a score of ${score}. ${weaknesses.length ? 'Problem areas: ' + weaknesses.slice(0,2).join(' and ') + '.' : ''} ${momLabel} The new capabilities may not be landing as expected.`;
     if (status === 'watch')
-      return `<strong>Post-Expansion Watch:</strong> ${name} recently expanded and needs attention. Make sure the new scope is being used and the team is fully trained. Don't push more growth yet — stabilize first.`;
-    return `<strong>Value Realization:</strong> ${name} recently expanded — ensure the new capabilities are adopted and delivering ROI. Build on the momentum of this win by confirming results before exploring further growth.`;
+      return `<strong>Post-Expansion — Mixed:</strong> ${name} recently expanded and sits at a score of ${score} with some signals still soft. ${weaknesses.length ? weaknesses.slice(0,2).join(', ') + '.' : ''} ${momLabel} Adoption of the expanded scope may need reinforcement.`;
+    return `<strong>Post-Expansion — Healthy:</strong> ${name} is performing well at ${score} after a recent expansion. ${strengths.length ? 'Strong on: ' + strengths.slice(0,2).join(' and ') + '.' : ''} ${momLabel}`;
   }
 
   if (lc === 'churned') {
     if (score >= 50)
-      return `<strong>Winback Opportunity:</strong> ${name} churned but had decent signals. Consider a targeted re-engagement — reach out with a compelling reason to return and address what originally drove the churn.`;
-    return `<strong>Churned:</strong> ${name} has left. Document lessons learned and monitor for any future re-engagement opportunity.`;
+      return `<strong>Churned — Winback Candidate:</strong> ${name} churned but had a score of ${score} with some positive signals still showing. ${strengths.length ? strengths.slice(0,2).join(', ') + '.' : ''} There may be an opportunity to re-engage.`;
+    return `<strong>Churned:</strong> ${name} has left with a score of ${score}. ${weaknesses.length ? 'At time of churn: ' + weaknesses.slice(0,2).join(' and ') + '.' : ''} Low likelihood of winback without significant changes.`;
   }
 
-  // ── Standard score-based logic (active / atrisk) ───────────
+  // ── Standard health assessment ────────────────────────────
   if (status === 'critical') {
-    return `<strong>Critical:</strong> ${name} has very low health signals — act immediately. Escalate internally and book an emergency call this week before churn becomes likely.`;
+    let text = `<strong>Critical:</strong> ${name} is at a score of ${score} — the lowest health tier.`;
+    if (weaknesses.length) text += ` Key issues: ${weaknesses.slice(0,3).join(', ')}.`;
+    if (data.mrr) text += ` This represents $${fmtNum(data.mrr)} MRR at serious churn risk.`;
+    text += ` ${momLabel}`;
+    return text;
   }
+
   if (status === 'risk') {
-    const issues = [];
-    if (signalOn(data,'logins')   && data.logins   < 5)        issues.push('very low login activity');
-    if (signalOn(data,'adoption') && data.adoption < 30)       issues.push('poor feature adoption');
-    if (signalOn(data,'tickets')  && data.tickets  >= 3)       issues.push(`${data.tickets} open support tickets`);
-    if (signalOn(data,'nps')      && npsIsDetractor(data.nps)) issues.push('NPS detractor on record');
-    if (signalOn(data,'csat')     && csatIsPoor(data.csat))    issues.push('poor CSAT rating');
-    if (signalOn(data,'days')     && data.days     > 30)       issues.push(`no contact in ${data.days} days`);
-    if (issues.length)
-      return `<strong>At Risk:</strong> ${name} is showing ${issues.slice(0,2).join(' and ')}. Act this week — schedule an EBR or health check call before this escalates.`;
-    return `<strong>At Risk:</strong> Multiple weak signals detected. Reach out immediately and schedule a health check call.`;
+    let text = `<strong>At Risk:</strong> ${name} is at a score of ${score} with multiple weak signals.`;
+    if (weaknesses.length) text += ` Problem areas: ${weaknesses.slice(0,3).join(', ')}.`;
+    if (strengths.length) text += ` On the positive side: ${strengths[0]}.`;
+    text += ` ${momLabel}`;
+    if (mom === 'up') text += ' The improving trend is a good sign but the account is not out of danger yet.';
+    return text;
   }
+
   if (status === 'watch') {
-    return `<strong>Watch:</strong> ${name} has some warning signals. Stay close — increase your cadence and address any friction before it worsens.`;
+    let text = `<strong>Watch:</strong> ${name} is at a score of ${score} — not yet at risk but showing soft spots.`;
+    if (weaknesses.length) text += ` Areas of concern: ${weaknesses.slice(0,2).join(' and ')}.`;
+    if (strengths.length) text += ` Holding up on: ${strengths.slice(0,2).join(' and ')}.`;
+    text += ` ${momLabel}`;
+    if (mom === 'dn') text += ' If this trend continues, the account will likely slide into At Risk territory.';
+    else if (mom === 'up') text += ' The upward trend suggests the account may be recovering.';
+    return text;
   }
+
   if (status === 'expand') {
-    const mom = getMomentum(data);
-    if (mom === 'dn') {
-      const drop = Math.abs(getDelta7d(data));
-      return `<strong>Monitor Decline:</strong> ${name} scores well overall but has dropped ${drop} points this week. Hold off on expansion conversations — investigate what's changing before this trend deepens.`;
-    }
-    if (signalOn(data,'growth') && data.growth === 'strong')
-      return `<strong>Expansion Ready:</strong> ${name} is highly engaged with strong growth signals. This is the right time to open an upsell conversation — they're primed to say yes.`;
-    return `<strong>Expansion Ready:</strong> ${name} is in great shape. Introduce an expansion conversation, request a referral, or propose a tier upgrade at your next touchpoint.`;
+    let text = `<strong>Expansion Ready:</strong> ${name} is thriving at a score of ${score}.`;
+    if (strengths.length) text += ` Standout signals: ${strengths.slice(0,2).join(' and ')}.`;
+    text += ` ${momLabel}`;
+    if (mom === 'dn') text += ' Despite the strong score, the downward momentum is worth monitoring before pursuing growth conversations.';
+    return text;
   }
-  if (data.renewal != null && data.renewal <= 2)
-    return `<strong>Healthy — Renewal Approaching:</strong> ${name} is in good shape but renews soon. Lock in the renewal now while sentiment is positive.`;
-  return `<strong>Healthy:</strong> ${name} is in good shape. Maintain your regular cadence and watch for expansion signals.`;
+
+  // Healthy
+  let text = `<strong>Healthy:</strong> ${name} is in good shape at a score of ${score}.`;
+  if (strengths.length) text += ` Strongest signals: ${strengths.slice(0,2).join(' and ')}.`;
+  if (weaknesses.length) text += ` Minor area to watch: ${weaknesses[0]}.`;
+  text += ` ${momLabel}`;
+  if (mom === 'dn') text += ' The score is solid today but the declining trend means this account could shift to Watch if the trajectory continues.';
+  if (data.renewal != null && data.renewal <= 2) text += ` Renewal is approaching in ${data.renewal} month${data.renewal !== 1 ? 's' : ''}.`;
+  return text;
 }
 
 function buildPlaybook(score, data) {
@@ -2273,10 +2326,9 @@ function buildPlaybook(score, data) {
       plays.push({ type:'ok', text:`<strong>Stay the course:</strong> ${name} is healthy across all signals. Maintain your regular cadence, bring value on every call, and watch for any early warning signs.` });
   }
 
-  // ── Suppress play types based on lifecycle stage ──
+  // ── Lifecycle suppression: remove play types not appropriate for this stage ──
   if (lcCtx.suppress.length)
     return plays.filter(p => !lcCtx.suppress.includes(p.type));
-
   return plays;
 }
 
@@ -3054,7 +3106,7 @@ function _renderHomeBase() {
   html += `<div class="hb-greeting">${greeting}${userName ? ', ' + escHtml(userName) : ''}</div>`;
   html += `<div class="hb-date">${dateStr}</div>`;
   html += `<div class="hb-summary" style="margin-top:10px">${_briefOpener}</div>`;
-  html += '<div style="display:flex;align-items:center;gap:24px;margin-top:16px">';
+  html += '<div style="display:flex;align-items:center;gap:32px;margin-top:16px">';
   html += `<div class="hb-pulse-ring">
     <svg viewBox="0 0 100 100" width="110" height="110">
       <circle cx="50" cy="50" r="40" fill="none" stroke="var(--border)" stroke-width="7" opacity=".3"/>
@@ -3065,6 +3117,7 @@ function _renderHomeBase() {
     <div class="hb-pulse-center">
       <div class="hb-pulse-num">${_portfolioScore}</div>
       <div class="hb-pulse-lbl">Portfolio</div>
+      <div class="hb-pulse-delta" style="color:${avgDelta > 0 ? 'var(--green)' : avgDelta < 0 ? 'var(--red)' : 'var(--muted)'}">${avgDelta > 0 ? '▲' : avgDelta < 0 ? '▼' : '—'} ${avgDelta !== 0 ? Math.abs(avgDelta) : ''}</div>
     </div>
   </div>`;
   html += '<div class="hb-quick-stats">';
@@ -4544,12 +4597,16 @@ function _renderAlerts() {
 
   list.innerHTML = html;
 
-  // Restore expanded groups
+  // Restore expanded groups, or auto-expand first group on fresh render
+  const allHeaders = list.querySelectorAll('.alert-group-hd, .alert-priority-hd');
   if (openGroups.size) {
-    list.querySelectorAll('.alert-group-hd, .alert-priority-hd').forEach(hd => {
+    allHeaders.forEach(hd => {
       const key = hd.id || hd.textContent.replace(/\s+/g,' ').trim().split('(')[0].trim();
       if (openGroups.has(key)) toggleAlertGroup(hd);
     });
+  } else if (allHeaders.length > 0 && _alertViewMode !== 'table') {
+    // Auto-expand the first group so the page isn't all collapsed headers
+    toggleAlertGroup(allHeaders[0]);
   }
 
   renderAlertPanel(all, active, snz);
@@ -4561,25 +4618,15 @@ function _renderAlerts() {
 
 // ─── ALERT RIGHT PANEL ───────────────────────────────────────
 function renderAlertPanel(all, active, snz) {
-  // ── KPI 1: Total active ──
-  const totalEl = el('akpi-total');
-  if (totalEl) totalEl.textContent = active.length;
-  const totalSub = el('akpi-total-sub');
-  if (totalSub) {
-    const renewal = active.filter(a => a.cat === 'renewal').length;
-    totalSub.textContent = renewal > 0
-      ? renewal + ' renewal' + (renewal !== 1 ? 's' : '') + ' \u226460d'
-      : active.length === 0 ? 'all clear' : 'across your book';
-  }
+  // ── Compute KPI values ──
+  const renewal = active.filter(a => a.cat === 'renewal').length;
+  const totalSub = renewal > 0
+    ? renewal + ' renewal' + (renewal !== 1 ? 's' : '') + ' \u226460d'
+    : active.length === 0 ? 'all clear' : 'across your book';
 
-  // ── KPI 2: Critical / Risk ──
   const critical = active.filter(a => a.cat === 'health' && a.type === 'red').length;
-  const critEl = el('akpi-critical');
-  if (critEl) critEl.textContent = critical;
-  const critSub = el('akpi-critical-sub');
-  if (critSub) critSub.textContent = critical === 0 ? 'none flagged' : 'health alerts';
+  const critSub = critical === 0 ? 'none flagged' : 'health alerts';
 
-  // ── KPI 3: MRR exposed ──
   const affectedIds = new Set(active.map(a => a.cid));
   const totalBook = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c)).length;
   let mrrExposed = 0;
@@ -4590,25 +4637,60 @@ function renderAlertPanel(all, active, snz) {
     if (!c) return;
     if (c.status === 'critical' || c.status === 'risk') { mrrSeen.add(a.cid); mrrExposed += c.mrr || 0; }
   });
-  const mrrEl = el('akpi-mrr');
-  if (mrrEl) mrrEl.textContent = mrrExposed > 0 ? '$' + fmtNum(mrrExposed) : '$0';
-  const mrrSubEl = el('akpi-mrr-sub');
-  if (mrrSubEl) mrrSubEl.textContent = mrrSeen.size > 0 ? mrrSeen.size + ' account' + (mrrSeen.size !== 1 ? 's' : '') + ' at risk' : 'no revenue at risk';
+  const mrrStr = mrrExposed > 0 ? '$' + fmtNum(mrrExposed) : '$0';
+  const mrrSubStr = mrrSeen.size > 0 ? mrrSeen.size + ' account' + (mrrSeen.size !== 1 ? 's' : '') + ' at risk' : 'no revenue at risk';
 
-  // ── KPI 4: Accounts affected ──
-  const acctEl = el('akpi-accounts');
-  if (acctEl) acctEl.textContent = affectedIds.size;
-  const acctPct = el('akpi-acct-pct');
-  if (acctPct) {
-    const pctAlerting = totalBook > 0 ? Math.round((affectedIds.size / totalBook) * 100) : 0;
-    acctPct.textContent = pctAlerting > 0 ? pctAlerting + '% of book' : 'affected';
+  const pctAlerting = totalBook > 0 ? Math.round((affectedIds.size / totalBook) * 100) : 0;
+  const acctSub = pctAlerting > 0 ? pctAlerting + '% of book' : 'affected';
+
+  const snzSub = snz.length === 0 ? 'none paused' : 'paused';
+
+  // ── Render gradient KPI cards (matching Dashboard/Trends/Segments) ──
+  const _kI = (d) => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  const kpiRow = el('alert-kpi-row');
+  if (kpiRow) {
+    kpiRow.innerHTML = `
+      <div class="dash-kpi-card dash-kpi-blue" onclick="filterByAlertKpi('all')">
+        <div class="dash-kpi-top">
+          <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${_kI('<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>')}</div>
+          <span class="dash-kpi-label">Active Alerts</span>
+        </div>
+        <div class="dash-kpi-num">${active.length}</div>
+        <div class="dash-kpi-sub">${escHtml(totalSub)}</div>
+      </div>
+      <div class="dash-kpi-card ${critical > 0 ? 'dash-kpi-red' : 'dash-kpi-green'}" onclick="filterByAlertKpi('critical')">
+        <div class="dash-kpi-top">
+          <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${_kI('<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>')}</div>
+          <span class="dash-kpi-label">Critical / Risk</span>
+        </div>
+        <div class="dash-kpi-num">${critical}</div>
+        <div class="dash-kpi-sub">${escHtml(critSub)}</div>
+      </div>
+      <div class="dash-kpi-card ${mrrExposed > 0 ? 'dash-kpi-amber' : 'dash-kpi-teal'}" onclick="filterByAlertKpi('mrr')">
+        <div class="dash-kpi-top">
+          <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${_kI('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>')}</div>
+          <span class="dash-kpi-label">MRR Exposed</span>
+        </div>
+        <div class="dash-kpi-num">${mrrStr}</div>
+        <div class="dash-kpi-sub">${escHtml(mrrSubStr)}</div>
+      </div>
+      <div class="dash-kpi-card dash-kpi-purple" onclick="filterByAlertKpi('accounts')">
+        <div class="dash-kpi-top">
+          <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${_kI('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>')}</div>
+          <span class="dash-kpi-label">Accounts</span>
+        </div>
+        <div class="dash-kpi-num">${affectedIds.size}</div>
+        <div class="dash-kpi-sub">${escHtml(acctSub)}</div>
+      </div>
+      <div class="dash-kpi-card dash-kpi-indigo" onclick="filterByAlertKpi('snoozed')">
+        <div class="dash-kpi-top">
+          <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${_kI('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>')}</div>
+          <span class="dash-kpi-label">Snoozed</span>
+        </div>
+        <div class="dash-kpi-num">${snz.length}</div>
+        <div class="dash-kpi-sub">${escHtml(snzSub)}</div>
+      </div>`;
   }
-
-  // ── KPI 5: Snoozed ──
-  const snzEl = el('akpi-snoozed');
-  if (snzEl) snzEl.textContent = snz.length;
-  const snzSub = el('akpi-snoozed-sub');
-  if (snzSub) snzSub.textContent = snz.length === 0 ? 'none paused' : 'paused';
 
   // ── MRR Exposure detail card ──
   const mrrWrap = el('alert-mrr-wrap');
@@ -6336,7 +6418,7 @@ function showResult({ data, score, signals, status, rec, plays }) {
   badgeEl.textContent = STATUS_LABEL[status] || 'Healthy';
 
   // Rec
-  document.getElementById('score-rec').innerHTML = rec;
+  document.getElementById('score-rec').innerHTML = '<div class="rec-box__title">Health Assessment</div>' + rec;
 
   // Breakdown — resolve weights for the selected profile
   const bd = document.getElementById('breakdown-wrap');
@@ -6675,7 +6757,7 @@ function buildPrintHTML(name, score, status, rec, plays, data) {
         <div style="margin-top:6px;font-size:var(--fs-base);color:#64748b">MRR: $${(data.mrr||0).toLocaleString()} · Tier: ${(data.tier||'').toUpperCase()} · Stage: ${data.lifecycle||'—'}</div>
       </div>
     </div>
-    <div class="rec">${rec.replace(/<[^>]+>/g,'')}</div>
+    <div class="rec"><strong>Health Assessment:</strong> ${rec.replace(/<[^>]+>/g,'')}</div>
     <h2>Signal Inputs</h2>
     <table>
       <tr><th>Signal</th><th>Value</th></tr>
@@ -7001,7 +7083,7 @@ function renderDetailOverview() {
         ${sentIcon ? `<span style="font-size:var(--fs-md)">${sentIcon}</span> <span style="font-size:var(--fs-sm);color:var(--muted)">${fmtDate(sent.date)}</span>` : '<span style="font-size:var(--fs-sm);color:var(--muted)">—</span>'}
       </div>
     </div>
-    <div class="rec-box" style="margin-bottom:14px">${rec}</div>
+    <div class="rec-box" style="margin-bottom:14px"><div class="rec-box__title">Health Assessment</div>${rec}</div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 12px;background:var(--bg);border-radius:var(--r);border:1px solid var(--border);flex-wrap:wrap">
       <span class="di-label" style="margin:0;white-space:nowrap">Schedule Next Touch</span>
       <input type="date" id="di-next-touch" class="di-input" value="${c.next_touch||''}" style="width:140px" />
@@ -7538,8 +7620,6 @@ function buildQBRHTML(c) {
   const tierMap = { smb:'SMB', mid:'Mid-Market', enterprise:'Enterprise' };
   const tierDisp = tierMap[c.tier] || c.tier || '';
   const name = c.name || 'This account';
-  const lc    = c.lifecycle || 'active';
-  const lcCtx = LIFECYCLE_CONTEXT[lc] || LIFECYCLE_CONTEXT.active;
 
   // SVG icons
   const svgi = (d, w=14) => `<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:middle">${d}</svg>`;
@@ -7552,8 +7632,12 @@ function buildQBRHTML(c) {
   const svgDollar    = svgi('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>', 12);
   const svgRenewal   = svgi('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>', 12);
 
+  const lc   = c.lifecycle || 'active';
+  const lcCtx = LIFECYCLE_CONTEXT[lc] || LIFECYCLE_CONTEXT.active;
+
   /* ── Wins & Highlights ── */
   const wins = [];
+  // Lifecycle-aware wins
   if (lc === 'onboarding' && c.adoption != null && c.adoption >= 40) wins.push(`Strong early adoption during onboarding (${c.adoption}%)`);
   if (lc === 'won' && c.logins != null && c.logins >= 10) wins.push('Smooth transition after expansion \u2014 engagement remains strong');
   if (c.logins != null && c.logins >= 15) wins.push(`Strong engagement \u2014 ${c.logins} logins in the past 30 days`);
@@ -7586,31 +7670,32 @@ function buildQBRHTML(c) {
 
   /* ── Executive Summary ── */
   let summary = '';
+  // Lifecycle context prefix
   if (lc === 'onboarding')
-    summary += `<em style="color:var(--teal)">This customer is in their onboarding phase \u2014 the focus should be on driving adoption and confirming early value, not expansion.</em><br><br>`;
+    summary += `<em style="color:var(--blue)">This customer is in their onboarding phase \u2014 the focus should be on driving adoption and confirming early value, not expansion.</em><br><br>`;
   else if (lc === 'won')
     summary += `<em style="color:var(--purple)">This customer recently expanded \u2014 the focus should be on value realization of the new purchase before exploring further growth.</em><br><br>`;
   else if (lc === 'churned')
     summary += `<em style="color:var(--muted)">This customer has churned. This review should focus on lessons learned and assessing winback potential.</em><br><br>`;
 
   if (c.status === 'critical' || c.status === 'risk') {
-    summary += `${name} is currently in a <strong>${statusLabel}</strong> state with a health score of ${c.score}/100. `;
+    summary = `${name} is currently in a <strong>${statusLabel}</strong> state with a health score of ${c.score}/100. `;
     if (mom === 'dn') summary += 'The score has been declining, which warrants immediate attention. ';
     else if (mom === 'up') summary += 'However, the score is trending upward, indicating recent recovery efforts may be working. ';
     if (risks.length) summary += `There ${risks.length === 1 ? 'is 1 key concern' : 'are ' + risks.length + ' concerns'} to address. `;
     if (c.renewal != null && c.renewal <= 3) summary += `With renewal ${c.renewal <= 1 ? 'imminent' : 'approaching in ' + c.renewal + ' months'}, this QBR is critical for retention. `;
     summary += 'The focus for this meeting should be understanding root causes and building a joint recovery plan.';
   } else if (c.status === 'watch') {
-    summary += `${name} is in <strong>Watch</strong> status (${c.score}/100). `;
+    summary = `${name} is in <strong>Watch</strong> status (${c.score}/100). `;
     if (wins.length) summary += `There are positive signals, `;
     summary += `but ${risks.length ? risks.length + ' area' + (risks.length > 1 ? 's need' : ' needs') + ' attention' : 'some signals are mixed'}. `;
     summary += 'This QBR should balance acknowledging wins while proactively addressing gaps before they escalate.';
   } else if (c.status === 'expand') {
-    summary += `${name} is performing strongly at ${c.score}/100 (<strong>${statusLabel}</strong>). `;
+    summary = `${name} is performing strongly at ${c.score}/100 (<strong>${statusLabel}</strong>). `;
     if (wins.length) summary += `Key highlights include strong engagement and satisfaction. `;
-    summary += lc === 'onboarding' || lc === 'won' ? 'This QBR should reinforce early wins and confirm value delivery.' : 'This QBR is an opportunity to deepen the partnership, explore expansion, and build advocacy.';
+    summary += 'This QBR is an opportunity to deepen the partnership, explore expansion, and build advocacy.';
   } else {
-    summary += `${name} is in a <strong>${statusLabel}</strong> state with a health score of ${c.score}/100. `;
+    summary = `${name} is in a <strong>${statusLabel}</strong> state with a health score of ${c.score}/100. `;
     if (mom === 'up') summary += 'The score is trending positively. ';
     if (wins.length && risks.length) summary += `There are clear strengths alongside ${risks.length} area${risks.length > 1 ? 's' : ''} to monitor. `;
     else if (wins.length) summary += 'Multiple positive signals are present. ';
@@ -11969,6 +12054,7 @@ async function renderIntegrationsSection() {
   const wrap = el('integrations-section');
   if (!wrap) return;
 
+  // Show loading
   wrap.innerHTML = '<div class="card" style="max-width:720px;margin-bottom:18px"><div class="card-hd"><h2>Native Integrations</h2></div><p style="padding:16px;color:var(--muted)">Loading integrations…</p></div>';
 
   try {
@@ -12136,7 +12222,7 @@ async function connectStripeUI() {
     const result = await connectIntegration('stripe', key);
     toast('Stripe connected!', 'success');
     input.value = '';
-    renderIntegrationsSection();
+    renderIntegrationsSection(); // refresh the card
   } catch(e) {
     status.innerHTML = `<span style="color:var(--red)">${escHtml(e.message)}</span>`;
     toast('Connection failed: ' + e.message, 'error');
@@ -12238,6 +12324,7 @@ async function syncStripeUI() {
         for (const c of toSave) { try { await save(c); } catch(_) {} }
       }
       refreshMgrDropdown();
+      // Re-render whichever view is currently active
       const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
       if (active === 'homebase')  renderHomeBase();
       if (active === 'customers') renderCustomers();
@@ -12245,6 +12332,7 @@ async function syncStripeUI() {
       if (active === 'trends')    renderTrends();
     }
 
+    // Refresh the card to show updated sync stats
     _integrationCache['stripe'] = {
       ...(_integrationCache['stripe'] || {}),
       last_sync_at: new Date().toISOString(),
@@ -14623,7 +14711,7 @@ function _buildSegChartSVG(data) {
     return;
   }
 
-  const W = 960, H = 220;
+  const W = 960, H = 260;
   const pad = { top: 14, right: 56, bottom: 36, left: 44 };
   const cW = W - pad.left - pad.right;
   const cH = H - pad.top - pad.bottom;

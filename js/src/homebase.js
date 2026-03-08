@@ -309,7 +309,7 @@ function _renderHomeBase() {
   html += `<div class="hb-greeting">${greeting}${userName ? ', ' + escHtml(userName) : ''}</div>`;
   html += `<div class="hb-date">${dateStr}</div>`;
   html += `<div class="hb-summary" style="margin-top:10px">${_briefOpener}</div>`;
-  html += '<div style="display:flex;align-items:center;gap:24px;margin-top:16px">';
+  html += '<div style="display:flex;align-items:center;gap:32px;margin-top:16px">';
   html += `<div class="hb-pulse-ring">
     <svg viewBox="0 0 100 100" width="110" height="110">
       <circle cx="50" cy="50" r="40" fill="none" stroke="var(--border)" stroke-width="7" opacity=".3"/>
@@ -320,6 +320,7 @@ function _renderHomeBase() {
     <div class="hb-pulse-center">
       <div class="hb-pulse-num">${_portfolioScore}</div>
       <div class="hb-pulse-lbl">Portfolio</div>
+      <div class="hb-pulse-delta" style="color:${avgDelta > 0 ? 'var(--green)' : avgDelta < 0 ? 'var(--red)' : 'var(--muted)'}">${avgDelta > 0 ? '▲' : avgDelta < 0 ? '▼' : '—'} ${avgDelta !== 0 ? Math.abs(avgDelta) : ''}</div>
     </div>
   </div>`;
   html += '<div class="hb-quick-stats">';

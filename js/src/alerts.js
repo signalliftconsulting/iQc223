@@ -500,12 +500,16 @@ function _renderAlerts() {
 
   list.innerHTML = html;
 
-  // Restore expanded groups
+  // Restore expanded groups, or auto-expand first group on fresh render
+  const allHeaders = list.querySelectorAll('.alert-group-hd, .alert-priority-hd');
   if (openGroups.size) {
-    list.querySelectorAll('.alert-group-hd, .alert-priority-hd').forEach(hd => {
+    allHeaders.forEach(hd => {
       const key = hd.id || hd.textContent.replace(/\s+/g,' ').trim().split('(')[0].trim();
       if (openGroups.has(key)) toggleAlertGroup(hd);
     });
+  } else if (allHeaders.length > 0 && _alertViewMode !== 'table') {
+    // Auto-expand the first group so the page isn't all collapsed headers
+    toggleAlertGroup(allHeaders[0]);
   }
 
   renderAlertPanel(all, active, snz);
@@ -517,25 +521,15 @@ function _renderAlerts() {
 
 // ─── ALERT RIGHT PANEL ───────────────────────────────────────
 function renderAlertPanel(all, active, snz) {
-  // ── KPI 1: Total active ──
-  const totalEl = el('akpi-total');
-  if (totalEl) totalEl.textContent = active.length;
-  const totalSub = el('akpi-total-sub');
-  if (totalSub) {
-    const renewal = active.filter(a => a.cat === 'renewal').length;
-    totalSub.textContent = renewal > 0
-      ? renewal + ' renewal' + (renewal !== 1 ? 's' : '') + ' \u226460d'
-      : active.length === 0 ? 'all clear' : 'across your book';
-  }
+  // ── Compute KPI values ──
+  const renewal = active.filter(a => a.cat === 'renewal').length;
+  const totalSub = renewal > 0
+    ? renewal + ' renewal' + (renewal !== 1 ? 's' : '') + ' \u226460d'
+    : active.length === 0 ? 'all clear' : 'across your book';
 
-  // ── KPI 2: Critical / Risk ──
   const critical = active.filter(a => a.cat === 'health' && a.type === 'red').length;
-  const critEl = el('akpi-critical');
-  if (critEl) critEl.textContent = critical;
-  const critSub = el('akpi-critical-sub');
-  if (critSub) critSub.textContent = critical === 0 ? 'none flagged' : 'health alerts';
+  const critSub = critical === 0 ? 'none flagged' : 'health alerts';
 
-  // ── KPI 3: MRR exposed ──
   const affectedIds = new Set(active.map(a => a.cid));
   const totalBook = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c)).length;
   let mrrExposed = 0;
@@ -546,25 +540,60 @@ function renderAlertPanel(all, active, snz) {
     if (!c) return;
     if (c.status === 'critical' || c.status === 'risk') { mrrSeen.add(a.cid); mrrExposed += c.mrr || 0; }
   });
-  const mrrEl = el('akpi-mrr');
-  if (mrrEl) mrrEl.textContent = mrrExposed > 0 ? '$' + fmtNum(mrrExposed) : '$0';
-  const mrrSubEl = el('akpi-mrr-sub');
-  if (mrrSubEl) mrrSubEl.textContent = mrrSeen.size > 0 ? mrrSeen.size + ' account' + (mrrSeen.size !== 1 ? 's' : '') + ' at risk' : 'no revenue at risk';
+  const mrrStr = mrrExposed > 0 ? '$' + fmtNum(mrrExposed) : '$0';
+  const mrrSubStr = mrrSeen.size > 0 ? mrrSeen.size + ' account' + (mrrSeen.size !== 1 ? 's' : '') + ' at risk' : 'no revenue at risk';
 
-  // ── KPI 4: Accounts affected ──
-  const acctEl = el('akpi-accounts');
-  if (acctEl) acctEl.textContent = affectedIds.size;
-  const acctPct = el('akpi-acct-pct');
-  if (acctPct) {
-    const pctAlerting = totalBook > 0 ? Math.round((affectedIds.size / totalBook) * 100) : 0;
-    acctPct.textContent = pctAlerting > 0 ? pctAlerting + '% of book' : 'affected';
+  const pctAlerting = totalBook > 0 ? Math.round((affectedIds.size / totalBook) * 100) : 0;
+  const acctSub = pctAlerting > 0 ? pctAlerting + '% of book' : 'affected';
+
+  const snzSub = snz.length === 0 ? 'none paused' : 'paused';
+
+  // ── Render gradient KPI cards (matching Dashboard/Trends/Segments) ──
+  const _kI = (d) => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  const kpiRow = el('alert-kpi-row');
+  if (kpiRow) {
+    kpiRow.innerHTML = `
+      <div class="dash-kpi-card dash-kpi-blue" onclick="filterByAlertKpi('all')">
+        <div class="dash-kpi-top">
+          <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${_kI('<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>')}</div>
+          <span class="dash-kpi-label">Active Alerts</span>
+        </div>
+        <div class="dash-kpi-num">${active.length}</div>
+        <div class="dash-kpi-sub">${escHtml(totalSub)}</div>
+      </div>
+      <div class="dash-kpi-card ${critical > 0 ? 'dash-kpi-red' : 'dash-kpi-green'}" onclick="filterByAlertKpi('critical')">
+        <div class="dash-kpi-top">
+          <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${_kI('<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>')}</div>
+          <span class="dash-kpi-label">Critical / Risk</span>
+        </div>
+        <div class="dash-kpi-num">${critical}</div>
+        <div class="dash-kpi-sub">${escHtml(critSub)}</div>
+      </div>
+      <div class="dash-kpi-card ${mrrExposed > 0 ? 'dash-kpi-amber' : 'dash-kpi-teal'}" onclick="filterByAlertKpi('mrr')">
+        <div class="dash-kpi-top">
+          <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${_kI('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>')}</div>
+          <span class="dash-kpi-label">MRR Exposed</span>
+        </div>
+        <div class="dash-kpi-num">${mrrStr}</div>
+        <div class="dash-kpi-sub">${escHtml(mrrSubStr)}</div>
+      </div>
+      <div class="dash-kpi-card dash-kpi-purple" onclick="filterByAlertKpi('accounts')">
+        <div class="dash-kpi-top">
+          <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${_kI('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>')}</div>
+          <span class="dash-kpi-label">Accounts</span>
+        </div>
+        <div class="dash-kpi-num">${affectedIds.size}</div>
+        <div class="dash-kpi-sub">${escHtml(acctSub)}</div>
+      </div>
+      <div class="dash-kpi-card dash-kpi-indigo" onclick="filterByAlertKpi('snoozed')">
+        <div class="dash-kpi-top">
+          <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${_kI('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>')}</div>
+          <span class="dash-kpi-label">Snoozed</span>
+        </div>
+        <div class="dash-kpi-num">${snz.length}</div>
+        <div class="dash-kpi-sub">${escHtml(snzSub)}</div>
+      </div>`;
   }
-
-  // ── KPI 5: Snoozed ──
-  const snzEl = el('akpi-snoozed');
-  if (snzEl) snzEl.textContent = snz.length;
-  const snzSub = el('akpi-snoozed-sub');
-  if (snzSub) snzSub.textContent = snz.length === 0 ? 'none paused' : 'paused';
 
   // ── MRR Exposure detail card ──
   const mrrWrap = el('alert-mrr-wrap');

@@ -161,7 +161,7 @@ function showResult({ data, score, signals, status, rec, plays }) {
   badgeEl.textContent = STATUS_LABEL[status] || 'Healthy';
 
   // Rec
-  document.getElementById('score-rec').innerHTML = rec;
+  document.getElementById('score-rec').innerHTML = '<div class="rec-box__title">Health Assessment</div>' + rec;
 
   // Breakdown — resolve weights for the selected profile
   const bd = document.getElementById('breakdown-wrap');
@@ -500,7 +500,7 @@ function buildPrintHTML(name, score, status, rec, plays, data) {
         <div style="margin-top:6px;font-size:var(--fs-base);color:#64748b">MRR: $${(data.mrr||0).toLocaleString()} · Tier: ${(data.tier||'').toUpperCase()} · Stage: ${data.lifecycle||'—'}</div>
       </div>
     </div>
-    <div class="rec">${rec.replace(/<[^>]+>/g,'')}</div>
+    <div class="rec"><strong>Health Assessment:</strong> ${rec.replace(/<[^>]+>/g,'')}</div>
     <h2>Signal Inputs</h2>
     <table>
       <tr><th>Signal</th><th>Value</th></tr>
@@ -826,7 +826,7 @@ function renderDetailOverview() {
         ${sentIcon ? `<span style="font-size:var(--fs-md)">${sentIcon}</span> <span style="font-size:var(--fs-sm);color:var(--muted)">${fmtDate(sent.date)}</span>` : '<span style="font-size:var(--fs-sm);color:var(--muted)">—</span>'}
       </div>
     </div>
-    <div class="rec-box" style="margin-bottom:14px">${rec}</div>
+    <div class="rec-box" style="margin-bottom:14px"><div class="rec-box__title">Health Assessment</div>${rec}</div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 12px;background:var(--bg);border-radius:var(--r);border:1px solid var(--border);flex-wrap:wrap">
       <span class="di-label" style="margin:0;white-space:nowrap">Schedule Next Touch</span>
       <input type="date" id="di-next-touch" class="di-input" value="${c.next_touch||''}" style="width:140px" />
