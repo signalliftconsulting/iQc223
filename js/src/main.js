@@ -65,6 +65,11 @@
       if (typeof checkScheduledReports === 'function') setTimeout(checkScheduledReports, 3000);
       // Show/hide topbar Stripe sync button based on integration status
       if (typeof updateTopbarSyncVisibility === 'function') updateTopbarSyncVisibility();
+      // Auto-sync Stripe on page load (silent) + start hourly interval
+      if (typeof autoSyncStripe === 'function') {
+        setTimeout(autoSyncStripe, 5000); // 5s delay to let UI settle
+        _stripeSyncTimer = setInterval(autoSyncStripe, 60 * 60 * 1000);
+      }
     }
 
   } else {

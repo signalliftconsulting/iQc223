@@ -11852,6 +11852,9 @@ const WEBHOOK_TRIGGERS = [
 // ── Native Integrations UI ──
 
 let _integrationCache = {};
+let _stripeSyncInProgress = false;
+let _lastStripeSyncTime = 0;
+let _stripeSyncTimer = null;
 
 async function renderIntegrationsSection() {
   const wrap = el('integrations-section');
@@ -11989,10 +11992,12 @@ async function syncStripeUI() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-sm"></span> Syncing…';
   status.innerHTML = '<span style="color:var(--muted)">Pulling subscriptions from Stripe…</span>';
+  _stripeSyncInProgress = true;
 
   try {
     const result = await syncIntegration('stripe');
     const stats = result.stats || {};
+    _lastStripeSyncTime = Date.now();
     status.innerHTML = `<span style="color:var(--green)">✓ ${stats.customers_matched || 0} customers matched (${stats.total || 0} subscriptions), ${stats.updated || 0} updated</span>`;
     toast(`Stripe sync: ${stats.updated || 0} of ${stats.customers_matched || 0} customers updated`, 'success');
 
@@ -12050,6 +12055,7 @@ async function syncStripeUI() {
     status.innerHTML = `<span style="color:var(--red)">✗ ${escHtml(e.message)}</span>`;
     toast('Sync failed: ' + e.message, 'error');
   } finally {
+    _stripeSyncInProgress = false;
     btn.disabled = false;
     btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Sync Now';
   }
@@ -12062,10 +12068,12 @@ async function topbarSyncStripe() {
 
   btn.classList.add('syncing');
   btn.disabled = true;
+  _stripeSyncInProgress = true;
 
   try {
     const result = await syncIntegration('stripe');
     const stats = result.stats || {};
+    _lastStripeSyncTime = Date.now();
     toast(`Stripe sync: ${stats.updated || 0} of ${stats.customers_matched || 0} customers updated`, 'success');
 
     if (stats.updated > 0) {
@@ -12117,6 +12125,7 @@ async function topbarSyncStripe() {
   } catch(e) {
     toast('Stripe sync failed: ' + e.message, 'error');
   } finally {
+    _stripeSyncInProgress = false;
     btn.classList.remove('syncing');
     btn.disabled = false;
   }
@@ -12134,6 +12143,79 @@ async function updateTopbarSyncVisibility() {
     btn.style.display = _integrationCache['stripe']?.status === 'connected' ? '' : 'none';
   } catch(e) {
     btn.style.display = 'none';
+  }
+}
+
+// ── Auto Stripe Sync (page load + hourly) ──
+async function autoSyncStripe() {
+  // Guards
+  if (_stripeSyncInProgress) return;
+  if (!_integrationCache['stripe']) {
+    try {
+      const integrations = await loadIntegrationStatus();
+      for (const i of integrations) _integrationCache[i.platform] = i;
+    } catch(_) { return; }
+  }
+  if (_integrationCache['stripe']?.status !== 'connected') return;
+  if (Date.now() - _lastStripeSyncTime < 30 * 60 * 1000) return; // 30-min cooldown
+
+  _stripeSyncInProgress = true;
+  try {
+    const result = await syncIntegration('stripe');
+    const stats = result.stats || {};
+    _lastStripeSyncTime = Date.now();
+    console.log(`[Auto-sync] Stripe: ${stats.customers_matched || 0} customers, ${stats.updated || 0} updated`);
+
+    if (stats.updated > 0) {
+      const preScores = new Map(customers.map(c => [c.id, c.score]));
+      const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
+      try {
+        if (isAdmin() && activeClientId !== '__own__') {
+          await loadClientCustomers(activeClientId, true);
+        } else {
+          await loadCustomersFromSupabase();
+        }
+      } catch(e) { console.warn('Auto-sync reload:', e); }
+      _lastSyncTime = Date.now();
+      refreshLiveScores();
+      const syncedNames = (result.updates || []).map(u => u.name?.toLowerCase());
+      const toSave = [];
+      for (const c of customers) {
+        if (!syncedNames.includes(c.name.toLowerCase())) continue;
+        const oldScore = preScores.get(c.id);
+        const oldSnap = preSignals.get(c.id);
+        const newSnap = buildHistorySnapshot(c);
+        const scoreChanged = oldScore != null && oldScore !== c.score;
+        const signalsChanged = JSON.stringify(oldSnap) !== JSON.stringify(newSnap);
+        if (scoreChanged || signalsChanged) {
+          c.history = c.history || [];
+          c.history.push({ score: c.score, date: new Date().toISOString(), signals: newSnap, prevSignals: oldSnap });
+          toSave.push(c);
+        }
+      }
+      if (toSave.length) {
+        pauseSync(10000);
+        for (const c of toSave) { try { await save(c); } catch(_) {} }
+      }
+      refreshMgrDropdown();
+      const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
+      if (active === 'homebase')  renderHomeBase();
+      if (active === 'customers') renderCustomers();
+      if (active === 'alerts')    renderAlerts();
+      if (active === 'trends')    renderTrends();
+    }
+
+    _integrationCache['stripe'] = {
+      ...(_integrationCache['stripe'] || {}),
+      last_sync_at: new Date().toISOString(),
+      last_sync_status: 'success',
+      last_sync_message: `${stats.customers_matched || 0} customers matched, ${stats.updated} updated`,
+      sync_stats: stats
+    };
+  } catch(e) {
+    console.warn('[Auto-sync] Stripe error:', e.message);
+  } finally {
+    _stripeSyncInProgress = false;
   }
 }
 
@@ -19458,6 +19540,11 @@ async function ensureUserProfile(user) {
       if (typeof checkScheduledReports === 'function') setTimeout(checkScheduledReports, 3000);
       // Show/hide topbar Stripe sync button based on integration status
       if (typeof updateTopbarSyncVisibility === 'function') updateTopbarSyncVisibility();
+      // Auto-sync Stripe on page load (silent) + start hourly interval
+      if (typeof autoSyncStripe === 'function') {
+        setTimeout(autoSyncStripe, 5000); // 5s delay to let UI settle
+        _stripeSyncTimer = setInterval(autoSyncStripe, 60 * 60 * 1000);
+      }
     }
 
   } else {
