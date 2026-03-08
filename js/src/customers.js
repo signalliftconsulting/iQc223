@@ -9,7 +9,7 @@ function passesManagerFilter(c) {
 // Rebuild the manager dropdown from current customers list
 function buildManagerSelectOptions(selectedManager) {
   const managers = [...new Set(customers.map(c => c.manager || '').filter(Boolean))].sort();
-  let html = '<option value="">— Select —</option>';
+  let html = '<option value="">\u2014 Remove Manager \u2014</option>';
   managers.forEach(m => {
     html += `<option value="${escHtml(m)}" ${m === selectedManager ? 'selected' : ''}>${escHtml(m)}</option>`;
   });

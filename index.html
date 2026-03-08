@@ -2298,8 +2298,14 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
           </div>
         </div>
       </div>
-      <!-- RIGHT COLUMN: Profiles → Distribution → Quick Actions → Data Health -->
+      <!-- RIGHT COLUMN: CSMs → Profiles → Distribution → Quick Actions → Data Health -->
       <div class="cfg-col">
+        <!-- Manage CSMs -->
+        <div class="card">
+          <div class="card-hd"><h2>Manage CSMs <span class="info-tip" data-tip="View all CSMs and remove ones no longer needed. Removing a CSM unassigns them from all their customers.">ⓘ</span></h2></div>
+          <p style="font-size:var(--fs-base);margin-bottom:14px">CSMs currently assigned to customers.</p>
+          <div id="cfg-csm-list"></div>
+        </div>
         <!-- Scoring Profiles -->
         <div class="card">
           <div class="card-hd"><h2>Scoring Profiles <span class="info-tip" data-tip="Click a profile to load its weights into the editor. Edit, update, or create new profiles from the sliders.">ⓘ</span></h2></div>
@@ -3618,6 +3624,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=328"></script>
+<script src="js/app.js?v=329"></script>
 </body>
 </html>
