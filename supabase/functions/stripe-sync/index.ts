@@ -187,7 +187,7 @@ serve(async (req) => {
       byName.set(c.name.toLowerCase().trim(), c);
     }
 
-    const stats = { total: subscriptions.length, matched: 0, updated: 0, skipped: 0 };
+    const stats = { total: subscriptions.length, matched: 0, updated: 0, skipped: 0, customers_matched: 0 };
     const updates: any[] = [];
 
     // ── Phase 1: Group subscriptions by matched customer ──
@@ -220,6 +220,8 @@ serve(async (req) => {
       // Keep the stripe customer ID if we have one
       if (stripeCustomerId) grouped.get(key)!.stripeCustomerId = stripeCustomerId;
     }
+
+    stats.customers_matched = grouped.size;
 
     // ── Phase 2: Aggregate per customer and build updates ──
     const TIER_RANK: Record<string, number> = { enterprise: 3, mid: 2, smb: 1 };
@@ -328,7 +330,7 @@ serve(async (req) => {
       .update({
         last_sync_at: new Date().toISOString(),
         last_sync_status: 'success',
-        last_sync_message: `Synced ${stats.matched} of ${stats.total} subscriptions, ${stats.updated} updated`,
+        last_sync_message: `${stats.customers_matched} customers matched (${stats.total} subscriptions), ${stats.updated} updated`,
         sync_stats: stats,
         updated_at: new Date().toISOString()
       })

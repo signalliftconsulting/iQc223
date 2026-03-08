@@ -11993,8 +11993,8 @@ async function syncStripeUI() {
   try {
     const result = await syncIntegration('stripe');
     const stats = result.stats || {};
-    status.innerHTML = `<span style="color:var(--green)">✓ Synced ${stats.matched || 0} of ${stats.total || 0} subscriptions, ${stats.updated || 0} updated, ${stats.skipped || 0} skipped</span>`;
-    toast(`Stripe sync complete: ${stats.updated || 0} customers updated`, 'success');
+    status.innerHTML = `<span style="color:var(--green)">✓ ${stats.customers_matched || 0} customers matched (${stats.total || 0} subscriptions), ${stats.updated || 0} updated</span>`;
+    toast(`Stripe sync: ${stats.updated || 0} of ${stats.customers_matched || 0} customers updated`, 'success');
 
     // Force-reload customer data after sync (bypass all silentSync guards)
     if (stats.updated > 0) {
@@ -12042,7 +12042,7 @@ async function syncStripeUI() {
       ...(_integrationCache['stripe'] || {}),
       last_sync_at: new Date().toISOString(),
       last_sync_status: 'success',
-      last_sync_message: `Synced ${stats.matched} of ${stats.total} subscriptions, ${stats.updated} updated`,
+      last_sync_message: `${stats.customers_matched || 0} customers matched, ${stats.updated} updated`,
       sync_stats: stats
     };
     renderStripeCard(_integrationCache['stripe']);
@@ -12066,7 +12066,7 @@ async function topbarSyncStripe() {
   try {
     const result = await syncIntegration('stripe');
     const stats = result.stats || {};
-    toast(`Stripe sync: ${stats.updated || 0} of ${stats.matched || 0} customers updated`, 'success');
+    toast(`Stripe sync: ${stats.updated || 0} of ${stats.customers_matched || 0} customers updated`, 'success');
 
     if (stats.updated > 0) {
       const preScores = new Map(customers.map(c => [c.id, c.score]));
@@ -12111,7 +12111,7 @@ async function topbarSyncStripe() {
       ...(_integrationCache['stripe'] || {}),
       last_sync_at: new Date().toISOString(),
       last_sync_status: 'success',
-      last_sync_message: `Synced ${stats.matched} of ${stats.total} subscriptions, ${stats.updated} updated`,
+      last_sync_message: `${stats.customers_matched || 0} customers matched, ${stats.updated} updated`,
       sync_stats: stats
     };
   } catch(e) {
