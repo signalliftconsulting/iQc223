@@ -342,10 +342,10 @@ svg.sparkline{display:block}
 
 /* HOME BASE */
 /* Home Base Welcome Banner */
-.hb-welcome{background:#fff;border:2px solid transparent;border-radius:var(--rlg);padding:32px 32px 28px;margin-bottom:20px;position:relative;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.06);background-clip:padding-box}
-.hb-welcome::before{content:'';position:absolute;inset:-2px;border-radius:inherit;padding:2px;background:linear-gradient(135deg,#3b82f6,#8b5cf6,#06b6d4,#10b981,#3b82f6);background-size:300% 300%;animation:hb-shimmer 4s linear infinite;-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.hb-welcome{background:#fff;border:3px solid transparent;border-radius:var(--rlg);padding:32px 32px 28px;margin-bottom:20px;position:relative;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.06);background-clip:padding-box}
+.hb-welcome::before{content:'';position:absolute;inset:-3px;border-radius:inherit;padding:3px;background:var(--hb-border-grad,linear-gradient(135deg,#3b82f6,#8b5cf6,#06b6d4,#10b981,#3b82f6));background-size:300% 300%;animation:hb-shimmer 4s linear infinite;-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
 @keyframes hb-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-.hb-welcome::after{content:'';position:absolute;top:-40px;right:-40px;width:250px;height:250px;background:radial-gradient(circle,rgba(99,102,241,.06) 0%,rgba(59,130,246,.03) 40%,transparent 70%);border-radius:50%;pointer-events:none}
+.hb-welcome::after{content:'';position:absolute;top:-40px;right:-40px;width:250px;height:250px;background:var(--hb-glow,radial-gradient(circle,rgba(99,102,241,.06) 0%,rgba(59,130,246,.03) 40%,transparent 70%));border-radius:50%;pointer-events:none}
 .hb-welcome-grid{display:grid;grid-template-columns:auto 1fr;gap:32px;align-items:center}
 .hb-welcome-left{min-width:0}
 .hb-welcome-right{display:flex;flex-direction:column;align-items:flex-start;gap:14px}
@@ -3624,6 +3624,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=332"></script>
+<script src="js/app.js?v=338"></script>
 </body>
 </html>

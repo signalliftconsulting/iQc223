@@ -218,104 +218,236 @@ function _renderHomeBase() {
   // ── Portfolio overview blurb + deduplicated action items ──
   const _ids = arr => JSON.stringify(arr.map(c => c.id));
 
-  // Build portfolio overview blurb (narrative paragraph)
-  const _blurbParts = [];
+  // Build portfolio overview — insight-driven briefing (not widget restatement)
+  const _overviewCandidates = [];
 
-  // Health state + trend
-  if (healthyPct >= 80) {
-    _blurbParts.push(`Your portfolio is in strong shape with ${healthyPct}% of accounts healthy.`);
-  } else if (healthyPct >= 60) {
-    _blurbParts.push(`Portfolio health is at ${healthyPct}% with ${atRisk.length} account${atRisk.length !== 1 ? 's' : ''} at risk.`);
-  } else {
-    _blurbParts.push(`Portfolio health is at ${healthyPct}% with $${fmtNum(atRiskMRR)} MRR exposed across ${atRisk.length} at-risk account${atRisk.length !== 1 ? 's' : ''}.`);
-  }
-
-  // Trend direction
-  if (avgDelta > 2) _blurbParts.push(`Scores are trending up ${avgDelta} pts on average.`);
-  else if (avgDelta < -2) _blurbParts.push(`Scores dropped ${Math.abs(avgDelta)} pts on average this period.`);
-
-  // Movement summary
-  if (improving > 0 && declining > 0) {
-    _blurbParts.push(`${improving} account${improving !== 1 ? 's are' : ' is'} improving while ${declining} ${declining !== 1 ? 'are' : 'is'} declining.`);
-  } else if (declining > 0) {
-    _blurbParts.push(`${declining} account${declining !== 1 ? 's are' : ' is'} declining.`);
-  }
-
-  // Revenue context
-  if (atRiskMRR > 0 && healthyPct >= 60) {
-    _blurbParts.push(`$${fmtNum(atRiskMRR)} in MRR is at risk.`);
-  }
-
-  // Renewals
-  if (renewals30.length > 0) {
-    if (renewalsAtRisk.length > 0) {
-      _blurbParts.push(`${renewals30.length} renewal${renewals30.length !== 1 ? 's are' : ' is'} coming up in the next 30 days, ${renewalsAtRisk.length} of which ${renewalsAtRisk.length !== 1 ? 'are' : 'is'} at risk.`);
-    } else {
-      _blurbParts.push(`${renewals30.length} renewal${renewals30.length !== 1 ? 's' : ''} coming up in the next 30 days, all in good health.`);
+  // 1. Weakest signal across at-risk accounts
+  if (atRisk.length >= 2) {
+    const sigWeak = { logins: 0, adoption: 0, tickets: 0, nps: 0, csat: 0, days: 0 };
+    const sigLbl  = { logins:'login activity', adoption:'adoption', tickets:'ticket volume', nps:'NPS', csat:'CSAT', days:'contact recency' };
+    atRisk.forEach(c => {
+      if (c.logins != null && c.logins < 5)     sigWeak.logins++;
+      if (c.adoption != null && c.adoption < 30) sigWeak.adoption++;
+      if (c.tickets != null && c.tickets >= 5)   sigWeak.tickets++;
+      if (npsIsDetractor(c.nps))                 sigWeak.nps++;
+      if (c.csat != null && c.csat < 3)          sigWeak.csat++;
+      if (c.days != null && c.days >= 30)        sigWeak.days++;
+    });
+    const sorted = Object.entries(sigWeak).filter(([,v]) => v >= 2).sort((a,b) => b[1] - a[1]);
+    if (sorted.length > 0) {
+      const [topSig, topCnt] = sorted[0];
+      const pct = Math.round(topCnt / atRisk.length * 100);
+      if (pct >= 40) {
+        const desc = topSig === 'tickets' ? 'elevated tickets' : topSig === 'days' ? 'no recent contact' : 'low ' + sigLbl[topSig];
+        _overviewCandidates.push({ score: pct + topCnt * 2, text: `${sigLbl[topSig].charAt(0).toUpperCase() + sigLbl[topSig].slice(1)} is the weakest signal across your at-risk accounts \u2014 ${pct}% have ${desc}.` });
+      }
     }
   }
 
-  // Contact gaps
-  if (contactGap.length > 0) {
-    _blurbParts.push(`${contactGap.length} account${contactGap.length !== 1 ? 's have' : ' has'} not been contacted in 30+ days.`);
+  // 2. Tier divergence
+  {
+    const tierMap = {};
+    active.forEach(c => {
+      const t = c.tier || 'Unknown';
+      if (!tierMap[t]) tierMap[t] = { scores: [], risk: 0, n: 0 };
+      tierMap[t].scores.push(c.score); tierMap[t].n++;
+      if (c.status === 'critical' || c.status === 'risk') tierMap[t].risk++;
+    });
+    const tiers = Object.entries(tierMap).filter(([,v]) => v.n >= 3);
+    if (tiers.length >= 2) {
+      tiers.forEach(([,v]) => { v.avg = Math.round(v.scores.reduce((s,x) => s + x, 0) / v.scores.length); });
+      tiers.sort((a,b) => b[1].avg - a[1].avg);
+      const best = tiers[0], worst = tiers[tiers.length - 1];
+      const gap = best[1].avg - worst[1].avg;
+      if (gap >= 10) {
+        _overviewCandidates.push({ score: gap + 10, text: `Your ${best[0]} tier is outperforming ${worst[0]} by ${gap} pts on average. ${worst[1].risk} of ${worst[1].n} ${worst[0]} accounts are at risk.` });
+      }
+    }
   }
 
-  const _portfolioBlurb = _blurbParts.slice(0, 4).join(' ');
+  // 3. Common pattern among declining accounts
+  if (declining >= 3) {
+    const declAccts = withHist.filter(c => getDeltaPeriod(c) < -2);
+    if (declAccts.length >= 3) {
+      const pat = { lowLogins: 0, lowAdopt: 0, highTix: 0, npsDetr: 0, noContact: 0 };
+      declAccts.forEach(c => {
+        if (c.logins != null && c.logins < 5)     pat.lowLogins++;
+        if (c.adoption != null && c.adoption < 30) pat.lowAdopt++;
+        if (c.tickets != null && c.tickets >= 5)   pat.highTix++;
+        if (npsIsDetractor(c.nps))                 pat.npsDetr++;
+        if (c.days != null && c.days >= 30)        pat.noContact++;
+      });
+      const patLbl = { lowLogins:'low logins', lowAdopt:'low adoption', highTix:'rising tickets', npsDetr:'NPS detractors', noContact:'no recent contact' };
+      const common = Object.entries(pat).filter(([,v]) => v >= Math.ceil(declAccts.length * 0.5)).sort((a,b) => b[1] - a[1]).slice(0,2);
+      if (common.length >= 2) {
+        const matchCnt = Math.min(...common.map(([,v]) => v));
+        _overviewCandidates.push({ score: matchCnt * 15 + common.length * 10, text: `${matchCnt} of your ${declAccts.length} declining accounts share a common pattern: ${common.map(([k]) => patLbl[k]).join(' + ')}.` });
+      }
+    }
+  }
 
-  // Build deduplicated action items (max 4)
-  const _actionItems = [];
+  // 4. Contact impact — are contacted accounts trending differently?
+  {
+    const withDays = active.filter(c => c.days != null && (c.history || []).length >= 1);
+    const contacted   = withDays.filter(c => c.days <= 14);
+    const uncontacted = withDays.filter(c => c.days > 14);
+    if (contacted.length >= 3 && uncontacted.length >= 3) {
+      const cDelta  = Math.round(contacted.reduce((s,c) => s + getDeltaPeriod(c), 0) / contacted.length * 10) / 10;
+      const uDelta  = Math.round(uncontacted.reduce((s,c) => s + getDeltaPeriod(c), 0) / uncontacted.length * 10) / 10;
+      const gap = cDelta - uDelta;
+      if (Math.abs(gap) >= 3) {
+        if (gap > 0) {
+          _overviewCandidates.push({ score: Math.abs(gap) * 5 + 15, text: `Recent outreach is making a difference \u2014 contacted accounts are trending ${cDelta > 0 ? '+' : ''}${cDelta} pts vs ${uDelta > 0 ? '+' : ''}${uDelta} for uncontacted.` });
+        } else {
+          _overviewCandidates.push({ score: Math.abs(gap) * 5 + 10, text: `Uncontacted accounts are actually outperforming contacted ones by ${Math.abs(gap)} pts \u2014 outreach may be focused on the wrong accounts.` });
+        }
+      }
+    }
+  }
+
+  // 5. Silent decliners alert
+  if (silentDecliners.length >= 2) {
+    const sdMRR = silentDecliners.reduce((s,c) => s + (c.mrr || 0), 0);
+    _overviewCandidates.push({ score: silentDecliners.length * 12 + (sdMRR >= 10000 ? 20 : 0), text: `${silentDecliners.length} previously healthy accounts are now declining, with $${fmtNum(sdMRR)} MRR at stake. These were off the radar until now.` });
+  }
+
+  // 6. Renewal cohort health vs portfolio average
+  if (renewals30.length >= 2) {
+    const renewAvg = Math.round(renewals30.reduce((s,c) => s + c.score, 0) / renewals30.length);
+    const gap = Math.round(avgScore) - renewAvg;
+    if (gap >= 8) {
+      const renewMRR = renewals30.reduce((s,c) => s + (c.mrr || 0), 0);
+      _overviewCandidates.push({ score: gap * 3 + renewalsAtRisk.length * 10, text: `Accounts renewing in the next 30 days are scoring ${gap} pts below your portfolio average. $${fmtNum(renewMRR)} MRR needs attention before those renewals hit.` });
+    } else if (gap <= -5) {
+      _overviewCandidates.push({ score: Math.abs(gap) * 2, text: `Good news: your upcoming renewals are healthier than your portfolio average by ${Math.abs(gap)} pts.` });
+    }
+  }
+
+  // 7. Overnight anomaly
+  if (_dodBriefing && _dodBriefing.droppers >= 2) {
+    const d = _dodBriefing;
+    const reasonStr = d.reasons.length ? `, driven by ${d.reasons.slice(0,2).join(' and ')}` : '';
+    _overviewCandidates.push({ score: d.droppers * 10 + Math.abs(d.avgDelta) * 5, text: `${d.droppers} accounts dropped 5+ pts overnight${reasonStr}. This is unusual and worth investigating.` });
+  }
+
+  // Select top 2-3 insights, fallback if none are interesting
+  _overviewCandidates.sort((a,b) => b.score - a.score);
+  const _topInsights = _overviewCandidates.slice(0, 3);
+  let _portfolioBlurb;
+  if (_topInsights.length === 0) {
+    if (healthyPct >= 80) _portfolioBlurb = 'Your portfolio is stable with no standout patterns this period. A good time to focus on expansion opportunities and proactive check-ins.';
+    else if (atRisk.length > 0) _portfolioBlurb = `No strong patterns detected this period. Keep an eye on your ${atRisk.length} at-risk account${atRisk.length !== 1 ? 's' : ''} and prioritize by MRR exposure.`;
+    else _portfolioBlurb = 'Portfolio looks steady. Focus on maintaining momentum and deepening engagement with your key accounts.';
+  } else {
+    _portfolioBlurb = _topInsights.map(i => i.text).join(' ');
+  }
+
+  // Build urgency-scored, verb-first action items (max 4)
+  const _actionPool = [];
   const _mentioned = new Set();
 
-  // 1. Overnight drops (aggregate, not account-specific)
+  // 1. Overnight drops → Investigate
   if (_dodBriefing && _dodBriefing.avgDelta <= -2) {
     const d = _dodBriefing;
-    let text = `Scores dropped ${Math.abs(d.avgDelta)} pts overnight across ${d.total} accounts`;
-    if (d.reasons.length) text += `, driven by ${d.reasons.slice(0,2).join(' and ')}`;
-    text += '.';
-    _actionItems.push({ text, action: "setTrendRange('1d');nav('trends')" });
+    const reasonHint = d.reasons.length ? ` \u2014 ${d.reasons.slice(0,2).join(' and ')}` : '';
+    _actionPool.push({ urgency: 90 + Math.abs(d.avgDelta) * 2, tone: 'red', text: `Investigate the overnight score drop across ${d.total} accounts${reasonHint}.`, action: "setTrendRange('1d');nav('trends')", ids: [] });
   }
 
-  // 2. Renewal + contact gap
+  // 2. Renewal + no contact → Schedule EBR
   if (contactGapHighVal.length > 0) {
-    const gapWithRenewal = contactGapHighVal.filter(c => c.renewal != null && c.renewal <= 3);
-    if (gapWithRenewal.length > 0) {
-      gapWithRenewal.forEach(c => _mentioned.add(c.id));
-      const gapMRR = gapWithRenewal.reduce((s,c) => s + (c.mrr||0), 0);
-      if (gapWithRenewal.length === 1) {
-        _actionItems.push({ text: `Reach out to ${gapWithRenewal[0].name} ($${fmtNum(gapWithRenewal[0].mrr||0)}/mo), renewal approaching with no contact in 30+ days.`, action: `openDetail('${gapWithRenewal[0].id}')` });
+    const gapRenewal = contactGapHighVal.filter(c => c.renewal != null && c.renewal <= 3);
+    if (gapRenewal.length > 0) {
+      const gapMRR = gapRenewal.reduce((s,c) => s + (c.mrr||0), 0);
+      if (gapRenewal.length === 1) {
+        const c = gapRenewal[0];
+        const rd = c.renewal_date ? Math.max(1, Math.round((new Date(c.renewal_date) - now) / 86400000)) : Math.round((c.renewal || 1) * 30);
+        _actionPool.push({ urgency: 85 + (c.mrr||0) / 1000, tone: 'amber', text: `Schedule an EBR with ${c.name} ($${fmtNum(c.mrr||0)}/mo) \u2014 renewal in ${rd} days with no contact in 30+.`, action: `openDetail('${c.id}')`, ids: [c.id] });
       } else {
-        _actionItems.push({ text: `${gapWithRenewal.length} high-value accounts ($${fmtNum(gapMRR)} MRR) have renewals approaching with no recent contact.`, action: `setInsightFilter('Renewal + no contact',${_ids(gapWithRenewal)})` });
-      }
-    } else {
-      const unreached = contactGapHighVal.filter(c => !_mentioned.has(c.id));
-      if (unreached.length) {
-        unreached.forEach(c => _mentioned.add(c.id));
-        const gapMRR = unreached.reduce((s,c) => s + (c.mrr||0), 0);
-        _actionItems.push({ text: `${unreached.length} high-value account${unreached.length !== 1 ? 's' : ''} ($${fmtNum(gapMRR)} MRR) with no contact in 30+ days.`, action: `setInsightFilter('No contact 30d+',${_ids(unreached)})` });
+        _actionPool.push({ urgency: 85 + gapMRR / 1000, tone: 'amber', text: `Schedule EBRs for ${gapRenewal.length} accounts ($${fmtNum(gapMRR)} MRR) renewing soon with no contact in 30+ days.`, action: `setInsightFilter('Renewal + no contact',${_ids(gapRenewal)})`, ids: gapRenewal.map(c => c.id) });
       }
     }
   }
 
-  // 3. Biggest at-risk account (skip if already mentioned)
-  if (biggestRisk && biggestRisk.mrr >= 5000 && !_mentioned.has(biggestRisk.id)) {
-    _mentioned.add(biggestRisk.id);
+  // 3. High-value no contact (no upcoming renewal) → Reach out
+  {
+    const unreached = contactGapHighVal.filter(c => !(c.renewal != null && c.renewal <= 3));
+    if (unreached.length > 0) {
+      const gapMRR = unreached.reduce((s,c) => s + (c.mrr||0), 0);
+      if (unreached.length === 1) {
+        _actionPool.push({ urgency: 60 + (unreached[0].mrr||0) / 1000, tone: 'amber', text: `Reach out to ${unreached[0].name} ($${fmtNum(unreached[0].mrr||0)}/mo) \u2014 no contact in ${unreached[0].days || '30+'} days.`, action: `openDetail('${unreached[0].id}')`, ids: [unreached[0].id] });
+      } else {
+        _actionPool.push({ urgency: 60 + gapMRR / 2000, tone: 'amber', text: `Reach out to ${unreached.length} high-value accounts ($${fmtNum(gapMRR)} MRR) with no contact in 30+ days.`, action: `setInsightFilter('No contact 30d+',${_ids(unreached)})`, ids: unreached.map(c => c.id) });
+      }
+    }
+  }
+
+  // 4. Biggest at-risk account → Call today
+  if (biggestRisk && biggestRisk.mrr >= 5000) {
     const brDelta = getDelta7d(biggestRisk);
-    if (brDelta < -5) {
-      _actionItems.push({ text: `${biggestRisk.name} ($${fmtNum(biggestRisk.mrr)}/mo) is your largest at-risk account, down ${Math.abs(brDelta)} pts this week.`, action: `openDetail('${biggestRisk.id}')` });
+    const isDetr  = npsIsDetractor(biggestRisk.nps);
+    const renewSn = biggestRisk.renewal != null && biggestRisk.renewal <= 2;
+    let ctx, boost = 5;
+    if (isDetr && renewSn) {
+      const rd = biggestRisk.renewal_date ? Math.max(1, Math.round((new Date(biggestRisk.renewal_date) - now) / 86400000)) : Math.round((biggestRisk.renewal || 1) * 30);
+      ctx = `NPS detractor with renewal in ${rd} days`; boost = 30;
+    } else if (brDelta < -5) {
+      ctx = `down ${Math.abs(brDelta)} pts this week`; boost = 15;
     } else if (biggestRisk.days != null && biggestRisk.days >= 14) {
-      _actionItems.push({ text: `${biggestRisk.name} ($${fmtNum(biggestRisk.mrr)}/mo) is your largest at-risk account with no contact in ${biggestRisk.days} days.`, action: `openDetail('${biggestRisk.id}')` });
+      ctx = `no contact in ${biggestRisk.days} days`; boost = 10;
+    } else {
+      ctx = `at-risk with $${fmtNum(biggestRisk.mrr)}/mo`;
+    }
+    _actionPool.push({ urgency: 70 + (biggestRisk.mrr||0) / 1000 + boost, tone: 'red', text: `Call ${biggestRisk.name} today \u2014 ${ctx} and $${fmtNum(biggestRisk.mrr)}/mo at stake.`, action: `openDetail('${biggestRisk.id}')`, ids: [biggestRisk.id] });
+  }
+
+  // 5. Silent decliners → Review
+  {
+    const sd = silentDecliners;
+    if (sd.length >= 2) {
+      const sdMRR = sd.reduce((s,c) => s + (c.mrr||0), 0);
+      _actionPool.push({ urgency: 65 + sdMRR / 1000 + sd.length * 3, tone: 'red', text: `Review ${sd.length} accounts that were healthy but started declining \u2014 $${fmtNum(sdMRR)} MRR at risk before they escalate.`, action: `setInsightFilter('Declining from healthy',${_ids(sd)})`, ids: sd.map(c => c.id) });
+    } else if (sd.length === 1) {
+      _actionPool.push({ urgency: 55 + (sd[0].mrr||0) / 1000, tone: 'amber', text: `Check in with ${sd[0].name} \u2014 was healthy but now declining. Early intervention prevents escalation.`, action: `openDetail('${sd[0].id}')`, ids: [sd[0].id] });
     }
   }
 
-  // 4. Silent decliners (skip already mentioned)
-  const _sdFiltered = silentDecliners.filter(c => !_mentioned.has(c.id));
-  if (_sdFiltered.length >= 2) {
-    _sdFiltered.forEach(c => _mentioned.add(c.id));
-    const sdMRR = _sdFiltered.reduce((s,c) => s + (c.mrr||0), 0);
-    _actionItems.push({ text: `${_sdFiltered.length} accounts that were healthy are now declining, putting $${fmtNum(sdMRR)} MRR at risk.`, action: `setInsightFilter('Declining from healthy',${_ids(_sdFiltered)})` });
-  } else if (_sdFiltered.length === 1) {
-    _mentioned.add(_sdFiltered[0].id);
-    _actionItems.push({ text: `${_sdFiltered[0].name} was healthy but has started declining. Worth a check-in before it escalates.`, action: `openDetail('${_sdFiltered[0].id}')` });
+  // 6. Tier-specific decline → Investigate
+  {
+    const tierDec = {};
+    active.forEach(c => {
+      const t = c.tier || 'Unknown';
+      if (!tierDec[t]) tierDec[t] = { dec: 0, n: 0 };
+      tierDec[t].n++;
+      if (withHist.includes(c) && getDeltaPeriod(c) < -2) tierDec[t].dec++;
+    });
+    const worstTier = Object.entries(tierDec).filter(([,v]) => v.n >= 3 && v.dec >= 2).sort((a,b) => (b[1].dec / b[1].n) - (a[1].dec / a[1].n))[0];
+    if (worstTier) {
+      const [tName, tVal] = worstTier;
+      const pct = Math.round(tVal.dec / tVal.n * 100);
+      if (pct >= 40) {
+        const tierDecAccts = active.filter(c => (c.tier || 'Unknown') === tName && withHist.includes(c) && getDeltaPeriod(c) < -2);
+        _actionPool.push({ urgency: 50 + tVal.dec * 5, tone: 'red', text: `Investigate the decline across your ${tName} accounts \u2014 ${tVal.dec} of ${tVal.n} dropped this period.`, action: `setInsightFilter('Declining ${tName}',${_ids(tierDecAccts)})`, ids: tierDecAccts.map(c => c.id) });
+      }
+    }
+  }
+
+  // 7. Expansion opportunity → Ask for referral / upsell
+  if (expand.length >= 1) {
+    const topExp = expand.filter(c => c.score >= 80 && (c.mrr||0) >= 3000).sort((a,b) => (b.mrr||0) - (a.mrr||0));
+    if (topExp.length >= 1) {
+      const t = topExp[0];
+      _actionPool.push({ urgency: 30 + (t.mrr||0) / 1000, tone: 'green', text: `Explore expansion with ${t.name} \u2014 score of ${t.score} with $${fmtNum(t.mrr)}/mo and strong engagement.`, action: `openDetail('${t.id}')`, ids: [t.id] });
+    }
+  }
+
+  // Sort by urgency, deduplicate, take top 4
+  _actionPool.sort((a,b) => b.urgency - a.urgency);
+  const _actionItems = [];
+  for (const item of _actionPool) {
+    if (_actionItems.length >= 3) break;
+    if (item.ids.length > 0 && item.ids.every(id => _mentioned.has(id))) continue;
+    item.ids.forEach(id => _mentioned.add(id));
+    _actionItems.push({ text: item.text, action: item.action, tone: item.tone || 'amber' });
   }
 
   // Portfolio health score (avg across all accounts)
@@ -325,7 +457,12 @@ function _renderHomeBase() {
   const _ringCirc = 2 * Math.PI * 40;
   const _ringOffset = _ringCirc - (_portfolioScore / 100) * _ringCirc;
 
-  html += '<div class="hb-welcome">';
+  const _momUp = avgDelta > 0, _momDn = avgDelta < 0, _momStrong = Math.abs(avgDelta) > 2;
+  const _welcomeBg = _momUp ? (_momStrong ? 'rgba(22,163,74,.05)' : 'rgba(22,163,74,.025)') : _momDn ? (_momStrong ? 'rgba(239,68,68,.05)' : 'rgba(239,68,68,.025)') : '#fff';
+  const _borderGrad = _momUp ? 'linear-gradient(135deg,#16a34a,#10b981,#06b6d4,#16a34a)' : _momDn ? 'linear-gradient(135deg,#ef4444,#f97316,#ef4444,#dc2626)' : '';
+  const _glowGrad = _momUp ? 'radial-gradient(circle,rgba(22,163,74,.07) 0%,rgba(16,185,129,.03) 40%,transparent 70%)' : _momDn ? 'radial-gradient(circle,rgba(239,68,68,.07) 0%,rgba(249,115,22,.03) 40%,transparent 70%)' : '';
+  const _welcomeVars = `background:${_welcomeBg}` + (_borderGrad ? `;--hb-border-grad:${_borderGrad}` : '') + (_glowGrad ? `;--hb-glow:${_glowGrad}` : '');
+  html += `<div class="hb-welcome" style="${_welcomeVars}">`;
   html += '<div class="hb-welcome-grid">';
 
   // Left column: portfolio health ring + quick stats
@@ -357,12 +494,14 @@ function _renderHomeBase() {
 
   // Right column: portfolio overview blurb + action items
   html += '<div class="hb-welcome-right">';
-  html += `<div style="font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:6px">Portfolio Overview</div>`;
-  html += `<div style="font-size:var(--fs-base);color:var(--fg);line-height:1.55;margin-bottom:14px">${_portfolioBlurb}</div>`;
+  html += `<div style="font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.10em;color:var(--blue);margin-bottom:6px">Portfolio Overview</div>`;
+  html += `<div style="font-size:var(--fs-base);color:var(--fg);line-height:1.55;margin-bottom:10px">${_portfolioBlurb}</div>`;
   if (_actionItems.length) {
-    html += `<div style="font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:6px">Action Items</div>`;
-    _actionItems.slice(0, 4).forEach(a => {
-      html += `<div class="hb-brief-card" onclick="${a.action.replace(/"/g,'&quot;')}" style="padding:8px 10px;margin-bottom:4px">
+    html += `<div style="font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.10em;color:var(--blue);margin-bottom:6px">Action Items</div>`;
+    const _toneColors = { red: { bg:'rgba(239,68,68,.07)', border:'var(--red)' }, amber: { bg:'rgba(245,158,11,.07)', border:'var(--amber)' }, green: { bg:'rgba(22,163,74,.07)', border:'var(--green)' } };
+    _actionItems.slice(0, 3).forEach(a => {
+      const tc = _toneColors[a.tone] || _toneColors.amber;
+      html += `<div class="hb-brief-card" onclick="${a.action.replace(/"/g,'&quot;')}" style="padding:8px 10px;margin-bottom:2px;background:${tc.bg};border-left:3px solid ${tc.border}">
         <div class="hb-brief-text" style="font-size:var(--fs-sm)">${a.text}</div>
         <svg class="hb-brief-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </div>`;
