@@ -864,7 +864,7 @@ function renderDetailOverview() {
       </div>
     </div>
     <div class="rec-box" style="margin-bottom:14px">${rec}</div>
-    <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+    <div style="position:sticky;bottom:-26px;display:flex;justify-content:flex-end;padding:12px 0;margin:0 -26px;padding-right:26px;background:var(--surface);z-index:2;border-top:1px solid var(--border)">
       <button class="btn btn-primary btn-sm" onclick="saveDetailInline()" style="gap:4px">${appIcon('save',14)} Save Changes</button>
     </div>
     <div class="bd-title">Signal Breakdown</div>
