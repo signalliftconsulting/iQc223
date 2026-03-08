@@ -6843,70 +6843,34 @@ function renderDetailOverview() {
           ${momentumHTML(c)}
           ${deltaHTML(delta)}
         </div>
-        <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;font-size:var(--fs-base)">
+        <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;font-size:var(--fs-base)">
           <div>
-            <label class="di-label">Manager</label>
-            <select id="di-manager" class="di-select" onchange="if(this.value==='__add_new__'){this.style.display='none';document.getElementById('di-manager-new').style.display='';document.getElementById('di-manager-new').focus()}">${buildManagerSelectOptions(c.manager||'')}</select>
-            <input type="text" id="di-manager-new" class="di-input" placeholder="New manager name..." style="display:none;margin-top:4px" onblur="if(!this.value){this.style.display='none';document.getElementById('di-manager').style.display='';document.getElementById('di-manager').value=''}" />
-          </div>
-          <div>
-            <label class="di-label">Tier</label>
-            <select id="di-tier" class="di-select">
-              <option value="smb" ${c.tier==='smb'?'selected':''}>SMB</option>
-              <option value="mid" ${c.tier==='mid'?'selected':''}>Mid-Market</option>
-              <option value="enterprise" ${c.tier==='enterprise'?'selected':''}>Enterprise</option>
-            </select>
+            <span class="di-label">Manager</span>
+            <div style="font-weight:500">${escHtml(c.manager||'—')}</div>
           </div>
           <div>
-            <label class="di-label">Lifecycle</label>
-            <select id="di-lifecycle" class="di-select">
-              <option value="onboarding" ${c.lifecycle==='onboarding'?'selected':''}>Onboarding</option>
-              <option value="active" ${c.lifecycle==='active'?'selected':''}>Active</option>
-              <option value="atrisk" ${c.lifecycle==='atrisk'?'selected':''}>At Risk</option>
-              <option value="won" ${c.lifecycle==='won'?'selected':''}>Won/Upsold</option>
-              <option value="churned" ${c.lifecycle==='churned'?'selected':''}>Churned</option>
-            </select>
+            <span class="di-label">Tier</span>
+            <div><span class="tier-pill-${c.tier==='enterprise'?'ent':c.tier||'mid'}" style="font-size:var(--fs-sm);padding:1px 7px;border-radius:4px;font-weight:600">${c.tier==='enterprise'?'Enterprise':c.tier==='smb'?'SMB':'Mid-Market'}</span></div>
           </div>
           <div>
-            <label class="di-label">Next Touch</label>
-            <div style="display:flex;gap:4px">
-              <input type="date" id="di-next-touch" class="di-input" value="${c.next_touch||''}" style="flex:1" />
-              <input type="time" id="di-next-touch-time" class="di-input" value="${c.next_touch_time||''}" style="width:90px" />
-            </div>
+            <span class="di-label">Lifecycle</span>
+            <div>${lifecycleBadge(c.lifecycle)}</div>
           </div>
           <div>
-            <label class="di-label">MRR ($)</label>
-            <input type="number" id="di-mrr" class="di-input" value="${c.mrr||0}" min="0" step="1" />
+            <span class="di-label">Billing</span>
+            <div style="font-weight:500">${c.billing_interval ? c.billing_interval.charAt(0).toUpperCase()+c.billing_interval.slice(1) : '—'}</div>
           </div>
           <div>
-            <label class="di-label">ARR ($)</label>
-            <input type="number" id="di-arr" class="di-input" value="${c.arr||0}" min="0" step="1" />
+            <span class="di-label">MRR</span>
+            <div style="font-weight:600">${c.mrr ? '$'+fmtNum(c.mrr) : '—'}</div>
           </div>
           <div>
-            <label class="di-label">Billing</label>
-            <select id="di-billing-interval" class="di-select">
-              <option value="" ${!c.billing_interval?'selected':''}>—</option>
-              <option value="monthly" ${c.billing_interval==='monthly'?'selected':''}>Monthly</option>
-              <option value="quarterly" ${c.billing_interval==='quarterly'?'selected':''}>Quarterly</option>
-              <option value="annual" ${c.billing_interval==='annual'?'selected':''}>Annual</option>
-              <option value="weekly" ${c.billing_interval==='weekly'?'selected':''}>Weekly</option>
-            </select>
+            <span class="di-label">ARR</span>
+            <div style="font-weight:600">${c.arr ? '$'+fmtNum(c.arr) : '—'}</div>
           </div>
-          <div style="grid-column:1/-1">
-            <label class="di-label">Tags</label>
-            <input type="text" id="di-tags" class="di-input" value="${escHtml((c.tags||[]).join(', '))}" placeholder="Comma-separated" />
-          </div>
-          <div>
-            <label class="di-label">External ID</label>
-            <input type="text" id="di-external-id" class="di-input" value="${escHtml(c.external_id||'')}" placeholder="CRM / billing ID" />
-          </div>
-          <div>
-            <label class="di-label">Stripe ID</label>
-            <div style="display:flex;gap:4px;align-items:center">
-              <input type="text" id="di-stripe-id" class="di-input" value="${escHtml(c.stripe_customer_id||'')}" placeholder="cus_..." style="flex:1" readonly />
-              ${c.stripe_customer_id ? `<a href="https://dashboard.stripe.com/customers/${encodeURIComponent(c.stripe_customer_id)}" target="_blank" rel="noopener" style="color:var(--blue);font-size:var(--fs-sm)" title="Open in Stripe">↗</a>` : ''}
-            </div>
-          </div>
+          ${(c.tags&&c.tags.length) ? `<div style="grid-column:1/-1"><span class="di-label">Tags</span><div style="display:flex;gap:4px;flex-wrap:wrap">${c.tags.map(t=>`<span style="font-size:var(--fs-xs);background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 6px">${escHtml(t)}</span>`).join('')}</div></div>` : ''}
+          ${c.external_id ? `<div><span class="di-label">External ID</span><div style="font-size:var(--fs-sm);color:var(--muted)">${escHtml(c.external_id)}</div></div>` : ''}
+          ${c.stripe_customer_id ? `<div><span class="di-label">Stripe</span><div style="font-size:var(--fs-sm);color:var(--muted)">${escHtml(c.stripe_customer_id)} <a href="https://dashboard.stripe.com/customers/${encodeURIComponent(c.stripe_customer_id)}" target="_blank" rel="noopener" style="color:var(--blue)" title="Open in Stripe">↗</a></div></div>` : ''}
         </div>
         ${c.scoring_profile ? `<div style="margin-top:6px;font-size:var(--fs-sm);color:var(--muted)"><span>Profile: <strong style="color:var(--text)">${escHtml(c.scoring_profile)}</strong></span></div>` : ''}
       </div>
@@ -6958,71 +6922,48 @@ function renderDetailOverview() {
       </div>
     </div>
     <div class="rec-box" style="margin-bottom:14px">${rec}</div>
-    <div style="position:sticky;bottom:-26px;display:flex;justify-content:flex-end;padding:12px 0;margin:0 -26px;padding-right:26px;background:var(--surface);z-index:2;border-top:1px solid var(--border)">
-      <button class="btn btn-primary btn-sm" onclick="saveDetailInline()" style="gap:4px">${appIcon('save',14)} Save Changes</button>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 12px;background:var(--bg);border-radius:var(--r);border:1px solid var(--border);flex-wrap:wrap">
+      <span class="di-label" style="margin:0;white-space:nowrap">Schedule Next Touch</span>
+      <input type="date" id="di-next-touch" class="di-input" value="${c.next_touch||''}" style="width:140px" />
+      <input type="time" id="di-next-touch-time" class="di-input" value="${c.next_touch_time||''}" style="width:100px" />
+      <button class="btn btn-primary btn-sm" onclick="saveNextTouch()" style="gap:4px">${appIcon('save',14)} Save</button>
     </div>
     <div class="bd-title">Signal Breakdown</div>
     ${buildBreakdownHTML(signals, c)}
   `;
 }
 
-async function saveDetailInline() {
+async function saveNextTouch() {
   const c = customers.find(x => x.id === detailId);
   if (!c) return;
 
-  const mgrSelect = document.getElementById('di-manager');
-  const mgrNew    = document.getElementById('di-manager-new');
-  const tierInput = document.getElementById('di-tier');
-  const lcInput  = document.getElementById('di-lifecycle');
-  const ntInput  = document.getElementById('di-next-touch');
-  const tagsInput = document.getElementById('di-tags');
-  const mrrInput = document.getElementById('di-mrr');
-  const arrInput = document.getElementById('di-arr');
+  const ntInput = document.getElementById('di-next-touch');
+  if (!ntInput) return;
 
-  if (mgrNew && mgrNew.style.display !== 'none' && mgrNew.value.trim()) {
-    c.manager = mgrNew.value.trim();
-  } else if (mgrSelect && mgrSelect.value && mgrSelect.value !== '__add_new__') {
-    c.manager = mgrSelect.value;
-  }
-  if (tierInput) c.tier      = tierInput.value;
-  if (lcInput)   c.lifecycle = lcInput.value;
-  applyAutoStage(c);
-  if (ntInput) {
-    const newNt = ntInput.value || '';
-    const oldNt = c.next_touch || '';
-    const timeInput = document.getElementById('di-next-touch-time');
-    const newTime = timeInput ? timeInput.value || '' : '';
-    // Archive old next_touch only if it's today or past (actually happened)
-    // Future scheduled calls that get rescheduled are just replaced
-    if (oldNt && oldNt !== newNt) {
-      const oldDate = new Date(oldNt);
-      const today = new Date(); today.setHours(0,0,0,0);
-      if (oldDate <= today) {
-        if (!c.touch_history) c.touch_history = [];
-        c.touch_history.push({ date: oldNt, status: 'completed', time: c.next_touch_time || '' });
-        c.last_contact_date = oldNt;
-        const daysSince = Math.max(0, Math.floor((Date.now() - oldDate.getTime()) / 86400000));
-        c.days = daysSince;
-        c._baseDays = daysSince;
-      }
+  const newNt = ntInput.value || '';
+  const oldNt = c.next_touch || '';
+  const timeInput = document.getElementById('di-next-touch-time');
+  const newTime = timeInput ? timeInput.value || '' : '';
+
+  // Archive old next_touch only if it's today or past (actually happened)
+  // Future scheduled calls that get rescheduled are just replaced
+  if (oldNt && oldNt !== newNt) {
+    const oldDate = new Date(oldNt);
+    const today = new Date(); today.setHours(0,0,0,0);
+    if (oldDate <= today) {
+      if (!c.touch_history) c.touch_history = [];
+      c.touch_history.push({ date: oldNt, status: 'completed', time: c.next_touch_time || '' });
+      c.last_contact_date = oldNt;
+      const daysSince = Math.max(0, Math.floor((Date.now() - oldDate.getTime()) / 86400000));
+      c.days = daysSince;
+      c._baseDays = daysSince;
     }
-    c.next_touch = newNt;
-    c.next_touch_time = newNt ? newTime : '';
   }
-  if (tagsInput) {
-    c.tags = tagsInput.value.split(',').map(t => t.trim()).filter(Boolean);
-  }
-  if (mrrInput) c.mrr = parseFloat(mrrInput.value) || 0;
-  if (arrInput) c.arr = parseFloat(arrInput.value) || 0;
-  const billingInput = document.getElementById('di-billing-interval');
-  if (billingInput) c.billing_interval = billingInput.value || '';
+  c.next_touch = newNt;
+  c.next_touch_time = newNt ? newTime : '';
 
-  // Integration IDs
-  const extIdInput = document.getElementById('di-external-id');
-  if (extIdInput) c.external_id = extIdInput.value.trim();
-
-  /* Recalculate score — days/lifecycle/tier may have changed above */
-  const { score: newSc, signals: newSig } = calcScore(c);
+  /* Recalculate score — days may have changed from archival */
+  const { score: newSc } = calcScore(c);
   if (newSc !== c.score) {
     c.score = newSc;
     c.status = getStatus(newSc);
@@ -7031,17 +6972,14 @@ async function saveDetailInline() {
 
   try {
     await save(c);
-    refreshMgrDropdown();
     renderDetailOverview();
-    // Update modal header subtitle
     el('dm-sub').innerHTML = `
       ${badgeHTML(c.status)} ${lifecycleBadge(c.lifecycle)}
       <span style="margin-left:6px;color:var(--muted)">Score: <strong>${c.score}</strong></span>
       ${c.mrr ? `<span style="margin-left:6px;color:var(--muted)">MRR: <strong>$${fmtNum(c.mrr)}</strong></span>` : ''}
     `;
-    // Refresh the page behind the modal so widgets stay current
     refreshCurrentPage();
-    toast('Changes saved', 'success');
+    toast('Next touch saved', 'success');
   } catch (err) {
     console.error('Save failed:', err);
     toast('Save failed — ' + (err.message || 'unknown error'), 'error');
