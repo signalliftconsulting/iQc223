@@ -6843,37 +6843,36 @@ function renderDetailOverview() {
           ${momentumHTML(c)}
           ${deltaHTML(delta)}
         </div>
-        <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;font-size:var(--fs-base)">
-          <div>
-            <span class="di-label">Manager</span>
-            <div style="font-weight:500">${escHtml(c.manager||'—')}</div>
-          </div>
-          <div>
-            <span class="di-label">Tier</span>
-            <div><span class="tier-pill-${c.tier==='enterprise'?'ent':c.tier||'mid'}" style="font-size:var(--fs-sm);padding:1px 7px;border-radius:4px;font-weight:600">${c.tier==='enterprise'?'Enterprise':c.tier==='smb'?'SMB':'Mid-Market'}</span></div>
-          </div>
-          <div>
-            <span class="di-label">Lifecycle</span>
-            <div>${lifecycleBadge(c.lifecycle)}</div>
-          </div>
-          <div>
-            <span class="di-label">Billing</span>
-            <div style="font-weight:500">${c.billing_interval ? c.billing_interval.charAt(0).toUpperCase()+c.billing_interval.slice(1) : '—'}</div>
-          </div>
-          <div>
-            <span class="di-label">MRR</span>
-            <div style="font-weight:600">${c.mrr ? '$'+fmtNum(c.mrr) : '—'}</div>
-          </div>
-          <div>
-            <span class="di-label">ARR</span>
-            <div style="font-weight:600">${c.arr ? '$'+fmtNum(c.arr) : '—'}</div>
-          </div>
-          ${(c.tags&&c.tags.length) ? `<div style="grid-column:1/-1"><span class="di-label">Tags</span><div style="display:flex;gap:4px;flex-wrap:wrap">${c.tags.map(t=>`<span style="font-size:var(--fs-xs);background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 6px">${escHtml(t)}</span>`).join('')}</div></div>` : ''}
-          ${c.external_id ? `<div><span class="di-label">External ID</span><div style="font-size:var(--fs-sm);color:var(--muted)">${escHtml(c.external_id)}</div></div>` : ''}
-          ${c.stripe_customer_id ? `<div><span class="di-label">Stripe</span><div style="font-size:var(--fs-sm);color:var(--muted)">${escHtml(c.stripe_customer_id)} <a href="https://dashboard.stripe.com/customers/${encodeURIComponent(c.stripe_customer_id)}" target="_blank" rel="noopener" style="color:var(--blue)" title="Open in Stripe">↗</a></div></div>` : ''}
-        </div>
-        ${c.scoring_profile ? `<div style="margin-top:6px;font-size:var(--fs-sm);color:var(--muted)"><span>Profile: <strong style="color:var(--text)">${escHtml(c.scoring_profile)}</strong></span></div>` : ''}
+        ${c.scoring_profile ? `<div style="margin-top:6px;font-size:var(--fs-sm);color:var(--muted)">Profile: <strong style="color:var(--text)">${escHtml(c.scoring_profile)}</strong></div>` : ''}
       </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-bottom:12px;padding:0;background:var(--bg);border-radius:var(--r);border:1px solid var(--border);overflow:hidden">
+      <div style="padding:8px 12px;border-bottom:1px solid var(--border);border-right:1px solid var(--border)">
+        <div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:2px">Manager</div>
+        <div style="font-weight:500;font-size:var(--fs-base)">${escHtml(c.manager||'—')}</div>
+      </div>
+      <div style="padding:8px 12px;border-bottom:1px solid var(--border);border-right:1px solid var(--border)">
+        <div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:2px">Tier</div>
+        <div><span class="tier-pill-${c.tier==='enterprise'?'ent':c.tier||'mid'}" style="font-size:var(--fs-sm);padding:1px 7px;border-radius:4px;font-weight:600">${c.tier==='enterprise'?'Enterprise':c.tier==='smb'?'SMB':'Mid-Market'}</span></div>
+      </div>
+      <div style="padding:8px 12px;border-bottom:1px solid var(--border)">
+        <div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:2px">Lifecycle</div>
+        <div>${lifecycleBadge(c.lifecycle)}</div>
+      </div>
+      <div style="padding:8px 12px;border-right:1px solid var(--border)${(c.tags&&c.tags.length)||c.external_id||c.stripe_customer_id?';border-bottom:1px solid var(--border)':''}">
+        <div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:2px">MRR</div>
+        <div style="font-weight:600;font-size:var(--fs-base)">${c.mrr ? '$'+fmtNum(c.mrr) : '—'}</div>
+      </div>
+      <div style="padding:8px 12px;border-right:1px solid var(--border)${(c.tags&&c.tags.length)||c.external_id||c.stripe_customer_id?';border-bottom:1px solid var(--border)':''}">
+        <div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:2px">ARR</div>
+        <div style="font-weight:600;font-size:var(--fs-base)">${c.arr ? '$'+fmtNum(c.arr) : '—'}</div>
+      </div>
+      <div style="padding:8px 12px${(c.tags&&c.tags.length)||c.external_id||c.stripe_customer_id?';border-bottom:1px solid var(--border)':''}">
+        <div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:2px">Billing</div>
+        <div style="font-weight:500;font-size:var(--fs-base)">${c.billing_interval ? c.billing_interval.charAt(0).toUpperCase()+c.billing_interval.slice(1) : '—'}</div>
+      </div>
+      ${(c.tags&&c.tags.length) ? `<div style="padding:8px 12px;grid-column:1/-1${c.external_id||c.stripe_customer_id?';border-bottom:1px solid var(--border)':''}"><div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:3px">Tags</div><div style="display:flex;gap:4px;flex-wrap:wrap">${c.tags.map(t=>`<span style="font-size:var(--fs-xs);background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 6px">${escHtml(t)}</span>`).join('')}</div></div>` : ''}
+      ${c.external_id||c.stripe_customer_id ? `<div style="padding:8px 12px;grid-column:1/-1;display:flex;gap:16px">${c.external_id?`<div><span style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle)">External ID</span> <span style="font-size:var(--fs-sm);color:var(--muted);margin-left:4px">${escHtml(c.external_id)}</span></div>`:''}${c.stripe_customer_id?`<div><span style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle)">Stripe</span> <span style="font-size:var(--fs-sm);color:var(--muted);margin-left:4px">${escHtml(c.stripe_customer_id)} <a href="https://dashboard.stripe.com/customers/${encodeURIComponent(c.stripe_customer_id)}" target="_blank" rel="noopener" style="color:var(--blue)" title="Open in Stripe">↗</a></span></div>`:''}</div>` : ''}
     </div>
     <!-- Signals row: last contact + next touch + renewal + sentiment -->
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;padding:10px 12px;background:var(--bg);border-radius:var(--r);border:1px solid var(--border)">
