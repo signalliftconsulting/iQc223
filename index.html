@@ -2082,6 +2082,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
           <div class="field"><label>Customer Since</label><input type="date" id="f-since"/></div>
           <div class="field"><label>Tier</label><select id="f-tier"><option value="smb">SMB</option><option value="mid" selected>Mid-Market</option><option value="enterprise">Enterprise</option></select></div>
           <div class="field"><label>Lifecycle Stage</label><select id="f-lifecycle"><option value="onboarding">Onboarding</option><option value="active" selected>Active</option><option value="atrisk">At Risk</option><option value="won">Won / Upsold</option><option value="churned">Churned</option></select></div>
+          <div class="field"><label>Billing Interval</label><select id="f-billing"><option value="">— None —</option><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option><option value="weekly">Weekly</option></select></div>
           <div class="field"><label>Tags <span style="font-weight:400;color:var(--subtle);font-size:.7rem">comma-separated</span></label><input type="text" id="f-tags" placeholder="power-user, renewal-soon"/></div>
           <!-- Section: Signals -->
           <div class="form-section full"><div class="form-section-label">Health Signals</div></div>
@@ -3640,6 +3641,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=316"></script>
+<script src="js/app.js?v=317"></script>
 </body>
 </html>

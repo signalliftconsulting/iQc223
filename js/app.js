@@ -6166,6 +6166,7 @@ function getFormData() {
     since:    document.getElementById('f-since')?.value               || '',
     tier:     document.getElementById('f-tier').value,
     lifecycle:document.getElementById('f-lifecycle').value,
+    billing_interval: document.getElementById('f-billing')?.value || '',
     tags:     document.getElementById('f-tags').value.split(',').map(t=>t.trim()).filter(Boolean),
     logins:   el('f-logins-na').checked ? null : (parseInt(document.getElementById('f-logins').value) || 0),
     adoption: el('f-adoption-na').checked ? null : (parseInt(document.getElementById('f-adoption').value) || 0),
@@ -7314,6 +7315,7 @@ function editCustomer(id) {
   el('f-tier').value     = c.tier || 'mid';
   el('f-lifecycle').value= c.lifecycle || 'active';
   el('f-tags').value     = (c.tags||[]).join(', ');
+  if (el('f-billing')) el('f-billing').value = c.billing_interval || '';
   // Login Frequency
   if (c.logins != null) { el('f-logins-na').checked = false; el('f-logins').value = c.logins; el('f-logins').disabled = false; el('f-logins').style.opacity = '1'; rv('logins', c.logins + ' days'); el('rv-logins').style.color = ''; }
   else { el('f-logins-na').checked = true; toggleSignalNA('logins'); }
