@@ -4984,6 +4984,7 @@ function renderAlertPanel(all, active, snz) {
   if (insWrap) {
     const insights = [];
     const _iSvg = (d) => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+    // Helper: clickable customer name link (opens detail, stops card click)
     const _nameLink = (c) => `<strong class="ta-name-link" onclick="event.stopPropagation();openDetail('${c.id}')">${escHtml(c.name)}</strong>`;
 
     // Helper: build unique affected-customer list from alert array
@@ -5081,15 +5082,16 @@ function renderAlertPanel(all, active, snz) {
       .sort((a, b) => b.cats - a.cats || (b.c.mrr || 0) - (a.c.mrr || 0));
     if (multiSignal.length > 0) {
       const top = multiSignal[0];
-      const topCats = [...custAlertCats[top.c.id]].map(k => (ALERT_CATS[k] || {}).label || k);
+      const topCats = [...custAlertCats[top.c.id]].map(k => (ALERT_CATS[k] || {}).label || '').filter(Boolean);
+      const catCount = topCats.length;
       const others = multiSignal.length > 1 ? ` ${multiSignal.length - 1} other ${multiSignal.length - 1 === 1 ? 'account' : 'accounts'} also have 3+ alert types.` : '';
       const msCids = multiSignal.map(x => x.c.id);
       insights.push({
-        score: 50 + top.cats * 10, label: 'Multiple Red Flags', accent: 'amber',
+        score: 50 + catCount * 10, label: 'Multiple Red Flags', accent: 'amber',
         icon: _iSvg('<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'),
         iconBg: 'var(--amber-l)', iconColor: 'var(--amber)',
         cids: msCids, navMode: msCids.length === 1 ? 'customer' : 'table', navLabel: 'Multiple Red Flags',
-        text: `${_nameLink(top.c)} is flagged across <strong>${top.cats} categories</strong> — ${topCats.join(', ')}. When issues stack up like this, a single check-in call can uncover the root cause.${others}`
+        text: `${_nameLink(top.c)} is flagged across <strong>${catCount} categories</strong> — ${topCats.join(', ')}. When issues stack up like this, a single check-in call can uncover the root cause.${others}`
       });
     }
 
@@ -13629,6 +13631,37 @@ let _segView = 'segments';
 let tierSortKey = 'mrr';
 let tierSortDir = 'desc';
 
+// ── Portfolio average summary row for segment tables ──
+function _segAvgRow(rows) {
+  if (!rows.length) return '';
+  const n     = rows.length;
+  const avgCt = Math.round(rows.reduce((s, r) => s + r.count, 0) / n);
+  const avgSc = Math.round(rows.reduce((s, r) => s + r.avgScore, 0) / n);
+  const avgDt = Math.round(rows.reduce((s, r) => s + r.avgDelta, 0) / n * 10) / 10;
+  const avgMrr = Math.round(rows.reduce((s, r) => s + r.totalMRR, 0) / n);
+  const avgRPct = Math.round(rows.reduce((s, r) => s + r.riskPct, 0) / n);
+  const avgRisk = Math.round(rows.reduce((s, r) => s + r.atRisk, 0) / n);
+  const daysN = rows.filter(r => r.avgDays != null);
+  const avgD  = daysN.length ? Math.round(daysN.reduce((s, r) => s + r.avgDays, 0) / daysN.length) : null;
+  const avgRen = Math.round(rows.reduce((s, r) => s + r.renewals90, 0) / n);
+  const scClr = avgSc >= (thresholds.healthy || 80) ? 'var(--green)' : avgSc >= (thresholds.watch || 65) ? 'var(--amber)' : avgSc >= (thresholds.risk || 50) ? 'var(--orange,#ea580c)' : 'var(--red)';
+  const scBg  = avgSc >= 65 ? 'var(--green-l)' : avgSc >= 50 ? 'var(--amber-l)' : 'var(--red-l)';
+  const tCls  = avgDt > 0 ? 'up' : avgDt < 0 ? 'dn' : 'flat';
+  const tIco  = avgDt > 0 ? '▲' : avgDt < 0 ? '▼' : '—';
+  const tTxt  = avgDt > 0 ? '+' + avgDt : '' + avgDt;
+  return `<tr style="background:linear-gradient(90deg,rgba(59,130,246,.10),rgba(59,130,246,.04));font-weight:700;font-size:1.05em;border-bottom:2.5px solid var(--blue,#3b82f6);letter-spacing:.01em">
+    <td style="color:var(--blue);font-weight:800;text-transform:uppercase;font-size:var(--fs-xs);letter-spacing:.08em">Avg Across Segments</td>
+    <td style="font-size:var(--fs-lg)">${avgCt}</td>
+    <td><span style="display:inline-block;padding:3px 12px;border-radius:6px;font-size:var(--fs-md);font-weight:800;color:${scClr};background:${scBg}">${avgSc}</span></td>
+    <td><span class="csm-trend ${tCls}" style="font-size:var(--fs-sm);padding:2px 8px;font-weight:800">${tIco} ${tTxt}</span></td>
+    <td style="font-size:var(--fs-lg)">$${fmtNum(avgMrr)}</td>
+    <td><span style="font-weight:800;color:${avgRPct > 30 ? 'var(--red)' : avgRPct > 0 ? 'var(--amber)' : 'var(--green)'}">${avgRPct}%</span> <span style="font-size:var(--fs-sm);color:var(--muted)">(${avgRisk})</span></td>
+    <td style="font-size:var(--fs-lg)">${avgD != null ? avgD + 'd' : '—'}</td>
+    <td style="font-size:var(--fs-lg)">${avgRen}</td>
+    <td></td>
+  </tr>`;
+}
+
 // ── Segment Chart State ──
 let _segChartMetric = 'score';
 let _segChartRange = '90d';
@@ -13988,7 +14021,7 @@ function renderTierTable(active, deltaCache) {
         <th class="seg-sort-btn ${activeClass('renewals')}" onclick="sortTierTable('renewals')">Renewals \u226490d${sortIcon('renewals')}</th>
         <th style="width:90px"></th>
       </tr></thead>
-      <tbody id="seg-table-tbody">${sorted.map(t => {
+      <tbody id="seg-table-tbody">${_segAvgRow(sorted)}${sorted.map(t => {
         const trendCls = t.avgDelta > 0 ? 'up' : t.avgDelta < 0 ? 'dn' : 'flat';
         const trendIcon = t.avgDelta > 0 ? '▲' : t.avgDelta < 0 ? '▼' : '—';
         const trendTxt = t.avgDelta > 0 ? '+' + t.avgDelta : '' + t.avgDelta;
@@ -14218,7 +14251,7 @@ function renderStageTable(active, deltaCache) {
         <th class="seg-sort-btn ${activeClass('renewals')}" onclick="sortStageTable('renewals')">Renewals \u226490d${sortIcon('renewals')}</th>
         <th style="width:90px"></th>
       </tr></thead>
-      <tbody id="seg-table-tbody">${sorted.map(t => {
+      <tbody id="seg-table-tbody">${_segAvgRow(sorted)}${sorted.map(t => {
         const trendCls = t.avgDelta > 0 ? 'up' : t.avgDelta < 0 ? 'dn' : 'flat';
         const trendIcon = t.avgDelta > 0 ? '▲' : t.avgDelta < 0 ? '▼' : '—';
         const trendTxt = t.avgDelta > 0 ? '+' + t.avgDelta : '' + t.avgDelta;
@@ -14484,7 +14517,7 @@ function renderSegTable(segments) {
         <th class="seg-sort-btn ${activeClass('renewals')}" onclick="sortSegTable('renewals')">Renewals \u226490d${sortIcon('renewals')}</th>
         <th style="width:90px"></th>
       </tr></thead>
-      <tbody id="seg-table-tbody">${sorted.map(seg => {
+      <tbody id="seg-table-tbody">${_segAvgRow(sorted)}${sorted.map(seg => {
         const trendCls = seg.avgDelta > 0 ? 'up' : seg.avgDelta < 0 ? 'dn' : 'flat';
         const trendIcon = seg.avgDelta > 0 ? '▲' : seg.avgDelta < 0 ? '▼' : '—';
         const trendTxt = seg.avgDelta > 0 ? '+' + seg.avgDelta : '' + seg.avgDelta;

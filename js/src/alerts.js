@@ -823,15 +823,16 @@ function renderAlertPanel(all, active, snz) {
       .sort((a, b) => b.cats - a.cats || (b.c.mrr || 0) - (a.c.mrr || 0));
     if (multiSignal.length > 0) {
       const top = multiSignal[0];
-      const topCats = [...custAlertCats[top.c.id]].map(k => (ALERT_CATS[k] || {}).label || k);
+      const topCats = [...custAlertCats[top.c.id]].map(k => (ALERT_CATS[k] || {}).label || '').filter(Boolean);
+      const catCount = topCats.length;
       const others = multiSignal.length > 1 ? ` ${multiSignal.length - 1} other ${multiSignal.length - 1 === 1 ? 'account' : 'accounts'} also have 3+ alert types.` : '';
       const msCids = multiSignal.map(x => x.c.id);
       insights.push({
-        score: 50 + top.cats * 10, label: 'Multiple Red Flags', accent: 'amber',
+        score: 50 + catCount * 10, label: 'Multiple Red Flags', accent: 'amber',
         icon: _iSvg('<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'),
         iconBg: 'var(--amber-l)', iconColor: 'var(--amber)',
         cids: msCids, navMode: msCids.length === 1 ? 'customer' : 'table', navLabel: 'Multiple Red Flags',
-        text: `${_nameLink(top.c)} is flagged across <strong>${top.cats} categories</strong> — ${topCats.join(', ')}. When issues stack up like this, a single check-in call can uncover the root cause.${others}`
+        text: `${_nameLink(top.c)} is flagged across <strong>${catCount} categories</strong> — ${topCats.join(', ')}. When issues stack up like this, a single check-in call can uncover the root cause.${others}`
       });
     }
 
