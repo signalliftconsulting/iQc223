@@ -4836,7 +4836,7 @@ function renderAlertPanel(all, active, snz) {
         <div class="dash-kpi-num">${mrrStr}</div>
         <div class="dash-kpi-sub">${escHtml(mrrSubStr)}</div>
       </div>
-      <div class="dash-kpi-card dash-kpi-purple" onclick="filterByAlertKpi('accounts')">
+      <div class="dash-kpi-card dash-kpi-teal" onclick="filterByAlertKpi('accounts')">
         <div class="dash-kpi-top">
           <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${_kI('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>')}</div>
           <span class="dash-kpi-label">Accounts</span>
@@ -4844,7 +4844,7 @@ function renderAlertPanel(all, active, snz) {
         <div class="dash-kpi-num">${affectedIds.size}</div>
         <div class="dash-kpi-sub">${escHtml(acctSub)}</div>
       </div>
-      <div class="dash-kpi-card dash-kpi-indigo" onclick="filterByAlertKpi('snoozed')">
+      <div class="dash-kpi-card dash-kpi-teal" style="opacity:.8" onclick="filterByAlertKpi('snoozed')">
         <div class="dash-kpi-top">
           <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${_kI('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>')}</div>
           <span class="dash-kpi-label">Snoozed</span>
@@ -4860,12 +4860,12 @@ function renderAlertPanel(all, active, snz) {
     const mrrMap = {
       'Critical/Risk':    { color:'#dc2626', mrr:0 },
       'Watch':            { color:'#d97706', mrr:0 },
-      'Renewal \u226460d': { color:'#2563eb', mrr:0 },
-      'No Contact 60d+':  { color:'#7c3aed', mrr:0 },
-      'Poor Sentiment':   { color:'#be123c', mrr:0 },
-      'Low Adoption':     { color:'#ea580c', mrr:0 },
-      'Low Logins':       { color:'#ca8a04', mrr:0 },
-      'Quiet Accounts':   { color:'#6d28d9', mrr:0 }
+      'Renewal \u226460d': { color:'#0891b2', mrr:0 },
+      'No Contact 60d+':  { color:'#b45309', mrr:0 },
+      'Poor Sentiment':   { color:'#b91c1c', mrr:0 },
+      'Low Adoption':     { color:'#92400e', mrr:0 },
+      'Low Logins':       { color:'#78350f', mrr:0 },
+      'Quiet Accounts':   { color:'#991b1b', mrr:0 }
     };
     const seen = {};
     Object.keys(mrrMap).forEach(k => seen[k] = new Set());
@@ -4918,7 +4918,7 @@ function renderAlertPanel(all, active, snz) {
     const catTotalEl = el('alert-cat-total');
     if (catTotalEl) catTotalEl.textContent = totalAlerts;
     const maxCount = Math.max(1, ...Object.values(catCounts));
-    const catColors = { health:'#dc2626', tickets:'#ea580c', quiet:'#7c3aed', engagement:'#d97706', renewal:'#2563eb', cadence:'#b45309', momentum:'#ca8a04', sentiment:'#be123c', expansion:'#16a34a' };
+    const catColors = { health:'#dc2626', tickets:'#dc2626', quiet:'#991b1b', engagement:'#d97706', renewal:'#0891b2', cadence:'#b45309', momentum:'#d97706', sentiment:'#dc2626', expansion:'#16a34a' };
     const catRows = catOrder.filter(c => catCounts[c] > 0).map(c => {
       const def = ALERT_CATS[c];
       const pct = Math.round((catCounts[c] / maxCount) * 100);
@@ -4943,10 +4943,10 @@ function renderAlertPanel(all, active, snz) {
   const stageWrap = el('alert-stage-wrap');
   if (stageWrap) {
     const stageDefs = [
-      { key: 'onboarding', label: 'Onboarding', color: '#3b82f6' },
-      { key: 'active',     label: 'Active',     color: '#10b981' },
-      { key: 'atrisk',     label: 'At Risk',    color: '#ef4444' },
-      { key: 'won',        label: 'Won / Upsold', color: '#8b5cf6' },
+      { key: 'onboarding', label: 'Onboarding', color: '#0891b2' },
+      { key: 'active',     label: 'Active',     color: '#16a34a' },
+      { key: 'atrisk',     label: 'At Risk',    color: '#dc2626' },
+      { key: 'won',        label: 'Won / Upsold', color: '#16a34a' },
       { key: 'churned',    label: 'Churned',    color: '#64748b' }
     ];
     const stageCounts = {};
@@ -5144,7 +5144,7 @@ function renderAlertPanel(all, active, snz) {
     if (topIns.length) {
       // Store insight data for click navigation
       window._alertInsights = topIns;
-      insWrap.innerHTML = '<div style="font-size:var(--fs-base);font-weight:700;color:var(--text);margin-bottom:8px">Insights</div>' +
+      insWrap.innerHTML = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0891b2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><div><div style="font-size:var(--fs-base);font-weight:700;color:var(--text);line-height:1.2">Insights</div><div style="font-size:var(--fs-2xs);color:var(--subtle);font-weight:500">Patterns across your alerts</div></div></div>' +
         topIns.map((ins, idx) => {
           const cls = ins.accent === 'green' ? 'ta-card-green' : ins.accent === 'red' ? 'ta-card-red' : ins.accent === 'amber' ? 'ta-card-amber' : '';
           const clickable = ins.cids && ins.cids.length > 0;
