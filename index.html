@@ -61,6 +61,20 @@ a{color:var(--blue);text-decoration:none}
 @keyframes topbarSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 #topbar-sync-btn.syncing svg{animation:topbarSpin .8s linear infinite}
 
+/* METRIC TOGGLE SWITCHES */
+.metric-toggles{margin-top:14px;border-top:1px solid var(--border);padding-top:12px}
+.metric-toggles h3{font-size:var(--fs-sm);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.mt-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;gap:12px}
+.mt-label{font-size:var(--fs-base);color:var(--text);display:flex;align-items:center;gap:6px}
+.mt-label .mt-owner{font-size:var(--fs-xs);color:var(--muted);font-style:italic}
+.mt-switch{position:relative;width:36px;height:20px;flex-shrink:0}
+.mt-switch input{opacity:0;width:0;height:0}
+.mt-switch .mt-slider{position:absolute;cursor:pointer;inset:0;background:var(--border);border-radius:10px;transition:.2s}
+.mt-switch .mt-slider:before{content:'';position:absolute;width:16px;height:16px;left:2px;bottom:2px;background:#fff;border-radius:50%;transition:.2s}
+.mt-switch input:checked+.mt-slider{background:var(--green)}
+.mt-switch input:checked+.mt-slider:before{transform:translateX(16px)}
+.mt-switch input:disabled+.mt-slider{opacity:.4;cursor:not-allowed}
+
 /* MANAGER FILTER */
 .mgr-filter{position:relative}
 .mgr-filter__btn{white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis}
@@ -3626,6 +3640,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=314"></script>
+<script src="js/app.js?v=315"></script>
 </body>
 </html>

@@ -1180,6 +1180,66 @@ async function renderIntegrationsSection() {
   renderStripeCard(stripeInt);
 }
 
+// Metric definitions: which metrics each platform can provide
+const PLATFORM_METRICS = {
+  stripe:  [
+    { key: 'mrr',     label: 'MRR / ARR' },
+    { key: 'tier',    label: 'Plan Tier' },
+    { key: 'growth',  label: 'Growth Signal' },
+    { key: 'renewal', label: 'Renewal Date' },
+    { key: 'tags',    label: 'Billing Tags' },
+  ],
+  hubspot: [
+    { key: 'mrr',       label: 'MRR / ARR (Deals)' },
+    { key: 'tier',      label: 'Tier (Company property)' },
+    { key: 'renewal',   label: 'Renewal Date (Deal close)' },
+    { key: 'tickets',   label: 'Support Tickets' },
+    { key: 'days',      label: 'Days Since Contact' },
+    { key: 'nps',       label: 'NPS' },
+    { key: 'csat',      label: 'CSAT' },
+    { key: 'lifecycle', label: 'Lifecycle Stage' },
+  ]
+};
+
+// Returns { metric: platform } for all currently-enabled metrics across all connected integrations
+function getMetricOwners() {
+  const owners = {};
+  for (const [platform, integration] of Object.entries(_integrationCache)) {
+    if (integration?.status !== 'connected') continue;
+    const sm = integration.config?.sync_metrics || {};
+    for (const [metric, enabled] of Object.entries(sm)) {
+      if (enabled) owners[metric] = platform;
+    }
+  }
+  return owners;
+}
+
+// Build toggle HTML for a platform's metric list
+function buildMetricTogglesHTML(platform, integration) {
+  const metrics = PLATFORM_METRICS[platform] || [];
+  const syncMetrics = integration.config?.sync_metrics || {};
+  const owners = getMetricOwners();
+
+  return metrics.map(m => {
+    const enabled = syncMetrics[m.key] !== false; // default true for backward compat
+    const ownedBy = owners[m.key];
+    const ownedByOther = ownedBy && ownedBy !== platform;
+    const disabled = ownedByOther ? 'disabled' : '';
+    const ownerNote = ownedByOther
+      ? `<span class="mt-owner">(Synced by ${ownedBy.charAt(0).toUpperCase() + ownedBy.slice(1)})</span>`
+      : '';
+
+    return `<div class="mt-row">
+      <span class="mt-label">${escHtml(m.label)} ${ownerNote}</span>
+      <label class="mt-switch">
+        <input type="checkbox" ${enabled && !ownedByOther ? 'checked' : ''} ${disabled}
+          onchange="updateMetricToggle('${platform}','${m.key}',this.checked)" />
+        <span class="mt-slider"></span>
+      </label>
+    </div>`;
+  }).join('');
+}
+
 function renderStripeCard(integration) {
   const body = el('integration-stripe-body');
   if (!body) return;
@@ -1209,9 +1269,8 @@ function renderStripeCard(integration) {
       <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:14px">
         ${accountName ? `<div style="font-size:var(--fs-base)"><span style="color:var(--muted)">Account:</span> <strong>${escHtml(accountName)}</strong></div>` : ''}
         <div style="font-size:var(--fs-base)"><span style="color:var(--muted)">Last sync:</span> <strong>${syncAt}</strong></div>
-        ${stats.matched != null ? `<div style="font-size:var(--fs-base)"><span style="color:var(--muted)">Matched:</span> <strong>${stats.matched}/${stats.total || 0}</strong></div>` : ''}
+        ${stats.customers_matched != null ? `<div style="font-size:var(--fs-base)"><span style="color:var(--muted)">Customers:</span> <strong>${stats.customers_matched}</strong></div>` : ''}
         ${stats.updated != null ? `<div style="font-size:var(--fs-base)"><span style="color:var(--muted)">Updated:</span> <strong>${stats.updated}</strong></div>` : ''}
-        ${stats.skipped != null ? `<div style="font-size:var(--fs-base)"><span style="color:var(--muted)">Skipped:</span> <strong>${stats.skipped}</strong></div>` : ''}
       </div>
       ${integration.last_sync_message ? `<p style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:12px">${escHtml(integration.last_sync_message)}</p>` : ''}
       <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -1220,7 +1279,11 @@ function renderStripeCard(integration) {
         </button>
         <button class="btn btn-sm btn-danger" onclick="disconnectStripeUI()">Disconnect</button>
       </div>
-      <div id="stripe-sync-status" style="margin-top:8px;font-size:var(--fs-sm)"></div>`;
+      <div id="stripe-sync-status" style="margin-top:8px;font-size:var(--fs-sm)"></div>
+      <div class="metric-toggles">
+        <h3>Sync Settings</h3>
+        ${buildMetricTogglesHTML('stripe', integration)}
+      </div>`;
   }
 }
 
@@ -1262,6 +1325,34 @@ async function disconnectStripeUI() {
       toast('Disconnect failed: ' + e.message, 'error');
     }
   });
+}
+
+async function updateMetricToggle(platform, metric, enabled) {
+  const integration = _integrationCache[platform];
+  if (!integration) return;
+
+  const config = { ...(integration.config || {}) };
+  config.sync_metrics = { ...(config.sync_metrics || {}), [metric]: enabled };
+
+  try {
+    const { error } = await sb.from('integrations')
+      .update({ config, updated_at: new Date().toISOString() })
+      .eq('client_id', integration.client_id)
+      .eq('platform', platform);
+    if (error) throw error;
+
+    // Update cache
+    integration.config = config;
+    _integrationCache[platform] = integration;
+
+    const label = (PLATFORM_METRICS[platform] || []).find(m => m.key === metric)?.label || metric;
+    const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
+    toast(`${platformName} will ${enabled ? 'now' : 'no longer'} sync ${label}`, enabled ? 'success' : 'warn');
+  } catch(e) {
+    toast('Failed to update setting: ' + e.message, 'error');
+    // Re-render to revert the toggle visually
+    if (platform === 'stripe') renderStripeCard(integration);
+  }
 }
 
 async function syncStripeUI() {

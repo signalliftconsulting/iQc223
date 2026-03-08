@@ -224,6 +224,9 @@ serve(async (req) => {
     stats.customers_matched = grouped.size;
 
     // ── Phase 2: Aggregate per customer and build updates ──
+    // Respect metric toggles from integration config (default: sync everything)
+    const syncMetrics = integration.config?.sync_metrics || {};
+    const shouldSync = (metric: string) => syncMetrics[metric] !== false;
     const TIER_RANK: Record<string, number> = { enterprise: 3, mid: 2, smb: 1 };
 
     for (const [, group] of grouped) {
@@ -283,21 +286,20 @@ serve(async (req) => {
       const newArr = newMrr * 12;
       const newGrowth = detectGrowth(newMrr, match.mrr || 0);
 
-      // Only update if something changed
+      // Only update if something changed AND metric toggle is enabled
       const changes: any = {};
-      if (newMrr !== (match.mrr || 0)) changes.mrr = newMrr;
-      if (newArr !== (match.arr || 0)) changes.arr = newArr;
-      if (bestTier && bestTier !== match.tier) changes.tier = bestTier;
-      if (newGrowth !== match.growth) changes.growth = newGrowth;
-      // Always write renewal_date from Stripe if we have one
-      if (latestRenewal) {
+      if (shouldSync('mrr') && newMrr !== (match.mrr || 0)) changes.mrr = newMrr;
+      if (shouldSync('mrr') && newArr !== (match.arr || 0)) changes.arr = newArr;
+      if (shouldSync('tier') && bestTier && bestTier !== match.tier) changes.tier = bestTier;
+      if (shouldSync('growth') && newGrowth !== match.growth) changes.growth = newGrowth;
+      if (shouldSync('renewal') && latestRenewal) {
         changes.renewal_date = latestRenewal;
         const msToRenewal = new Date(latestRenewal).getTime() - Date.now();
         changes.renewal = Math.max(0, Math.round(msToRenewal / (1000 * 60 * 60 * 24 * 30.44)));
       }
 
       // Add billing interval tags
-      if (billingTags.size > 0) {
+      if (shouldSync('tags') && billingTags.size > 0) {
         const existingTags = (match.tags || '').split(',').map((t: string) => t.trim()).filter(Boolean);
         const allBillingTags = ['monthly', 'quarterly', 'annual', 'weekly'];
         const cleaned = existingTags.filter((t: string) => !allBillingTags.includes(t.toLowerCase()));

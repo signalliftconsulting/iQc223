@@ -99,6 +99,12 @@ serve(async (req) => {
     if (!['stripe', 'hubspot'].includes(platform)) {
       throw new Error('Invalid platform. Must be "stripe" or "hubspot".');
     }
+
+    // Default metric toggles per platform
+    const DEFAULT_SYNC_METRICS: Record<string, Record<string, boolean>> = {
+      stripe:  { mrr: true, arr: true, tier: true, growth: true, renewal: true, tags: true },
+      hubspot: { tickets: true, days: true, nps: true, csat: true, lifecycle: true },
+    };
     if (!['connect', 'disconnect'].includes(action)) {
       throw new Error('Invalid action. Must be "connect" or "disconnect".');
     }
@@ -146,7 +152,7 @@ serve(async (req) => {
             client_id: clientId,
             platform,
             vault_secret_id: null,
-            config: { _credential: credential, account_name: validationResult.name || '' },
+            config: { _credential: credential, account_name: validationResult.name || '', sync_metrics: DEFAULT_SYNC_METRICS[platform] || {} },
             status: 'connected',
             last_sync_at: null,
             last_sync_status: null,
@@ -162,7 +168,7 @@ serve(async (req) => {
             client_id: clientId,
             platform,
             vault_secret_id: secretData,
-            config: { account_name: validationResult.name || '' },
+            config: { account_name: validationResult.name || '', sync_metrics: DEFAULT_SYNC_METRICS[platform] || {} },
             status: 'connected',
             last_sync_at: null,
             last_sync_status: null,
