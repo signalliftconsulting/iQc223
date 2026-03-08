@@ -7202,8 +7202,9 @@ function renderDetailHistory() {
       else             deltaHtml = `<span class="delta-eq" style="font-size:var(--fs-sm)">→0</span>`;
     }
 
-    // Signal diff — what actually changed
-    const changes = diffSnapshots(h.signals || null, prev ? (prev.signals || null) : null);
+    // Signal diff — what actually changed (use embedded prevSignals if available for sync entries)
+    const prevSnap = h.prevSignals || (prev ? (prev.signals || null) : null);
+    const changes = diffSnapshots(h.signals || null, prevSnap);
     let reasonHtml = '';
     if (changes.length) {
       reasonHtml = `<div class="hist-reason">${changes.map(escHtml).join(' &nbsp;·&nbsp; ')}</div>`;
@@ -12021,10 +12022,7 @@ async function syncStripeUI() {
         const signalsChanged = JSON.stringify(oldSnap) !== JSON.stringify(newSnap);
         if (scoreChanged || signalsChanged) {
           c.history = c.history || [];
-          // Backfill signals on previous entry so diffSnapshots shows only what changed
-          const lastEntry = c.history[c.history.length - 1];
-          if (lastEntry && !lastEntry.signals) lastEntry.signals = oldSnap;
-          c.history.push({ score: c.score, date: new Date().toISOString(), signals: newSnap });
+          c.history.push({ score: c.score, date: new Date().toISOString(), signals: newSnap, prevSignals: oldSnap });
           toSave.push(c);
         }
       }
@@ -12093,10 +12091,7 @@ async function topbarSyncStripe() {
         const signalsChanged = JSON.stringify(oldSnap) !== JSON.stringify(newSnap);
         if (scoreChanged || signalsChanged) {
           c.history = c.history || [];
-          // Backfill signals on previous entry so diffSnapshots shows only what changed
-          const lastEntry = c.history[c.history.length - 1];
-          if (lastEntry && !lastEntry.signals) lastEntry.signals = oldSnap;
-          c.history.push({ score: c.score, date: new Date().toISOString(), signals: newSnap });
+          c.history.push({ score: c.score, date: new Date().toISOString(), signals: newSnap, prevSignals: oldSnap });
           toSave.push(c);
         }
       }

@@ -1110,8 +1110,9 @@ function renderDetailHistory() {
       else             deltaHtml = `<span class="delta-eq" style="font-size:var(--fs-sm)">→0</span>`;
     }
 
-    // Signal diff — what actually changed
-    const changes = diffSnapshots(h.signals || null, prev ? (prev.signals || null) : null);
+    // Signal diff — what actually changed (use embedded prevSignals if available for sync entries)
+    const prevSnap = h.prevSignals || (prev ? (prev.signals || null) : null);
+    const changes = diffSnapshots(h.signals || null, prevSnap);
     let reasonHtml = '';
     if (changes.length) {
       reasonHtml = `<div class="hist-reason">${changes.map(escHtml).join(' &nbsp;·&nbsp; ')}</div>`;
