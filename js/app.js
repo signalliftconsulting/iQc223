@@ -8732,7 +8732,7 @@ function renderCSMList() {
   const wrap = el('cfg-csm-list');
   if (!wrap) return;
   const mgrs = {};
-  customers.forEach(c => {
+  customers.filter(c => c.lifecycle !== 'churned').forEach(c => {
     const m = (c.manager || '').trim();
     if (!m) return;
     mgrs[m] = (mgrs[m] || 0) + 1;

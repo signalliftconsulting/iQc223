@@ -72,6 +72,7 @@ function renderSettings() {
   renderWeightRows();
   renderProfiles();
   refreshProfileDropdown();
+  renderCSMList();
   renderScoreDistribution();
   renderDataHealth();
 }
@@ -675,6 +676,46 @@ function resetAllDefaults() {
     renderCustomers();
     renderAlerts();
     toast('All settings reset to defaults', 'warn');
+  });
+}
+
+// ─── MANAGE CSMs ─────────────────────────────────────────────
+function renderCSMList() {
+  const wrap = el('cfg-csm-list');
+  if (!wrap) return;
+  const mgrs = {};
+  customers.filter(c => c.lifecycle !== 'churned').forEach(c => {
+    const m = (c.manager || '').trim();
+    if (!m) return;
+    mgrs[m] = (mgrs[m] || 0) + 1;
+  });
+  const sorted = Object.entries(mgrs).sort((a, b) => a[0].localeCompare(b[0]));
+  if (!sorted.length) {
+    wrap.innerHTML = '<p style="font-size:var(--fs-base);color:var(--muted)">No CSMs assigned yet.</p>';
+    return;
+  }
+  wrap.innerHTML = '<table class="ct" style="width:100%;min-width:0"><thead><tr><th>CSM</th><th style="text-align:center">Accounts</th><th style="text-align:right"></th></tr></thead><tbody>' +
+    sorted.map(([name, count]) =>
+      `<tr><td style="font-weight:600">${escHtml(name)}</td><td style="text-align:center">${count}</td><td style="text-align:right"><button class="btn btn-xs btn-danger" onclick="removeCSM('${escHtml(name).replace(/'/g, "\\'")}')">Remove</button></td></tr>`
+    ).join('') + '</tbody></table>';
+}
+
+function removeCSM(name) {
+  const affected = customers.filter(c => c.manager === name);
+  confirmAction(`Remove "${name}"? This will unassign them from ${affected.length} customer${affected.length !== 1 ? 's' : ''}.`, () => {
+    affected.forEach(c => { c.manager = ''; });
+    logAudit('csm_removed', null, '', { summary: `CSM "${name}" removed — ${affected.length} customer(s) unassigned` });
+    logConfigChange(`CSM "${name}" removed`, `${affected.length} customer(s) unassigned`);
+    if (affected.length) {
+      pauseSync(120000);
+      setLoading(true);
+      Promise.all(affected.map(c => atUpdate(c).catch(() => {}))).finally(() => setLoading(false));
+    }
+    renderCSMList();
+    refreshMgrDropdown();
+    renderCustomers();
+    renderHomeBase();
+    toast(`"${name}" removed — ${affected.length} customer${affected.length !== 1 ? 's' : ''} unassigned`, 'success');
   });
 }
 
