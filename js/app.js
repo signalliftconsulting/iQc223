@@ -12021,6 +12021,9 @@ async function syncStripeUI() {
         const signalsChanged = JSON.stringify(oldSnap) !== JSON.stringify(newSnap);
         if (scoreChanged || signalsChanged) {
           c.history = c.history || [];
+          // Backfill signals on previous entry so diffSnapshots shows only what changed
+          const lastEntry = c.history[c.history.length - 1];
+          if (lastEntry && !lastEntry.signals) lastEntry.signals = oldSnap;
           c.history.push({ score: c.score, date: new Date().toISOString(), signals: newSnap });
           toSave.push(c);
         }
@@ -12090,6 +12093,9 @@ async function topbarSyncStripe() {
         const signalsChanged = JSON.stringify(oldSnap) !== JSON.stringify(newSnap);
         if (scoreChanged || signalsChanged) {
           c.history = c.history || [];
+          // Backfill signals on previous entry so diffSnapshots shows only what changed
+          const lastEntry = c.history[c.history.length - 1];
+          if (lastEntry && !lastEntry.signals) lastEntry.signals = oldSnap;
           c.history.push({ score: c.score, date: new Date().toISOString(), signals: newSnap });
           toSave.push(c);
         }
