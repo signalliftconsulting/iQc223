@@ -102,7 +102,7 @@ serve(async (req) => {
 
     // Default metric toggles per platform
     const DEFAULT_SYNC_METRICS: Record<string, Record<string, boolean>> = {
-      stripe:  { mrr: true, arr: true, tier: true, growth: true, renewal: true, tags: true },
+      stripe:  { mrr: true, arr: true, tier: true, growth: true, renewal: true, billing: true },
       hubspot: { tickets: true, days: true, nps: true, csat: true, lifecycle: true },
     };
     if (!['connect', 'disconnect'].includes(action)) {

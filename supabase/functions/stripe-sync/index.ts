@@ -45,8 +45,8 @@ function calculateMRR(subscription: any): number {
   }, 0);
 }
 
-// Detect tier from Stripe price nickname or product name (if product is expanded)
-function detectTier(subscription: any): string | null {
+// Detect tier from Stripe price nickname or product name
+function detectTier(subscription: any, productsMap: Map<string, any>): string | null {
   for (const item of (subscription?.items?.data || [])) {
     const price = item.price;
     if (!price) continue;
@@ -55,9 +55,10 @@ function detectTier(subscription: any): string | null {
     if (nickname.includes('enterprise')) return 'enterprise';
     if (nickname.includes('mid') || nickname.includes('business') || nickname.includes('professional') || nickname.includes('pro')) return 'mid';
     if (nickname.includes('starter') || nickname.includes('basic') || nickname.includes('smb')) return 'smb';
-    // Check product if it's an expanded object (not just a string ID)
-    const product = price.product;
-    if (product && typeof product === 'object') {
+    // Look up product from pre-fetched products map
+    const productId = typeof price.product === 'string' ? price.product : price.product?.id;
+    const product = productId ? productsMap.get(productId) : null;
+    if (product) {
       const metaTier = (product.metadata?.tier || '').toLowerCase();
       if (['enterprise', 'mid', 'smb'].includes(metaTier)) return metaTier;
       const name = (product.name || '').toLowerCase();
@@ -117,6 +118,28 @@ async function fetchAllSubscriptions(stripeKey: string): Promise<any[]> {
   return all;
 }
 
+// Fetch all products from Stripe (for tier detection by product name)
+async function fetchAllProducts(stripeKey: string): Promise<Map<string, any>> {
+  const map = new Map<string, any>();
+  let hasMore = true;
+  let startingAfter: string | null = null;
+
+  while (hasMore) {
+    let url = 'https://api.stripe.com/v1/products?limit=100&active=true';
+    if (startingAfter) url += `&starting_after=${startingAfter}`;
+
+    const resp = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${stripeKey}` }
+    });
+    if (!resp.ok) break; // Non-critical — tier detection falls back to nickname
+    const data = await resp.json();
+    for (const p of (data.data || [])) map.set(p.id, p);
+    hasMore = data.has_more || false;
+    if (data.data?.length) startingAfter = data.data[data.data.length - 1].id;
+  }
+  return map;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: getCorsHeaders(req) });
@@ -165,13 +188,14 @@ serve(async (req) => {
     // Get Stripe API key
     const stripeKey = await getStripeKey(serviceClient, integration);
 
-    // Fetch all active subscriptions
+    // Fetch all active subscriptions + products (for tier detection)
     const subscriptions = await fetchAllSubscriptions(stripeKey);
+    const productsMap = await fetchAllProducts(stripeKey);
 
     // Load all existing customers for this client
     const { data: customers } = await serviceClient
       .from('customers')
-      .select('id, name, mrr, arr, tier, growth, tags, stripe_customer_id, external_id, renewal_date, renewal')
+      .select('id, name, mrr, arr, tier, growth, billing_interval, stripe_customer_id, external_id, renewal_date, renewal')
       .eq('client_id', clientId)
       .is('deleted_at', null);
 
@@ -236,13 +260,13 @@ serve(async (req) => {
       let totalMrr = 0;
       let bestTier: string | null = null;
       let latestRenewal = '';
-      const billingTags = new Set<string>();
+      const billingIntervals = new Set<string>();
 
       for (const sub of group.subs) {
         totalMrr += calculateMRR(sub);
 
         // Detect tier — keep the highest-ranked one
-        const tier = detectTier(sub);
+        const tier = detectTier(sub, productsMap);
         if (tier && (!bestTier || (TIER_RANK[tier] || 0) > (TIER_RANK[bestTier] || 0))) {
           bestTier = tier;
         }
@@ -275,11 +299,12 @@ serve(async (req) => {
         if (nextRenewal && (!latestRenewal || nextRenewal > latestRenewal)) {
           latestRenewal = nextRenewal;
         }
-        if (interval === 'month' && intervalCount === 1) billingTags.add('monthly');
-        else if (interval === 'month' && intervalCount === 3) billingTags.add('quarterly');
-        else if (interval === 'year') billingTags.add('annual');
-        else if (interval === 'week') billingTags.add('weekly');
-        else if (interval) billingTags.add(`${intervalCount}-${interval}`);
+        // Detect billing interval
+        if (interval === 'month' && intervalCount === 1) billingIntervals.add('monthly');
+        else if (interval === 'month' && intervalCount === 3) billingIntervals.add('quarterly');
+        else if (interval === 'year') billingIntervals.add('annual');
+        else if (interval === 'week') billingIntervals.add('weekly');
+        else if (interval) billingIntervals.add(`${intervalCount}-${interval}`);
       }
 
       const newMrr = Math.round(totalMrr);
@@ -298,14 +323,10 @@ serve(async (req) => {
         changes.renewal = Math.max(0, Math.round(msToRenewal / (1000 * 60 * 60 * 24 * 30.44)));
       }
 
-      // Add billing interval tags
-      if (shouldSync('tags') && billingTags.size > 0) {
-        const existingTags = (match.tags || '').split(',').map((t: string) => t.trim()).filter(Boolean);
-        const allBillingTags = ['monthly', 'quarterly', 'annual', 'weekly'];
-        const cleaned = existingTags.filter((t: string) => !allBillingTags.includes(t.toLowerCase()));
-        for (const bt of billingTags) cleaned.push(bt);
-        const newTagStr = cleaned.join(',');
-        if (newTagStr !== (match.tags || '')) changes.tags = newTagStr;
+      // Set billing interval field
+      if (shouldSync('billing') && billingIntervals.size > 0) {
+        const newInterval = [...billingIntervals].sort().join(',');
+        if (newInterval !== (match.billing_interval || '')) changes.billing_interval = newInterval;
       }
 
       if (group.stripeCustomerId && group.stripeCustomerId !== match.stripe_customer_id) {

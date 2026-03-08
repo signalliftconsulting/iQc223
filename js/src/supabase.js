@@ -215,9 +215,10 @@ function fromRow(row) {
     last_contact_date:  row.last_contact_date  || '',
     touch_history:      tryParse(row.touch_history, []),
     external_id:        row.external_id        || '',
-    stripe_customer_id: row.stripe_customer_id || '',
-    hubspot_company_id: row.hubspot_company_id || '',
-    renewal_date:       row.renewal_date       || ''
+    stripe_customer_id:  row.stripe_customer_id  || '',
+    hubspot_company_id:  row.hubspot_company_id  || '',
+    billing_interval:    row.billing_interval    || '',
+    renewal_date:        row.renewal_date        || ''
   };
 }
 
@@ -260,8 +261,9 @@ function toRow(c) {
     last_contact_date:  c.last_contact_date  || '',
     touch_history:      JSON.stringify(c.touch_history || []),
     external_id:        c.external_id        || '',
-    stripe_customer_id: c.stripe_customer_id || '',
-    hubspot_company_id: c.hubspot_company_id || ''
+    stripe_customer_id:  c.stripe_customer_id  || '',
+    hubspot_company_id:  c.hubspot_company_id  || '',
+    billing_interval:    c.billing_interval    || ''
   };
   // Only include client_id if the DB column exists (detected during load)
   if (_dbHasClientId && _userClientId) row.client_id = _userClientId;

@@ -196,16 +196,17 @@ function showResult({ data, score, signals, status, rec, plays }) {
 // Store raw signals snapshot in history entry so we can diff later
 function buildHistorySnapshot(data) {
   return {
-    logins:    data.logins    ?? null,
-    adoption:  data.adoption  ?? null,
-    tickets:   data.tickets   ?? null,
-    nps:       data.nps       ?? null,
-    csat:      data.csat      ?? null,
-    days:      data.days      ?? null,
-    growth:    data.growth    ?? null,
-    lifecycle: data.lifecycle ?? null,
-    mrr:       data.mrr       ?? null,
-    arr:       data.arr       ?? null,
+    logins:           data.logins           ?? null,
+    adoption:         data.adoption         ?? null,
+    tickets:          data.tickets          ?? null,
+    nps:              data.nps              ?? null,
+    csat:             data.csat             ?? null,
+    days:             data.days             ?? null,
+    growth:           data.growth           ?? null,
+    lifecycle:        data.lifecycle        ?? null,
+    mrr:              data.mrr              ?? null,
+    arr:              data.arr              ?? null,
+    billing_interval: data.billing_interval ?? null,
   };
 }
 
@@ -309,6 +310,15 @@ function diffSnapshots(curr, prev) {
     }
   }
 
+  // Billing interval
+  if (curr.billing_interval) {
+    if (!prev || !prev.billing_interval) {
+      parts.push(`Billing: ${curr.billing_interval}`);
+    } else if (curr.billing_interval !== prev.billing_interval) {
+      parts.push(`Billing: ${prev.billing_interval}→${curr.billing_interval}`);
+    }
+  }
+
   return parts;
 }
 
@@ -339,8 +349,9 @@ function saveScore() {
         dupe.since           = data.since || '';
         dupe.tier            = data.tier;
         dupe.lifecycle       = data.lifecycle;
-        dupe.tags            = data.tags;
-        dupe.scoring_profile = data.profile || '';
+        dupe.tags              = data.tags;
+        dupe.billing_interval  = data.billing_interval || dupe.billing_interval || '';
+        dupe.scoring_profile   = data.profile || '';
         applyAutoStage(dupe);
         if (data.note) {
           dupe.notes = dupe.notes || [];
@@ -372,8 +383,9 @@ function saveScore() {
     since:           data.since || '',
     tier:            data.tier,
     lifecycle:       data.lifecycle,
-    tags:            data.tags,
-    logins:          data.logins,
+    tags:              data.tags,
+    billing_interval:  data.billing_interval || '',
+    logins:            data.logins,
     adoption:        data.adoption,
     tickets:         data.tickets,
     nps:             data.nps,
@@ -775,6 +787,16 @@ function renderDetailOverview() {
             <label class="di-label">ARR ($)</label>
             <input type="number" id="di-arr" class="di-input" value="${c.arr||0}" min="0" step="1" />
           </div>
+          <div>
+            <label class="di-label">Billing</label>
+            <select id="di-billing-interval" class="di-select">
+              <option value="" ${!c.billing_interval?'selected':''}>—</option>
+              <option value="monthly" ${c.billing_interval==='monthly'?'selected':''}>Monthly</option>
+              <option value="quarterly" ${c.billing_interval==='quarterly'?'selected':''}>Quarterly</option>
+              <option value="annual" ${c.billing_interval==='annual'?'selected':''}>Annual</option>
+              <option value="weekly" ${c.billing_interval==='weekly'?'selected':''}>Weekly</option>
+            </select>
+          </div>
           <div style="grid-column:1/-1">
             <label class="di-label">Tags</label>
             <input type="text" id="di-tags" class="di-input" value="${escHtml((c.tags||[]).join(', '))}" placeholder="Comma-separated" />
@@ -897,6 +919,8 @@ async function saveDetailInline() {
   }
   if (mrrInput) c.mrr = parseFloat(mrrInput.value) || 0;
   if (arrInput) c.arr = parseFloat(arrInput.value) || 0;
+  const billingInput = document.getElementById('di-billing-interval');
+  if (billingInput) c.billing_interval = billingInput.value || '';
 
   // Integration IDs
   const extIdInput = document.getElementById('di-external-id');
@@ -1243,6 +1267,7 @@ function editCustomer(id) {
   const curData = {
     name: c.name, manager: c.manager || '', mrr: c.mrr || 0, arr: c.arr || 0,
     tier: c.tier || 'mid', lifecycle: c.lifecycle || 'active', tags: c.tags || [],
+    billing_interval: c.billing_interval || '',
     logins: c.logins, adoption: c.adoption, tickets: c.tickets,
     nps: c.nps, csat: c.csat, days: c.days, growth: c.growth || 'none',
     renewal: c.renewal, renewal_date: c.renewal_date || '', profile: c.scoring_profile || ''
@@ -1294,7 +1319,8 @@ window.saveScore = function() {
       c.since           = data.since || '';
       c.tier            = data.tier;
       c.lifecycle       = data.lifecycle;
-      c.tags            = data.tags;
+      c.tags              = data.tags;
+      c.billing_interval  = data.billing_interval || c.billing_interval || '';
       if (data.note) {
         c.notes = c.notes || [];
         c.notes.unshift({ text: data.note, date: new Date().toISOString() });

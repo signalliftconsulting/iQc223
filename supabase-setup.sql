@@ -176,7 +176,8 @@ CREATE TABLE IF NOT EXISTS customers (
   last_contact_date TEXT DEFAULT '',
   external_id       TEXT DEFAULT '',
   stripe_customer_id TEXT DEFAULT '',
-  hubspot_company_id TEXT DEFAULT ''
+  hubspot_company_id TEXT DEFAULT '',
+  billing_interval   TEXT DEFAULT ''
 );
 
 -- Add last_contact_date column (safe to re-run)
@@ -386,6 +387,12 @@ END $$;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='customers' AND column_name='hubspot_company_id') THEN
     ALTER TABLE customers ADD COLUMN hubspot_company_id TEXT DEFAULT '';
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='customers' AND column_name='billing_interval') THEN
+    ALTER TABLE customers ADD COLUMN billing_interval TEXT DEFAULT '';
   END IF;
 END $$;
 

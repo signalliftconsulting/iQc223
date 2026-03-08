@@ -1187,7 +1187,7 @@ const PLATFORM_METRICS = {
     { key: 'tier',    label: 'Plan Tier' },
     { key: 'growth',  label: 'Growth Signal' },
     { key: 'renewal', label: 'Renewal Date' },
-    { key: 'tags',    label: 'Billing Tags' },
+    { key: 'billing', label: 'Billing Interval' },
   ],
   hubspot: [
     { key: 'mrr',       label: 'MRR / ARR (Deals)' },
