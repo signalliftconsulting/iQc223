@@ -3012,72 +3012,107 @@ function _renderHomeBase() {
     return { avgDelta, droppers: droppers.length, topDroppers: droppers.slice(0, 3), reasons, total: dodPairs.length };
   })();
 
-  // ── Build today's priorities (action-oriented, account-specific) ──
-  // Distinct from Insights section: briefing = "what to act on today", insights = "what the data tells you"
-  const _briefBullets = (() => {
-    const bs = [];
-    const _ids = arr => JSON.stringify(arr.map(c => c.id));
+  // ── Portfolio overview blurb + deduplicated action items ──
+  const _ids = arr => JSON.stringify(arr.map(c => c.id));
 
-    // 1. Overnight drops — what broke since yesterday?
-    if (_dodBriefing && _dodBriefing.avgDelta <= -2) {
-      const d = _dodBriefing;
-      let text = `Scores dropped ${Math.abs(d.avgDelta)} pts overnight across ${d.total} accounts`;
-      if (d.reasons.length) text += `, driven by ${d.reasons.slice(0,2).join(' and ')}`;
-      text += '.';
-      bs.push({ p: 0, text, action: "setTrendRange('1d');nav('trends')" });
-    }
+  // Build portfolio overview blurb (narrative paragraph)
+  const _blurbParts = [];
 
-    // 2. Renewal + contact gap — who needs outreach NOW?
-    if (contactGapHighVal.length > 0) {
-      const gapWithRenewal = contactGapHighVal.filter(c => c.renewal != null && c.renewal <= 3);
-      if (gapWithRenewal.length > 0) {
-        const gapMRR = gapWithRenewal.reduce((s,c) => s + (c.mrr||0), 0);
-        if (gapWithRenewal.length === 1) {
-          bs.push({ p: 0, text: `${gapWithRenewal[0].name} ($${fmtNum(gapWithRenewal[0].mrr||0)}/mo) has a renewal coming up and no contact in 30+ days.`, action: `openDetail('${gapWithRenewal[0].id}')` });
-        } else {
-          bs.push({ p: 0, text: `${gapWithRenewal.length} high-value accounts ($${fmtNum(gapMRR)} MRR) have renewals in the next 90 days and no contact in 30+ days.`, action: `setInsightFilter('Renewal + no contact',${_ids(gapWithRenewal)})` });
-        }
-      } else {
-        const gapMRR = contactGapHighVal.reduce((s,c) => s + (c.mrr||0), 0);
-        bs.push({ p: 1, text: `${contactGapHighVal.length} high-value accounts ($${fmtNum(gapMRR)} MRR) haven't been contacted in 30+ days.`, action: `setInsightFilter('No contact 30d+',${_ids(contactGapHighVal)})` });
-      }
-    }
-
-    // 3. Biggest at-risk account — your #1 priority
-    if (biggestRisk && biggestRisk.mrr >= 5000) {
-      const brDelta = getDelta7d(biggestRisk);
-      if (brDelta < -5) {
-        bs.push({ p: 1, text: `${biggestRisk.name} ($${fmtNum(biggestRisk.mrr)}/mo) is your largest at-risk account and dropped ${Math.abs(brDelta)} pts this week.`, action: `openDetail('${biggestRisk.id}')` });
-      } else if (biggestRisk.days != null && biggestRisk.days >= 14) {
-        bs.push({ p: 1, text: `${biggestRisk.name} ($${fmtNum(biggestRisk.mrr)}/mo) is your largest at-risk account and hasn't been contacted in ${biggestRisk.days} days.`, action: `openDetail('${biggestRisk.id}')` });
-      }
-    }
-
-    // 4. Silent decliners — catch before they escalate
-    if (silentDecliners.length >= 2) {
-      const sdMRR = silentDecliners.reduce((s,c) => s + (c.mrr||0), 0);
-      bs.push({ p: 1, text: `${silentDecliners.length} accounts that were healthy last period are now declining, putting $${fmtNum(sdMRR)} MRR at risk of sliding into watch.`, action: `setInsightFilter('Declining from healthy',${_ids(silentDecliners)})` });
-    } else if (silentDecliners.length === 1) {
-      const sd = silentDecliners[0];
-      bs.push({ p: 1, text: `${sd.name} was healthy but has started declining. Worth a check-in before it escalates.`, action: `openDetail('${sd.id}')` });
-    }
-
-    bs.sort((a,b) => a.p - b.p);
-    return bs.slice(0, 4);
-  })();
-
-  // Build opener line
-  let _briefOpener = '';
-  if (_briefBullets.length && _briefBullets[0].p <= 1) {
-    if (atRisk.length === 0) _briefOpener = `Your book is clean with no at-risk accounts.`;
-    else if (atRiskMRR >= 50000) _briefOpener = `$${fmtNum(atRiskMRR)} in MRR is currently at risk across ${atRisk.length} accounts.`;
-    else _briefOpener = `${atRisk.length} account${atRisk.length !== 1 ? 's' : ''} ${atRisk.length !== 1 ? 'are' : 'is'} at risk today ($${fmtNum(atRiskMRR)} MRR).`;
-  } else if (healthyPct >= 80) {
-    _briefOpener = `Your portfolio is in strong shape at ${healthyPct}% healthy.`;
+  // Health state + trend
+  if (healthyPct >= 80) {
+    _blurbParts.push(`Your portfolio is in strong shape with ${healthyPct}% of accounts healthy.`);
   } else if (healthyPct >= 60) {
-    _briefOpener = `Portfolio health is holding at ${healthyPct}%. Here's what stands out.`;
+    _blurbParts.push(`Portfolio health is at ${healthyPct}% with ${atRisk.length} account${atRisk.length !== 1 ? 's' : ''} at risk.`);
   } else {
-    _briefOpener = `Your book is running at ${healthyPct}% healthy with $${fmtNum(atRiskMRR)} MRR exposed.`;
+    _blurbParts.push(`Portfolio health is at ${healthyPct}% with $${fmtNum(atRiskMRR)} MRR exposed across ${atRisk.length} at-risk account${atRisk.length !== 1 ? 's' : ''}.`);
+  }
+
+  // Trend direction
+  if (avgDelta > 2) _blurbParts.push(`Scores are trending up ${avgDelta} pts on average.`);
+  else if (avgDelta < -2) _blurbParts.push(`Scores dropped ${Math.abs(avgDelta)} pts on average this period.`);
+
+  // Movement summary
+  if (improving > 0 && declining > 0) {
+    _blurbParts.push(`${improving} account${improving !== 1 ? 's are' : ' is'} improving while ${declining} ${declining !== 1 ? 'are' : 'is'} declining.`);
+  } else if (declining > 0) {
+    _blurbParts.push(`${declining} account${declining !== 1 ? 's are' : ' is'} declining.`);
+  }
+
+  // Revenue context
+  if (atRiskMRR > 0 && healthyPct >= 60) {
+    _blurbParts.push(`$${fmtNum(atRiskMRR)} in MRR is at risk.`);
+  }
+
+  // Renewals
+  if (renewals30.length > 0) {
+    if (renewalsAtRisk.length > 0) {
+      _blurbParts.push(`${renewals30.length} renewal${renewals30.length !== 1 ? 's are' : ' is'} coming up in the next 30 days, ${renewalsAtRisk.length} of which ${renewalsAtRisk.length !== 1 ? 'are' : 'is'} at risk.`);
+    } else {
+      _blurbParts.push(`${renewals30.length} renewal${renewals30.length !== 1 ? 's' : ''} coming up in the next 30 days, all in good health.`);
+    }
+  }
+
+  // Contact gaps
+  if (contactGap.length > 0) {
+    _blurbParts.push(`${contactGap.length} account${contactGap.length !== 1 ? 's have' : ' has'} not been contacted in 30+ days.`);
+  }
+
+  const _portfolioBlurb = _blurbParts.slice(0, 4).join(' ');
+
+  // Build deduplicated action items (max 4)
+  const _actionItems = [];
+  const _mentioned = new Set();
+
+  // 1. Overnight drops (aggregate, not account-specific)
+  if (_dodBriefing && _dodBriefing.avgDelta <= -2) {
+    const d = _dodBriefing;
+    let text = `Scores dropped ${Math.abs(d.avgDelta)} pts overnight across ${d.total} accounts`;
+    if (d.reasons.length) text += `, driven by ${d.reasons.slice(0,2).join(' and ')}`;
+    text += '.';
+    _actionItems.push({ text, action: "setTrendRange('1d');nav('trends')" });
+  }
+
+  // 2. Renewal + contact gap
+  if (contactGapHighVal.length > 0) {
+    const gapWithRenewal = contactGapHighVal.filter(c => c.renewal != null && c.renewal <= 3);
+    if (gapWithRenewal.length > 0) {
+      gapWithRenewal.forEach(c => _mentioned.add(c.id));
+      const gapMRR = gapWithRenewal.reduce((s,c) => s + (c.mrr||0), 0);
+      if (gapWithRenewal.length === 1) {
+        _actionItems.push({ text: `Reach out to ${gapWithRenewal[0].name} ($${fmtNum(gapWithRenewal[0].mrr||0)}/mo), renewal approaching with no contact in 30+ days.`, action: `openDetail('${gapWithRenewal[0].id}')` });
+      } else {
+        _actionItems.push({ text: `${gapWithRenewal.length} high-value accounts ($${fmtNum(gapMRR)} MRR) have renewals approaching with no recent contact.`, action: `setInsightFilter('Renewal + no contact',${_ids(gapWithRenewal)})` });
+      }
+    } else {
+      const unreached = contactGapHighVal.filter(c => !_mentioned.has(c.id));
+      if (unreached.length) {
+        unreached.forEach(c => _mentioned.add(c.id));
+        const gapMRR = unreached.reduce((s,c) => s + (c.mrr||0), 0);
+        _actionItems.push({ text: `${unreached.length} high-value account${unreached.length !== 1 ? 's' : ''} ($${fmtNum(gapMRR)} MRR) with no contact in 30+ days.`, action: `setInsightFilter('No contact 30d+',${_ids(unreached)})` });
+      }
+    }
+  }
+
+  // 3. Biggest at-risk account (skip if already mentioned)
+  if (biggestRisk && biggestRisk.mrr >= 5000 && !_mentioned.has(biggestRisk.id)) {
+    _mentioned.add(biggestRisk.id);
+    const brDelta = getDelta7d(biggestRisk);
+    if (brDelta < -5) {
+      _actionItems.push({ text: `${biggestRisk.name} ($${fmtNum(biggestRisk.mrr)}/mo) is your largest at-risk account, down ${Math.abs(brDelta)} pts this week.`, action: `openDetail('${biggestRisk.id}')` });
+    } else if (biggestRisk.days != null && biggestRisk.days >= 14) {
+      _actionItems.push({ text: `${biggestRisk.name} ($${fmtNum(biggestRisk.mrr)}/mo) is your largest at-risk account with no contact in ${biggestRisk.days} days.`, action: `openDetail('${biggestRisk.id}')` });
+    }
+  }
+
+  // 4. Silent decliners (skip already mentioned)
+  const _sdFiltered = silentDecliners.filter(c => !_mentioned.has(c.id));
+  if (_sdFiltered.length >= 2) {
+    _sdFiltered.forEach(c => _mentioned.add(c.id));
+    const sdMRR = _sdFiltered.reduce((s,c) => s + (c.mrr||0), 0);
+    _actionItems.push({ text: `${_sdFiltered.length} accounts that were healthy are now declining, putting $${fmtNum(sdMRR)} MRR at risk.`, action: `setInsightFilter('Declining from healthy',${_ids(_sdFiltered)})` });
+  } else if (_sdFiltered.length === 1) {
+    _mentioned.add(_sdFiltered[0].id);
+    _actionItems.push({ text: `${_sdFiltered[0].name} was healthy but has started declining. Worth a check-in before it escalates.`, action: `openDetail('${_sdFiltered[0].id}')` });
   }
 
   // Portfolio health score (avg across all accounts)
@@ -3087,25 +3122,13 @@ function _renderHomeBase() {
   const _ringCirc = 2 * Math.PI * 40;
   const _ringOffset = _ringCirc - (_portfolioScore / 100) * _ringCirc;
 
-  // Bullet priority icons
-  const _bIcon = (i) => {
-    const icons = [
-      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
-      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
-      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
-      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
-    ];
-    return icons[i % icons.length];
-  };
-
   html += '<div class="hb-welcome">';
   html += '<div class="hb-welcome-grid">';
 
-  // Left column: portfolio health ring + quick stats (front and center)
+  // Left column: portfolio health ring + quick stats
   html += '<div class="hb-welcome-left">';
   html += `<div class="hb-greeting">${greeting}${userName ? ', ' + escHtml(userName) : ''}</div>`;
   html += `<div class="hb-date">${dateStr}</div>`;
-  html += `<div class="hb-summary" style="margin-top:10px">${_briefOpener}</div>`;
   html += '<div style="display:flex;align-items:center;gap:32px;margin-top:16px">';
   html += `<div class="hb-pulse-ring">
     <svg viewBox="0 0 100 100" width="110" height="110">
@@ -3117,7 +3140,7 @@ function _renderHomeBase() {
     <div class="hb-pulse-center">
       <div class="hb-pulse-num">${_portfolioScore}</div>
       <div class="hb-pulse-lbl">Portfolio</div>
-      <div class="hb-pulse-delta" style="color:${avgDelta > 0 ? 'var(--green)' : avgDelta < 0 ? 'var(--red)' : 'var(--muted)'}">${avgDelta > 0 ? '▲' : avgDelta < 0 ? '▼' : '—'} ${avgDelta !== 0 ? Math.abs(avgDelta) : ''}</div>
+      <div class="hb-pulse-delta" style="color:${avgDelta > 0 ? 'var(--green)' : avgDelta < 0 ? 'var(--red)' : 'var(--muted)'}">${avgDelta > 0 ? '\u25B2' : avgDelta < 0 ? '\u25BC' : ''} ${avgDelta !== 0 ? Math.abs(avgDelta) : ''}</div>
     </div>
   </div>`;
   html += '<div class="hb-quick-stats">';
@@ -3129,18 +3152,18 @@ function _renderHomeBase() {
   html += '</div>'; // close flex row
   html += '</div>';
 
-  // Right column: briefing action cards
+  // Right column: portfolio overview blurb + action items
   html += '<div class="hb-welcome-right">';
-  if (_briefBullets.length) {
-    html += '<div class="hb-brief-cards">';
-    _briefBullets.forEach((b, i) => {
-      html += `<div class="hb-brief-card" onclick="${b.action.replace(/"/g,'&quot;')}">
-        <div class="hb-brief-icon">${_bIcon(i)}</div>
-        <div class="hb-brief-text">${b.text}</div>
+  html += `<div style="font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:6px">Portfolio Overview</div>`;
+  html += `<div style="font-size:var(--fs-base);color:var(--fg);line-height:1.55;margin-bottom:14px">${_portfolioBlurb}</div>`;
+  if (_actionItems.length) {
+    html += `<div style="font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:6px">Action Items</div>`;
+    _actionItems.slice(0, 4).forEach(a => {
+      html += `<div class="hb-brief-card" onclick="${a.action.replace(/"/g,'&quot;')}" style="padding:8px 10px;margin-bottom:4px">
+        <div class="hb-brief-text" style="font-size:var(--fs-sm)">${a.text}</div>
         <svg class="hb-brief-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </div>`;
     });
-    html += '</div>';
   }
   html += '</div>';
 
