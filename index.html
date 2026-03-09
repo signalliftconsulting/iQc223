@@ -707,11 +707,13 @@ svg.sparkline{display:block}
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);backdrop-filter:blur(2px);z-index:200;align-items:center;justify-content:center;padding:16px}
 .modal-bg.open{display:flex}
 .modal{background:var(--surface);border-radius:var(--rlg);padding:26px;max-width:560px;width:100%;box-shadow:var(--shlg);max-height:92vh;overflow-y:auto;border:1px solid var(--border)}
+#detail-modal>.modal{display:flex;flex-direction:column;overflow:hidden;padding-bottom:0}
+.dm-scroll{flex:1;overflow-y:auto;padding-bottom:16px}
 .modal-hd{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;gap:10px}
 .modal-close{background:none;border:none;cursor:pointer;font-size:1rem;color:var(--muted);padding:4px 7px;border-radius:6px;transition:background .14s,color .14s;line-height:1}
 .modal-close:hover{background:var(--bg);color:var(--text)}
 .modal-ft{margin-top:20px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;padding-top:16px;border-top:1px solid var(--border)}
-.dm-action-bar{position:sticky;bottom:-26px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:12px 26px;margin:0 -26px;background:var(--surface);border-top:1px solid var(--border);z-index:2}
+.dm-action-bar{flex-shrink:0;display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:12px 26px;margin:0 -26px;background:var(--surface);border-top:1px solid var(--border)}
 
 /* DETAIL MODAL TABS */
 .dtab-row{display:flex;gap:0;border-bottom:1px solid #e2e8f0;margin-bottom:16px;width:fit-content}
@@ -3473,6 +3475,7 @@ Header: Content-Type: application/json
 <!-- CUSTOMER DETAIL MODAL -->
 <div class="modal-bg" id="detail-modal">
   <div class="modal" style="max-width:620px">
+    <div class="dm-scroll">
     <div class="modal-hd">
       <div><h2 id="dm-name">—</h2><p id="dm-sub" style="font-size:var(--fs-base);margin-top:1px"></p></div>
       <button class="modal-close" onclick="closeModal('detail-modal')"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
@@ -3512,7 +3515,8 @@ Header: Content-Type: application/json
       <div id="dm-history-sparkline" style="margin-bottom:12px"></div>
       <div id="dm-history-list"></div>
     </div>
-    <!-- Sticky bottom action bar -->
+    </div><!-- /dm-scroll -->
+    <!-- Fixed bottom action bar -->
     <div class="dm-action-bar">
       <button class="btn btn-outline btn-sm" onclick="editCustomer()">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -3696,6 +3700,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=351"></script>
+<script src="js/app.js?v=352"></script>
 </body>
 </html>
