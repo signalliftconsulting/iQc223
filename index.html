@@ -2627,7 +2627,6 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <div class="dtab-row" style="margin-bottom:18px">
     <button class="dtab active" id="auto-tab-active" onclick="autoTab('active')">Active Alerts</button>
     <button class="dtab" id="auto-tab-create" onclick="autoTab('create')">Create Alert</button>
-    <button class="dtab" id="auto-tab-advanced" onclick="nav('settings');cfgTab('api')">API &amp; Integrations</button>
   </div>
 
   <!-- ── Tab 1: Active Alerts ── -->
@@ -2670,8 +2669,6 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
     </div>
   </div>
 
-  <!-- Advanced content moved to Settings → API & Integrations tab -->
-  <div class="dtab-pane" id="auto-pane-advanced" style="display:none"></div>
 
 </div><!-- /automations -->
 
@@ -3697,6 +3694,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=349"></script>
+<script src="js/app.js?v=350"></script>
 </body>
 </html>

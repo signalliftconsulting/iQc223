@@ -95,12 +95,7 @@ function helpTab(t) {
 
 // ── Tab switching ──
 function autoTab(which) {
-  if (which === 'advanced') {
-    // Redirect to Settings → API & Integrations tab
-    nav('settings'); cfgTab('api');
-    return;
-  }
-  ['active','create','advanced'].forEach(t => {
+  ['active','create'].forEach(t => {
     el('auto-tab-'+t)?.classList.toggle('active', t === which);
     el('auto-pane-'+t)?.classList.toggle('active', t === which);
   });
