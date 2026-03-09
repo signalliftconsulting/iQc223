@@ -2715,7 +2715,45 @@ function isAdmin() {
   return currentUser && ADMIN_EMAILS.some(e => currentUser.email.toLowerCase() === e.toLowerCase());
 }
 
+// ─── VIEW HISTORY (back / forward) ────────────────────────
+let _navHistory = [];
+let _navIdx = -1;
+let _navSkipPush = false;
+
+function navBack() {
+  if (_navIdx <= 0) return;
+  _navSkipPush = true;
+  _navIdx--;
+  nav(_navHistory[_navIdx]);
+  _navSkipPush = false;
+  _updateNavBtns();
+}
+function navForward() {
+  if (_navIdx >= _navHistory.length - 1) return;
+  _navSkipPush = true;
+  _navIdx++;
+  nav(_navHistory[_navIdx]);
+  _navSkipPush = false;
+  _updateNavBtns();
+}
+function _updateNavBtns() {
+  const b = document.getElementById('nav-back-btn');
+  const f = document.getElementById('nav-fwd-btn');
+  if (b) { b.disabled = _navIdx <= 0; b.style.opacity = _navIdx <= 0 ? '.35' : '1'; }
+  if (f) { f.disabled = _navIdx >= _navHistory.length - 1; f.style.opacity = _navIdx >= _navHistory.length - 1 ? '.35' : '1'; }
+}
+
 function nav(v) {
+  // ── History tracking ──
+  if (!_navSkipPush) {
+    if (_navHistory[_navIdx] !== v) {
+      _navHistory = _navHistory.slice(0, _navIdx + 1);
+      _navHistory.push(v);
+      _navIdx = _navHistory.length - 1;
+    }
+  }
+  _updateNavBtns();
+
   // Remember active view for page refresh
   try { localStorage.setItem('iqc_active_view', v); } catch(e) {}
 
