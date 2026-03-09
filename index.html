@@ -579,6 +579,7 @@ svg.sparkline{display:block}
 
 /* SCORE DISPLAY */
 .score-panel{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+.score-submit-bar{position:sticky;bottom:0;background:var(--surface);padding:14px 0 2px;margin-top:8px;z-index:2;border-top:1px solid var(--border)}
 .score-hero{display:flex;flex-direction:column;align-items:center;gap:12px;padding:24px 14px;text-align:center}
 .score-ring{position:relative;width:140px;height:140px}
 .score-ring svg{transform:rotate(-90deg)}
@@ -2139,8 +2140,8 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
           <!-- Section: Note -->
           <div class="form-section full"><div class="form-section-label">Notes</div></div>
           <div class="field full"><label>Note <span style="font-weight:400;color:var(--subtle);font-size:.7rem">optional</span></label><textarea id="f-note" placeholder="Quick context note…"></textarea></div>
-          <div class="field full"><button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;font-size:.9rem">Calculate Health Score →</button></div>
         </div>
+        <div class="score-submit-bar"><button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;font-size:.9rem">Calculate Health Score →</button></div>
       </form>
     </div>
     <div>
@@ -2166,7 +2167,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
         <div class="bd-title">Signal Breakdown</div>
         <div id="breakdown-wrap"></div>
         <div class="playbook" id="playbook-wrap"></div>
-        <div style="display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+        <div class="score-submit-bar" style="display:flex;gap:7px;justify-content:center;flex-wrap:wrap">
           <button class="btn btn-success btn-sm" onclick="saveScore()">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
             Save to Dashboard
@@ -3700,6 +3701,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=352"></script>
+<script src="js/app.js?v=353"></script>
 </body>
 </html>
