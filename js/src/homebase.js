@@ -494,10 +494,10 @@ function _renderHomeBase() {
 
   // Right column: portfolio overview blurb + action items
   html += '<div class="hb-welcome-right">';
-  html += `<div style="font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.10em;color:var(--blue);margin-bottom:6px">Portfolio Overview</div>`;
+  html += `<div style="font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.10em;color:#0f766e;margin-bottom:6px">Portfolio Overview</div>`;
   html += `<div style="font-size:var(--fs-base);color:var(--fg);line-height:1.55;margin-bottom:10px">${_portfolioBlurb}</div>`;
   if (_actionItems.length) {
-    html += `<div style="font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.10em;color:var(--blue);margin-bottom:6px">Action Items</div>`;
+    html += `<div style="font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.10em;color:#0f766e;margin-bottom:6px">Action Items</div>`;
     const _toneColors = { red: { bg:'rgba(239,68,68,.07)', border:'var(--red)' }, amber: { bg:'rgba(245,158,11,.07)', border:'var(--amber)' }, green: { bg:'rgba(22,163,74,.07)', border:'var(--green)' } };
     _actionItems.slice(0, 3).forEach(a => {
       const tc = _toneColors[a.tone] || _toneColors.amber;
@@ -513,7 +513,7 @@ function _renderHomeBase() {
   html += '</div>'; // close welcome
 
   // ── 5 KPI Cards Row (from Dashboard) ──
-  const _kpiIcon = (svg) => `<div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${svg}</div>`;
+  const _kpiIcon = (svg) => `<div class="dash-kpi-icon">${svg}</div>`;
   const _kpiSvg = {
     people: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
     alert:  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
@@ -529,40 +529,46 @@ function _renderHomeBase() {
 
   // Card 1: Book Health
   html += `<div class="dash-kpi-card dash-kpi-blue" onclick="nav('customers');setFilter('all')">
-    <div class="dash-kpi-top">${_kpiIcon(_kpiSvg.people)}<span class="dash-kpi-label">Book Health</span></div>
-    <div class="dash-kpi-num">${total}</div>
-    <div class="dash-kpi-sub">Total active accounts</div>
-    <div class="dash-health-bar">
-      <div class="dash-health-seg" style="background:#dc2626;width:${hbPct(critical)}" title="Critical"></div>
-      <div class="dash-health-seg" style="background:#ea580c;width:${hbPct(risk)}" title="At Risk"></div>
-      <div class="dash-health-seg" style="background:#d97706;width:${hbPct(watch)}" title="Watch"></div>
-      <div class="dash-health-seg" style="background:#16a34a;width:${hbPct(healthy)}" title="Healthy"></div>
-      <div class="dash-health-seg" style="background:#0891b2;width:${hbPct(expand)}" title="Expansion"></div>
-    </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-      <span class="dash-kpi-pill red">${atRisk.length} At Risk</span>
-      <span class="dash-kpi-pill amber">${watch.length} Watch</span>
-      <span class="dash-kpi-pill green">${healthy.length} Healthy</span>
-      <span class="dash-kpi-pill teal">${expand.length} Exp.</span>
+    <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.people)}<span class="dash-kpi-label">Book Health</span></div>
+    <div class="dash-kpi-body">
+      <div class="dash-kpi-num">${total}</div>
+      <div class="dash-kpi-sub">Total active accounts</div>
+      <div class="dash-health-bar">
+        <div class="dash-health-seg" style="background:#dc2626;width:${hbPct(critical)}" title="Critical"></div>
+        <div class="dash-health-seg" style="background:#ea580c;width:${hbPct(risk)}" title="At Risk"></div>
+        <div class="dash-health-seg" style="background:#d97706;width:${hbPct(watch)}" title="Watch"></div>
+        <div class="dash-health-seg" style="background:#16a34a;width:${hbPct(healthy)}" title="Healthy"></div>
+        <div class="dash-health-seg" style="background:#0891b2;width:${hbPct(expand)}" title="Expansion"></div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+        <span class="dash-kpi-pill red">${atRisk.length} At Risk</span>
+        <span class="dash-kpi-pill amber">${watch.length} Watch</span>
+        <span class="dash-kpi-pill green">${healthy.length} Healthy</span>
+        <span class="dash-kpi-pill teal">${expand.length} Exp.</span>
+      </div>
     </div>
   </div>`;
 
   // Card 2: Revenue at Risk
   const _arIds = JSON.stringify(atRisk.map(c => c.id)).replace(/"/g,'&quot;');
   html += `<div class="dash-kpi-card dash-kpi-red" onclick="setInsightFilter('${atRisk.length} at-risk accounts (Critical + Risk)',${_arIds})">
-    <div class="dash-kpi-top">${_kpiIcon(_kpiSvg.alert)}<span class="dash-kpi-label">Revenue at Risk</span></div>
-    <div class="dash-kpi-num">$${fmtNum(atRiskMRR)}</div>
-    <div class="dash-kpi-sub">MRR in At Risk accounts</div>
-    <div style="margin-top:10px"><span class="dash-kpi-pill red">${atRisk.length} account${atRisk.length !== 1 ? 's' : ''}</span></div>
+    <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.alert)}<span class="dash-kpi-label">Revenue at Risk</span></div>
+    <div class="dash-kpi-body">
+      <div class="dash-kpi-num">$${fmtNum(atRiskMRR)}</div>
+      <div class="dash-kpi-sub">MRR in At Risk accounts</div>
+      <div style="margin-top:10px"><span class="dash-kpi-pill red">${atRisk.length} account${atRisk.length !== 1 ? 's' : ''}</span></div>
+    </div>
   </div>`;
 
   // Card 3: Upcoming Renewals
   const _r30Ids = JSON.stringify(renewals30.map(c => c.id)).replace(/"/g,'&quot;');
   html += `<div class="dash-kpi-card dash-kpi-teal" onclick="setInsightFilter('${renewals30.length} upcoming renewals (30 days)',${_r30Ids})">
-    <div class="dash-kpi-top">${_kpiIcon(_kpiSvg.cal)}<span class="dash-kpi-label">Upcoming Renewals</span></div>
-    <div class="dash-kpi-num">${renewals30.length}</div>
-    <div class="dash-kpi-sub">Due in next 30 days</div>
-    <div style="margin-top:10px"><span class="dash-kpi-pill teal">${renewMRR ? '$' + fmtNum(renewMRR) + ' at stake' : 'None due'}</span></div>
+    <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.cal)}<span class="dash-kpi-label">Upcoming Renewals</span></div>
+    <div class="dash-kpi-body">
+      <div class="dash-kpi-num">${renewals30.length}</div>
+      <div class="dash-kpi-sub">Due in next 30 days</div>
+      <div style="margin-top:10px"><span class="dash-kpi-pill teal">${renewMRR ? '$' + fmtNum(renewMRR) + ' at stake' : 'None due'}</span></div>
+    </div>
   </div>`;
 
   // Card 4: Expansion Opportunity
@@ -573,26 +579,30 @@ function _renderHomeBase() {
     ? `Est. upsell potential ($${fmtNum(expansionConfig.flat)}/acct)`
     : `Est. upsell potential (${expansionConfig.pct}%)`;
   html += `<div class="dash-kpi-card dash-kpi-green" onclick="nav('customers');setFilter('expand')">
-    <div class="dash-kpi-top">${_kpiIcon(_kpiSvg.trend)}<span class="dash-kpi-label">Expansion Opportunity</span></div>
-    <div class="dash-kpi-num">$${fmtNum(expEst)}</div>
-    <div class="dash-kpi-sub">${expSub}</div>
-    <div style="margin-top:10px"><span class="dash-kpi-pill green">${expand.length} account${expand.length !== 1 ? 's' : ''} ready</span></div>
+    <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.trend)}<span class="dash-kpi-label">Expansion Opportunity</span></div>
+    <div class="dash-kpi-body">
+      <div class="dash-kpi-num">$${fmtNum(expEst)}</div>
+      <div class="dash-kpi-sub">${expSub}</div>
+      <div style="margin-top:10px"><span class="dash-kpi-pill green">${expand.length} account${expand.length !== 1 ? 's' : ''} ready</span></div>
+    </div>
   </div>`;
 
   // Card 5: Total MRR
   html += `<div class="dash-kpi-card dash-kpi-purple" onclick="nav('customers');setFilter('all')">
-    <div class="dash-kpi-top">${_kpiIcon(_kpiSvg.dollar)}<span class="dash-kpi-label">Total MRR</span></div>
-    <div class="dash-kpi-num">$${fmtNum(totalMRR)}</div>
-    <div class="dash-kpi-sub">All active accounts</div>
-    <div style="margin-top:10px"><span class="dash-kpi-pill" style="background:rgba(255,255,255,.2);color:#fff">Avg score ${avgScore}</span></div>
+    <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.dollar)}<span class="dash-kpi-label">Total MRR</span></div>
+    <div class="dash-kpi-body">
+      <div class="dash-kpi-num">$${fmtNum(totalMRR)}</div>
+      <div class="dash-kpi-sub">All active accounts</div>
+      <div style="margin-top:10px"><span class="dash-kpi-pill blue">Avg score ${avgScore}</span></div>
+    </div>
   </div>`;
 
   html += '</div>';
 
   // ── Renewal Pipeline (moved from Dashboard) ──
-  html += '<div class="card" style="margin-bottom:20px;padding:16px 20px">';
-  html += '<div class="card-hd" style="margin-bottom:12px"><div class="hb-section-hd" style="margin-bottom:0">Renewal Pipeline</div></div>';
-  html += '<div id="renewal-pipeline-wrap"></div>';
+  html += '<div class="card" style="margin-bottom:20px">';
+  html += '<div class="card-hd-bar"><span class="card-hd-bar__title">Renewal Pipeline</span></div>';
+  html += '<div class="card-body" id="renewal-pipeline-wrap"></div>';
   html += '</div>';
 
   // ── Insights section ──
@@ -620,14 +630,14 @@ function _renderHomeBase() {
 
   // ── Most Improved / Biggest Drops (moved from Dashboard) ──
   html += '<div class="hb-movers-grid">';
-  html += '<div class="card" style="padding:16px 20px"><div class="card-hd" style="margin-bottom:8px"><div class="hb-section-hd" style="margin-bottom:0">Most Improved <span style="font-weight:500;font-size:var(--fs-sm);color:var(--muted)">7d</span></div></div><div id="wins-wrap"></div></div>';
-  html += '<div class="card" style="padding:16px 20px"><div class="card-hd" style="margin-bottom:8px"><div class="hb-section-hd" style="margin-bottom:0">Biggest Drops <span style="font-weight:500;font-size:var(--fs-sm);color:var(--muted)">7d</span></div></div><div id="drops-wrap"></div></div>';
+  html += '<div class="card"><div class="card-hd-bar" style="background:#16a34a"><span class="card-hd-bar__title">Most Improved</span><span class="card-hd-bar__badge">7d</span></div><div class="card-body" id="wins-wrap"></div></div>';
+  html += '<div class="card"><div class="card-hd-bar" style="background:#dc2626"><span class="card-hd-bar__title">Biggest Drops</span><span class="card-hd-bar__badge">7d</span></div><div class="card-body" id="drops-wrap"></div></div>';
   html += '</div>';
 
   // ── Signal Heatmap (moved from Dashboard) ──
-  html += '<div class="card" style="padding:16px 20px">';
-  html += '<div class="card-hd" style="margin-bottom:12px"><div class="hb-section-hd" style="margin-bottom:0">Signal Heatmap</div></div>';
-  html += '<div id="heatmap-wrap" class="heatmap"></div>';
+  html += '<div class="card">';
+  html += '<div class="card-hd-bar"><span class="card-hd-bar__title">Signal Heatmap</span></div>';
+  html += '<div class="card-body heatmap" id="heatmap-wrap"></div>';
   html += '</div>';
 
   wrap.innerHTML = html;

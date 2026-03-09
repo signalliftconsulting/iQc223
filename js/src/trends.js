@@ -1,3 +1,22 @@
+// ── Smooth SVG Path Utility (Catmull-Rom → Cubic Bezier) ────
+function _smoothPath(pts) {
+  if (pts.length < 2) return '';
+  if (pts.length === 2) return `M${pts[0].x},${pts[0].y}L${pts[1].x},${pts[1].y}`;
+  let d = `M${pts[0].x},${pts[0].y}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.x},${p2.y}`;
+  }
+  return d;
+}
+
 // ── TRENDS PAGE ──────────────────────────────────────────────
 let _trendRange = '30d';
 let _trendCsmOverlay = '';
@@ -218,36 +237,20 @@ function renderTrends() {
   const kpiRow = el('trend-kpi-row');
   if (kpiRow) kpiRow.innerHTML = `
     <div class="dash-kpi-card dash-kpi-blue">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${tIcons.score}</div>
-        <span class="dash-kpi-label">Portfolio Avg Score</span>
-      </div>
-      <div class="dash-kpi-num">${currentAvg}</div>
-      <div class="dash-kpi-sub">${avgDelta >= 0 ? '+' : ''}${avgDelta.toFixed(1)} avg ${rangeLabel} change</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.score}</div><span class="dash-kpi-label">Portfolio Avg Score</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num">${currentAvg}</div><div class="dash-kpi-sub">${avgDelta >= 0 ? '+' : ''}${avgDelta.toFixed(1)} avg ${rangeLabel} change</div></div>
     </div>
     <div class="dash-kpi-card ${trendDirColor}">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${tIcons.trend}</div>
-        <span class="dash-kpi-label">Trend Direction</span>
-      </div>
-      <div class="dash-kpi-num" style="font-size:1.5rem">${trendDir}</div>
-      <div class="dash-kpi-sub">across ${active.length} active account${active.length !== 1 ? 's' : ''}</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.trend}</div><span class="dash-kpi-label">Trend Direction</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.5rem">${trendDir}</div><div class="dash-kpi-sub">across ${active.length} active account${active.length !== 1 ? 's' : ''}</div></div>
     </div>
     <div class="dash-kpi-card dash-kpi-teal">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${tIcons.up}</div>
-        <span class="dash-kpi-label">Accounts Improving</span>
-      </div>
-      <div class="dash-kpi-num">${improving}</div>
-      <div class="dash-kpi-sub">${active.length ? Math.round(improving/active.length*100) : 0}% of portfolio</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.up}</div><span class="dash-kpi-label">Accounts Improving</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num">${improving}</div><div class="dash-kpi-sub">${active.length ? Math.round(improving/active.length*100) : 0}% of portfolio</div></div>
     </div>
     <div class="dash-kpi-card dash-kpi-red">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${tIcons.down}</div>
-        <span class="dash-kpi-label">Accounts Declining</span>
-      </div>
-      <div class="dash-kpi-num">${declining}</div>
-      <div class="dash-kpi-sub">${active.length ? Math.round(declining/active.length*100) : 0}% of portfolio</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.down}</div><span class="dash-kpi-label">Accounts Declining</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num">${declining}</div><div class="dash-kpi-sub">${active.length ? Math.round(declining/active.length*100) : 0}% of portfolio</div></div>
     </div>
   `;
 
@@ -600,12 +603,15 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
     if (pts.length < 2) return;
 
     // Area fill under the main line (first line only, skip in breakdown mode)
+    const xyPts = pts.map(p => ({ x: xScale(dateIdx[p.date]), y: yScaleL(p.avg) }));
     if (lineIdx === 0 && !_hasBreakdown) {
       const areaBottom = yScaleL(yL.min);
-      const areaPts = pts.map(p => `${xScale(dateIdx[p.date])},${yScaleL(p.avg)}`);
-      const firstX = xScale(dateIdx[pts[0].date]);
-      const lastX = xScale(dateIdx[pts[pts.length-1].date]);
-      const areaPath = `M${firstX},${areaBottom} L${areaPts.join(' L')} L${lastX},${areaBottom} Z`;
+      const firstX = xyPts[0].x;
+      const lastX = xyPts[xyPts.length-1].x;
+      const smoothTop = _smoothPath(xyPts);
+      const cIdx = smoothTop.indexOf('C');
+      const topCurve = cIdx >= 0 ? smoothTop.slice(cIdx) : `L${lastX},${xyPts[xyPts.length-1].y}`;
+      const areaPath = `M${firstX},${areaBottom} L${firstX},${xyPts[0].y} ${topCurve} L${lastX},${areaBottom} Z`;
       linesSVG += `<defs><linearGradient id="trendAreaGrad" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="${line.color}" stop-opacity="0.18"/>
         <stop offset="100%" stop-color="${line.color}" stop-opacity="0.02"/>
@@ -613,26 +619,20 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
       linesSVG += `<path d="${areaPath}" fill="url(#trendAreaGrad)"/>`;
     }
 
-    // Line
-    const polyPts = pts.map(p => `${xScale(dateIdx[p.date])},${yScaleL(p.avg)}`).join(' ');
+    // Smooth line
+    const smoothD = _smoothPath(xyPts);
     const dashAttr = line.dashed ? ' stroke-dasharray="6,4"' : '';
     const lineOp = line.dashed ? '0.45' : '0.9';
-    linesSVG += `<polyline points="${polyPts}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linejoin="round" stroke-linecap="round" opacity="${lineOp}"${dashAttr}/>`;
+    linesSVG += `<path d="${smoothD}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linecap="round" opacity="${lineOp}"${dashAttr}/>`;
 
-    // Dots — skip for dashed reference lines, smaller in breakdown mode
-    if (!line.dashed) {
-      const dotR = _hasBreakdown ? 2 : (lineIdx === 0 ? 3 : 2.2);
+    // Value labels on main line only (no dots)
+    if (!line.dashed && !_hasBreakdown && lineIdx === 0) {
+      const labelSkip = pts.length <= 15 ? 1 : pts.length <= 30 ? 2 : pts.length <= 60 ? 4 : 7;
       pts.forEach((p, pi) => {
-        const cx = xScale(dateIdx[p.date]);
-        const cy = yScaleL(p.avg);
-        linesSVG += `<circle cx="${cx}" cy="${cy}" r="${dotR+1}" fill="var(--surface)" opacity="0.8"/>`;
-        linesSVG += `<circle cx="${cx}" cy="${cy}" r="${dotR}" fill="${line.color}"/>`;
-        // Value labels on main line only (skip in breakdown mode for clarity)
-        if (!_hasBreakdown && lineIdx === 0) {
-          const labelSkip = pts.length <= 15 ? 1 : pts.length <= 30 ? 2 : pts.length <= 60 ? 4 : 7;
-          if (pi % labelSkip === 0 || pi === pts.length - 1) {
-            linesSVG += `<text x="${cx}" y="${cy - dotR - 4}" text-anchor="middle" font-size="7" font-weight="700" fill="${line.color}">${m1Cfg.fmt(p.avg)}</text>`;
-          }
+        if (pi % labelSkip === 0 || pi === pts.length - 1) {
+          const cx = xScale(dateIdx[p.date]);
+          const cy = yScaleL(p.avg);
+          linesSVG += `<text x="${cx}" y="${cy - 6}" text-anchor="middle" font-size="7" font-weight="700" fill="${line.color}">${m1Cfg.fmt(p.avg)}</text>`;
         }
       });
     }
@@ -643,29 +643,25 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
     const pts = m2Line.points.filter(p => dateIdx[p.date] !== undefined && !isNaN(p.avg))
       .sort((a,b) => a.date.localeCompare(b.date));
     if (pts.length >= 2) {
-      // Subtle area fill
+      // Subtle area fill (smooth)
+      const xyPts2 = pts.map(p => ({ x: xScale(dateIdx[p.date]), y: yScaleR(p.avg) }));
       const areaBottom = yScaleR(yR.min);
-      const areaPts = pts.map(p => `${xScale(dateIdx[p.date])},${yScaleR(p.avg)}`);
-      const firstX = xScale(dateIdx[pts[0].date]);
-      const lastX = xScale(dateIdx[pts[pts.length-1].date]);
-      const areaPath = `M${firstX},${areaBottom} L${areaPts.join(' L')} L${lastX},${areaBottom} Z`;
+      const firstX = xyPts2[0].x;
+      const lastX = xyPts2[xyPts2.length-1].x;
+      const smoothTop2 = _smoothPath(xyPts2);
+      const cIdx2 = smoothTop2.indexOf('C');
+      const topCurve2 = cIdx2 >= 0 ? smoothTop2.slice(cIdx2) : `L${lastX},${xyPts2[xyPts2.length-1].y}`;
+      const areaPath = `M${firstX},${areaBottom} L${firstX},${xyPts2[0].y} ${topCurve2} L${lastX},${areaBottom} Z`;
       linesSVG += `<defs><linearGradient id="trendArea2Grad" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="${m2Line.color}" stop-opacity="0.10"/>
         <stop offset="100%" stop-color="${m2Line.color}" stop-opacity="0.01"/>
       </linearGradient></defs>`;
       linesSVG += `<path d="${areaPath}" fill="url(#trendArea2Grad)"/>`;
 
-      // Dashed line
-      const polyPts = pts.map(p => `${xScale(dateIdx[p.date])},${yScaleR(p.avg)}`).join(' ');
-      linesSVG += `<polyline points="${polyPts}" fill="none" stroke="${m2Line.color}" stroke-width="${m2Line.width}" stroke-linejoin="round" stroke-linecap="round" opacity="0.85" stroke-dasharray="6,3"/>`;
+      // Smooth dashed line
+      const smoothD2 = _smoothPath(xyPts2);
+      linesSVG += `<path d="${smoothD2}" fill="none" stroke="${m2Line.color}" stroke-width="${m2Line.width}" stroke-linecap="round" opacity="0.85" stroke-dasharray="6,3"/>`;
 
-      // Dots
-      pts.forEach(p => {
-        const cx = xScale(dateIdx[p.date]);
-        const cy = yScaleR(p.avg);
-        linesSVG += `<circle cx="${cx}" cy="${cy}" r="3" fill="var(--surface)" opacity="0.8"/>`;
-        linesSVG += `<circle cx="${cx}" cy="${cy}" r="2" fill="${m2Line.color}"/>`;
-      });
     }
   }
 

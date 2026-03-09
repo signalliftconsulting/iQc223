@@ -282,44 +282,24 @@ function renderSegKPIs(segments, active) {
 
   wrap.innerHTML = `
     <div class="dash-kpi-card dash-kpi-blue">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${icons.tag}</div>
-        <span class="dash-kpi-label">Total Segments</span>
-      </div>
-      <div class="dash-kpi-num">${segments.length}</div>
-      <div class="dash-kpi-sub">customer tag groups</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.tag}</div><span class="dash-kpi-label">Total Segments</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num">${segments.length}</div><div class="dash-kpi-sub">customer tag groups</div></div>
     </div>
     <div class="dash-kpi-card dash-kpi-purple">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${icons.people}</div>
-        <span class="dash-kpi-label">Total Accounts</span>
-      </div>
-      <div class="dash-kpi-num">${uniqueCount}</div>
-      <div class="dash-kpi-sub">across ${segments.length} segment${segments.length !== 1 ? 's' : ''}</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.people}</div><span class="dash-kpi-label">Total Accounts</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num">${uniqueCount}</div><div class="dash-kpi-sub">across ${segments.length} segment${segments.length !== 1 ? 's' : ''}</div></div>
     </div>
     <div class="dash-kpi-card dash-kpi-teal">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${icons.dollar}</div>
-        <span class="dash-kpi-label">Segment MRR</span>
-      </div>
-      <div class="dash-kpi-num">$${fmtNum(totalMRR)}</div>
-      <div class="dash-kpi-sub">${riskMRR > 0 ? '$' + fmtNum(riskMRR) + ' at risk' : 'No MRR at risk'}</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.dollar}</div><span class="dash-kpi-label">Segment MRR</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num">$${fmtNum(totalMRR)}</div><div class="dash-kpi-sub">${riskMRR > 0 ? '$' + fmtNum(riskMRR) + ' at risk' : 'No MRR at risk'}</div></div>
     </div>
     <div class="dash-kpi-card ${hrColor}">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${icons.alert}</div>
-        <span class="dash-kpi-label">Highest-Risk</span>
-      </div>
-      <div class="dash-kpi-num" style="font-size:1.4rem">${highestRisk ? escHtml(segDisplayLabel(highestRisk.tag)) : '—'}</div>
-      <div class="dash-kpi-sub">${highestRisk ? highestRisk.riskPct + '% at risk' : 'No data'}</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.alert}</div><span class="dash-kpi-label">Highest-Risk</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.4rem">${highestRisk ? escHtml(segDisplayLabel(highestRisk.tag)) : '—'}</div><div class="dash-kpi-sub">${highestRisk ? highestRisk.riskPct + '% at risk' : 'No data'}</div></div>
     </div>
     <div class="dash-kpi-card dash-kpi-green">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${icons.trendUp}</div>
-        <span class="dash-kpi-label">Fastest-Growing</span>
-      </div>
-      <div class="dash-kpi-num" style="font-size:1.4rem">${fastestGrow ? escHtml(segDisplayLabel(fastestGrow.tag)) : '—'}</div>
-      <div class="dash-kpi-sub">${fastestGrow ? (fastestGrow.avgDelta >= 0 ? '+' : '') + fastestGrow.avgDelta + ' avg trend' : 'No data'}</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.trendUp}</div><span class="dash-kpi-label">Fastest-Growing</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.4rem">${fastestGrow ? escHtml(segDisplayLabel(fastestGrow.tag)) : '—'}</div><div class="dash-kpi-sub">${fastestGrow ? (fastestGrow.avgDelta >= 0 ? '+' : '') + fastestGrow.avgDelta + ' avg trend' : 'No data'}</div></div>
     </div>
   `;
 }
@@ -816,12 +796,10 @@ function renderSegCardGrid(segments) {
     const safeTag = seg.tag.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
     return `<div class="card seg-card" data-seg="${escHtml(seg.tag)}" onclick="drillSegFromCard('${safeTag}')" style="cursor:pointer">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <span class="tag" style="font-size:var(--fs-base)">${escHtml(segDisplayLabel(seg.tag))}</span>
-        <span class="seg-score-badge" style="color:${scoreColor(seg.avgScore)};background:${scoreBg(seg.avgScore)}">${seg.avgScore}</span>
-      </div>
+      <div class="card-hd-bar"><span class="card-hd-bar__title">${escHtml(segDisplayLabel(seg.tag))}</span><span class="card-hd-bar__badge">${seg.avgScore}</span></div>
+      <div class="card-body">
       <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">
-        <span style="font-size:1.7rem;font-weight:800;line-height:1">${seg.count}</span>
+        <span style="font-size:1.7rem;font-weight:500;line-height:1;font-family:'DM Mono',monospace">${seg.count}</span>
         <span class="seg-card-trend ${trendCls}">${trendIcon} ${trendTxt}</span>
       </div>
       <div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:10px">account${seg.count !== 1 ? 's' : ''}</div>
@@ -840,6 +818,7 @@ function renderSegCardGrid(segments) {
         <span class="seg-card__row-val" style="color:${seg.atRisk ? 'var(--red)' : 'var(--green)'}">${seg.atRisk ? seg.atRisk + ' (' + seg.riskPct + '%)' : 'None'}</span>
       </div>
       ${seg.overdueCount ? `<div class="seg-card__row"><span class="seg-card__row-label">Overdue</span><span class="seg-card__row-val" style="color:var(--red)">${seg.overdueCount}</span></div>` : ''}
+      </div>
     </div>`;
   }).join('')}</div>`;
 
@@ -1539,13 +1518,18 @@ function _buildSegChartSVG(data) {
       .sort((a, b) => a.date.localeCompare(b.date));
     if (pts.length < 2) return;
 
+    // Build xy points for smooth path
+    const xyPts = pts.map(p => ({ x: xScale(dateIdx[p.date]), y: yScaleL(p.avg) }));
+
     // Area fill (only for first line or single line)
     if (lines.length === 1 || lineIdx === 0) {
       const areaBottom = yScaleL(yL.min);
-      const areaPts = pts.map(p => `${xScale(dateIdx[p.date])},${yScaleL(p.avg)}`);
-      const firstX = xScale(dateIdx[pts[0].date]);
-      const lastX = xScale(dateIdx[pts[pts.length - 1].date]);
-      const areaPath = `M${firstX},${areaBottom} L${areaPts.join(' L')} L${lastX},${areaBottom} Z`;
+      const firstX = xyPts[0].x;
+      const lastX = xyPts[xyPts.length - 1].x;
+      const smoothTop = _smoothPath(xyPts);
+      const cIdx = smoothTop.indexOf('C');
+      const topCurve = cIdx >= 0 ? smoothTop.slice(cIdx) : `L${lastX},${xyPts[xyPts.length-1].y}`;
+      const areaPath = `M${firstX},${areaBottom} L${firstX},${xyPts[0].y} ${topCurve} L${lastX},${areaBottom} Z`;
       linesSVG += `<defs><linearGradient id="segAreaGrad${lineIdx}" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="${line.color}" stop-opacity="0.12"/>
         <stop offset="100%" stop-color="${line.color}" stop-opacity="0.01"/>
@@ -1553,23 +1537,21 @@ function _buildSegChartSVG(data) {
       linesSVG += `<path d="${areaPath}" fill="url(#segAreaGrad${lineIdx})"/>`;
     }
 
-    // Polyline
-    const polyPts = pts.map(p => `${xScale(dateIdx[p.date])},${yScaleL(p.avg)}`).join(' ');
-    linesSVG += `<polyline points="${polyPts}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linejoin="round" stroke-linecap="round" opacity="0.9"/>`;
+    // Smooth line
+    const smoothD = _smoothPath(xyPts);
+    linesSVG += `<path d="${smoothD}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linecap="round" opacity="0.9"/>`;
 
-    // Dots
-    const dotR = 2.5;
-    const labelSkip = pts.length <= 10 ? 1 : pts.length <= 20 ? 3 : pts.length <= 40 ? 5 : 8;
-    pts.forEach((p, pi) => {
-      const cx = xScale(dateIdx[p.date]);
-      const cy = yScaleL(p.avg);
-      linesSVG += `<circle cx="${cx}" cy="${cy}" r="${dotR + 1}" fill="var(--surface)" opacity="0.8"/>`;
-      linesSVG += `<circle cx="${cx}" cy="${cy}" r="${dotR}" fill="${line.color}"/>`;
-      // Value labels on single-line view
-      if (lines.length <= 2 && (pi % labelSkip === 0 || pi === pts.length - 1)) {
-        linesSVG += `<text x="${cx}" y="${cy - dotR - 4}" text-anchor="middle" font-size="7" font-weight="700" fill="${line.color}">${cfg.fmt(p.avg)}</text>`;
-      }
-    });
+    // Value labels on single-line view (no dots)
+    if (lines.length <= 2) {
+      const labelSkip = pts.length <= 10 ? 1 : pts.length <= 20 ? 3 : pts.length <= 40 ? 5 : 8;
+      pts.forEach((p, pi) => {
+        if (pi % labelSkip === 0 || pi === pts.length - 1) {
+          const cx = xScale(dateIdx[p.date]);
+          const cy = yScaleL(p.avg);
+          linesSVG += `<text x="${cx}" y="${cy - 6}" text-anchor="middle" font-size="7" font-weight="700" fill="${line.color}">${cfg.fmt(p.avg)}</text>`;
+        }
+      });
+    }
   });
 
   // Build tooltip data

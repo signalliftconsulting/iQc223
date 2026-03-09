@@ -173,7 +173,7 @@ let _alertTblSort = { key: 'score', dir: 1 }; // 1=asc (worst first), -1=desc
 
 function toggleAlertGroup(hd) {
   const body = hd.nextElementSibling;
-  if (!body || !body.classList.contains('alert-group-body')) return;
+  if (!body || !body.classList.contains('aw-grp-body')) return;
   const isHidden = getComputedStyle(body).display === 'none';
   body.style.display = isHidden ? 'block' : 'none';
   hd.classList.toggle('alert-grp-open', isHidden);
@@ -198,7 +198,7 @@ function setAlertView(mode) {
 function alertToggleSelect(aid, el, ev) {
   // Shift+click range selection
   if (ev && ev.shiftKey && _lastClickedAlert && _lastClickedAlert !== aid) {
-    const allChecks = [...document.querySelectorAll('#alerts-list .alert-item__check')];
+    const allChecks = [...document.querySelectorAll('#alerts-list .aw-list-check')];
     const ids = allChecks.map(cb => {
       const m = cb.getAttribute('onclick')?.match(/alertToggleSelect\('([^']+)'/);
       return m ? m[1] : null;
@@ -211,7 +211,7 @@ function alertToggleSelect(aid, el, ev) {
       for (let i = lo; i <= hi; i++) {
         _selectedAlerts.add(ids[i]);
         const row = document.getElementById('alert-row-' + ids[i]);
-        if (row) row.classList.add('selected');
+        if (row) row.classList.add('aw-list-row--sel');
         if (allChecks[i]) allChecks[i].checked = true;
       }
       _lastClickedAlert = aid;
@@ -225,7 +225,7 @@ function alertToggleSelect(aid, el, ev) {
   _lastClickedAlert = aid;
   _updateAlertBulkBar();
   const row = document.getElementById('alert-row-'+aid);
-  if (row) row.classList.toggle('selected', _selectedAlerts.has(aid));
+  if (row) row.classList.toggle('aw-list-row--sel', _selectedAlerts.has(aid));
 }
 
 function alertsSelectAll() {
@@ -325,7 +325,7 @@ function _renderAlerts() {
     // ── Priority view: sort all active alerts by severity then score ──
     const sevOrder = { red:0, amber:1, blue:2, green:3 };
     const sevLabels = { red:'Critical', amber:'Warning', blue:'Attention', green:'Opportunity' };
-    const sevColors = { red:'#dc2626', amber:'#d97706', blue:'#2563eb', green:'#16a34a' };
+    const sevColors = { red:'#b91c1c', amber:'#b45309', blue:'#1d4ed8', green:'#15803d' };
 
     // Sort: severity first, then score ascending (worst first)
     const sorted = [...active].sort((a,b) => {
@@ -345,8 +345,8 @@ function _renderAlerts() {
     ['red','amber','blue','green'].forEach(sev => {
       const group = groups[sev];
       if (!group || !group.length) return;
-      html += `<div class="alert-priority-hd" onclick="toggleAlertGroup(this)"><div class="alert-priority-dot" style="background:${sevColors[sev]}"></div>${sevLabels[sev]} <span style="font-weight:400;color:var(--subtle)">(${group.length})</span></div>`;
-      html += `<div class="alert-group-body">${group.map(a => alertItemHTML(a, false)).join('')}</div>`;
+      html += `<div class="aw-grp-hd" onclick="toggleAlertGroup(this)"><span class="aw-grp-hd__label" style="color:${sevColors[sev]}">${sevLabels[sev]}</span><span class="aw-grp-hd__count">${group.length}</span><span class="aw-grp-hd__chevron">›</span></div>`;
+      html += `<div class="aw-grp-body">${group.map(a => alertItemHTML(a, false)).join('')}</div>`;
     });
   } else if (_alertViewMode === 'customer') {
     // ── Customer view: group by customer, sorted by worst score ──
@@ -376,16 +376,18 @@ function _renderAlerts() {
     if (custList.length) {
       custList.forEach(([cid, data]) => {
         const scoreColor = STATUS_COLOR[data.status] || '#94a3b8';
-        html += `<div class="alert-group-hd" data-cid="${escHtml(cid)}" onclick="toggleAlertGroup(this)">
-          <span class="alert-score-circle" style="background:${scoreColor};width:26px;height:26px;font-size:var(--fs-xs);display:inline-flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-weight:800">${data.score}</span>
-          <span style="cursor:pointer" onclick="event.stopPropagation();openDetail('${escHtml(cid)}')">${escHtml(data.name)}</span>
-          ${data.mrr ? `<span style="font-weight:400;color:var(--subtle);font-size:var(--fs-sm)">$${fmtNum(data.mrr)} MRR</span>` : ''}
-          <span style="font-weight:400;color:var(--subtle)">(${data.alerts.length} alert${data.alerts.length !== 1 ? 's' : ''})</span>
+        const _pillBg = data.status === 'critical' ? 'rgba(220,38,38,.08)' : data.status === 'risk' ? 'rgba(220,38,38,.06)' : data.status === 'watch' ? 'rgba(217,119,6,.06)' : 'rgba(8,145,178,.06)';
+        html += `<div class="aw-grp-hd" data-cid="${escHtml(cid)}" onclick="toggleAlertGroup(this)">
+          <span class="aw-grp-hd__score" style="background:${scoreColor}">${data.score}</span>
+          <span class="aw-grp-hd__label" style="cursor:pointer;font-weight:600" onclick="event.stopPropagation();openDetail('${escHtml(cid)}')">${escHtml(data.name)}</span>
+          ${data.mrr ? `<span style="font-weight:400;color:var(--subtle);font-size:.75rem">$${fmtNum(data.mrr)}</span>` : ''}
+          <span class="aw-grp-hd__count">${data.alerts.length} alert${data.alerts.length !== 1 ? 's' : ''}</span>
+          <span class="aw-grp-hd__chevron">›</span>
         </div>`;
         // Sort alerts within customer by severity
         const sevOrd = { red:0, amber:1, blue:2, green:3 };
         data.alerts.sort((a,b) => (sevOrd[a.type]??9) - (sevOrd[b.type]??9));
-        html += `<div class="alert-group-body">${data.alerts.map(a => alertItemHTML(a, false)).join('')}</div>`;
+        html += `<div class="aw-grp-body">${data.alerts.map(a => alertItemHTML(a, false)).join('')}</div>`;
       });
     } else if (custSearch) {
       html += `<div style="text-align:center;padding:28px 16px;color:var(--muted);font-size:var(--fs-md)">No customers matching "${escHtml(custSearch)}"</div>`;
@@ -475,33 +477,33 @@ function _renderAlerts() {
       html += `<div style="text-align:center;padding:28px;color:var(--muted);font-size:var(--fs-md)">No matching customers</div>`;
     }
   } else {
-    // ── Category view (default) ──
+    // ── Category view (default) — sorted most → least alerts ──
     const cats = ['health','tickets','quiet','engagement','renewal','cadence','momentum','sentiment','expansion'];
-    cats.forEach(cat => {
-      const group = active.filter(a => a.cat === cat);
-      if (!group.length) return;
+    const catGroups = cats.map(cat => ({ cat, alerts: active.filter(a => a.cat === cat) })).filter(g => g.alerts.length > 0);
+    catGroups.sort((a, b) => b.alerts.length - a.alerts.length);
+    catGroups.forEach(({ cat, alerts: group }) => {
       const def = ALERT_CATS[cat];
-      html += `<div class="alert-group-hd" id="alert-grp-${cat}" onclick="toggleAlertGroup(this)">${def.icon} ${def.label} <span style="font-weight:400;color:var(--subtle)">(${group.length})</span></div>`;
-      html += `<div class="alert-group-body">${group.map(a => alertItemHTML(a, false)).join('')}</div>`;
+      html += `<div class="aw-grp-hd" id="alert-grp-${cat}" onclick="toggleAlertGroup(this)"><span class="aw-grp-hd__label">${def.label}</span><span class="aw-grp-hd__count">${group.length}</span><span class="aw-grp-hd__chevron">›</span></div>`;
+      html += `<div class="aw-grp-body">${group.map(a => alertItemHTML(a, false)).join('')}</div>`;
     });
   }
 
   // Snoozed section (shown in alert card views, not table)
   if (snz.length && _alertViewMode !== 'table') {
-    html += `<div class="alert-group-hd" style="margin-top:20px" onclick="toggleAlertGroup(this)">${ALERT_ICONS.snoozed} Snoozed <span style="font-weight:400;color:var(--subtle)">(${snz.length})</span></div>`;
-    html += `<div class="alert-group-body">${snz.map(a => alertItemHTML(a, true)).join('')}</div>`;
+    html += `<div class="aw-grp-hd" style="margin-top:20px" onclick="toggleAlertGroup(this)"><span class="aw-grp-hd__label">Snoozed</span><span class="aw-grp-hd__count">${snz.length}</span><span class="aw-grp-hd__chevron">›</span></div>`;
+    html += `<div class="aw-grp-body">${snz.map(a => alertItemHTML(a, true)).join('')}</div>`;
   }
 
   // Remember which groups are expanded before re-render
   const openGroups = new Set();
-  list.querySelectorAll('.alert-group-hd.alert-grp-open, .alert-priority-hd.alert-grp-open').forEach(hd => {
-    openGroups.add(hd.id || hd.textContent.replace(/\s+/g,' ').trim().split('(')[0].trim());
+  list.querySelectorAll('.aw-grp-hd.alert-grp-open').forEach(hd => {
+    openGroups.add(hd.id || hd.textContent.replace(/\s+/g,' ').trim());
   });
 
   list.innerHTML = html;
 
   // Restore expanded groups, or auto-expand first group on fresh render
-  const allHeaders = list.querySelectorAll('.alert-group-hd, .alert-priority-hd');
+  const allHeaders = list.querySelectorAll('.aw-grp-hd');
   if (openGroups.size) {
     allHeaders.forEach(hd => {
       const key = hd.id || hd.textContent.replace(/\s+/g,' ').trim().split('(')[0].trim();
@@ -548,59 +550,50 @@ function renderAlertPanel(all, active, snz) {
 
   const snzSub = snz.length === 0 ? 'none paused' : 'paused';
 
-  // ── Render gradient KPI cards (matching Dashboard/Trends/Segments) ──
-  const _kI = (d) => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  // ── Dynamic page subtitle ──
+  const _subEl = document.getElementById('alert-subtitle');
+  if (_subEl) {
+    if (active.length === 0) {
+      _subEl.textContent = 'All clear \u2014 no action needed';
+    } else {
+      const _parts = [];
+      if (critical > 0) _parts.push(critical + ' critical');
+      if (mrrExposed > 0) _parts.push('$' + fmtNum(mrrExposed) + ' MRR exposed');
+      _parts.push(affectedIds.size + ' account' + (affectedIds.size !== 1 ? 's' : '') + ' need attention');
+      _subEl.textContent = _parts.join(' \xB7 ');
+    }
+  }
+
+  // ── Render KPI summary cards (v2 widget style) ──
   const kpiRow = el('alert-kpi-row');
   if (kpiRow) {
-    kpiRow.innerHTML = `
-      <div class="dash-kpi-card dash-kpi-blue" onclick="filterByAlertKpi('all')">
-        <div class="dash-kpi-top">
-          <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${_kI('<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>')}</div>
-          <span class="dash-kpi-label">Active Alerts</span>
+    const _kpi = (onclick, hdBg, title, badge, label, val, valStyle, change, changeClass) =>
+      `<div class="aw-card" onclick="${onclick}">
+        <div class="aw-hd" style="background:${hdBg}"><span class="aw-hd-title">${title}</span><span class="aw-hd-badge">${badge}</span></div>
+        <div class="aw-body">
+          <div class="aw-kpi-label">${label}</div>
+          <div class="aw-kpi-val"${valStyle ? ` style="color:${valStyle}"` : ''}>${val}</div>
+          <div class="aw-kpi-change ${changeClass}">${escHtml(change)}</div>
         </div>
-        <div class="dash-kpi-num">${active.length}</div>
-        <div class="dash-kpi-sub">${escHtml(totalSub)}</div>
-      </div>
-      <div class="dash-kpi-card ${critical > 0 ? 'dash-kpi-red' : 'dash-kpi-green'}" onclick="filterByAlertKpi('critical')">
-        <div class="dash-kpi-top">
-          <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${_kI('<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>')}</div>
-          <span class="dash-kpi-label">Critical / Risk</span>
-        </div>
-        <div class="dash-kpi-num">${critical}</div>
-        <div class="dash-kpi-sub">${escHtml(critSub)}</div>
-      </div>
-      <div class="dash-kpi-card ${mrrExposed > 0 ? 'dash-kpi-amber' : 'dash-kpi-teal'}" onclick="filterByAlertKpi('mrr')">
-        <div class="dash-kpi-top">
-          <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${_kI('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>')}</div>
-          <span class="dash-kpi-label">MRR Exposed</span>
-        </div>
-        <div class="dash-kpi-num">${mrrStr}</div>
-        <div class="dash-kpi-sub">${escHtml(mrrSubStr)}</div>
-      </div>
-      <div class="dash-kpi-card dash-kpi-teal" onclick="filterByAlertKpi('accounts')">
-        <div class="dash-kpi-top">
-          <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${_kI('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>')}</div>
-          <span class="dash-kpi-label">Accounts</span>
-        </div>
-        <div class="dash-kpi-num">${affectedIds.size}</div>
-        <div class="dash-kpi-sub">${escHtml(acctSub)}</div>
-      </div>
-      <div class="dash-kpi-card dash-kpi-teal" style="opacity:.8" onclick="filterByAlertKpi('snoozed')">
-        <div class="dash-kpi-top">
-          <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${_kI('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>')}</div>
-          <span class="dash-kpi-label">Snoozed</span>
-        </div>
-        <div class="dash-kpi-num">${snz.length}</div>
-        <div class="dash-kpi-sub">${escHtml(snzSub)}</div>
       </div>`;
+    kpiRow.innerHTML =
+      _kpi("filterByAlertKpi('all')", '#0f766e', 'Active Alerts', 'Live', 'Active Alerts', active.length, '', totalSub, 'aw-kpi-flat') +
+      _kpi("filterByAlertKpi('critical')", critical > 0 ? '#991b1b' : '#166534', 'Critical / Risk', critical > 0 ? 'Alert' : 'Clear', 'Critical / Risk', critical, critical > 0 ? '#991b1b' : '', critSub, 'aw-kpi-flat') +
+      _kpi("filterByAlertKpi('mrr')", mrrExposed > 0 ? '#92400e' : '#0f766e', 'MRR Exposed', mrrExposed > 0 ? 'Risk' : 'Safe', 'MRR Exposed', mrrStr, mrrExposed > 0 ? '#92400e' : '', mrrSubStr, 'aw-kpi-flat') +
+      _kpi("filterByAlertKpi('accounts')", '#0f766e', 'Accounts', pctAlerting + '%', 'Accounts Affected', `${affectedIds.size}<span style="font-size:1rem;font-weight:400;color:var(--subtle)"> / ${totalBook}</span>`, '', acctSub, 'aw-kpi-flat') +
+      _kpi("filterByAlertKpi('snoozed')", '#475569', 'Snoozed', 'Paused', 'Snoozed', snz.length, '#64748b', snzSub, 'aw-kpi-flat');
   }
+
+  // ── Update feed count badge ──
+  const feedBadge = el('aw-feed-count');
+  if (feedBadge) feedBadge.textContent = active.length;
 
   // ── MRR Exposure detail card ──
   const mrrWrap = el('alert-mrr-wrap');
   if (mrrWrap) {
     const mrrMap = {
-      'Critical/Risk':    { color:'#dc2626', mrr:0 },
-      'Watch':            { color:'#d97706', mrr:0 },
+      'Critical/Risk':    { color:'#991b1b', mrr:0 },
+      'Watch':            { color:'#92400e', mrr:0 },
       'Renewal \u226460d': { color:'#0891b2', mrr:0 },
       'No Contact 60d+':  { color:'#b45309', mrr:0 },
       'Poor Sentiment':   { color:'#b91c1c', mrr:0 },
@@ -633,51 +626,12 @@ function renderAlertPanel(all, active, snz) {
     if (mrrTotalEl) mrrTotalEl.textContent = '$' + fmtNum(totalMrrExposed);
     const mrrRows = rows.map(([label, {color, mrr}]) => {
       const pct = Math.round((mrr / maxMrr) * 100);
-      return `
-        <div style="display:flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer" onclick="filterByMrrBucket('${label}')">
-          <div class="alert-mrr-dot" style="background:${color}"></div>
-          <span class="alert-mrr-label">${label}</span>
-        </div>
-        <div style="height:7px;background:var(--border);border-radius:100px;overflow:hidden;cursor:pointer" onclick="filterByMrrBucket('${label}')">
-          <div style="width:${pct}%;height:100%;background:${color};border-radius:100px;transition:width .4s"></div>
-        </div>
-        <div class="alert-mrr-val" style="font-weight:800;color:${color};white-space:nowrap;text-align:right;font-size:var(--fs-md);cursor:pointer" onclick="filterByMrrBucket('${label}')">$${fmtNum(mrr)}</div>`;
+      return `<div class="aw-prog" onclick="filterByMrrBucket('${label}')">
+        <div class="aw-prog-hdr"><span class="aw-prog-name"><span class="dot" style="background:${color}"></span>${label}</span><span class="aw-prog-val" style="color:${color}">$${fmtNum(mrr)}</span></div>
+        <div class="aw-prog-track"><div class="aw-prog-fill" style="width:${pct}%;background:${color}"></div></div>
+      </div>`;
     }).join('');
-    mrrWrap.innerHTML = mrrRows
-      ? `<div style="display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center">${mrrRows}</div>`
-      : '<div class="alerts-detail-empty" style="padding:20px 0;text-align:center;color:var(--muted)">No MRR at risk — looking good!</div>';
-  }
-
-  // ── By Category detail card ──
-  const catWrap = el('alert-cat-wrap');
-  if (catWrap) {
-    const catOrder = ['health','tickets','quiet','engagement','renewal','cadence','momentum','sentiment','expansion'];
-    const catCounts = {};
-    catOrder.forEach(c => catCounts[c] = 0);
-    active.forEach(a => { if (catCounts[a.cat] !== undefined) catCounts[a.cat]++; });
-    const totalAlerts = Object.values(catCounts).reduce((s, v) => s + v, 0);
-    const catTotalEl = el('alert-cat-total');
-    if (catTotalEl) catTotalEl.textContent = totalAlerts;
-    const maxCount = Math.max(1, ...Object.values(catCounts));
-    const catColors = { health:'#dc2626', tickets:'#dc2626', quiet:'#991b1b', engagement:'#d97706', renewal:'#0891b2', cadence:'#b45309', momentum:'#d97706', sentiment:'#dc2626', expansion:'#16a34a' };
-    const catRows = catOrder.filter(c => catCounts[c] > 0).map(c => {
-      const def = ALERT_CATS[c];
-      const pct = Math.round((catCounts[c] / maxCount) * 100);
-      return `
-        <div style="display:flex;align-items:center;gap:5px;white-space:nowrap;cursor:pointer" onclick="filterByAlertCat('${c}')">
-          <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;background:${catColors[c]}15;font-size:var(--fs-xs)">${def.icon}</span>
-          <span class="alert-cat-name">${def.label}</span>
-        </div>
-        <div style="height:7px;background:var(--border);border-radius:100px;overflow:hidden;cursor:pointer" onclick="filterByAlertCat('${c}')">
-          <div style="width:${pct}%;height:100%;background:${catColors[c]};border-radius:100px;transition:width .4s"></div>
-        </div>
-        <div style="text-align:right;cursor:pointer" onclick="filterByAlertCat('${c}')">
-          <span style="background:${catColors[c]}12;color:${catColors[c]};padding:2px 9px;border-radius:100px;font-size:var(--fs-md);font-weight:800;white-space:nowrap">${catCounts[c]}</span>
-        </div>`;
-    }).join('');
-    catWrap.innerHTML = catRows
-      ? `<div style="display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center">${catRows}</div>`
-      : '<div class="alerts-detail-empty" style="padding:20px 0;text-align:center;color:var(--muted)">No active alerts — all clear!</div>';
+    mrrWrap.innerHTML = mrrRows || '<div class="alerts-detail-empty">No MRR at risk</div>';
   }
 
   // ── By Stage detail card ──
@@ -686,7 +640,7 @@ function renderAlertPanel(all, active, snz) {
     const stageDefs = [
       { key: 'onboarding', label: 'Onboarding', color: '#0891b2' },
       { key: 'active',     label: 'Active',     color: '#16a34a' },
-      { key: 'atrisk',     label: 'At Risk',    color: '#dc2626' },
+      { key: 'atrisk',     label: 'At Risk',    color: '#991b1b' },
       { key: 'won',        label: 'Won / Upsold', color: '#16a34a' },
       { key: 'churned',    label: 'Churned',    color: '#64748b' }
     ];
@@ -703,25 +657,16 @@ function renderAlertPanel(all, active, snz) {
     const stageRows = stagesWithAlerts.map(s => {
       const cnt = stageCounts[s.key];
       const pct = Math.round((cnt / maxStageCount) * 100);
-      return `
-        <div style="display:flex;align-items:center;gap:6px;white-space:nowrap">
-          <div style="width:8px;height:8px;border-radius:50%;background:${s.color};flex-shrink:0"></div>
-          <span style="font-size:var(--fs-base);font-weight:600;color:var(--text)">${s.label}</span>
-        </div>
-        <div style="height:7px;background:var(--border);border-radius:100px;overflow:hidden">
-          <div style="width:${pct}%;height:100%;background:${s.color};border-radius:100px;transition:width .4s"></div>
-        </div>
-        <div style="text-align:right">
-          <span style="background:${s.color}12;color:${s.color};padding:2px 9px;border-radius:100px;font-size:var(--fs-md);font-weight:800;white-space:nowrap">${cnt}</span>
-        </div>`;
+      return `<div class="aw-prog">
+        <div class="aw-prog-hdr"><span class="aw-prog-name"><span class="dot" style="background:${s.color}"></span>${s.label}</span><span class="aw-prog-val" style="color:${s.color}">${cnt}</span></div>
+        <div class="aw-prog-track"><div class="aw-prog-fill" style="width:${pct}%;background:${s.color}"></div></div>
+      </div>`;
     }).join('');
-    stageWrap.innerHTML = stageRows
-      ? `<div style="display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center">${stageRows}</div>`
-      : '<div class="alerts-detail-empty" style="padding:20px 0;text-align:center;color:var(--muted)">No active alerts — all clear!</div>';
+    stageWrap.innerHTML = stageRows || '<div class="alerts-detail-empty">No active alerts</div>';
   }
 
   // Insights — surface actionable patterns across alerts
-  const insWrap = el('alert-insights-wrap');
+  const insWrap = el('alert-insights-row');
   if (insWrap) {
     const insights = [];
     const _iSvg = (d) => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
@@ -885,15 +830,17 @@ function renderAlertPanel(all, active, snz) {
     if (topIns.length) {
       // Store insight data for click navigation
       window._alertInsights = topIns;
-      insWrap.innerHTML = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0891b2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><div><div style="font-size:var(--fs-base);font-weight:700;color:var(--text);line-height:1.2">Insights</div><div style="font-size:var(--fs-2xs);color:var(--subtle);font-weight:500">Patterns across your alerts</div></div></div>' +
-        topIns.map((ins, idx) => {
-          const cls = ins.accent === 'green' ? 'ta-card-green' : ins.accent === 'red' ? 'ta-card-red' : ins.accent === 'amber' ? 'ta-card-amber' : '';
-          const clickable = ins.cids && ins.cids.length > 0;
-          return `<div class="ta-card ${cls}${clickable ? ' ta-card-clickable' : ''}" ${clickable ? `onclick="_alertInsightClick(${idx})"` : ''}>
-            <div class="ta-icon" style="background:${ins.iconBg};color:${ins.iconColor}">${ins.icon}</div>
-            <div><div class="ta-label">${ins.label}</div><div class="ta-detail">${ins.text}</div></div>
-          </div>`;
-        }).join('');
+      const hdColors = { red: '#991b1b', amber: '#92400e', green: '#166534' };
+      insWrap.innerHTML = topIns.map((ins, idx) => {
+        const accentColor = hdColors[ins.accent] || '#0f766e';
+        const clickable = ins.cids && ins.cids.length > 0;
+        return `<div class="aw-card"${clickable ? ` onclick="_alertInsightClick(${idx})" style="cursor:pointer"` : ''}>
+          <div class="aw-hd" style="background:${accentColor}"><span class="aw-hd-title">${ins.label}</span></div>
+          <div class="aw-body">
+            <div class="aw-insight-text">${ins.text}</div>
+          </div>
+        </div>`;
+      }).join('');
     } else {
       insWrap.innerHTML = '';
     }
@@ -915,10 +862,10 @@ function _insightNav(mode, custIds, label) {
     const cid = [...ids][0];
     setAlertView('customer');
     setTimeout(() => {
-      const hd = document.querySelector(`.alert-group-hd[data-cid="${cid}"]`);
+      const hd = document.querySelector(`.aw-grp-hd[data-cid="${cid}"]`);
       if (hd) {
         const body = hd.nextElementSibling;
-        if (body && body.classList.contains('alert-group-body') && getComputedStyle(body).display === 'none') {
+        if (body && body.classList.contains('aw-grp-body') && getComputedStyle(body).display === 'none') {
           toggleAlertGroup(hd);
         }
         const stickyBar = document.getElementById('alert-sticky-bar');
@@ -984,13 +931,13 @@ function filterByAlertKpi(which) {
     const stickyBar = document.getElementById('alert-sticky-bar');
     const barH = stickyBar ? stickyBar.offsetHeight : 0;
     if (which === 'snoozed') {
-      const snzHd = document.querySelector('#alerts-list .alert-group-hd:last-of-type');
+      const snzHd = document.querySelector('#alerts-list .aw-grp-hd:last-of-type');
       _smoothScrollWithOffset(snzHd, barH + 12);
     } else if (scrollTo) {
       const hd = document.getElementById(scrollTo);
       if (hd) {
         const body = hd.nextElementSibling;
-        if (body && body.classList.contains('alert-group-body') && getComputedStyle(body).display === 'none') {
+        if (body && body.classList.contains('aw-grp-body') && getComputedStyle(body).display === 'none') {
           toggleAlertGroup(hd);
         }
         _smoothScrollWithOffset(hd, barH + 12);
@@ -1004,7 +951,7 @@ function filterByAlertCat(cat) {
     const hd = document.getElementById('alert-grp-' + cat);
     if (hd) {
       const body = hd.nextElementSibling;
-      if (body && body.classList.contains('alert-group-body') && getComputedStyle(body).display === 'none') {
+      if (body && body.classList.contains('aw-grp-body') && getComputedStyle(body).display === 'none') {
         toggleAlertGroup(hd);
       }
       const stickyBar = document.getElementById('alert-sticky-bar');
@@ -1030,22 +977,25 @@ function alertItemHTML(a, isSnzd) {
   const sel   = _selectedAlerts.has(a.id);
   const scoreColor = STATUS_COLOR[a._status] || '#94a3b8';
   const scoreVal   = (a._score != null) ? a._score : '—';
+  const catColors = { red:'#991b1b', amber:'#92400e', blue:'#1e40af', green:'#166534' };
+  const avatarBg = catColors[a.type] || '#64748b';
+  // Score pill background tint
+  const pillBg = a._status === 'critical' ? 'rgba(220,38,38,.06)' : a._status === 'risk' ? 'rgba(220,38,38,.06)' : a._status === 'watch' ? 'rgba(217,119,6,.06)' : 'rgba(15,118,110,.06)';
   return `
-    <div class="alert-item ${a.type} ${isSnzd?'snoozed':''} ${sel?'selected':''}" id="alert-row-${escHtml(a.id)}" onclick="openDetail('${escHtml(a.cid)}')">
-      <div class="alert-score-circle" style="background:${scoreColor}">${scoreVal}</div>
-      <input type="checkbox" class="alert-item__check" ${sel?'checked':''} onclick="event.stopPropagation();alertToggleSelect('${escHtml(a.id)}',this,event)" title="Select">
-      <div class="alert-item__icon">${def.icon}</div>
-      <div class="alert-item__body">
-        <div class="alert-item__text">${a.msg}</div>
-        <div class="alert-item__meta">
-          <span class="alert-item__cat ${a.type}">${def.label}</span>
-          ${a._mrr != null ? `<span style="color:var(--subtle);font-weight:600">$${fmtNum(a._mrr)}</span>` : ''}
-          ${tierChip(a._tier)}
-          ${a._manager ? `<span class="alert-meta-csm">CSM: ${escHtml(a._manager)}</span>` : ''}
-          ${a._days > 0 ? `<span class="alert-meta-days">${a._days}d since touch</span>` : ''}
+    <div class="aw-list-row ${isSnzd?'aw-list-row--snz':''} ${sel?'aw-list-row--sel':''}" id="alert-row-${escHtml(a.id)}" onclick="openDetail('${escHtml(a.cid)}')">
+      <input type="checkbox" class="aw-list-check" ${sel?'checked':''} onclick="event.stopPropagation();alertToggleSelect('${escHtml(a.id)}',this,event)" title="Select">
+      <div class="aw-list-avatar" style="background:${avatarBg}">${def.icon}</div>
+      <div class="aw-list-info">
+        <div class="aw-list-name">${a.msg}</div>
+        <div class="aw-list-detail">
+          <span style="color:${avatarBg};font-weight:600">${def.label}</span>
+          ${a._mrr != null ? `<span>$${fmtNum(a._mrr)}</span>` : ''}
+          ${a._tier ? `<span>${escHtml(a._tier === 'smb' ? 'SMB' : a._tier === 'mid' ? 'Mid-Market' : a._tier === 'enterprise' ? 'Enterprise' : a._tier)}</span>` : ''}
+          ${a._days > 0 ? `<span>${a._days}d since touch</span>` : ''}
         </div>
       </div>
-      <div class="alert-item__actions">
+      <div class="aw-list-score" style="background:${pillBg};color:${scoreColor}">${scoreVal}</div>
+      <div class="aw-list-actions">
         ${isSnzd
           ? `<button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();unsnooze('${escHtml(a.id)}')">Wake</button>`
           : `<div class="snooze-dd"><button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();toggleSnoozeDd('${escHtml(a.id)}')">Snooze ▾</button>
@@ -1055,7 +1005,6 @@ function alertItemHTML(a, isSnzd) {
                <button class="snooze-dd__item" onclick="event.stopPropagation();snoozeAlert('${escHtml(a.id)}',30)">30 days</button>
              </div></div>
              <button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();dismissAlert('${escHtml(a.id)}')" title="Dismiss">✕</button>`}
-        <button class="btn btn-xs btn-outline" onclick="event.stopPropagation();openDetail('${escHtml(a.cid)}')">View →</button>
       </div>
     </div>`;
 }
@@ -1155,12 +1104,12 @@ function viewSnoozedAlerts() {
   if (_alertViewMode === 'table') setAlertView('category');
   setTimeout(() => {
     // Find the snoozed group header and expand + scroll to it
-    const headers = document.querySelectorAll('#alerts-list .alert-group-hd');
+    const headers = document.querySelectorAll('#alerts-list .aw-grp-hd');
     for (const hd of headers) {
       if (hd.textContent.includes('Snoozed')) {
         // Expand if collapsed
         const body = hd.nextElementSibling;
-        if (body && body.classList.contains('alert-group-body') && getComputedStyle(body).display === 'none') {
+        if (body && body.classList.contains('aw-grp-body') && getComputedStyle(body).display === 'none') {
           toggleAlertGroup(hd);
         }
         _smoothScrollWithOffset(hd);

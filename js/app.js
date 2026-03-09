@@ -1842,11 +1842,24 @@ function updateUserUI(user) {
   const settingsEmail = el('settings-email');
   if (user) {
     const initials = user.email.slice(0,2).toUpperCase();
-    if (pill)   { pill.style.display = 'flex'; }
+    if (pill)   { pill.style.display = 'none'; }
     if (avatar) avatar.textContent = initials;
     if (label)  label.textContent  = user.email;
     if (signout) signout.style.display = '';
     if (settingsEmail) settingsEmail.textContent = user.email;
+    // Topbar avatar + menu
+    const tbAvatar = el('tb-avatar');
+    const tbInfo   = el('tb-user-info');
+    const firstInitial = user.email.charAt(0).toUpperCase();
+    if (tbAvatar) tbAvatar.textContent = firstInitial;
+    if (tbInfo) tbInfo.textContent = user.email;
+    // Sidebar user area
+    const sbAvatar = el('sb-avatar');
+    const sbName   = el('sb-name');
+    const sbPlan   = el('sb-plan');
+    if (sbAvatar) sbAvatar.textContent = firstInitial;
+    if (sbName) sbName.textContent = user.email.split('@')[0].replace(/[._]/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+    if (sbPlan) sbPlan.textContent = user.email;
 
     // Show admin nav items — uses isAdmin() which checks server-fetched role first
     const admin = isAdmin();
@@ -2687,6 +2700,14 @@ function _autoExpandGroupFor(v) {
 // Restore on load
 _restoreNavGroupState();
 
+// Close user menus on click outside
+document.addEventListener('click', function(e) {
+  const sbMenu = document.getElementById('sb-menu');
+  if (sbMenu && sbMenu.classList.contains('open') && !e.target.closest('#sidebar-user')) sbMenu.classList.remove('open');
+  const tbMenu = document.getElementById('tb-user-menu');
+  if (tbMenu && tbMenu.classList.contains('open') && !e.target.closest('#tb-user-wrap')) tbMenu.classList.remove('open');
+});
+
 function isAdmin() {
   // Primary: server-fetched role from user_profiles (can't be spoofed via console)
   if (_userRole === 'admin') return true;
@@ -3291,10 +3312,10 @@ function _renderHomeBase() {
 
   // Right column: portfolio overview blurb + action items
   html += '<div class="hb-welcome-right">';
-  html += `<div style="font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.10em;color:var(--blue);margin-bottom:6px">Portfolio Overview</div>`;
+  html += `<div style="font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.10em;color:#0f766e;margin-bottom:6px">Portfolio Overview</div>`;
   html += `<div style="font-size:var(--fs-base);color:var(--fg);line-height:1.55;margin-bottom:10px">${_portfolioBlurb}</div>`;
   if (_actionItems.length) {
-    html += `<div style="font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.10em;color:var(--blue);margin-bottom:6px">Action Items</div>`;
+    html += `<div style="font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.10em;color:#0f766e;margin-bottom:6px">Action Items</div>`;
     const _toneColors = { red: { bg:'rgba(239,68,68,.07)', border:'var(--red)' }, amber: { bg:'rgba(245,158,11,.07)', border:'var(--amber)' }, green: { bg:'rgba(22,163,74,.07)', border:'var(--green)' } };
     _actionItems.slice(0, 3).forEach(a => {
       const tc = _toneColors[a.tone] || _toneColors.amber;
@@ -3310,7 +3331,7 @@ function _renderHomeBase() {
   html += '</div>'; // close welcome
 
   // ── 5 KPI Cards Row (from Dashboard) ──
-  const _kpiIcon = (svg) => `<div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${svg}</div>`;
+  const _kpiIcon = (svg) => `<div class="dash-kpi-icon">${svg}</div>`;
   const _kpiSvg = {
     people: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
     alert:  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
@@ -3326,40 +3347,46 @@ function _renderHomeBase() {
 
   // Card 1: Book Health
   html += `<div class="dash-kpi-card dash-kpi-blue" onclick="nav('customers');setFilter('all')">
-    <div class="dash-kpi-top">${_kpiIcon(_kpiSvg.people)}<span class="dash-kpi-label">Book Health</span></div>
-    <div class="dash-kpi-num">${total}</div>
-    <div class="dash-kpi-sub">Total active accounts</div>
-    <div class="dash-health-bar">
-      <div class="dash-health-seg" style="background:#dc2626;width:${hbPct(critical)}" title="Critical"></div>
-      <div class="dash-health-seg" style="background:#ea580c;width:${hbPct(risk)}" title="At Risk"></div>
-      <div class="dash-health-seg" style="background:#d97706;width:${hbPct(watch)}" title="Watch"></div>
-      <div class="dash-health-seg" style="background:#16a34a;width:${hbPct(healthy)}" title="Healthy"></div>
-      <div class="dash-health-seg" style="background:#0891b2;width:${hbPct(expand)}" title="Expansion"></div>
-    </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-      <span class="dash-kpi-pill red">${atRisk.length} At Risk</span>
-      <span class="dash-kpi-pill amber">${watch.length} Watch</span>
-      <span class="dash-kpi-pill green">${healthy.length} Healthy</span>
-      <span class="dash-kpi-pill teal">${expand.length} Exp.</span>
+    <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.people)}<span class="dash-kpi-label">Book Health</span></div>
+    <div class="dash-kpi-body">
+      <div class="dash-kpi-num">${total}</div>
+      <div class="dash-kpi-sub">Total active accounts</div>
+      <div class="dash-health-bar">
+        <div class="dash-health-seg" style="background:#dc2626;width:${hbPct(critical)}" title="Critical"></div>
+        <div class="dash-health-seg" style="background:#ea580c;width:${hbPct(risk)}" title="At Risk"></div>
+        <div class="dash-health-seg" style="background:#d97706;width:${hbPct(watch)}" title="Watch"></div>
+        <div class="dash-health-seg" style="background:#16a34a;width:${hbPct(healthy)}" title="Healthy"></div>
+        <div class="dash-health-seg" style="background:#0891b2;width:${hbPct(expand)}" title="Expansion"></div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+        <span class="dash-kpi-pill red">${atRisk.length} At Risk</span>
+        <span class="dash-kpi-pill amber">${watch.length} Watch</span>
+        <span class="dash-kpi-pill green">${healthy.length} Healthy</span>
+        <span class="dash-kpi-pill teal">${expand.length} Exp.</span>
+      </div>
     </div>
   </div>`;
 
   // Card 2: Revenue at Risk
   const _arIds = JSON.stringify(atRisk.map(c => c.id)).replace(/"/g,'&quot;');
   html += `<div class="dash-kpi-card dash-kpi-red" onclick="setInsightFilter('${atRisk.length} at-risk accounts (Critical + Risk)',${_arIds})">
-    <div class="dash-kpi-top">${_kpiIcon(_kpiSvg.alert)}<span class="dash-kpi-label">Revenue at Risk</span></div>
-    <div class="dash-kpi-num">$${fmtNum(atRiskMRR)}</div>
-    <div class="dash-kpi-sub">MRR in At Risk accounts</div>
-    <div style="margin-top:10px"><span class="dash-kpi-pill red">${atRisk.length} account${atRisk.length !== 1 ? 's' : ''}</span></div>
+    <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.alert)}<span class="dash-kpi-label">Revenue at Risk</span></div>
+    <div class="dash-kpi-body">
+      <div class="dash-kpi-num">$${fmtNum(atRiskMRR)}</div>
+      <div class="dash-kpi-sub">MRR in At Risk accounts</div>
+      <div style="margin-top:10px"><span class="dash-kpi-pill red">${atRisk.length} account${atRisk.length !== 1 ? 's' : ''}</span></div>
+    </div>
   </div>`;
 
   // Card 3: Upcoming Renewals
   const _r30Ids = JSON.stringify(renewals30.map(c => c.id)).replace(/"/g,'&quot;');
   html += `<div class="dash-kpi-card dash-kpi-teal" onclick="setInsightFilter('${renewals30.length} upcoming renewals (30 days)',${_r30Ids})">
-    <div class="dash-kpi-top">${_kpiIcon(_kpiSvg.cal)}<span class="dash-kpi-label">Upcoming Renewals</span></div>
-    <div class="dash-kpi-num">${renewals30.length}</div>
-    <div class="dash-kpi-sub">Due in next 30 days</div>
-    <div style="margin-top:10px"><span class="dash-kpi-pill teal">${renewMRR ? '$' + fmtNum(renewMRR) + ' at stake' : 'None due'}</span></div>
+    <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.cal)}<span class="dash-kpi-label">Upcoming Renewals</span></div>
+    <div class="dash-kpi-body">
+      <div class="dash-kpi-num">${renewals30.length}</div>
+      <div class="dash-kpi-sub">Due in next 30 days</div>
+      <div style="margin-top:10px"><span class="dash-kpi-pill teal">${renewMRR ? '$' + fmtNum(renewMRR) + ' at stake' : 'None due'}</span></div>
+    </div>
   </div>`;
 
   // Card 4: Expansion Opportunity
@@ -3370,26 +3397,30 @@ function _renderHomeBase() {
     ? `Est. upsell potential ($${fmtNum(expansionConfig.flat)}/acct)`
     : `Est. upsell potential (${expansionConfig.pct}%)`;
   html += `<div class="dash-kpi-card dash-kpi-green" onclick="nav('customers');setFilter('expand')">
-    <div class="dash-kpi-top">${_kpiIcon(_kpiSvg.trend)}<span class="dash-kpi-label">Expansion Opportunity</span></div>
-    <div class="dash-kpi-num">$${fmtNum(expEst)}</div>
-    <div class="dash-kpi-sub">${expSub}</div>
-    <div style="margin-top:10px"><span class="dash-kpi-pill green">${expand.length} account${expand.length !== 1 ? 's' : ''} ready</span></div>
+    <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.trend)}<span class="dash-kpi-label">Expansion Opportunity</span></div>
+    <div class="dash-kpi-body">
+      <div class="dash-kpi-num">$${fmtNum(expEst)}</div>
+      <div class="dash-kpi-sub">${expSub}</div>
+      <div style="margin-top:10px"><span class="dash-kpi-pill green">${expand.length} account${expand.length !== 1 ? 's' : ''} ready</span></div>
+    </div>
   </div>`;
 
   // Card 5: Total MRR
   html += `<div class="dash-kpi-card dash-kpi-purple" onclick="nav('customers');setFilter('all')">
-    <div class="dash-kpi-top">${_kpiIcon(_kpiSvg.dollar)}<span class="dash-kpi-label">Total MRR</span></div>
-    <div class="dash-kpi-num">$${fmtNum(totalMRR)}</div>
-    <div class="dash-kpi-sub">All active accounts</div>
-    <div style="margin-top:10px"><span class="dash-kpi-pill" style="background:rgba(255,255,255,.2);color:#fff">Avg score ${avgScore}</span></div>
+    <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.dollar)}<span class="dash-kpi-label">Total MRR</span></div>
+    <div class="dash-kpi-body">
+      <div class="dash-kpi-num">$${fmtNum(totalMRR)}</div>
+      <div class="dash-kpi-sub">All active accounts</div>
+      <div style="margin-top:10px"><span class="dash-kpi-pill blue">Avg score ${avgScore}</span></div>
+    </div>
   </div>`;
 
   html += '</div>';
 
   // ── Renewal Pipeline (moved from Dashboard) ──
-  html += '<div class="card" style="margin-bottom:20px;padding:16px 20px">';
-  html += '<div class="card-hd" style="margin-bottom:12px"><div class="hb-section-hd" style="margin-bottom:0">Renewal Pipeline</div></div>';
-  html += '<div id="renewal-pipeline-wrap"></div>';
+  html += '<div class="card" style="margin-bottom:20px">';
+  html += '<div class="card-hd-bar"><span class="card-hd-bar__title">Renewal Pipeline</span></div>';
+  html += '<div class="card-body" id="renewal-pipeline-wrap"></div>';
   html += '</div>';
 
   // ── Insights section ──
@@ -3417,14 +3448,14 @@ function _renderHomeBase() {
 
   // ── Most Improved / Biggest Drops (moved from Dashboard) ──
   html += '<div class="hb-movers-grid">';
-  html += '<div class="card" style="padding:16px 20px"><div class="card-hd" style="margin-bottom:8px"><div class="hb-section-hd" style="margin-bottom:0">Most Improved <span style="font-weight:500;font-size:var(--fs-sm);color:var(--muted)">7d</span></div></div><div id="wins-wrap"></div></div>';
-  html += '<div class="card" style="padding:16px 20px"><div class="card-hd" style="margin-bottom:8px"><div class="hb-section-hd" style="margin-bottom:0">Biggest Drops <span style="font-weight:500;font-size:var(--fs-sm);color:var(--muted)">7d</span></div></div><div id="drops-wrap"></div></div>';
+  html += '<div class="card"><div class="card-hd-bar" style="background:#16a34a"><span class="card-hd-bar__title">Most Improved</span><span class="card-hd-bar__badge">7d</span></div><div class="card-body" id="wins-wrap"></div></div>';
+  html += '<div class="card"><div class="card-hd-bar" style="background:#dc2626"><span class="card-hd-bar__title">Biggest Drops</span><span class="card-hd-bar__badge">7d</span></div><div class="card-body" id="drops-wrap"></div></div>';
   html += '</div>';
 
   // ── Signal Heatmap (moved from Dashboard) ──
-  html += '<div class="card" style="padding:16px 20px">';
-  html += '<div class="card-hd" style="margin-bottom:12px"><div class="hb-section-hd" style="margin-bottom:0">Signal Heatmap</div></div>';
-  html += '<div id="heatmap-wrap" class="heatmap"></div>';
+  html += '<div class="card">';
+  html += '<div class="card-hd-bar"><span class="card-hd-bar__title">Signal Heatmap</span></div>';
+  html += '<div class="card-body heatmap" id="heatmap-wrap"></div>';
   html += '</div>';
 
   wrap.innerHTML = html;
@@ -4432,7 +4463,7 @@ let _alertTblSort = { key: 'score', dir: 1 }; // 1=asc (worst first), -1=desc
 
 function toggleAlertGroup(hd) {
   const body = hd.nextElementSibling;
-  if (!body || !body.classList.contains('alert-group-body')) return;
+  if (!body || !body.classList.contains('aw-grp-body')) return;
   const isHidden = getComputedStyle(body).display === 'none';
   body.style.display = isHidden ? 'block' : 'none';
   hd.classList.toggle('alert-grp-open', isHidden);
@@ -4457,7 +4488,7 @@ function setAlertView(mode) {
 function alertToggleSelect(aid, el, ev) {
   // Shift+click range selection
   if (ev && ev.shiftKey && _lastClickedAlert && _lastClickedAlert !== aid) {
-    const allChecks = [...document.querySelectorAll('#alerts-list .alert-item__check')];
+    const allChecks = [...document.querySelectorAll('#alerts-list .aw-list-check')];
     const ids = allChecks.map(cb => {
       const m = cb.getAttribute('onclick')?.match(/alertToggleSelect\('([^']+)'/);
       return m ? m[1] : null;
@@ -4470,7 +4501,7 @@ function alertToggleSelect(aid, el, ev) {
       for (let i = lo; i <= hi; i++) {
         _selectedAlerts.add(ids[i]);
         const row = document.getElementById('alert-row-' + ids[i]);
-        if (row) row.classList.add('selected');
+        if (row) row.classList.add('aw-list-row--sel');
         if (allChecks[i]) allChecks[i].checked = true;
       }
       _lastClickedAlert = aid;
@@ -4484,7 +4515,7 @@ function alertToggleSelect(aid, el, ev) {
   _lastClickedAlert = aid;
   _updateAlertBulkBar();
   const row = document.getElementById('alert-row-'+aid);
-  if (row) row.classList.toggle('selected', _selectedAlerts.has(aid));
+  if (row) row.classList.toggle('aw-list-row--sel', _selectedAlerts.has(aid));
 }
 
 function alertsSelectAll() {
@@ -4584,7 +4615,7 @@ function _renderAlerts() {
     // ── Priority view: sort all active alerts by severity then score ──
     const sevOrder = { red:0, amber:1, blue:2, green:3 };
     const sevLabels = { red:'Critical', amber:'Warning', blue:'Attention', green:'Opportunity' };
-    const sevColors = { red:'#dc2626', amber:'#d97706', blue:'#2563eb', green:'#16a34a' };
+    const sevColors = { red:'#b91c1c', amber:'#b45309', blue:'#1d4ed8', green:'#15803d' };
 
     // Sort: severity first, then score ascending (worst first)
     const sorted = [...active].sort((a,b) => {
@@ -4604,8 +4635,8 @@ function _renderAlerts() {
     ['red','amber','blue','green'].forEach(sev => {
       const group = groups[sev];
       if (!group || !group.length) return;
-      html += `<div class="alert-priority-hd" onclick="toggleAlertGroup(this)"><div class="alert-priority-dot" style="background:${sevColors[sev]}"></div>${sevLabels[sev]} <span style="font-weight:400;color:var(--subtle)">(${group.length})</span></div>`;
-      html += `<div class="alert-group-body">${group.map(a => alertItemHTML(a, false)).join('')}</div>`;
+      html += `<div class="aw-grp-hd" onclick="toggleAlertGroup(this)"><span class="aw-grp-hd__label" style="color:${sevColors[sev]}">${sevLabels[sev]}</span><span class="aw-grp-hd__count">${group.length}</span><span class="aw-grp-hd__chevron">›</span></div>`;
+      html += `<div class="aw-grp-body">${group.map(a => alertItemHTML(a, false)).join('')}</div>`;
     });
   } else if (_alertViewMode === 'customer') {
     // ── Customer view: group by customer, sorted by worst score ──
@@ -4635,16 +4666,18 @@ function _renderAlerts() {
     if (custList.length) {
       custList.forEach(([cid, data]) => {
         const scoreColor = STATUS_COLOR[data.status] || '#94a3b8';
-        html += `<div class="alert-group-hd" data-cid="${escHtml(cid)}" onclick="toggleAlertGroup(this)">
-          <span class="alert-score-circle" style="background:${scoreColor};width:26px;height:26px;font-size:var(--fs-xs);display:inline-flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-weight:800">${data.score}</span>
-          <span style="cursor:pointer" onclick="event.stopPropagation();openDetail('${escHtml(cid)}')">${escHtml(data.name)}</span>
-          ${data.mrr ? `<span style="font-weight:400;color:var(--subtle);font-size:var(--fs-sm)">$${fmtNum(data.mrr)} MRR</span>` : ''}
-          <span style="font-weight:400;color:var(--subtle)">(${data.alerts.length} alert${data.alerts.length !== 1 ? 's' : ''})</span>
+        const _pillBg = data.status === 'critical' ? 'rgba(220,38,38,.08)' : data.status === 'risk' ? 'rgba(220,38,38,.06)' : data.status === 'watch' ? 'rgba(217,119,6,.06)' : 'rgba(8,145,178,.06)';
+        html += `<div class="aw-grp-hd" data-cid="${escHtml(cid)}" onclick="toggleAlertGroup(this)">
+          <span class="aw-grp-hd__score" style="background:${scoreColor}">${data.score}</span>
+          <span class="aw-grp-hd__label" style="cursor:pointer;font-weight:600" onclick="event.stopPropagation();openDetail('${escHtml(cid)}')">${escHtml(data.name)}</span>
+          ${data.mrr ? `<span style="font-weight:400;color:var(--subtle);font-size:.75rem">$${fmtNum(data.mrr)}</span>` : ''}
+          <span class="aw-grp-hd__count">${data.alerts.length} alert${data.alerts.length !== 1 ? 's' : ''}</span>
+          <span class="aw-grp-hd__chevron">›</span>
         </div>`;
         // Sort alerts within customer by severity
         const sevOrd = { red:0, amber:1, blue:2, green:3 };
         data.alerts.sort((a,b) => (sevOrd[a.type]??9) - (sevOrd[b.type]??9));
-        html += `<div class="alert-group-body">${data.alerts.map(a => alertItemHTML(a, false)).join('')}</div>`;
+        html += `<div class="aw-grp-body">${data.alerts.map(a => alertItemHTML(a, false)).join('')}</div>`;
       });
     } else if (custSearch) {
       html += `<div style="text-align:center;padding:28px 16px;color:var(--muted);font-size:var(--fs-md)">No customers matching "${escHtml(custSearch)}"</div>`;
@@ -4734,33 +4767,33 @@ function _renderAlerts() {
       html += `<div style="text-align:center;padding:28px;color:var(--muted);font-size:var(--fs-md)">No matching customers</div>`;
     }
   } else {
-    // ── Category view (default) ──
+    // ── Category view (default) — sorted most → least alerts ──
     const cats = ['health','tickets','quiet','engagement','renewal','cadence','momentum','sentiment','expansion'];
-    cats.forEach(cat => {
-      const group = active.filter(a => a.cat === cat);
-      if (!group.length) return;
+    const catGroups = cats.map(cat => ({ cat, alerts: active.filter(a => a.cat === cat) })).filter(g => g.alerts.length > 0);
+    catGroups.sort((a, b) => b.alerts.length - a.alerts.length);
+    catGroups.forEach(({ cat, alerts: group }) => {
       const def = ALERT_CATS[cat];
-      html += `<div class="alert-group-hd" id="alert-grp-${cat}" onclick="toggleAlertGroup(this)">${def.icon} ${def.label} <span style="font-weight:400;color:var(--subtle)">(${group.length})</span></div>`;
-      html += `<div class="alert-group-body">${group.map(a => alertItemHTML(a, false)).join('')}</div>`;
+      html += `<div class="aw-grp-hd" id="alert-grp-${cat}" onclick="toggleAlertGroup(this)"><span class="aw-grp-hd__label">${def.label}</span><span class="aw-grp-hd__count">${group.length}</span><span class="aw-grp-hd__chevron">›</span></div>`;
+      html += `<div class="aw-grp-body">${group.map(a => alertItemHTML(a, false)).join('')}</div>`;
     });
   }
 
   // Snoozed section (shown in alert card views, not table)
   if (snz.length && _alertViewMode !== 'table') {
-    html += `<div class="alert-group-hd" style="margin-top:20px" onclick="toggleAlertGroup(this)">${ALERT_ICONS.snoozed} Snoozed <span style="font-weight:400;color:var(--subtle)">(${snz.length})</span></div>`;
-    html += `<div class="alert-group-body">${snz.map(a => alertItemHTML(a, true)).join('')}</div>`;
+    html += `<div class="aw-grp-hd" style="margin-top:20px" onclick="toggleAlertGroup(this)"><span class="aw-grp-hd__label">Snoozed</span><span class="aw-grp-hd__count">${snz.length}</span><span class="aw-grp-hd__chevron">›</span></div>`;
+    html += `<div class="aw-grp-body">${snz.map(a => alertItemHTML(a, true)).join('')}</div>`;
   }
 
   // Remember which groups are expanded before re-render
   const openGroups = new Set();
-  list.querySelectorAll('.alert-group-hd.alert-grp-open, .alert-priority-hd.alert-grp-open').forEach(hd => {
-    openGroups.add(hd.id || hd.textContent.replace(/\s+/g,' ').trim().split('(')[0].trim());
+  list.querySelectorAll('.aw-grp-hd.alert-grp-open').forEach(hd => {
+    openGroups.add(hd.id || hd.textContent.replace(/\s+/g,' ').trim());
   });
 
   list.innerHTML = html;
 
   // Restore expanded groups, or auto-expand first group on fresh render
-  const allHeaders = list.querySelectorAll('.alert-group-hd, .alert-priority-hd');
+  const allHeaders = list.querySelectorAll('.aw-grp-hd');
   if (openGroups.size) {
     allHeaders.forEach(hd => {
       const key = hd.id || hd.textContent.replace(/\s+/g,' ').trim().split('(')[0].trim();
@@ -4807,59 +4840,50 @@ function renderAlertPanel(all, active, snz) {
 
   const snzSub = snz.length === 0 ? 'none paused' : 'paused';
 
-  // ── Render gradient KPI cards (matching Dashboard/Trends/Segments) ──
-  const _kI = (d) => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  // ── Dynamic page subtitle ──
+  const _subEl = document.getElementById('alert-subtitle');
+  if (_subEl) {
+    if (active.length === 0) {
+      _subEl.textContent = 'All clear \u2014 no action needed';
+    } else {
+      const _parts = [];
+      if (critical > 0) _parts.push(critical + ' critical');
+      if (mrrExposed > 0) _parts.push('$' + fmtNum(mrrExposed) + ' MRR exposed');
+      _parts.push(affectedIds.size + ' account' + (affectedIds.size !== 1 ? 's' : '') + ' need attention');
+      _subEl.textContent = _parts.join(' \xB7 ');
+    }
+  }
+
+  // ── Render KPI summary cards (v2 widget style) ──
   const kpiRow = el('alert-kpi-row');
   if (kpiRow) {
-    kpiRow.innerHTML = `
-      <div class="dash-kpi-card dash-kpi-blue" onclick="filterByAlertKpi('all')">
-        <div class="dash-kpi-top">
-          <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${_kI('<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>')}</div>
-          <span class="dash-kpi-label">Active Alerts</span>
+    const _kpi = (onclick, hdBg, title, badge, label, val, valStyle, change, changeClass) =>
+      `<div class="aw-card" onclick="${onclick}">
+        <div class="aw-hd" style="background:${hdBg}"><span class="aw-hd-title">${title}</span><span class="aw-hd-badge">${badge}</span></div>
+        <div class="aw-body">
+          <div class="aw-kpi-label">${label}</div>
+          <div class="aw-kpi-val"${valStyle ? ` style="color:${valStyle}"` : ''}>${val}</div>
+          <div class="aw-kpi-change ${changeClass}">${escHtml(change)}</div>
         </div>
-        <div class="dash-kpi-num">${active.length}</div>
-        <div class="dash-kpi-sub">${escHtml(totalSub)}</div>
-      </div>
-      <div class="dash-kpi-card ${critical > 0 ? 'dash-kpi-red' : 'dash-kpi-green'}" onclick="filterByAlertKpi('critical')">
-        <div class="dash-kpi-top">
-          <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${_kI('<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>')}</div>
-          <span class="dash-kpi-label">Critical / Risk</span>
-        </div>
-        <div class="dash-kpi-num">${critical}</div>
-        <div class="dash-kpi-sub">${escHtml(critSub)}</div>
-      </div>
-      <div class="dash-kpi-card ${mrrExposed > 0 ? 'dash-kpi-amber' : 'dash-kpi-teal'}" onclick="filterByAlertKpi('mrr')">
-        <div class="dash-kpi-top">
-          <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${_kI('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>')}</div>
-          <span class="dash-kpi-label">MRR Exposed</span>
-        </div>
-        <div class="dash-kpi-num">${mrrStr}</div>
-        <div class="dash-kpi-sub">${escHtml(mrrSubStr)}</div>
-      </div>
-      <div class="dash-kpi-card dash-kpi-teal" onclick="filterByAlertKpi('accounts')">
-        <div class="dash-kpi-top">
-          <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${_kI('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>')}</div>
-          <span class="dash-kpi-label">Accounts</span>
-        </div>
-        <div class="dash-kpi-num">${affectedIds.size}</div>
-        <div class="dash-kpi-sub">${escHtml(acctSub)}</div>
-      </div>
-      <div class="dash-kpi-card dash-kpi-teal" style="opacity:.8" onclick="filterByAlertKpi('snoozed')">
-        <div class="dash-kpi-top">
-          <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${_kI('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>')}</div>
-          <span class="dash-kpi-label">Snoozed</span>
-        </div>
-        <div class="dash-kpi-num">${snz.length}</div>
-        <div class="dash-kpi-sub">${escHtml(snzSub)}</div>
       </div>`;
+    kpiRow.innerHTML =
+      _kpi("filterByAlertKpi('all')", '#0f766e', 'Active Alerts', 'Live', 'Active Alerts', active.length, '', totalSub, 'aw-kpi-flat') +
+      _kpi("filterByAlertKpi('critical')", critical > 0 ? '#991b1b' : '#166534', 'Critical / Risk', critical > 0 ? 'Alert' : 'Clear', 'Critical / Risk', critical, critical > 0 ? '#991b1b' : '', critSub, 'aw-kpi-flat') +
+      _kpi("filterByAlertKpi('mrr')", mrrExposed > 0 ? '#92400e' : '#0f766e', 'MRR Exposed', mrrExposed > 0 ? 'Risk' : 'Safe', 'MRR Exposed', mrrStr, mrrExposed > 0 ? '#92400e' : '', mrrSubStr, 'aw-kpi-flat') +
+      _kpi("filterByAlertKpi('accounts')", '#0f766e', 'Accounts', pctAlerting + '%', 'Accounts Affected', `${affectedIds.size}<span style="font-size:1rem;font-weight:400;color:var(--subtle)"> / ${totalBook}</span>`, '', acctSub, 'aw-kpi-flat') +
+      _kpi("filterByAlertKpi('snoozed')", '#475569', 'Snoozed', 'Paused', 'Snoozed', snz.length, '#64748b', snzSub, 'aw-kpi-flat');
   }
+
+  // ── Update feed count badge ──
+  const feedBadge = el('aw-feed-count');
+  if (feedBadge) feedBadge.textContent = active.length;
 
   // ── MRR Exposure detail card ──
   const mrrWrap = el('alert-mrr-wrap');
   if (mrrWrap) {
     const mrrMap = {
-      'Critical/Risk':    { color:'#dc2626', mrr:0 },
-      'Watch':            { color:'#d97706', mrr:0 },
+      'Critical/Risk':    { color:'#991b1b', mrr:0 },
+      'Watch':            { color:'#92400e', mrr:0 },
       'Renewal \u226460d': { color:'#0891b2', mrr:0 },
       'No Contact 60d+':  { color:'#b45309', mrr:0 },
       'Poor Sentiment':   { color:'#b91c1c', mrr:0 },
@@ -4892,51 +4916,12 @@ function renderAlertPanel(all, active, snz) {
     if (mrrTotalEl) mrrTotalEl.textContent = '$' + fmtNum(totalMrrExposed);
     const mrrRows = rows.map(([label, {color, mrr}]) => {
       const pct = Math.round((mrr / maxMrr) * 100);
-      return `
-        <div style="display:flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer" onclick="filterByMrrBucket('${label}')">
-          <div class="alert-mrr-dot" style="background:${color}"></div>
-          <span class="alert-mrr-label">${label}</span>
-        </div>
-        <div style="height:7px;background:var(--border);border-radius:100px;overflow:hidden;cursor:pointer" onclick="filterByMrrBucket('${label}')">
-          <div style="width:${pct}%;height:100%;background:${color};border-radius:100px;transition:width .4s"></div>
-        </div>
-        <div class="alert-mrr-val" style="font-weight:800;color:${color};white-space:nowrap;text-align:right;font-size:var(--fs-md);cursor:pointer" onclick="filterByMrrBucket('${label}')">$${fmtNum(mrr)}</div>`;
+      return `<div class="aw-prog" onclick="filterByMrrBucket('${label}')">
+        <div class="aw-prog-hdr"><span class="aw-prog-name"><span class="dot" style="background:${color}"></span>${label}</span><span class="aw-prog-val" style="color:${color}">$${fmtNum(mrr)}</span></div>
+        <div class="aw-prog-track"><div class="aw-prog-fill" style="width:${pct}%;background:${color}"></div></div>
+      </div>`;
     }).join('');
-    mrrWrap.innerHTML = mrrRows
-      ? `<div style="display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center">${mrrRows}</div>`
-      : '<div class="alerts-detail-empty" style="padding:20px 0;text-align:center;color:var(--muted)">No MRR at risk — looking good!</div>';
-  }
-
-  // ── By Category detail card ──
-  const catWrap = el('alert-cat-wrap');
-  if (catWrap) {
-    const catOrder = ['health','tickets','quiet','engagement','renewal','cadence','momentum','sentiment','expansion'];
-    const catCounts = {};
-    catOrder.forEach(c => catCounts[c] = 0);
-    active.forEach(a => { if (catCounts[a.cat] !== undefined) catCounts[a.cat]++; });
-    const totalAlerts = Object.values(catCounts).reduce((s, v) => s + v, 0);
-    const catTotalEl = el('alert-cat-total');
-    if (catTotalEl) catTotalEl.textContent = totalAlerts;
-    const maxCount = Math.max(1, ...Object.values(catCounts));
-    const catColors = { health:'#dc2626', tickets:'#dc2626', quiet:'#991b1b', engagement:'#d97706', renewal:'#0891b2', cadence:'#b45309', momentum:'#d97706', sentiment:'#dc2626', expansion:'#16a34a' };
-    const catRows = catOrder.filter(c => catCounts[c] > 0).map(c => {
-      const def = ALERT_CATS[c];
-      const pct = Math.round((catCounts[c] / maxCount) * 100);
-      return `
-        <div style="display:flex;align-items:center;gap:5px;white-space:nowrap;cursor:pointer" onclick="filterByAlertCat('${c}')">
-          <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;background:${catColors[c]}15;font-size:var(--fs-xs)">${def.icon}</span>
-          <span class="alert-cat-name">${def.label}</span>
-        </div>
-        <div style="height:7px;background:var(--border);border-radius:100px;overflow:hidden;cursor:pointer" onclick="filterByAlertCat('${c}')">
-          <div style="width:${pct}%;height:100%;background:${catColors[c]};border-radius:100px;transition:width .4s"></div>
-        </div>
-        <div style="text-align:right;cursor:pointer" onclick="filterByAlertCat('${c}')">
-          <span style="background:${catColors[c]}12;color:${catColors[c]};padding:2px 9px;border-radius:100px;font-size:var(--fs-md);font-weight:800;white-space:nowrap">${catCounts[c]}</span>
-        </div>`;
-    }).join('');
-    catWrap.innerHTML = catRows
-      ? `<div style="display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center">${catRows}</div>`
-      : '<div class="alerts-detail-empty" style="padding:20px 0;text-align:center;color:var(--muted)">No active alerts — all clear!</div>';
+    mrrWrap.innerHTML = mrrRows || '<div class="alerts-detail-empty">No MRR at risk</div>';
   }
 
   // ── By Stage detail card ──
@@ -4945,7 +4930,7 @@ function renderAlertPanel(all, active, snz) {
     const stageDefs = [
       { key: 'onboarding', label: 'Onboarding', color: '#0891b2' },
       { key: 'active',     label: 'Active',     color: '#16a34a' },
-      { key: 'atrisk',     label: 'At Risk',    color: '#dc2626' },
+      { key: 'atrisk',     label: 'At Risk',    color: '#991b1b' },
       { key: 'won',        label: 'Won / Upsold', color: '#16a34a' },
       { key: 'churned',    label: 'Churned',    color: '#64748b' }
     ];
@@ -4962,25 +4947,16 @@ function renderAlertPanel(all, active, snz) {
     const stageRows = stagesWithAlerts.map(s => {
       const cnt = stageCounts[s.key];
       const pct = Math.round((cnt / maxStageCount) * 100);
-      return `
-        <div style="display:flex;align-items:center;gap:6px;white-space:nowrap">
-          <div style="width:8px;height:8px;border-radius:50%;background:${s.color};flex-shrink:0"></div>
-          <span style="font-size:var(--fs-base);font-weight:600;color:var(--text)">${s.label}</span>
-        </div>
-        <div style="height:7px;background:var(--border);border-radius:100px;overflow:hidden">
-          <div style="width:${pct}%;height:100%;background:${s.color};border-radius:100px;transition:width .4s"></div>
-        </div>
-        <div style="text-align:right">
-          <span style="background:${s.color}12;color:${s.color};padding:2px 9px;border-radius:100px;font-size:var(--fs-md);font-weight:800;white-space:nowrap">${cnt}</span>
-        </div>`;
+      return `<div class="aw-prog">
+        <div class="aw-prog-hdr"><span class="aw-prog-name"><span class="dot" style="background:${s.color}"></span>${s.label}</span><span class="aw-prog-val" style="color:${s.color}">${cnt}</span></div>
+        <div class="aw-prog-track"><div class="aw-prog-fill" style="width:${pct}%;background:${s.color}"></div></div>
+      </div>`;
     }).join('');
-    stageWrap.innerHTML = stageRows
-      ? `<div style="display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center">${stageRows}</div>`
-      : '<div class="alerts-detail-empty" style="padding:20px 0;text-align:center;color:var(--muted)">No active alerts — all clear!</div>';
+    stageWrap.innerHTML = stageRows || '<div class="alerts-detail-empty">No active alerts</div>';
   }
 
   // Insights — surface actionable patterns across alerts
-  const insWrap = el('alert-insights-wrap');
+  const insWrap = el('alert-insights-row');
   if (insWrap) {
     const insights = [];
     const _iSvg = (d) => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
@@ -5144,15 +5120,17 @@ function renderAlertPanel(all, active, snz) {
     if (topIns.length) {
       // Store insight data for click navigation
       window._alertInsights = topIns;
-      insWrap.innerHTML = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0891b2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><div><div style="font-size:var(--fs-base);font-weight:700;color:var(--text);line-height:1.2">Insights</div><div style="font-size:var(--fs-2xs);color:var(--subtle);font-weight:500">Patterns across your alerts</div></div></div>' +
-        topIns.map((ins, idx) => {
-          const cls = ins.accent === 'green' ? 'ta-card-green' : ins.accent === 'red' ? 'ta-card-red' : ins.accent === 'amber' ? 'ta-card-amber' : '';
-          const clickable = ins.cids && ins.cids.length > 0;
-          return `<div class="ta-card ${cls}${clickable ? ' ta-card-clickable' : ''}" ${clickable ? `onclick="_alertInsightClick(${idx})"` : ''}>
-            <div class="ta-icon" style="background:${ins.iconBg};color:${ins.iconColor}">${ins.icon}</div>
-            <div><div class="ta-label">${ins.label}</div><div class="ta-detail">${ins.text}</div></div>
-          </div>`;
-        }).join('');
+      const hdColors = { red: '#991b1b', amber: '#92400e', green: '#166534' };
+      insWrap.innerHTML = topIns.map((ins, idx) => {
+        const accentColor = hdColors[ins.accent] || '#0f766e';
+        const clickable = ins.cids && ins.cids.length > 0;
+        return `<div class="aw-card"${clickable ? ` onclick="_alertInsightClick(${idx})" style="cursor:pointer"` : ''}>
+          <div class="aw-hd" style="background:${accentColor}"><span class="aw-hd-title">${ins.label}</span></div>
+          <div class="aw-body">
+            <div class="aw-insight-text">${ins.text}</div>
+          </div>
+        </div>`;
+      }).join('');
     } else {
       insWrap.innerHTML = '';
     }
@@ -5174,10 +5152,10 @@ function _insightNav(mode, custIds, label) {
     const cid = [...ids][0];
     setAlertView('customer');
     setTimeout(() => {
-      const hd = document.querySelector(`.alert-group-hd[data-cid="${cid}"]`);
+      const hd = document.querySelector(`.aw-grp-hd[data-cid="${cid}"]`);
       if (hd) {
         const body = hd.nextElementSibling;
-        if (body && body.classList.contains('alert-group-body') && getComputedStyle(body).display === 'none') {
+        if (body && body.classList.contains('aw-grp-body') && getComputedStyle(body).display === 'none') {
           toggleAlertGroup(hd);
         }
         const stickyBar = document.getElementById('alert-sticky-bar');
@@ -5243,13 +5221,13 @@ function filterByAlertKpi(which) {
     const stickyBar = document.getElementById('alert-sticky-bar');
     const barH = stickyBar ? stickyBar.offsetHeight : 0;
     if (which === 'snoozed') {
-      const snzHd = document.querySelector('#alerts-list .alert-group-hd:last-of-type');
+      const snzHd = document.querySelector('#alerts-list .aw-grp-hd:last-of-type');
       _smoothScrollWithOffset(snzHd, barH + 12);
     } else if (scrollTo) {
       const hd = document.getElementById(scrollTo);
       if (hd) {
         const body = hd.nextElementSibling;
-        if (body && body.classList.contains('alert-group-body') && getComputedStyle(body).display === 'none') {
+        if (body && body.classList.contains('aw-grp-body') && getComputedStyle(body).display === 'none') {
           toggleAlertGroup(hd);
         }
         _smoothScrollWithOffset(hd, barH + 12);
@@ -5263,7 +5241,7 @@ function filterByAlertCat(cat) {
     const hd = document.getElementById('alert-grp-' + cat);
     if (hd) {
       const body = hd.nextElementSibling;
-      if (body && body.classList.contains('alert-group-body') && getComputedStyle(body).display === 'none') {
+      if (body && body.classList.contains('aw-grp-body') && getComputedStyle(body).display === 'none') {
         toggleAlertGroup(hd);
       }
       const stickyBar = document.getElementById('alert-sticky-bar');
@@ -5289,22 +5267,25 @@ function alertItemHTML(a, isSnzd) {
   const sel   = _selectedAlerts.has(a.id);
   const scoreColor = STATUS_COLOR[a._status] || '#94a3b8';
   const scoreVal   = (a._score != null) ? a._score : '—';
+  const catColors = { red:'#991b1b', amber:'#92400e', blue:'#1e40af', green:'#166534' };
+  const avatarBg = catColors[a.type] || '#64748b';
+  // Score pill background tint
+  const pillBg = a._status === 'critical' ? 'rgba(220,38,38,.06)' : a._status === 'risk' ? 'rgba(220,38,38,.06)' : a._status === 'watch' ? 'rgba(217,119,6,.06)' : 'rgba(15,118,110,.06)';
   return `
-    <div class="alert-item ${a.type} ${isSnzd?'snoozed':''} ${sel?'selected':''}" id="alert-row-${escHtml(a.id)}" onclick="openDetail('${escHtml(a.cid)}')">
-      <div class="alert-score-circle" style="background:${scoreColor}">${scoreVal}</div>
-      <input type="checkbox" class="alert-item__check" ${sel?'checked':''} onclick="event.stopPropagation();alertToggleSelect('${escHtml(a.id)}',this,event)" title="Select">
-      <div class="alert-item__icon">${def.icon}</div>
-      <div class="alert-item__body">
-        <div class="alert-item__text">${a.msg}</div>
-        <div class="alert-item__meta">
-          <span class="alert-item__cat ${a.type}">${def.label}</span>
-          ${a._mrr != null ? `<span style="color:var(--subtle);font-weight:600">$${fmtNum(a._mrr)}</span>` : ''}
-          ${tierChip(a._tier)}
-          ${a._manager ? `<span class="alert-meta-csm">CSM: ${escHtml(a._manager)}</span>` : ''}
-          ${a._days > 0 ? `<span class="alert-meta-days">${a._days}d since touch</span>` : ''}
+    <div class="aw-list-row ${isSnzd?'aw-list-row--snz':''} ${sel?'aw-list-row--sel':''}" id="alert-row-${escHtml(a.id)}" onclick="openDetail('${escHtml(a.cid)}')">
+      <input type="checkbox" class="aw-list-check" ${sel?'checked':''} onclick="event.stopPropagation();alertToggleSelect('${escHtml(a.id)}',this,event)" title="Select">
+      <div class="aw-list-avatar" style="background:${avatarBg}">${def.icon}</div>
+      <div class="aw-list-info">
+        <div class="aw-list-name">${a.msg}</div>
+        <div class="aw-list-detail">
+          <span style="color:${avatarBg};font-weight:600">${def.label}</span>
+          ${a._mrr != null ? `<span>$${fmtNum(a._mrr)}</span>` : ''}
+          ${a._tier ? `<span>${escHtml(a._tier === 'smb' ? 'SMB' : a._tier === 'mid' ? 'Mid-Market' : a._tier === 'enterprise' ? 'Enterprise' : a._tier)}</span>` : ''}
+          ${a._days > 0 ? `<span>${a._days}d since touch</span>` : ''}
         </div>
       </div>
-      <div class="alert-item__actions">
+      <div class="aw-list-score" style="background:${pillBg};color:${scoreColor}">${scoreVal}</div>
+      <div class="aw-list-actions">
         ${isSnzd
           ? `<button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();unsnooze('${escHtml(a.id)}')">Wake</button>`
           : `<div class="snooze-dd"><button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();toggleSnoozeDd('${escHtml(a.id)}')">Snooze ▾</button>
@@ -5314,7 +5295,6 @@ function alertItemHTML(a, isSnzd) {
                <button class="snooze-dd__item" onclick="event.stopPropagation();snoozeAlert('${escHtml(a.id)}',30)">30 days</button>
              </div></div>
              <button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();dismissAlert('${escHtml(a.id)}')" title="Dismiss">✕</button>`}
-        <button class="btn btn-xs btn-outline" onclick="event.stopPropagation();openDetail('${escHtml(a.cid)}')">View →</button>
       </div>
     </div>`;
 }
@@ -5414,12 +5394,12 @@ function viewSnoozedAlerts() {
   if (_alertViewMode === 'table') setAlertView('category');
   setTimeout(() => {
     // Find the snoozed group header and expand + scroll to it
-    const headers = document.querySelectorAll('#alerts-list .alert-group-hd');
+    const headers = document.querySelectorAll('#alerts-list .aw-grp-hd');
     for (const hd of headers) {
       if (hd.textContent.includes('Snoozed')) {
         // Expand if collapsed
         const body = hd.nextElementSibling;
-        if (body && body.classList.contains('alert-group-body') && getComputedStyle(body).display === 'none') {
+        if (body && body.classList.contains('aw-grp-body') && getComputedStyle(body).display === 'none') {
           toggleAlertGroup(hd);
         }
         _smoothScrollWithOffset(hd);
@@ -9548,7 +9528,7 @@ function svgLineChart(points, w, h) {
     var y = pad.t + ch - (ch * (p.value - minV) / range);
     return {x: x, y: y};
   });
-  var linePath = pts.map(function(p, idx) { return (idx === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1); }).join(' ');
+  var linePath = _smoothPath(pts);
   var areaPath = linePath + ' L' + pts[pts.length - 1].x.toFixed(1) + ',' + (pad.t + ch) + ' L' + pts[0].x.toFixed(1) + ',' + (pad.t + ch) + ' Z';
   // X labels
   var maxLbl = Math.min(14, points.length), step = Math.max(1, Math.ceil(points.length / maxLbl));
@@ -9560,16 +9540,12 @@ function svgLineChart(points, w, h) {
       xLbl += '<text x="' + x.toFixed(1) + '" y="' + (h - 6) + '" text-anchor="middle" font-size="8.5" fill="#94a3b8" transform="rotate(-35,' + x.toFixed(1) + ',' + (h - 6) + ')">' + lbl + '</text>';
     }
   });
-  // Dots
-  var dots = pts.map(function(p) {
-    return '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="3" fill="#4f46e5" stroke="#fff" stroke-width="1.5"/>';
-  }).join('');
   return '<div style="margin:12px 0;overflow:hidden;page-break-inside:avoid"><svg width="100%" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="xMidYMid meet">' +
     grid + yLbl +
     '<defs><linearGradient id="lg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4f46e5" stop-opacity=".18"/><stop offset="100%" stop-color="#4f46e5" stop-opacity=".02"/></linearGradient></defs>' +
     '<path d="' + areaPath + '" fill="url(#lg1)"/>' +
-    '<path d="' + linePath + '" fill="none" stroke="#4f46e5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>' +
-    dots + xLbl + '</svg></div>';
+    '<path d="' + linePath + '" fill="none" stroke="#4f46e5" stroke-width="2.5" stroke-linecap="round"/>' +
+    xLbl + '</svg></div>';
 }
 
 function svgBarH(items, w) {
@@ -13906,44 +13882,24 @@ function renderSegKPIs(segments, active) {
 
   wrap.innerHTML = `
     <div class="dash-kpi-card dash-kpi-blue">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${icons.tag}</div>
-        <span class="dash-kpi-label">Total Segments</span>
-      </div>
-      <div class="dash-kpi-num">${segments.length}</div>
-      <div class="dash-kpi-sub">customer tag groups</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.tag}</div><span class="dash-kpi-label">Total Segments</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num">${segments.length}</div><div class="dash-kpi-sub">customer tag groups</div></div>
     </div>
     <div class="dash-kpi-card dash-kpi-purple">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${icons.people}</div>
-        <span class="dash-kpi-label">Total Accounts</span>
-      </div>
-      <div class="dash-kpi-num">${uniqueCount}</div>
-      <div class="dash-kpi-sub">across ${segments.length} segment${segments.length !== 1 ? 's' : ''}</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.people}</div><span class="dash-kpi-label">Total Accounts</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num">${uniqueCount}</div><div class="dash-kpi-sub">across ${segments.length} segment${segments.length !== 1 ? 's' : ''}</div></div>
     </div>
     <div class="dash-kpi-card dash-kpi-teal">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${icons.dollar}</div>
-        <span class="dash-kpi-label">Segment MRR</span>
-      </div>
-      <div class="dash-kpi-num">$${fmtNum(totalMRR)}</div>
-      <div class="dash-kpi-sub">${riskMRR > 0 ? '$' + fmtNum(riskMRR) + ' at risk' : 'No MRR at risk'}</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.dollar}</div><span class="dash-kpi-label">Segment MRR</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num">$${fmtNum(totalMRR)}</div><div class="dash-kpi-sub">${riskMRR > 0 ? '$' + fmtNum(riskMRR) + ' at risk' : 'No MRR at risk'}</div></div>
     </div>
     <div class="dash-kpi-card ${hrColor}">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${icons.alert}</div>
-        <span class="dash-kpi-label">Highest-Risk</span>
-      </div>
-      <div class="dash-kpi-num" style="font-size:1.4rem">${highestRisk ? escHtml(segDisplayLabel(highestRisk.tag)) : '—'}</div>
-      <div class="dash-kpi-sub">${highestRisk ? highestRisk.riskPct + '% at risk' : 'No data'}</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.alert}</div><span class="dash-kpi-label">Highest-Risk</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.4rem">${highestRisk ? escHtml(segDisplayLabel(highestRisk.tag)) : '—'}</div><div class="dash-kpi-sub">${highestRisk ? highestRisk.riskPct + '% at risk' : 'No data'}</div></div>
     </div>
     <div class="dash-kpi-card dash-kpi-green">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${icons.trendUp}</div>
-        <span class="dash-kpi-label">Fastest-Growing</span>
-      </div>
-      <div class="dash-kpi-num" style="font-size:1.4rem">${fastestGrow ? escHtml(segDisplayLabel(fastestGrow.tag)) : '—'}</div>
-      <div class="dash-kpi-sub">${fastestGrow ? (fastestGrow.avgDelta >= 0 ? '+' : '') + fastestGrow.avgDelta + ' avg trend' : 'No data'}</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.trendUp}</div><span class="dash-kpi-label">Fastest-Growing</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.4rem">${fastestGrow ? escHtml(segDisplayLabel(fastestGrow.tag)) : '—'}</div><div class="dash-kpi-sub">${fastestGrow ? (fastestGrow.avgDelta >= 0 ? '+' : '') + fastestGrow.avgDelta + ' avg trend' : 'No data'}</div></div>
     </div>
   `;
 }
@@ -14440,12 +14396,10 @@ function renderSegCardGrid(segments) {
     const safeTag = seg.tag.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
     return `<div class="card seg-card" data-seg="${escHtml(seg.tag)}" onclick="drillSegFromCard('${safeTag}')" style="cursor:pointer">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <span class="tag" style="font-size:var(--fs-base)">${escHtml(segDisplayLabel(seg.tag))}</span>
-        <span class="seg-score-badge" style="color:${scoreColor(seg.avgScore)};background:${scoreBg(seg.avgScore)}">${seg.avgScore}</span>
-      </div>
+      <div class="card-hd-bar"><span class="card-hd-bar__title">${escHtml(segDisplayLabel(seg.tag))}</span><span class="card-hd-bar__badge">${seg.avgScore}</span></div>
+      <div class="card-body">
       <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:4px">
-        <span style="font-size:1.7rem;font-weight:800;line-height:1">${seg.count}</span>
+        <span style="font-size:1.7rem;font-weight:500;line-height:1;font-family:'DM Mono',monospace">${seg.count}</span>
         <span class="seg-card-trend ${trendCls}">${trendIcon} ${trendTxt}</span>
       </div>
       <div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:10px">account${seg.count !== 1 ? 's' : ''}</div>
@@ -14464,6 +14418,7 @@ function renderSegCardGrid(segments) {
         <span class="seg-card__row-val" style="color:${seg.atRisk ? 'var(--red)' : 'var(--green)'}">${seg.atRisk ? seg.atRisk + ' (' + seg.riskPct + '%)' : 'None'}</span>
       </div>
       ${seg.overdueCount ? `<div class="seg-card__row"><span class="seg-card__row-label">Overdue</span><span class="seg-card__row-val" style="color:var(--red)">${seg.overdueCount}</span></div>` : ''}
+      </div>
     </div>`;
   }).join('')}</div>`;
 
@@ -15163,13 +15118,18 @@ function _buildSegChartSVG(data) {
       .sort((a, b) => a.date.localeCompare(b.date));
     if (pts.length < 2) return;
 
+    // Build xy points for smooth path
+    const xyPts = pts.map(p => ({ x: xScale(dateIdx[p.date]), y: yScaleL(p.avg) }));
+
     // Area fill (only for first line or single line)
     if (lines.length === 1 || lineIdx === 0) {
       const areaBottom = yScaleL(yL.min);
-      const areaPts = pts.map(p => `${xScale(dateIdx[p.date])},${yScaleL(p.avg)}`);
-      const firstX = xScale(dateIdx[pts[0].date]);
-      const lastX = xScale(dateIdx[pts[pts.length - 1].date]);
-      const areaPath = `M${firstX},${areaBottom} L${areaPts.join(' L')} L${lastX},${areaBottom} Z`;
+      const firstX = xyPts[0].x;
+      const lastX = xyPts[xyPts.length - 1].x;
+      const smoothTop = _smoothPath(xyPts);
+      const cIdx = smoothTop.indexOf('C');
+      const topCurve = cIdx >= 0 ? smoothTop.slice(cIdx) : `L${lastX},${xyPts[xyPts.length-1].y}`;
+      const areaPath = `M${firstX},${areaBottom} L${firstX},${xyPts[0].y} ${topCurve} L${lastX},${areaBottom} Z`;
       linesSVG += `<defs><linearGradient id="segAreaGrad${lineIdx}" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="${line.color}" stop-opacity="0.12"/>
         <stop offset="100%" stop-color="${line.color}" stop-opacity="0.01"/>
@@ -15177,23 +15137,21 @@ function _buildSegChartSVG(data) {
       linesSVG += `<path d="${areaPath}" fill="url(#segAreaGrad${lineIdx})"/>`;
     }
 
-    // Polyline
-    const polyPts = pts.map(p => `${xScale(dateIdx[p.date])},${yScaleL(p.avg)}`).join(' ');
-    linesSVG += `<polyline points="${polyPts}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linejoin="round" stroke-linecap="round" opacity="0.9"/>`;
+    // Smooth line
+    const smoothD = _smoothPath(xyPts);
+    linesSVG += `<path d="${smoothD}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linecap="round" opacity="0.9"/>`;
 
-    // Dots
-    const dotR = 2.5;
-    const labelSkip = pts.length <= 10 ? 1 : pts.length <= 20 ? 3 : pts.length <= 40 ? 5 : 8;
-    pts.forEach((p, pi) => {
-      const cx = xScale(dateIdx[p.date]);
-      const cy = yScaleL(p.avg);
-      linesSVG += `<circle cx="${cx}" cy="${cy}" r="${dotR + 1}" fill="var(--surface)" opacity="0.8"/>`;
-      linesSVG += `<circle cx="${cx}" cy="${cy}" r="${dotR}" fill="${line.color}"/>`;
-      // Value labels on single-line view
-      if (lines.length <= 2 && (pi % labelSkip === 0 || pi === pts.length - 1)) {
-        linesSVG += `<text x="${cx}" y="${cy - dotR - 4}" text-anchor="middle" font-size="7" font-weight="700" fill="${line.color}">${cfg.fmt(p.avg)}</text>`;
-      }
-    });
+    // Value labels on single-line view (no dots)
+    if (lines.length <= 2) {
+      const labelSkip = pts.length <= 10 ? 1 : pts.length <= 20 ? 3 : pts.length <= 40 ? 5 : 8;
+      pts.forEach((p, pi) => {
+        if (pi % labelSkip === 0 || pi === pts.length - 1) {
+          const cx = xScale(dateIdx[p.date]);
+          const cy = yScaleL(p.avg);
+          linesSVG += `<text x="${cx}" y="${cy - 6}" text-anchor="middle" font-size="7" font-weight="700" fill="${line.color}">${cfg.fmt(p.avg)}</text>`;
+        }
+      });
+    }
   });
 
   // Build tooltip data
@@ -15702,6 +15660,25 @@ function segAnalysisFocus(idx) {
 
 
 
+// ── Smooth SVG Path Utility (Catmull-Rom → Cubic Bezier) ────
+function _smoothPath(pts) {
+  if (pts.length < 2) return '';
+  if (pts.length === 2) return `M${pts[0].x},${pts[0].y}L${pts[1].x},${pts[1].y}`;
+  let d = `M${pts[0].x},${pts[0].y}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.x},${p2.y}`;
+  }
+  return d;
+}
+
 // ── TRENDS PAGE ──────────────────────────────────────────────
 let _trendRange = '30d';
 let _trendCsmOverlay = '';
@@ -15922,36 +15899,20 @@ function renderTrends() {
   const kpiRow = el('trend-kpi-row');
   if (kpiRow) kpiRow.innerHTML = `
     <div class="dash-kpi-card dash-kpi-blue">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${tIcons.score}</div>
-        <span class="dash-kpi-label">Portfolio Avg Score</span>
-      </div>
-      <div class="dash-kpi-num">${currentAvg}</div>
-      <div class="dash-kpi-sub">${avgDelta >= 0 ? '+' : ''}${avgDelta.toFixed(1)} avg ${rangeLabel} change</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.score}</div><span class="dash-kpi-label">Portfolio Avg Score</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num">${currentAvg}</div><div class="dash-kpi-sub">${avgDelta >= 0 ? '+' : ''}${avgDelta.toFixed(1)} avg ${rangeLabel} change</div></div>
     </div>
     <div class="dash-kpi-card ${trendDirColor}">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${tIcons.trend}</div>
-        <span class="dash-kpi-label">Trend Direction</span>
-      </div>
-      <div class="dash-kpi-num" style="font-size:1.5rem">${trendDir}</div>
-      <div class="dash-kpi-sub">across ${active.length} active account${active.length !== 1 ? 's' : ''}</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.trend}</div><span class="dash-kpi-label">Trend Direction</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.5rem">${trendDir}</div><div class="dash-kpi-sub">across ${active.length} active account${active.length !== 1 ? 's' : ''}</div></div>
     </div>
     <div class="dash-kpi-card dash-kpi-teal">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${tIcons.up}</div>
-        <span class="dash-kpi-label">Accounts Improving</span>
-      </div>
-      <div class="dash-kpi-num">${improving}</div>
-      <div class="dash-kpi-sub">${active.length ? Math.round(improving/active.length*100) : 0}% of portfolio</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.up}</div><span class="dash-kpi-label">Accounts Improving</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num">${improving}</div><div class="dash-kpi-sub">${active.length ? Math.round(improving/active.length*100) : 0}% of portfolio</div></div>
     </div>
     <div class="dash-kpi-card dash-kpi-red">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${tIcons.down}</div>
-        <span class="dash-kpi-label">Accounts Declining</span>
-      </div>
-      <div class="dash-kpi-num">${declining}</div>
-      <div class="dash-kpi-sub">${active.length ? Math.round(declining/active.length*100) : 0}% of portfolio</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.down}</div><span class="dash-kpi-label">Accounts Declining</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num">${declining}</div><div class="dash-kpi-sub">${active.length ? Math.round(declining/active.length*100) : 0}% of portfolio</div></div>
     </div>
   `;
 
@@ -16304,12 +16265,15 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
     if (pts.length < 2) return;
 
     // Area fill under the main line (first line only, skip in breakdown mode)
+    const xyPts = pts.map(p => ({ x: xScale(dateIdx[p.date]), y: yScaleL(p.avg) }));
     if (lineIdx === 0 && !_hasBreakdown) {
       const areaBottom = yScaleL(yL.min);
-      const areaPts = pts.map(p => `${xScale(dateIdx[p.date])},${yScaleL(p.avg)}`);
-      const firstX = xScale(dateIdx[pts[0].date]);
-      const lastX = xScale(dateIdx[pts[pts.length-1].date]);
-      const areaPath = `M${firstX},${areaBottom} L${areaPts.join(' L')} L${lastX},${areaBottom} Z`;
+      const firstX = xyPts[0].x;
+      const lastX = xyPts[xyPts.length-1].x;
+      const smoothTop = _smoothPath(xyPts);
+      const cIdx = smoothTop.indexOf('C');
+      const topCurve = cIdx >= 0 ? smoothTop.slice(cIdx) : `L${lastX},${xyPts[xyPts.length-1].y}`;
+      const areaPath = `M${firstX},${areaBottom} L${firstX},${xyPts[0].y} ${topCurve} L${lastX},${areaBottom} Z`;
       linesSVG += `<defs><linearGradient id="trendAreaGrad" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="${line.color}" stop-opacity="0.18"/>
         <stop offset="100%" stop-color="${line.color}" stop-opacity="0.02"/>
@@ -16317,26 +16281,20 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
       linesSVG += `<path d="${areaPath}" fill="url(#trendAreaGrad)"/>`;
     }
 
-    // Line
-    const polyPts = pts.map(p => `${xScale(dateIdx[p.date])},${yScaleL(p.avg)}`).join(' ');
+    // Smooth line
+    const smoothD = _smoothPath(xyPts);
     const dashAttr = line.dashed ? ' stroke-dasharray="6,4"' : '';
     const lineOp = line.dashed ? '0.45' : '0.9';
-    linesSVG += `<polyline points="${polyPts}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linejoin="round" stroke-linecap="round" opacity="${lineOp}"${dashAttr}/>`;
+    linesSVG += `<path d="${smoothD}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linecap="round" opacity="${lineOp}"${dashAttr}/>`;
 
-    // Dots — skip for dashed reference lines, smaller in breakdown mode
-    if (!line.dashed) {
-      const dotR = _hasBreakdown ? 2 : (lineIdx === 0 ? 3 : 2.2);
+    // Value labels on main line only (no dots)
+    if (!line.dashed && !_hasBreakdown && lineIdx === 0) {
+      const labelSkip = pts.length <= 15 ? 1 : pts.length <= 30 ? 2 : pts.length <= 60 ? 4 : 7;
       pts.forEach((p, pi) => {
-        const cx = xScale(dateIdx[p.date]);
-        const cy = yScaleL(p.avg);
-        linesSVG += `<circle cx="${cx}" cy="${cy}" r="${dotR+1}" fill="var(--surface)" opacity="0.8"/>`;
-        linesSVG += `<circle cx="${cx}" cy="${cy}" r="${dotR}" fill="${line.color}"/>`;
-        // Value labels on main line only (skip in breakdown mode for clarity)
-        if (!_hasBreakdown && lineIdx === 0) {
-          const labelSkip = pts.length <= 15 ? 1 : pts.length <= 30 ? 2 : pts.length <= 60 ? 4 : 7;
-          if (pi % labelSkip === 0 || pi === pts.length - 1) {
-            linesSVG += `<text x="${cx}" y="${cy - dotR - 4}" text-anchor="middle" font-size="7" font-weight="700" fill="${line.color}">${m1Cfg.fmt(p.avg)}</text>`;
-          }
+        if (pi % labelSkip === 0 || pi === pts.length - 1) {
+          const cx = xScale(dateIdx[p.date]);
+          const cy = yScaleL(p.avg);
+          linesSVG += `<text x="${cx}" y="${cy - 6}" text-anchor="middle" font-size="7" font-weight="700" fill="${line.color}">${m1Cfg.fmt(p.avg)}</text>`;
         }
       });
     }
@@ -16347,29 +16305,25 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
     const pts = m2Line.points.filter(p => dateIdx[p.date] !== undefined && !isNaN(p.avg))
       .sort((a,b) => a.date.localeCompare(b.date));
     if (pts.length >= 2) {
-      // Subtle area fill
+      // Subtle area fill (smooth)
+      const xyPts2 = pts.map(p => ({ x: xScale(dateIdx[p.date]), y: yScaleR(p.avg) }));
       const areaBottom = yScaleR(yR.min);
-      const areaPts = pts.map(p => `${xScale(dateIdx[p.date])},${yScaleR(p.avg)}`);
-      const firstX = xScale(dateIdx[pts[0].date]);
-      const lastX = xScale(dateIdx[pts[pts.length-1].date]);
-      const areaPath = `M${firstX},${areaBottom} L${areaPts.join(' L')} L${lastX},${areaBottom} Z`;
+      const firstX = xyPts2[0].x;
+      const lastX = xyPts2[xyPts2.length-1].x;
+      const smoothTop2 = _smoothPath(xyPts2);
+      const cIdx2 = smoothTop2.indexOf('C');
+      const topCurve2 = cIdx2 >= 0 ? smoothTop2.slice(cIdx2) : `L${lastX},${xyPts2[xyPts2.length-1].y}`;
+      const areaPath = `M${firstX},${areaBottom} L${firstX},${xyPts2[0].y} ${topCurve2} L${lastX},${areaBottom} Z`;
       linesSVG += `<defs><linearGradient id="trendArea2Grad" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="${m2Line.color}" stop-opacity="0.10"/>
         <stop offset="100%" stop-color="${m2Line.color}" stop-opacity="0.01"/>
       </linearGradient></defs>`;
       linesSVG += `<path d="${areaPath}" fill="url(#trendArea2Grad)"/>`;
 
-      // Dashed line
-      const polyPts = pts.map(p => `${xScale(dateIdx[p.date])},${yScaleR(p.avg)}`).join(' ');
-      linesSVG += `<polyline points="${polyPts}" fill="none" stroke="${m2Line.color}" stroke-width="${m2Line.width}" stroke-linejoin="round" stroke-linecap="round" opacity="0.85" stroke-dasharray="6,3"/>`;
+      // Smooth dashed line
+      const smoothD2 = _smoothPath(xyPts2);
+      linesSVG += `<path d="${smoothD2}" fill="none" stroke="${m2Line.color}" stroke-width="${m2Line.width}" stroke-linecap="round" opacity="0.85" stroke-dasharray="6,3"/>`;
 
-      // Dots
-      pts.forEach(p => {
-        const cx = xScale(dateIdx[p.date]);
-        const cy = yScaleR(p.avg);
-        linesSVG += `<circle cx="${cx}" cy="${cy}" r="3" fill="var(--surface)" opacity="0.8"/>`;
-        linesSVG += `<circle cx="${cx}" cy="${cy}" r="2" fill="${m2Line.color}"/>`;
-      });
     }
   }
 
@@ -17196,44 +17150,24 @@ function renderCSMPerformance() {
 
   statsWrap.innerHTML = `
     <div class="dash-kpi-card dash-kpi-blue">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${CSM_ICONS.people}</div>
-        <span class="dash-kpi-label">Active CSMs</span>
-      </div>
-      <div class="dash-kpi-num">${totalCSMs}</div>
-      <div class="dash-kpi-sub">${totalAccounts} accounts across team</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.people}</div><span class="dash-kpi-label">Active CSMs</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num">${totalCSMs}</div><div class="dash-kpi-sub">${totalAccounts} accounts across team</div></div>
     </div>
     <div class="dash-kpi-card dash-kpi-purple">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${CSM_ICONS.chart}</div>
-        <span class="dash-kpi-label">Avg Book Size</span>
-      </div>
-      <div class="dash-kpi-num">${avgAccsPerCSM}</div>
-      <div class="dash-kpi-sub">accounts per CSM</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.chart}</div><span class="dash-kpi-label">Avg Book Size</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num">${avgAccsPerCSM}</div><div class="dash-kpi-sub">accounts per CSM</div></div>
     </div>
     <div class="dash-kpi-card dash-kpi-teal">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${CSM_ICONS.dollar}</div>
-        <span class="dash-kpi-label">Avg MRR / CSM</span>
-      </div>
-      <div class="dash-kpi-num">$${fmtNum(avgMRRPerCSM)}</div>
-      <div class="dash-kpi-sub">$${fmtNum(totalMRR)} total portfolio</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.dollar}</div><span class="dash-kpi-label">Avg MRR / CSM</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num">$${fmtNum(avgMRRPerCSM)}</div><div class="dash-kpi-sub">$${fmtNum(totalMRR)} total portfolio</div></div>
     </div>
     <div class="dash-kpi-card ${healthScoreGradient}">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${CSM_ICONS.pulse}</div>
-        <span class="dash-kpi-label">Avg Health Score</span>
-      </div>
-      <div class="dash-kpi-num">${overallAvg}</div>
-      <div class="dash-kpi-sub">${deltaIcon} ${Math.abs(overallDelta)} pts this week</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.pulse}</div><span class="dash-kpi-label">Avg Health Score</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num">${overallAvg}</div><div class="dash-kpi-sub">${deltaIcon} ${Math.abs(overallDelta)} pts this week</div></div>
     </div>
     <div class="dash-kpi-card ${overdueGradient}">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${CSM_ICONS.alert}</div>
-        <span class="dash-kpi-label">Overdue Contacts</span>
-      </div>
-      <div class="dash-kpi-num">${totalOverdue}</div>
-      <div class="dash-kpi-sub">${totalOverdue ? avgAtRiskPerCSM + ' at-risk per CSM' : 'All contacts current'}</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.alert}</div><span class="dash-kpi-label">Overdue Contacts</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num">${totalOverdue}</div><div class="dash-kpi-sub">${totalOverdue ? avgAtRiskPerCSM + ' at-risk per CSM' : 'All contacts current'}</div></div>
     </div>
   `;
 

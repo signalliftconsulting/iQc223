@@ -105,11 +105,24 @@ function updateUserUI(user) {
   const settingsEmail = el('settings-email');
   if (user) {
     const initials = user.email.slice(0,2).toUpperCase();
-    if (pill)   { pill.style.display = 'flex'; }
+    if (pill)   { pill.style.display = 'none'; }
     if (avatar) avatar.textContent = initials;
     if (label)  label.textContent  = user.email;
     if (signout) signout.style.display = '';
     if (settingsEmail) settingsEmail.textContent = user.email;
+    // Topbar avatar + menu
+    const tbAvatar = el('tb-avatar');
+    const tbInfo   = el('tb-user-info');
+    const firstInitial = user.email.charAt(0).toUpperCase();
+    if (tbAvatar) tbAvatar.textContent = firstInitial;
+    if (tbInfo) tbInfo.textContent = user.email;
+    // Sidebar user area
+    const sbAvatar = el('sb-avatar');
+    const sbName   = el('sb-name');
+    const sbPlan   = el('sb-plan');
+    if (sbAvatar) sbAvatar.textContent = firstInitial;
+    if (sbName) sbName.textContent = user.email.split('@')[0].replace(/[._]/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+    if (sbPlan) sbPlan.textContent = user.email;
 
     // Show admin nav items — uses isAdmin() which checks server-fetched role first
     const admin = isAdmin();

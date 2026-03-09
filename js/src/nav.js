@@ -56,6 +56,14 @@ function _autoExpandGroupFor(v) {
 // Restore on load
 _restoreNavGroupState();
 
+// Close user menus on click outside
+document.addEventListener('click', function(e) {
+  const sbMenu = document.getElementById('sb-menu');
+  if (sbMenu && sbMenu.classList.contains('open') && !e.target.closest('#sidebar-user')) sbMenu.classList.remove('open');
+  const tbMenu = document.getElementById('tb-user-menu');
+  if (tbMenu && tbMenu.classList.contains('open') && !e.target.closest('#tb-user-wrap')) tbMenu.classList.remove('open');
+});
+
 function isAdmin() {
   // Primary: server-fetched role from user_profiles (can't be spoofed via console)
   if (_userRole === 'admin') return true;

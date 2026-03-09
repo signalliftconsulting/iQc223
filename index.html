@@ -6,11 +6,11 @@
 <title>IQcadence — CS Health Score</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#f0f4f8;--surface:#fff;--border:#e2e8f0;--focus:#3b82f6;
+  --bg:#eef5f4;--surface:#fff;--border:#e2e8f0;--focus:#3b82f6;
   --text:#0f172a;--muted:#64748b;--subtle:#94a3b8;
   --blue:#2563eb;--blue-d:#1d4ed8;--blue-l:#eff6ff;--blue-m:#bfdbfe;
   --green:#16a34a;--green-l:#f0fdf4;--green-m:#bbf7d0;
@@ -35,28 +35,38 @@ p{line-height:1.65;color:var(--muted)}
 a{color:var(--blue);text-decoration:none}
 
 /* TOPBAR */
-.topbar{background:linear-gradient(90deg,#2e3fa3 0%,#2e3fa3 200px,#3d5bbf 350px,#4a6fd4 100%);border-bottom:none;padding:0 20px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:0 2px 12px rgba(46,63,163,.4)}
-.topbar__brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:var(--fs-lg);color:#fff;letter-spacing:-.01em}
-.topbar__logo{width:34px;height:34px;background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.25);border-radius:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:var(--fs-lg);flex-shrink:0;backdrop-filter:blur(4px)}
-.topbar__name{font-weight:800;font-size:var(--fs-lg);letter-spacing:-.02em;color:#fff}
-.topbar__sub{display:block;font-size:var(--fs-xs);font-weight:500;color:rgba(255,255,255,.6);margin-top:1px;letter-spacing:.02em;text-transform:uppercase}
-.topbar__right{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.topbar__divider{width:1px;height:22px;background:rgba(255,255,255,.2);margin:0 4px}
-/* Topbar buttons need white-friendly styles */
-.topbar .btn-ghost{background:rgba(255,255,255,.1);color:#fff;border-color:rgba(255,255,255,.2)}.topbar .btn-ghost:hover{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.35);color:#fff}
-.topbar .btn-primary{background:rgba(255,255,255,.18);color:#fff;border:1.5px solid rgba(255,255,255,.3);box-shadow:none}.topbar .btn-primary:hover{background:rgba(255,255,255,.28);box-shadow:none;transform:none}
-.topbar .btn-outline{background:rgba(255,255,255,.1);color:#fff;border-color:rgba(255,255,255,.25)}.topbar .btn-outline:hover{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.4)}
+.topbar{background:#12918b;border-bottom:none;padding:0 20px;height:48px;display:flex;align-items:center;justify-content:flex-end;position:sticky;top:0;z-index:50;box-shadow:0 1px 3px rgba(0,0,0,.1);color:#fff}
+.topbar svg{stroke:#fff}
+.topbar .btn{color:#fff}
+.topbar__brand{display:flex;align-items:center}
+.topbar__center{display:flex;align-items:center;gap:6px;flex:1;justify-content:center}
+.topbar__right{display:flex;align-items:center;gap:6px}
+.topbar__divider{width:1px;height:20px;background:rgba(255,255,255,.2);margin:0 4px}
+.topbar .btn-ghost{background:rgba(255,255,255,.1);color:rgba(255,255,255,.9);border-color:rgba(255,255,255,.15)}.topbar .btn-ghost:hover{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.25);color:#fff}
+.topbar .btn-primary{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.2);box-shadow:none}.topbar .btn-primary:hover{background:rgba(255,255,255,.25);box-shadow:none;transform:none}
+.topbar .btn-outline{background:rgba(255,255,255,.1);color:rgba(255,255,255,.9);border-color:rgba(255,255,255,.15)}.topbar .btn-outline:hover{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.25)}
 /* TOPBAR SEARCH */
 #topbar-search-wrap{position:relative}
-#topbar-search{width:180px;padding:6px 10px 6px 30px;border-radius:8px;border:1.5px solid rgba(255,255,255,.2);background:rgba(255,255,255,.1) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,.7)' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") no-repeat 9px center;color:#fff;font-size:.77rem;font-family:var(--font);outline:none;transition:border-color .16s,background .16s,width .2s}
+#topbar-search{width:180px;padding:6px 10px 6px 30px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.12) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23ffffff80' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") no-repeat 9px center;color:#fff;font-size:.77rem;font-family:var(--font);outline:none;transition:border-color .16s,background .16s,width .2s}
 #topbar-search::placeholder{color:rgba(255,255,255,.5)}
-#topbar-search:focus{border-color:rgba(255,255,255,.45);background-color:rgba(255,255,255,.18);width:240px}
+#topbar-search:focus{border-color:rgba(255,255,255,.4);background-color:rgba(255,255,255,.2);width:240px}
 #topbar-search-results{position:absolute;top:calc(100% + 6px);left:0;min-width:280px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.14),0 2px 6px rgba(0,0,0,.08);z-index:210;padding:4px 0;display:none;max-height:340px;overflow-y:auto}
 .topbar-sr-item{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;cursor:pointer;transition:background .1s;font-size:var(--fs-base);color:var(--text);gap:10px}
 .topbar-sr-item:hover,.topbar-sr-item.highlighted{background:var(--blue-l);color:var(--blue)}
 .topbar-sr-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
 .topbar-sr-meta{display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);color:var(--muted);flex-shrink:0}
 .topbar-sr-empty{padding:12px 14px;font-size:var(--fs-sm);color:var(--muted);text-align:center}
+/* TOPBAR USER AVATAR + MENU */
+.tb-user{position:relative}
+.tb-avatar{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.2);border:2px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff;cursor:pointer;transition:box-shadow .15s;user-select:none}
+.tb-avatar:hover{box-shadow:0 0 0 3px rgba(255,255,255,.2)}
+.tb-user-menu{position:absolute;top:calc(100% + 8px);right:0;min-width:180px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12),0 1px 3px rgba(0,0,0,.06);padding:4px 0;display:none;z-index:200}
+.tb-user-menu.open{display:block}
+.tb-user-info{padding:8px 14px;font-size:11px;color:#64748b;word-break:break-all}
+.tb-menu-sep{height:1px;background:#f1f5f9;margin:3px 0}
+.tb-menu-item{display:flex;align-items:center;gap:8px;width:100%;padding:8px 14px;font-size:12.5px;color:#64748b;background:none;border:none;cursor:pointer;transition:all .1s;text-align:left}
+.tb-menu-item:hover{color:#0f766e;background:#f0fdfa}
+.tb-menu-item svg{width:14px;height:14px;flex-shrink:0}
 /* TOPBAR SYNC SPIN */
 @keyframes topbarSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 #topbar-sync-btn.syncing svg{animation:topbarSpin .8s linear infinite}
@@ -86,25 +96,42 @@ a{color:var(--blue);text-decoration:none}
 .mgr-filter__sep{height:1px;background:var(--border);margin:4px 0}
 
 /* LAYOUT */
-.shell{display:flex;height:calc(100vh - 56px)}
-.sidebar{width:214px;flex-shrink:0;background:#0f172a;border-right:none;padding:12px 8px;display:flex;flex-direction:column;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto;box-shadow:2px 0 12px rgba(0,0,0,.15)}
-.nav-item{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:var(--fs-base);font-weight:600;color:rgba(255,255,255,.55);cursor:pointer;border:none;background:none;width:100%;text-align:left;transition:color .15s,background .15s;border-radius:8px;margin-bottom:1px}
-.nav-item:hover{color:rgba(255,255,255,.9);background:rgba(255,255,255,.08)}
-.nav-item.active{color:#fff;background:rgba(37,99,235,.5)}
-.nav-item.active .nav-icon{background:#2563eb;color:#fff;box-shadow:0 2px 8px rgba(37,99,235,.4)}
-.nav-icon{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:var(--fs-base);background:rgba(255,255,255,.07);color:rgba(255,255,255,.5);flex-shrink:0;transition:background .15s,color .15s}
-.nav-item:hover .nav-icon{background:rgba(255,255,255,.12);color:rgba(255,255,255,.85)}
-.nav-sep{height:1px;background:rgba(255,255,255,.08);margin:6px 4px}
-.nav-label{font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.28);padding:8px 12px 3px}
-.nav-group{margin-bottom:4px}
-.nav-group-hd{display:flex;align-items:center;gap:7px;width:100%;padding:14px 12px 6px;font-size:var(--fs-sm);font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.45);background:none;border:none;cursor:pointer;transition:color .15s;border-top:1px solid rgba(255,255,255,.08);margin-top:2px}
-.nav-group:first-child .nav-group-hd{border-top:none;margin-top:0}
-.nav-group-hd:hover{color:rgba(255,255,255,.85)}
-.nav-group-chevron{flex-shrink:0;transition:transform .2s ease}
-.nav-group.open .nav-group-chevron{transform:rotate(0deg)}
-.nav-group:not(.open) .nav-group-chevron{transform:rotate(-90deg)}
-.nav-group-body{overflow:hidden;max-height:500px;transition:max-height .3s ease,opacity .2s ease;opacity:1}
-.nav-group:not(.open) .nav-group-body{max-height:0;opacity:0;pointer-events:none}
+.shell{display:flex;height:calc(100vh - 48px)}
+/* ── SIDEBAR (mockup-v2: white + teal) ── */
+.sidebar{width:200px;flex-shrink:0;background:#115e59;border-right:none;padding:0;display:flex;flex-direction:column;position:sticky;top:48px;height:calc(100vh - 48px);overflow-y:auto;box-shadow:2px 0 8px rgba(0,0,0,.1)}
+.sidebar-logo{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.1);display:flex;align-items:center;gap:9px;font-size:13px;font-weight:500;color:#fff;letter-spacing:-.01em}
+.sidebar-logo .logo-mark{width:26px;height:26px;background:rgba(255,255,255,.15);border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff;flex-shrink:0}
+.nav-section{padding:14px 0 4px}
+.nav-label{font-size:9.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.4);padding:0 14px;margin-bottom:4px}
+.nav-item{display:flex;align-items:center;justify-content:space-between;padding:7px 14px;font-size:12.5px;color:rgba(255,255,255,.65);cursor:pointer;border:none;background:none;width:100%;text-align:left;border-left:2px solid transparent;transition:all .12s;user-select:none}
+.nav-item:hover{color:#fff;background:rgba(255,255,255,.08)}
+.nav-item.active{color:#fff;background:rgba(255,255,255,.12);border-left-color:#5eead4;font-weight:500}
+.nav-icon{display:none}
+.nav-badge{font-size:10px;font-family:'DM Mono',monospace;padding:1px 6px;border-radius:10px;font-weight:500}
+.nav-badge-default{background:rgba(255,255,255,.1);color:rgba(255,255,255,.6)}
+.nav-badge-alert{background:#ef4444;color:#fff}
+.nav-badge-green{background:#16a34a;color:#fff}
+.nav-divider{height:1px;background:rgba(255,255,255,.08);margin:6px 14px}
+.nav-sep{height:1px;background:rgba(255,255,255,.08);margin:6px 14px}
+/* Nav groups (legacy — hidden, flat nav now) */
+.nav-group{margin-bottom:0}
+.nav-group-hd{display:none}
+.nav-group-body{overflow:visible;max-height:none;opacity:1;pointer-events:auto}
+.nav-group-chevron{display:none}
+.nav-group:not(.open) .nav-group-body{max-height:none;opacity:1;pointer-events:auto}
+/* Sidebar bottom user area */
+.sidebar-bottom{margin-top:auto;border-top:1px solid rgba(255,255,255,.1);padding:10px 14px;display:flex;align-items:center;gap:9px;position:relative}
+.sb-avatar{width:32px;height:32px;background:rgba(255,255,255,.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff;flex-shrink:0;cursor:pointer;transition:box-shadow .15s,transform .1s;user-select:none}
+.sb-avatar:hover{box-shadow:0 0 0 3px rgba(255,255,255,.15);transform:scale(1.05)}
+.sb-name{font-size:12.5px;font-weight:500;color:#fff}
+.sb-plan{font-size:10px;color:rgba(255,255,255,.45);margin-top:1px}
+/* User flyout menu */
+.sb-menu{position:absolute;bottom:calc(100% + 6px);left:10px;min-width:160px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.1),0 1px 3px rgba(0,0,0,.06);padding:4px 0;display:none;z-index:100}
+.sb-menu.open{display:block}
+.sb-menu-item{display:flex;align-items:center;gap:8px;width:100%;padding:8px 14px;font-size:12.5px;color:#64748b;background:none;border:none;cursor:pointer;transition:all .1s;text-align:left}
+.sb-menu-item:hover{color:#0f766e;background:#f0fdfa}
+.sb-menu-item svg{width:14px;height:14px;flex-shrink:0}
+.sb-menu-sep{height:1px;background:#f1f5f9;margin:3px 0}
 .main{flex:1;overflow-x:hidden;overflow-y:auto;padding:24px 28px 60px;min-width:0}
 
 /* VIEWS */
@@ -124,39 +151,54 @@ a{color:var(--blue);text-decoration:none}
 .btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important;box-shadow:none!important}
 
 /* CARDS */
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:22px;box-shadow:var(--sh)}
-.card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:10px;flex-wrap:wrap}
-.card-hd h2{margin:0}
+.card{background:#fff;border-radius:8px;border:1px solid #e2e8f0;box-shadow:0 1px 2px rgba(0,0,0,.05);overflow:hidden;transition:box-shadow .15s;padding:22px}
+.card:hover{box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.card:has(>.card-hd-bar){padding:0}
+.card:has(>.card-hd){padding:0}
+.card-hd{padding:12px 20px;border-bottom:1px solid #e2e8f0;font-weight:600;font-size:.95rem;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.card-hd h2{margin:0;font-size:.95rem}
+.card-hd~*{padding:16px 20px}
+.card-hd~.total-bar{padding:0}
+.card-body{padding:1.1rem 1.25rem}
+
+/* CARD WIDGET HEADER BAR */
+.card-hd-bar{background:#0f766e;padding:9px 14px;display:flex;align-items:center;justify-content:space-between}
+.card-hd-bar__title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.85)}
+.card-hd-bar__meta{font-size:10px;color:rgba(255,255,255,.7)}
+.card-hd-bar__badge{font-size:9.5px;font-weight:600;padding:2px 7px;border-radius:3px;background:rgba(255,255,255,.15);color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.04em}
 
 /* PAGE HEADER */
 .page-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:10px}
 .page-hd h1{margin:0}
-.page-hd p{margin-top:3px;font-size:var(--fs-md);color:var(--muted)}
+.page-hd h1 span{color:#0f766e}
+.page-hd p{margin-top:3px;font-size:.82rem;color:var(--muted)}
 
 /* STAT GRID */
 .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:14px;margin-bottom:22px}
-.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 18px 16px;box-shadow:var(--sh);cursor:pointer;transition:box-shadow .18s,transform .18s,border-color .18s;position:relative;overflow:hidden}
-.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--rlg) var(--rlg) 0 0;background:transparent;transition:background .18s}
-.stat-card:hover{box-shadow:var(--shm);transform:translateY(-2px);border-color:transparent}
-.stat-card:hover::before{background:var(--accent-color,var(--blue))}
-.stat-card__icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:var(--fs-lg);margin-bottom:12px}
-.stat-card__num{font-size:2.1rem;font-weight:800;line-height:1;margin-bottom:4px;letter-spacing:-.03em}
+.stat-card{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:0;box-shadow:0 1px 2px rgba(0,0,0,.05);cursor:pointer;transition:box-shadow .18s,transform .18s;position:relative;overflow:hidden}
+.stat-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.1);transform:translateY(-2px)}
+.stat-card__hd{padding:6px 14px;display:flex;align-items:center;gap:6px}
+.stat-card__icon{width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:12px;color:rgba(255,255,255,.85)}
+.stat-card__body{padding:12px 14px 14px}
+.stat-card__num{font-size:1.85rem;font-weight:500;line-height:1;margin-bottom:4px;letter-spacing:-.03em;font-family:'DM Mono',monospace}
 .stat-card__label{font-size:var(--fs-sm);color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-.stat-card__delta{font-size:var(--fs-sm);font-weight:700;margin-top:5px;display:flex;align-items:center;gap:3px}
+.stat-card__delta{font-size:var(--fs-sm);font-weight:700;margin-top:5px;display:flex;align-items:center;gap:3px;font-family:'DM Mono',monospace}
 
 /* CHARTS */
 .charts-grid{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:22px;align-items:stretch}
 .charts-left{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:16px}
 .charts-right{display:grid;grid-template-rows:1fr 1fr;gap:16px}
 .seg-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-.seg-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 20px;box-shadow:var(--sh);cursor:pointer;transition:transform .15s,box-shadow .15s,border-color .15s}
-.seg-card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.1);border-color:var(--blue)}
-.seg-card__label{font-size:var(--fs-base);font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--subtle);margin-bottom:10px;display:flex;align-items:center;gap:6px}
-.seg-card__label::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--blue)}
-.seg-card.smb    .seg-card__label::before{background:#7c3aed}
-.seg-card.mid    .seg-card__label::before{background:#2563eb}
-.seg-card.ent    .seg-card__label::before{background:#0891b2}
-.seg-card__num{font-size:1.9rem;font-weight:800;letter-spacing:-.04em;color:var(--text);line-height:1}
+.seg-card{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:0!important;box-shadow:0 1px 2px rgba(0,0,0,.05);cursor:pointer;transition:transform .15s,box-shadow .15s;overflow:hidden}
+.seg-card:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.1)}
+.seg-card__hd{padding:7px 14px;display:flex;align-items:center;gap:6px}
+.seg-card__body{padding:14px 16px 16px}
+.seg-card__label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.85);display:flex;align-items:center;gap:6px}
+.seg-card__label::before{display:none}
+.seg-card.smb .seg-card__hd{background:#7c3aed}
+.seg-card.mid .seg-card__hd{background:#2563eb}
+.seg-card.ent .seg-card__hd{background:#0891b2}
+.seg-card__num{font-size:1.85rem;font-weight:500;letter-spacing:-.04em;color:var(--text);line-height:1;font-family:'DM Mono',monospace}
 .seg-card__sub{font-size:var(--fs-sm);color:var(--muted);margin-top:2px}
 .seg-card__divider{height:1px;background:var(--border);margin:12px 0}
 .seg-card__row{display:flex;justify-content:space-between;align-items:center;font-size:var(--fs-sm);margin-bottom:5px}
@@ -170,9 +212,10 @@ a{color:var(--blue);text-decoration:none}
 .tier-pill-smb{color:#7c3aed;background:rgba(124,58,237,.1)}
 .tier-pill-mid{color:#2563eb;background:rgba(37,99,235,.1)}
 .tier-pill-ent{color:#0891b2;background:rgba(8,145,178,.1)}
-.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--sh)}
-.chart-title{font-size:var(--fs-md);font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--subtle);margin-bottom:16px;display:flex;align-items:center;gap:6px}
-.chart-title::before{content:'';display:inline-block;width:3px;height:12px;border-radius:2px;background:var(--blue);flex-shrink:0}
+.chart-card{background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 1px 2px rgba(0,0,0,.05);overflow:hidden}
+.chart-card>.card-hd-bar~*{padding:1rem 1.25rem}
+.chart-title{font-size:var(--fs-md);font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:16px;display:flex;align-items:center;gap:6px}
+.chart-title::before{content:'';display:inline-block;width:3px;height:12px;border-radius:2px;background:#0f766e;flex-shrink:0}
 
 /* DONUT */
 .donut-wrap{display:flex;align-items:center;gap:24px;flex-wrap:wrap}
@@ -206,143 +249,139 @@ svg.sparkline{display:block}
 .heatmap td.nc{text-align:left;font-weight:600;color:var(--text);min-width:120px;padding-right:10px}
 .hm-r{color:var(--red);background:var(--red-l)}.hm-y{color:var(--amber);background:var(--amber-l)}.hm-g{color:var(--green);background:var(--green-l)}
 
-/* ALERTS */
-.alert-item{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--red);border-radius:var(--r);padding:11px 14px;font-size:var(--fs-base);margin-bottom:6px;cursor:pointer;transition:box-shadow .15s,background .15s,border-color .15s}
-.alert-item:hover{box-shadow:0 2px 8px rgba(0,0,0,.06);background:#fafbfc}
-.alert-item.selected{background:var(--teal-l);border-color:var(--teal-m);border-left-color:var(--teal)}
-.alert-item.amber{border-left-color:var(--amber)}
-.alert-item.blue{border-left-color:var(--teal)}
-.alert-item.green{border-left-color:var(--green)}
-.alert-item.snoozed{opacity:.45;border-left-color:var(--subtle)}
-.alert-item__check{width:16px;height:16px;flex-shrink:0;accent-color:var(--teal);cursor:pointer}
-.alert-item__icon{font-size:1rem;flex-shrink:0;width:22px;text-align:center}
-.alert-item__body{flex:1;min-width:0}
-.alert-item__text{color:var(--text);line-height:1.35}
-.alert-item__text strong{color:var(--text)}
-.alert-item__text span{color:var(--muted)}
-.alert-item__meta{font-size:var(--fs-xs);color:var(--subtle);margin-top:2px;display:flex;gap:8px;align-items:center}
-.alert-item__cat{font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:1px 5px;border-radius:4px;background:var(--red-l);color:var(--red)}
-.alert-item__cat.amber{background:var(--amber-l);color:var(--amber)}
-.alert-item__cat.blue{background:var(--teal-l);color:var(--teal)}
-.alert-item__cat.green{background:var(--green-l);color:var(--green)}
-.alert-item__actions{display:flex;gap:5px;flex-shrink:0}
-/* Alert group heading */
-.alert-group-hd{font-size:var(--fs-md);font-weight:700;letter-spacing:.02em;color:var(--text);margin:18px 0 0;display:flex;align-items:center;gap:7px;padding:8px 10px;border-bottom:1.5px solid var(--border);cursor:pointer;border-radius:var(--r) var(--r) 0 0;transition:background .15s;background:linear-gradient(180deg,rgba(240,244,248,.5) 0%,transparent 100%)}
-.alert-group-hd:first-child{margin-top:0}
-.alert-group-hd:hover{background:linear-gradient(180deg,rgba(8,145,178,.05) 0%,transparent 100%)}
-.alert-group-hd svg{opacity:.7;flex-shrink:0}
-.alert-group-hd::after{content:'▸';margin-left:auto;color:var(--subtle);font-size:var(--fs-base);transition:transform .2s}
-.alert-grp-open::after{transform:rotate(90deg)}
-.alert-group-body{display:none;padding-top:6px;margin-bottom:8px}
-.alert-item__icon{display:flex;align-items:center;justify-content:center;width:22px;flex-shrink:0;opacity:.7}
-/* Alerts page — stat cards + detail row */
-.alerts-detail-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px}
-@media(max-width:1100px){.alerts-detail-row{grid-template-columns:1fr 1fr}}
-@media(max-width:700px){.alerts-detail-row{grid-template-columns:1fr}}
-.alert-detail-card.card{padding:0;overflow:hidden}
+/* ═══════════════════════════════════════════
+   ALERTS — Widget Showcase v2
+   ═══════════════════════════════════════════ */
 
-/* Alert detail cards — soft gradient backgrounds */
-.alert-detail-card{position:relative;overflow:hidden}
-.alert-detail-card::before{display:none}
-.alert-detail-card:nth-child(1){background:linear-gradient(135deg,#fef2f2 0%,#fff7ed 50%,#fff 100%);border:1px solid rgba(220,38,38,.12);box-shadow:0 2px 12px rgba(220,38,38,.06),var(--sh)}
-.alert-detail-card:nth-child(2){background:linear-gradient(135deg,var(--teal-l) 0%,#f0fdfa 50%,#fff 100%);border:1px solid rgba(8,145,178,.12);box-shadow:0 2px 12px rgba(8,145,178,.06),var(--sh)}
-.alert-detail-card:nth-child(3){background:linear-gradient(135deg,#f8fafc 0%,#f1f5f9 50%,#fff 100%);border:1px solid rgba(100,116,139,.15);box-shadow:0 2px 12px rgba(100,116,139,.06),var(--sh)}
-.alert-detail-hdr{padding:14px 16px;color:var(--text);display:flex;align-items:center;justify-content:space-between;gap:12px;background:transparent;border-bottom:1px solid rgba(0,0,0,.06)}
-.alert-detail-card:nth-child(1) .alert-detail-hdr{border-bottom-color:rgba(220,38,38,.1)}
-.alert-detail-card:nth-child(2) .alert-detail-hdr{border-bottom-color:rgba(8,145,178,.1)}
-.alert-detail-card:nth-child(3) .alert-detail-hdr{border-bottom-color:rgba(100,116,139,.1)}
-.alert-detail-hdr--mrr .alert-detail-hdr-icon{background:rgba(220,38,38,.1);color:var(--red)}
-.alert-detail-hdr--mrr .alert-detail-hdr-icon svg{stroke:var(--red)}
-.alert-detail-hdr--cat .alert-detail-hdr-icon{background:rgba(8,145,178,.1);color:var(--teal)}
-.alert-detail-hdr--cat .alert-detail-hdr-icon svg{stroke:var(--teal)}
-.alert-detail-hdr--stage .alert-detail-hdr-icon{background:rgba(100,116,139,.1);color:var(--muted)}
-.alert-detail-hdr--stage .alert-detail-hdr-icon svg{stroke:var(--muted)}
-.alert-detail-hdr-left{display:flex;align-items:center;gap:8px}
-.alert-detail-hdr-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.alert-detail-hdr h3{font-size:var(--fs-base);font-weight:700;margin:0;color:var(--text)}
-.alert-detail-hdr-total{font-size:1.2rem;font-weight:800;line-height:1;letter-spacing:-.02em;text-align:right;color:var(--text)}
-.alert-detail-hdr-sub{font-size:var(--fs-2xs);color:var(--muted);margin-top:1px;text-align:right}
-.alert-detail-body{padding:12px 14px}
-.alert-detail-icon{width:28px;height:28px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+/* ── PAGE HEADER ── */
+#view-alerts .page-hd{display:none}
+.aw-page-hd{margin-bottom:1rem}
+.aw-page-hd h1{font-size:1.4rem;font-weight:600;color:var(--text);letter-spacing:-.02em}
+.aw-page-hd h1 span{color:#0f766e}
+.aw-page-hd p{color:var(--muted);font-size:.82rem;margin-top:.15rem}
 
-/* Alert summary pills (kept for compat) */
-.alert-sum-pill{display:inline-flex;align-items:center;padding:5px 12px;border-radius:100px;font-size:var(--fs-sm);font-weight:700;letter-spacing:.01em;cursor:pointer;transition:transform .15s,background .15s}
-.alert-sum-pill:hover{transform:translateY(-1px)}
+/* ── WIDGET CARD ── */
+.aw-card{background:#fff;border-radius:8px;border:1px solid var(--border);box-shadow:0 1px 2px rgba(0,0,0,.05);overflow:hidden;transition:box-shadow .15s}
+.aw-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.aw-card:empty{display:none}
 
-/* MRR rows in white card context */
-.alerts-detail-row .alert-mrr-row{padding:5px 8px;margin:0;border-radius:6px;transition:background .12s}
-.alerts-detail-row .alert-mrr-row:hover{background:var(--bg)}
-.alerts-detail-row .alert-mrr-dot{border:none}
-.alerts-detail-row .alert-mrr-label{color:var(--text);font-size:var(--fs-sm)}
-.alerts-detail-row .alert-mrr-val{color:var(--text)}
-/* Category bars in white card context */
-.alerts-detail-row .alert-cat-row{padding:5px 8px;margin:0;border-radius:6px;transition:background .12s}
-.alerts-detail-row .alert-cat-row:hover{background:var(--bg)}
-.alerts-detail-row .alert-cat-name{color:var(--text);display:flex;align-items:center}
-.alerts-detail-row .alert-cat-count{color:var(--muted)}
-.alerts-detail-row .alert-cat-track{background:var(--border);height:6px;border-radius:6px}
-/* Empty state for detail cards */
-.alerts-detail-empty{font-size:var(--fs-base);color:var(--muted);text-align:center;padding:20px 10px}
-/* Pagination controls */
+/* ── WIDGET HEADER ── */
+.aw-hd{background:#0f766e;padding:9px 14px;display:flex;align-items:center;justify-content:space-between;border-radius:8px 8px 0 0}
+.aw-hd-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.85)}
+.aw-hd-meta{font-size:10px;color:rgba(255,255,255,.7)}
+.aw-hd-badge{font-size:9.5px;font-weight:600;padding:2px 7px;border-radius:3px;background:rgba(255,255,255,.15);color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.04em}
+
+/* ── CARD BODY ── */
+.aw-body{padding:1.1rem 1.25rem}
+
+/* ── KPI ROW ── */
+.aw-kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:12px;margin-bottom:12px}
+.aw-kpi-row .aw-card{cursor:pointer}
+.aw-kpi-label{font-size:.75rem;color:var(--muted);margin-bottom:.3rem}
+.aw-kpi-val{font-size:1.85rem;font-weight:500;color:var(--text);letter-spacing:-.04em;font-family:'DM Mono',monospace;line-height:1}
+.aw-kpi-change{font-size:.7rem;margin-top:.4rem;font-family:'DM Mono',monospace}
+.aw-kpi-up{color:#0f766e}
+.aw-kpi-dn{color:#dc2626}
+.aw-kpi-flat{color:var(--muted)}
+
+/* ── INSIGHTS ROW ── */
+.aw-insights-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:12px}
+.aw-insights-row:empty{display:none}
+
+/* ── INSIGHT ITEM (left-border) ── */
+.aw-insight{padding:.9rem 1.1rem;border-bottom:1px solid rgba(0,0,0,.04);border-left:4px solid;cursor:pointer;transition:background .12s}
+.aw-insight:last-child{border-bottom:none}
+.aw-insight:hover{background:rgba(15,118,110,.03)}
+.aw-insight-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.25rem}
+.aw-insight-text{font-size:.75rem;color:var(--muted);line-height:1.5}
+.aw-insight-text strong{color:var(--text);font-weight:600}
+
+/* ── DETAIL ROW (3 cards) ── */
+.aw-detail-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin-bottom:12px}
+
+/* ── PROGRESS BARS ── */
+.aw-prog{margin-bottom:.85rem;cursor:pointer}
+.aw-prog:last-child{margin-bottom:0}
+.aw-prog-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem}
+.aw-prog-name{font-size:.82rem;font-weight:500;color:var(--text);display:flex;align-items:center;gap:6px}
+.aw-prog-name .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.aw-prog-val{font-size:.88rem;font-weight:500;font-family:'DM Mono',monospace}
+.aw-prog-track{height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.aw-prog-fill{height:100%;border-radius:3px;transition:width .6s ease}
+
+/* ── TOOLBAR (inside list card) ── */
+.aw-toolbar{position:sticky;top:-1px;z-index:90;background:#fff;padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;transition:box-shadow .2s}
+.aw-toolbar.stuck{box-shadow:0 2px 8px rgba(0,0,0,.04)}
+
+/* ── LIST ROWS ── */
+.aw-list-row{display:flex;align-items:center;gap:.875rem;padding:.75rem 1.25rem;border-bottom:1px solid rgba(0,0,0,.04);transition:background .12s;cursor:pointer}
+.aw-list-row:last-child{border-bottom:none}
+.aw-list-row:hover{background:rgba(15,118,110,.03)}
+.aw-list-check{width:15px;height:15px;flex-shrink:0;accent-color:#0f766e;cursor:pointer}
+.aw-list-avatar{width:30px;height:30px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:.7rem;color:#fff;flex-shrink:0;opacity:.8}
+.aw-list-avatar svg{width:13px;height:13px}
+.aw-list-info{flex:1;min-width:0}
+.aw-list-name{font-weight:500;font-size:.85rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.aw-list-detail{font-size:.7rem;color:var(--muted);display:flex;gap:8px;align-items:center;margin-top:1px;flex-wrap:wrap}
+.aw-list-score{font-weight:500;font-size:.875rem;padding:.2rem .55rem;border-radius:4px;min-width:40px;text-align:center;font-family:'DM Mono',monospace;flex-shrink:0}
+.aw-list-actions{display:flex;gap:4px;flex-shrink:0;opacity:0;transition:opacity .15s}
+.aw-list-row:hover .aw-list-actions,.aw-list-row--sel .aw-list-actions{opacity:1}
+.aw-list-row--sel{background:rgba(15,118,110,.04)}
+.aw-list-row--snz{opacity:.45}
+
+/* ── GROUP HEADERS ── */
+.aw-grp-hd{padding:.7rem 1.25rem;border-bottom:1px solid var(--border);font-weight:500;font-size:.85rem;color:var(--text);display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;background:var(--bg);transition:background .12s}
+.aw-grp-hd:hover{background:rgba(15,118,110,.03)}
+.aw-grp-hd__count{font-size:9.5px;font-weight:600;padding:2px 7px;border-radius:3px;background:rgba(15,118,110,.08);color:#0f766e;text-transform:uppercase}
+.aw-grp-hd__score{font-size:.8rem;font-weight:600;padding:.15rem .5rem;border-radius:4px;min-width:32px;text-align:center;color:#fff;font-family:'DM Mono',monospace}
+.aw-grp-hd__chevron{margin-left:auto;color:var(--muted);font-size:.75rem;transition:transform .2s}
+.aw-grp-hd.alert-grp-open .aw-grp-hd__chevron{transform:rotate(90deg)}
+.aw-grp-body{display:none}
+
+/* ── STATUS PILLS ── */
+.aw-pill{display:inline-block;padding:2px 7px;border-radius:3px;font-size:9.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.aw-pill-crit{background:rgba(220,38,38,.06);color:#dc2626}
+.aw-pill-risk{background:rgba(217,119,6,.06);color:#92400e}
+.aw-pill-watch{background:rgba(37,99,235,.06);color:#1d4ed8}
+.aw-pill-ok{background:rgba(22,163,74,.06);color:#16a34a}
+.aw-pill-exp{background:rgba(15,118,110,.06);color:#0f766e}
+
+/* ── VIEW TOGGLE (tab-style) ── */
+.alert-view-toggle{display:inline-flex;background:none;border:none;border-bottom:1.5px solid var(--border);border-radius:0;overflow:visible;gap:0}
+.alert-view-btn{padding:5px 14px 7px;font-size:.75rem;font-weight:600;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;transition:color .15s,border-color .15s;margin-bottom:-1.5px}
+.alert-view-btn:hover{color:var(--text);background:none}
+.alert-view-btn.active{color:#0f766e;border-bottom-color:#0f766e;background:none;box-shadow:none}
+
+/* ── BULK BAR ── */
+.alert-bulk-bar{display:none;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--teal-m);border-left:3px solid #0f766e;border-radius:8px;padding:8px 14px;font-size:.8125rem;font-weight:600;color:#0f766e}
+.alert-bulk-bar.visible{display:flex}
+
+/* ── PAGINATION ── */
 .pag-wrap{display:flex;align-items:center;justify-content:center;gap:4px;padding:10px 0;flex-wrap:wrap}
 .pag-btn{min-width:32px;height:32px;padding:0 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:var(--fs-base);font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;justify-content:center}
-.pag-btn:hover:not(.disabled):not(.active){background:var(--bg);border-color:var(--accent)}
-.pag-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.pag-btn:hover:not(.disabled):not(.active){background:var(--bg);border-color:var(--subtle)}
+.pag-btn.active{background:#0f766e;color:#fff;border-color:#0f766e}
 .pag-btn.disabled{opacity:.35;cursor:default}
 .pag-ellipsis{font-size:var(--fs-base);color:var(--muted);padding:0 4px}
 .pag-info{font-size:var(--fs-sm);color:var(--muted);margin-left:8px;font-weight:500}
-/* Alert score circle */
-.alert-score-circle{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:var(--fs-sm);font-weight:800;color:#fff;flex-shrink:0}
-/* Alert tier + meta chips */
-.alert-tier-chip{font-size:var(--fs-xs);font-weight:700;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
-.alert-meta-csm{font-size:var(--fs-xs);color:var(--muted);white-space:nowrap}
-.alert-meta-days{font-size:var(--fs-xs);color:var(--muted);white-space:nowrap}
-/* MRR exposure rows */
-.alert-mrr-row{display:flex;align-items:center;gap:10px;margin-bottom:13px}
-.alert-mrr-row:last-child{margin-bottom:0}
-.alert-mrr-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
-.alert-mrr-label{font-size:var(--fs-base);font-weight:600;flex:1;color:var(--text)}
-.alert-mrr-val{font-size:var(--fs-md);font-weight:800;color:var(--text)}
-/* Category bar rows */
-.alert-cat-row{margin-bottom:14px;cursor:pointer;padding:4px 6px;border-radius:6px;transition:background .12s}
-.alert-cat-row:hover{background:rgba(59,130,246,.06)}
-.alert-cat-row:last-child{margin-bottom:0}
-.alert-cat-meta{display:flex;justify-content:space-between;font-size:var(--fs-sm);margin-bottom:5px}
-.alert-cat-name{font-weight:600;color:var(--text);font-size:var(--fs-base)}
-.alert-cat-count{color:var(--muted);font-weight:700}
-.alert-cat-track{height:8px;background:var(--border);border-radius:5px;overflow:hidden}
-.alert-cat-bar{height:100%;border-radius:5px;transition:width .3s}
-/* Priority Actions widget */
-.alert-action-row{display:flex;align-items:flex-start;gap:10px;padding:8px 8px;border-radius:8px;transition:background .12s;cursor:pointer}
+
+/* ── EMPTY STATE ── */
+.alerts-detail-empty{font-size:var(--fs-base);color:var(--muted);text-align:center;padding:20px 10px}
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){.aw-detail-row{grid-template-columns:1fr}}
+@media(max-width:700px){.aw-kpi-row{grid-template-columns:1fr 1fr}.aw-insights-row{grid-template-columns:1fr}}
+
+/* ── KEEP: Action rows, sum pills (compat) ── */
+.alert-action-row{display:flex;align-items:flex-start;gap:10px;padding:8px 8px;border-radius:4px;transition:background .12s;cursor:pointer}
 .alert-action-row:hover{background:var(--bg)}
 .alert-action-row+.alert-action-row{margin-top:2px}
 .alert-action-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:4px}
 .alert-action-body{flex:1;min-width:0}
 .alert-action-cust{font-size:var(--fs-base);font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .alert-action-text{font-size:var(--fs-sm);color:var(--muted);line-height:1.4;margin-top:1px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-/* Alert list view toggle */
-.alert-view-toggle{display:inline-flex;background:var(--surface);border:1.5px solid var(--border);border-radius:8px;overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.04)}
-.alert-view-btn{padding:5px 14px;font-size:var(--fs-sm);font-weight:600;color:var(--muted);background:none;border:none;cursor:pointer;transition:all .15s}
-.alert-view-btn:hover{color:var(--text);background:var(--bg)}
-.alert-view-btn.active{background:var(--teal);color:#fff;box-shadow:0 1px 3px rgba(8,145,178,.3)}
-/* Priority group headers */
-.alert-priority-hd{font-size:var(--fs-md);font-weight:700;letter-spacing:.02em;color:var(--text);margin:18px 0 0;display:flex;align-items:center;gap:7px;padding:8px 10px;border-bottom:1.5px solid var(--border);cursor:pointer;border-radius:var(--r) var(--r) 0 0;transition:background .15s;background:linear-gradient(180deg,rgba(240,244,248,.5) 0%,transparent 100%)}
-.alert-priority-hd:hover{background:linear-gradient(180deg,rgba(8,145,178,.05) 0%,transparent 100%)}
-.alert-priority-hd::after{content:'▸';margin-left:auto;color:var(--subtle);font-size:var(--fs-base);transition:transform .2s}
-.alert-priority-hd.alert-grp-open::after{transform:rotate(90deg)}
-.alert-priority-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-/* Bulk action bar */
-.alert-sticky-bar{position:sticky;top:-30px;z-index:90;background:var(--bg);padding:36px 2px 6px;margin:-10px -2px 8px;border-bottom:1px solid transparent;transition:border-color .2s,box-shadow .2s}
-.alert-sticky-bar.stuck{border-bottom-color:var(--border);box-shadow:0 2px 8px rgba(0,0,0,.06)}
-.alert-bulk-bar{display:none;align-items:center;gap:8px;background:linear-gradient(90deg,var(--teal-l) 0%,#ecfeff 100%);border:1px solid var(--teal-m);border-radius:var(--r);padding:8px 14px;margin-bottom:4px;font-size:var(--fs-base);font-weight:600;color:var(--teal);box-shadow:0 1px 4px rgba(8,145,178,.08)}
-.alert-bulk-bar.visible{display:flex}
-/* Insights container — teal-tinted elevated look */
-#alert-insights-wrap{background:linear-gradient(135deg,#f0fdfa 0%,#ecfeff 40%,#fff 100%);border:1px solid rgba(8,145,178,.12);border-radius:var(--rlg);padding:18px 20px 14px;box-shadow:inset 0 1px 4px rgba(8,145,178,.06),0 2px 10px rgba(8,145,178,.05)}
-#alert-insights-wrap .ta-card{border-left:3px solid var(--border);transition:border-color .2s,box-shadow .2s}
-#alert-insights-wrap .ta-card-red{border-left-color:var(--red)}
-#alert-insights-wrap .ta-card-amber{border-left-color:var(--amber)}
-#alert-insights-wrap .ta-card-green{border-left-color:var(--green)}
-#alert-insights-wrap .ta-card:hover{box-shadow:0 2px 8px rgba(8,145,178,.10)}
+.alert-sum-pill{display:inline-flex;align-items:center;padding:5px 12px;border-radius:100px;font-size:var(--fs-sm);font-weight:700;letter-spacing:.01em;cursor:pointer;transition:transform .15s,background .15s}
+.alert-sum-pill:hover{transform:translateY(-1px)}
 /* Snooze dropdown */
 .snooze-dd{position:relative;display:inline-block}
 .snooze-dd__menu{display:none;position:absolute;right:0;top:calc(100% + 4px);background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shm);z-index:200;min-width:130px}
@@ -352,33 +391,33 @@ svg.sparkline{display:block}
 
 /* HOME BASE */
 /* Home Base Welcome Banner */
-.hb-welcome{background:#fff;border:3px solid transparent;border-radius:var(--rlg);padding:32px 32px 28px;margin-bottom:20px;position:relative;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.06);background-clip:padding-box}
-.hb-welcome::before{content:'';position:absolute;inset:-3px;border-radius:inherit;padding:3px;background:var(--hb-border-grad,linear-gradient(135deg,#3b82f6,#8b5cf6,#06b6d4,#10b981,#3b82f6));background-size:300% 300%;animation:hb-shimmer 4s linear infinite;-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.hb-welcome{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:32px 32px 28px;margin-bottom:20px;position:relative;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.hb-welcome::before{content:'';position:absolute;inset:0;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,#0f766e,#14b8a6,#0d9488);pointer-events:none}
 @keyframes hb-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-.hb-welcome::after{content:'';position:absolute;top:-40px;right:-40px;width:250px;height:250px;background:var(--hb-glow,radial-gradient(circle,rgba(99,102,241,.06) 0%,rgba(59,130,246,.03) 40%,transparent 70%));border-radius:50%;pointer-events:none}
+.hb-welcome::after{content:'';position:absolute;top:-40px;right:-40px;width:250px;height:250px;background:var(--hb-glow,radial-gradient(circle,rgba(15,118,110,.06) 0%,rgba(20,184,166,.03) 40%,transparent 70%));border-radius:50%;pointer-events:none}
 .hb-welcome-grid{display:grid;grid-template-columns:auto 1fr;gap:32px;align-items:center}
 .hb-welcome-left{min-width:0}
 .hb-welcome-right{display:flex;flex-direction:column;align-items:flex-start;gap:14px}
-.hb-greeting{font-size:1.7rem;font-weight:800;letter-spacing:-.03em;line-height:1.2;background:linear-gradient(135deg,#2563eb,#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hb-greeting{font-size:1.7rem;font-weight:800;letter-spacing:-.03em;line-height:1.2;color:#0f766e}
 .hb-date{font-size:var(--fs-sm);color:var(--muted);font-weight:500;margin-top:5px;letter-spacing:.02em}
 .hb-summary{font-size:var(--fs-md);color:var(--text);opacity:.75;line-height:1.6;margin-top:12px;max-width:600px}
 .hb-summary strong{color:var(--text);font-weight:700}
 .hb-brief-cards{display:flex;flex-direction:column;gap:6px;margin-top:14px}
 .hb-brief-card{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:background .15s,border-color .15s,box-shadow .15s}
-.hb-brief-card:hover{background:#f0f4ff;border-color:#c7d2fe;border-left-color:var(--blue);box-shadow:0 2px 8px rgba(99,102,241,.08)}
-.hb-brief-icon{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#eff6ff,#ede9fe);color:#6366f1;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hb-brief-card:hover{background:#f0fdfa;border-color:#99f6e4;border-left-color:#0f766e;box-shadow:0 2px 8px rgba(15,118,110,.08)}
+.hb-brief-icon{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#f0fdfa,#ccfbf1);color:#0f766e;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .hb-brief-text{flex:1;font-size:var(--fs-base);color:var(--text);line-height:1.45}
 .hb-brief-arrow{color:var(--border);flex-shrink:0;transition:color .15s}
-.hb-brief-card:hover .hb-brief-arrow{color:#6366f1}
+.hb-brief-card:hover .hb-brief-arrow{color:#0f766e}
 .hb-pulse-ring{position:relative;width:110px;height:110px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .hb-pulse-ring svg{position:absolute;top:0;left:0;filter:drop-shadow(0 0 6px rgba(99,102,241,.2))}
 .hb-pulse-center{position:relative;z-index:1;text-align:center}
-.hb-pulse-num{font-size:1.8rem;font-weight:800;color:var(--heading);line-height:1;letter-spacing:-.03em}
+.hb-pulse-num{font-size:1.8rem;font-weight:500;color:var(--heading);line-height:1;letter-spacing:-.03em;font-family:'DM Mono',monospace}
 .hb-pulse-lbl{font-size:var(--fs-2xs);color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-top:2px;font-weight:600}
 .hb-pulse-delta{font-size:.65rem;font-weight:800;line-height:1;margin-top:1px;letter-spacing:-.01em}
 .hb-quick-stats{display:grid;grid-template-columns:1fr 1fr;gap:14px 28px}
 .hb-qs{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
-.hb-qs-num{font-size:1.2rem;font-weight:800;line-height:1;min-width:2.2em}
+.hb-qs-num{font-size:1.2rem;font-weight:500;line-height:1;min-width:2.2em;font-family:'DM Mono',monospace}
 .hb-qs-lbl{font-size:var(--fs-2xs);color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
 .hb-stats-bar{display:flex;gap:6px;flex-wrap:wrap;margin-top:16px}
 .hb-stat{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:8px 14px;transition:border-color .15s,box-shadow .15s}
@@ -401,11 +440,11 @@ svg.sparkline{display:block}
 #homebase-wrap .dash-kpi-row{margin-bottom:16px}
 
 .hb-section-hd{font-size:var(--fs-base);font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:14px;display:flex;align-items:center;gap:10px}
-.hb-section-hd::before{content:'';display:inline-block;width:4px;height:16px;border-radius:3px;background:linear-gradient(180deg,var(--blue),var(--purple));flex-shrink:0}
+.hb-section-hd::before{content:'';display:inline-block;width:4px;height:16px;border-radius:3px;background:#0f766e;flex-shrink:0}
 .hb-section-hd .hb-count{font-weight:500;font-size:var(--fs-base);color:var(--muted);text-transform:none;letter-spacing:0}
 
 .hb-insights-wrap{display:flex;flex-direction:column;gap:8px}
-.hb-insight-card{display:flex;gap:14px;padding:14px 18px;background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--blue);border-radius:var(--r);transition:box-shadow .15s,background .15s,border-left-color .15s}
+.hb-insight-card{display:flex;gap:14px;padding:14px 18px;background:#fff;border:1px solid #e2e8f0;border-left:4px solid #0f766e;border-radius:8px;transition:box-shadow .15s,background .15s,border-left-color .15s}
 .hb-insight-card:hover{box-shadow:0 2px 12px rgba(0,0,0,.06);background:var(--surface)}
 .hb-insight-card.hb-cat-risk{border-left-color:var(--red)}
 .hb-insight-card.hb-cat-trend{border-left-color:var(--blue)}
@@ -457,22 +496,23 @@ svg.sparkline{display:block}
 
 .ct{width:100%;min-width:1100px;border-collapse:collapse;font-size:var(--fs-base)}
 #table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
-#cust-scroll-wrap{max-height:680px;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+#cust-scroll-wrap{max-height:680px;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}
 #cust-scroll-wrap::-webkit-scrollbar{width:6px;height:6px}
 #cust-scroll-wrap::-webkit-scrollbar-track{background:transparent}
-#cust-scroll-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
-#cust-scroll-wrap::-webkit-scrollbar-thumb:hover{background:var(--subtle)}
-#customers-table-card{padding-left:0;padding-right:0}
-#customers-table-card .list-toolbar,#customers-table-card #filter-pill-bar{padding-left:22px;padding-right:22px}
+#cust-scroll-wrap::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+#cust-scroll-wrap::-webkit-scrollbar-thumb:hover{background:#94a3b8}
+#customers-table-card{padding:0}
+#customers-table-card .list-toolbar{padding:14px 1.25rem 10px}
+#customers-table-card #filter-pill-bar{padding-left:1.25rem;padding-right:1.25rem}
 .ct thead{position:sticky;top:0;z-index:2}
-.ct th{text-align:left;font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--subtle);padding:7px 9px;border-bottom:1.5px solid var(--border);background:var(--bg);cursor:pointer;user-select:none;white-space:normal;line-height:1.25;min-width:0;transition:color .13s}
-.ct th:hover{color:var(--blue)}
-.ct td{padding:9px 9px;border-bottom:1px solid var(--border);vertical-align:middle}
+.ct th{text-align:left;font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;padding:8px 10px;border-bottom:1px solid #e2e8f0;background:#f8fafc;cursor:pointer;user-select:none;white-space:normal;line-height:1.25;min-width:0;transition:color .13s}
+.ct th:hover{color:#0f766e}
+.ct td{padding:9px 10px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
 .ct tr:last-child td{border-bottom:none}
 .ct tbody tr{transition:background .1s}
-.ct tbody tr:hover{background:var(--bg)}
-.ct tbody tr:hover td:first-child{border-left:3px solid var(--blue-m)}
-.ct tbody tr.selected{background:var(--blue-l)}
+.ct tbody tr:hover{background:#f0fdfa}
+.ct tbody tr:hover td:first-child{border-left:3px solid #14b8a6}
+.ct tbody tr.selected{background:#f0fdfa}
 .ct td.cb-col{width:32px;padding-right:0;border-left:3px solid transparent;transition:border-color .1s}
 .ct-two-line{display:flex;flex-direction:column;gap:2px;line-height:1.2}
 .ct-two-line .ct-sub{font-size:var(--fs-xs);color:var(--muted)}
@@ -604,28 +644,40 @@ svg.sparkline{display:block}
 .weight-pct input[type=number]{-moz-appearance:textfield}
 .weight-pct input[type=number]::-webkit-outer-spin-button,.weight-pct input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .weight-pct input[type=number]:focus{border-color:var(--blue)}
-.total-bar{height:6px;background:var(--border);border-radius:100px;overflow:hidden;margin:14px 0 6px}
+.total-bar{height:4px;background:var(--border);border-radius:100px;overflow:hidden;margin:6px 0 4px}
 .total-fill{height:100%;border-radius:100px;transition:width .3s;background:var(--blue)}
 .profile-row{display:flex;align-items:center;gap:8px;padding:10px 14px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--surface);transition:box-shadow .15s,border-color .15s,background .12s;cursor:pointer}
 .profile-row:hover{box-shadow:var(--shm);border-color:transparent;background:rgba(59,130,246,.04)}
 .profile-row.profile-active{background:rgba(59,130,246,.08);border-left:3px solid var(--blue);border-color:var(--blue)}
 .profile-row__name{flex:1;font-size:var(--fs-md);font-weight:600}
-.threshold-row{display:flex;align-items:center;gap:12px;margin-bottom:12px}
-.threshold-label{min-width:150px;font-size:var(--fs-md);font-weight:600}
+.threshold-row{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.threshold-label{min-width:155px;font-size:var(--fs-md);font-weight:600;flex-shrink:0}
 .threshold-input{width:72px;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:var(--fs-md);font-family:var(--font);text-align:center;outline:none}
 .threshold-input:focus{border-color:var(--focus)}
 .cfg-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
 .cfg-grid>.card{margin-bottom:0}
 @media(max-width:900px){.cfg-grid{grid-template-columns:1fr}}
-.cfg-columns{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
-.cfg-col{display:flex;flex-direction:column;gap:16px}
-.cfg-col>.card{margin-bottom:0}
-@media(max-width:900px){.cfg-columns{grid-template-columns:1fr}}
+.cfg-columns{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-items:start}
+.cfg-columns>.card,.cfg-stack .card{margin-bottom:0;padding:10px 14px}
+.cfg-columns>.card>.card-hd,.cfg-stack .card>.card-hd{margin:-10px -14px 8px;padding:7px 12px;background:#f0fdfa;border-bottom:1px solid #ccfbf1}
+.cfg-stack{display:flex;flex-direction:column;gap:10px}
+@media(max-width:1100px){.cfg-columns{grid-template-columns:1fr 1fr}}
+@media(max-width:700px){.cfg-columns{grid-template-columns:1fr}}
+#cfg-pane-config{}
+.cfg-section{margin-bottom:20px}
+.cfg-section:last-child{margin-bottom:0}
+.cfg-section-hd{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#0f766e;margin:0 0 10px;padding:7px 12px;background:#f0fdfa;border-left:3px solid #0f766e;border-radius:4px;display:flex;align-items:center;gap:10px}
+.cfg-section-hd svg{width:16px;height:16px;stroke:#0f766e;stroke-width:2;fill:none;flex-shrink:0}
+.cfg-columns .card p,.cfg-stack .card p{font-size:12px;margin-bottom:6px}
+#cfg-pane-config .threshold-row{margin-bottom:2px!important;gap:8px!important;padding:0!important}
+#cfg-pane-config .threshold-label{min-width:155px}
+#cfg-pane-config .card p{margin-bottom:4px!important}
+#cfg-pane-config .total-bar{height:4px!important;margin:4px 0!important}
 /* Score distribution bar */
 .score-dist-bar{display:flex;height:28px;border-radius:6px;overflow:hidden;margin-bottom:12px}.score-dist-bar>div{display:flex;align-items:center;justify-content:center;font-size:var(--fs-xs);font-weight:700;color:#fff;min-width:2px;transition:width .3s}
 .score-dist-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:2px}.score-dist-legend span{display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);color:var(--text)}.score-dist-legend .dl{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 /* Quick actions grid */
-.qa-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.qa-btn{display:flex;align-items:center;gap:8px;padding:12px 14px;border-radius:8px;border:1.5px solid var(--border);background:var(--card);cursor:pointer;font-size:var(--fs-base);font-weight:600;color:var(--text);transition:border-color .15s,background .15s,transform .12s}.qa-btn:hover{border-color:var(--blue);background:rgba(59,130,246,.06);transform:translateY(-1px)}.qa-btn svg{flex-shrink:0;color:var(--blue)}
+.qa-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.qa-btn{display:flex;align-items:center;gap:8px;padding:12px 14px;border-radius:8px;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;font-size:var(--fs-base);font-weight:600;color:var(--text);transition:border-color .15s,background .15s,transform .12s}.qa-btn:hover{border-color:#0f766e;background:#f0fdfa;transform:translateY(-1px)}.qa-btn svg{flex-shrink:0;color:#0f766e}
 /* Data health stats */
 .dh-stats{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}.dh-row{display:flex;justify-content:space-between;align-items:center;font-size:var(--fs-base)}.dh-row .dh-val{font-weight:700}.dh-row .dh-val.warn{color:var(--amber)}.dh-row .dh-val.good{color:var(--green)}
 .dh-bar{height:8px;border-radius:4px;background:var(--border);overflow:hidden}.dh-bar>div{height:100%;border-radius:4px;background:var(--green);transition:width .3s}
@@ -633,8 +685,8 @@ svg.sparkline{display:block}
 .cfg-history{list-style:none;padding:0;margin:0;max-height:240px;overflow-y:auto}.cfg-history li{padding:8px 0;border-bottom:1px solid var(--border);font-size:var(--fs-base)}.cfg-history li:last-child{border-bottom:none}.cfg-history .ch-action{font-weight:600;color:var(--text)}.cfg-history .ch-time{color:var(--muted);font-size:var(--fs-sm);margin-top:2px}.cfg-history .ch-empty{color:var(--muted);font-style:italic;padding:16px 0;text-align:center}
 
 /* CSV IMPORT */
-.drop-zone{border:2px dashed var(--border);border-radius:var(--rlg);padding:40px 20px;text-align:center;cursor:pointer;transition:border-color .16s,background .16s}
-.drop-zone:hover,.drop-zone.drag-over{border-color:var(--blue);background:var(--blue-l)}
+.drop-zone{border:2px dashed #cbd5e1;border-radius:8px;padding:40px 20px;text-align:center;cursor:pointer;transition:border-color .16s,background .16s}
+.drop-zone:hover,.drop-zone.drag-over{border-color:#0f766e;background:#f0fdfa}
 .drop-zone input{display:none}
 .drop-zone__icon{font-size:2.2rem;margin-bottom:8px}
 .csv-prev{margin-top:14px;overflow-x:auto;border-radius:var(--r);border:1px solid var(--border)}
@@ -661,13 +713,14 @@ svg.sparkline{display:block}
 .modal-ft{margin-top:20px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;padding-top:16px;border-top:1px solid var(--border)}
 
 /* DETAIL MODAL TABS */
-.dtab-row{display:flex;gap:3px;background:var(--border);border-radius:var(--r);padding:3px;margin-bottom:16px;width:fit-content}
-.dtab{padding:5px 12px;border-radius:7px;border:none;background:transparent;font-size:var(--fs-base);font-weight:600;color:var(--muted);cursor:pointer;transition:all .13s}
-.dtab.active{background:var(--surface);color:var(--text);box-shadow:var(--sh)}
+.dtab-row{display:flex;gap:0;border-bottom:1px solid #e2e8f0;margin-bottom:16px;width:fit-content}
+.dtab{padding:7px 14px;border:none;background:transparent;font-size:var(--fs-base);font-weight:600;color:var(--muted);cursor:pointer;transition:all .13s;border-bottom:2px solid transparent;margin-bottom:-1px}
+.dtab.active{color:#0f766e;border-bottom-color:#0f766e}
+.dtab:not(.active):hover{color:#0f766e;background:#f0fdfa}
 .trend-range-bar{background:color-mix(in srgb, var(--blue) 12%, var(--border));border:1.5px solid color-mix(in srgb, var(--blue) 25%, transparent);padding:4px}
 .trend-range-bar .dtab{padding:6px 14px;font-size:var(--fs-base);font-weight:700}
-.trend-range-bar .dtab.active{background:var(--blue);color:#fff;box-shadow:0 2px 6px rgba(59,130,246,.3)}
-.trend-range-bar .dtab:not(.active):hover{background:color-mix(in srgb, var(--blue) 10%, transparent)}
+.trend-range-bar .dtab.active{background:#0f766e;color:#fff;box-shadow:0 2px 6px rgba(15,118,110,.3);border-bottom-color:transparent}
+.trend-range-bar .dtab:not(.active):hover{background:#f0fdfa}
 .dtab-pane{display:none}.dtab-pane.active{display:block}
 
 /* TOGGLE SWITCH */
@@ -679,7 +732,7 @@ svg.sparkline{display:block}
 .toggle-switch input:checked + .toggle-slider::before{transform:translateX(18px)}
 
 /* AUTOMATIONS PAGE */
-.auto-card{background:var(--bg);border:1.5px solid var(--border);border-radius:var(--rlg);padding:18px 20px;margin-bottom:14px}
+.auto-card{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:18px 20px;margin-bottom:14px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
 .auto-card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px}
 .auto-card-hd h3{margin:0;font-size:var(--fs-md);font-weight:700}
 .auto-card-hd p{margin:0}
@@ -705,10 +758,10 @@ svg.sparkline{display:block}
 .rpt-section-hd h2{font-size:var(--fs-lg);font-weight:700;margin:0}
 .rpt-section-hd .tier-badge{margin-left:auto}
 .rpt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
-.rpt-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;box-shadow:var(--sh);position:relative;transition:box-shadow .18s,border-color .18s}
-.rpt-card:hover{box-shadow:var(--shm);border-color:var(--subtle)}
+.rpt-card{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:20px;box-shadow:0 1px 2px rgba(0,0,0,.05);position:relative;transition:box-shadow .18s,border-color .18s,transform .2s}
+.rpt-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08);border-color:#cbd5e1;transform:translateY(-2px)}
 .rpt-card.locked{opacity:.55;pointer-events:none}
-.rpt-card.locked::after{content:'';position:absolute;inset:0;background:rgba(255,255,255,.3);border-radius:var(--rlg);z-index:1}
+.rpt-card.locked::after{content:'';position:absolute;inset:0;background:rgba(255,255,255,.3);border-radius:8px;z-index:1}
 .rpt-card__icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;flex-shrink:0}
 .rpt-card__title{font-size:var(--fs-md);font-weight:700;color:var(--text);margin-bottom:4px;display:flex;align-items:center;gap:6px}
 .rpt-card__desc{font-size:var(--fs-base);color:var(--muted);line-height:1.5;margin-bottom:14px}
@@ -966,30 +1019,31 @@ svg.sparkline{display:block}
 
 /* ─── DASHBOARD KPI ROW ─────────────────────────────────────── */
 .dash-kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px}
-.dash-kpi-card{border-radius:var(--rlg);padding:20px 20px 18px;cursor:pointer;transition:transform .15s,box-shadow .15s;position:relative;color:#fff}
-.dash-kpi-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:50}
-.dash-kpi-blue{background:linear-gradient(135deg,#2563eb 0%,#3b82f6 100%)}
-.dash-kpi-red{background:linear-gradient(135deg,#dc2626 0%,#ef4444 100%)}
-.dash-kpi-teal{background:linear-gradient(135deg,#0891b2 0%,#06b6d4 100%)}
-.dash-kpi-amber{background:linear-gradient(135deg,#d97706 0%,#f59e0b 100%)}
-.dash-kpi-green{background:linear-gradient(135deg,#16a34a 0%,#22c55e 100%)}
-.dash-kpi-purple{background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%)}
-.dash-kpi-indigo{background:linear-gradient(135deg,#4338ca 0%,#6366f1 100%)}
-.dash-kpi-rose{background:linear-gradient(135deg,#be123c 0%,#f43f5e 100%)}
-.dash-kpi-cyan{background:linear-gradient(135deg,#0e7490 0%,#22d3ee 100%)}
-.dash-kpi-violet{background:linear-gradient(135deg,#6d28d9 0%,#a78bfa 100%)}
-.dash-kpi-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
-.dash-kpi-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.dash-kpi-label{font-size:var(--fs-md);font-weight:800;text-transform:uppercase;letter-spacing:.07em;opacity:1}
-.dash-kpi-num{font-size:2.2rem;font-weight:800;line-height:1;letter-spacing:-.04em;margin-bottom:3px}
-.dash-kpi-sub{font-size:var(--fs-sm);opacity:.72;font-weight:500}
-.dash-kpi-pill{display:inline-flex;align-items:center;padding:3px 9px;border-radius:100px;font-size:var(--fs-sm);font-weight:700;letter-spacing:.01em}
-.dash-kpi-pill.red{background:rgba(0,0,0,.18);color:#fff}
-.dash-kpi-pill.green{background:rgba(255,255,255,.2);color:#fff}
-.dash-kpi-pill.amber{background:rgba(0,0,0,.18);color:#fff}
-.dash-kpi-pill.teal{background:rgba(255,255,255,.2);color:#fff}
-.dash-kpi-pill.blue{background:rgba(0,0,0,.18);color:#fff}
-.dash-health-bar{display:flex;height:7px;border-radius:100px;overflow:hidden;gap:2px;margin-top:10px}
+.dash-kpi-card{background:#fff;border-radius:8px;border:1px solid #e2e8f0;box-shadow:0 1px 2px rgba(0,0,0,.05);overflow:hidden;cursor:pointer;transition:transform .15s,box-shadow .15s;position:relative;color:var(--text);padding:0}
+.dash-kpi-card:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:50}
+.dash-kpi-blue .dash-kpi-hd{background:#2563eb}
+.dash-kpi-red .dash-kpi-hd{background:#dc2626}
+.dash-kpi-teal .dash-kpi-hd{background:#0f766e}
+.dash-kpi-amber .dash-kpi-hd{background:#d97706}
+.dash-kpi-green .dash-kpi-hd{background:#16a34a}
+.dash-kpi-purple .dash-kpi-hd{background:#7c3aed}
+.dash-kpi-indigo .dash-kpi-hd{background:#4338ca}
+.dash-kpi-rose .dash-kpi-hd{background:#be123c}
+.dash-kpi-cyan .dash-kpi-hd{background:#0e7490}
+.dash-kpi-violet .dash-kpi-hd{background:#6d28d9}
+.dash-kpi-hd{padding:7px 14px;display:flex;align-items:center;gap:8px}
+.dash-kpi-icon{width:20px;height:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;color:rgba(255,255,255,.85)}
+.dash-kpi-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.85)}
+.dash-kpi-body{padding:14px 14px 12px}
+.dash-kpi-num{font-size:1.85rem;font-weight:500;line-height:1;letter-spacing:-.04em;margin-bottom:4px;font-family:'DM Mono',monospace;color:var(--text)}
+.dash-kpi-sub{font-size:var(--fs-sm);color:var(--muted);font-weight:500}
+.dash-kpi-pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:100px;font-size:var(--fs-sm);font-weight:700;letter-spacing:.01em;font-family:'DM Mono',monospace}
+.dash-kpi-pill.red{background:#fef2f2;color:#dc2626}
+.dash-kpi-pill.green{background:#f0fdf4;color:#16a34a}
+.dash-kpi-pill.amber{background:#fffbeb;color:#d97706}
+.dash-kpi-pill.teal{background:#f0fdfa;color:#0f766e}
+.dash-kpi-pill.blue{background:#eff6ff;color:#2563eb}
+.dash-health-bar{display:flex;height:5px;border-radius:100px;overflow:hidden;gap:2px;margin-top:10px}
 .dash-health-seg{border-radius:100px;transition:width .6s cubic-bezier(.4,0,.2,1);min-width:0}
 
 /* Win/Drop + See All (used by Home Base movers) */
@@ -1029,8 +1083,8 @@ svg.sparkline{display:block}
 .auth-divider{display:flex;align-items:center;gap:8px;margin:14px 0;color:var(--subtle);font-size:var(--fs-sm)}
 .auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--border)}
 /* User pill in topbar */
-.user-pill{display:flex;align-items:center;gap:7px;font-size:var(--fs-base);font-weight:600;color:rgba(255,255,255,.85)}
-.user-avatar{width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.2);border:1.5px solid rgba(255,255,255,.3);color:#fff;display:flex;align-items:center;justify-content:center;font-size:var(--fs-sm);font-weight:700}
+.user-pill{display:none}
+.user-avatar{display:none}
 /* ─── COLUMN FILTER SYSTEM ─── */
 .col-th-inner{display:flex;align-items:center;gap:2px;white-space:nowrap}
 .col-sort-label{flex:1;background:none;border:none;padding:0;font:inherit;color:inherit;cursor:pointer;text-align:left;letter-spacing:inherit;text-transform:inherit;user-select:none;min-width:0}
@@ -1155,15 +1209,15 @@ td .sparkline{vertical-align:middle}
 .trend-autocomplete div:hover{background:var(--bg)}
 
 /* Help & Guide — modern design system */
-.help-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px 28px;margin-bottom:18px;position:relative;overflow:hidden}
+.help-card{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:24px 28px;margin-bottom:18px;position:relative;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.05)}
 .help-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px 0 0 3px}
-.help-card[data-accent="blue"]::before{background:#3b82f6}
-.help-card[data-accent="green"]::before{background:#10b981}
-.help-card[data-accent="purple"]::before{background:#8b5cf6}
-.help-card[data-accent="amber"]::before{background:#f59e0b}
-.help-card[data-accent="red"]::before{background:#ef4444}
-.help-card[data-accent="indigo"]::before{background:#6366f1}
-.help-card[data-accent="cyan"]::before{background:#06b6d4}
+.help-card[data-accent="blue"]::before{background:#2563eb}
+.help-card[data-accent="green"]::before{background:#16a34a}
+.help-card[data-accent="purple"]::before{background:#7c3aed}
+.help-card[data-accent="amber"]::before{background:#d97706}
+.help-card[data-accent="red"]::before{background:#dc2626}
+.help-card[data-accent="indigo"]::before{background:#4338ca}
+.help-card[data-accent="cyan"]::before{background:#0f766e}
 .help-hd{display:flex;align-items:center;gap:12px;margin-bottom:14px}
 .help-hd-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .help-hd-icon svg{width:18px;height:18px}
@@ -1201,8 +1255,8 @@ td .sparkline{vertical-align:middle}
 .help-section p{font-size:var(--fs-base);color:var(--text);line-height:1.65;margin:0 0 10px}
 .help-section ul{font-size:var(--fs-base);color:var(--text);padding-left:20px;line-height:1.7;margin:0 0 10px}
 .help-section li{margin-bottom:4px}
-.help-hero{background:linear-gradient(135deg,#eff6ff,#f5f3ff);border:1px solid #ddd6fe;border-radius:12px;padding:28px 32px;margin-bottom:20px;text-align:center}
-.help-hero h2{font-size:1.3rem;font-weight:800;margin:0 0 6px;background:linear-gradient(135deg,#2563eb,#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.help-hero{background:linear-gradient(135deg,#f0fdfa,#ccfbf1);border:1px solid #99f6e4;border-radius:8px;padding:28px 32px;margin-bottom:20px;text-align:center}
+.help-hero h2{font-size:1.3rem;font-weight:800;margin:0 0 6px;color:#0f766e}
 .help-hero p{font-size:var(--fs-md);color:#64748b;margin:0;max-width:600px;margin-left:auto;margin-right:auto;line-height:1.6}
 #help-search{border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-size:var(--fs-md);background:var(--surface);transition:border-color .15s,box-shadow .15s}
 #help-search:focus{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.1);outline:none}
@@ -1218,7 +1272,7 @@ td .sparkline{vertical-align:middle}
 .cal-dot--overdue{background:var(--red)}
 .cal-dot--past-completed{background:var(--green)}
 .cal-dot--past-missed{background:var(--red)}
-.cal-today-banner{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 22px;margin-bottom:18px;box-shadow:var(--sh)}
+.cal-today-banner{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:18px 22px;margin-bottom:18px;box-shadow:0 1px 2px rgba(0,0,0,.05)}
 .cal-today-date{font-size:var(--fs-lg);font-weight:800;color:var(--text);margin-bottom:10px;letter-spacing:-.01em}
 .cal-today-items{display:flex;flex-direction:column;gap:7px}
 .cal-today-item{display:flex;align-items:flex-start;gap:8px;font-size:var(--fs-base);color:var(--text);line-height:1.45}
@@ -1226,10 +1280,11 @@ td .sparkline{vertical-align:middle}
 .cal-today-text{color:var(--muted);line-height:1.45}
 .cal-today-text strong{color:var(--text);font-weight:700}
 .cal-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
-.cal-stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:18px 20px;box-shadow:var(--sh);position:relative;overflow:hidden}
-.cal-stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent-color,var(--blue))}
-.cal-stat-num{font-size:1.8rem;font-weight:800;letter-spacing:-.03em;line-height:1;color:var(--text)}
+.cal-stat-card{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:0;box-shadow:0 1px 2px rgba(0,0,0,.05);position:relative;overflow:hidden}
+.cal-stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:var(--accent-color,#0f766e)}
+.cal-stat-num{font-size:1.8rem;font-weight:500;letter-spacing:-.03em;line-height:1;color:var(--text);font-family:'DM Mono',monospace}
 .cal-stat-label{font-size:var(--fs-sm);font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-top:4px}
+.cal-stat-card>*{padding:0 20px}.cal-stat-card>.cal-stat-num{padding-top:18px}.cal-stat-card>.cal-stat-label{padding-bottom:16px}
 .cal-filter-row{display:flex;align-items:center;gap:14px;margin-bottom:16px;flex-wrap:wrap}
 .cal-search-wrap{position:relative;min-width:240px}
 .cal-search-input{padding:7px 30px 7px 10px;border:1px solid var(--border);border-radius:var(--rsm);font-size:var(--fs-base);background:var(--surface);color:var(--text);width:100%;outline:none;transition:border-color .15s}
@@ -1246,9 +1301,9 @@ td .sparkline{vertical-align:middle}
 .cal-ctx-label{font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
 .cal-ctx-val{font-size:var(--fs-base);font-weight:700;color:var(--text)}
 .cal-ctx-sep{width:1px;height:28px;background:var(--border)}
-.cal-grid-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);box-shadow:var(--sh);overflow:hidden}
+.cal-grid-wrap{background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 1px 2px rgba(0,0,0,.05);overflow:hidden}
 .cal-grid{width:100%;border-collapse:collapse;table-layout:fixed}
-.cal-grid thead th{padding:10px 4px;font-size:var(--fs-sm);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);text-align:center;background:var(--bg);border-bottom:1px solid var(--border)}
+.cal-grid thead th{padding:10px 4px;font-size:var(--fs-sm);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#64748b;text-align:center;background:#f8fafc;border-bottom:1px solid #e2e8f0}
 .cal-cell{height:100px;vertical-align:top;padding:6px 8px;border:1px solid var(--border);cursor:pointer;transition:background .12s}
 .cal-cell:hover{background:var(--bg)}
 .cal-cell--empty{background:var(--bg);opacity:.4;cursor:default}
@@ -1363,10 +1418,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 .btn-primary:active:not(:disabled){transform:translateY(0) scale(.97);box-shadow:0 1px 2px rgba(37,99,235,.2)}
 
 /* Smoother nav-item transitions */
-.nav-item{transition:color .18s ease,background .18s ease}
-
-/* Sidebar bottom fade */
-.sidebar::after{content:'';position:absolute;bottom:0;left:0;right:0;height:32px;background:linear-gradient(transparent,#0f172a);pointer-events:none;border-radius:0 0 0 0}
+.nav-item{transition:all .12s ease}
 
 /* Toast refinement */
 .toast{border-radius:10px;backdrop-filter:blur(8px);font-size:var(--fs-base);letter-spacing:-.01em;box-shadow:0 8px 24px rgba(0,0,0,.2)}
@@ -1395,7 +1447,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 
 /* Report card richer hover */
 .rpt-card{transition:box-shadow .22s cubic-bezier(.4,0,.2,1),border-color .22s,transform .2s}
-.rpt-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.08);border-color:color-mix(in srgb, var(--blue) 25%, var(--border));transform:translateY(-2px)}
+.rpt-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08);border-color:#99f6e4;transform:translateY(-2px)}
 
 /* Seg card hover improvement */
 .seg-card{transition:transform .2s cubic-bezier(.4,0,.2,1),box-shadow .2s,border-color .2s}
@@ -1558,9 +1610,9 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 <!-- TOPBAR -->
 <header class="topbar">
   <div class="topbar__brand">
-    <img src="Logo/iQcadence_logo.png" alt="IQcadence" style="height:40px;width:auto;display:block"/>
+    <img src="Logo/iQcadence_logo_v2.png" alt="IQcadence" style="height:30px;width:auto;display:block;border-radius:6px"/>
   </div>
-  <div class="topbar__right">
+  <div class="topbar__center">
     <!-- Client Filter (admin only) -->
     <div class="mgr-filter" id="client-filter-wrap" style="display:none">
       <button class="btn btn-sm btn-ghost mgr-filter__btn" id="client-filter-btn" onclick="toggleClientDropdown()" title="View client data">
@@ -1589,21 +1641,20 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
         <div id="mgr-filter-list"></div>
       </div>
     </div>
-    <div class="user-pill" id="user-pill" style="display:none">
-      <div class="user-avatar" id="user-avatar">?</div>
-      <span id="user-email-lbl" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
-    </div>
+    <!-- user-pill kept as hidden elements for auth.js compat -->
+    <div id="user-pill" style="display:none"><div id="user-avatar"></div><span id="user-email-lbl"></span></div>
     <!-- Global Customer Search -->
     <div id="topbar-search-wrap">
       <input type="text" id="topbar-search" placeholder="Search customers…" autocomplete="off"
              oninput="topbarSearchInput()" onkeydown="topbarSearchKeydown(event)" onblur="topbarSearchBlur()"/>
       <div id="topbar-search-results"></div>
     </div>
+  </div>
+  <div class="topbar__right">
     <!-- Quick Stripe Sync -->
     <button class="btn btn-sm btn-ghost" id="topbar-sync-btn" onclick="topbarSyncStripe()" title="Sync Stripe data" style="display:none;padding:6px 8px">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
     </button>
-    <div class="topbar__divider"></div>
     <div class="snooze-dd" id="bell-dd-wrap">
       <button class="btn btn-sm btn-ghost" id="bell-btn" onclick="event.stopPropagation();toggleBellDd()" style="position:relative;padding:6px 8px" title="Notifications">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
@@ -1612,57 +1663,74 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       <div class="snooze-dd__menu" id="bell-dd-menu" style="min-width:310px;right:0;left:auto;max-height:380px;overflow-y:auto;top:calc(100% + 6px)"></div>
     </div>
     <div class="topbar__divider"></div>
-    <button class="btn btn-sm btn-ghost" onclick="nav('settings')">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      Settings
-    </button>
-    <button class="btn btn-sm btn-ghost" onclick="authSignOut()" id="signout-btn" style="display:none">Sign Out</button>
+    <!-- User avatar + dropdown -->
+    <div class="tb-user" id="tb-user-wrap">
+      <div class="tb-avatar" id="tb-avatar" onclick="event.stopPropagation();document.getElementById('tb-user-menu').classList.toggle('open')">?</div>
+      <div class="tb-user-menu" id="tb-user-menu">
+        <button class="tb-menu-item" onclick="document.getElementById('tb-user-menu').classList.remove('open');nav('settings')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
+        <button class="tb-menu-item" onclick="document.getElementById('tb-user-menu').classList.remove('open');authSignOut()" id="signout-btn" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Sign Out</button>
+      </div>
+    </div>
   </div>
 </header>
 
 <div class="shell">
 <!-- SIDEBAR -->
 <nav class="sidebar">
-  <button class="nav-item active" id="ni-homebase" onclick="nav('homebase')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>Home Base</button>
-  <div class="nav-group open" id="ng-main">
-    <button class="nav-group-hd" onclick="toggleNavGroup('main')"><svg class="nav-group-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>Monitor</button>
-    <div class="nav-group-body">
-      <button class="nav-item" id="ni-alerts" onclick="nav('alerts')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>Alerts<span id="alert-badge" style="margin-left:auto;background:var(--red);color:#fff;font-size:var(--fs-2xs);font-weight:700;padding:1px 6px;border-radius:100px;display:none"></span></button>
-      <button class="nav-item" id="ni-customers" onclick="nav('customers')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>Customers</button>
-      <button class="nav-item" id="ni-segments" onclick="nav('segments')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>Segments</button>
-      <button class="nav-item" id="ni-trends" onclick="nav('trends')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>Trends</button>
-      <button class="nav-item" id="ni-csmperf" onclick="nav('csmperf')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg></span>CSM Performance</button>
-      <button class="nav-item" id="ni-calendar" onclick="nav('calendar')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>Calendar</button>
-    </div>
+  <!-- Logo -->
+  <!-- Main -->
+  <div class="nav-section">
+    <div class="nav-label">Main</div>
+    <button class="nav-item active" id="ni-homebase" onclick="nav('homebase')">Home Base</button>
+    <button class="nav-item" id="ni-customers" onclick="nav('customers')">Customers</button>
+    <button class="nav-item" id="ni-alerts" onclick="nav('alerts')">Alerts<span id="alert-badge" class="nav-badge nav-badge-alert" style="display:none"></span></button>
+    <button class="nav-item" id="ni-segments" onclick="nav('segments')">Segments</button>
+    <button class="nav-item" id="ni-trends" onclick="nav('trends')">Trends</button>
+    <button class="nav-item" id="ni-csmperf" onclick="nav('csmperf')">CSM Performance</button>
+    <button class="nav-item" id="ni-reports" onclick="nav('reports')">Reports</button>
   </div>
-  <div class="nav-group open" id="ng-automate">
-    <button class="nav-group-hd" onclick="toggleNavGroup('automate')"><svg class="nav-group-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>Automate</button>
-    <div class="nav-group-body">
-      <button class="nav-item" id="ni-automations" onclick="nav('automations')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></span>Alert Rules</button>
-      <button class="nav-item" id="ni-reports" onclick="nav('reports')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg></span>Reports</button>
-    </div>
+  <div class="nav-divider"></div>
+  <!-- Tools -->
+  <div class="nav-section">
+    <div class="nav-label">Tools</div>
+    <button class="nav-item" id="ni-score" onclick="nav('score')">Score a Customer</button>
+    <button class="nav-item" id="ni-csv" onclick="nav('csv')">CSV Import</button>
+    <button class="nav-item" id="ni-automations" onclick="nav('automations')">Automations</button>
   </div>
-  <div class="nav-group open" id="ng-data">
-    <button class="nav-group-hd" onclick="toggleNavGroup('data')"><svg class="nav-group-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>Data</button>
-    <div class="nav-group-body">
-      <button class="nav-item" id="ni-score" onclick="nav('score')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span>Score Customer</button>
-      <button class="nav-item" id="ni-csv" onclick="nav('csv')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg></span>Import / Export</button>
-    </div>
-  </div>
-  <div class="nav-group open" id="ng-config">
-    <button class="nav-group-hd" onclick="toggleNavGroup('config')"><svg class="nav-group-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>Settings</button>
-    <div class="nav-group-body">
-      <button class="nav-item" id="ni-settings" onclick="nav('settings')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>Settings</button>
-      <button class="nav-item" id="ni-auditlog" onclick="nav('auditlog')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>Audit Log</button>
-    </div>
+  <div class="nav-divider"></div>
+  <!-- Settings -->
+  <div class="nav-section">
+    <div class="nav-label">Settings</div>
+    <button class="nav-item" id="ni-settings" onclick="nav('settings')">Settings</button>
+    <button class="nav-item" id="ni-auditlog" onclick="nav('auditlog')">Audit Log</button>
+    <button class="nav-item" id="ni-help" onclick="nav('help')">Help &amp; Guide</button>
   </div>
   <!-- Admin only -->
-  <div class="nav-sep" id="ni-admin-sep" style="display:none"></div>
+  <div class="nav-divider" id="ni-admin-sep" style="display:none"></div>
   <div class="nav-label" id="ni-admin-label" style="display:none">Admin</div>
-  <button class="nav-item" id="ni-clients" onclick="nav('clients')" style="display:none"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>Clients</button>
-  <button class="nav-item" id="ni-users" onclick="nav('users')" style="display:none"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>User Management</button>
-  <div class="nav-sep"></div>
-  <button class="nav-item" id="ni-help" onclick="nav('help')"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>Help & Guide</button>
+  <button class="nav-item" id="ni-clients" onclick="nav('clients')" style="display:none">Clients</button>
+  <button class="nav-item" id="ni-users" onclick="nav('users')" style="display:none">User Management</button>
+  <!-- Hidden nav items for pages still accessible but removed from menu -->
+  <button class="nav-item" id="ni-calendar" onclick="nav('calendar')" style="display:none">Calendar</button>
+  <!-- User area -->
+  <div class="sidebar-bottom" id="sidebar-user">
+    <div class="sb-avatar" id="sb-avatar" onclick="event.stopPropagation();document.getElementById('sb-menu').classList.toggle('open')">?</div>
+    <div>
+      <div class="sb-name" id="sb-name"></div>
+      <div class="sb-plan" id="sb-plan"></div>
+    </div>
+    <div class="sb-menu" id="sb-menu">
+      <button class="sb-menu-item" onclick="document.getElementById('sb-menu').classList.remove('open');nav('settings')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </button>
+      <div class="sb-menu-sep"></div>
+      <button class="sb-menu-item" onclick="document.getElementById('sb-menu').classList.remove('open');authSignOut()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Sign Out
+      </button>
+    </div>
+  </div>
 </nav>
 
 <!-- MAIN -->
@@ -1677,78 +1745,46 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 
 <!-- ═══════════════ ALERTS ═══════════════ -->
 <div class="view" id="view-alerts">
-  <div class="page-hd">
-    <div><h1>Alerts</h1><p>Accounts that need your attention</p></div>
-  </div>
 
-  <!-- Alert KPI cards (gradient, matching Dashboard/Trends/Segments) -->
-  <div class="dash-kpi-row" id="alert-kpi-row"></div>
+  <!-- Page header -->
+  <div class="aw-page-hd"><h1><span>Alerts</span></h1><p id="alert-subtitle">Accounts that need your attention</p></div>
 
-  <!-- Alert Insights (right under KPIs, matching Trends/Segments layout) -->
-  <div id="alert-insights-wrap" class="trend-analysis-wrap"></div>
+  <!-- KPI Summary Cards -->
+  <div class="aw-kpi-row" id="alert-kpi-row"></div>
 
-  <!-- MRR Exposure + Category breakdown -->
-  <div class="alerts-detail-row">
-    <div class="card alert-detail-card">
-      <div class="alert-detail-hdr alert-detail-hdr--mrr">
-        <div class="alert-detail-hdr-left">
-          <div class="alert-detail-hdr-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
-          <h3>MRR Exposure</h3>
-        </div>
-        <div>
-          <div class="alert-detail-hdr-total" id="alert-mrr-total">$0</div>
-          <div class="alert-detail-hdr-sub">total at risk</div>
-        </div>
-      </div>
-      <div class="alert-detail-body" id="alert-mrr-wrap" style="max-height:220px;overflow-y:auto"></div>
+  <!-- Insights row -->
+  <div class="aw-insights-row" id="alert-insights-row"></div>
+
+  <!-- Detail cards row: MRR, Category, Stage -->
+  <div class="aw-detail-row">
+    <div class="aw-card">
+      <div class="aw-hd" style="background:#dc2626"><span class="aw-hd-title">MRR Exposure</span><span class="aw-hd-badge" id="alert-mrr-total">$0</span></div>
+      <div class="aw-body" id="alert-mrr-wrap"></div>
     </div>
-    <div class="card alert-detail-card">
-      <div class="alert-detail-hdr alert-detail-hdr--cat">
-        <div class="alert-detail-hdr-left">
-          <div class="alert-detail-hdr-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></div>
-          <h3>Alerts by Category</h3>
-        </div>
-        <div>
-          <div class="alert-detail-hdr-total" id="alert-cat-total">0</div>
-          <div class="alert-detail-hdr-sub">active alerts</div>
-        </div>
-      </div>
-      <div class="alert-detail-body" id="alert-cat-wrap" style="max-height:220px;overflow-y:auto"></div>
-    </div>
-    <div class="card alert-detail-card">
-      <div class="alert-detail-hdr alert-detail-hdr--stage">
-        <div class="alert-detail-hdr-left">
-          <div class="alert-detail-hdr-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></div>
-          <h3>Alerts by Stage</h3>
-        </div>
-        <div>
-          <div class="alert-detail-hdr-total" id="alert-stage-total">0</div>
-          <div class="alert-detail-hdr-sub">stages with alerts</div>
-        </div>
-      </div>
-      <div class="alert-detail-body" id="alert-stage-wrap" style="max-height:220px;overflow-y:auto"></div>
+    <div class="aw-card">
+      <div class="aw-hd" style="background:#16a34a"><span class="aw-hd-title">By Stage</span><span class="aw-hd-badge" id="alert-stage-total">0</span></div>
+      <div class="aw-body" id="alert-stage-wrap"></div>
     </div>
   </div>
 
-  <!-- Sticky toolbar: view toggle + action buttons -->
-  <div class="alert-sticky-bar" id="alert-sticky-bar">
-    <!-- Alert list view toggle -->
-    <div id="alert-view-bar" style="display:none;margin-bottom:8px;align-items:center;gap:8px">
-      <span style="font-size:var(--fs-sm);font-weight:600;color:var(--muted)">View:</span>
-      <div class="alert-view-toggle">
-        <button class="alert-view-btn active" id="alert-view-cat" onclick="setAlertView('category')">By Category</button>
-        <button class="alert-view-btn" id="alert-view-pri" onclick="setAlertView('priority')">By Priority</button>
-        <button class="alert-view-btn" id="alert-view-cust" onclick="setAlertView('customer')">By Customer</button>
-        <button class="alert-view-btn" id="alert-view-tbl" onclick="setAlertView('table')">Table</button>
+  <!-- Alert feed card -->
+  <div class="aw-card">
+    <div class="aw-hd"><span class="aw-hd-title">Alert Feed</span><span class="aw-hd-badge" id="aw-feed-count">0</span></div>
+    <div class="aw-toolbar" id="alert-sticky-bar">
+      <div id="alert-view-bar" style="display:flex;align-items:center;gap:8px">
+        <div class="alert-view-toggle">
+          <button class="alert-view-btn active" id="alert-view-cat" onclick="setAlertView('category')">Category</button>
+          <button class="alert-view-btn" id="alert-view-pri" onclick="setAlertView('priority')">Priority</button>
+          <button class="alert-view-btn" id="alert-view-cust" onclick="setAlertView('customer')">Customer</button>
+          <button class="alert-view-btn" id="alert-view-tbl" onclick="setAlertView('table')">Table</button>
+        </div>
+        <input type="text" id="alert-cust-search" placeholder="Search customer..." oninput="renderAlerts()" autocomplete="off" style="display:none;padding:5px 12px;font-size:var(--fs-base);border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);width:200px;outline:none">
       </div>
-      <input type="text" id="alert-cust-search" placeholder="Search customer…" oninput="renderAlerts()" autocomplete="off" style="display:none;padding:5px 12px;font-size:var(--fs-base);border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);width:200px;outline:none;transition:border-color .15s">
-    </div>
-
-    <!-- Select / Snooze / Dismiss controls -->
-    <div style="display:flex;align-items:center;gap:8px">
-      <button class="btn btn-sm btn-ghost" id="alerts-select-all-btn" onclick="alertsSelectAll()">Select All</button>
-      <button class="btn btn-sm btn-ghost" id="alerts-view-snoozed-btn" onclick="viewSnoozedAlerts()" style="display:none">View Snoozed</button>
-      <button class="btn btn-sm btn-ghost" onclick="clearSnoozed()">Clear Snoozed</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn btn-sm btn-ghost" id="alerts-select-all-btn" onclick="alertsSelectAll()">Select All</button>
+        <button class="btn btn-sm btn-ghost" id="alerts-view-snoozed-btn" onclick="viewSnoozedAlerts()" style="display:none">View Snoozed</button>
+        <button class="btn btn-sm btn-ghost" onclick="clearSnoozed()">Clear Snoozed</button>
+      </div>
     </div>
     <div class="alert-bulk-bar" id="alert-bulk-bar">
       <span id="alert-bulk-count">0 selected</span>
@@ -1762,20 +1798,17 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
           </div>
         </div>
         <button class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red)" onclick="bulkDismiss()">Dismiss</button>
-        <button class="btn btn-sm btn-ghost" onclick="alertsClearSelection()">✕ Cancel</button>
+        <button class="btn btn-sm btn-ghost" onclick="alertsClearSelection()">&#x2715; Cancel</button>
       </div>
     </div>
+    <div id="alerts-list"><div class="empty-st"><div class="ei"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><h3>All clear!</h3><p>No alerts right now — all accounts are in good shape.</p></div></div>
   </div>
-
-  <!-- Full-width alert list -->
-  <div id="alerts-list"><div class="empty-st"><div class="ei"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><h3>All clear!</h3><p>No alerts right now — all customers are in good shape.</p></div></div>
-
 </div>
 
 <!-- ═══════════════ CUSTOMERS ═══════════════ -->
 <div class="view" id="view-customers">
   <div class="page-hd">
-    <div><h1>Customers</h1><p id="cust-count-lbl">—</p></div>
+    <div><h1><span>Customers</span></h1><p id="cust-count-lbl">—</p></div>
     <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
       <div class="snooze-dd" id="export-dd-tbl">
         <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation();toggleExportDd('tbl')">
@@ -1832,13 +1865,13 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
     </div>
   </div>
   <!-- Trash view — shown when filterMode === 'trash' -->
-  <div class="card" id="trash-wrap" style="display:none"></div>
+  <div class="card" id="trash-wrap" style="display:none;padding:0"></div>
 </div><!-- /customers -->
 
 <!-- ═══════════════ SEGMENTS ═══════════════ -->
 <div class="view" id="view-segments">
   <div class="page-hd">
-    <div><h1>Segments</h1><p id="seg-subtitle">Customers grouped by tag</p></div>
+    <div><h1><span>Segments</span></h1><p id="seg-subtitle">Customers grouped by tag</p></div>
   </div>
   <div id="seg-kpi-row" class="dash-kpi-row"></div>
 
@@ -1889,18 +1922,22 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 
   <!-- Main chart -->
   <div class="chart-card" id="seg-chart-card">
-    <div id="seg-chart-pills" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
-    <div id="seg-chart-wrap" style="position:relative"></div>
+    <div class="card-hd-bar"><span class="card-hd-bar__title">Segment Comparison</span></div>
+    <div style="padding:1rem 1.25rem">
+      <div id="seg-chart-pills" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
+      <div id="seg-chart-wrap" style="position:relative"></div>
+    </div>
   </div>
   <div class="card">
-    <div id="seg-table-wrap"></div>
+    <div class="card-hd-bar" style="background:#7c3aed"><span class="card-hd-bar__title">Segment Detail</span></div>
+    <div class="card-body" id="seg-table-wrap"></div>
   </div>
 </div><!-- /segments -->
 
 <!-- ═══════════════ TRENDS ═══════════════ -->
 <div class="view" id="view-trends">
   <div class="page-hd">
-    <div><h1>Trends</h1><p>Portfolio health over time</p></div>
+    <div><h1><span>Trends</span></h1><p>Portfolio health over time</p></div>
   </div>
 
   <!-- KPI summary row -->
@@ -1972,50 +2009,52 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 
   <!-- Main chart -->
   <div class="chart-card">
-    <div class="chart-title">Portfolio Health Trend</div>
-    <div id="trend-chart-wrap" style="position:relative"></div>
-    <div id="trend-legend" class="trend-legend"></div>
+    <div class="card-hd-bar"><span class="card-hd-bar__title">Portfolio Health Trend</span></div>
+    <div style="padding:1rem 1.25rem">
+      <div id="trend-chart-wrap" style="position:relative"></div>
+      <div id="trend-legend" class="trend-legend"></div>
+    </div>
   </div>
 
   <!-- Score Changes table -->
   <div class="card" style="margin-top:16px">
-    <div class="card-hd"><h2>Score Changes</h2><p style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px">All accounts sorted by score change in the selected period</p></div>
-    <div id="trend-movers-wrap" style="max-height:480px;overflow-y:auto"></div>
+    <div class="card-hd-bar" style="background:#7c3aed"><span class="card-hd-bar__title">Score Changes</span></div>
+    <div class="card-body" id="trend-movers-wrap" style="max-height:480px;overflow-y:auto"></div>
   </div>
 </div>
 
 <!-- ═══════════════ CSM PERFORMANCE ═══════════════ -->
 <div class="view" id="view-csmperf">
   <div class="page-hd">
-    <div><h1>CSM Performance</h1><p>Portfolio metrics for each Customer Success Manager.</p></div>
+    <div><h1><span>CSM Performance</span></h1><p>Portfolio metrics for each Customer Success Manager.</p></div>
   </div>
   <!-- Summary stat cards (gradient KPI row) -->
   <div class="dash-kpi-row" id="csmperf-stats"></div>
   <!-- Per-CSM leaderboard + inline expand -->
   <div class="card">
-    <div class="card-hd"><h2>CSM Leaderboard <span class="info-tip" data-tip="Ranked by a composite performance index combining average score, health ratio, risk ratio, and contact cadence.">ⓘ</span></h2></div>
-    <div id="csmperf-wrap"></div>
+    <div class="card-hd-bar"><span class="card-hd-bar__title">CSM Leaderboard</span></div>
+    <div class="card-body" id="csmperf-wrap"></div>
   </div>
   <!-- Suggested Focus Areas + Workload Balance row -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;align-items:start" id="csm-insights-row">
     <div class="card">
-      <div class="card-hd"><h2>Suggested Focus Areas <span class="info-tip" data-tip="Auto-generated action items highlighting overdue contacts, at-risk renewals, and declining portfolios per CSM.">ⓘ</span></h2><p style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px">Auto-generated priorities per CSM</p></div>
-      <div id="csm-focus-wrap"></div>
+      <div class="card-hd-bar" style="background:#d97706"><span class="card-hd-bar__title">Suggested Focus Areas</span></div>
+      <div class="card-body" id="csm-focus-wrap"></div>
     </div>
     <div class="card">
-      <div class="card-hd"><h2>Workload Balance <span class="info-tip" data-tip="Account count and MRR distribution across CSMs. Highlights overloaded managers in red.">ⓘ</span></h2><p style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px">Account &amp; MRR distribution across CSMs</p></div>
-      <div id="csm-workload-wrap"></div>
+      <div class="card-hd-bar" style="background:#2563eb"><span class="card-hd-bar__title">Workload Balance</span></div>
+      <div class="card-body" id="csm-workload-wrap"></div>
     </div>
   </div>
   <!-- Portfolio Movement + Activity Feed row -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;align-items:start" id="csm-bottom-row">
     <div class="card">
-      <div class="card-hd"><h2>Portfolio Movement <span class="info-tip" data-tip="Tracks customers that changed health bands in the last 7 days, grouped by CSM.">ⓘ</span></h2><p style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px">Health band changes in the last 7 days</p></div>
-      <div id="csm-movement-wrap"></div>
+      <div class="card-hd-bar" style="background:#7c3aed"><span class="card-hd-bar__title">Portfolio Movement</span><span class="card-hd-bar__badge">7d</span></div>
+      <div class="card-body" id="csm-movement-wrap"></div>
     </div>
     <div class="card">
-      <div class="card-hd"><h2>CSM Activity Feed <span class="info-tip" data-tip="Recent audit log actions grouped by CSM, showing what each manager has been doing.">ⓘ</span></h2><p style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px">Recent actions by each manager</p></div>
-      <div id="csm-activity-wrap"></div>
+      <div class="card-hd-bar" style="background:#0e7490"><span class="card-hd-bar__title">CSM Activity Feed</span></div>
+      <div class="card-body" id="csm-activity-wrap"></div>
     </div>
   </div>
 </div><!-- /csmperf -->
@@ -2024,7 +2063,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 <div class="view" id="view-calendar">
   <div class="page-hd">
     <div>
-      <h1>Calendar</h1>
+      <h1><span>Calendar</span></h1>
       <p>Upcoming renewals, scheduled touches &amp; overdue contacts</p>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
@@ -2037,7 +2076,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 <!-- ═══════════════ REPORTS ═══════════════ -->
 <div class="view" id="view-reports">
   <div class="page-hd">
-    <div><h1>Reports</h1><p>Export data, generate printable reports, and analyze your portfolio.</p></div>
+    <div><h1><span>Reports</span></h1><p>Export data, generate printable reports, and analyze your portfolio.</p></div>
   </div>
   <div class="dtab-row" style="margin-bottom:18px">
     <button class="dtab active" id="rpt-tab-templates" onclick="reportsTab('templates')">Report Templates</button>
@@ -2059,7 +2098,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 
 <!-- ═══════════════ SCORE CUSTOMER ═══════════════ -->
 <div class="view" id="view-score">
-  <div class="page-hd"><div><h1 id="form-title">Score a Customer</h1><p>Fill in the signals below to calculate a health score.</p></div></div>
+  <div class="page-hd"><div><h1 id="form-title"><span>Score a Customer</span></h1><p>Fill in the signals below to calculate a health score.</p></div></div>
   <div class="score-panel">
     <div class="card">
       <form id="score-form" onsubmit="submitForm(event)">
@@ -2143,7 +2182,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 <!-- ═══════════════ CSV IMPORT ═══════════════ -->
 <div class="view" id="view-csv">
   <div class="page-hd">
-    <div><h1>Import / Export</h1><p>Bulk-import customers or export filtered data.</p></div>
+    <div><h1><span>Import / Export</span></h1><p>Bulk-import customers or export filtered data.</p></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <div class="snooze-dd" id="export-dd-csv">
         <button class="btn btn-sm btn-primary" onclick="event.stopPropagation();toggleExportDd('csv')">
@@ -2196,7 +2235,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 
 <!-- ═══════════════ SETTINGS ═══════════════ -->
 <div class="view" id="view-settings">
-  <div class="page-hd"><div><h1>Settings</h1><p>Customize scoring, thresholds, scoring profiles, and API integrations.</p></div></div>
+  <div class="page-hd"><div><h1><span>Settings</span></h1><p>Customize scoring, thresholds, scoring profiles, and API integrations.</p></div></div>
 
   <!-- Tab bar -->
   <div class="dtab-row" style="margin-bottom:18px">
@@ -2207,79 +2246,102 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 
   <!-- Config tab -->
   <div class="dtab-pane active" id="cfg-pane-config">
-    <div class="cfg-columns">
-      <!-- LEFT COLUMN: Weights → Thresholds -->
-      <div class="cfg-col">
-        <!-- Signal Weights -->
+
+    <!-- SECTION 1: Scoring Engine -->
+    <div class="cfg-section">
+      <div class="cfg-section-hd">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        Scoring Engine
+      </div>
+      <div class="cfg-columns">
+        <!-- Column 1: Signal Weights -->
         <div class="card">
           <div class="card-hd"><h2>Signal Weights <span class="info-tip" data-tip="Control how much each signal contributes to the health score. Click a profile on the right to load its weights here.">ⓘ</span></h2></div>
           <div id="editing-profile-label" style="display:none;font-size:var(--fs-base);font-weight:600;color:var(--blue);margin-bottom:10px;padding:6px 10px;background:rgba(59,130,246,.06);border-radius:6px"></div>
           <p style="font-size:var(--fs-base);margin-bottom:14px">Adjust how much each signal contributes to the health score. Weights must total 100%.</p>
           <div id="weight-rows"></div>
-          <div class="total-bar" style="margin:14px 0 4px"><div class="total-fill" id="total-fill" style="width:100%"></div></div>
-          <div style="margin-bottom:14px"><span id="total-label" style="font-size:var(--fs-sm);font-weight:700">Total: 100%</span></div>
+          <div class="total-bar" style="height:4px;margin:4px 0"><div class="total-fill" id="total-fill" style="width:100%"></div></div>
+          <div style="margin-bottom:6px"><span id="total-label" style="font-size:var(--fs-sm);font-weight:700">Total: 100%</span></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn btn-ghost btn-sm" onclick="resetWeights()">Reset</button>
-            <button class="btn btn-success btn-sm" onclick="saveWeights()">Save as Global Weights</button>
+            <button class="btn btn-success btn-sm" onclick="saveWeights()">Save Global</button>
             <button id="btn-update-profile" class="btn btn-amber btn-sm" style="display:none" onclick="updateEditingProfile()">Update Profile</button>
-            <button class="btn btn-outline btn-sm" onclick="saveWeightsAsProfile()">Save as New Profile</button>
+            <button class="btn btn-outline btn-sm" onclick="saveWeightsAsProfile()">New Profile</button>
           </div>
         </div>
-        <!-- Score Thresholds -->
-        <div class="card">
-          <div class="card-hd"><h2>Score Thresholds <span class="info-tip" data-tip="Define score cutoffs for each health band. Changes apply to all accounts on next re-score.">ⓘ</span></h2></div>
-          <p style="font-size:var(--fs-base);margin-bottom:16px">Define what score ranges map to each of the 5 health bands.</p>
-          <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#dc2626"></span>Critical — below</span><input class="threshold-input" type="number" id="th-critical" min="1" max="99" value="25" oninput="updateThresholdLabels()"/><span style="font-size:var(--fs-base);color:var(--muted)">pts → 0–<span id="th-critical-max">24</span></span></div>
-          <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#ea580c"></span>At Risk — below</span><input class="threshold-input" type="number" id="th-risk" min="1" max="99" value="50" oninput="updateThresholdLabels()"/><span style="font-size:var(--fs-base);color:var(--muted)">pts → <span id="th-risk-range">25–49</span></span></div>
-          <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:var(--amber)"></span>Watch — below</span><input class="threshold-input" type="number" id="th-watch" min="1" max="99" value="65" oninput="updateThresholdLabels()"/><span style="font-size:var(--fs-base);color:var(--muted)">pts → <span id="th-watch-range">50–64</span></span></div>
-          <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:var(--green)"></span>Healthy — below</span><input class="threshold-input" type="number" id="th-healthy" min="1" max="99" value="80" oninput="updateThresholdLabels()"/><span style="font-size:var(--fs-base);color:var(--muted)">pts → <span id="th-healthy-range">65–79</span></span></div>
-          <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:var(--teal)"></span>Expansion — above</span><span style="font-size:var(--fs-base);color:var(--muted)">≥ <span id="th-expand-val">80</span> pts</span></div>
-          <div style="margin-top:14px;display:flex;gap:8px">
-            <button class="btn btn-ghost btn-sm" onclick="resetThresholds()">Reset</button>
-            <button class="btn btn-success btn-sm" onclick="saveThresholds()">Save Thresholds</button>
+        <!-- Column 2: Score Distribution + Scoring Profiles -->
+        <div class="cfg-stack">
+          <div class="card">
+            <div class="card-hd"><h2>Score Distribution <span class="info-tip" data-tip="Live breakdown of accounts across health bands based on current threshold settings. Updates when you save thresholds or weights.">ⓘ</span></h2></div>
+            <p style="font-size:var(--fs-base);margin-bottom:14px">Current spread of accounts across health bands.</p>
+            <div id="cfg-score-dist"></div>
+          </div>
+          <div class="card">
+            <div class="card-hd"><h2>Scoring Profiles <span class="info-tip" data-tip="Click a profile to load its weights into the editor. Edit, update, or create new profiles from the sliders.">ⓘ</span></h2></div>
+            <p style="font-size:var(--fs-base);margin-bottom:14px">Click a profile to load its weights into the editor.</p>
+            <div id="profiles-list"></div>
           </div>
         </div>
-        <!-- Expansion Estimate -->
-        <div class="card">
-          <div class="card-hd"><h2>Expansion Estimate <span class="info-tip" data-tip="Configure how upsell potential is calculated on the Home Base KPI card. Choose a percentage of MRR or a flat dollar amount per account.">ⓘ</span></h2></div>
-          <p style="font-size:var(--fs-base);margin-bottom:14px">How to estimate upsell potential for expansion-ready accounts.</p>
-          <div class="threshold-row"><span class="threshold-label">Method</span>
-            <select id="exp-mode" class="threshold-input" style="width:auto;min-width:140px" onchange="toggleExpMode(this.value)">
-              <option value="pct">% of MRR</option>
-              <option value="flat">Flat $ per account</option>
-            </select>
+        <!-- Column 3: Score Thresholds + Signal Thresholds -->
+        <div class="cfg-stack">
+          <div class="card">
+            <div class="card-hd"><h2>Score Thresholds <span class="info-tip" data-tip="Define score cutoffs for each health band. Changes apply to all accounts on next re-score.">ⓘ</span></h2></div>
+            <p style="font-size:var(--fs-base);margin-bottom:4px">Define what score ranges map to each health band.</p>
+            <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#dc2626"></span>Critical — below</span><input class="threshold-input" type="number" id="th-critical" min="1" max="99" value="25" oninput="updateThresholdLabels()"/><span style="font-size:var(--fs-base);color:var(--muted)">0–<span id="th-critical-max">24</span></span></div>
+            <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#ea580c"></span>At Risk — below</span><input class="threshold-input" type="number" id="th-risk" min="1" max="99" value="50" oninput="updateThresholdLabels()"/><span style="font-size:var(--fs-base);color:var(--muted)"><span id="th-risk-range">25–49</span></span></div>
+            <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:var(--amber)"></span>Watch — below</span><input class="threshold-input" type="number" id="th-watch" min="1" max="99" value="65" oninput="updateThresholdLabels()"/><span style="font-size:var(--fs-base);color:var(--muted)"><span id="th-watch-range">50–64</span></span></div>
+            <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:var(--green)"></span>Healthy — below</span><input class="threshold-input" type="number" id="th-healthy" min="1" max="99" value="80" oninput="updateThresholdLabels()"/><span style="font-size:var(--fs-base);color:var(--muted)"><span id="th-healthy-range">65–79</span></span></div>
+            <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:var(--teal)"></span>Expansion — above</span><span style="font-size:var(--fs-base);color:var(--muted)">≥ <span id="th-expand-val">80</span></span></div>
+            <div style="margin-top:6px;display:flex;gap:8px">
+              <button class="btn btn-ghost btn-sm" onclick="resetThresholds()">Reset</button>
+              <button class="btn btn-success btn-sm" onclick="saveThresholds()">Save Thresholds</button>
+            </div>
           </div>
-          <div class="threshold-row" id="exp-pct-row"><span class="threshold-label">Percentage</span><input class="threshold-input" type="number" id="exp-pct" min="1" max="100" step="1" value="20"/><span style="font-size:var(--fs-base);color:var(--muted)">% of each account's MRR</span></div>
-          <div class="threshold-row" id="exp-flat-row" style="display:none"><span class="threshold-label">Amount</span><span style="font-size:var(--fs-md);font-weight:600;margin-right:2px">$</span><input class="threshold-input" type="number" id="exp-flat" min="1" step="100" value="5000" style="width:100px"/><span style="font-size:var(--fs-base);color:var(--muted)">per account</span></div>
-          <div style="margin-top:14px">
-            <button class="btn btn-success btn-sm" onclick="saveExpansion()">Save</button>
+          <div class="card">
+            <div class="card-hd"><h2>Signal Thresholds <span class="info-tip" data-tip="Fine-tune sensitivity for quiet account detection and momentum classification.">ⓘ</span></h2></div>
+            <p style="font-size:var(--fs-base);margin-bottom:4px">Adjust detection sensitivity for account signals.</p>
+            <div class="threshold-row"><span class="threshold-label">Quiet after</span><input class="threshold-input" type="number" id="cfg-quiet-days" min="1" max="90" value="14"/><span style="font-size:var(--fs-base);color:var(--muted)">days</span></div>
+            <div class="threshold-row"><span class="threshold-label">Momentum ±</span><input class="threshold-input" type="number" id="cfg-momentum-pts" min="1" max="20" value="3"/><span style="font-size:var(--fs-base);color:var(--muted)">pts / 7d</span></div>
+            <div style="margin-top:6px;display:flex;gap:8px">
+              <button class="btn btn-ghost btn-sm" onclick="resetMiscThresholds()">Reset</button>
+              <button class="btn btn-success btn-sm" onclick="saveMiscThresholds()">Save</button>
+            </div>
           </div>
         </div>
-        <!-- Contact Cadence -->
+      </div>
+    </div>
+
+    <!-- SECTION 2: Account Operations -->
+    <div class="cfg-section">
+      <div class="cfg-section-hd">
+        <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Account Operations
+      </div>
+      <div class="cfg-columns">
         <div class="card">
           <div class="card-hd"><h2>Contact Cadence <span class="info-tip" data-tip="Set how many days without contact triggers a 'Due Soon' warning or 'Overdue' alert, per tier. These drive cadence alerts and the contact status indicator.">ⓘ</span></h2></div>
-          <p style="font-size:var(--fs-base);margin-bottom:14px">Days since last contact before follow-up is flagged, by tier.</p>
+          <p style="font-size:var(--fs-base);margin-bottom:14px">Days since last contact before follow-up is flagged.</p>
           <table style="width:100%;font-size:var(--fs-base);border-collapse:collapse">
             <thead><tr>
-              <th style="text-align:left;padding:4px 8px;font-weight:700;border-bottom:1px solid var(--border)">Tier</th>
-              <th style="text-align:center;padding:4px 8px;font-weight:700;border-bottom:1px solid var(--border)">Due Soon (days)</th>
-              <th style="text-align:center;padding:4px 8px;font-weight:700;border-bottom:1px solid var(--border)">Overdue (days)</th>
+              <th style="text-align:left;padding:4px 6px;font-weight:700;border-bottom:1px solid var(--border)">Tier</th>
+              <th style="text-align:center;padding:4px 6px;font-weight:700;border-bottom:1px solid var(--border)">Soon</th>
+              <th style="text-align:center;padding:4px 6px;font-weight:700;border-bottom:1px solid var(--border)">Overdue</th>
             </tr></thead>
             <tbody>
               <tr>
-                <td style="padding:8px"><span class="tier-pill tier-pill-ent">Enterprise</span></td>
-                <td style="text-align:center;padding:8px"><input class="threshold-input" type="number" id="cad-enterprise-warn" min="1" max="365" value="14"/></td>
-                <td style="text-align:center;padding:8px"><input class="threshold-input" type="number" id="cad-enterprise-overdue" min="1" max="365" value="30"/></td>
+                <td style="padding:6px"><span class="tier-pill tier-pill-ent">Enterprise</span></td>
+                <td style="text-align:center;padding:6px"><input class="threshold-input" type="number" id="cad-enterprise-warn" min="1" max="365" value="14"/></td>
+                <td style="text-align:center;padding:6px"><input class="threshold-input" type="number" id="cad-enterprise-overdue" min="1" max="365" value="30"/></td>
               </tr>
               <tr>
-                <td style="padding:8px"><span class="tier-pill tier-pill-mid">Mid-Market</span></td>
-                <td style="text-align:center;padding:8px"><input class="threshold-input" type="number" id="cad-mid-warn" min="1" max="365" value="21"/></td>
-                <td style="text-align:center;padding:8px"><input class="threshold-input" type="number" id="cad-mid-overdue" min="1" max="365" value="45"/></td>
+                <td style="padding:6px"><span class="tier-pill tier-pill-mid">Mid-Market</span></td>
+                <td style="text-align:center;padding:6px"><input class="threshold-input" type="number" id="cad-mid-warn" min="1" max="365" value="21"/></td>
+                <td style="text-align:center;padding:6px"><input class="threshold-input" type="number" id="cad-mid-overdue" min="1" max="365" value="45"/></td>
               </tr>
               <tr>
-                <td style="padding:8px"><span class="tier-pill tier-pill-smb">SMB</span></td>
-                <td style="text-align:center;padding:8px"><input class="threshold-input" type="number" id="cad-smb-warn" min="1" max="365" value="30"/></td>
-                <td style="text-align:center;padding:8px"><input class="threshold-input" type="number" id="cad-smb-overdue" min="1" max="365" value="60"/></td>
+                <td style="padding:6px"><span class="tier-pill tier-pill-smb">SMB</span></td>
+                <td style="text-align:center;padding:6px"><input class="threshold-input" type="number" id="cad-smb-warn" min="1" max="365" value="30"/></td>
+                <td style="text-align:center;padding:6px"><input class="threshold-input" type="number" id="cad-smb-overdue" min="1" max="365" value="60"/></td>
               </tr>
             </tbody>
           </table>
@@ -2288,57 +2350,54 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
             <button class="btn btn-success btn-sm" onclick="saveCadence()">Save</button>
           </div>
         </div>
-        <!-- Renewal Alert Windows -->
         <div class="card">
           <div class="card-hd"><h2>Renewal Windows <span class="info-tip" data-tip="How far out from a renewal date should alerts appear, and at what urgency level.">ⓘ</span></h2></div>
           <p style="font-size:var(--fs-base);margin-bottom:14px">Days before renewal to trigger each alert level.</p>
-          <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#dc2626"></span>Critical — within</span><input class="threshold-input" type="number" id="rw-critical" min="1" max="365" value="14"/><span style="font-size:var(--fs-base);color:var(--muted)">days</span></div>
-          <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#f59e0b"></span>Warning — within</span><input class="threshold-input" type="number" id="rw-warning" min="1" max="365" value="30"/><span style="font-size:var(--fs-base);color:var(--muted)">days</span></div>
-          <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#3b82f6"></span>Upcoming — within</span><input class="threshold-input" type="number" id="rw-upcoming" min="1" max="365" value="60"/><span style="font-size:var(--fs-base);color:var(--muted)">days</span></div>
+          <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#dc2626"></span>Critical</span><input class="threshold-input" type="number" id="rw-critical" min="1" max="365" value="14"/><span style="font-size:var(--fs-base);color:var(--muted)">days</span></div>
+          <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#f59e0b"></span>Warning</span><input class="threshold-input" type="number" id="rw-warning" min="1" max="365" value="30"/><span style="font-size:var(--fs-base);color:var(--muted)">days</span></div>
+          <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#3b82f6"></span>Upcoming</span><input class="threshold-input" type="number" id="rw-upcoming" min="1" max="365" value="60"/><span style="font-size:var(--fs-base);color:var(--muted)">days</span></div>
           <div style="margin-top:14px;display:flex;gap:8px">
             <button class="btn btn-ghost btn-sm" onclick="resetRenewalWindows()">Reset</button>
             <button class="btn btn-success btn-sm" onclick="saveRenewalWindows()">Save</button>
           </div>
         </div>
-        <!-- Signal Thresholds -->
         <div class="card">
-          <div class="card-hd"><h2>Signal Thresholds <span class="info-tip" data-tip="Fine-tune sensitivity for quiet account detection and momentum classification.">ⓘ</span></h2></div>
-          <p style="font-size:var(--fs-base);margin-bottom:14px">Adjust detection sensitivity for account signals.</p>
-          <div class="threshold-row"><span class="threshold-label">Quiet account after</span><input class="threshold-input" type="number" id="cfg-quiet-days" min="1" max="90" value="14"/><span style="font-size:var(--fs-base);color:var(--muted)">days with no logins</span></div>
-          <div class="threshold-row"><span class="threshold-label">Momentum threshold</span><input class="threshold-input" type="number" id="cfg-momentum-pts" min="1" max="20" value="3"/><span style="font-size:var(--fs-base);color:var(--muted)">± pts over 7 days</span></div>
-          <div style="margin-top:14px;display:flex;gap:8px">
-            <button class="btn btn-ghost btn-sm" onclick="resetMiscThresholds()">Reset</button>
-            <button class="btn btn-success btn-sm" onclick="saveMiscThresholds()">Save</button>
+          <div class="card-hd"><h2>Expansion Estimate <span class="info-tip" data-tip="Configure how upsell potential is calculated on the Home Base KPI card. Choose a percentage of MRR or a flat dollar amount per account.">ⓘ</span></h2></div>
+          <p style="font-size:var(--fs-base);margin-bottom:14px">How to estimate upsell potential for expansion-ready accounts.</p>
+          <div class="threshold-row"><span class="threshold-label">Method</span>
+            <select id="exp-mode" class="threshold-input" style="width:auto;min-width:120px" onchange="toggleExpMode(this.value)">
+              <option value="pct">% of MRR</option>
+              <option value="flat">Flat $/acct</option>
+            </select>
+          </div>
+          <div class="threshold-row" id="exp-pct-row"><span class="threshold-label">Percentage</span><input class="threshold-input" type="number" id="exp-pct" min="1" max="100" step="1" value="20"/><span style="font-size:var(--fs-base);color:var(--muted)">%</span></div>
+          <div class="threshold-row" id="exp-flat-row" style="display:none"><span class="threshold-label">Amount</span><span style="font-size:var(--fs-md);font-weight:600;margin-right:2px">$</span><input class="threshold-input" type="number" id="exp-flat" min="1" step="100" value="5000" style="width:80px"/></div>
+          <div style="margin-top:14px">
+            <button class="btn btn-success btn-sm" onclick="saveExpansion()">Save</button>
           </div>
         </div>
       </div>
-      <!-- RIGHT COLUMN: Profiles → Distribution → Data Health → CSMs -->
-      <div class="cfg-col">
-        <!-- Scoring Profiles -->
-        <div class="card">
-          <div class="card-hd"><h2>Scoring Profiles <span class="info-tip" data-tip="Click a profile to load its weights into the editor. Edit, update, or create new profiles from the sliders.">ⓘ</span></h2></div>
-          <p style="font-size:var(--fs-base);margin-bottom:14px">Click a profile to load its weights into the editor on the left.</p>
-          <div id="profiles-list"></div>
-        </div>
-        <!-- Score Distribution -->
-        <div class="card">
-          <div class="card-hd"><h2>Score Distribution <span class="info-tip" data-tip="Live breakdown of accounts across health bands based on current threshold settings. Updates when you save thresholds or weights.">ⓘ</span></h2></div>
-          <p style="font-size:var(--fs-base);margin-bottom:14px">Current spread of accounts across health bands.</p>
-          <div id="cfg-score-dist"></div>
-        </div>
-        <!-- Data Health -->
-        <div class="card">
-          <div class="card-hd"><h2>Data Health <span class="info-tip" data-tip="Overview of customer data quality — completeness, freshness, and accounts needing attention.">ⓘ</span></h2></div>
-          <div id="cfg-data-health"></div>
-        </div>
-        <!-- Manage CSMs -->
+    </div>
+
+    <!-- SECTION 3: Administration -->
+    <div class="cfg-section">
+      <div class="cfg-section-hd">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Administration
+      </div>
+      <div class="cfg-columns">
         <div class="card">
           <div class="card-hd"><h2>Manage CSMs <span class="info-tip" data-tip="View all CSMs and remove ones no longer needed. Removing a CSM unassigns them from all their customers.">ⓘ</span></h2></div>
           <p style="font-size:var(--fs-base);margin-bottom:14px">CSMs currently assigned to customers.</p>
           <div id="cfg-csm-list"></div>
         </div>
+        <div class="card">
+          <div class="card-hd"><h2>Data Health <span class="info-tip" data-tip="Overview of customer data quality — completeness, freshness, and accounts needing attention.">ⓘ</span></h2></div>
+          <div id="cfg-data-health"></div>
+        </div>
       </div>
     </div>
+
   </div>
 
   <!-- Account tab -->
@@ -2433,7 +2492,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 <!-- ═══════════════ USER MANAGEMENT (ADMIN ONLY) ═══════════════ -->
 <div class="view" id="view-users">
   <div class="page-hd">
-    <div><h1>User Management</h1><p>Create, view, and remove users of this app.</p></div>
+    <div><h1><span>User Management</span></h1><p>Create, view, and remove users of this app.</p></div>
     <button class="btn btn-sm btn-primary" onclick="openCreateUserModal()">+ Create User</button>
   </div>
 
@@ -2457,7 +2516,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 <!-- ═══════════════ CLIENTS (ADMIN ONLY) ═══════════════ -->
 <div class="view" id="view-clients">
   <div class="page-hd">
-    <div><h1>🏢 Clients</h1><p>Manage your client businesses. Assign users to clients.</p></div>
+    <div><h1><span>🏢 Clients</span></h1><p>Manage your client businesses. Assign users to clients.</p></div>
     <button class="btn btn-sm btn-primary" onclick="openCreateClientModal()">+ Add Client</button>
   </div>
   <div class="card">
@@ -2481,7 +2540,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 <!-- ═══════════════ AUDIT LOG ═══════════════ -->
 <div class="view" id="view-auditlog">
   <div class="page-hd">
-    <div><h1>Audit Log</h1><p>Track all changes made to customers, settings, and data.</p></div>
+    <div><h1><span>Audit Log</span></h1><p>Track all changes made to customers, settings, and data.</p></div>
   </div>
   <!-- Audit Log tabs -->
   <div class="dtab-row" style="margin-bottom:16px">
@@ -2559,7 +2618,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 <div class="view" id="view-automations">
   <div class="page-hd">
     <div>
-      <h1>Alert Rules</h1>
+      <h1><span>Alert Rules</span></h1>
       <p>Send alerts to Slack, Teams &amp; email — or connect to 5,000+ apps via webhooks &amp; API.</p>
     </div>
   </div>
@@ -2746,7 +2805,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 <div class="view" id="view-help">
   <div class="page-hd">
     <div>
-      <h1>Help & Guide</h1>
+      <h1><span>Help & Guide</span></h1>
       <p>Everything you need to know about iQcadence CS Health Score.</p>
     </div>
   </div>
@@ -3638,6 +3697,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=345"></script>
+<script src="js/app.js?v=349"></script>
 </body>
 </html>

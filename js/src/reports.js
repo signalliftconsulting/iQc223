@@ -318,7 +318,7 @@ function svgLineChart(points, w, h) {
     var y = pad.t + ch - (ch * (p.value - minV) / range);
     return {x: x, y: y};
   });
-  var linePath = pts.map(function(p, idx) { return (idx === 0 ? 'M' : 'L') + p.x.toFixed(1) + ',' + p.y.toFixed(1); }).join(' ');
+  var linePath = _smoothPath(pts);
   var areaPath = linePath + ' L' + pts[pts.length - 1].x.toFixed(1) + ',' + (pad.t + ch) + ' L' + pts[0].x.toFixed(1) + ',' + (pad.t + ch) + ' Z';
   // X labels
   var maxLbl = Math.min(14, points.length), step = Math.max(1, Math.ceil(points.length / maxLbl));
@@ -330,16 +330,12 @@ function svgLineChart(points, w, h) {
       xLbl += '<text x="' + x.toFixed(1) + '" y="' + (h - 6) + '" text-anchor="middle" font-size="8.5" fill="#94a3b8" transform="rotate(-35,' + x.toFixed(1) + ',' + (h - 6) + ')">' + lbl + '</text>';
     }
   });
-  // Dots
-  var dots = pts.map(function(p) {
-    return '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="3" fill="#4f46e5" stroke="#fff" stroke-width="1.5"/>';
-  }).join('');
   return '<div style="margin:12px 0;overflow:hidden;page-break-inside:avoid"><svg width="100%" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="xMidYMid meet">' +
     grid + yLbl +
     '<defs><linearGradient id="lg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4f46e5" stop-opacity=".18"/><stop offset="100%" stop-color="#4f46e5" stop-opacity=".02"/></linearGradient></defs>' +
     '<path d="' + areaPath + '" fill="url(#lg1)"/>' +
-    '<path d="' + linePath + '" fill="none" stroke="#4f46e5" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>' +
-    dots + xLbl + '</svg></div>';
+    '<path d="' + linePath + '" fill="none" stroke="#4f46e5" stroke-width="2.5" stroke-linecap="round"/>' +
+    xLbl + '</svg></div>';
 }
 
 function svgBarH(items, w) {

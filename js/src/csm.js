@@ -97,44 +97,24 @@ function renderCSMPerformance() {
 
   statsWrap.innerHTML = `
     <div class="dash-kpi-card dash-kpi-blue">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${CSM_ICONS.people}</div>
-        <span class="dash-kpi-label">Active CSMs</span>
-      </div>
-      <div class="dash-kpi-num">${totalCSMs}</div>
-      <div class="dash-kpi-sub">${totalAccounts} accounts across team</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.people}</div><span class="dash-kpi-label">Active CSMs</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num">${totalCSMs}</div><div class="dash-kpi-sub">${totalAccounts} accounts across team</div></div>
     </div>
     <div class="dash-kpi-card dash-kpi-purple">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${CSM_ICONS.chart}</div>
-        <span class="dash-kpi-label">Avg Book Size</span>
-      </div>
-      <div class="dash-kpi-num">${avgAccsPerCSM}</div>
-      <div class="dash-kpi-sub">accounts per CSM</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.chart}</div><span class="dash-kpi-label">Avg Book Size</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num">${avgAccsPerCSM}</div><div class="dash-kpi-sub">accounts per CSM</div></div>
     </div>
     <div class="dash-kpi-card dash-kpi-teal">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${CSM_ICONS.dollar}</div>
-        <span class="dash-kpi-label">Avg MRR / CSM</span>
-      </div>
-      <div class="dash-kpi-num">$${fmtNum(avgMRRPerCSM)}</div>
-      <div class="dash-kpi-sub">$${fmtNum(totalMRR)} total portfolio</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.dollar}</div><span class="dash-kpi-label">Avg MRR / CSM</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num">$${fmtNum(avgMRRPerCSM)}</div><div class="dash-kpi-sub">$${fmtNum(totalMRR)} total portfolio</div></div>
     </div>
     <div class="dash-kpi-card ${healthScoreGradient}">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${CSM_ICONS.pulse}</div>
-        <span class="dash-kpi-label">Avg Health Score</span>
-      </div>
-      <div class="dash-kpi-num">${overallAvg}</div>
-      <div class="dash-kpi-sub">${deltaIcon} ${Math.abs(overallDelta)} pts this week</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.pulse}</div><span class="dash-kpi-label">Avg Health Score</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num">${overallAvg}</div><div class="dash-kpi-sub">${deltaIcon} ${Math.abs(overallDelta)} pts this week</div></div>
     </div>
     <div class="dash-kpi-card ${overdueGradient}">
-      <div class="dash-kpi-top">
-        <div class="dash-kpi-icon" style="background:rgba(255,255,255,.15)">${CSM_ICONS.alert}</div>
-        <span class="dash-kpi-label">Overdue Contacts</span>
-      </div>
-      <div class="dash-kpi-num">${totalOverdue}</div>
-      <div class="dash-kpi-sub">${totalOverdue ? avgAtRiskPerCSM + ' at-risk per CSM' : 'All contacts current'}</div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.alert}</div><span class="dash-kpi-label">Overdue Contacts</span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num">${totalOverdue}</div><div class="dash-kpi-sub">${totalOverdue ? avgAtRiskPerCSM + ' at-risk per CSM' : 'All contacts current'}</div></div>
     </div>
   `;
 
