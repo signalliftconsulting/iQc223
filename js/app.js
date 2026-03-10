@@ -1572,13 +1572,18 @@ async function seedDemoData() {
   const targetEmail = arguments[0] || 'demo@iqcadence.com';
 
   // 1. Find the user's profile and client
-  console.log('1/3 — Finding user profile for ' + targetEmail + '…');
-  const { data: prof, error: profErr } = await sb.from('user_profiles')
-    .select('user_id, client_id, email, business_name')
-    .eq('email', targetEmail.toLowerCase())
-    .single();
+  console.log('1/4 — Finding user profile for ' + targetEmail + '…');
+  let prof;
+  try {
+    const { data, error: profErr } = await sb.from('user_profiles')
+      .select('user_id, client_id, email, business_name')
+      .eq('email', targetEmail.toLowerCase())
+      .limit(1);
+    if (profErr) { console.error('Profile query error:', profErr.message); return; }
+    prof = data && data.length ? data[0] : null;
+  } catch(e) { console.error('Profile query exception:', e); return; }
 
-  if (profErr || !prof) {
+  if (!prof) {
     console.error('No user_profiles row found for ' + targetEmail);
     console.error('Make sure the user has logged in at least once, or create their profile in User Management.');
     return;
