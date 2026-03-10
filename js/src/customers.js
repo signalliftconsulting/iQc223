@@ -162,6 +162,10 @@ function updateMgrFilterLabel() {
 function setFilter(f) {
   filterMode = f;
   mrrExposureFilter = null; // clear MRR drill-down when switching status chips
+  insightFilter = null;     // clear insight drill-down
+  _filterTier = null;       // clear tier drill-down
+  _filterStage = null;      // clear stage drill-down
+  _filterManager = null;    // clear CSM drill-down
   // Clear any delta filter + sort when switching via status chips
   delete columnFilters['_delta'];
   if (sortKey === '_delta') { sortKey = 'score'; sortDir = -1; }

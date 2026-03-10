@@ -546,7 +546,8 @@ async function adminSaveEdit() {
 // Auto-register current user's profile on login (so admin can see them)
 async function ensureUserProfile(user) {
   try {
-    const { data } = await sb.from('user_profiles').select('user_id, role, client_id').eq('user_id', user.id).single();
+    const { data: rows } = await sb.from('user_profiles').select('user_id, role, client_id').eq('user_id', user.id).limit(1);
+    const data = rows && rows.length ? rows[0] : null;
     if (!data) {
       // Not registered yet — create profile row
       await sb.from('user_profiles').insert({

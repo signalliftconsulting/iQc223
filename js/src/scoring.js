@@ -259,76 +259,82 @@ function makeRec(score, data) {
     else if (data.growth === 'none') weaknesses.push('no growth signal');
   }
 
-  const momLabel = mom === 'up' ? 'Trending upward (+' + Math.abs(delta) + ' pts this week).'
-    : mom === 'dn' ? 'Trending downward (' + delta + ' pts this week).'
-    : mom === 'flat' ? 'Score is holding steady.' : '';
+  // Build the NBA so the assessment can reference it
+  const nba = buildNextBestAction(data);
 
-  // ── Lifecycle-first overrides (status descriptions, not actions) ──
+  // What drove the improvement (if improving)?
+  const gains = mom === 'up' ? _nbaScoreGains(data) : [];
+  const gainText = gains.length ? gains.map(g => g.label + ' ' + g.desc).join(', ') : '';
+
+  // ── Lifecycle-first overrides ──
   if (lc === 'onboarding') {
+    if ((status === 'critical' || status === 'risk') && mom === 'up')
+      return `<strong>${nba.action}.</strong> ${gainText ? 'Recovery driven by ' + gainText + '.' : 'Health is recovering.'} ${weaknesses.length ? 'Still dragging it down: ' + weaknesses.slice(0,2).join(' and ') + '.' : ''} Early onboarding recoveries are fragile — these gains can reverse before the customer sees real value.`;
     if (status === 'critical' || status === 'risk')
-      return `<strong>Onboarding At Risk:</strong> ${name} is a new customer already showing warning signs at a score of ${score}. ${weaknesses.length ? 'Key concerns: ' + weaknesses.slice(0,2).join(' and ') + '.' : ''} ${momLabel} Early health issues like this can undermine the entire relationship if not addressed quickly.`;
+      return `<strong>${nba.action}.</strong> ${weaknesses.length ? weaknesses.slice(0,2).join(' and ').charAt(0).toUpperCase() + weaknesses.slice(0,2).join(' and ').slice(1) + ' are' : 'Key signals are'} well below target during the most critical adoption window. Acting now matters because onboarding-stage issues compound fast — they erode confidence before the customer has seen any value.`;
     if (status === 'watch')
-      return `<strong>Onboarding — Needs Attention:</strong> ${name} is still ramping up with a score of ${score}. ${weaknesses.length ? 'Soft spots: ' + weaknesses.slice(0,2).join(' and ') + '.' : 'Some signals are below target.'} This is common for new customers but worth watching closely. ${momLabel}`;
-    return `<strong>Onboarding — On Track:</strong> ${name} is off to a solid start at a score of ${score}. ${strengths.length ? 'Positives: ' + strengths.slice(0,2).join(' and ') + '.' : ''} ${momLabel} Still in the early adoption window — the focus should remain on time-to-value.`;
+      return `<strong>${nba.action}.</strong> ${weaknesses.length ? weaknesses.slice(0,2).join(' and ').charAt(0).toUpperCase() + weaknesses.slice(0,2).join(' and ').slice(1) + ' are' : 'Some signals are'} soft during ramp-up. Common for new customers, but these gaps become structural if they persist past the first 30 days.`;
+    return `<strong>${nba.action}.</strong> ${strengths.length ? strengths.slice(0,2).join(' and ').charAt(0).toUpperCase() + strengths.slice(0,2).join(' and ').slice(1) + '.' : 'Signals look healthy.'} Still in the early adoption window where habits are forming — this is the right time to lock in good patterns.`;
   }
 
   if (lc === 'won') {
+    if ((status === 'critical' || status === 'risk') && mom === 'up')
+      return `<strong>${nba.action}.</strong> ${gainText ? 'Recovery driven by ' + gainText + '.' : 'Health is recovering.'} ${weaknesses.length ? 'Still weak: ' + weaknesses.slice(0,2).join(' and ') + '.' : ''} Post-expansion dips often happen when the new scope hasn't been fully adopted.`;
     if (status === 'critical' || status === 'risk')
-      return `<strong>Post-Expansion — Struggling:</strong> ${name} recently expanded but health has deteriorated to a score of ${score}. ${weaknesses.length ? 'Problem areas: ' + weaknesses.slice(0,2).join(' and ') + '.' : ''} ${momLabel} The new capabilities may not be landing as expected.`;
+      return `<strong>${nba.action}.</strong> Health deteriorated after expanding. ${weaknesses.length ? 'Driven by ' + weaknesses.slice(0,2).join(' and ') + '.' : ''} The new capabilities may not be landing as expected — if value isn't realized quickly, buyer's remorse sets in.`;
     if (status === 'watch')
-      return `<strong>Post-Expansion — Mixed:</strong> ${name} recently expanded and sits at a score of ${score} with some signals still soft. ${weaknesses.length ? weaknesses.slice(0,2).join(', ') + '.' : ''} ${momLabel} Adoption of the expanded scope may need reinforcement.`;
-    return `<strong>Post-Expansion — Healthy:</strong> ${name} is performing well at ${score} after a recent expansion. ${strengths.length ? 'Strong on: ' + strengths.slice(0,2).join(' and ') + '.' : ''} ${momLabel}`;
+      return `<strong>${nba.action}.</strong> ${weaknesses.length ? weaknesses.slice(0,2).join(' and ').charAt(0).toUpperCase() + weaknesses.slice(0,2).join(' and ').slice(1) + '.' : 'Some signals are soft.'} Adoption of the expanded scope likely needs reinforcement to prevent a slide.`;
+    return `<strong>${nba.action}.</strong> ${strengths.length ? strengths.slice(0,2).join(' and ').charAt(0).toUpperCase() + strengths.slice(0,2).join(' and ').slice(1) + '.' : 'Signals look strong.'} The expansion is landing well.`;
   }
 
   if (lc === 'churned') {
     if (score >= 50)
-      return `<strong>Churned — Winback Candidate:</strong> ${name} churned but had a score of ${score} with some positive signals still showing. ${strengths.length ? strengths.slice(0,2).join(', ') + '.' : ''} There may be an opportunity to re-engage.`;
-    return `<strong>Churned:</strong> ${name} has left with a score of ${score}. ${weaknesses.length ? 'At time of churn: ' + weaknesses.slice(0,2).join(' and ') + '.' : ''} Low likelihood of winback without significant changes.`;
+      return `<strong>${nba.action}.</strong> ${strengths.length ? strengths.slice(0,2).join(' and ').charAt(0).toUpperCase() + strengths.slice(0,2).join(' and ').slice(1) + ' suggest' : 'Decent engagement suggests'} there may be an opportunity to re-engage with a targeted offer.`;
+    return `<strong>${nba.action}.</strong> ${weaknesses.length ? weaknesses.slice(0,2).join(' and ').charAt(0).toUpperCase() + weaknesses.slice(0,2).join(' and ').slice(1) + ' were' : 'Weak signals were'} present at churn. Low likelihood of winback without significant changes.`;
   }
 
   // ── Standard health assessment ────────────────────────────
   if (status === 'critical') {
-    let text = `<strong>Critical:</strong> ${name} is at a score of ${score} — the lowest health tier.`;
-    if (weaknesses.length) text += ` Key issues: ${weaknesses.slice(0,3).join(', ')}.`;
-    if (data.mrr) text += ` This represents $${fmtNum(data.mrr)} MRR at serious churn risk.`;
-    text += ` ${momLabel}`;
+    let text = `<strong>${nba.action}.</strong>`;
+    if (weaknesses.length) text += ` Driven by ${weaknesses.slice(0,3).join(', ')}.`;
+    if (strengths.length) text += ` Bright spot: ${strengths[0]}.`;
+    if (data.mrr) text += ` $${fmtNum(data.mrr)} MRR at churn risk.`;
+    if (mom === 'up') text += gainText ? ` Recovery driven by ${gainText} — but health is still well below safe levels.` : ' Recovery is underway but health is still well below safe levels.';
+    else if (mom === 'dn') text += ' The downward trajectory makes this more urgent — without intervention the account is heading toward churn.';
     return text;
   }
 
   if (status === 'risk') {
-    let text = `<strong>At Risk:</strong> ${name} is at a score of ${score} with multiple weak signals.`;
-    if (weaknesses.length) text += ` Problem areas: ${weaknesses.slice(0,3).join(', ')}.`;
+    let text = `<strong>${nba.action}.</strong>`;
+    if (weaknesses.length) text += ` ${weaknesses.slice(0,3).join(', ').charAt(0).toUpperCase() + weaknesses.slice(0,3).join(', ').slice(1)} are the primary concerns.`;
     if (strengths.length) text += ` On the positive side: ${strengths[0]}.`;
-    text += ` ${momLabel}`;
-    if (mom === 'up') text += ' The improving trend is a good sign but the account is not out of danger yet.';
+    if (mom === 'up') text += gainText ? ` Improvement driven by ${gainText} — but still below safe levels.` : ' Health is improving but still below safe levels.';
+    else if (mom === 'dn') text += ' The continued decline makes action more urgent.';
     return text;
   }
 
   if (status === 'watch') {
-    let text = `<strong>Watch:</strong> ${name} is at a score of ${score} — not yet at risk but showing soft spots.`;
-    if (weaknesses.length) text += ` Areas of concern: ${weaknesses.slice(0,2).join(' and ')}.`;
+    let text = `<strong>${nba.action}.</strong>`;
+    if (weaknesses.length) text += ` ${weaknesses.slice(0,2).join(' and ').charAt(0).toUpperCase() + weaknesses.slice(0,2).join(' and ').slice(1)} are the soft spots.`;
     if (strengths.length) text += ` Holding up on: ${strengths.slice(0,2).join(' and ')}.`;
-    text += ` ${momLabel}`;
-    if (mom === 'dn') text += ' If this trend continues, the account will likely slide into At Risk territory.';
-    else if (mom === 'up') text += ' The upward trend suggests the account may be recovering.';
+    if (mom === 'dn') text += ' If this trajectory continues, the account will slide into At Risk.';
+    else if (mom === 'up') text += gainText ? ` Improvement driven by ${gainText} — addressing the remaining gaps could push this back to Healthy.` : ' The upward movement is a good sign — addressing the remaining gaps now could push this back to Healthy.';
     return text;
   }
 
   if (status === 'expand') {
-    let text = `<strong>Expansion Ready:</strong> ${name} is thriving at a score of ${score}.`;
-    if (strengths.length) text += ` Standout signals: ${strengths.slice(0,2).join(' and ')}.`;
-    text += ` ${momLabel}`;
-    if (mom === 'dn') text += ' Despite the strong score, the downward momentum is worth monitoring before pursuing growth conversations.';
+    let text = `<strong>${nba.action}.</strong>`;
+    if (strengths.length) text += ` ${strengths.slice(0,2).join(' and ').charAt(0).toUpperCase() + strengths.slice(0,2).join(' and ').slice(1)} make this the right time.`;
+    if (mom === 'dn') text += ' Worth monitoring the downward momentum before pushing growth conversations.';
     return text;
   }
 
   // Healthy
-  let text = `<strong>Healthy:</strong> ${name} is in good shape at a score of ${score}.`;
-  if (strengths.length) text += ` Strongest signals: ${strengths.slice(0,2).join(' and ')}.`;
+  let text = `<strong>${nba.action}.</strong>`;
+  if (strengths.length) text += ` ${strengths.slice(0,2).join(' and ').charAt(0).toUpperCase() + strengths.slice(0,2).join(' and ').slice(1)}.`;
   if (weaknesses.length) text += ` Minor area to watch: ${weaknesses[0]}.`;
-  text += ` ${momLabel}`;
-  if (mom === 'dn') text += ' The score is solid today but the declining trend means this account could shift to Watch if the trajectory continues.';
-  if (data.renewal != null && data.renewal <= 2) text += ` Renewal is approaching in ${data.renewal} month${data.renewal !== 1 ? 's' : ''}.`;
+  if (mom === 'dn') text += ' Solid today but the declining trend means this could shift to Watch if it continues.';
+  if (data.renewal != null && data.renewal <= 2) text += ` Renewal approaching in ${data.renewal} month${data.renewal !== 1 ? 's' : ''}.`;
   return text;
 }
 
@@ -522,18 +528,86 @@ function _nbaScoreDrivers(c) {
   return results.slice(0, 2);
 }
 
+// ─── SCORE IMPROVEMENT DRIVERS (per-customer) ────────────────
+// Like _nbaScoreDrivers but for positive changes — what improved?
+function _nbaScoreGains(c) {
+  const hist = (c.history || []).filter(h => h.date).sort((a, b) => a.date.localeCompare(b.date));
+  if (hist.length < 2) return [];
+
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  const weekAgoT = weekAgo.getTime();
+
+  const recent = hist[hist.length - 1];
+  const prev = hist.reduce((best, h) =>
+    Math.abs(new Date(h.date).getTime() - weekAgoT) < Math.abs(new Date(best.date).getTime() - weekAgoT) ? h : best
+  );
+  if (recent === prev) return [];
+
+  const w = getActiveWeights(c);
+  const totalW = (w.logins + w.adoption + w.tickets + (w.nps || 0) + (w.csat || 0) + w.days + w.growth) || 100;
+
+  const signals = [
+    { key: 'logins', label: 'logins', wt: w.logins,
+      get: h => h.signals?.logins ?? c.logins,
+      norm: v => v != null ? Math.min(v / 30, 1) * 100 : 50,
+      desc: (a, b) => `went from ${Math.round(a)}/mo to ${Math.round(b)}/mo` },
+    { key: 'adoption', label: 'adoption', wt: w.adoption,
+      get: h => h.signals?.adoption ?? c.adoption,
+      norm: v => v != null ? Math.min(v, 100) : 50,
+      desc: (a, b) => `rose from ${Math.round(a)}% to ${Math.round(b)}%` },
+    { key: 'tickets', label: 'tickets', wt: w.tickets,
+      get: h => h.signals?.tickets ?? c.tickets,
+      norm: v => v != null ? Math.max(0, 100 - v * 20) : 50,
+      desc: (a, b) => `dropped from ${Math.round(a)} to ${Math.round(b)}` },
+    { key: 'nps', label: 'NPS', wt: w.nps || 0,
+      get: h => h.signals?.nps ?? c.nps,
+      norm: v => npsNormalized(v),
+      desc: (a, b) => `improved from ${Math.round(a * 10) / 10} to ${Math.round(b * 10) / 10}` },
+    { key: 'csat', label: 'CSAT', wt: w.csat || 0,
+      get: h => h.signals?.csat ?? c.csat,
+      norm: v => csatNormalized(v),
+      desc: (a, b) => `improved from ${csatDisplay(a)} to ${csatDisplay(b)}` },
+    { key: 'days', label: 'contact recency', wt: w.days,
+      get: h => h.signals?.days ?? c.days,
+      norm: v => v != null ? Math.max(0, 100 - (v / 180) * 100) : 50,
+      desc: (a, b) => `improved from ${Math.round(a)}d to ${Math.round(b)}d ago` }
+  ].filter(s => s.wt > 0);
+
+  const results = [];
+  signals.forEach(s => {
+    const rawPrev = s.get(prev);
+    const rawCurr = s.get(recent);
+    if (rawPrev == null || rawCurr == null) return;
+    const normPrev = s.norm(rawPrev);
+    const normCurr = s.norm(rawCurr);
+    const contribution = (normCurr - normPrev) * (s.wt / totalW);
+    if (contribution > 1) { // meaningful positive impact
+      results.push({ key: s.key, label: s.label, contribution, desc: s.desc(rawPrev, rawCurr) });
+    }
+  });
+  results.sort((a, b) => b.contribution - a.contribution); // most positive first
+  return results.slice(0, 2);
+}
+
 // ─── NEXT BEST ACTION ────────────────────────────────────────
 function buildNextBestAction(c) {
   const status  = getStatus(c.score);
   const mom     = getMomentum(c);
+  const delta   = (c.history && c.history.length >= 2) ? getDelta7d(c) : 0;
+  const improving = mom === 'up';
+  const declining = mom === 'dn';
+  const bigImprove = delta >= 10;
   const cad     = getCadenceStatus(c);
   const sent    = latestSentiment(c);
   const lc      = c.lifecycle || 'active';
 
   // ── Lifecycle-first overrides ──────────────────────────────
   if (lc === 'onboarding') {
+    if ((status === 'critical' || status === 'risk') && bigImprove)
+      return { level:'warn', action:'Reinforce onboarding momentum', talk:`${c.name||'This customer'} started rough but is recovering fast. Whatever changed is working — find out what and double down: "Things are heading in the right direction — what clicked for your team recently? Let's make sure we keep that going."` };
     if (status === 'critical' || status === 'risk')
-      return { level:'urgent', action:'Onboarding at risk — remove blockers now', talk:`${c.name||'This customer'} is a new customer and already showing risk signals. Don't wait — schedule a hands-on enablement session immediately: "I want to make sure we get you off to a strong start. Can we get 30 minutes to walk through any blockers together?"` };
+      return { level:'urgent', action:'Onboarding at risk — remove blockers now', talk:`${c.name||'This customer'} is a new customer showing risk signals with no recovery trend yet. Schedule a hands-on enablement session immediately: "I want to make sure we get you off to a strong start. Can we get 30 minutes to walk through any blockers together?"` };
     if (signalOn(c,'adoption') && c.adoption != null && c.adoption < 40)
       return { level:'warn', action:`Drive adoption — only ${c.adoption}% utilized`, talk:`New customer at ${c.adoption}% adoption — this is the critical window for time-to-value. Schedule a training session: "Let me walk your team through the key features — teams that adopt these early see results much faster."` };
     if (signalOn(c,'logins') && c.logins != null && c.logins < 5)
@@ -541,6 +615,8 @@ function buildNextBestAction(c) {
     return { level:'ok', action:'Continue onboarding — confirm time-to-value', talk:`Onboarding is on track. Keep the momentum going — focus on adoption milestones and building champion relationships. Ask: "What's working well so far? Anything we can do to help you get more value faster?"` };
   }
   if (lc === 'won') {
+    if ((status === 'critical' || status === 'risk') && bigImprove)
+      return { level:'warn', action:'Post-expansion recovering — stay close', talk:`${c.name||'This customer'} struggled after expanding but is now trending in the right direction. Stay close to ensure the recovery continues: "Glad to see things picking up — what's been the biggest adjustment for your team with the new capabilities?"` };
     if (status === 'critical' || status === 'risk')
       return { level:'warn', action:'Expansion at risk — ensure value realization', talk:`${c.name||'This customer'} recently expanded but signals are dropping. Focus on ensuring the new capabilities are delivering value: "I want to make sure you're getting what you expected from the expansion. Can we review how things are going?"` };
     return { level:'ok', action:'Value realization — check new capabilities adoption', talk:`Recently expanded — make sure the new scope is fully adopted and delivering ROI. Ask: "How is [the new capability] working for your team? Is it meeting the expectations we discussed?"` };
@@ -572,11 +648,17 @@ function buildNextBestAction(c) {
   if (signalOn(c,'days') && cad.status === 'overdue')
     return { level:'warn', action:`Reach out now — ${c.days} days no contact`, talk:`This account has gone silent. Send a personal note today: "Hey [name], it's been a while — how's everything going? Anything on your radar I should know about?"` };
 
-  if (status === 'critical')
-    return { level:'urgent', action:'Escalate — critical health score', talk:`Critical score — act immediately. Book an executive call this week: "I've been keeping a very close eye on your account and want to personally make sure we get things back on track."` };
+  if (status === 'critical' && bigImprove)
+    return { level:'warn', action:'Recovery underway — stay close', talk:`Critical score but recovering fast. Something is working — find out what and reinforce it: "I can see things are moving in the right direction. What's been the biggest change recently? Let's make sure we keep this going."` };
 
-  if (status === 'risk' && mom === 'dn')
-    return { level:'urgent', action:'Schedule emergency health check', talk:`At Risk AND declining — don't wait. Book a call this week: "I've been keeping a close eye on your account and want to make sure we're getting ahead of anything before it becomes a bigger issue."` };
+  if (status === 'critical')
+    return { level:'urgent', action:'Escalate — critical health score', talk:`Critical score with no recovery trend — act immediately. Book an executive call this week: "I've been keeping a very close eye on your account and want to personally make sure we get things back on track."` };
+
+  if (status === 'risk' && declining)
+    return { level:'urgent', action:'Schedule emergency health check', talk:`At Risk AND still declining — don't wait. Book a call this week: "I've been keeping a close eye on your account and want to make sure we're getting ahead of anything before it becomes a bigger issue."` };
+
+  if (status === 'risk' && bigImprove)
+    return { level:'warn', action:'Keep the recovery going', talk:`At Risk but on an upward trajectory. Don't change what's working — check in to understand what's driving the improvement: "Things are trending better — what shifted? I want to make sure we keep building on this."` };
 
   if (status === 'risk')
     return { level:'warn', action:'Schedule a health check call', talk:`At Risk account — reach out this week: "I wanted to check in and make sure you're getting the value you expected. Can we find 30 minutes to review where things stand?"` };
@@ -600,17 +682,19 @@ function buildNextBestAction(c) {
     if (signalOn(c,'nps') && c.nps != null && c.nps <= 7) watchSigns.push('NPS ' + c.nps);
     if (signalOn(c,'csat') && c.csat != null && c.csat <= 3) watchSigns.push('CSAT ' + csatDisplay(c.csat));
     const signSummary = watchSigns.length ? watchSigns.slice(0, 2).join(', ') : 'mixed signals';
-    return { level:'warn', action:'Check in — ' + signSummary, talk:`Score is in the Watch zone (${signSummary}). Proactively reach out: "I wanted to check in and make sure everything is going well. Anything on your radar I should know about?"` };
+    if (improving)
+      return { level:'warn', action:'Trending up — address remaining gaps', talk:`Heading in the right direction but still in Watch territory (${signSummary}). Keep the momentum: "Things are looking better — I want to make sure we close the remaining gaps. Can we review where you're still seeing friction?"` };
+    return { level:'warn', action:'Check in — ' + signSummary, talk:`In the Watch zone with ${signSummary}. Proactively reach out: "I wanted to check in and make sure everything is going well. Anything on your radar I should know about?"` };
   }
 
-  if (signalOn(c,'growth') && status === 'expand' && c.growth === 'strong' && mom !== 'dn')
+  if (signalOn(c,'growth') && status === 'expand' && c.growth === 'strong' && !declining)
     return { level:'expand', action:'Open the upsell conversation', talk:`Perfect timing for expansion. Say: "Your team's engagement has been really strong — have you thought about [next tier / additional seats]? Teams at your stage typically see [outcome] when they expand."` };
 
   if (c.renewal != null && c.renewal <= 3)
     return { level:'renew', action:'Start renewal conversation', talk:`Get ahead of the renewal while sentiment is positive: "Renewal is coming up — I'd love to get ahead of it and make sure everything is lined up on your end."` };
 
-  if (mom === 'dn') {
-    const drop = Math.abs(getDelta7d(c));
+  if (declining) {
+    const drop = Math.abs(delta);
     // Find which signal drove the decline by comparing current vs week-ago values
     const drivers = _nbaScoreDrivers(c);
     let driverText = '';

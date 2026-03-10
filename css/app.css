@@ -162,11 +162,13 @@ svg.sparkline{display:block}
 
 /* HEATMAP */
 .heatmap{overflow-x:auto}
-.heatmap table{border-collapse:collapse;font-size:.72rem;width:100%}
-.heatmap th{padding:4px 7px;text-align:left;font-weight:600;color:var(--subtle);font-size:.67rem;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;transition:color .14s}
-.heatmap th:hover{color:var(--blue)}
-.heatmap td{padding:4px 7px;border-radius:3px;text-align:center;font-weight:700;min-width:48px}
-.heatmap td.nc{text-align:left;font-weight:600;color:var(--text);min-width:120px;padding-right:10px}
+.heatmap table:not(.ct){border-collapse:collapse;font-size:.72rem;width:100%}
+.heatmap table:not(.ct) th{padding:4px 7px;text-align:left;font-weight:600;color:var(--subtle);font-size:.67rem;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;transition:color .14s}
+.heatmap table:not(.ct) th:hover{color:var(--blue)}
+.heatmap table:not(.ct) td{padding:4px 7px;border-radius:3px;text-align:center;font-weight:700;min-width:48px}
+.heatmap table:not(.ct) td.nc{text-align:left;font-weight:600;color:var(--text);min-width:120px;padding-right:10px}
+.heatmap-tbl td{text-align:center;font-weight:700;border-radius:3px}
+.heatmap-tbl td:first-child{text-align:left}
 .hm-r{color:var(--red);background:var(--red-l)}.hm-y{color:var(--amber);background:var(--amber-l)}.hm-g{color:var(--green);background:var(--green-l)}
 
 /* ALERTS */
@@ -910,7 +912,8 @@ svg.sparkline{display:block}
 .info-tip:hover::before{opacity:1}
 .info-tip.tip-below::after{bottom:auto;top:calc(100% + 6px)}
 .info-tip.tip-below::before{bottom:auto;top:calc(100% + 2px);border-top-color:transparent;border-bottom-color:#1e293b}
-.dash-kpi-card:has(.info-tip:hover),.card:has(.info-tip:hover),.chart-card:has(.info-tip:hover){z-index:100;position:relative}
+.dash-kpi-card:has(.info-tip:hover),.card:has(.info-tip:hover),.chart-card:has(.info-tip:hover),.aw-card:has(.info-tip:hover){z-index:100;position:relative;overflow:visible}
+.aw-hd .info-tip{color:rgba(255,255,255,.55);opacity:1}.aw-hd .info-tip:hover{color:#fff}
 /* ─── Sparklines ─── */
 .sparkline{display:block;overflow:visible}
 td .sparkline{vertical-align:middle}

@@ -117,7 +117,8 @@ function ensureGlobalWeightsProfile(persist = false) {
 
 async function loadSettingsFromSupabase() {
   if (!currentUser) return;
-  const { data, error } = await sb.from('settings').select('*').eq('user_id', currentUser.id).single();
+  const { data: settingsRows, error } = await sb.from('settings').select('*').eq('user_id', currentUser.id).limit(1);
+  const data = settingsRows && settingsRows.length ? settingsRows[0] : null;
   if (error || !data) return; // no settings row yet — use defaults
   try { if (data.weights)    weights    = { ...DEFAULT_WEIGHTS,    ...JSON.parse(data.weights) }; }    catch(e){}
   try { if (data.thresholds) thresholds = { ...DEFAULT_THRESHOLDS, ...JSON.parse(data.thresholds) }; } catch(e){}

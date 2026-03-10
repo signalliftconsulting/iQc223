@@ -66,6 +66,8 @@ function applyProfileSignalState() {
 function getFormData() {
   return {
     name:     document.getElementById('f-name').value.trim(),
+    contact_name:  (document.getElementById('f-contact-name')?.value || '').trim(),
+    contact_email: (document.getElementById('f-contact-email')?.value || '').trim(),
     manager:  (()=>{ const nEl=document.getElementById('f-manager-new'); if(nEl&&nEl.style.display!=='none'&&nEl.value.trim()) return nEl.value.trim(); const sEl=document.getElementById('f-manager'); return (sEl&&sEl.value&&sEl.value!=='__add_new__') ? sEl.value : ''; })(),
     mrr:      parseFloat(document.getElementById('f-mrr').value)      || 0,
     arr:      parseFloat(document.getElementById('f-arr')?.value)     || 0,
@@ -335,6 +337,8 @@ function saveScore() {
       () => {
         dupe.score           = score;
         dupe.status          = status;
+        dupe.contact_name    = data.contact_name || dupe.contact_name || '';
+        dupe.contact_email   = data.contact_email || dupe.contact_email || '';
         dupe.logins          = data.logins;
         dupe.adoption        = data.adoption;
         dupe.tickets         = data.tickets;
@@ -377,6 +381,8 @@ function saveScore() {
   const cust = {
     id:              crypto.randomUUID(),
     name:            data.name,
+    contact_name:    data.contact_name || '',
+    contact_email:   data.contact_email || '',
     manager:         data.manager || '',
     scoring_profile: data.profile || '',
     mrr:             data.mrr,
@@ -422,6 +428,47 @@ function saveScore() {
   if (_returnToDetail) { const rid = _returnToDetail; _returnToDetail = ''; setTimeout(() => openDetail(rid), 80); }
 }
 
+function saveDetailsOnly() {
+  const editId = document.getElementById('score-form').dataset.editId;
+  if (!editId) { toast('Save Details is only available when editing an existing customer', 'error'); return; }
+  const c = customers.find(x => x.id === editId);
+  if (!c) { toast('Customer not found', 'error'); return; }
+  const data = getFormData();
+  if (!data.name) { toast('Customer name is required', 'error'); return; }
+
+  c.name             = data.name;
+  c.contact_name     = data.contact_name || '';
+  c.contact_email    = data.contact_email || '';
+  c.manager          = data.manager || c.manager || '';
+  c.mrr              = data.mrr;
+  c.arr              = data.arr || (data.mrr * 12);
+  c.since            = data.since || c.since || '';
+  c.tier             = data.tier;
+  c.lifecycle        = data.lifecycle;
+  c.tags             = data.tags;
+  c.billing_interval = data.billing_interval || c.billing_interval || '';
+  c.scoring_profile  = data.profile || c.scoring_profile || '';
+  c.renewal_date     = data.renewal_date || c.renewal_date || '';
+  if (data.note) {
+    c.notes = c.notes || [];
+    c.notes.unshift({ text: data.note, date: new Date().toISOString() });
+  }
+  applyAutoStage(c);
+  setLoading(true);
+  save(c).then(() => {
+    setLoading(false);
+    toast('Details saved for ' + c.name, 'success');
+  }).catch(() => {
+    setLoading(false);
+    toast('Saved locally — sync failed', 'warn');
+  });
+  logAudit('customer_updated', c.id, c.name, { summary: `Details updated (no re-score)` });
+  resetForm();
+  nav(_returnToPage || 'customers');
+  _returnToPage = '';
+  if (_returnToDetail) { const rid = _returnToDetail; _returnToDetail = ''; setTimeout(() => openDetail(rid), 80); }
+}
+
 function resetForm() {
   document.getElementById('score-form').reset();
   // Reset logins (active by default)
@@ -447,6 +494,7 @@ function resetForm() {
   document.getElementById('form-title').textContent = 'Score a Customer';
   pendingResult = null;
   document.getElementById('score-form').dataset.editId = '';
+  if (el('save-details-btn')) el('save-details-btn').style.display = 'none';
   applyProfileSignalState();
 }
 
@@ -765,6 +813,10 @@ function renderDetailOverview() {
         <div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:2px">Lifecycle</div>
         <div>${lifecycleBadge(c.lifecycle)}</div>
       </div>
+      ${(c.contact_name||c.contact_email) ? `<div style="padding:8px 12px;grid-column:1/-1;border-bottom:1px solid var(--border);display:flex;gap:16px">
+        <div><div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:2px">Contact</div><div style="font-weight:500;font-size:var(--fs-base)">${escHtml(c.contact_name||'—')}</div></div>
+        <div><div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:2px">Email</div><div style="font-size:var(--fs-base)">${c.contact_email ? `<a href="mailto:${escHtml(c.contact_email)}" style="color:var(--blue);text-decoration:none;font-weight:500">${escHtml(c.contact_email)}</a>` : '—'}</div></div>
+      </div>` : ''}
       <div style="padding:8px 12px;border-right:1px solid var(--border)${(c.tags&&c.tags.length)||c.external_id||c.stripe_customer_id?';border-bottom:1px solid var(--border)':''}">
         <div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:2px">MRR</div>
         <div style="font-weight:600;font-size:var(--fs-base)">${c.mrr ? '$'+fmtNum(c.mrr) : '—'}</div>
@@ -1103,22 +1155,51 @@ function buildSparkline(values, w, h) {
   const min = Math.min(...values, 0);
   const max = Math.max(...values, 100);
   const range = max - min || 1;
-  const xStep = (w - 10) / (values.length - 1);
-  const points = values.map((v,i) => {
-    const x = 5 + i * xStep;
-    const y = h - 5 - ((v - min) / range) * (h - 10);
-    return `${x},${y}`;
-  }).join(' ');
-  const last  = values[values.length-1];
-  const prev  = values[values.length-2];
-  const color = last > prev ? '#16a34a' : last < prev ? '#dc2626' : '#64748b';
+  const padX = 8, padY = 8;
+  const plotW = w - padX * 2, plotH = h - padY * 2;
+  const xStep = plotW / (values.length - 1);
+  const pts = values.map((v,i) => ({
+    x: padX + i * xStep,
+    y: padY + plotH - ((v - min) / range) * plotH,
+    v
+  }));
+  const lastVal  = values[values.length-1];
+  const prevVal  = values[values.length-2];
+  const color = lastVal > prevVal ? '#16a34a' : lastVal < prevVal ? '#dc2626' : '#64748b';
+
+  // Smooth path (Catmull-Rom → Cubic Bezier)
+  let pathD = `M${pts[0].x},${pts[0].y}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    pathD += ` C${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.x},${p2.y}`;
+  }
+
+  // Area fill under curve
+  const areaD = pathD + ` L${pts[pts.length-1].x},${padY+plotH} L${pts[0].x},${padY+plotH} Z`;
+
+  // Only show first and last value (no hover on sparklines)
+  const first = pts[0];
+  const last = pts[pts.length - 1];
+
   return `
-    <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" class="sparkline">
-      <polyline points="${points}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-      ${values.map((v,i)=>{
-        const x = 5+i*xStep, y = h-5-((v-min)/range)*(h-10);
-        return `<circle cx="${x}" cy="${y}" r="3" fill="${color}" opacity="${i===values.length-1?1:.5}"/>`;
-      }).join('')}
+    <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" class="sparkline" style="font-family:'DM Mono',monospace">
+      <defs><linearGradient id="spkGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${color}" stop-opacity="0.15"/>
+        <stop offset="100%" stop-color="${color}" stop-opacity="0.02"/>
+      </linearGradient></defs>
+      <path d="${areaD}" fill="url(#spkGrad)"/>
+      <path d="${pathD}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="${first.x}" cy="${first.y}" r="2" fill="#fff" stroke="${color}" stroke-width="1.5"/>
+      <text x="${first.x}" y="${first.y - 5}" text-anchor="middle" font-size="7.5" font-weight="600" fill="${color}">${Math.round(first.v)}</text>
+      <circle cx="${last.x}" cy="${last.y}" r="2.5" fill="#fff" stroke="${color}" stroke-width="1.5"/>
+      <text x="${last.x}" y="${last.y - 5}" text-anchor="middle" font-size="7.5" font-weight="600" fill="${color}">${Math.round(last.v)}</text>
     </svg>`;
 }
 
@@ -1144,8 +1225,11 @@ function editCustomer(id) {
   nav('score');
   document.getElementById('form-title').textContent = 'Re-score: ' + c.name;
   document.getElementById('score-form').dataset.editId = c.id;
+  if (el('save-details-btn')) el('save-details-btn').style.display = '';
 
   el('f-name').value     = c.name;
+  if (el('f-contact-name'))  el('f-contact-name').value  = c.contact_name || '';
+  if (el('f-contact-email')) el('f-contact-email').value = c.contact_email || '';
   // Reset manager fields: hide "new" input, show select, rebuild options, set value
   const fmNew = document.getElementById('f-manager-new');
   if (fmNew) { fmNew.style.display = 'none'; fmNew.value = ''; }

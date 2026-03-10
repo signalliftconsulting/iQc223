@@ -73,6 +73,20 @@ const AUDIT_ACTION_COLORS = {
 let auditLogs   = [];
 let auditOffset = 0;
 const AUDIT_PAGE_SIZE = 50;
+let _auditSortKey = 'created_at';
+let _auditSortDir = -1;
+let _auditSearch = '';
+
+function sortAuditLog(key) {
+  if (_auditSortKey === key) _auditSortDir *= -1;
+  else { _auditSortKey = key; _auditSortDir = (key === 'customer_name' || key === 'action') ? 1 : -1; }
+  renderAuditLog();
+}
+
+function auditSearchFilter(val) {
+  _auditSearch = (val || '').toLowerCase();
+  renderAuditLog();
+}
 
 // logAudit — fire-and-forget insert to Supabase
 function logAudit(action, customerId, customerName, details) {
@@ -154,11 +168,40 @@ function renderAuditLog() {
   const pagBot = document.getElementById('audit-pag-bot');
   if (!tbody) return;
 
-  // Apply filter
+  // Apply action filter
   const filterVal = (document.getElementById('audit-filter-action') || {}).value || 'all';
-  const filtered  = filterVal === 'all'
+  let filtered  = filterVal === 'all'
     ? auditLogs
     : auditLogs.filter(e => e.action === filterVal);
+
+  // Apply search filter
+  if (_auditSearch) {
+    filtered = filtered.filter(e => {
+      const label = (AUDIT_ACTION_LABELS[e.action] || e.action || '').toLowerCase();
+      const name = (e.customer_name || '').toLowerCase();
+      let email = '';
+      try { const d = typeof e.details === 'string' ? JSON.parse(e.details) : (e.details || {}); email = (d.user_email || '').toLowerCase(); } catch {}
+      return label.includes(_auditSearch) || name.includes(_auditSearch) || email.includes(_auditSearch);
+    });
+  }
+
+  // Apply sort
+  filtered = [...filtered].sort((a, b) => {
+    let av, bv;
+    switch (_auditSortKey) {
+      case 'created_at': av = a.created_at || ''; bv = b.created_at || ''; break;
+      case 'action': av = (AUDIT_ACTION_LABELS[a.action]||a.action||'').toLowerCase(); bv = (AUDIT_ACTION_LABELS[b.action]||b.action||'').toLowerCase(); break;
+      case 'customer_name': av = (a.customer_name||'').toLowerCase(); bv = (b.customer_name||'').toLowerCase(); break;
+      case 'user_email':
+        try { const da = typeof a.details==='string'?JSON.parse(a.details):(a.details||{}); av = (da.user_email||'').toLowerCase(); } catch { av = ''; }
+        try { const db = typeof b.details==='string'?JSON.parse(b.details):(b.details||{}); bv = (db.user_email||'').toLowerCase(); } catch { bv = ''; }
+        break;
+      default: av = a.created_at || ''; bv = b.created_at || '';
+    }
+    if (av < bv) return -1 * _auditSortDir;
+    if (av > bv) return 1 * _auditSortDir;
+    return 0;
+  });
 
   if (filtered.length === 0) {
     table.style.display = 'none';

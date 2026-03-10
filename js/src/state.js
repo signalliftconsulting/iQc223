@@ -219,10 +219,11 @@ async function resolveClientPlanTier() {
   try {
     // Use cached _userClientId (resolved during ensureUserProfile)
     if (_userClientId) {
-      const { data: client } = await sb.from('clients')
+      const { data: clientRows } = await sb.from('clients')
         .select('plan_tier')
         .eq('id', _userClientId)
-        .single();
+        .limit(1);
+      const client = clientRows && clientRows.length ? clientRows[0] : null;
       clientPlanTier = client?.plan_tier || 'starter';
     } else {
       clientPlanTier = 'starter'; // no client assigned = starter

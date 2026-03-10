@@ -250,22 +250,23 @@ function _renderCalendar() {
     html += '</div></div>';
   })();
 
-  // ── Stat cards ──
+  // ── Stat cards (dynamic number colors, headers stay static) ──
+  var _calOverdueValColor = overdueCount > 0 ? '#dc2626' : '#16a34a';
   html += '<div class="cal-stats">' +
-    '<div class="cal-stat-card" style="--accent-color:var(--purple)">' +
+    '<div class="cal-stat-card" style="--accent-color:var(--purple)" title="Contract renewals occurring this month.">' +
       '<div class="cal-stat-num">' + renewalCount + '</div>' +
       '<div class="cal-stat-label">Renewals</div>' +
     '</div>' +
-    '<div class="cal-stat-card" style="--accent-color:var(--blue)">' +
+    '<div class="cal-stat-card" style="--accent-color:var(--blue)" title="Upcoming customer touchpoints scheduled this month.">' +
       '<div class="cal-stat-num">' + touchCount + '</div>' +
       '<div class="cal-stat-label">Scheduled</div>' +
     '</div>' +
-    '<div class="cal-stat-card" style="--accent-color:var(--green)">' +
+    '<div class="cal-stat-card" style="--accent-color:var(--green)" title="Completed customer calls and check-ins this month.">' +
       '<div class="cal-stat-num">' + pastTouchCount + '</div>' +
       '<div class="cal-stat-label">Past Calls</div>' +
     '</div>' +
-    '<div class="cal-stat-card" style="--accent-color:var(--red)">' +
-      '<div class="cal-stat-num">' + overdueCount + '</div>' +
+    '<div class="cal-stat-card" style="--accent-color:var(--red)" title="Customers past their required contact interval. Red when any are overdue.">' +
+      '<div class="cal-stat-num" style="color:' + _calOverdueValColor + '">' + overdueCount + '</div>' +
       '<div class="cal-stat-label">Overdue</div>' +
     '</div>' +
   '</div>';

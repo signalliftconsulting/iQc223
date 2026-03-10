@@ -1,4 +1,18 @@
 // ─── CSM PERFORMANCE DASHBOARD ───────────────────────────────
+let _csmSortKey = 'perfIndex';
+let _csmSortDir = -1;
+let _csmSearch = '';
+
+function sortCSMTable(key) {
+  if (_csmSortKey === key) _csmSortDir *= -1;
+  else { _csmSortKey = key; _csmSortDir = (key === 'name') ? 1 : -1; }
+  renderCSMPerformance();
+}
+
+function csmSearchFilter(val) {
+  _csmSearch = (val || '').toLowerCase();
+  renderCSMPerformance();
+}
 
 function renderCSMPerformance() {
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
@@ -95,26 +109,30 @@ function renderCSMPerformance() {
   const avgAtRiskPerCSM = totalCSMs ? (totalAtRisk / totalCSMs).toFixed(1).replace(/\.0$/, '') : 0;
   const overdueGradient = totalOverdue > 0 ? 'dash-kpi-red' : 'dash-kpi-green';
 
+  // Dynamic number colors (headers stay static)
+  const _csmAvgValColor = overallAvg >= 65 ? '#16a34a' : overallAvg >= 50 ? '#d97706' : '#dc2626';
+  const _csmOverdueValColor = totalOverdue > 0 ? '#dc2626' : '#16a34a';
+
   statsWrap.innerHTML = `
-    <div class="dash-kpi-card dash-kpi-blue">
+    <div class="dash-kpi-card dash-kpi-blue" title="Customer Success Managers with assigned accounts.">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.people}</div><span class="dash-kpi-label">Active CSMs</span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num">${totalCSMs}</div><div class="dash-kpi-sub">${totalAccounts} accounts across team</div></div>
     </div>
-    <div class="dash-kpi-card dash-kpi-purple">
+    <div class="dash-kpi-card dash-kpi-purple" title="Average number of accounts managed per CSM.">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.chart}</div><span class="dash-kpi-label">Avg Book Size</span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num">${avgAccsPerCSM}</div><div class="dash-kpi-sub">accounts per CSM</div></div>
     </div>
-    <div class="dash-kpi-card dash-kpi-teal">
+    <div class="dash-kpi-card dash-kpi-teal" title="Average monthly recurring revenue managed per CSM.">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.dollar}</div><span class="dash-kpi-label">Avg MRR / CSM</span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num">$${fmtNum(avgMRRPerCSM)}</div><div class="dash-kpi-sub">$${fmtNum(totalMRR)} total portfolio</div></div>
     </div>
-    <div class="dash-kpi-card ${healthScoreGradient}">
+    <div class="dash-kpi-card ${healthScoreGradient}" title="Average health score across all managed accounts. Green ≥ 65, amber 50–64, red < 50.">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.pulse}</div><span class="dash-kpi-label">Avg Health Score</span></div>
-      <div class="dash-kpi-body"><div class="dash-kpi-num">${overallAvg}</div><div class="dash-kpi-sub">${deltaIcon} ${Math.abs(overallDelta)} pts this week</div></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:${_csmAvgValColor}">${overallAvg}</div><div class="dash-kpi-sub">${deltaIcon} ${Math.abs(overallDelta)} pts this week</div></div>
     </div>
-    <div class="dash-kpi-card ${overdueGradient}">
+    <div class="dash-kpi-card ${overdueGradient}" title="Customers not contacted within the required interval. Red when any are overdue.">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.alert}</div><span class="dash-kpi-label">Overdue Contacts</span></div>
-      <div class="dash-kpi-body"><div class="dash-kpi-num">${totalOverdue}</div><div class="dash-kpi-sub">${totalOverdue ? avgAtRiskPerCSM + ' at-risk per CSM' : 'All contacts current'}</div></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:${_csmOverdueValColor}">${totalOverdue}</div><div class="dash-kpi-sub">${totalOverdue ? avgAtRiskPerCSM + ' at-risk per CSM' : 'All contacts current'}</div></div>
     </div>
   `;
 
@@ -149,24 +167,48 @@ function renderCSMPerformance() {
     </div>`;
   };
 
+  // Apply search filter
+  let filteredList = displayList;
+  if (_csmSearch) {
+    filteredList = displayList.filter(m => m.name.toLowerCase().includes(_csmSearch));
+  }
+
+  // Apply sort
+  const sortedList = [...filteredList].sort((a, b) => {
+    const key = _csmSortKey;
+    let va, vb;
+    if (key === 'name') { va = a.name.toLowerCase(); vb = b.name.toLowerCase(); return va < vb ? -_csmSortDir : va > vb ? _csmSortDir : 0; }
+    va = key === 'avgDays' ? (a[key] ?? 999) : (a[key] || 0);
+    vb = key === 'avgDays' ? (b[key] ?? 999) : (b[key] || 0);
+    return (va - vb) * _csmSortDir;
+  });
+
+  // Re-rank after sort
+  let rankN = 1;
+  sortedList.forEach(m => { if (m.name !== 'Unassigned') m.rank = rankN++; });
+
   // --- CSM Leaderboard Table ---
   const colCount = 12;
-  tableWrap.innerHTML = `<div class="csm-perf-table-wrap"><table class="ct" id="csm-perf-table">
+  const sArr = (key) => _csmSortKey === key ? (_csmSortDir > 0 ? ' ▲' : ' ▼') : '';
+  const sHd = (key, label) => `<th style="cursor:pointer;user-select:none" onclick="sortCSMTable('${key}')">${label}${sArr(key)}</th>`;
+  tableWrap.innerHTML = `
+    <div style="margin-bottom:8px"><input type="text" placeholder="Search CSMs…" value="${escHtml(_csmSearch)}" oninput="csmSearchFilter(this.value)" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-base);width:220px"/></div>
+    <div class="csm-perf-table-wrap"><table class="ct" id="csm-perf-table">
     <thead><tr>
-      <th style="width:36px">Rank</th>
-      <th>CSM</th>
-      <th>Score</th>
-      <th>Perf Index</th>
-      <th>Trend (7d)</th>
+      ${sHd('rank','Rank')}
+      ${sHd('name','CSM')}
+      ${sHd('avgScore','Score')}
+      ${sHd('perfIndex','Perf Index')}
+      ${sHd('avgDelta','Trend (7d)')}
       <th>Health Mix</th>
-      <th>Accounts</th>
-      <th>MRR Managed</th>
-      <th>At-Risk MRR</th>
-      <th>Avg Contact</th>
-      <th>Renewals ≤90d</th>
+      ${sHd('count','Accounts')}
+      ${sHd('totalMRR','MRR Managed')}
+      ${sHd('riskMRR','At-Risk MRR')}
+      ${sHd('avgDays','Avg Contact')}
+      ${sHd('renewals90','Renewals ≤90d')}
       <th></th>
     </tr></thead>
-    <tbody id="csm-perf-tbody">${displayList.map(m => {
+    <tbody id="csm-perf-tbody">${sortedList.map(m => {
       const contactWarn = m.avgDays != null && m.avgDays >= 14;
       const safeName = escHtml(m.name).replace(/'/g, "\\'");
       return `<tr data-csm="${escHtml(m.name)}" class="csm-row">
