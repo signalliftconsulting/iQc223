@@ -1213,7 +1213,7 @@ const _DEMO_SUFFIXES = [
   'Media','Metrics','Networks','Ops','Partners','Platform','Point','Pulse','Shift','Soft',
   'Solutions','Stack','Studio','Systems','Tech','Ventures','Ware','Works'
 ];
-const _DEMO_CSMS = ['Sarah Mitchell','James Chen','Maria Rodriguez','David Kim','Rachel Foster','Anil Patel'];
+const _DEMO_CSMS = ['Sarah Mitchell','James Chen','Maria Rodriguez','David Kim','Rachel Foster','Anil Patel','Emily Nakamura','Tom Brennan'];
 const _DEMO_NOTES = [
   'QBR went well. Champion is engaged and open to upsell convo.',
   'Escalated to VP of Support — tickets still climbing.',
@@ -1340,18 +1340,18 @@ const _DEMO_TRAJECTORIES = {
   }
 };
 
-// Trajectory assignment order (sums to 150)
+// Trajectory assignment order (sums to 250)
 const _DEMO_TRAJ_DIST = [
-  ...Array(35).fill('stable-healthy'),
-  ...Array(12).fill('stable-low'),
-  ...Array(22).fill('improving'),
-  ...Array(18).fill('declining'),
-  ...Array(10).fill('slow-decline'),
-  ...Array(15).fill('volatile'),
-  ...Array(8).fill('onboarding'),
-  ...Array(12).fill('churned'),
-  ...Array(10).fill('recovered'),
-  ...Array(8).fill('seasonal')
+  ...Array(58).fill('stable-healthy'),
+  ...Array(20).fill('stable-low'),
+  ...Array(37).fill('improving'),
+  ...Array(30).fill('declining'),
+  ...Array(17).fill('slow-decline'),
+  ...Array(25).fill('volatile'),
+  ...Array(13).fill('onboarding'),
+  ...Array(20).fill('churned'),
+  ...Array(17).fill('recovered'),
+  ...Array(13).fill('seasonal')
 ];
 
 function _dClamp(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); }
@@ -1451,8 +1451,13 @@ function _generateDemoCustomer(name, index, now) {
   createdDate.setDate(createdDate.getDate() - Math.floor(Math.random()*14));
   const created = createdDate.toISOString();
 
-  // Tags
-  const tags = [];
+  // Industry segment tag (deterministic per account for consistent distribution)
+  const _DEMO_INDUSTRIES = [
+    'technology','healthcare','financial-services','retail','media',
+    'professional-services','education','real-estate','insurance',
+    'logistics','energy','manufacturing'
+  ];
+  const tags = [_DEMO_INDUSTRIES[index % _DEMO_INDUSTRIES.length]];
   if (lifecycle !== 'churned' && renewal <= 2) tags.push('renewal-soon');
   if (last.score >= 85 && lastSig.growth === 'strong') tags.push('upsell-candidate');
   if (last.score < 30) tags.push('churn-risk');
@@ -1551,7 +1556,7 @@ function _generateDemoCustomer(name, index, now) {
 
 function initDemo() {
   const now = Date.now();
-  const names = _generateDemoNames(150);
+  const names = _generateDemoNames(250);
   _DEMO_TRAJ_DIST.sort(() => Math.random() - 0.5);
   customers = names.map((name, i) => _generateDemoCustomer(name, i, now));
 }
@@ -1559,7 +1564,7 @@ function initDemo() {
 // One-time admin function: push demo data to Supabase for demo@iqcadence.com
 // Run from browser console while logged in as admin: seedDemoData()
 async function seedDemoData() {
-  // Seeds 150 demo customers into an EXISTING client.
+  // Seeds 250 demo customers into an EXISTING client.
   // Usage: seedDemoData()           — auto-finds demo@iqcadence.com's client
   //        seedDemoData('some-email@x.com') — uses that user's client instead
   if (!isAdmin()) { console.error('Must be logged in as admin'); return; }
@@ -1594,12 +1599,12 @@ async function seedDemoData() {
   if (delErr) { console.error('Delete error:', delErr.message); return; }
   console.log('   Old data cleared.');
 
-  // 3. Generate 150 demo customers in memory
-  console.log('3/4 — Generating 150 demo customers…');
+  // 3. Generate 250 demo customers in memory
+  console.log('3/4 — Generating 250 demo customers…');
   initDemo(); // populates customers[]
 
   // 4. Push to Supabase under that user's ID
-  console.log('4/4 — Pushing to Supabase (150 rows)…');
+  console.log('4/4 — Pushing to Supabase (250 rows)…');
   const rows = customers.map(c => {
     const row = toRow(c);
     row.user_id = prof.user_id;       // audit: who seeded
@@ -1616,9 +1621,9 @@ async function seedDemoData() {
     console.log('   ' + inserted + '/' + rows.length + ' rows…');
   }
 
-  console.log('✓ Done! 150 demo customers seeded under ' + targetEmail + ' (client: ' + prof.client_id + ')');
+  console.log('✓ Done! 250 demo customers seeded under ' + targetEmail + ' (client: ' + prof.client_id + ')');
   console.log('Any user assigned to client ' + prof.client_id + ' will see these profiles.');
-  toast('Demo data seeded — 150 customers for ' + targetEmail, 'success');
+  toast('Demo data seeded — 250 customers for ' + targetEmail, 'success');
 }
 
 // ─── DEMO ACCOUNT SEED ──────────────────────────────────────
@@ -17400,8 +17405,8 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key, priorLine) {
   const hasM2 = !!(m2Line && m2Line.points.length);
   const hasPrior = !!(priorLine && priorLine.points.length >= 2);
 
-  const W = 960, H = 250;
-  const pad = { top: 16, right: hasM2 ? 66 : 48, bottom: 32, left: 44 };
+  const W = 960, H = 210;
+  const pad = { top: 12, right: hasM2 ? 66 : 48, bottom: 28, left: 44 };
   const cW = W - pad.left - pad.right;
   const cH = H - pad.top - pad.bottom;
 
@@ -17757,7 +17762,8 @@ const _taSvg = {
   clock:  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
   users:  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
   bar:    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
-  drop:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>'
+  drop:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>',
+  rise:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>'
 };
 
 // Clickable customer name link for analysis insights
@@ -17799,15 +17805,17 @@ function _taTrendAccel(data, metricKey, rangeDays) {
   const isCurrency = metricKey === 'mrr' || metricKey === 'arr';
   const threshold = isCurrency ? Math.max(Math.abs(d1) * 0.1, 100) : 1;
   if (Math.abs(diff) < threshold) return null;
+  const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
+  const _lib = cfg.lowerIsBetter;
   const accel = diff > 0 && d2 > 0;
   const decel = diff < 0 && d1 > 0 && d2 >= 0;
   const accelDn = diff < 0 && d2 < 0;
   const decelDn = diff > 0 && d1 < 0 && d2 <= 0;
   let title, accent;
-  if (accel) { title = label + ' is accelerating'; accent = 'green'; }
-  else if (decel) { title = label + ' growth is decelerating'; accent = 'amber'; }
-  else if (accelDn) { title = label + ' decline is accelerating'; accent = 'red'; }
-  else if (decelDn) { title = label + ' decline is slowing'; accent = 'amber'; }
+  if (accel) { title = label + (_lib ? ' is worsening faster' : ' is accelerating'); accent = _lib ? 'red' : 'green'; }
+  else if (decel) { title = label + (_lib ? ' worsening is slowing' : ' growth is decelerating'); accent = 'amber'; }
+  else if (accelDn) { title = label + (_lib ? ' improvement is accelerating' : ' decline is accelerating'); accent = _lib ? 'green' : 'red'; }
+  else if (decelDn) { title = label + (_lib ? ' improvement is slowing' : ' decline is slowing'); accent = 'amber'; }
   else { title = label + ' momentum shifted'; accent = 'amber'; }
   const f = v => (v >= 0 ? '+' : '') + _fmtTaVal(v, metricKey);
   const detail = `Changed <strong>${f(d2)}</strong> in the recent ${halfLabel} vs <strong>${f(d1)}</strong> in the prior ${halfLabel}.`;
@@ -17949,12 +17957,23 @@ function _taVolatility(data, metricKey) {
   const baseExpected = isCurrency ? 500 : Math.max(0.1, dataRange * 0.05);
   const ratio = stddev / baseExpected;
   if (ratio > 0.5 && ratio < 2.0) return null; // Normal range
+  const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
+  const _lib = cfg.lowerIsBetter;
   const isStable = ratio <= 0.5;
-  const title = label + ' has been ' + (isStable ? 'unusually stable' : 'volatile');
   const fmtStd = isCurrency ? '$' + fmtNum(Math.round(stddev)) : (Math.round(stddev * 10) / 10);
-  const detail = isStable
-    ? `Daily variation of just <strong>${fmtStd}</strong> — the portfolio is in a tight range. A breakout in either direction could signal a shift.`
-    : `Swinging <strong>±${fmtStd}</strong> day-to-day — higher than typical. Investigate whether specific accounts are driving the volatility.`;
+
+  // For lowerIsBetter metrics (tickets, days), stable & low is simply good — skip the insight
+  if (_lib && isStable) return null;
+
+  const title = label + ' has been ' + (isStable ? 'unusually stable' : 'volatile');
+  let detail;
+  if (isStable) {
+    detail = `Daily variation of just <strong>${fmtStd}</strong> — the portfolio is in a tight range. A breakout in either direction could signal a shift.`;
+  } else {
+    detail = _lib
+      ? `Swinging <strong>±${fmtStd}</strong> day-to-day — higher than typical. Sporadic spikes may indicate inconsistent support load or data quality issues.`
+      : `Swinging <strong>±${fmtStd}</strong> day-to-day — higher than typical. Investigate whether specific accounts are driving the volatility.`;
+  }
   const accent = isStable ? 'green' : 'amber';
   return { priority: 3, icon: _taSvg.bar, iconBg: isStable ? 'var(--green-l)' : 'var(--amber-l)', iconColor: isStable ? 'var(--green)' : 'var(--amber)', accent, title, detail };
 }
@@ -18006,13 +18025,14 @@ function _taPeriodComparison(data, metricKey, cutoff, rangeDays, active) {
   const threshold = isCurrency ? 100 : 0.5;
   if (Math.abs(diff) < threshold) return null;
   const rangeLabel = rangeDays <= 7 ? rangeDays + ' days' : rangeDays <= 30 ? rangeDays + ' days' : rangeDays <= 90 ? Math.round(rangeDays / 30) + ' month' + (rangeDays > 45 ? 's' : '') : Math.round(rangeDays / 30) + ' months';
-  const improved = diff > 0;
+  const wentUp = diff > 0;
+  const isGood = cfg.lowerIsBetter ? !wentUp : wentUp;
   const f = v => _fmtTaVal(v, metricKey);
   const fd = v => (v >= 0 ? '+' : '') + _fmtTaVal(v, metricKey);
-  const title = label + (improved ? ' improved' : ' declined') + ' vs prior period';
+  const title = label + (isGood ? ' improved' : ' declined') + ' vs prior period';
   const detail = `Averaged <strong>${f(currentAvg)}</strong> this period vs <strong>${f(priorAvg)}</strong> in the prior ${rangeLabel} — a <strong>${fd(diff)}</strong> shift.`;
-  const accent = improved ? 'green' : 'red';
-  return { priority: 2, icon: _taSvg.clock, iconBg: improved ? 'var(--green-l)' : 'var(--red-l)', iconColor: improved ? 'var(--green)' : 'var(--red)', accent, title, detail };
+  const accent = isGood ? 'green' : 'red';
+  return { priority: 2, icon: _taSvg.clock, iconBg: isGood ? 'var(--green-l)' : 'var(--red-l)', iconColor: isGood ? 'var(--green)' : 'var(--red)', accent, title, detail };
 }
 
 /* 6. CSM Overlay Divergence */
@@ -18206,9 +18226,11 @@ function _taDropAttribution(active, data1, metricKey, cutoff, rangeDays) {
   const dropPct = peakPt.avg !== 0 ? (dropAbs / peakPt.avg) * 100 : 0;
 
   // Recovery check: if the metric recovered >50% of the drop after the trough, skip
+  // For lowerIsBetter metrics a drop is good, so "recovery" (going back up) means the gain was lost
   const finalPt = data1[data1.length - 1];
   const recovery = finalPt.avg - troughPt.avg;
-  if (dropAbs > 0 && recovery / dropAbs > 0.5) return null; // recovered — not a current concern
+  if (!cfg.lowerIsBetter && dropAbs > 0 && recovery / dropAbs > 0.5) return null; // recovered — not a current concern
+  if (cfg.lowerIsBetter && dropAbs > 0 && recovery / dropAbs > 0.5) return null; // bounced back up — gain was temporary
 
   // Significance check: compute std dev of daily changes
   const deltas = [];
@@ -18244,13 +18266,16 @@ function _taDropAttribution(active, data1, metricKey, cutoff, rangeDays) {
   });
 
   let concentrationNote = '';
+  const _lib = cfg.lowerIsBetter; // drop = good for this metric
   if (custDeltas.length >= 2) {
     const declined = custDeltas.filter(d => d.delta < -0.5);
     const improved = custDeltas.filter(d => d.delta > 0.5);
     const pctDeclined = Math.round((declined.length / custDeltas.length) * 100);
+    const dropWord = _lib ? 'improvement' : 'decline';
+    const droppedWord = _lib ? 'improved' : 'dropped';
 
     if (declined.length <= 2 && declined.length > 0 && custDeltas.length > 3) {
-      // Concentrated: 1-2 accounts drove the decline
+      // Concentrated: 1-2 accounts drove it
       declined.sort((a, b) => a.delta - b.delta);
       const fv = v => _fmtTaVal(Math.abs(v), metricKey);
       if (declined.length === 1) {
@@ -18260,12 +18285,12 @@ function _taDropAttribution(active, data1, metricKey, cutoff, rangeDays) {
       }
     } else if (pctDeclined >= 60) {
       if (custDeltas.length <= 5) {
-        concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts declined during this period.`;
+        concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts ${droppedWord} during this period.`;
       } else {
-        concentrationNote = ` This was a broad-based decline across the portfolio — <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) dropped during this period.`;
+        concentrationNote = ` This was a broad-based ${dropWord} across the portfolio — <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) ${droppedWord} during this period.`;
       }
     } else if (pctDeclined >= 30) {
-      concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) declined while ${improved.length} improved — a split trend worth investigating by segment.`;
+      concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) ${droppedWord} while ${improved.length} ${_lib ? 'worsened' : 'improved'} — a split trend worth investigating by segment.`;
     }
   }
 
@@ -18286,7 +18311,8 @@ function _taDropAttribution(active, data1, metricKey, cutoff, rangeDays) {
     dodSpikes.sort((a, b) => a.changePct - b.changePct); // most negative first
     const worst = dodSpikes[0];
     const fv = v => _fmtTaVal(v, metricKey);
-    spikeNote = ` Sharpest single-day drop was <strong>${Math.abs(Math.round(worst.changePct))}%</strong> on ${fmtDate(worst.date)} (${fv(worst.prev)} → ${fv(worst.curr)}).`;
+    const sharpWord = _lib ? 'Sharpest single-day improvement' : 'Sharpest single-day drop';
+    spikeNote = ` ${sharpWord} was <strong>${Math.abs(Math.round(worst.changePct))}%</strong> on ${fmtDate(worst.date)} (${fv(worst.prev)} → ${fv(worst.curr)}).`;
     if (dodSpikes.length > 1) {
       spikeNote += ` There were <strong>${dodSpikes.length} days</strong> during this window with day-over-day changes exceeding 7%.`;
     }
@@ -18336,10 +18362,12 @@ function _taDropAttribution(active, data1, metricKey, cutoff, rangeDays) {
     detail += concentrationNote + spikeNote;
   } else {
     // Non-score metric: report the drop and cross-reference with health score
-    title = 'Significant Decline';
+    const _isGoodDrop = cfg.lowerIsBetter;
+    title = _isGoodDrop ? 'Significant Improvement' : 'Significant Decline';
     const label = cfg.label;
     const fv = v => _fmtTaVal(v, metricKey);
-    detail = `${label} fell <strong>${fv(dropAbs)}</strong> (${fv(peakPt.avg)} → ${fv(troughPt.avg)}) between ${peakDateStr} and ${troughDateStr}, which is larger than typical day-to-day variation for this metric.`;
+    const fellWord = _isGoodDrop ? 'dropped' : 'fell';
+    detail = `${label} ${fellWord} <strong>${fv(dropAbs)}</strong> (${fv(peakPt.avg)} → ${fv(troughPt.avg)}) between ${peakDateStr} and ${troughDateStr}, which is larger than typical day-to-day variation for this metric.`;
     detail += concentrationNote + spikeNote;
 
     // Cross-reference with health score
@@ -18352,16 +18380,29 @@ function _taDropAttribution(active, data1, metricKey, cutoff, rangeDays) {
         const sPeak = findNearest(scoreData, peakPt.date);
         const sTrough = findNearest(scoreData, troughPt.date);
         const sDelta = Math.round(sTrough.avg - sPeak.avg);
-        if (sDelta < -2) {
-          detail += ` During the same window, Health Score also dropped <strong>${Math.abs(sDelta)} points</strong>.`;
-        } else if (Math.abs(sDelta) <= 2) {
-          detail += ` Health Score stayed stable during this window — other signals offset the impact.`;
+        if (_isGoodDrop) {
+          if (sDelta > 2) {
+            detail += ` During the same window, Health Score improved <strong>${sDelta} points</strong>.`;
+          } else if (Math.abs(sDelta) <= 2) {
+            detail += ` Health Score stayed stable during this window despite the improvement.`;
+          }
+        } else {
+          if (sDelta < -2) {
+            detail += ` During the same window, Health Score also dropped <strong>${Math.abs(sDelta)} points</strong>.`;
+          } else if (Math.abs(sDelta) <= 2) {
+            detail += ` Health Score stayed stable during this window — other signals offset the impact.`;
+          }
         }
       }
     } catch (e) { /* aggregateByDay may fail for non-standard metrics */ }
   }
 
-  return { priority: 1, icon: _taSvg.drop, iconBg: 'var(--red-l)', iconColor: 'var(--red)', accent: 'red', title, detail };
+  const _dropIsGood = cfg.lowerIsBetter;
+  const _accent = isScore ? 'red' : (_dropIsGood ? 'green' : 'red');
+  const _iconBg = _accent === 'green' ? 'var(--green-l)' : 'var(--red-l)';
+  const _iconClr = _accent === 'green' ? 'var(--green)' : 'var(--red)';
+  const _icon = _dropIsGood ? (_taSvg.rise || _taSvg.drop) : _taSvg.drop;
+  return { priority: 1, icon: _icon, iconBg: _iconBg, iconColor: _iconClr, accent: _accent, title, detail };
 }
 
 /* ── Orchestrator ─────────────────────────────── */

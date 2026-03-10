@@ -218,7 +218,9 @@ function fromRow(row) {
     stripe_customer_id:  row.stripe_customer_id  || '',
     hubspot_company_id:  row.hubspot_company_id  || '',
     billing_interval:    row.billing_interval    || '',
-    renewal_date:        row.renewal_date        || ''
+    renewal_date:        row.renewal_date        || '',
+    contact_name:        row.contact_name        || '',
+    contact_email:       row.contact_email       || ''
   };
 }
 
@@ -263,7 +265,9 @@ function toRow(c) {
     external_id:        c.external_id        || '',
     stripe_customer_id:  c.stripe_customer_id  || '',
     hubspot_company_id:  c.hubspot_company_id  || '',
-    billing_interval:    c.billing_interval    || ''
+    billing_interval:    c.billing_interval    || '',
+    contact_name:        c.contact_name        || '',
+    contact_email:       c.contact_email       || ''
   };
   // Only include client_id if the DB column exists (detected during load)
   if (_dbHasClientId && _userClientId) row.client_id = _userClientId;
@@ -558,7 +562,7 @@ const _DEMO_SUFFIXES = [
   'Media','Metrics','Networks','Ops','Partners','Platform','Point','Pulse','Shift','Soft',
   'Solutions','Stack','Studio','Systems','Tech','Ventures','Ware','Works'
 ];
-const _DEMO_CSMS = ['Sarah Mitchell','James Chen','Maria Rodriguez','David Kim','Rachel Foster','Anil Patel'];
+const _DEMO_CSMS = ['Sarah Mitchell','James Chen','Maria Rodriguez','David Kim','Rachel Foster','Anil Patel','Emily Nakamura','Tom Brennan'];
 const _DEMO_NOTES = [
   'QBR went well. Champion is engaged and open to upsell convo.',
   'Escalated to VP of Support — tickets still climbing.',
@@ -685,18 +689,18 @@ const _DEMO_TRAJECTORIES = {
   }
 };
 
-// Trajectory assignment order (sums to 150)
+// Trajectory assignment order (sums to 250)
 const _DEMO_TRAJ_DIST = [
-  ...Array(35).fill('stable-healthy'),
-  ...Array(12).fill('stable-low'),
-  ...Array(22).fill('improving'),
-  ...Array(18).fill('declining'),
-  ...Array(10).fill('slow-decline'),
-  ...Array(15).fill('volatile'),
-  ...Array(8).fill('onboarding'),
-  ...Array(12).fill('churned'),
-  ...Array(10).fill('recovered'),
-  ...Array(8).fill('seasonal')
+  ...Array(58).fill('stable-healthy'),
+  ...Array(20).fill('stable-low'),
+  ...Array(37).fill('improving'),
+  ...Array(30).fill('declining'),
+  ...Array(17).fill('slow-decline'),
+  ...Array(25).fill('volatile'),
+  ...Array(13).fill('onboarding'),
+  ...Array(20).fill('churned'),
+  ...Array(17).fill('recovered'),
+  ...Array(13).fill('seasonal')
 ];
 
 function _dClamp(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); }
@@ -796,8 +800,13 @@ function _generateDemoCustomer(name, index, now) {
   createdDate.setDate(createdDate.getDate() - Math.floor(Math.random()*14));
   const created = createdDate.toISOString();
 
-  // Tags
-  const tags = [];
+  // Industry segment tag (deterministic per account for consistent distribution)
+  const _DEMO_INDUSTRIES = [
+    'technology','healthcare','financial-services','retail','media',
+    'professional-services','education','real-estate','insurance',
+    'logistics','energy','manufacturing'
+  ];
+  const tags = [_DEMO_INDUSTRIES[index % _DEMO_INDUSTRIES.length]];
   if (lifecycle !== 'churned' && renewal <= 2) tags.push('renewal-soon');
   if (last.score >= 85 && lastSig.growth === 'strong') tags.push('upsell-candidate');
   if (last.score < 30) tags.push('churn-risk');
@@ -896,7 +905,7 @@ function _generateDemoCustomer(name, index, now) {
 
 function initDemo() {
   const now = Date.now();
-  const names = _generateDemoNames(150);
+  const names = _generateDemoNames(250);
   _DEMO_TRAJ_DIST.sort(() => Math.random() - 0.5);
   customers = names.map((name, i) => _generateDemoCustomer(name, i, now));
 }
@@ -904,7 +913,7 @@ function initDemo() {
 // One-time admin function: push demo data to Supabase for demo@iqcadence.com
 // Run from browser console while logged in as admin: seedDemoData()
 async function seedDemoData() {
-  // Seeds 150 demo customers into an EXISTING client.
+  // Seeds 250 demo customers into an EXISTING client.
   // Usage: seedDemoData()           — auto-finds demo@iqcadence.com's client
   //        seedDemoData('some-email@x.com') — uses that user's client instead
   if (!isAdmin()) { console.error('Must be logged in as admin'); return; }
@@ -939,12 +948,12 @@ async function seedDemoData() {
   if (delErr) { console.error('Delete error:', delErr.message); return; }
   console.log('   Old data cleared.');
 
-  // 3. Generate 150 demo customers in memory
-  console.log('3/4 — Generating 150 demo customers…');
+  // 3. Generate 250 demo customers in memory
+  console.log('3/4 — Generating 250 demo customers…');
   initDemo(); // populates customers[]
 
   // 4. Push to Supabase under that user's ID
-  console.log('4/4 — Pushing to Supabase (150 rows)…');
+  console.log('4/4 — Pushing to Supabase (250 rows)…');
   const rows = customers.map(c => {
     const row = toRow(c);
     row.user_id = prof.user_id;       // audit: who seeded
@@ -961,9 +970,9 @@ async function seedDemoData() {
     console.log('   ' + inserted + '/' + rows.length + ' rows…');
   }
 
-  console.log('✓ Done! 150 demo customers seeded under ' + targetEmail + ' (client: ' + prof.client_id + ')');
+  console.log('✓ Done! 250 demo customers seeded under ' + targetEmail + ' (client: ' + prof.client_id + ')');
   console.log('Any user assigned to client ' + prof.client_id + ' will see these profiles.');
-  toast('Demo data seeded — 150 customers for ' + targetEmail, 'success');
+  toast('Demo data seeded — 250 customers for ' + targetEmail, 'success');
 }
 
 // ─── DEMO ACCOUNT SEED ──────────────────────────────────────
