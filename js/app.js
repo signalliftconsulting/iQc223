@@ -879,6 +879,7 @@ function fromRow(row) {
 
 // Flag: set true once we confirm the customers table has a client_id column
 let _dbHasClientId = false;
+let _dbColumns = null; // Set of valid column names, detected on first load
 
 // Convert internal customer → Supabase row fields
 function toRow(c) {
@@ -922,8 +923,13 @@ function toRow(c) {
     contact_name:        c.contact_name        || '',
     contact_email:       c.contact_email       || ''
   };
-  // Only include client_id if the DB column exists (detected during load)
   if (_dbHasClientId && _userClientId) row.client_id = _userClientId;
+  // Strip columns that don't exist in the DB (detected during first load)
+  if (_dbColumns) {
+    for (const key of Object.keys(row)) {
+      if (!_dbColumns.has(key)) delete row[key];
+    }
+  }
   return row;
 }
 
@@ -975,6 +981,11 @@ async function loadCustomersFromSupabase() {
   }
 
   if (error) throw error;
+  // Detect valid DB columns from first row (so toRow() can skip missing columns)
+  if (!_dbColumns && data && data.length) {
+    _dbColumns = new Set(Object.keys(data[0]));
+    console.log('DB columns detected:', _dbColumns.size);
+  }
   const all = (data || []).map(fromRow);
   customers = all.filter(c => !c.deleted_at);
   trash     = all.filter(c =>  c.deleted_at);
