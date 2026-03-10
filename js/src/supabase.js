@@ -563,7 +563,18 @@ const _DEMO_SUFFIXES = [
   'Media','Metrics','Networks','Ops','Partners','Platform','Point','Pulse','Shift','Soft',
   'Solutions','Stack','Studio','Systems','Tech','Ventures','Ware','Works'
 ];
-const _DEMO_CSMS = ['Sarah Mitchell','James Chen','Maria Rodriguez','David Kim','Rachel Foster','Anil Patel','Emily Nakamura','Tom Brennan'];
+// Weighted CSM list — senior reps get more accounts, junior fewer
+// Duplicates control weight: more entries = more accounts assigned
+const _DEMO_CSMS_WEIGHTED = [
+  'Sarah Mitchell','Sarah Mitchell','Sarah Mitchell','Sarah Mitchell','Sarah Mitchell','Sarah Mitchell',  // Sr — ~48
+  'James Chen','James Chen','James Chen','James Chen','James Chen','James Chen',                          // Sr — ~48
+  'Maria Rodriguez','Maria Rodriguez','Maria Rodriguez','Maria Rodriguez',                                  // Mid — ~32
+  'David Kim','David Kim','David Kim','David Kim',                                                          // Mid — ~32
+  'Rachel Foster','Rachel Foster','Rachel Foster',                                                          // Mid — ~24
+  'Anil Patel','Anil Patel','Anil Patel',                                                                  // Jr — ~24
+  'Emily Nakamura','Emily Nakamura',                                                                        // Jr — ~16
+  'Tom Brennan','Tom Brennan'                                                                                // Jr — ~16
+]; // 30 entries → 250/30 ≈ 8.3 accounts per slot
 const _DEMO_NOTES = [
   'QBR went well. Champion is engaged and open to upsell convo.',
   'Escalated to VP of Support — tickets still climbing.',
@@ -810,20 +821,15 @@ function _generateDemoCustomer(name, index, now) {
   createdDate.setDate(createdDate.getDate() - Math.floor(Math.random()*14));
   const created = createdDate.toISOString();
 
-  // Industry segment tag (deterministic per account for consistent distribution)
+  // Industry segment tag — 6 verticals, keeps segments page clean
   const _DEMO_INDUSTRIES = [
-    'technology','healthcare','financial-services','retail','media',
-    'professional-services','education','real-estate','insurance',
-    'logistics','energy','manufacturing'
+    'technology','healthcare','financial-services',
+    'retail','professional-services','manufacturing'
   ];
   const tags = [_DEMO_INDUSTRIES[index % _DEMO_INDUSTRIES.length]];
-  if (lifecycle !== 'churned' && renewal <= 2) tags.push('renewal-soon');
-  if (last.score >= 85 && lastSig.growth === 'strong') tags.push('upsell-candidate');
-  if (last.score < 30) tags.push('churn-risk');
-  if (lastSig.logins != null && lastSig.logins >= 25 && lastSig.adoption != null && lastSig.adoption >= 80) tags.push('power-user');
+  // Only add a second tag for ~20% of accounts — keeps it sparse and realistic
+  if (lifecycle !== 'churned' && renewal <= 2 && Math.random() < 0.5) tags.push('renewal-soon');
   if (trajKey === 'onboarding') tags.push('onboarding');
-  if (last.score >= 90 && npsIsPromoter(lastSig.nps)) tags.push('case-study');
-  if (trajKey === 'recovered') tags.push('save-success');
   if (lifecycle === 'churned') tags.push('churned');
 
   // Notes (~30% of customers, up to 2 notes each)
@@ -902,7 +908,7 @@ function _generateDemoCustomer(name, index, now) {
     notes,
     history,
     sentiment,
-    manager:         _DEMO_CSMS[index % _DEMO_CSMS.length],
+    manager:         _DEMO_CSMS_WEIGHTED[index % _DEMO_CSMS_WEIGHTED.length],
     scoring_profile: '',
     deleted_at:      null,
     created,
