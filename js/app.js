@@ -439,6 +439,215 @@ document.addEventListener('keydown', e => {
   }
 });
 
+// ─── GENERIC TABLE COLUMN FILTER FACTORY ────────────────────
+// Creates a reusable column filter system for any table.
+// Usage: const cf = makeColFilters('myPrefix', 'my-portal-id', MY_COLS, renderFn);
+// Returns { filters, buildTh, renderPills, applyFilters }
+const _cfRegistry = {}; // prefix → context
+function makeColFilters(prefix, portalId, colDefs, renderFn) {
+  const ctx = { filters: {}, openKey: null, portalId, colDefs, renderFn };
+  _cfRegistry[prefix] = ctx;
+
+  // Close on outside click
+  document.addEventListener('mousedown', function(e) {
+    if (!ctx.openKey) return;
+    const menu = document.getElementById(portalId);
+    if (!menu || !menu.classList.contains('open')) return;
+    if (menu.contains(e.target)) return;
+    if (e.target.closest && e.target.closest('.col-filter-btn')) return;
+    window['cf_close_' + prefix]();
+  });
+
+  // Register global functions
+  window['cf_open_' + prefix] = function(key, btnEl) {
+    const closeFn = window['cf_close_' + prefix];
+    if (ctx.openKey === key) { closeFn(); return; }
+    closeFn();
+    ctx.openKey = key;
+    const col = colDefs.find(c => c.key === key);
+    const menu = document.getElementById(portalId);
+    if (!menu || !col) return;
+    menu.innerHTML = _cfBuildMenu(prefix, col);
+    menu.classList.add('open');
+    const rect = (btnEl.closest('th') || btnEl).getBoundingClientRect();
+    menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+    menu.style.left = (rect.left + window.scrollX) + 'px';
+    requestAnimationFrame(() => {
+      const mr = menu.getBoundingClientRect();
+      if (mr.right > window.innerWidth - 8)
+        menu.style.left = (window.innerWidth - mr.width - 8 + window.scrollX) + 'px';
+    });
+    _cfPopulate(prefix);
+    setTimeout(() => menu.querySelector('input')?.focus(), 30);
+  };
+
+  window['cf_close_' + prefix] = function() {
+    const menu = document.getElementById(portalId);
+    if (menu) { menu.classList.remove('open'); menu.innerHTML = ''; }
+    ctx.openKey = null;
+  };
+
+  window['cf_apply_' + prefix] = function() {
+    const key = ctx.openKey;
+    if (!key) return;
+    const col = colDefs.find(c => c.key === key);
+    if (!col) return;
+    if (col.ftype === 'number') {
+      const op = document.querySelector(`input[name="cfop_${prefix}"]:checked`)?.value;
+      const v1 = parseFloat(document.getElementById(`cfv_${prefix}`)?.value);
+      const v2 = parseFloat(document.getElementById(`cfv2_${prefix}`)?.value);
+      if (!op || isNaN(v1)) { delete ctx.filters[key]; }
+      else if (op === 'between') {
+        if (!isNaN(v2)) ctx.filters[key] = { type:'between', min:v1, max:v2 };
+        else delete ctx.filters[key];
+      } else { ctx.filters[key] = { type:op, val:v1 }; }
+    } else if (col.ftype === 'enum') {
+      const checked = [...document.querySelectorAll(`.cfe_${prefix}:checked`)].map(cb => cb.value);
+      if (checked.length) ctx.filters[key] = { type:'enum', vals: new Set(checked) };
+      else delete ctx.filters[key];
+    } else if (col.ftype === 'text') {
+      const q = (document.getElementById(`cft_${prefix}`)?.value || '').trim().toLowerCase();
+      if (q) ctx.filters[key] = { type:'text', q };
+      else delete ctx.filters[key];
+    }
+    renderFn();
+  };
+
+  window['cf_opchange_' + prefix] = function() {
+    const op = document.querySelector(`input[name="cfop_${prefix}"]:checked`)?.value;
+    const v2 = document.getElementById(`cfv2_${prefix}`);
+    const sep = document.getElementById(`cfs_${prefix}`);
+    const btw = op === 'between';
+    if (v2) v2.style.display = btw ? '' : 'none';
+    if (sep) sep.style.display = btw ? '' : 'none';
+    window['cf_apply_' + prefix]();
+  };
+
+  window['cf_clear_' + prefix] = function(key) {
+    delete ctx.filters[key];
+    window['cf_close_' + prefix]();
+    renderFn();
+  };
+
+  window['cf_clearall_' + prefix] = function() {
+    Object.keys(ctx.filters).forEach(k => delete ctx.filters[k]);
+    window['cf_close_' + prefix]();
+    renderFn();
+  };
+
+  return ctx;
+}
+
+function _cfBuildMenu(prefix, col) {
+  const applyFn = `cf_apply_${prefix}()`;
+  const opFn = `cf_opchange_${prefix}()`;
+  let body = '';
+  if (col.ftype === 'number') {
+    body = `<div class="cff-radio-group">
+      <label class="cff-radio"><input type="radio" name="cfop_${prefix}" value="gt" onchange="${opFn}"> Greater than</label>
+      <label class="cff-radio"><input type="radio" name="cfop_${prefix}" value="lt" onchange="${opFn}"> Less than</label>
+      <label class="cff-radio"><input type="radio" name="cfop_${prefix}" value="eq" onchange="${opFn}"> Exactly</label>
+      <label class="cff-radio"><input type="radio" name="cfop_${prefix}" value="between" onchange="${opFn}"> Between</label>
+    </div>
+    <div class="cff-inputs">
+      <input class="cff-num-input" id="cfv_${prefix}" type="number" placeholder="Value" oninput="${applyFn}">
+      <span class="cff-between-sep" id="cfs_${prefix}" style="display:none">and</span>
+      <input class="cff-num-input" id="cfv2_${prefix}" type="number" placeholder="Max" style="display:none" oninput="${applyFn}">
+    </div>`;
+  } else if (col.ftype === 'enum') {
+    const vals = col.enumFn ? col.enumFn() : (col.enumVals || []);
+    body = `<div class="cff-enum-list">${vals.map(v =>
+      `<label class="cff-check-item"><input type="checkbox" value="${escHtml(v)}" class="cfe_${prefix}" onchange="${applyFn}"> ${ENUM_DISPLAY[v] !== undefined ? ENUM_DISPLAY[v] : escHtml(v)}</label>`
+    ).join('')}</div>`;
+  } else if (col.ftype === 'text') {
+    body = `<input class="cff-text-input" id="cft_${prefix}" type="text" placeholder="Search ${col.label.toLowerCase()}..." oninput="${applyFn}" autocomplete="off">`;
+  }
+  return `<div class="col-filter-hd"><span class="col-filter-title">Filter: ${col.label}</span><button class="col-filter-clear" onclick="cf_clear_${prefix}('${col.key}')">Clear</button></div><div class="col-filter-body">${body}</div>`;
+}
+
+function _cfPopulate(prefix) {
+  const ctx = _cfRegistry[prefix];
+  if (!ctx || !ctx.openKey) return;
+  const f = ctx.filters[ctx.openKey];
+  if (!f) return;
+  const col = ctx.colDefs.find(c => c.key === ctx.openKey);
+  if (!col) return;
+  if (col.ftype === 'number') {
+    const radio = document.querySelector(`input[name="cfop_${prefix}"][value="${f.type}"]`);
+    if (radio) { radio.checked = true; window['cf_opchange_' + prefix](); }
+    const v1 = document.getElementById(`cfv_${prefix}`);
+    const v2 = document.getElementById(`cfv2_${prefix}`);
+    if (v1) v1.value = (f.type === 'between' ? f.min : f.val) ?? '';
+    if (v2 && f.max != null) v2.value = f.max;
+  } else if (col.ftype === 'enum') {
+    document.querySelectorAll(`.cfe_${prefix}`).forEach(cb => { cb.checked = f.vals.has(cb.value); });
+  } else if (col.ftype === 'text') {
+    const inp = document.getElementById(`cft_${prefix}`);
+    if (inp) inp.value = f.q || '';
+  }
+}
+
+// Build a <th> string with sort + filter for generic tables
+function cfBuildTh(prefix, col, sortKey, sortDir) {
+  const ctx = _cfRegistry[prefix];
+  const funnelSVG = `<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>`;
+  const isActiveSort = sortKey === col.key;
+  const filterActive = ctx && col.ftype && (col.key in ctx.filters);
+  const arrow = `<span class="col-sort-arrow${isActiveSort ? '' : ' idle'}">${sortDir === 1 ? '\u25B2' : '\u25BC'}</span>`;
+  const filterBtn = col.ftype
+    ? `<button class="col-filter-btn${filterActive ? ' active' : ''}" onclick="event.stopPropagation();cf_open_${prefix}('${col.key}',this)" title="Filter ${col.label}">${funnelSVG}</button>`
+    : '';
+  return `<th><div class="col-th-inner"><button class="col-sort-label" onclick="${col.sortFn || ''}">${col.label}</button>${arrow}${filterBtn}</div></th>`;
+}
+
+// Apply column filters to a list
+function cfApplyFilters(prefix, list, valueFn) {
+  const ctx = _cfRegistry[prefix];
+  if (!ctx) return list;
+  const keys = Object.keys(ctx.filters);
+  if (!keys.length) return list;
+  return list.filter(item => {
+    for (const key of keys) {
+      const f = ctx.filters[key];
+      if (!f) continue;
+      const v = valueFn(item, key);
+      if (f.type === 'text') { if (typeof v === 'string' && !v.includes(f.q)) return false; }
+      else if (f.type === 'enum') { if (!f.vals.has(v)) return false; }
+      else if (f.type === 'gt') { if (v <= f.val) return false; }
+      else if (f.type === 'lt') { if (v >= f.val) return false; }
+      else if (f.type === 'eq') { if (v !== f.val) return false; }
+      else if (f.type === 'between') { if (v < f.min || v > f.max) return false; }
+    }
+    return true;
+  });
+}
+
+// Render filter pills
+function cfRenderPills(prefix) {
+  const ctx = _cfRegistry[prefix];
+  if (!ctx) return '';
+  const keys = Object.keys(ctx.filters);
+  if (!keys.length) return '';
+  return `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;align-items:center">`
+    + keys.map(key => {
+      const f = ctx.filters[key];
+      const def = ctx.colDefs.find(d => d.key === key);
+      const label = def ? def.label : key;
+      let summary = '';
+      if (f.type === 'text') summary = '"' + (f.q || '').slice(0, 20) + '"';
+      else if (f.type === 'enum') {
+        const arr = [...(f.vals || [])].map(v => ENUM_DISPLAY[v] || v);
+        summary = arr.length <= 3 ? arr.join(', ') : arr.slice(0, 3).join(', ') + ' +' + (arr.length - 3);
+      }
+      else if (f.type === 'gt') summary = '> ' + f.val;
+      else if (f.type === 'lt') summary = '< ' + f.val;
+      else if (f.type === 'eq') summary = '= ' + f.val;
+      else if (f.type === 'between') summary = f.min + ' - ' + f.max;
+      return `<span class="filter-pill">${escHtml(label)}: ${escHtml(summary)}<button class="filter-pill-x" onclick="event.stopPropagation();cf_clear_${prefix}('${key}')" title="Remove filter">\u2715</button></span>`;
+    }).join('')
+    + `<button class="btn btn-xs btn-ghost" onclick="cf_clearall_${prefix}()" style="font-size:var(--fs-sm);color:var(--muted)">Clear all</button></div>`;
+}
+
 
 // ─── PERSIST ────────────────────────────────────────────────
 // Settings (weights, thresholds, profiles, snoozed) stored in Supabase settings table.
@@ -660,7 +869,9 @@ function fromRow(row) {
     stripe_customer_id:  row.stripe_customer_id  || '',
     hubspot_company_id:  row.hubspot_company_id  || '',
     billing_interval:    row.billing_interval    || '',
-    renewal_date:        row.renewal_date        || ''
+    renewal_date:        row.renewal_date        || '',
+    contact_name:        row.contact_name        || '',
+    contact_email:       row.contact_email       || ''
   };
 }
 
@@ -705,7 +916,9 @@ function toRow(c) {
     external_id:        c.external_id        || '',
     stripe_customer_id:  c.stripe_customer_id  || '',
     hubspot_company_id:  c.hubspot_company_id  || '',
-    billing_interval:    c.billing_interval    || ''
+    billing_interval:    c.billing_interval    || '',
+    contact_name:        c.contact_name        || '',
+    contact_email:       c.contact_email       || ''
   };
   // Only include client_id if the DB column exists (detected during load)
   if (_dbHasClientId && _userClientId) row.client_id = _userClientId;
@@ -2144,76 +2357,82 @@ function makeRec(score, data) {
     else if (data.growth === 'none') weaknesses.push('no growth signal');
   }
 
-  const momLabel = mom === 'up' ? 'Trending upward (+' + Math.abs(delta) + ' pts this week).'
-    : mom === 'dn' ? 'Trending downward (' + delta + ' pts this week).'
-    : mom === 'flat' ? 'Score is holding steady.' : '';
+  // Build the NBA so the assessment can reference it
+  const nba = buildNextBestAction(data);
 
-  // ── Lifecycle-first overrides (status descriptions, not actions) ──
+  // What drove the improvement (if improving)?
+  const gains = mom === 'up' ? _nbaScoreGains(data) : [];
+  const gainText = gains.length ? gains.map(g => g.label + ' ' + g.desc).join(', ') : '';
+
+  // ── Lifecycle-first overrides ──
   if (lc === 'onboarding') {
+    if ((status === 'critical' || status === 'risk') && mom === 'up')
+      return `<strong>${nba.action}.</strong> ${gainText ? 'Recovery driven by ' + gainText + '.' : 'Health is recovering.'} ${weaknesses.length ? 'Still dragging it down: ' + weaknesses.slice(0,2).join(' and ') + '.' : ''} Early onboarding recoveries are fragile — these gains can reverse before the customer sees real value.`;
     if (status === 'critical' || status === 'risk')
-      return `<strong>Onboarding At Risk:</strong> ${name} is a new customer already showing warning signs at a score of ${score}. ${weaknesses.length ? 'Key concerns: ' + weaknesses.slice(0,2).join(' and ') + '.' : ''} ${momLabel} Early health issues like this can undermine the entire relationship if not addressed quickly.`;
+      return `<strong>${nba.action}.</strong> ${weaknesses.length ? weaknesses.slice(0,2).join(' and ').charAt(0).toUpperCase() + weaknesses.slice(0,2).join(' and ').slice(1) + ' are' : 'Key signals are'} well below target during the most critical adoption window. Acting now matters because onboarding-stage issues compound fast — they erode confidence before the customer has seen any value.`;
     if (status === 'watch')
-      return `<strong>Onboarding — Needs Attention:</strong> ${name} is still ramping up with a score of ${score}. ${weaknesses.length ? 'Soft spots: ' + weaknesses.slice(0,2).join(' and ') + '.' : 'Some signals are below target.'} This is common for new customers but worth watching closely. ${momLabel}`;
-    return `<strong>Onboarding — On Track:</strong> ${name} is off to a solid start at a score of ${score}. ${strengths.length ? 'Positives: ' + strengths.slice(0,2).join(' and ') + '.' : ''} ${momLabel} Still in the early adoption window — the focus should remain on time-to-value.`;
+      return `<strong>${nba.action}.</strong> ${weaknesses.length ? weaknesses.slice(0,2).join(' and ').charAt(0).toUpperCase() + weaknesses.slice(0,2).join(' and ').slice(1) + ' are' : 'Some signals are'} soft during ramp-up. Common for new customers, but these gaps become structural if they persist past the first 30 days.`;
+    return `<strong>${nba.action}.</strong> ${strengths.length ? strengths.slice(0,2).join(' and ').charAt(0).toUpperCase() + strengths.slice(0,2).join(' and ').slice(1) + '.' : 'Signals look healthy.'} Still in the early adoption window where habits are forming — this is the right time to lock in good patterns.`;
   }
 
   if (lc === 'won') {
+    if ((status === 'critical' || status === 'risk') && mom === 'up')
+      return `<strong>${nba.action}.</strong> ${gainText ? 'Recovery driven by ' + gainText + '.' : 'Health is recovering.'} ${weaknesses.length ? 'Still weak: ' + weaknesses.slice(0,2).join(' and ') + '.' : ''} Post-expansion dips often happen when the new scope hasn't been fully adopted.`;
     if (status === 'critical' || status === 'risk')
-      return `<strong>Post-Expansion — Struggling:</strong> ${name} recently expanded but health has deteriorated to a score of ${score}. ${weaknesses.length ? 'Problem areas: ' + weaknesses.slice(0,2).join(' and ') + '.' : ''} ${momLabel} The new capabilities may not be landing as expected.`;
+      return `<strong>${nba.action}.</strong> Health deteriorated after expanding. ${weaknesses.length ? 'Driven by ' + weaknesses.slice(0,2).join(' and ') + '.' : ''} The new capabilities may not be landing as expected — if value isn't realized quickly, buyer's remorse sets in.`;
     if (status === 'watch')
-      return `<strong>Post-Expansion — Mixed:</strong> ${name} recently expanded and sits at a score of ${score} with some signals still soft. ${weaknesses.length ? weaknesses.slice(0,2).join(', ') + '.' : ''} ${momLabel} Adoption of the expanded scope may need reinforcement.`;
-    return `<strong>Post-Expansion — Healthy:</strong> ${name} is performing well at ${score} after a recent expansion. ${strengths.length ? 'Strong on: ' + strengths.slice(0,2).join(' and ') + '.' : ''} ${momLabel}`;
+      return `<strong>${nba.action}.</strong> ${weaknesses.length ? weaknesses.slice(0,2).join(' and ').charAt(0).toUpperCase() + weaknesses.slice(0,2).join(' and ').slice(1) + '.' : 'Some signals are soft.'} Adoption of the expanded scope likely needs reinforcement to prevent a slide.`;
+    return `<strong>${nba.action}.</strong> ${strengths.length ? strengths.slice(0,2).join(' and ').charAt(0).toUpperCase() + strengths.slice(0,2).join(' and ').slice(1) + '.' : 'Signals look strong.'} The expansion is landing well.`;
   }
 
   if (lc === 'churned') {
     if (score >= 50)
-      return `<strong>Churned — Winback Candidate:</strong> ${name} churned but had a score of ${score} with some positive signals still showing. ${strengths.length ? strengths.slice(0,2).join(', ') + '.' : ''} There may be an opportunity to re-engage.`;
-    return `<strong>Churned:</strong> ${name} has left with a score of ${score}. ${weaknesses.length ? 'At time of churn: ' + weaknesses.slice(0,2).join(' and ') + '.' : ''} Low likelihood of winback without significant changes.`;
+      return `<strong>${nba.action}.</strong> ${strengths.length ? strengths.slice(0,2).join(' and ').charAt(0).toUpperCase() + strengths.slice(0,2).join(' and ').slice(1) + ' suggest' : 'Decent engagement suggests'} there may be an opportunity to re-engage with a targeted offer.`;
+    return `<strong>${nba.action}.</strong> ${weaknesses.length ? weaknesses.slice(0,2).join(' and ').charAt(0).toUpperCase() + weaknesses.slice(0,2).join(' and ').slice(1) + ' were' : 'Weak signals were'} present at churn. Low likelihood of winback without significant changes.`;
   }
 
   // ── Standard health assessment ────────────────────────────
   if (status === 'critical') {
-    let text = `<strong>Critical:</strong> ${name} is at a score of ${score} — the lowest health tier.`;
-    if (weaknesses.length) text += ` Key issues: ${weaknesses.slice(0,3).join(', ')}.`;
-    if (data.mrr) text += ` This represents $${fmtNum(data.mrr)} MRR at serious churn risk.`;
-    text += ` ${momLabel}`;
+    let text = `<strong>${nba.action}.</strong>`;
+    if (weaknesses.length) text += ` Driven by ${weaknesses.slice(0,3).join(', ')}.`;
+    if (strengths.length) text += ` Bright spot: ${strengths[0]}.`;
+    if (data.mrr) text += ` $${fmtNum(data.mrr)} MRR at churn risk.`;
+    if (mom === 'up') text += gainText ? ` Recovery driven by ${gainText} — but health is still well below safe levels.` : ' Recovery is underway but health is still well below safe levels.';
+    else if (mom === 'dn') text += ' The downward trajectory makes this more urgent — without intervention the account is heading toward churn.';
     return text;
   }
 
   if (status === 'risk') {
-    let text = `<strong>At Risk:</strong> ${name} is at a score of ${score} with multiple weak signals.`;
-    if (weaknesses.length) text += ` Problem areas: ${weaknesses.slice(0,3).join(', ')}.`;
+    let text = `<strong>${nba.action}.</strong>`;
+    if (weaknesses.length) text += ` ${weaknesses.slice(0,3).join(', ').charAt(0).toUpperCase() + weaknesses.slice(0,3).join(', ').slice(1)} are the primary concerns.`;
     if (strengths.length) text += ` On the positive side: ${strengths[0]}.`;
-    text += ` ${momLabel}`;
-    if (mom === 'up') text += ' The improving trend is a good sign but the account is not out of danger yet.';
+    if (mom === 'up') text += gainText ? ` Improvement driven by ${gainText} — but still below safe levels.` : ' Health is improving but still below safe levels.';
+    else if (mom === 'dn') text += ' The continued decline makes action more urgent.';
     return text;
   }
 
   if (status === 'watch') {
-    let text = `<strong>Watch:</strong> ${name} is at a score of ${score} — not yet at risk but showing soft spots.`;
-    if (weaknesses.length) text += ` Areas of concern: ${weaknesses.slice(0,2).join(' and ')}.`;
+    let text = `<strong>${nba.action}.</strong>`;
+    if (weaknesses.length) text += ` ${weaknesses.slice(0,2).join(' and ').charAt(0).toUpperCase() + weaknesses.slice(0,2).join(' and ').slice(1)} are the soft spots.`;
     if (strengths.length) text += ` Holding up on: ${strengths.slice(0,2).join(' and ')}.`;
-    text += ` ${momLabel}`;
-    if (mom === 'dn') text += ' If this trend continues, the account will likely slide into At Risk territory.';
-    else if (mom === 'up') text += ' The upward trend suggests the account may be recovering.';
+    if (mom === 'dn') text += ' If this trajectory continues, the account will slide into At Risk.';
+    else if (mom === 'up') text += gainText ? ` Improvement driven by ${gainText} — addressing the remaining gaps could push this back to Healthy.` : ' The upward movement is a good sign — addressing the remaining gaps now could push this back to Healthy.';
     return text;
   }
 
   if (status === 'expand') {
-    let text = `<strong>Expansion Ready:</strong> ${name} is thriving at a score of ${score}.`;
-    if (strengths.length) text += ` Standout signals: ${strengths.slice(0,2).join(' and ')}.`;
-    text += ` ${momLabel}`;
-    if (mom === 'dn') text += ' Despite the strong score, the downward momentum is worth monitoring before pursuing growth conversations.';
+    let text = `<strong>${nba.action}.</strong>`;
+    if (strengths.length) text += ` ${strengths.slice(0,2).join(' and ').charAt(0).toUpperCase() + strengths.slice(0,2).join(' and ').slice(1)} make this the right time.`;
+    if (mom === 'dn') text += ' Worth monitoring the downward momentum before pushing growth conversations.';
     return text;
   }
 
   // Healthy
-  let text = `<strong>Healthy:</strong> ${name} is in good shape at a score of ${score}.`;
-  if (strengths.length) text += ` Strongest signals: ${strengths.slice(0,2).join(' and ')}.`;
+  let text = `<strong>${nba.action}.</strong>`;
+  if (strengths.length) text += ` ${strengths.slice(0,2).join(' and ').charAt(0).toUpperCase() + strengths.slice(0,2).join(' and ').slice(1)}.`;
   if (weaknesses.length) text += ` Minor area to watch: ${weaknesses[0]}.`;
-  text += ` ${momLabel}`;
-  if (mom === 'dn') text += ' The score is solid today but the declining trend means this account could shift to Watch if the trajectory continues.';
-  if (data.renewal != null && data.renewal <= 2) text += ` Renewal is approaching in ${data.renewal} month${data.renewal !== 1 ? 's' : ''}.`;
+  if (mom === 'dn') text += ' Solid today but the declining trend means this could shift to Watch if it continues.';
+  if (data.renewal != null && data.renewal <= 2) text += ` Renewal approaching in ${data.renewal} month${data.renewal !== 1 ? 's' : ''}.`;
   return text;
 }
 
@@ -2407,18 +2626,86 @@ function _nbaScoreDrivers(c) {
   return results.slice(0, 2);
 }
 
+// ─── SCORE IMPROVEMENT DRIVERS (per-customer) ────────────────
+// Like _nbaScoreDrivers but for positive changes — what improved?
+function _nbaScoreGains(c) {
+  const hist = (c.history || []).filter(h => h.date).sort((a, b) => a.date.localeCompare(b.date));
+  if (hist.length < 2) return [];
+
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  const weekAgoT = weekAgo.getTime();
+
+  const recent = hist[hist.length - 1];
+  const prev = hist.reduce((best, h) =>
+    Math.abs(new Date(h.date).getTime() - weekAgoT) < Math.abs(new Date(best.date).getTime() - weekAgoT) ? h : best
+  );
+  if (recent === prev) return [];
+
+  const w = getActiveWeights(c);
+  const totalW = (w.logins + w.adoption + w.tickets + (w.nps || 0) + (w.csat || 0) + w.days + w.growth) || 100;
+
+  const signals = [
+    { key: 'logins', label: 'logins', wt: w.logins,
+      get: h => h.signals?.logins ?? c.logins,
+      norm: v => v != null ? Math.min(v / 30, 1) * 100 : 50,
+      desc: (a, b) => `went from ${Math.round(a)}/mo to ${Math.round(b)}/mo` },
+    { key: 'adoption', label: 'adoption', wt: w.adoption,
+      get: h => h.signals?.adoption ?? c.adoption,
+      norm: v => v != null ? Math.min(v, 100) : 50,
+      desc: (a, b) => `rose from ${Math.round(a)}% to ${Math.round(b)}%` },
+    { key: 'tickets', label: 'tickets', wt: w.tickets,
+      get: h => h.signals?.tickets ?? c.tickets,
+      norm: v => v != null ? Math.max(0, 100 - v * 20) : 50,
+      desc: (a, b) => `dropped from ${Math.round(a)} to ${Math.round(b)}` },
+    { key: 'nps', label: 'NPS', wt: w.nps || 0,
+      get: h => h.signals?.nps ?? c.nps,
+      norm: v => npsNormalized(v),
+      desc: (a, b) => `improved from ${Math.round(a * 10) / 10} to ${Math.round(b * 10) / 10}` },
+    { key: 'csat', label: 'CSAT', wt: w.csat || 0,
+      get: h => h.signals?.csat ?? c.csat,
+      norm: v => csatNormalized(v),
+      desc: (a, b) => `improved from ${csatDisplay(a)} to ${csatDisplay(b)}` },
+    { key: 'days', label: 'contact recency', wt: w.days,
+      get: h => h.signals?.days ?? c.days,
+      norm: v => v != null ? Math.max(0, 100 - (v / 180) * 100) : 50,
+      desc: (a, b) => `improved from ${Math.round(a)}d to ${Math.round(b)}d ago` }
+  ].filter(s => s.wt > 0);
+
+  const results = [];
+  signals.forEach(s => {
+    const rawPrev = s.get(prev);
+    const rawCurr = s.get(recent);
+    if (rawPrev == null || rawCurr == null) return;
+    const normPrev = s.norm(rawPrev);
+    const normCurr = s.norm(rawCurr);
+    const contribution = (normCurr - normPrev) * (s.wt / totalW);
+    if (contribution > 1) { // meaningful positive impact
+      results.push({ key: s.key, label: s.label, contribution, desc: s.desc(rawPrev, rawCurr) });
+    }
+  });
+  results.sort((a, b) => b.contribution - a.contribution); // most positive first
+  return results.slice(0, 2);
+}
+
 // ─── NEXT BEST ACTION ────────────────────────────────────────
 function buildNextBestAction(c) {
   const status  = getStatus(c.score);
   const mom     = getMomentum(c);
+  const delta   = (c.history && c.history.length >= 2) ? getDelta7d(c) : 0;
+  const improving = mom === 'up';
+  const declining = mom === 'dn';
+  const bigImprove = delta >= 10;
   const cad     = getCadenceStatus(c);
   const sent    = latestSentiment(c);
   const lc      = c.lifecycle || 'active';
 
   // ── Lifecycle-first overrides ──────────────────────────────
   if (lc === 'onboarding') {
+    if ((status === 'critical' || status === 'risk') && bigImprove)
+      return { level:'warn', action:'Reinforce onboarding momentum', talk:`${c.name||'This customer'} started rough but is recovering fast. Whatever changed is working — find out what and double down: "Things are heading in the right direction — what clicked for your team recently? Let's make sure we keep that going."` };
     if (status === 'critical' || status === 'risk')
-      return { level:'urgent', action:'Onboarding at risk — remove blockers now', talk:`${c.name||'This customer'} is a new customer and already showing risk signals. Don't wait — schedule a hands-on enablement session immediately: "I want to make sure we get you off to a strong start. Can we get 30 minutes to walk through any blockers together?"` };
+      return { level:'urgent', action:'Onboarding at risk — remove blockers now', talk:`${c.name||'This customer'} is a new customer showing risk signals with no recovery trend yet. Schedule a hands-on enablement session immediately: "I want to make sure we get you off to a strong start. Can we get 30 minutes to walk through any blockers together?"` };
     if (signalOn(c,'adoption') && c.adoption != null && c.adoption < 40)
       return { level:'warn', action:`Drive adoption — only ${c.adoption}% utilized`, talk:`New customer at ${c.adoption}% adoption — this is the critical window for time-to-value. Schedule a training session: "Let me walk your team through the key features — teams that adopt these early see results much faster."` };
     if (signalOn(c,'logins') && c.logins != null && c.logins < 5)
@@ -2426,6 +2713,8 @@ function buildNextBestAction(c) {
     return { level:'ok', action:'Continue onboarding — confirm time-to-value', talk:`Onboarding is on track. Keep the momentum going — focus on adoption milestones and building champion relationships. Ask: "What's working well so far? Anything we can do to help you get more value faster?"` };
   }
   if (lc === 'won') {
+    if ((status === 'critical' || status === 'risk') && bigImprove)
+      return { level:'warn', action:'Post-expansion recovering — stay close', talk:`${c.name||'This customer'} struggled after expanding but is now trending in the right direction. Stay close to ensure the recovery continues: "Glad to see things picking up — what's been the biggest adjustment for your team with the new capabilities?"` };
     if (status === 'critical' || status === 'risk')
       return { level:'warn', action:'Expansion at risk — ensure value realization', talk:`${c.name||'This customer'} recently expanded but signals are dropping. Focus on ensuring the new capabilities are delivering value: "I want to make sure you're getting what you expected from the expansion. Can we review how things are going?"` };
     return { level:'ok', action:'Value realization — check new capabilities adoption', talk:`Recently expanded — make sure the new scope is fully adopted and delivering ROI. Ask: "How is [the new capability] working for your team? Is it meeting the expectations we discussed?"` };
@@ -2457,11 +2746,17 @@ function buildNextBestAction(c) {
   if (signalOn(c,'days') && cad.status === 'overdue')
     return { level:'warn', action:`Reach out now — ${c.days} days no contact`, talk:`This account has gone silent. Send a personal note today: "Hey [name], it's been a while — how's everything going? Anything on your radar I should know about?"` };
 
-  if (status === 'critical')
-    return { level:'urgent', action:'Escalate — critical health score', talk:`Critical score — act immediately. Book an executive call this week: "I've been keeping a very close eye on your account and want to personally make sure we get things back on track."` };
+  if (status === 'critical' && bigImprove)
+    return { level:'warn', action:'Recovery underway — stay close', talk:`Critical score but recovering fast. Something is working — find out what and reinforce it: "I can see things are moving in the right direction. What's been the biggest change recently? Let's make sure we keep this going."` };
 
-  if (status === 'risk' && mom === 'dn')
-    return { level:'urgent', action:'Schedule emergency health check', talk:`At Risk AND declining — don't wait. Book a call this week: "I've been keeping a close eye on your account and want to make sure we're getting ahead of anything before it becomes a bigger issue."` };
+  if (status === 'critical')
+    return { level:'urgent', action:'Escalate — critical health score', talk:`Critical score with no recovery trend — act immediately. Book an executive call this week: "I've been keeping a very close eye on your account and want to personally make sure we get things back on track."` };
+
+  if (status === 'risk' && declining)
+    return { level:'urgent', action:'Schedule emergency health check', talk:`At Risk AND still declining — don't wait. Book a call this week: "I've been keeping a close eye on your account and want to make sure we're getting ahead of anything before it becomes a bigger issue."` };
+
+  if (status === 'risk' && bigImprove)
+    return { level:'warn', action:'Keep the recovery going', talk:`At Risk but on an upward trajectory. Don't change what's working — check in to understand what's driving the improvement: "Things are trending better — what shifted? I want to make sure we keep building on this."` };
 
   if (status === 'risk')
     return { level:'warn', action:'Schedule a health check call', talk:`At Risk account — reach out this week: "I wanted to check in and make sure you're getting the value you expected. Can we find 30 minutes to review where things stand?"` };
@@ -2485,17 +2780,19 @@ function buildNextBestAction(c) {
     if (signalOn(c,'nps') && c.nps != null && c.nps <= 7) watchSigns.push('NPS ' + c.nps);
     if (signalOn(c,'csat') && c.csat != null && c.csat <= 3) watchSigns.push('CSAT ' + csatDisplay(c.csat));
     const signSummary = watchSigns.length ? watchSigns.slice(0, 2).join(', ') : 'mixed signals';
-    return { level:'warn', action:'Check in — ' + signSummary, talk:`Score is in the Watch zone (${signSummary}). Proactively reach out: "I wanted to check in and make sure everything is going well. Anything on your radar I should know about?"` };
+    if (improving)
+      return { level:'warn', action:'Trending up — address remaining gaps', talk:`Heading in the right direction but still in Watch territory (${signSummary}). Keep the momentum: "Things are looking better — I want to make sure we close the remaining gaps. Can we review where you're still seeing friction?"` };
+    return { level:'warn', action:'Check in — ' + signSummary, talk:`In the Watch zone with ${signSummary}. Proactively reach out: "I wanted to check in and make sure everything is going well. Anything on your radar I should know about?"` };
   }
 
-  if (signalOn(c,'growth') && status === 'expand' && c.growth === 'strong' && mom !== 'dn')
+  if (signalOn(c,'growth') && status === 'expand' && c.growth === 'strong' && !declining)
     return { level:'expand', action:'Open the upsell conversation', talk:`Perfect timing for expansion. Say: "Your team's engagement has been really strong — have you thought about [next tier / additional seats]? Teams at your stage typically see [outcome] when they expand."` };
 
   if (c.renewal != null && c.renewal <= 3)
     return { level:'renew', action:'Start renewal conversation', talk:`Get ahead of the renewal while sentiment is positive: "Renewal is coming up — I'd love to get ahead of it and make sure everything is lined up on your end."` };
 
-  if (mom === 'dn') {
-    const drop = Math.abs(getDelta7d(c));
+  if (declining) {
+    const drop = Math.abs(delta);
     // Find which signal drove the decline by comparing current vs week-ago values
     const drivers = _nbaScoreDrivers(c);
     let driverText = '';
@@ -2789,7 +3086,7 @@ function nav(v) {
   if (v === 'alerts')    renderAlerts();
   if (v === 'customers') renderCustomers();
   if (v === 'segments')  { if (!hasFeature('segments')) { el('seg-kpi-row').innerHTML = ''; el('seg-table-wrap').innerHTML = upgradeHTML('segments'); } else renderSegments(); }
-  if (v === 'trends')    renderTrends();
+  if (v === 'trends')    { _trendFirstRender = true; renderTrends(); }
   if (v === 'csmperf')   { if (!hasFeature('csm_performance')) { el('csmperf-wrap').innerHTML = upgradeHTML('csm_performance'); el('csmperf-stats').innerHTML = ''; } else renderCSMPerformance(); }
   if (v === 'calendar')  renderCalendar();
   if (v === 'settings')  renderSettings();
@@ -2865,6 +3162,9 @@ function setInsightFilter(label, ids) {
   if (!ids || !ids.length) return;
   insightFilter = { label: label, ids: new Set(ids) };
   mrrExposureFilter = null;
+  _filterTier = null;
+  _filterStage = null;
+  _filterManager = null;
   filterMode = 'all';
   columnFilters = {};
   nav('customers');
@@ -2884,6 +3184,7 @@ const _hbSvg = {
   calendar: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
   // Insight category icons (16x16)
   trend: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
+  trendDown: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>',
   risk: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
   renewal: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
   workload: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
@@ -3313,11 +3614,7 @@ function _renderHomeBase() {
   const _ringCirc = 2 * Math.PI * 40;
   const _ringOffset = _ringCirc - (_portfolioScore / 100) * _ringCirc;
 
-  const _momUp = avgDelta > 0, _momDn = avgDelta < 0, _momStrong = Math.abs(avgDelta) > 2;
-  const _welcomeBg = _momUp ? (_momStrong ? 'rgba(22,163,74,.05)' : 'rgba(22,163,74,.025)') : _momDn ? (_momStrong ? 'rgba(239,68,68,.05)' : 'rgba(239,68,68,.025)') : '#fff';
-  const _borderGrad = _momUp ? 'linear-gradient(135deg,#16a34a,#10b981,#06b6d4,#16a34a)' : _momDn ? 'linear-gradient(135deg,#ef4444,#f97316,#ef4444,#dc2626)' : '';
-  const _glowGrad = _momUp ? 'radial-gradient(circle,rgba(22,163,74,.07) 0%,rgba(16,185,129,.03) 40%,transparent 70%)' : _momDn ? 'radial-gradient(circle,rgba(239,68,68,.07) 0%,rgba(249,115,22,.03) 40%,transparent 70%)' : '';
-  const _welcomeVars = `background:${_welcomeBg}` + (_borderGrad ? `;--hb-border-grad:${_borderGrad}` : '') + (_glowGrad ? `;--hb-glow:${_glowGrad}` : '');
+  const _welcomeVars = 'background:#fff';
   html += `<div class="hb-welcome" style="${_welcomeVars}">`;
   html += '<div class="hb-welcome-grid">';
 
@@ -3336,7 +3633,7 @@ function _renderHomeBase() {
     <div class="hb-pulse-center">
       <div class="hb-pulse-num">${_portfolioScore}</div>
       <div class="hb-pulse-lbl">Portfolio</div>
-      <div class="hb-pulse-delta" style="color:${avgDelta > 0 ? 'var(--green)' : avgDelta < 0 ? 'var(--red)' : 'var(--muted)'}">${avgDelta > 0 ? '\u25B2' : avgDelta < 0 ? '\u25BC' : ''} ${avgDelta !== 0 ? Math.abs(avgDelta) : ''}</div>
+      <div class="hb-pulse-delta" style="color:${avgDelta > 0 ? 'var(--green)' : avgDelta < 0 ? 'var(--red)' : 'var(--muted)'}">${avgDelta > 0 ? '\u25B2 ' + Math.abs(avgDelta) : avgDelta < 0 ? '\u25BC ' + Math.abs(avgDelta) : '— Flat'}</div>
     </div>
   </div>`;
   html += '<div class="hb-quick-stats">';
@@ -3381,10 +3678,16 @@ function _renderHomeBase() {
   // Health bar segment widths
   const hbPct = (arr) => total ? (arr.length / total * 100).toFixed(1) + '%' : '0%';
 
+  // Dynamic number colors (headers stay static)
+  const _hbRiskValColor = atRiskMRR > 0 ? '#dc2626' : '#16a34a';
+  const _hbRenewValColor = renewals30.length >= 10 ? '#dc2626' : renewals30.length >= 5 ? '#d97706' : '';
+  const _hbExpValColor = expand.length > 0 ? '#16a34a' : '';
+  const _hbScoreValColor = avgScore >= 65 ? '#16a34a' : avgScore >= 50 ? '#d97706' : '#dc2626';
+
   html += '<div class="dash-kpi-row">';
 
   // Card 1: Book Health
-  html += `<div class="dash-kpi-card dash-kpi-blue" onclick="nav('customers');setFilter('all')">
+  html += `<div class="dash-kpi-card dash-kpi-blue" title="Total active accounts and health distribution. Click to view all customers." onclick="nav('customers');setFilter('all')">
     <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.people)}<span class="dash-kpi-label">Book Health</span></div>
     <div class="dash-kpi-body">
       <div class="dash-kpi-num">${total}</div>
@@ -3407,10 +3710,10 @@ function _renderHomeBase() {
 
   // Card 2: Revenue at Risk
   const _arIds = JSON.stringify(atRisk.map(c => c.id)).replace(/"/g,'&quot;');
-  html += `<div class="dash-kpi-card dash-kpi-red" onclick="setInsightFilter('${atRisk.length} at-risk accounts (Critical + Risk)',${_arIds})">
+  html += `<div class="dash-kpi-card dash-kpi-red" title="Monthly recurring revenue in Critical and Risk accounts. Click to view at-risk accounts." onclick="setInsightFilter('${atRisk.length} at-risk accounts (Critical + Risk)',${_arIds})">
     <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.alert)}<span class="dash-kpi-label">Revenue at Risk</span></div>
     <div class="dash-kpi-body">
-      <div class="dash-kpi-num">$${fmtNum(atRiskMRR)}</div>
+      <div class="dash-kpi-num" style="color:${_hbRiskValColor}">$${fmtNum(atRiskMRR)}</div>
       <div class="dash-kpi-sub">MRR in At Risk accounts</div>
       <div style="margin-top:10px"><span class="dash-kpi-pill red">${atRisk.length} account${atRisk.length !== 1 ? 's' : ''}</span></div>
     </div>
@@ -3418,10 +3721,10 @@ function _renderHomeBase() {
 
   // Card 3: Upcoming Renewals
   const _r30Ids = JSON.stringify(renewals30.map(c => c.id)).replace(/"/g,'&quot;');
-  html += `<div class="dash-kpi-card dash-kpi-teal" onclick="setInsightFilter('${renewals30.length} upcoming renewals (30 days)',${_r30Ids})">
+  html += `<div class="dash-kpi-card dash-kpi-teal" title="Customer contracts renewing within the next 30 days. Click to view upcoming renewals." onclick="setInsightFilter('${renewals30.length} upcoming renewals (30 days)',${_r30Ids})">
     <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.cal)}<span class="dash-kpi-label">Upcoming Renewals</span></div>
     <div class="dash-kpi-body">
-      <div class="dash-kpi-num">${renewals30.length}</div>
+      <div class="dash-kpi-num"${_hbRenewValColor ? ` style="color:${_hbRenewValColor}"` : ''}>${renewals30.length}</div>
       <div class="dash-kpi-sub">Due in next 30 days</div>
       <div style="margin-top:10px"><span class="dash-kpi-pill teal">${renewMRR ? '$' + fmtNum(renewMRR) + ' at stake' : 'None due'}</span></div>
     </div>
@@ -3434,22 +3737,22 @@ function _renderHomeBase() {
   const expSub = expansionConfig.mode === 'flat'
     ? `Est. upsell potential ($${fmtNum(expansionConfig.flat)}/acct)`
     : `Est. upsell potential (${expansionConfig.pct}%)`;
-  html += `<div class="dash-kpi-card dash-kpi-green" onclick="nav('customers');setFilter('expand')">
+  html += `<div class="dash-kpi-card dash-kpi-green" title="Estimated upsell potential from expansion-ready accounts. Click to view expansion candidates." onclick="nav('customers');setFilter('expand')">
     <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.trend)}<span class="dash-kpi-label">Expansion Opportunity</span></div>
     <div class="dash-kpi-body">
-      <div class="dash-kpi-num">$${fmtNum(expEst)}</div>
+      <div class="dash-kpi-num"${_hbExpValColor ? ` style="color:${_hbExpValColor}"` : ''}>$${fmtNum(expEst)}</div>
       <div class="dash-kpi-sub">${expSub}</div>
       <div style="margin-top:10px"><span class="dash-kpi-pill green">${expand.length} account${expand.length !== 1 ? 's' : ''} ready</span></div>
     </div>
   </div>`;
 
   // Card 5: Total MRR
-  html += `<div class="dash-kpi-card dash-kpi-purple" onclick="nav('customers');setFilter('all')">
+  html += `<div class="dash-kpi-card dash-kpi-purple" title="Total monthly recurring revenue across all active accounts. Click to view all customers." onclick="nav('customers');setFilter('all')">
     <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.dollar)}<span class="dash-kpi-label">Total MRR</span></div>
     <div class="dash-kpi-body">
       <div class="dash-kpi-num">$${fmtNum(totalMRR)}</div>
       <div class="dash-kpi-sub">All active accounts</div>
-      <div style="margin-top:10px"><span class="dash-kpi-pill blue">Avg score ${avgScore}</span></div>
+      <div style="margin-top:10px"><span class="dash-kpi-pill blue">Avg score <span style="color:${_hbScoreValColor}">${avgScore}</span></span></div>
     </div>
   </div>`;
 
@@ -3457,7 +3760,7 @@ function _renderHomeBase() {
 
   // ── Renewal Pipeline (moved from Dashboard) ──
   html += '<div class="card" style="margin-bottom:20px">';
-  html += '<div class="card-hd-bar"><span class="card-hd-bar__title">Renewal Pipeline</span></div>';
+  html += '<div class="card-hd-bar" title="Upcoming renewals grouped by time horizon. Prioritize at-risk renewals first."><span class="card-hd-bar__title">Renewal Pipeline</span></div>';
   html += '<div class="card-body" id="renewal-pipeline-wrap"></div>';
   html += '</div>';
 
@@ -3486,13 +3789,13 @@ function _renderHomeBase() {
 
   // ── Most Improved / Biggest Drops (moved from Dashboard) ──
   html += '<div class="hb-movers-grid">';
-  html += '<div class="card"><div class="card-hd-bar" style="background:#16a34a"><span class="card-hd-bar__title">Most Improved</span><span class="card-hd-bar__badge">7d</span></div><div class="card-body" id="wins-wrap"></div></div>';
-  html += '<div class="card"><div class="card-hd-bar" style="background:#dc2626"><span class="card-hd-bar__title">Biggest Drops</span><span class="card-hd-bar__badge">7d</span></div><div class="card-body" id="drops-wrap"></div></div>';
+  html += '<div class="card"><div class="card-hd-bar" style="background:#16a34a" title="Accounts with the biggest health score gains over the past 7 days."><span class="card-hd-bar__title">Most Improved</span><span class="card-hd-bar__badge">7d</span></div><div class="card-body" id="wins-wrap"></div></div>';
+  html += '<div class="card"><div class="card-hd-bar" style="background:#dc2626" title="Accounts with the steepest health score drops over the past 7 days."><span class="card-hd-bar__title">Biggest Drops</span><span class="card-hd-bar__badge">7d</span></div><div class="card-body" id="drops-wrap"></div></div>';
   html += '</div>';
 
   // ── Signal Heatmap (moved from Dashboard) ──
   html += '<div class="card">';
-  html += '<div class="card-hd-bar"><span class="card-hd-bar__title">Signal Heatmap</span></div>';
+  html += '<div class="card-hd-bar" title="Health signals for each customer across key metrics. Click column headers to sort."><span class="card-hd-bar__title">Signal Heatmap</span></div>';
   html += '<div class="card-body heatmap" id="heatmap-wrap"></div>';
   html += '</div>';
 
@@ -4019,6 +4322,7 @@ function _insightDayOverDay(active) {
 
   return {
     category: 'Trend',
+    icon: 'trendDown',
     priority: 1,
     title,
     detail,
@@ -4060,7 +4364,7 @@ function _renderInsightCard(ins) {
   };
   const c = catColors[ins.category] || catColors['Trend'];
   const catClass = _hbCatClass[ins.category] || 'trend';
-  const iconKey = _hbCatIcon[ins.category] || 'trend';
+  const iconKey = ins.icon || _hbCatIcon[ins.category] || 'trend';
   const iconSvg = _hbSvg[iconKey] || _hbSvg.trend;
 
   // Priority class for background tinting
@@ -4083,9 +4387,40 @@ function _renderInsightCard(ins) {
 // Signal heatmap, wins/drops, renewal pipeline — all called by renderHomeBase()
 
 // ─── SIGNAL HEATMAP ─────────────────────────────────────────
+let _heatSearch = '';
+const HEAT_COLS = [
+  { key:'name',     label:'Customer',  ftype:'text',   sortFn:"dashHeatSortBy('name')" },
+  { key:'score',    label:'Score',     ftype:'number', sortFn:"dashHeatSortBy('score')" },
+  { key:'logins',   label:'Logins',    ftype:'number', sortFn:"dashHeatSortBy('logins')" },
+  { key:'adoption', label:'Adoption',  ftype:'number', sortFn:"dashHeatSortBy('adoption')" },
+  { key:'tickets',  label:'Tickets',   ftype:'number', sortFn:"dashHeatSortBy('tickets')" },
+  { key:'nps',      label:'NPS',       ftype:'number', sortFn:"dashHeatSortBy('nps')" },
+  { key:'csat',     label:'CSAT',      ftype:'number', sortFn:"dashHeatSortBy('csat')" },
+  { key:'days',     label:'Last Cont.',ftype:'number', sortFn:"dashHeatSortBy('days')" },
+  { key:'growth',   label:'Growth',    ftype:'enum',   sortFn:"dashHeatSortBy('growth')", enumVals:['none','mild','strong'] },
+];
+const _heatCF = makeColFilters('heat', 'hb-filter-portal', HEAT_COLS, function() {
+  renderHeatmap(customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c)));
+});
+function _heatVal(c, key) {
+  if (key === 'name') return (c.name || '').toLowerCase();
+  if (key === 'score') return c.score || 0;
+  if (key === 'logins') return c.logins != null ? c.logins : -1;
+  if (key === 'adoption') return c.adoption != null ? c.adoption : -1;
+  if (key === 'tickets') return c.tickets != null ? c.tickets : -1;
+  if (key === 'nps') return npsNormalized(c.nps);
+  if (key === 'csat') return csatNormalized(c.csat);
+  if (key === 'days') return c.days != null ? c.days : -1;
+  if (key === 'growth') return c.growth || 'none';
+  return 0;
+}
 function dashHeatSortBy(key) {
   if (dashHeatSort.key === key) dashHeatSort.dir *= -1;
   else { dashHeatSort.key = key; dashHeatSort.dir = key === 'name' ? 1 : -1; }
+  renderHeatmap(customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c)));
+}
+function heatSearchFilter(val) {
+  _heatSearch = (val || '').toLowerCase();
   renderHeatmap(customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c)));
 }
 
@@ -4097,9 +4432,12 @@ function renderHeatmap(active) {
     return;
   }
 
+  // Filter by search
+  const heatFiltered = _heatSearch ? active.filter(c => c.name.toLowerCase().includes(_heatSearch) || (c.manager||'').toLowerCase().includes(_heatSearch)) : active;
+
   // Sort — NPS/CSAT sort uses normalized 0-100
   const growOrder = { strong:2, mild:1, none:0 };
-  const sorted = [...active].sort((a, b) => {
+  const sorted = [...heatFiltered].sort((a, b) => {
     let av, bv;
     switch (dashHeatSort.key) {
       case 'name':    av = a.name;     bv = b.name;     break;
@@ -4124,34 +4462,26 @@ function renderHeatmap(active) {
     return 'hm-g';
   };
 
-  // Header helper — shows sort arrow on active column
-  const thHeat = (key, label) => {
-    const isActive = dashHeatSort.key === key;
-    const arrow    = isActive ? (dashHeatSort.dir === 1 ? ' ↑' : ' ↓') : '';
-    return `<th onclick="dashHeatSortBy('${key}')" style="cursor:pointer;user-select:none;${isActive?'color:var(--blue)':''}" title="Sort by ${label}">${label}${arrow}</th>`;
-  };
+  // Apply column filters
+  const heatFinal = cfApplyFilters('heat', sorted, _heatVal);
 
-  wrap.innerHTML = `<table>
-    <thead><tr>
-      ${thHeat('name',    'Customer')}
-      ${thHeat('score',   'Score')}
-      ${thHeat('logins',  'Logins')}
-      ${thHeat('adoption','Adoption')}
-      ${thHeat('tickets', 'Tickets')}
-      ${thHeat('nps',     'NPS')}
-      ${thHeat('csat',    'CSAT')}
-      ${thHeat('days',    'Last Cont.')}
-      ${thHeat('growth',  'Growth')}
-    </tr></thead>
-    <tbody>${sorted.map(c => {
+  // Build column headers with sort + funnel
+  const thCols = HEAT_COLS.map(col => cfBuildTh('heat', col, dashHeatSort.key, dashHeatSort.dir)).join('');
+
+  wrap.innerHTML = `<div style="margin-bottom:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><input type="text" placeholder="Search customers..." value="${escHtml(_heatSearch)}" oninput="heatSearchFilter(this.value)" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-base);width:220px"/><span style="font-size:var(--fs-sm);color:var(--muted)">${heatFinal.length} customer${heatFinal.length!==1?'s':''}</span></div>
+    ${cfRenderPills('heat')}
+    <div style="max-height:480px;overflow-y:auto">
+    <table class="ct heatmap-tbl">
+    <thead><tr>${thCols}</tr></thead>
+    <tbody>${heatFinal.map(c => {
       const loginPct  = c.logins != null ? Math.round((c.logins/30)*100) : 50;
       const ticketPct = c.tickets != null ? Math.max(0,100-c.tickets*20) : 50;
       const npsPct    = npsNormalized(c.nps);
       const csatPct   = csatNormalized(c.csat);
       const daysPct   = c.days != null ? Math.max(0,100-(c.days/180)*100) : 50;
       const growPct   = {none:25,mild:65,strong:100}[c.growth]||25;
-      return `<tr>
-        <td class="nc" style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">${c.name}</td>
+      return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
+        <td style="font-weight:600;color:var(--text)">${escHtml(c.name)}</td>
         <td class="${hmColor(c.score,false)}">${c.score}</td>
         <td class="${hmColor(loginPct,false)}">${c.logins != null ? c.logins+'d' : '<span style="color:var(--subtle)">N/A</span>'}</td>
         <td class="${hmColor(c.adoption != null ? c.adoption : 50,false)}">${c.adoption != null ? c.adoption+'%' : '<span style="color:var(--subtle)">N/A</span>'}</td>
@@ -4161,7 +4491,7 @@ function renderHeatmap(active) {
         <td class="${hmColor(daysPct,false)}">${c.days != null ? c.days+'d' : '<span style="color:var(--subtle)">N/A</span>'}</td>
         <td class="${hmColor(growPct,false)}">${c.growth}</td>
       </tr>`;
-    }).join('')}</tbody></table>`;
+    }).join('')}</tbody></table></div>`;
 }
 
 // ─── THIS WEEK'S WINS ────────────────────────────────────────
@@ -4363,9 +4693,15 @@ let dismissed = new Map();
 
 // MRR exposure bucket → Set of customer IDs (kept in sync with renderAlerts)
 let _mrrSeen = {};
+// Stage bucket → Set of customer IDs (kept in sync with renderAlerts)
+let _stageSeen = {};
 // Cached alert arrays for click-to-filter (refreshed each render)
 let _cachedActive = [];
 let _cachedSnoozed = [];
+let _cachedCritIds = new Set();
+let _cachedMrrIds = new Set();
+let _cachedAffectedIds = new Set();
+let _cachedSnzIds = new Set();
 
 function buildAlerts() {
   const alerts = [];
@@ -4495,31 +4831,67 @@ function buildAlerts() {
 // ─── MULTI-SELECT STATE ──────────────────────────────────────
 let _selectedAlerts = new Set();
 let _lastClickedAlert = null;
-let _alertViewMode = 'category'; // 'category' | 'priority' | 'customer' | 'table'
+let _alertViewMode = 'briefing'; // 'briefing' | 'category' | 'priority' | 'customer' | 'table'
 let _alertTableFilter = null;    // { label: string, ids: Set<string> } — null = all alerted customers
 let _alertTblSort = { key: 'score', dir: 1 }; // 1=asc (worst first), -1=desc
+let _alertTblFilters = {};  // column key → { type, val/vals/q/min/max }
+let _openATF = null;        // currently open alert-table filter key
+// Persistent expanded group state: Set of "viewMode:groupKey" strings
+const _alertExpanded = new Set();
 
+const ALERT_TBL_COLS = [
+  { key:'name',    label:'Customer',     ftype:'text' },
+  { key:'score',   label:'Score',        ftype:'number' },
+  { key:'delta',   label:'\u0394 7d',    ftype:'number' },
+  { key:'status',  label:'Status',       ftype:'enum', enumVals:['critical','risk','watch','healthy','expand'] },
+  { key:'mrr',     label:'MRR',          ftype:'number' },
+  { key:'days',    label:'Last Contact',  ftype:'number' },
+  { key:'renewal', label:'Renewal',      ftype:'number' },
+  { key:'alerts',  label:'Alerts',       ftype:'number' },
+  { key:'tickets', label:'Tickets',      ftype:'number' },
+  { key:'manager', label:'Manager',      ftype:'enum', enumFn:() => [...new Set(customers.map(c => c.manager || '').filter(Boolean))].sort() },
+];
+
+function _alertGroupKey(hd) {
+  return _alertViewMode + ':' + (hd.id || hd.getAttribute('data-grp') || hd.textContent.replace(/\s+/g,' ').trim().replace(/\d+$/, '').trim());
+}
 function toggleAlertGroup(hd) {
   const body = hd.nextElementSibling;
   if (!body || !body.classList.contains('aw-grp-body')) return;
   const isHidden = getComputedStyle(body).display === 'none';
   body.style.display = isHidden ? 'block' : 'none';
   hd.classList.toggle('alert-grp-open', isHidden);
+  // Persist
+  const key = _alertGroupKey(hd);
+  if (isHidden) _alertExpanded.add(key); else _alertExpanded.delete(key);
+}
+function toggleBriefTier(el) {
+  el.classList.toggle('collapsed');
+  const key = 'briefing:' + (el.getAttribute('data-tier') || '');
+  if (el.classList.contains('collapsed')) _alertExpanded.delete(key); else _alertExpanded.add(key);
 }
 
-function setAlertView(mode) {
+function setAlertView(mode, keepExpanded) {
   _alertViewMode = mode;
-  if (mode !== 'table') _alertTableFilter = null; // clear table filter when leaving table view
-  const modeMap = { cat:'category', pri:'priority', cust:'customer', tbl:'table' };
-  ['cat','pri','cust','tbl'].forEach(k => {
+  if (mode !== 'table') {
+    _alertTableFilter = null; // clear table filter when leaving table view
+    Object.keys(_alertTblFilters).forEach(k => delete _alertTblFilters[k]); // clear column filters
+    closeATFilter();
+  }
+  // Clear expanded state for this view mode unless told to keep it (e.g. widget-driven nav)
+  if (!keepExpanded) {
+    const prefix = mode + ':';
+    [..._alertExpanded].forEach(k => { if (k.startsWith(prefix)) _alertExpanded.delete(k); });
+  }
+  const modeMap = { brief:'briefing', cat:'category', pri:'priority', cust:'customer', tbl:'table' };
+  ['brief','cat','pri','cust','tbl'].forEach(k => {
     const btn = el('alert-view-' + k);
     if (btn) btn.classList.toggle('active', mode === modeMap[k]);
   });
   const searchBox = el('alert-cust-search');
-  if (searchBox) {
-    searchBox.style.display = (mode === 'customer' || mode === 'table') ? '' : 'none';
-    if (mode !== 'customer' && mode !== 'table') searchBox.value = '';
-  }
+  if (searchBox) searchBox.style.display = mode === 'briefing' ? 'none' : '';
+  const selAllBtn = el('alerts-select-all-btn');
+  if (selAllBtn) selAllBtn.style.display = mode === 'briefing' ? 'none' : '';
   renderAlerts();
 }
 
@@ -4649,14 +5021,30 @@ function _renderAlerts() {
 
   let html = '';
 
-  if (_alertViewMode === 'priority') {
+  // Search term for all views
+  const _viewSearch = (el('alert-cust-search')?.value || '').trim().toLowerCase();
+
+  if (_alertViewMode === 'briefing') {
+    // ── Briefing view: prescribed actions grouped by urgency ──
+    html = _renderBriefingView(active, snz);
+  } else if (_alertViewMode === 'priority') {
     // ── Priority view: sort all active alerts by severity then score ──
     const sevOrder = { red:0, amber:1, blue:2, green:3 };
     const sevLabels = { red:'Critical', amber:'Warning', blue:'Attention', green:'Opportunity' };
     const sevColors = { red:'#b91c1c', amber:'#b45309', blue:'#1d4ed8', green:'#15803d' };
 
+    // Filter by search
+    let filtered = active;
+    if (_viewSearch) {
+      filtered = active.filter(a => {
+        const c = customers.find(x => x.id === a.cid);
+        const name = c ? c.name.toLowerCase() : '';
+        return name.includes(_viewSearch) || (a.label||'').toLowerCase().includes(_viewSearch);
+      });
+    }
+
     // Sort: severity first, then score ascending (worst first)
-    const sorted = [...active].sort((a,b) => {
+    const sorted = [...filtered].sort((a,b) => {
       const sd = (sevOrder[a.type]??9) - (sevOrder[b.type]??9);
       if (sd !== 0) return sd;
       return (a._score||0) - (b._score||0);
@@ -4670,15 +5058,20 @@ function _renderAlerts() {
       groups[sev].push(a);
     });
 
+    let priHasResults = false;
     ['red','amber','blue','green'].forEach(sev => {
       const group = groups[sev];
       if (!group || !group.length) return;
-      html += `<div class="aw-grp-hd" onclick="toggleAlertGroup(this)"><span class="aw-grp-hd__label" style="color:${sevColors[sev]}">${sevLabels[sev]}</span><span class="aw-grp-hd__count">${group.length}</span><span class="aw-grp-hd__chevron">›</span></div>`;
+      priHasResults = true;
+      html += `<div class="aw-grp-hd" data-grp="${sev}" onclick="toggleAlertGroup(this)"><span class="aw-grp-hd__label" style="color:${sevColors[sev]}">${sevLabels[sev]}</span><span class="aw-grp-hd__count">${group.length}</span><span class="aw-grp-hd__chevron">›</span></div>`;
       html += `<div class="aw-grp-body">${group.map(a => alertItemHTML(a, false)).join('')}</div>`;
     });
+    if (!priHasResults && _viewSearch) {
+      html += `<div style="text-align:center;padding:28px 16px;color:var(--muted);font-size:var(--fs-md)">No alerts matching "${escHtml(_viewSearch)}"</div>`;
+    }
   } else if (_alertViewMode === 'customer') {
     // ── Customer view: group by customer, sorted by worst score ──
-    const custSearch = (el('alert-cust-search')?.value || '').trim().toLowerCase();
+    const custSearch = _viewSearch;
     const custMap = {};
     active.forEach(a => {
       if (!custMap[a.cid]) custMap[a.cid] = { alerts: [], name: '', score: 100, status: '', mrr: 0 };
@@ -4705,7 +5098,7 @@ function _renderAlerts() {
       custList.forEach(([cid, data]) => {
         const scoreColor = STATUS_COLOR[data.status] || '#94a3b8';
         const _pillBg = data.status === 'critical' ? 'rgba(220,38,38,.08)' : data.status === 'risk' ? 'rgba(220,38,38,.06)' : data.status === 'watch' ? 'rgba(217,119,6,.06)' : 'rgba(8,145,178,.06)';
-        html += `<div class="aw-grp-hd" data-cid="${escHtml(cid)}" onclick="toggleAlertGroup(this)">
+        html += `<div class="aw-grp-hd" data-cid="${escHtml(cid)}" data-grp="${escHtml(cid)}" onclick="toggleAlertGroup(this)">
           <span class="aw-grp-hd__score" style="background:${scoreColor}">${data.score}</span>
           <span class="aw-grp-hd__label" style="cursor:pointer;font-weight:600" onclick="event.stopPropagation();openDetail('${escHtml(cid)}')">${escHtml(data.name)}</span>
           ${data.mrr ? `<span style="font-weight:400;color:var(--subtle);font-size:.75rem">$${fmtNum(data.mrr)}</span>` : ''}
@@ -4722,11 +5115,10 @@ function _renderAlerts() {
     }
   } else if (_alertViewMode === 'table') {
     // ── Table view: customer table inline ──
-    const tblSearch = (el('alert-cust-search')?.value || '').trim().toLowerCase();
     // Build customer list from filter or all alerted customers
     const alertedIds = _alertTableFilter ? _alertTableFilter.ids : new Set(active.map(a => a.cid));
     let tblList = customers.filter(c => alertedIds.has(c.id) && passesManagerFilter(c));
-    if (tblSearch) tblList = tblList.filter(c => c.name.toLowerCase().includes(tblSearch));
+    if (_viewSearch) tblList = tblList.filter(c => c.name.toLowerCase().includes(_viewSearch));
     // Count alerts per customer
     const alertCountMap = {};
     active.forEach(a => { alertCountMap[a.cid] = (alertCountMap[a.cid]||0) + 1; });
@@ -4748,6 +5140,9 @@ function _renderAlerts() {
       return (va - vb) * sd;
     });
 
+    // Apply column filters
+    tblList = _applyATFilters(tblList, alertCountMap);
+
     const filterLabel = _alertTableFilter ? _alertTableFilter.label : 'All Alerted Customers';
     html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
       <span style="font-size:var(--fs-base);font-weight:700;color:var(--text)">${escHtml(filterLabel)}</span>
@@ -4755,26 +5150,24 @@ function _renderAlerts() {
       ${_alertTableFilter ? `<button class="btn btn-xs btn-ghost" onclick="_alertTableFilter=null;renderAlerts()">✕ Clear filter</button>` : ''}
     </div>`;
 
-    const _thSort = (key, label) => {
-      const active = sk === key;
-      const arrow = active ? (sd === 1 ? ' ▲' : ' ▼') : '';
-      return `<th class="alert-tbl-th${active?' active':''}" onclick="_alertTblSortBy('${key}')">${label}${arrow}</th>`;
-    };
+    // Filter pills
+    html += _renderATFilterPills();
+
+    // Build sortable/filterable column headers
+    const _funnelSVG = `<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>`;
+    const _thCols = ALERT_TBL_COLS.map(col => {
+      const isActiveSort = sk === col.key;
+      const filterActive = col.ftype && (col.key in _alertTblFilters);
+      const arrow = `<span class="col-sort-arrow${isActiveSort ? '' : ' idle'}">${sd === 1 ? '\u25B2' : '\u25BC'}</span>`;
+      const filterBtn = col.ftype
+        ? `<button class="col-filter-btn${filterActive ? ' active' : ''}" onclick="event.stopPropagation();openATFilter('${col.key}',this)" title="Filter ${col.label}">${_funnelSVG}</button>`
+        : '';
+      return `<th><div class="col-th-inner"><button class="col-sort-label" onclick="_alertTblSortBy('${col.key}')">${col.label}</button>${arrow}${filterBtn}</div></th>`;
+    }).join('');
 
     if (tblList.length) {
       html += `<div style="overflow-x:auto"><table class="ct" style="display:table;width:100%">
-        <thead><tr>
-          ${_thSort('name','Customer')}
-          ${_thSort('score','Score')}
-          ${_thSort('delta','Δ 7d')}
-          ${_thSort('status','Status')}
-          ${_thSort('mrr','MRR')}
-          ${_thSort('days','Last Contact')}
-          ${_thSort('renewal','Renewal')}
-          ${_thSort('alerts','Alerts')}
-          ${_thSort('tickets','Tickets')}
-          ${_thSort('manager','Manager')}
-        </tr></thead><tbody>` +
+        <thead><tr>${_thCols}</tr></thead><tbody>` +
         tblList.map(c => {
           const cad = getCadenceStatus(c);
           const cnt = alertCountMap[c.id] || 0;
@@ -4806,41 +5199,42 @@ function _renderAlerts() {
     }
   } else {
     // ── Category view (default) — sorted most → least alerts ──
+    // Filter by search
+    let catActive = active;
+    if (_viewSearch) {
+      catActive = active.filter(a => {
+        const c = customers.find(x => x.id === a.cid);
+        const name = c ? c.name.toLowerCase() : '';
+        return name.includes(_viewSearch) || (a.label||'').toLowerCase().includes(_viewSearch);
+      });
+    }
     const cats = ['health','tickets','quiet','engagement','renewal','cadence','momentum','sentiment','expansion'];
-    const catGroups = cats.map(cat => ({ cat, alerts: active.filter(a => a.cat === cat) })).filter(g => g.alerts.length > 0);
+    const catGroups = cats.map(cat => ({ cat, alerts: catActive.filter(a => a.cat === cat) })).filter(g => g.alerts.length > 0);
     catGroups.sort((a, b) => b.alerts.length - a.alerts.length);
-    catGroups.forEach(({ cat, alerts: group }) => {
-      const def = ALERT_CATS[cat];
-      html += `<div class="aw-grp-hd" id="alert-grp-${cat}" onclick="toggleAlertGroup(this)"><span class="aw-grp-hd__label">${def.label}</span><span class="aw-grp-hd__count">${group.length}</span><span class="aw-grp-hd__chevron">›</span></div>`;
-      html += `<div class="aw-grp-body">${group.map(a => alertItemHTML(a, false)).join('')}</div>`;
-    });
+    if (catGroups.length) {
+      catGroups.forEach(({ cat, alerts: group }) => {
+        const def = ALERT_CATS[cat];
+        html += `<div class="aw-grp-hd" id="alert-grp-${cat}" data-grp="${cat}" onclick="toggleAlertGroup(this)"><span class="aw-grp-hd__label">${def.label}</span><span class="aw-grp-hd__count">${group.length}</span><span class="aw-grp-hd__chevron">›</span></div>`;
+        html += `<div class="aw-grp-body">${group.map(a => alertItemHTML(a, false)).join('')}</div>`;
+      });
+    } else if (_viewSearch) {
+      html += `<div style="text-align:center;padding:28px 16px;color:var(--muted);font-size:var(--fs-md)">No alerts matching "${escHtml(_viewSearch)}"</div>`;
+    }
   }
 
   // Snoozed section (shown in alert card views, not table)
-  if (snz.length && _alertViewMode !== 'table') {
-    html += `<div class="aw-grp-hd" style="margin-top:20px" onclick="toggleAlertGroup(this)"><span class="aw-grp-hd__label">Snoozed</span><span class="aw-grp-hd__count">${snz.length}</span><span class="aw-grp-hd__chevron">›</span></div>`;
+  if (snz.length && _alertViewMode !== 'table' && _alertViewMode !== 'briefing') {
+    html += `<div class="aw-grp-hd" data-grp="snoozed" style="margin-top:20px" onclick="toggleAlertGroup(this)"><span class="aw-grp-hd__label">Snoozed</span><span class="aw-grp-hd__count">${snz.length}</span><span class="aw-grp-hd__chevron">›</span></div>`;
     html += `<div class="aw-grp-body">${snz.map(a => alertItemHTML(a, true)).join('')}</div>`;
   }
 
-  // Remember which groups are expanded before re-render
-  const openGroups = new Set();
-  list.querySelectorAll('.aw-grp-hd.alert-grp-open').forEach(hd => {
-    openGroups.add(hd.id || hd.textContent.replace(/\s+/g,' ').trim());
-  });
-
   list.innerHTML = html;
 
-  // Restore expanded groups, or auto-expand first group on fresh render
-  const allHeaders = list.querySelectorAll('.aw-grp-hd');
-  if (openGroups.size) {
-    allHeaders.forEach(hd => {
-      const key = hd.id || hd.textContent.replace(/\s+/g,' ').trim().split('(')[0].trim();
-      if (openGroups.has(key)) toggleAlertGroup(hd);
-    });
-  } else if (allHeaders.length > 0 && _alertViewMode !== 'table') {
-    // Auto-expand the first group so the page isn't all collapsed headers
-    toggleAlertGroup(allHeaders[0]);
-  }
+  // Restore expanded groups from persistent state (all start collapsed by default)
+  list.querySelectorAll('.aw-grp-hd').forEach(hd => {
+    const key = _alertGroupKey(hd);
+    if (_alertExpanded.has(key)) toggleAlertGroup(hd);
+  });
 
   renderAlertPanel(all, active, snz);
 
@@ -4857,21 +5251,41 @@ function renderAlertPanel(all, active, snz) {
     ? renewal + ' renewal' + (renewal !== 1 ? 's' : '') + ' \u226460d'
     : active.length === 0 ? 'all clear' : 'across your book';
 
-  const critical = active.filter(a => a.cat === 'health' && a.type === 'red').length;
+  const _critAlerts = active.filter(a => a.cat === 'health' && a.type === 'red');
+  const critical = _critAlerts.length;
   const critSub = critical === 0 ? 'none flagged' : 'health alerts';
+  _cachedCritIds = new Set(_critAlerts.map(a => a.cid));
 
   const affectedIds = new Set(active.map(a => a.cid));
+  _cachedAffectedIds = affectedIds;
   const totalBook = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c)).length;
-  let mrrExposed = 0;
-  const mrrSeen = new Set();
+
+  // Pre-compute full MRR exposure (all risk categories, deduped) so KPI and widget match
+  const _expSeen = {};
+  ['Critical/Risk','Watch','Renewal \u226460d','No Contact 60d+','Poor Sentiment','Low Adoption','Low Logins','Quiet Accounts'].forEach(k => _expSeen[k] = new Set());
   active.forEach(a => {
-    if (mrrSeen.has(a.cid)) return;
     const c = customers.find(x => x.id === a.cid);
     if (!c) return;
-    if (c.status === 'critical' || c.status === 'risk') { mrrSeen.add(a.cid); mrrExposed += c.mrr || 0; }
+    if (a.cat === 'health' && a.type === 'red' && !_expSeen['Critical/Risk'].has(c.id)) _expSeen['Critical/Risk'].add(c.id);
+    else if (a.cat === 'health' && a.type === 'amber' && !_expSeen['Watch'].has(c.id)) _expSeen['Watch'].add(c.id);
+    if (a.cat === 'renewal' && !_expSeen['Renewal \u226460d'].has(c.id)) _expSeen['Renewal \u226460d'].add(c.id);
   });
+  customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c)).forEach(c => {
+    if (c.days != null && c.days >= 60 && !_expSeen['No Contact 60d+'].has(c.id)) _expSeen['No Contact 60d+'].add(c.id);
+    const sent = latestSentiment(c);
+    if (sent && sent.val === 'negative' && !_expSeen['Poor Sentiment'].has(c.id)) _expSeen['Poor Sentiment'].add(c.id);
+    if (signalOn(c,'adoption') && c.adoption != null && c.adoption < 30 && !_expSeen['Low Adoption'].has(c.id)) _expSeen['Low Adoption'].add(c.id);
+    if (signalOn(c,'logins') && c.logins != null && c.logins < 5 && !_expSeen['Low Logins'].has(c.id)) _expSeen['Low Logins'].add(c.id);
+    if (isQuietAccount(c) && !_expSeen['Quiet Accounts'].has(c.id)) _expSeen['Quiet Accounts'].add(c.id);
+  });
+  const _allExpIds = new Set();
+  Object.values(_expSeen).forEach(s => s.forEach(id => _allExpIds.add(id)));
+  _cachedMrrIds = _allExpIds;
+  _cachedSnzIds = new Set(snz.map(a => a.cid));
+  let mrrExposed = 0;
+  _allExpIds.forEach(id => { const c = customers.find(x => x.id === id); if (c) mrrExposed += c.mrr || 0; });
   const mrrStr = mrrExposed > 0 ? '$' + fmtNum(mrrExposed) : '$0';
-  const mrrSubStr = mrrSeen.size > 0 ? mrrSeen.size + ' account' + (mrrSeen.size !== 1 ? 's' : '') + ' at risk' : 'no revenue at risk';
+  const mrrSubStr = _allExpIds.size > 0 ? _allExpIds.size + ' account' + (_allExpIds.size !== 1 ? 's' : '') + ' at risk' : 'no revenue at risk';
 
   const pctAlerting = totalBook > 0 ? Math.round((affectedIds.size / totalBook) * 100) : 0;
   const acctSub = pctAlerting > 0 ? pctAlerting + '% of book' : 'affected';
@@ -4895,63 +5309,53 @@ function renderAlertPanel(all, active, snz) {
   // ── Render KPI summary cards (v2 widget style) ──
   const kpiRow = el('alert-kpi-row');
   if (kpiRow) {
-    const _kpi = (onclick, hdBg, title, badge, label, val, valStyle, change, changeClass) =>
+    const _kpi = (onclick, hdBg, title, badge, label, val, valStyle, change, changeClass, tip) =>
       `<div class="aw-card" onclick="${onclick}">
-        <div class="aw-hd" style="background:${hdBg}"><span class="aw-hd-title">${title}</span><span class="aw-hd-badge">${badge}</span></div>
+        <div class="aw-hd" style="background:${hdBg}"><span class="aw-hd-title">${title}${tip ? ' <span class="info-tip tip-below" data-tip="' + tip + '">\u24d8</span>' : ''}</span><span class="aw-hd-badge">${badge}</span></div>
         <div class="aw-body">
           <div class="aw-kpi-label">${label}</div>
           <div class="aw-kpi-val"${valStyle ? ` style="color:${valStyle}"` : ''}>${val}</div>
           <div class="aw-kpi-change ${changeClass}">${escHtml(change)}</div>
         </div>
       </div>`;
+    // Dynamic colors for KPI numbers only (headers stay static)
+    const alertValColor = active.length >= 10 ? '#991b1b' : active.length >= 5 ? '#92400e' : '';
+    const alertBadge = active.length === 0 ? 'Clear' : active.length >= 10 ? 'High' : 'Live';
+    const acctValColor = pctAlerting >= 40 ? '#991b1b' : pctAlerting >= 20 ? '#92400e' : '';
+    const snzValColor = snz.length >= 10 ? '#92400e' : '#64748b';
+
     kpiRow.innerHTML =
-      _kpi("filterByAlertKpi('all')", '#0f766e', 'Active Alerts', 'Live', 'Active Alerts', active.length, '', totalSub, 'aw-kpi-flat') +
-      _kpi("filterByAlertKpi('critical')", critical > 0 ? '#991b1b' : '#166534', 'Critical / Risk', critical > 0 ? 'Alert' : 'Clear', 'Critical / Risk', critical, critical > 0 ? '#991b1b' : '', critSub, 'aw-kpi-flat') +
-      _kpi("filterByAlertKpi('mrr')", mrrExposed > 0 ? '#92400e' : '#0f766e', 'MRR Exposed', mrrExposed > 0 ? 'Risk' : 'Safe', 'MRR Exposed', mrrStr, mrrExposed > 0 ? '#92400e' : '', mrrSubStr, 'aw-kpi-flat') +
-      _kpi("filterByAlertKpi('accounts')", '#0f766e', 'Accounts', pctAlerting + '%', 'Accounts Affected', `${affectedIds.size}<span style="font-size:1rem;font-weight:400;color:var(--subtle)"> / ${totalBook}</span>`, '', acctSub, 'aw-kpi-flat') +
-      _kpi("filterByAlertKpi('snoozed')", '#475569', 'Snoozed', 'Paused', 'Snoozed', snz.length, '#64748b', snzSub, 'aw-kpi-flat');
+      _kpi("filterByAlertKpi('all')", '#0f766e', 'Active Alerts', alertBadge, 'Active Alerts', active.length, alertValColor, totalSub, 'aw-kpi-flat', 'Total active alerts across your book. Click to show all.') +
+      _kpi("filterByAlertKpi('critical')", '#991b1b', 'Critical / Risk', critical > 0 ? 'Alert' : 'Clear', 'Critical / Risk', critical, critical > 0 ? '#991b1b' : '#16a34a', critSub, 'aw-kpi-flat', 'Customers in Critical or Risk health status. Click to filter.') +
+      _kpi("filterByAlertKpi('mrr')", '#92400e', 'MRR Exposed', mrrExposed > 0 ? 'Risk' : 'Safe', 'MRR Exposed', mrrStr, mrrExposed > 0 ? '#92400e' : '', mrrSubStr, 'aw-kpi-flat', 'Total MRR at risk, deduplicated. Each customer counted once even if flagged in multiple categories. Click to filter.') +
+      _kpi("filterByAlertKpi('accounts')", '#0f766e', 'Accounts', pctAlerting + '%', 'Accounts Affected', `${affectedIds.size}<span style="font-size:1rem;font-weight:400;color:var(--subtle)"> / ${totalBook}</span>`, acctValColor, acctSub, 'aw-kpi-flat', 'Percentage and count of accounts with active alerts. Click to filter.') +
+      _kpi("filterByAlertKpi('snoozed')", '#475569', 'Snoozed', snz.length >= 10 ? 'High' : 'Paused', 'Snoozed', snz.length, snzValColor, snzSub, 'aw-kpi-flat', 'Alerts temporarily paused. Click to view snoozed alerts.');
   }
 
   // ── Update feed count badge ──
   const feedBadge = el('aw-feed-count');
   if (feedBadge) feedBadge.textContent = active.length;
 
-  // ── MRR Exposure detail card ──
+  // ── MRR Exposure detail card (reuses pre-computed _expSeen) ──
   const mrrWrap = el('alert-mrr-wrap');
   if (mrrWrap) {
-    const mrrMap = {
-      'Critical/Risk':    { color:'#991b1b', mrr:0 },
-      'Watch':            { color:'#92400e', mrr:0 },
-      'Renewal \u226460d': { color:'#0891b2', mrr:0 },
-      'No Contact 60d+':  { color:'#b45309', mrr:0 },
-      'Poor Sentiment':   { color:'#b91c1c', mrr:0 },
-      'Low Adoption':     { color:'#92400e', mrr:0 },
-      'Low Logins':       { color:'#78350f', mrr:0 },
-      'Quiet Accounts':   { color:'#991b1b', mrr:0 }
+    const _expColors = {
+      'Critical/Risk':'#991b1b','Watch':'#92400e','Renewal \u226460d':'#0891b2',
+      'No Contact 60d+':'#b45309','Poor Sentiment':'#b91c1c','Low Adoption':'#92400e',
+      'Low Logins':'#78350f','Quiet Accounts':'#991b1b'
     };
-    const seen = {};
-    Object.keys(mrrMap).forEach(k => seen[k] = new Set());
-    _mrrSeen = seen;
-    active.forEach(a => {
-      const c = customers.find(x => x.id === a.cid);
-      if (!c) return;
-      if (a.cat === 'health' && a.type === 'red' && !seen['Critical/Risk'].has(c.id)) { seen['Critical/Risk'].add(c.id); mrrMap['Critical/Risk'].mrr += c.mrr||0; }
-      else if (a.cat === 'health' && a.type === 'amber' && !seen['Watch'].has(c.id)) { seen['Watch'].add(c.id); mrrMap['Watch'].mrr += c.mrr||0; }
-      if (a.cat === 'renewal' && !seen['Renewal \u226460d'].has(c.id)) { seen['Renewal \u226460d'].add(c.id); mrrMap['Renewal \u226460d'].mrr += c.mrr||0; }
-    });
-    customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c)).forEach(c => {
-      if (c.days != null && c.days >= 60 && !seen['No Contact 60d+'].has(c.id)) { seen['No Contact 60d+'].add(c.id); mrrMap['No Contact 60d+'].mrr += c.mrr||0; }
-      const sent = latestSentiment(c);
-      if (sent && sent.val === 'negative' && !seen['Poor Sentiment'].has(c.id)) { seen['Poor Sentiment'].add(c.id); mrrMap['Poor Sentiment'].mrr += c.mrr||0; }
-      if (signalOn(c,'adoption') && c.adoption != null && c.adoption < 30 && !seen['Low Adoption'].has(c.id)) { seen['Low Adoption'].add(c.id); mrrMap['Low Adoption'].mrr += c.mrr||0; }
-      if (signalOn(c,'logins') && c.logins != null && c.logins < 5 && !seen['Low Logins'].has(c.id)) { seen['Low Logins'].add(c.id); mrrMap['Low Logins'].mrr += c.mrr||0; }
-      if (isQuietAccount(c) && !seen['Quiet Accounts'].has(c.id)) { seen['Quiet Accounts'].add(c.id); mrrMap['Quiet Accounts'].mrr += c.mrr||0; }
-    });
-    const rows = Object.entries(mrrMap).filter(([, {mrr}]) => mrr > 0).sort((a, b) => b[1].mrr - a[1].mrr);
+    _mrrSeen = _expSeen;
+    const rows = Object.entries(_expSeen)
+      .map(([label, ids]) => {
+        let mrr = 0;
+        ids.forEach(id => { const c = customers.find(x => x.id === id); if (c) mrr += c.mrr || 0; });
+        return [label, { color: _expColors[label], mrr }];
+      })
+      .filter(([, {mrr}]) => mrr > 0)
+      .sort((a, b) => b[1].mrr - a[1].mrr);
     const maxMrr = rows.length > 0 ? rows[0][1].mrr : 1;
-    const totalMrrExposed = rows.reduce((s, [, {mrr}]) => s + mrr, 0);
     const mrrTotalEl = el('alert-mrr-total');
-    if (mrrTotalEl) mrrTotalEl.textContent = '$' + fmtNum(totalMrrExposed);
+    if (mrrTotalEl) mrrTotalEl.textContent = mrrStr;
     const mrrRows = rows.map(([label, {color, mrr}]) => {
       const pct = Math.round((mrr / maxMrr) * 100);
       return `<div class="aw-prog" onclick="filterByMrrBucket('${label}')">
@@ -4973,11 +5377,14 @@ function renderAlertPanel(all, active, snz) {
       { key: 'churned',    label: 'Churned',    color: '#64748b' }
     ];
     const stageCounts = {};
-    stageDefs.forEach(s => stageCounts[s.key] = 0);
+    const stageIds = {};
+    stageDefs.forEach(s => { stageCounts[s.key] = 0; stageIds[s.key] = new Set(); });
     active.forEach(a => {
       const c = customers.find(x => x.id === a.cid);
-      if (c) { const lc = c.lifecycle || 'active'; if (stageCounts[lc] !== undefined) stageCounts[lc]++; }
+      if (c) { const lc = c.lifecycle || 'active'; if (stageCounts[lc] !== undefined && !stageIds[lc].has(c.id)) { stageCounts[lc]++; stageIds[lc].add(c.id); } }
     });
+    _stageSeen = {};
+    stageDefs.forEach(s => { _stageSeen[s.label] = stageIds[s.key]; });
     const stagesWithAlerts = stageDefs.filter(s => stageCounts[s.key] > 0);
     const stageTotalEl = el('alert-stage-total');
     if (stageTotalEl) stageTotalEl.textContent = stagesWithAlerts.length;
@@ -4985,7 +5392,7 @@ function renderAlertPanel(all, active, snz) {
     const stageRows = stagesWithAlerts.map(s => {
       const cnt = stageCounts[s.key];
       const pct = Math.round((cnt / maxStageCount) * 100);
-      return `<div class="aw-prog">
+      return `<div class="aw-prog" style="cursor:pointer" onclick="filterByStageBucket('${escHtml(s.label)}')">
         <div class="aw-prog-hdr"><span class="aw-prog-name"><span class="dot" style="background:${s.color}"></span>${s.label}</span><span class="aw-prog-val" style="color:${s.color}">${cnt}</span></div>
         <div class="aw-prog-track"><div class="aw-prog-fill" style="width:${pct}%;background:${s.color}"></div></div>
       </div>`;
@@ -5159,11 +5566,20 @@ function renderAlertPanel(all, active, snz) {
       // Store insight data for click navigation
       window._alertInsights = topIns;
       const hdColors = { red: '#991b1b', amber: '#92400e', green: '#166534' };
+      const insTips = {
+        'Renewals at Risk': 'Accounts renewing soon that are also in Critical/Risk health. Click to view.',
+        'Highest MRR at Risk': 'Your highest-revenue account currently at Critical or Risk. Click to open.',
+        'Scores Still Falling': 'Accounts with scores still trending down week-over-week. Click to view.',
+        'Multiple Red Flags': 'Accounts flagged across 3+ alert categories that may need a deeper conversation. Click to view.',
+        'Engagement Drop': 'Accounts with low product adoption or login activity. Click to view.',
+        'Silent Revenue': 'High-value accounts that have gone completely quiet. Click to view.'
+      };
       insWrap.innerHTML = topIns.map((ins, idx) => {
         const accentColor = hdColors[ins.accent] || '#0f766e';
         const clickable = ins.cids && ins.cids.length > 0;
+        const insTip = insTips[ins.label] || 'Click to view details';
         return `<div class="aw-card"${clickable ? ` onclick="_alertInsightClick(${idx})" style="cursor:pointer"` : ''}>
-          <div class="aw-hd" style="background:${accentColor}"><span class="aw-hd-title">${ins.label}</span></div>
+          <div class="aw-hd" style="background:${accentColor}"><span class="aw-hd-title">${ins.label} <span class="info-tip tip-below" data-tip="${insTip}">\u24d8</span></span></div>
           <div class="aw-body">
             <div class="aw-insight-text">${ins.text}</div>
           </div>
@@ -5182,13 +5598,210 @@ function _alertTblSortBy(key) {
   renderAlerts();
 }
 
+// ─── ALERT TABLE COLUMN FILTERS ─────────────────────────────
+// Close filter on outside click
+document.addEventListener('mousedown', function(e) {
+  const menu = document.getElementById('at-filter-portal');
+  if (!menu || !menu.classList.contains('open')) return;
+  if (menu.contains(e.target)) return;
+  if (e.target.closest && e.target.closest('.col-filter-btn')) return;
+  closeATFilter();
+});
+
+function openATFilter(key, btnEl) {
+  if (_openATF === key) { closeATFilter(); return; }
+  closeATFilter();
+  _openATF = key;
+  const col = ALERT_TBL_COLS.find(c => c.key === key);
+  const menu = document.getElementById('at-filter-portal');
+  if (!menu || !col) return;
+  menu.innerHTML = _buildATFilterMenu(col);
+  menu.classList.add('open');
+  const rect = (btnEl.closest('th') || btnEl).getBoundingClientRect();
+  menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+  menu.style.left = (rect.left + window.scrollX) + 'px';
+  requestAnimationFrame(() => {
+    const mr = menu.getBoundingClientRect();
+    if (mr.right > window.innerWidth - 8)
+      menu.style.left = (window.innerWidth - mr.width - 8 + window.scrollX) + 'px';
+  });
+  _populateATFilterUI(key, col);
+  setTimeout(() => menu.querySelector('input')?.focus(), 30);
+}
+
+function closeATFilter() {
+  const menu = document.getElementById('at-filter-portal');
+  if (menu) { menu.classList.remove('open'); menu.innerHTML = ''; }
+  _openATF = null;
+}
+
+function _buildATFilterMenu(col) {
+  let body = '';
+  if (col.ftype === 'number') {
+    body = `<div class="cff-radio-group">
+      <label class="cff-radio"><input type="radio" name="atfop" value="gt" onchange="_atfOpChange()"> Greater than</label>
+      <label class="cff-radio"><input type="radio" name="atfop" value="lt" onchange="_atfOpChange()"> Less than</label>
+      <label class="cff-radio"><input type="radio" name="atfop" value="eq" onchange="_atfOpChange()"> Exactly</label>
+      <label class="cff-radio"><input type="radio" name="atfop" value="between" onchange="_atfOpChange()"> Between</label>
+    </div>
+    <div class="cff-inputs">
+      <input class="cff-num-input" id="atf-val" type="number" placeholder="Value" oninput="_applyATFilterLive()">
+      <span class="cff-between-sep" id="atf-sep" style="display:none">and</span>
+      <input class="cff-num-input" id="atf-val2" type="number" placeholder="Max" style="display:none" oninput="_applyATFilterLive()">
+    </div>`;
+  } else if (col.ftype === 'enum') {
+    const vals = col.enumFn ? col.enumFn() : (col.enumVals || []);
+    body = `<div class="cff-enum-list">${vals.map(v =>
+      `<label class="cff-check-item"><input type="checkbox" value="${escHtml(v)}" class="atf-enum-cb" onchange="_applyATFilterLive()"> ${ENUM_DISPLAY[v] !== undefined ? ENUM_DISPLAY[v] : escHtml(v)}</label>`
+    ).join('')}</div>`;
+  } else if (col.ftype === 'text') {
+    body = `<input class="cff-text-input" id="atf-text" type="text" placeholder="Search ${col.label.toLowerCase()}..." oninput="_applyATFilterLive()" autocomplete="off">`;
+  }
+  return `<div class="col-filter-hd">
+    <span class="col-filter-title">Filter: ${col.label}</span>
+    <button class="col-filter-clear" onclick="clearATFilter('${col.key}')">Clear</button>
+  </div>
+  <div class="col-filter-body">${body}</div>`;
+}
+
+function _atfOpChange() {
+  const op = document.querySelector('input[name="atfop"]:checked')?.value;
+  const v2 = document.getElementById('atf-val2');
+  const sep = document.getElementById('atf-sep');
+  const btw = op === 'between';
+  if (v2) v2.style.display = btw ? '' : 'none';
+  if (sep) sep.style.display = btw ? '' : 'none';
+  _applyATFilterLive();
+}
+
+function _populateATFilterUI(key, col) {
+  const f = _alertTblFilters[key];
+  if (!f) return;
+  if (col.ftype === 'number') {
+    const radio = document.querySelector(`input[name="atfop"][value="${f.type}"]`);
+    if (radio) { radio.checked = true; _atfOpChange(); }
+    const v1 = document.getElementById('atf-val');
+    const v2 = document.getElementById('atf-val2');
+    if (v1) v1.value = (f.type === 'between' ? f.min : f.val) ?? '';
+    if (v2 && f.max != null) v2.value = f.max;
+  } else if (col.ftype === 'enum') {
+    document.querySelectorAll('.atf-enum-cb').forEach(cb => { cb.checked = f.vals.has(cb.value); });
+  } else if (col.ftype === 'text') {
+    const inp = document.getElementById('atf-text');
+    if (inp) inp.value = f.q || '';
+  }
+}
+
+function _applyATFilterLive() {
+  const key = _openATF;
+  if (!key) return;
+  const col = ALERT_TBL_COLS.find(c => c.key === key);
+  if (!col) return;
+  if (col.ftype === 'number') {
+    const op = document.querySelector('input[name="atfop"]:checked')?.value;
+    const v1 = parseFloat(document.getElementById('atf-val')?.value);
+    const v2 = parseFloat(document.getElementById('atf-val2')?.value);
+    if (!op || isNaN(v1)) { delete _alertTblFilters[key]; }
+    else if (op === 'between') {
+      if (!isNaN(v2)) _alertTblFilters[key] = { type:'between', min:v1, max:v2 };
+      else delete _alertTblFilters[key];
+    } else {
+      _alertTblFilters[key] = { type:op, val:v1 };
+    }
+  } else if (col.ftype === 'enum') {
+    const checked = [...document.querySelectorAll('.atf-enum-cb:checked')].map(cb => cb.value);
+    if (checked.length) _alertTblFilters[key] = { type:'enum', vals: new Set(checked) };
+    else delete _alertTblFilters[key];
+  } else if (col.ftype === 'text') {
+    const q = (document.getElementById('atf-text')?.value || '').trim().toLowerCase();
+    if (q) _alertTblFilters[key] = { type:'text', q };
+    else delete _alertTblFilters[key];
+  }
+  renderAlerts();
+}
+
+function clearATFilter(key) {
+  delete _alertTblFilters[key];
+  closeATFilter();
+  renderAlerts();
+}
+
+function clearAllATFilters() {
+  Object.keys(_alertTblFilters).forEach(k => delete _alertTblFilters[k]);
+  closeATFilter();
+  renderAlerts();
+}
+
+function _atfGetValue(c, key, alertCountMap) {
+  if (key === 'name') return (c.name || '').toLowerCase();
+  if (key === 'score') return c.score || 0;
+  if (key === 'delta') return getDelta7d(c);
+  if (key === 'status') return c.status || '';
+  if (key === 'mrr') return c.mrr || 0;
+  if (key === 'days') return c.days != null ? c.days : 9999;
+  if (key === 'renewal') return c.renewal_date ? Math.round((new Date(c.renewal_date) - new Date()) / 86400000) : 9999;
+  if (key === 'alerts') return (alertCountMap && alertCountMap[c.id]) || 0;
+  if (key === 'tickets') return c.tickets != null ? c.tickets : 0;
+  if (key === 'manager') return (c.manager || '').toLowerCase();
+  return 0;
+}
+
+function _applyATFilters(list, alertCountMap) {
+  const keys = Object.keys(_alertTblFilters);
+  if (!keys.length) return list;
+  return list.filter(c => {
+    for (const key of keys) {
+      const f = _alertTblFilters[key];
+      if (!f) continue;
+      const v = _atfGetValue(c, key, alertCountMap);
+      if (f.type === 'text') {
+        if (typeof v === 'string' && !v.includes(f.q)) return false;
+      } else if (f.type === 'enum') {
+        if (!f.vals.has(v)) return false;
+      } else if (f.type === 'gt') {
+        if (v <= f.val) return false;
+      } else if (f.type === 'lt') {
+        if (v >= f.val) return false;
+      } else if (f.type === 'eq') {
+        if (v !== f.val) return false;
+      } else if (f.type === 'between') {
+        if (v < f.min || v > f.max) return false;
+      }
+    }
+    return true;
+  });
+}
+
+function _renderATFilterPills() {
+  const keys = Object.keys(_alertTblFilters);
+  if (!keys.length) return '';
+  return `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;align-items:center">`
+    + keys.map(key => {
+      const f = _alertTblFilters[key];
+      const def = ALERT_TBL_COLS.find(d => d.key === key);
+      const label = def ? def.label : key;
+      let summary = '';
+      if (f.type === 'text') summary = '"' + (f.q || '').slice(0, 20) + '"';
+      else if (f.type === 'enum') {
+        const arr = [...(f.vals || [])].map(v => ENUM_DISPLAY[v] || v);
+        summary = arr.length <= 3 ? arr.join(', ') : arr.slice(0, 3).join(', ') + ' +' + (arr.length - 3);
+      }
+      else if (f.type === 'gt') summary = '> ' + f.val;
+      else if (f.type === 'lt') summary = '< ' + f.val;
+      else if (f.type === 'eq') summary = '= ' + f.val;
+      else if (f.type === 'between') summary = f.min + ' - ' + f.max;
+      return `<span class="filter-pill">${escHtml(label)}: ${escHtml(summary)}<button class="filter-pill-x" onclick="event.stopPropagation();clearATFilter('${key}')" title="Remove filter">\u2715</button></span>`;
+    }).join('')
+    + `<button class="btn btn-xs btn-ghost" onclick="clearAllATFilters()" style="font-size:var(--fs-sm);color:var(--muted)">Clear all</button></div>`;
+}
+
 // Navigate from insight card: single customer → customer view + expand, multiple → table view
 function _insightNav(mode, custIds, label) {
   const ids = custIds instanceof Set ? custIds : new Set(custIds);
   if (mode === 'customer' && ids.size === 1) {
     // Single customer: switch to customer view, expand, and scroll
     const cid = [...ids][0];
-    setAlertView('customer');
+    setAlertView('customer', true);
     setTimeout(() => {
       const hd = document.querySelector(`.aw-grp-hd[data-cid="${cid}"]`);
       if (hd) {
@@ -5234,6 +5847,9 @@ function _alertShowTable(label, ids) {
 function filterByMrrBucket(label) {
   _alertShowTable(label, _mrrSeen[label]);
 }
+function filterByStageBucket(label) {
+  _alertShowTable(label, _stageSeen[label]);
+}
 function _smoothScrollWithOffset(target, offset) {
   if (!target) return;
   const main = document.querySelector('main.main');
@@ -5246,35 +5862,21 @@ function _smoothScrollWithOffset(target, offset) {
   }
 }
 function filterByAlertKpi(which) {
-  // Switch to category view and scroll to the relevant group
-  if (_alertViewMode !== 'category') setAlertView('category');
-  let scrollTo = null;
-  if (which === 'all')      scrollTo = 'alert-grp-health';
-  if (which === 'total')    scrollTo = 'alert-grp-health';
-  if (which === 'critical') scrollTo = 'alert-grp-health';
-  if (which === 'renewal')  scrollTo = 'alert-grp-renewal';
-  if (which === 'mrr')      scrollTo = 'alert-grp-health';
-  if (which === 'accounts') scrollTo = 'alert-grp-health';
-  setTimeout(() => {
-    const stickyBar = document.getElementById('alert-sticky-bar');
-    const barH = stickyBar ? stickyBar.offsetHeight : 0;
-    if (which === 'snoozed') {
-      const snzHd = document.querySelector('#alerts-list .aw-grp-hd:last-of-type');
-      _smoothScrollWithOffset(snzHd, barH + 12);
-    } else if (scrollTo) {
-      const hd = document.getElementById(scrollTo);
-      if (hd) {
-        const body = hd.nextElementSibling;
-        if (body && body.classList.contains('aw-grp-body') && getComputedStyle(body).display === 'none') {
-          toggleAlertGroup(hd);
-        }
-        _smoothScrollWithOffset(hd, barH + 12);
-      }
-    }
-  }, 50);
+  // All top widgets → table view filtered to relevant accounts
+  if (which === 'all' || which === 'total') {
+    _alertShowTable('Active Alerts', _cachedAffectedIds);
+  } else if (which === 'critical') {
+    _alertShowTable('Critical / Risk', _cachedCritIds);
+  } else if (which === 'mrr') {
+    _alertShowTable('MRR Exposed', _cachedMrrIds);
+  } else if (which === 'accounts') {
+    _alertShowTable('Accounts Affected', _cachedAffectedIds);
+  } else if (which === 'snoozed') {
+    _alertShowTable('Snoozed', _cachedSnzIds);
+  }
 }
 function filterByAlertCat(cat) {
-  if (_alertViewMode !== 'category') setAlertView('category');
+  if (_alertViewMode !== 'category') setAlertView('category', true);
   setTimeout(() => {
     const hd = document.getElementById('alert-grp-' + cat);
     if (hd) {
@@ -5291,6 +5893,210 @@ function filterByAlertCat(cat) {
 function clearMrrExposureFilter() {
   mrrExposureFilter = null;
   renderCustomers();
+}
+
+// ─── BRIEFING VIEW ──────────────────────────────────────────
+function _renderBriefingView(active, snz) {
+  const now = new Date();
+  const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const dayName = dayNames[now.getDay()];
+  const dateStr = `${monthNames[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
+
+  // Build action items from alerts — one per customer, merged
+  const custActions = {};
+  active.forEach(a => {
+    if (!custActions[a.cid]) {
+      const c = customers.find(x => x.id === a.cid);
+      if (!c) return;
+      custActions[a.cid] = {
+        c, alerts: [], cats: new Set(), worstType: 'green',
+        score: c.score, status: c.status, mrr: c.mrr || 0,
+        delta: getDelta7d(c), days: c.days, manager: c.manager || ''
+      };
+    }
+    custActions[a.cid].alerts.push(a);
+    custActions[a.cid].cats.add(a.cat);
+    const sevOrder = { red:0, amber:1, blue:2, green:3 };
+    if ((sevOrder[a.type]||3) < (sevOrder[custActions[a.cid].worstType]||3)) {
+      custActions[a.cid].worstType = a.type;
+    }
+  });
+
+  // Classify each customer into urgency tiers
+  const tiers = { immediate: [], thisWeek: [], monitor: [] };
+
+  Object.values(custActions).forEach(ca => {
+    const c = ca.c;
+    const hasCritRisk = ca.cats.has('health') && (c.status === 'critical' || c.status === 'risk');
+    const bigDrop = ca.delta <= -10;
+    const renewSoon = c.renewal_date && (() => {
+      const d = Math.round((new Date(c.renewal_date) - now) / 86400000);
+      return d >= 0 && d <= 30;
+    })();
+    const overdue = c.days != null && c.days >= 30;
+
+    if (hasCritRisk || bigDrop) {
+      tiers.immediate.push(ca);
+    } else if (renewSoon || ca.cats.has('tickets') || overdue || ca.cats.has('quiet')) {
+      tiers.thisWeek.push(ca);
+    } else {
+      tiers.monitor.push(ca);
+    }
+  });
+
+  // Sort each tier: worst score first, then highest MRR
+  const tierSort = (a, b) => {
+    const sd = a.score - b.score;
+    if (sd !== 0) return sd;
+    return b.mrr - a.mrr;
+  };
+  tiers.immediate.sort(tierSort);
+  tiers.thisWeek.sort(tierSort);
+  tiers.monitor.sort(tierSort);
+
+  // Build HTML
+  let h = '';
+
+  // ── Minimal header — KPIs already visible above ──
+  h += `<div class="brief-hd"><span class="brief-hd__day">Briefing</span><span class="brief-hd__date">${dateStr}</span></div>`;
+
+  // ── Urgency tiers ──
+  const tierDefs = [
+    { key:'immediate', label:'Act Now', icon:'🔴', color:'#991b1b', bg:'rgba(220,38,38,.04)', desc:'Critical health, rapid drops — outreach today', items: tiers.immediate },
+    { key:'thisWeek',  label:'This Week', icon:'🟡', color:'#92400e', bg:'rgba(217,119,6,.04)', desc:'Renewals, overdue contact, support issues — schedule check-ins', items: tiers.thisWeek },
+    { key:'monitor',   label:'Monitor', icon:'🔵', color:'#1e40af', bg:'rgba(30,64,175,.04)', desc:'Watch zone, engagement dips — keep an eye on', items: tiers.monitor },
+  ];
+
+  tierDefs.forEach(tier => {
+    if (!tier.items.length) return;
+
+    const tierExpanded = _alertExpanded.has('briefing:' + tier.key);
+    h += `<div class="brief-tier${tierExpanded ? '' : ' collapsed'}" data-tier="${tier.key}">
+      <div class="brief-tier__hd" onclick="toggleBriefTier(this.parentElement)">
+        <span class="brief-tier__dot" style="background:${tier.color}"></span>
+        <span class="brief-tier__label">${tier.label}</span>
+        <span class="brief-tier__count">${tier.items.length}</span>
+        <span class="brief-tier__desc">${tier.desc}</span>
+        <span class="brief-tier__chevron">‹</span>
+      </div>
+      <div class="brief-tier__body">`;
+
+    tier.items.forEach(ca => {
+      const c = ca.c;
+      const scoreColor = STATUS_COLOR[c.status] || '#94a3b8';
+      const d7 = ca.delta;
+      const d7Color = d7 > 0 ? '#16a34a' : d7 < 0 ? '#dc2626' : 'var(--muted)';
+      const d7Str = d7 > 0 ? '+'+d7 : d7 === 0 ? '—' : String(d7);
+
+      // Build prescribed action text
+      const actions = _briefAction(ca);
+
+      // Renewal info
+      let renewStr = '';
+      if (c.renewal_date) {
+        const rd = Math.round((new Date(c.renewal_date) - now) / 86400000);
+        renewStr = rd <= 0 ? '<span style="color:#dc2626;font-weight:700">Overdue</span>'
+          : rd <= 30 ? `<span style="color:#ea580c;font-weight:700">${rd}d</span>`
+          : `${rd}d`;
+      }
+
+      // Alert category pills
+      const catPills = [...ca.cats].map(cat => {
+        const def = ALERT_CATS[cat];
+        if (!def) return '';
+        const pillColors = { red:'#991b1b', amber:'#92400e', blue:'#1e40af', green:'#166534' };
+        return `<span class="brief-cat-pill" style="color:${pillColors[def.type]||'#64748b'};background:${def.type === 'red' ? 'rgba(220,38,38,.07)' : def.type === 'amber' ? 'rgba(217,119,6,.07)' : def.type === 'green' ? 'rgba(22,163,74,.07)' : 'rgba(30,64,175,.07)'}">${def.icon} ${def.label}</span>`;
+      }).join('');
+
+      h += `<div class="brief-item" onclick="openDetail('${escHtml(c.id)}')">
+        <div class="brief-item__left">
+          <div class="brief-item__score" style="background:${scoreColor}">${c.score}</div>
+          <div class="brief-item__info">
+            <div class="brief-item__name">
+              ${escHtml(c.name)}
+              <span class="brief-item__delta" style="color:${d7Color}">${d7Str}</span>
+              ${c.mrr ? `<span class="brief-item__mrr">$${fmtNum(c.mrr)}</span>` : ''}
+              ${renewStr ? `<span class="brief-item__renew">⟳ ${renewStr}</span>` : ''}
+            </div>
+            <div class="brief-item__cats">${catPills}</div>
+            <div class="brief-item__action">${actions}</div>
+          </div>
+        </div>
+        <div class="brief-item__right">
+          ${c.manager ? `<span class="brief-item__mgr">${escHtml(c.manager)}</span>` : ''}
+          <button class="btn btn-xs btn-outline brief-item__btn" onclick="event.stopPropagation();openDetail('${escHtml(c.id)}')" title="Open detail">Review →</button>
+        </div>
+      </div>`;
+    });
+
+    h += `</div></div>`;
+  });
+
+  if (!Object.keys(custActions).length) {
+    h += `<div style="text-align:center;padding:40px 16px;color:var(--muted)">
+      <div style="font-size:2rem;margin-bottom:8px">✓</div>
+      <div style="font-weight:600;font-size:1.05rem;margin-bottom:4px">All clear</div>
+      <div>No action items — your book is in good shape.</div>
+    </div>`;
+  }
+
+  return h;
+}
+
+// Prescribe an action based on the alert mix for a customer
+function _briefAction(ca) {
+  const parts = [];
+  const c = ca.c;
+
+  if (c.status === 'critical') {
+    parts.push('<strong>Escalate:</strong> Account is critical — initiate rescue outreach');
+  } else if (c.status === 'risk') {
+    parts.push('<strong>Outreach:</strong> Account at risk — schedule a health check call');
+  }
+
+  if (ca.delta <= -15) {
+    parts.push(`<strong>Investigate:</strong> Score dropped ${Math.abs(ca.delta)} pts in 7 days`);
+  } else if (ca.delta <= -10) {
+    parts.push(`<strong>Watch:</strong> Score declining (${ca.delta} pts this week)`);
+  }
+
+  if (ca.cats.has('renewal')) {
+    const rd = c.renewal_date ? Math.round((new Date(c.renewal_date) - new Date()) / 86400000) : null;
+    if (rd != null && rd <= 14) parts.push(`<strong>Renewal prep:</strong> Renews in ${rd}d — confirm expansion/retention plan`);
+    else if (rd != null) parts.push(`<strong>Renewal touch:</strong> Renews in ${rd}d — start renewal conversation`);
+  }
+
+  if (ca.cats.has('tickets')) {
+    parts.push(`<strong>Support sync:</strong> ${c.tickets || '3+'} open tickets — check with support team`);
+  }
+
+  if (ca.cats.has('quiet')) {
+    parts.push('<strong>Re-engage:</strong> Account has gone silent — send a value-add touchpoint');
+  }
+
+  if (ca.cats.has('cadence') && !parts.some(p => p.includes('Outreach'))) {
+    parts.push(`<strong>Check-in:</strong> ${c.days || 0}d since last contact — schedule a touch`);
+  }
+
+  if (ca.cats.has('engagement') && !parts.some(p => p.includes('Re-engage'))) {
+    parts.push('<strong>Adoption review:</strong> Low engagement — share best practices or training');
+  }
+
+  if (ca.cats.has('sentiment')) {
+    parts.push('<strong>Follow up:</strong> Negative sentiment logged — address concerns');
+  }
+
+  if (ca.cats.has('expansion')) {
+    parts.push('<strong>Opportunity:</strong> Expansion signals detected — explore upsell');
+  }
+
+  if (!parts.length) {
+    parts.push('<strong>Review:</strong> Check current status and determine next steps');
+  }
+
+  // Return top 2 actions max to keep it concise
+  return parts.slice(0, 2).join('<span class="brief-action-sep">·</span>');
 }
 
 function tierChip(tier) {
@@ -5428,8 +6234,8 @@ function clearSnoozed() {
 }
 
 function viewSnoozedAlerts() {
-  // Switch to category view if in table mode (snoozed section only shows in card views)
-  if (_alertViewMode === 'table') setAlertView('category');
+  // Switch to category view if in table/briefing mode (snoozed section only shows in card views)
+  if (_alertViewMode === 'table' || _alertViewMode === 'briefing') setAlertView('category', true);
   setTimeout(() => {
     // Find the snoozed group header and expand + scroll to it
     const headers = document.querySelectorAll('#alerts-list .aw-grp-hd');
@@ -5612,6 +6418,10 @@ function updateMgrFilterLabel() {
 function setFilter(f) {
   filterMode = f;
   mrrExposureFilter = null; // clear MRR drill-down when switching status chips
+  insightFilter = null;     // clear insight drill-down
+  _filterTier = null;       // clear tier drill-down
+  _filterStage = null;      // clear stage drill-down
+  _filterManager = null;    // clear CSM drill-down
   // Clear any delta filter + sort when switching via status chips
   delete columnFilters['_delta'];
   if (sortKey === '_delta') { sortKey = 'score'; sortDir = -1; }
@@ -6506,6 +7316,8 @@ function applyProfileSignalState() {
 function getFormData() {
   return {
     name:     document.getElementById('f-name').value.trim(),
+    contact_name:  (document.getElementById('f-contact-name')?.value || '').trim(),
+    contact_email: (document.getElementById('f-contact-email')?.value || '').trim(),
     manager:  (()=>{ const nEl=document.getElementById('f-manager-new'); if(nEl&&nEl.style.display!=='none'&&nEl.value.trim()) return nEl.value.trim(); const sEl=document.getElementById('f-manager'); return (sEl&&sEl.value&&sEl.value!=='__add_new__') ? sEl.value : ''; })(),
     mrr:      parseFloat(document.getElementById('f-mrr').value)      || 0,
     arr:      parseFloat(document.getElementById('f-arr')?.value)     || 0,
@@ -6775,6 +7587,8 @@ function saveScore() {
       () => {
         dupe.score           = score;
         dupe.status          = status;
+        dupe.contact_name    = data.contact_name || dupe.contact_name || '';
+        dupe.contact_email   = data.contact_email || dupe.contact_email || '';
         dupe.logins          = data.logins;
         dupe.adoption        = data.adoption;
         dupe.tickets         = data.tickets;
@@ -6817,6 +7631,8 @@ function saveScore() {
   const cust = {
     id:              crypto.randomUUID(),
     name:            data.name,
+    contact_name:    data.contact_name || '',
+    contact_email:   data.contact_email || '',
     manager:         data.manager || '',
     scoring_profile: data.profile || '',
     mrr:             data.mrr,
@@ -6862,6 +7678,47 @@ function saveScore() {
   if (_returnToDetail) { const rid = _returnToDetail; _returnToDetail = ''; setTimeout(() => openDetail(rid), 80); }
 }
 
+function saveDetailsOnly() {
+  const editId = document.getElementById('score-form').dataset.editId;
+  if (!editId) { toast('Save Details is only available when editing an existing customer', 'error'); return; }
+  const c = customers.find(x => x.id === editId);
+  if (!c) { toast('Customer not found', 'error'); return; }
+  const data = getFormData();
+  if (!data.name) { toast('Customer name is required', 'error'); return; }
+
+  c.name             = data.name;
+  c.contact_name     = data.contact_name || '';
+  c.contact_email    = data.contact_email || '';
+  c.manager          = data.manager || c.manager || '';
+  c.mrr              = data.mrr;
+  c.arr              = data.arr || (data.mrr * 12);
+  c.since            = data.since || c.since || '';
+  c.tier             = data.tier;
+  c.lifecycle        = data.lifecycle;
+  c.tags             = data.tags;
+  c.billing_interval = data.billing_interval || c.billing_interval || '';
+  c.scoring_profile  = data.profile || c.scoring_profile || '';
+  c.renewal_date     = data.renewal_date || c.renewal_date || '';
+  if (data.note) {
+    c.notes = c.notes || [];
+    c.notes.unshift({ text: data.note, date: new Date().toISOString() });
+  }
+  applyAutoStage(c);
+  setLoading(true);
+  save(c).then(() => {
+    setLoading(false);
+    toast('Details saved for ' + c.name, 'success');
+  }).catch(() => {
+    setLoading(false);
+    toast('Saved locally — sync failed', 'warn');
+  });
+  logAudit('customer_updated', c.id, c.name, { summary: `Details updated (no re-score)` });
+  resetForm();
+  nav(_returnToPage || 'customers');
+  _returnToPage = '';
+  if (_returnToDetail) { const rid = _returnToDetail; _returnToDetail = ''; setTimeout(() => openDetail(rid), 80); }
+}
+
 function resetForm() {
   document.getElementById('score-form').reset();
   // Reset logins (active by default)
@@ -6887,6 +7744,7 @@ function resetForm() {
   document.getElementById('form-title').textContent = 'Score a Customer';
   pendingResult = null;
   document.getElementById('score-form').dataset.editId = '';
+  if (el('save-details-btn')) el('save-details-btn').style.display = 'none';
   applyProfileSignalState();
 }
 
@@ -7205,6 +8063,10 @@ function renderDetailOverview() {
         <div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:2px">Lifecycle</div>
         <div>${lifecycleBadge(c.lifecycle)}</div>
       </div>
+      ${(c.contact_name||c.contact_email) ? `<div style="padding:8px 12px;grid-column:1/-1;border-bottom:1px solid var(--border);display:flex;gap:16px">
+        <div><div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:2px">Contact</div><div style="font-weight:500;font-size:var(--fs-base)">${escHtml(c.contact_name||'—')}</div></div>
+        <div><div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:2px">Email</div><div style="font-size:var(--fs-base)">${c.contact_email ? `<a href="mailto:${escHtml(c.contact_email)}" style="color:var(--blue);text-decoration:none;font-weight:500">${escHtml(c.contact_email)}</a>` : '—'}</div></div>
+      </div>` : ''}
       <div style="padding:8px 12px;border-right:1px solid var(--border)${(c.tags&&c.tags.length)||c.external_id||c.stripe_customer_id?';border-bottom:1px solid var(--border)':''}">
         <div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:2px">MRR</div>
         <div style="font-weight:600;font-size:var(--fs-base)">${c.mrr ? '$'+fmtNum(c.mrr) : '—'}</div>
@@ -7543,22 +8405,51 @@ function buildSparkline(values, w, h) {
   const min = Math.min(...values, 0);
   const max = Math.max(...values, 100);
   const range = max - min || 1;
-  const xStep = (w - 10) / (values.length - 1);
-  const points = values.map((v,i) => {
-    const x = 5 + i * xStep;
-    const y = h - 5 - ((v - min) / range) * (h - 10);
-    return `${x},${y}`;
-  }).join(' ');
-  const last  = values[values.length-1];
-  const prev  = values[values.length-2];
-  const color = last > prev ? '#16a34a' : last < prev ? '#dc2626' : '#64748b';
+  const padX = 8, padY = 8;
+  const plotW = w - padX * 2, plotH = h - padY * 2;
+  const xStep = plotW / (values.length - 1);
+  const pts = values.map((v,i) => ({
+    x: padX + i * xStep,
+    y: padY + plotH - ((v - min) / range) * plotH,
+    v
+  }));
+  const lastVal  = values[values.length-1];
+  const prevVal  = values[values.length-2];
+  const color = lastVal > prevVal ? '#16a34a' : lastVal < prevVal ? '#dc2626' : '#64748b';
+
+  // Smooth path (Catmull-Rom → Cubic Bezier)
+  let pathD = `M${pts[0].x},${pts[0].y}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    pathD += ` C${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.x},${p2.y}`;
+  }
+
+  // Area fill under curve
+  const areaD = pathD + ` L${pts[pts.length-1].x},${padY+plotH} L${pts[0].x},${padY+plotH} Z`;
+
+  // Only show first and last value (no hover on sparklines)
+  const first = pts[0];
+  const last = pts[pts.length - 1];
+
   return `
-    <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" class="sparkline">
-      <polyline points="${points}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-      ${values.map((v,i)=>{
-        const x = 5+i*xStep, y = h-5-((v-min)/range)*(h-10);
-        return `<circle cx="${x}" cy="${y}" r="3" fill="${color}" opacity="${i===values.length-1?1:.5}"/>`;
-      }).join('')}
+    <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" class="sparkline" style="font-family:'DM Mono',monospace">
+      <defs><linearGradient id="spkGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${color}" stop-opacity="0.15"/>
+        <stop offset="100%" stop-color="${color}" stop-opacity="0.02"/>
+      </linearGradient></defs>
+      <path d="${areaD}" fill="url(#spkGrad)"/>
+      <path d="${pathD}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="${first.x}" cy="${first.y}" r="2" fill="#fff" stroke="${color}" stroke-width="1.5"/>
+      <text x="${first.x}" y="${first.y - 5}" text-anchor="middle" font-size="7.5" font-weight="600" fill="${color}">${Math.round(first.v)}</text>
+      <circle cx="${last.x}" cy="${last.y}" r="2.5" fill="#fff" stroke="${color}" stroke-width="1.5"/>
+      <text x="${last.x}" y="${last.y - 5}" text-anchor="middle" font-size="7.5" font-weight="600" fill="${color}">${Math.round(last.v)}</text>
     </svg>`;
 }
 
@@ -7584,8 +8475,11 @@ function editCustomer(id) {
   nav('score');
   document.getElementById('form-title').textContent = 'Re-score: ' + c.name;
   document.getElementById('score-form').dataset.editId = c.id;
+  if (el('save-details-btn')) el('save-details-btn').style.display = '';
 
   el('f-name').value     = c.name;
+  if (el('f-contact-name'))  el('f-contact-name').value  = c.contact_name || '';
+  if (el('f-contact-email')) el('f-contact-email').value = c.contact_email || '';
   // Reset manager fields: hide "new" input, show select, rebuild options, set value
   const fmNew = document.getElementById('f-manager-new');
   if (fmNew) { fmNew.style.display = 'none'; fmNew.value = ''; }
@@ -13694,8 +14588,18 @@ function aggregateSegmentByDay(custs, metricKey, cutoff) {
   const cutoffStr = cutoff.toISOString().slice(0, 10);
   const _todayStr = new Date().toISOString().slice(0, 10);
 
+  // Generate every date from cutoff to yesterday so chart is continuous
+  function _allDaysInRange() {
+    const dates = [];
+    const d = new Date(cutoff);
+    while (d.toISOString().slice(0, 10) < _todayStr) {
+      dates.push(d.toISOString().slice(0, 10));
+      d.setDate(d.getDate() + 1);
+    }
+    return dates;
+  }
+
   if (isSumMetric || isCountMetric) {
-    const allDates = new Set();
     const custEntries = [];
     custs.forEach(c => {
       const valForDate = {};
@@ -13709,10 +14613,9 @@ function aggregateSegmentByDay(custs, metricKey, cutoff) {
       const sortedDates = Object.keys(valForDate).sort();
       if (sortedDates.length) {
         custEntries.push({ valForDate, sortedDates });
-        sortedDates.forEach(d => { if (d >= cutoffStr && d < _todayStr) allDates.add(d); });
       }
     });
-    const dates = [...allDates].sort();
+    const dates = _allDaysInRange();
     return dates.map(date => {
       let total = 0, count = 0;
       custEntries.forEach(ce => {
@@ -13722,12 +14625,11 @@ function aggregateSegmentByDay(custs, metricKey, cutoff) {
         }
         if (val !== null) { total += val; count++; }
       });
-      return { date, avg: isCountMetric ? count : total };
-    }).filter(p => p.avg > 0).sort((a, b) => a.date.localeCompare(b.date));
+      return { date, avg: isCountMetric ? count : total, _count: count };
+    }).filter(p => p._count > 0).sort((a, b) => a.date.localeCompare(b.date));
   }
 
   // Avg metrics: forward-fill
-  const allDates = new Set();
   const custData = [];
   custs.forEach(c => {
     const dateMap = {};
@@ -13741,10 +14643,9 @@ function aggregateSegmentByDay(custs, metricKey, cutoff) {
     const sortedDates = Object.keys(dateMap).sort();
     if (sortedDates.length) {
       custData.push({ dateMap, sortedDates });
-      sortedDates.forEach(d => { if (d >= cutoffStr && d < _todayStr) allDates.add(d); });
     }
   });
-  const dates = [...allDates].sort();
+  const dates = _allDaysInRange();
   return dates.map(date => {
     let total = 0, count = 0;
     custData.forEach(cd => {
@@ -13754,8 +14655,8 @@ function aggregateSegmentByDay(custs, metricKey, cutoff) {
       }
       if (val !== null) { total += val; count++; }
     });
-    return { date, avg: count ? total / count : 0 };
-  }).filter(p => p.avg > 0);
+    return { date, avg: count ? total / count : 0, _count: count };
+  }).filter(p => p._count > 0);
 }
 
 function toggleSegView(view) {
@@ -13913,26 +14814,30 @@ function renderSegKPIs(segments, active) {
   // Fastest growing segment (by avgDelta)
   const fastestGrow = segments.length ? segments.reduce((a, b) => a.avgDelta > b.avgDelta ? a : b) : null;
 
+  // Dynamic number colors (headers stay static)
+  const _segHrValColor = highestRisk ? (highestRisk.riskPct >= 40 ? '#dc2626' : highestRisk.riskPct >= 20 ? '#d97706' : '#16a34a') : '';
+  const _segGrowValColor = fastestGrow ? (fastestGrow.avgDelta > 0 ? '#16a34a' : fastestGrow.avgDelta < 0 ? '#dc2626' : '') : '';
+
   wrap.innerHTML = `
-    <div class="dash-kpi-card dash-kpi-blue">
+    <div class="dash-kpi-card dash-kpi-blue" title="Number of customer tag groups (segments) in your book.">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.tag}</div><span class="dash-kpi-label">Total Segments</span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num">${segments.length}</div><div class="dash-kpi-sub">customer tag groups</div></div>
     </div>
-    <div class="dash-kpi-card dash-kpi-purple">
+    <div class="dash-kpi-card dash-kpi-purple" title="Unique customers across all segments. A customer in multiple segments is counted once.">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.people}</div><span class="dash-kpi-label">Total Accounts</span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num">${uniqueCount}</div><div class="dash-kpi-sub">across ${segments.length} segment${segments.length !== 1 ? 's' : ''}</div></div>
     </div>
-    <div class="dash-kpi-card dash-kpi-teal">
+    <div class="dash-kpi-card dash-kpi-teal" title="Total monthly recurring revenue across all segmented accounts.">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.dollar}</div><span class="dash-kpi-label">Segment MRR</span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num">$${fmtNum(totalMRR)}</div><div class="dash-kpi-sub">${riskMRR > 0 ? '$' + fmtNum(riskMRR) + ' at risk' : 'No MRR at risk'}</div></div>
     </div>
-    <div class="dash-kpi-card ${hrColor}">
+    <div class="dash-kpi-card ${hrColor}" title="Segment with the highest percentage of Critical/Risk customers (min 2 accounts).">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.alert}</div><span class="dash-kpi-label">Highest-Risk</span></div>
-      <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.4rem">${highestRisk ? escHtml(segDisplayLabel(highestRisk.tag)) : '—'}</div><div class="dash-kpi-sub">${highestRisk ? highestRisk.riskPct + '% at risk' : 'No data'}</div></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.4rem${_segHrValColor ? ';color:' + _segHrValColor : ''}">${highestRisk ? escHtml(segDisplayLabel(highestRisk.tag)) : '—'}</div><div class="dash-kpi-sub">${highestRisk ? highestRisk.riskPct + '% at risk' : 'No data'}</div></div>
     </div>
-    <div class="dash-kpi-card dash-kpi-green">
+    <div class="dash-kpi-card dash-kpi-green" title="Segment with the highest average health score improvement.">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.trendUp}</div><span class="dash-kpi-label">Fastest-Growing</span></div>
-      <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.4rem">${fastestGrow ? escHtml(segDisplayLabel(fastestGrow.tag)) : '—'}</div><div class="dash-kpi-sub">${fastestGrow ? (fastestGrow.avgDelta >= 0 ? '+' : '') + fastestGrow.avgDelta + ' avg trend' : 'No data'}</div></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.4rem${_segGrowValColor ? ';color:' + _segGrowValColor : ''}">${fastestGrow ? escHtml(segDisplayLabel(fastestGrow.tag)) : '—'}</div><div class="dash-kpi-sub">${fastestGrow ? (fastestGrow.avgDelta >= 0 ? '+' : '') + fastestGrow.avgDelta + ' avg trend' : 'No data'}</div></div>
     </div>
   `;
 }
@@ -14015,7 +14920,7 @@ function renderTierTable(active, deltaCache) {
         const trendIcon = t.avgDelta > 0 ? '▲' : t.avgDelta < 0 ? '▼' : '—';
         const trendTxt = t.avgDelta > 0 ? '+' + t.avgDelta : '' + t.avgDelta;
         const contactStr = t.avgDays != null ? t.avgDays + 'd' : '—';
-        return `<tr class="seg-table-row" data-tier="${t.key}">
+        return `<tr class="seg-table-row" data-tier="${t.key}" onclick="drillTier('${t.key}')" style="cursor:pointer">
           <td><span class="tier-pill ${t.pill}">${t.label}</span></td>
           <td>${t.count}</td>
           <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${scoreColor(t.avgScore)};background:${t.avgScore >= 65 ? 'var(--green-l)' : t.avgScore >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${t.avgScore}</span></td>
@@ -14246,7 +15151,7 @@ function renderStageTable(active, deltaCache) {
         const trendTxt = t.avgDelta > 0 ? '+' + t.avgDelta : '' + t.avgDelta;
         const contactStr = t.avgDays != null ? t.avgDays + 'd' : '—';
         const sc = stageColors[t.key] || '#64748b';
-        return `<tr class="seg-table-row" data-stage="${t.key}">
+        return `<tr class="seg-table-row" data-stage="${t.key}" onclick="drillStage('${t.key}')" style="cursor:pointer">
           <td><span class="stage-pill" style="background:${sc}15;color:${sc};border:1px solid ${sc}30;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700">${t.label}</span></td>
           <td>${t.count}</td>
           <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${scoreColor(t.avgScore)};background:${t.avgScore >= 65 ? 'var(--green-l)' : t.avgScore >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${t.avgScore}</span></td>
@@ -14511,7 +15416,7 @@ function renderSegTable(segments) {
         const trendTxt = seg.avgDelta > 0 ? '+' + seg.avgDelta : '' + seg.avgDelta;
         const safeTag = seg.tag.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const contactStr = seg.avgDays != null ? seg.avgDays + 'd' : '—';
-        return `<tr class="seg-table-row" data-seg="${escHtml(seg.tag)}">
+        return `<tr class="seg-table-row" data-seg="${escHtml(seg.tag)}" onclick="drillSeg('${safeTag}')" style="cursor:pointer">
           <td><strong>${escHtml(segDisplayLabel(seg.tag))}</strong></td>
           <td>${seg.count}</td>
           <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${scoreColor(seg.avgScore)};background:${seg.avgScore >= 65 ? 'var(--green-l)' : seg.avgScore >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${seg.avgScore}</span></td>
@@ -15069,8 +15974,8 @@ function _buildSegChartSVG(data) {
     return;
   }
 
-  const W = 960, H = 260;
-  const pad = { top: 14, right: 56, bottom: 36, left: 44 };
+  const W = 960, H = 210;
+  const pad = { top: 12, right: 48, bottom: 28, left: 40 };
   const cW = W - pad.left - pad.right;
   const cH = H - pad.top - pad.bottom;
 
@@ -15104,40 +16009,60 @@ function _buildSegChartSVG(data) {
   }
 
   // Grid lines + Y-axis labels
+  const _chartFont = "'DM Mono',monospace";
   let gridSVG = '';
   if (metric === 'score' && cfg.fixed) {
-    for (let v = yL.min; v <= yL.max; v += 10) {
+    // Health score 0-100: faint guide lines at 25, 50, 75 + edge labels
+    [0, 25, 50, 75, 100].forEach(v => {
+      if (v < yL.min || v > yL.max) return;
       const y = yScaleL(v);
-      const isMajor = v % 25 === 0;
-      gridSVG += `<line x1="${pad.left}" y1="${y}" x2="${W - pad.right}" y2="${y}" stroke="var(--border)" stroke-width="${isMajor ? 1 : 0.5}" opacity="${isMajor ? 0.7 : 0.35}" stroke-dasharray="${v === yL.min || v === yL.max ? '0' : '3,3'}"/>`;
-      if (v % 20 === 0) {
-        gridSVG += `<text x="${pad.left - 8}" y="${y + 3}" text-anchor="end" font-size="8" font-weight="${isMajor ? '600' : '400'}" fill="var(--subtle)">${cfg.axFmt(v)}</text>`;
+      const isEdge = v === yL.min || v === yL.max;
+      if (!isEdge) {
+        gridSVG += `<line x1="${pad.left}" y1="${y}" x2="${W - pad.right}" y2="${y}" stroke="#cbd5e1" stroke-width="0.5" opacity="0.45"/>`;
       }
-    }
+      gridSVG += `<text x="${pad.left - 8}" y="${y + 3}" text-anchor="end" font-size="8" font-weight="500" font-family="${_chartFont}" fill="#94a3b8">${cfg.axFmt(v)}</text>`;
+    });
   } else {
-    const step = yL.step;
-    for (let v = yL.min; v <= yL.max + step * 0.01; v += step) {
+    // All other metrics: 4 evenly spaced guide lines
+    const gRange = yL.max - yL.min;
+    const gStep = gRange / 4;
+    const _axDec = gStep < 1 ? 1 : 0;
+    for (let i = 0; i <= 4; i++) {
+      const v = yL.min + i * gStep;
       const y = yScaleL(v);
-      const isEdge = Math.abs(v - yL.min) < 0.01 || Math.abs(v - yL.max) < 0.01;
-      gridSVG += `<line x1="${pad.left}" y1="${y}" x2="${W - pad.right}" y2="${y}" stroke="var(--border)" stroke-width="${isEdge ? 1 : 0.5}" opacity="${isEdge ? 0.7 : 0.35}" stroke-dasharray="${isEdge ? '0' : '3,3'}"/>`;
-      gridSVG += `<text x="${pad.left - 8}" y="${y + 3}" text-anchor="end" font-size="8" font-weight="${isEdge ? '600' : '400'}" fill="var(--subtle)">${cfg.axFmt(v)}</text>`;
+      const isEdge = i === 0 || i === 4;
+      if (!isEdge) {
+        gridSVG += `<line x1="${pad.left}" y1="${y}" x2="${W - pad.right}" y2="${y}" stroke="#cbd5e1" stroke-width="0.5" opacity="0.45"/>`;
+      }
+      const vLabel = _axDec ? v.toFixed(_axDec) : String(Math.round(v));
+      gridSVG += `<text x="${pad.left - 8}" y="${y + 3}" text-anchor="end" font-size="8" font-weight="500" font-family="${_chartFont}" fill="#94a3b8">${cfg.axFmt(parseFloat(vLabel))}</text>`;
     }
   }
 
   // X-axis date labels
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   let xLabels = '';
-  const labelEvery = rangeDays <= 30 ? 2 : rangeDays <= 60 ? 4 : 7;
+  const _xLabelEvery = rangeDays <= 7 ? 1 : rangeDays <= 30 ? Math.ceil(dates.length / 12) : rangeDays <= 90 ? Math.ceil(dates.length / 10) : rangeDays <= 180 ? Math.ceil(dates.length / 8) : Math.ceil(dates.length / 7);
+  const _showYear = rangeDays > 180;
   dates.forEach((d, i) => {
     const x = xScale(i);
     const parts = d.split('-');
+    const yr = parts[0].slice(2);
     const mo = parseInt(parts[1]) - 1;
     const day = parseInt(parts[2]);
-    if (rangeDays <= 30 || (rangeDays <= 60 && i % 2 === 0) || i % 3 === 0) {
-      xLabels += `<line x1="${x}" y1="${yScaleL(yL.min)}" x2="${x}" y2="${yScaleL(yL.min) + 4}" stroke="var(--border)" stroke-width="0.5" opacity="0.5"/>`;
+    if (i % Math.max(1, Math.ceil(_xLabelEvery / 2)) === 0) {
+      xLabels += `<line x1="${x}" y1="${yScaleL(yL.min)}" x2="${x}" y2="${yScaleL(yL.min) + 3}" stroke="#e2e8f0" stroke-width="0.5" opacity="0.4"/>`;
     }
-    if (i % labelEvery === 0 || i === dates.length - 1) {
-      xLabels += `<text x="${x}" y="${H - pad.bottom + 16}" text-anchor="middle" font-size="7.5" fill="var(--subtle)">${monthNames[mo]} ${day}</text>`;
+    if (i % _xLabelEvery === 0 || i === dates.length - 1) {
+      let lbl;
+      if (_showYear && day <= 7) {
+        lbl = monthNames[mo] + " '" + yr;
+      } else if (rangeDays > 90) {
+        lbl = monthNames[mo] + ' ' + day;
+      } else {
+        lbl = monthNames[mo] + ' ' + day;
+      }
+      xLabels += `<text x="${x}" y="${H - pad.bottom + 16}" text-anchor="middle" font-size="8" font-family="${_chartFont}" fill="#94a3b8">${lbl}</text>`;
     }
   });
 
@@ -15151,8 +16076,10 @@ function _buildSegChartSVG(data) {
       .sort((a, b) => a.date.localeCompare(b.date));
     if (pts.length < 2) return;
 
-    // Build xy points for smooth path
-    const xyPts = pts.map(p => ({ x: xScale(dateIdx[p.date]), y: yScaleL(p.avg) }));
+    // Build xy points for smooth path — downsample for long ranges
+    const xyPtsRaw = pts.map(p => ({ x: xScale(dateIdx[p.date]), y: yScaleL(p.avg) }));
+    const _maxRPts = rangeDays > 365 ? 90 : rangeDays > 180 ? 120 : 9999;
+    const xyPts = _downsampleXY(xyPtsRaw, _maxRPts);
 
     // Area fill (only for first line or single line)
     if (lines.length === 1 || lineIdx === 0) {
@@ -15174,28 +16101,30 @@ function _buildSegChartSVG(data) {
     const smoothD = _smoothPath(xyPts);
     linesSVG += `<path d="${smoothD}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linecap="round" opacity="0.9"/>`;
 
-    // Value labels on single-line view (no dots)
-    if (lines.length <= 2) {
-      const labelSkip = pts.length <= 10 ? 1 : pts.length <= 20 ? 3 : pts.length <= 40 ? 5 : 8;
-      pts.forEach((p, pi) => {
-        if (pi % labelSkip === 0 || pi === pts.length - 1) {
-          const cx = xScale(dateIdx[p.date]);
-          const cy = yScaleL(p.avg);
-          linesSVG += `<text x="${cx}" y="${cy - 6}" text-anchor="middle" font-size="7" font-weight="700" fill="${line.color}">${cfg.fmt(p.avg)}</text>`;
-        }
-      });
-    }
+    // No inline labels — hover tooltip shows exact values for all lines
   });
 
-  // Build tooltip data
-  _segChartTipData = dates.map((d) => {
+  // Build tooltip data (Map-based with carry-forward for reliable lookups)
+  const _segLineMaps = lines.map(l => {
+    const m = new Map();
+    l.points.forEach(p => m.set(p.date, p.avg));
+    return m;
+  });
+  const _segLineCarry = _segLineMaps.map(lm => {
+    let last = null;
+    return dates.map(d => {
+      if (lm.has(d)) last = lm.get(d);
+      return last;
+    });
+  });
+  _segChartTipData = dates.map((d, di) => {
     const parts = d.split('-');
     const mo = parseInt(parts[1]) - 1;
     const day = parseInt(parts[2]);
     const dateLabel = monthNames[mo] + ' ' + day;
-    const vals = lines.map(l => {
-      const pt = l.points.find(x => x.date === d);
-      return pt ? { label: l.label, color: l.color, val: cfg.fmt(pt.avg) } : null;
+    const vals = lines.map((l, li) => {
+      const val = _segLineCarry[li][di];
+      return val !== null ? { label: l.label, color: l.color, val: cfg.fmt(val) } : null;
     }).filter(Boolean);
     return { dateLabel, vals };
   });
@@ -15211,16 +16140,19 @@ function _buildSegChartSVG(data) {
   });
 
   // Axis borders
-  let axisSVG = `<line x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${yScaleL(yL.min)}" stroke="var(--border)" stroke-width="1.5" opacity="0.5"/>`;
-  axisSVG += `<line x1="${pad.left}" y1="${yScaleL(yL.min)}" x2="${W - pad.right}" y2="${yScaleL(yL.min)}" stroke="var(--border)" stroke-width="1.5" opacity="0.5"/>`;
+  let axisSVG = `<line x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${yScaleL(yL.min)}" stroke="#cbd5e1" stroke-width="1" opacity="0.5"/>`;
+  axisSVG += `<line x1="${pad.left}" y1="${yScaleL(yL.min)}" x2="${W - pad.right}" y2="${yScaleL(yL.min)}" stroke="#cbd5e1" stroke-width="1" opacity="0.5"/>`;
+
+  // Crosshair for hover
+  const crosshairSVG = `<line id="seg-crosshair" x1="0" y1="${pad.top}" x2="0" y2="${yScaleL(yL.min)}" stroke="#94a3b8" stroke-width="0.75" stroke-dasharray="3,3" opacity="0" pointer-events="none"/>`;
 
   // Legend (HTML below chart)
   const legendHTML = `<div class="seg-chart-legend">${lines.map(l =>
     `<span class="seg-chart-legend-item"><span class="seg-chart-legend-dot" style="background:${l.color}"></span>${escHtml(l.label)}</span>`
   ).join('')}</div>`;
 
-  wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;display:block">
-    ${bandSVG}${gridSVG}${axisSVG}${xLabels}${linesSVG}${hoverSVG}
+  wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;display:block;font-family:'DM Mono',ui-monospace,monospace">
+    ${bandSVG}${gridSVG}${axisSVG}${xLabels}${linesSVG}${crosshairSVG}${hoverSVG}
   </svg>${legendHTML}`;
 }
 
@@ -15235,9 +16167,13 @@ function showSegChartTip(evt, cx, colIdx) {
   const data = _segChartTipData[colIdx];
   if (!data) return;
 
+  // Move crosshair
+  const ch = document.getElementById('seg-crosshair');
+  if (ch) { ch.setAttribute('x1', cx); ch.setAttribute('x2', cx); ch.setAttribute('opacity', '0.5'); }
+
   let rows = '';
   data.vals.forEach(v => {
-    rows += `<div style="display:flex;align-items:center;gap:6px;margin-top:3px"><span style="width:8px;height:8px;border-radius:50%;background:${v.color};flex-shrink:0"></span><span>${escHtml(v.label)}</span><strong style="margin-left:auto">${v.val}</strong></div>`;
+    rows += `<div style="display:flex;align-items:center;gap:6px;margin-top:3px"><span style="width:8px;height:8px;border-radius:50%;background:${v.color};flex-shrink:0"></span><span>${escHtml(v.label)}</span><strong style="margin-left:auto;font-family:'DM Mono',monospace">${v.val}</strong></div>`;
   });
 
   tip.innerHTML = `<div style="font-weight:700;margin-bottom:4px;font-size:var(--fs-base)">${data.dateLabel}</div>${rows}`;
@@ -15250,8 +16186,9 @@ function showSegChartTip(evt, cx, colIdx) {
   const left = (cx * scaleX) + (rect.left - wRect.left);
   tip.style.display = 'block';
   // Flip to left side if too close to right edge
-  if (left + 160 > wRect.width) {
-    tip.style.left = (left - 170) + 'px';
+  const tipW = tip.offsetWidth || 160;
+  if (left + tipW + 20 > wRect.width) {
+    tip.style.left = (left - tipW - 14) + 'px';
   } else {
     tip.style.left = (left + 14) + 'px';
   }
@@ -15261,6 +16198,8 @@ function showSegChartTip(evt, cx, colIdx) {
 function hideSegChartTip() {
   const tip = document.getElementById('seg-chart-tip');
   if (tip) tip.style.display = 'none';
+  const ch = document.getElementById('seg-crosshair');
+  if (ch) ch.setAttribute('opacity', '0');
 }
 
 /* ── Segment Chart Analysis ─────────────────────────────── */
@@ -15557,7 +16496,7 @@ function _buildSegChartAnalysis(data) {
         );
         const pe = findClosest(peakT), te = findClosest(troughT);
         const sv = cfg.val(pe, c), ev = cfg.val(te, c);
-        if (sv != null && ev != null) custDeltas.push({ name: c.name, delta: ev - sv });
+        if (sv != null && ev != null) custDeltas.push({ name: c.name, id: c.id, delta: ev - sv });
       });
       let concentrationNote = '';
       if (custDeltas.length >= 2) {
@@ -15568,9 +16507,9 @@ function _buildSegChartAnalysis(data) {
         if (declined.length <= 2 && declined.length > 0 && custDeltas.length > 3) {
           declined.sort((a, b) => a.delta - b.delta);
           if (declined.length === 1) {
-            concentrationNote = ` This was driven primarily by <strong>${escHtml(declined[0].name)}</strong> (down ${fv2(declined[0].delta)}) — the remaining ${custDeltas.length - 1} accounts were relatively flat.`;
+            concentrationNote = ` This was driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv2(declined[0].delta)}) — the remaining ${custDeltas.length - 1} accounts were relatively flat.`;
           } else {
-            concentrationNote = ` Driven primarily by <strong>${escHtml(declined[0].name)}</strong> (down ${fv2(declined[0].delta)}) and <strong>${escHtml(declined[1].name)}</strong> (down ${fv2(declined[1].delta)}) — most of the other ${custDeltas.length - 2} accounts were relatively flat.`;
+            concentrationNote = ` Driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv2(declined[0].delta)}) and ${_taCustLink(declined[1].name, declined[1].id)} (down ${fv2(declined[1].delta)}) — most of the other ${custDeltas.length - 2} accounts were relatively flat.`;
           }
         } else if (pctDeclined >= 60) {
           if (custDeltas.length <= 5) {
@@ -15712,6 +16651,25 @@ function _smoothPath(pts) {
   return d;
 }
 
+// ── Downsample screen-space points for smoother long-range lines ──
+// Averages clusters of nearby points down to ~maxPts, preserving endpoints.
+function _downsampleXY(pts, maxPts) {
+  if (!pts || pts.length <= maxPts) return pts;
+  const step = (pts.length - 1) / (maxPts - 1);
+  const half = Math.ceil(step * 0.6);
+  const result = [pts[0]];
+  for (let i = 1; i < maxPts - 1; i++) {
+    const center = Math.round(i * step);
+    const lo = Math.max(0, center - half);
+    const hi = Math.min(pts.length - 1, center + half);
+    let sx = 0, sy = 0, n = 0;
+    for (let j = lo; j <= hi; j++) { sx += pts[j].x; sy += pts[j].y; n++; }
+    result.push({ x: sx / n, y: sy / n });
+  }
+  result.push(pts[pts.length - 1]);
+  return result;
+}
+
 // ── TRENDS PAGE ──────────────────────────────────────────────
 let _trendRange = '30d';
 let _trendCsmOverlay = '';
@@ -15719,18 +16677,44 @@ let _trendClientOverlays = []; // array of customer ids
 let _trendMovers = [];          // current movers data
 let _trendSortKey = 'absDelta'; // default sort by absolute change
 let _trendSortDir = -1;         // -1 = descending
+let _trendSearch = '';
+const TREND_COLS = [
+  { key:'name',     label:'Customer', ftype:'text',   sortFn:"sortTrendMovers('name')" },
+  { key:'score',    label:'Score',    ftype:'number', sortFn:"sortTrendMovers('score')" },
+  { key:'delta',    label:'Change',   ftype:'number', sortFn:"sortTrendMovers('delta')" },
+  { key:'status',   label:'Status',   ftype:'enum',   sortFn:"sortTrendMovers('status')", enumVals:['critical','risk','watch','healthy','expand'] },
+  { key:'mrr',      label:'MRR',      ftype:'number', sortFn:"sortTrendMovers('mrr')" },
+  { key:'logins',   label:'Logins',   ftype:'number', sortFn:"sortTrendMovers('logins')" },
+  { key:'adoption', label:'Adoption', ftype:'number', sortFn:"sortTrendMovers('adoption')" },
+  { key:'tickets',  label:'Tickets',  ftype:'number', sortFn:"sortTrendMovers('tickets')" },
+  { key:'manager',  label:'CSM',      ftype:'enum',   sortFn:"sortTrendMovers('manager')", enumFn:() => [...new Set(customers.map(c => c.manager || '').filter(Boolean))].sort() },
+];
+const _trendCF = makeColFilters('trend', 'tr-filter-portal', TREND_COLS, renderTrendMovers);
+function _trendVal(m, key) {
+  if (key === 'name') return (m.name || '').toLowerCase();
+  if (key === 'score') return m.score || 0;
+  if (key === 'delta') return m.delta || 0;
+  if (key === 'status') return m.status || '';
+  if (key === 'mrr') return m.mrr || 0;
+  if (key === 'logins') return m.logins != null ? m.logins : -1;
+  if (key === 'adoption') return m.adoption != null ? m.adoption : -1;
+  if (key === 'tickets') return m.tickets != null ? m.tickets : -1;
+  if (key === 'manager') return (m.manager || '').toLowerCase();
+  return 0;
+}
 let _trendMetric1 = 'score';    // primary metric key
 let _trendMetric2 = '';          // secondary metric key (empty = none)
 let _trendTipData = [];          // tooltip data per date column
+let _trendFirstRender = true;    // fade-in only on first render
 
 const METRIC_CFG = {
   score:    { label:'Health Score',        agg:'avg', fixed:[0,100], val: (h,c) => h.score,                            fmt: v => String(Math.round(v)),            axFmt: v => String(Math.round(v)) },
   logins:   { label:'Logins',             agg:'avg', fixed:null,     val: (h,c) => h.signals?.logins,                  fmt: v => String(Math.round(v*10)/10),     axFmt: v => String(Math.round(v*10)/10) },
   adoption: { label:'Adoption %',         agg:'avg', fixed:[0,100], val: (h,c) => h.signals?.adoption,                fmt: v => Math.round(v)+'%',               axFmt: v => Math.round(v)+'%' },
-  tickets:  { label:'Open Tickets',       agg:'avg', fixed:null,     val: (h,c) => h.signals?.tickets,                 fmt: v => String(Math.round(v*10)/10),     axFmt: v => String(Math.round(v*10)/10) },
+  tickets:  { label:'Open Tickets',       agg:'avg', fixed:null,     val: (h,c) => h.signals?.tickets,                 fmt: v => String(Math.round(v*10)/10),     axFmt: v => String(Math.round(v*10)/10), lowerIsBetter:true },
   nps:      { label:'NPS Score',            agg:'avg', fixed:[0,10],  val: (h,c) => h.signals?.nps,                     fmt: v => String(Math.round(v*10)/10),     axFmt: v => String(Math.round(v)) },
   csat:     { label:'CSAT Score',           agg:'avg', fixed:[1,5],   val: (h,c) => h.signals?.csat,                    fmt: v => String(Math.round(v*10)/10),     axFmt: v => String(Math.round(v)) },
-  days:     { label:'Days Since Contact',  agg:'avg', fixed:null,    val: (h,c) => h.signals?.days,                    fmt: v => String(Math.round(v)),            axFmt: v => String(Math.round(v)) },
+  days:     { label:'Days Since Contact',  agg:'avg', fixed:null,    val: (h,c) => h.signals?.days,                    fmt: v => String(Math.round(v)),            axFmt: v => String(Math.round(v)), lowerIsBetter:true },
   mrr:      { label:'Total MRR',          agg:'sum', fixed:null,     val: (h,c) => c.mrr,                              fmt: v => '$'+fmtNum(Math.round(v)),       axFmt: v => { if(Math.abs(v)>=1e6) return '$'+(v/1e6).toFixed(1)+'M'; if(Math.abs(v)>=1e3) return '$'+Math.round(v/1e3)+'K'; return '$'+Math.round(v); } },
   arr:      { label:'Total ARR',          agg:'sum', fixed:null,     val: (h,c) => c.arr,                              fmt: v => '$'+fmtNum(Math.round(v)),       axFmt: v => { if(Math.abs(v)>=1e6) return '$'+(v/1e6).toFixed(1)+'M'; if(Math.abs(v)>=1e3) return '$'+Math.round(v/1e3)+'K'; return '$'+Math.round(v); } },
   customers:{ label:'# Customers',        agg:'count', fixed:null,   val: (h,c) => 1,                                  fmt: v => String(Math.round(v)),            axFmt: v => String(Math.round(v)) },
@@ -15744,7 +16728,8 @@ function setTrendMetric(slot, key) {
 
 function setTrendRange(range) {
   _trendRange = range;
-  document.querySelectorAll('#trend-range-row .dtab').forEach(b =>
+  // Sync both top and bottom range bars
+  document.querySelectorAll('#trend-range-row .dtab, #trend-range-row2 .dtab').forEach(b =>
     b.classList.toggle('active', b.dataset.range === range));
   renderTrends();
 }
@@ -15765,7 +16750,142 @@ function addTrendClient(id) {
 
 function removeTrendClient(id) {
   _trendClientOverlays = _trendClientOverlays.filter(x => x !== id);
-  renderTrends();
+  _refreshTrendOverlays();
+}
+
+function toggleTrendOverlay(id) {
+  if (_trendClientOverlays.includes(id)) {
+    _trendClientOverlays = _trendClientOverlays.filter(x => x !== id);
+  } else {
+    _trendClientOverlays.push(id);
+  }
+  _refreshTrendOverlays();
+}
+
+// Light refresh: only update chart lines, tags, and table row highlights — no scroll jump
+function _refreshTrendOverlays() {
+  const range = _trendRange || '30d';
+  const m1 = _trendMetric1 || 'score';
+  const m2 = _trendMetric2 || '';
+  const m1Cfg = METRIC_CFG[m1] || METRIC_CFG.score;
+  const m2Cfg = m2 ? (METRIC_CFG[m2] || null) : null;
+
+  let days;
+  const cutoff = new Date();
+  if (range === 'ytd') {
+    const jan1 = new Date(cutoff.getFullYear(), 0, 1);
+    days = Math.ceil((cutoff - jan1) / 86400000);
+    cutoff.setTime(jan1.getTime());
+  } else {
+    days = { '3d': 3, '7d': 7, '30d': 30, '90d': 90, '6m': 180, '1y': 365, '2y': 730 }[range] || 30;
+    cutoff.setDate(cutoff.getDate() - days);
+  }
+  cutoff.setHours(0,0,0,0);
+
+  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
+  const _rangeName = { '3d':'3 Days','7d':'7 Days','30d':'30 Days','90d':'90 Days','6m':'6 Months','1y':'1 Year','2y':'2 Years','ytd':'YTD' }[range] || range;
+
+  // Rebuild just the chart lines (reuse renderTrends' aggregation inline)
+  function _aggByDay(custs, metricKey, rangeStart, rangeEnd) {
+    const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
+    const isSumMetric = cfg.agg === 'sum';
+    const isCountMetric = cfg.agg === 'count';
+    const _startDate = rangeStart || cutoff;
+    const _endDate = rangeEnd || new Date();
+    const _endStr = _endDate.toISOString().slice(0,10);
+    function _allDays() {
+      const dates = []; const d = new Date(_startDate);
+      while (d.toISOString().slice(0,10) < _endStr) { dates.push(d.toISOString().slice(0,10)); d.setDate(d.getDate() + 1); }
+      return dates;
+    }
+    if (isSumMetric || isCountMetric) {
+      const ce = []; custs.forEach(c => { const vd = {}; (c.history||[]).forEach(h => { if(!h.date) return; const val = cfg.val(h,c); if(val==null||typeof val!=='number'||isNaN(val)) return; vd[new Date(h.date).toISOString().slice(0,10)] = val; }); const sd=Object.keys(vd).sort(); if(sd.length) ce.push({vd,sd}); });
+      return _allDays().map(date => { let t=0,n=0; ce.forEach(e=>{let v=null; for(let i=e.sd.length-1;i>=0;i--){if(e.sd[i]<=date){v=e.vd[e.sd[i]];break;}} if(v!==null){t+=v;n++;}}); return {date,avg:isCountMetric?n:t,_count:n}; }).filter(p=>p._count>0).sort((a,b)=>a.date.localeCompare(b.date));
+    }
+    const cd = []; custs.forEach(c => { const dm={}; (c.history||[]).forEach(h => { if(!h.date) return; const val=cfg.val(h,c); if(val==null||typeof val!=='number'||isNaN(val)) return; dm[new Date(h.date).toISOString().slice(0,10)]=val; }); const sd=Object.keys(dm).sort(); if(sd.length) cd.push({dm,sd}); });
+    return _allDays().map(date => { let t=0,n=0; cd.forEach(e=>{let v=null; for(let i=e.sd.length-1;i>=0;i--){if(e.sd[i]<=date){v=e.dm[e.sd[i]];break;}} if(v!==null){t+=v;n++;}}); return {date,avg:n?t/n:0,_count:n}; }).filter(p=>p._count>0);
+  }
+
+  const OVERLAY_COLORS = ['#7c3aed','#ea580c','#0891b2','#db2777','#059669','#2563eb','#d97706','#dc2626','#16a34a','#64748b'];
+  const m1AggLabel = m1Cfg.agg === 'sum' ? 'Total' : 'Avg';
+  const portfolioData = _aggByDay(active, m1);
+  const lines = [{ label: 'Portfolio ' + m1AggLabel, color: '#3b82f6', width: 2.5, points: portfolioData }];
+
+  if (_trendCsmOverlay) {
+    const csmCusts = active.filter(c => c.manager === _trendCsmOverlay);
+    lines.push({ label: escHtml(_trendCsmOverlay), color: OVERLAY_COLORS[0], width: 1.5, points: _aggByDay(csmCusts, m1) });
+  }
+
+  const _olTodayStr = new Date().toISOString().slice(0,10);
+  _trendClientOverlays.forEach((id, idx) => {
+    const c = customers.find(x => x.id === id);
+    if (!c) return;
+    const dateMap = {};
+    (c.history||[]).forEach(h => { if(!h.date) return; const v=m1Cfg.val(h,c); if(v==null||typeof v!=='number'||isNaN(v)) return; const ds=new Date(h.date).toISOString().slice(0,10); if(ds>=_olTodayStr) return; dateMap[ds]=v; });
+    const scoredDates = Object.keys(dateMap).sort();
+    if (!scoredDates.length) return;
+    const allDays = []; const d = new Date(cutoff); while(d.toISOString().slice(0,10)<_olTodayStr){ allDays.push(d.toISOString().slice(0,10)); d.setDate(d.getDate()+1); }
+    let lastVal = null; const pts = [];
+    allDays.forEach(day => { if(dateMap[day]!==undefined) lastVal=dateMap[day]; if(lastVal===null){ for(let i=scoredDates.length-1;i>=0;i--){if(scoredDates[i]<=day){lastVal=dateMap[scoredDates[i]];break;}}} if(lastVal!==null) pts.push({date:day,avg:lastVal}); });
+    if (pts.length >= 2) lines.push({ label: escHtml(c.name), color: OVERLAY_COLORS[(idx+1)%OVERLAY_COLORS.length], width: 1.5, points: pts });
+  });
+
+  // Prior period
+  const priorCutoff = new Date(cutoff.getTime() - days * 86400000);
+  const priorPortfolioData = _aggByDay(active, m1, priorCutoff, cutoff);
+  let priorLine = null;
+  if (priorPortfolioData.length >= 2) {
+    const shiftedPrior = priorPortfolioData.map(p => { const s=new Date(new Date(p.date).getTime()+days*86400000); return {date:s.toISOString().slice(0,10),avg:p.avg}; });
+    priorLine = { label: 'Prior ' + _rangeName, color: '#94a3b8', width: 1.5, points: shiftedPrior, dashed: true };
+  }
+
+  // Secondary metric
+  let m2Line = null;
+  if (m2Cfg) {
+    const m2Data = _aggByDay(active, m2);
+    if (m2Data.length) m2Line = { label: m2Cfg.label + ' (' + (m2Cfg.agg==='sum'?'Total':'Avg') + ')', color: '#f59e0b', width: 2, points: m2Data };
+  }
+
+  // Update chart only
+  const chartWrap = el('trend-chart-wrap');
+  if (chartWrap) chartWrap.innerHTML = buildTrendChart(lines, days, m1, m2Line, m2, priorLine);
+
+  // Update legend
+  const legendWrap = el('trend-legend');
+  if (legendWrap) {
+    let legendHTML = '';
+    lines.forEach((l, i) => {
+      legendHTML += `<div class="trend-legend-item"><div class="trend-legend-dot" style="background:${l.color}"></div>${l.label}</div>`;
+      if (i === 0 && priorLine) legendHTML += `<div class="trend-legend-item"><div class="trend-legend-dash" style="border-color:${priorLine.color}"></div>${priorLine.label}</div>`;
+    });
+    if (m2Line) legendHTML += `<div class="trend-legend-item"><div class="trend-legend-dash" style="border-color:${m2Line.color}"></div>${m2Line.label}</div>`;
+    legendWrap.innerHTML = legendHTML;
+  }
+
+  // Update client tags
+  const tagsWrap = el('trend-client-tags');
+  if (tagsWrap) tagsWrap.innerHTML = _trendClientOverlays.map(id => { const c=customers.find(x=>x.id===id); return c?`<span class="trend-client-tag">${escHtml(c.name)}<button onclick="removeTrendClient('${escHtml(id)}')">&times;</button></span>`:''; }).join('');
+
+  // Update table row highlights in-place (no rebuild)
+  const rows = document.querySelectorAll('#trend-movers-wrap tbody tr');
+  rows.forEach(row => {
+    const onclick = row.getAttribute('onclick') || '';
+    const idMatch = onclick.match(/toggleTrendOverlay\('([^']+)'\)/);
+    if (!idMatch) return;
+    const rid = idMatch[1];
+    const on = _trendClientOverlays.includes(rid);
+    row.style.background = on ? 'color-mix(in srgb, var(--blue) 8%, transparent)' : '';
+    const nameCell = row.querySelector('td:first-child');
+    if (nameCell) {
+      const badge = nameCell.querySelector('span[style*="ON CHART"]') || nameCell.querySelector('span[style*="font-size:9px"]');
+      if (on && !badge) {
+        const a = nameCell.querySelector('a');
+        if (a) a.insertAdjacentHTML('afterend', ' <span style="font-size:9px;color:var(--blue);font-weight:700">ON CHART</span>');
+      } else if (!on && badge) {
+        badge.remove();
+      }
+    }
+  });
 }
 
 function trendClientAutocomplete() {
@@ -15817,17 +16937,29 @@ function renderTrends() {
   // ── Aggregate portfolio data by day (supports any metric) ──
   // For avg metrics: forward-fills each customer's last known value so every
   // account contributes to every day, giving a true portfolio average.
-  function aggregateByDay(custs, metricKey) {
+  function aggregateByDay(custs, metricKey, rangeStart, rangeEnd) {
     const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
     const isSumMetric = cfg.agg === 'sum';
     const isCountMetric = cfg.agg === 'count';
-    const _todayStr = new Date().toISOString().slice(0,10);
+    const _startDate = rangeStart || cutoff;
+    const _endDate = rangeEnd || new Date();
+    const _endStr = _endDate.toISOString().slice(0,10);
+
+    // Generate every date from start to end so chart is continuous
+    function _allDaysInRange() {
+      const dates = [];
+      const d = new Date(_startDate);
+      while (d.toISOString().slice(0,10) < _endStr) {
+        dates.push(d.toISOString().slice(0,10));
+        d.setDate(d.getDate() + 1);
+      }
+      return dates;
+    }
 
     if (isSumMetric || isCountMetric) {
       // Sum/Count metrics: forward-fill each customer's value so all
       // customers that have been scored at least once contribute every day
-      const allDates = new Set();
-      const custEntries = []; // { valForDate: { 'YYYY-MM-DD': value }, sortedDates: [...] }
+      const custEntries = [];
       custs.forEach(c => {
         const valForDate = {};
         (c.history || []).forEach(h => {
@@ -15840,10 +16972,9 @@ function renderTrends() {
         const sortedDates = Object.keys(valForDate).sort();
         if (sortedDates.length) {
           custEntries.push({ valForDate, sortedDates });
-          sortedDates.forEach(d => { if (d >= cutoff.toISOString().slice(0,10) && d < _todayStr) allDates.add(d); });
         }
       });
-      const dates = [...allDates].sort();
+      const dates = _allDaysInRange();
       return dates.map(date => {
         let total = 0, count = 0;
         custEntries.forEach(ce => {
@@ -15853,15 +16984,13 @@ function renderTrends() {
           }
           if (val !== null) { total += val; count++; }
         });
-        return { date, avg: isCountMetric ? count : total };
-      }).filter(p => p.avg > 0)
+        return { date, avg: isCountMetric ? count : total, _count: count };
+      }).filter(p => p._count > 0)
         .sort((a, b) => a.date.localeCompare(b.date));
     }
 
     // Avg metrics: forward-fill so every customer is represented every day
-    // 1. Collect all unique dates in range and per-customer date→value maps
-    const allDates = new Set();
-    const custData = []; // { dateMap: { 'YYYY-MM-DD': value }, sortedDates: [...] }
+    const custData = [];
     custs.forEach(c => {
       const dateMap = {};
       (c.history || []).forEach(h => {
@@ -15869,56 +16998,77 @@ function renderTrends() {
         const val = cfg.val(h, c);
         if (val == null || typeof val !== 'number' || isNaN(val)) return;
         const key = new Date(h.date).toISOString().slice(0,10);
-        dateMap[key] = val; // latest value wins if multiple entries on same day
+        dateMap[key] = val;
       });
       const sortedDates = Object.keys(dateMap).sort();
       if (sortedDates.length) {
         custData.push({ dateMap, sortedDates });
-        sortedDates.forEach(d => { if (d >= cutoff.toISOString().slice(0,10) && d < _todayStr) allDates.add(d); });
       }
     });
 
-    // 2. For each date, forward-fill each customer's last known value
-    const dates = [...allDates].sort();
+    // For each date in full range, forward-fill each customer's last known value
+    const dates = _allDaysInRange();
     return dates.map(date => {
       let total = 0, count = 0;
       custData.forEach(cd => {
-        // Find the most recent value at or before this date
         let val = null;
         for (let i = cd.sortedDates.length - 1; i >= 0; i--) {
           if (cd.sortedDates[i] <= date) { val = cd.dateMap[cd.sortedDates[i]]; break; }
         }
         if (val !== null) { total += val; count++; }
       });
-      return { date, avg: count ? total / count : 0 };
-    }).filter(p => p.avg > 0);
+      return { date, avg: count ? total / count : 0, _count: count };
+    }).filter(p => p._count > 0);
   }
 
   const portfolioData = aggregateByDay(active, m1);
+
+  // ── Prior-period comparison data ──
+  const priorCutoff = new Date(cutoff.getTime() - days * 86400000);
+  const priorPortfolioData = aggregateByDay(active, m1, priorCutoff, cutoff);
+
+  // Change indicator: current end vs prior end
+  const _curEnd = portfolioData.length ? portfolioData[portfolioData.length - 1].avg : null;
+  const _priorEnd = priorPortfolioData.length ? priorPortfolioData[priorPortfolioData.length - 1].avg : null;
+  let _absChange = null, _pctChange = null;
+  if (_curEnd !== null && _priorEnd !== null) {
+    _absChange = _curEnd - _priorEnd;
+    if (Math.abs(_priorEnd) > 0.01) _pctChange = (_absChange / Math.abs(_priorEnd)) * 100;
+  }
+
+  // Date range labels
+  const _fmtShort = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const _rangeLabel = _fmtShort(cutoff) + ' – ' + _fmtShort(new Date());
+  const _rangeName = { '3d':'3 Days','7d':'7 Days','30d':'30 Days','90d':'90 Days','6m':'6 Months','1y':'1 Year','2y':'2 Years','ytd':'YTD' }[range] || range;
 
   // ── KPIs (range-aware, based on health score) ──
   const currentAvg = active.length ? Math.round(active.reduce((s,c) => s + (c.score||0), 0) / active.length) : 0;
 
   // Range-aware delta: compare current score to score N days ago
+  // Returns null if no data exists near the range start (no fake baseline)
   function _getDeltaNd(c, n) {
     const ago = new Date(); ago.setDate(ago.getDate() - n);
     const hist = (c.history || []).slice().sort((a,b) => new Date(b.date) - new Date(a.date));
     const recent = hist.filter(h => new Date(h.date) >= ago);
-    if (!recent.length) return 0;
+    if (!recent.length) return null;
     const before = hist.filter(h => new Date(h.date) < ago);
-    const prev = before.length ? before[0].score : hist[hist.length - 1].score;
-    return recent[0].score - prev;
+    if (!before.length) return null; // no data before range start → N/A
+    return recent[0].score - before[0].score;
   }
 
   let improving = 0, declining = 0;
+  let deltaSum = 0, deltaCount = 0;
   active.forEach(c => {
     const d = _getDeltaNd(c, days);
+    if (d === null) return; // skip accounts without baseline data
     if (d > 0) improving++;
     else if (d < 0) declining++;
+    deltaSum += d;
+    deltaCount++;
   });
-  const avgDelta = active.length ? (active.reduce((s,c) => s + _getDeltaNd(c, days), 0) / active.length) : 0;
-  const trendDir = avgDelta > 0.5 ? 'Improving' : avgDelta < -0.5 ? 'Declining' : 'Stable';
-  const trendDirColor = avgDelta > 0.5 ? 'dash-kpi-green' : avgDelta < -0.5 ? 'dash-kpi-red' : 'dash-kpi-blue';
+  const avgDelta = deltaCount ? (deltaSum / deltaCount) : null;
+  const trendDir = avgDelta === null ? 'N/A' : avgDelta > 0.5 ? 'Improving' : avgDelta < -0.5 ? 'Declining' : 'Stable';
+  const trendDirColor = avgDelta === null ? 'dash-kpi-blue' : avgDelta > 0.5 ? 'dash-kpi-green' : avgDelta < -0.5 ? 'dash-kpi-red' : 'dash-kpi-blue';
   const rangeLabel = range === 'ytd' ? 'YTD' : range;
 
   const _ti = (path) => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
@@ -15929,23 +17079,33 @@ function renderTrends() {
     down:  _ti('<polyline points="6 9 12 15 18 9"/>'),
   };
 
+  // Dynamic number colors (headers stay static)
+  const _tAvgValColor = currentAvg >= 65 ? '#16a34a' : currentAvg >= 50 ? '#d97706' : '#dc2626';
+  const _tDirValColor = avgDelta === null ? '' : avgDelta > 0.5 ? '#16a34a' : avgDelta < -0.5 ? '#dc2626' : '';
+  const _tImpValColor = improving > 0 ? '#16a34a' : '';
+  const _tDecValColor = declining > 0 ? '#dc2626' : '#16a34a';
+  const _deltaText = avgDelta === null ? 'N/A — not enough history' : `${avgDelta >= 0 ? '+' : ''}${avgDelta.toFixed(1)} avg ${rangeLabel} change`;
+  const _impPct = deltaCount ? Math.round(improving / deltaCount * 100) : 0;
+  const _decPct = deltaCount ? Math.round(declining / deltaCount * 100) : 0;
+  const _trendSub = avgDelta === null ? 'not enough history for this range' : `across ${deltaCount} account${deltaCount !== 1 ? 's' : ''} with baseline data`;
+
   const kpiRow = el('trend-kpi-row');
   if (kpiRow) kpiRow.innerHTML = `
-    <div class="dash-kpi-card dash-kpi-blue">
+    <div class="dash-kpi-card dash-kpi-blue" title="Average health score across all active accounts for the selected time range.">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.score}</div><span class="dash-kpi-label">Portfolio Avg Score</span></div>
-      <div class="dash-kpi-body"><div class="dash-kpi-num">${currentAvg}</div><div class="dash-kpi-sub">${avgDelta >= 0 ? '+' : ''}${avgDelta.toFixed(1)} avg ${rangeLabel} change</div></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:${_tAvgValColor}">${currentAvg}</div><div class="dash-kpi-sub">${_deltaText}</div></div>
     </div>
-    <div class="dash-kpi-card ${trendDirColor}">
+    <div class="dash-kpi-card ${trendDirColor}" title="Overall portfolio health trend — Improving (avg change > +0.5), Declining (< −0.5), or Stable. Only accounts with data before the range start are included.">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.trend}</div><span class="dash-kpi-label">Trend Direction</span></div>
-      <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.5rem">${trendDir}</div><div class="dash-kpi-sub">across ${active.length} active account${active.length !== 1 ? 's' : ''}</div></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.5rem${_tDirValColor ? ';color:' + _tDirValColor : ''}">${trendDir}</div><div class="dash-kpi-sub">${_trendSub}</div></div>
     </div>
-    <div class="dash-kpi-card dash-kpi-teal">
+    <div class="dash-kpi-card dash-kpi-teal" title="Accounts with a positive health score change over the selected period.">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.up}</div><span class="dash-kpi-label">Accounts Improving</span></div>
-      <div class="dash-kpi-body"><div class="dash-kpi-num">${improving}</div><div class="dash-kpi-sub">${active.length ? Math.round(improving/active.length*100) : 0}% of portfolio</div></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num"${_tImpValColor ? ` style="color:${_tImpValColor}"` : ''}>${improving}</div><div class="dash-kpi-sub">${_impPct}% of accounts with data</div></div>
     </div>
-    <div class="dash-kpi-card dash-kpi-red">
+    <div class="dash-kpi-card dash-kpi-red" title="Accounts with a negative health score change over the selected period.">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.down}</div><span class="dash-kpi-label">Accounts Declining</span></div>
-      <div class="dash-kpi-body"><div class="dash-kpi-num">${declining}</div><div class="dash-kpi-sub">${active.length ? Math.round(declining/active.length*100) : 0}% of portfolio</div></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:${_tDecValColor}">${declining}</div><div class="dash-kpi-sub">${_decPct}% of accounts with data</div></div>
     </div>
   `;
 
@@ -15955,7 +17115,7 @@ function renderTrends() {
   const m1AggLabel = m1Cfg.agg === 'sum' ? 'Total' : 'Avg';
 
   // Main portfolio line (primary metric)
-  lines.push({ label: 'Portfolio ' + m1AggLabel, color: '#3b82f6', width: 2, points: portfolioData });
+  lines.push({ label: 'Portfolio ' + m1AggLabel, color: '#3b82f6', width: 2.5, points: portfolioData });
 
   // CSM overlay (primary metric)
   if (_trendCsmOverlay) {
@@ -15964,27 +17124,57 @@ function renderTrends() {
     lines.push({ label: escHtml(_trendCsmOverlay), color: OVERLAY_COLORS[0], width: 1.5, points: csmData });
   }
 
-  // Client overlays (primary metric)
+  // Client overlays (primary metric) — forward-fill to keep line continuous
+  const _olTodayStr = new Date().toISOString().slice(0,10);
   _trendClientOverlays.forEach((id, idx) => {
     const c = customers.find(x => x.id === id);
     if (!c) return;
-    const _olTodayStr = new Date().toISOString().slice(0,10);
-    const hist = (c.history || []).filter(h => {
-      if (!h.date) return false;
-      const ds = new Date(h.date).toISOString().slice(0,10);
-      if (ds >= _olTodayStr) return false;
-      if (new Date(h.date) < cutoff) return false;
+    // Build date→value map from history
+    const dateMap = {};
+    (c.history || []).forEach(h => {
+      if (!h.date) return;
       const v = m1Cfg.val(h, c);
-      return v != null && typeof v === 'number' && !isNaN(v);
-    }).map(h => ({
-      date: new Date(h.date).toISOString().slice(0,10),
-      avg: m1Cfg.val(h, c)
-    })).sort((a,b) => a.date.localeCompare(b.date));
-    if (hist.length) {
+      if (v == null || typeof v !== 'number' || isNaN(v)) return;
+      const ds = new Date(h.date).toISOString().slice(0,10);
+      if (ds >= _olTodayStr) return;
+      dateMap[ds] = v;
+    });
+    const scoredDates = Object.keys(dateMap).sort();
+    if (!scoredDates.length) return;
+    // Forward-fill across every day in the range
+    const allDays = [];
+    const d = new Date(cutoff);
+    while (d.toISOString().slice(0,10) < _olTodayStr) {
+      allDays.push(d.toISOString().slice(0,10));
+      d.setDate(d.getDate() + 1);
+    }
+    let lastVal = null;
+    const pts = [];
+    allDays.forEach(day => {
+      if (dateMap[day] !== undefined) lastVal = dateMap[day];
+      // Also check for scores before range to seed initial value
+      if (lastVal === null) {
+        for (let i = scoredDates.length - 1; i >= 0; i--) {
+          if (scoredDates[i] <= day) { lastVal = dateMap[scoredDates[i]]; break; }
+        }
+      }
+      if (lastVal !== null) pts.push({ date: day, avg: lastVal });
+    });
+    if (pts.length >= 2) {
       const ci = (idx + 1) % OVERLAY_COLORS.length;
-      lines.push({ label: escHtml(c.name), color: OVERLAY_COLORS[ci], width: 1.5, points: hist });
+      lines.push({ label: escHtml(c.name), color: OVERLAY_COLORS[ci], width: 1.5, points: pts });
     }
   });
+
+  // ── Prior-period comparison line (date-shifted to overlay on current X axis) ──
+  let priorLine = null;
+  if (priorPortfolioData.length >= 2) {
+    const shiftedPrior = priorPortfolioData.map(p => {
+      const shifted = new Date(new Date(p.date).getTime() + days * 86400000);
+      return { date: shifted.toISOString().slice(0, 10), avg: p.avg };
+    });
+    priorLine = { label: 'Prior ' + _rangeName, color: '#94a3b8', width: 1.5, points: shiftedPrior, dashed: true };
+  }
 
   // ── Secondary metric line ──
   let m2Line = null;
@@ -15999,23 +17189,45 @@ function renderTrends() {
   // Render chart
   const chartWrap = el('trend-chart-wrap');
   if (chartWrap) {
-    chartWrap.innerHTML = buildTrendChart(lines, days, m1, m2Line, m2);
+    chartWrap.innerHTML = buildTrendChart(lines, days, m1, m2Line, m2, priorLine);
   }
 
-  // Dynamic chart title
-  const chartTitle = document.querySelector('#view-trends .chart-title');
-  if (chartTitle) {
-    let title = m1Cfg.label;
-    if (m2Cfg) title += ' vs ' + m2Cfg.label;
-    chartTitle.textContent = title + ' Trend';
+  // ── Populate chart header ──
+  const _chartTitleEl = el('trend-chart-title');
+  const _chartRangeEl = el('trend-chart-range');
+  const _chartChangeEl = el('trend-chart-change');
+  if (_chartTitleEl) {
+    let t = m1Cfg.label;
+    if (m2Cfg) t += ' vs ' + m2Cfg.label;
+    _chartTitleEl.textContent = t + ' Trend';
+  }
+  if (_chartRangeEl) _chartRangeEl.textContent = _rangeLabel;
+  if (_chartChangeEl) {
+    if (_absChange !== null) {
+      const isUp = _absChange >= 0;
+      const arrow = isUp ? '▲' : '▼';
+      const isGood = m1Cfg.lowerIsBetter ? !isUp : isUp;
+      const color = isGood ? '#16a34a' : '#dc2626';
+      const sign = isUp ? '+' : '';
+      const pctStr = _pctChange !== null ? ' (' + sign + _pctChange.toFixed(1) + '%)' : '';
+      _chartChangeEl.innerHTML = '<span style="color:' + color + ';font-weight:700;font-size:.85rem;display:flex;align-items:center;gap:4px">' +
+        arrow + ' ' + sign + m1Cfg.fmt(Math.abs(_absChange)) + pctStr +
+        '<span style="font-weight:500;font-size:.7rem;color:var(--muted);margin-left:4px">vs prior ' + _rangeName.toLowerCase() + '</span></span>';
+    } else {
+      _chartChangeEl.innerHTML = '';
+    }
   }
 
-  // Render legend
+  // Render legend — prior period immediately after portfolio avg
   const legendWrap = el('trend-legend');
   if (legendWrap) {
-    let legendHTML = lines.map(l =>
-      `<div class="trend-legend-item"><div class="trend-legend-dot" style="background:${l.color}"></div>${l.label}</div>`
-    ).join('');
+    let legendHTML = '';
+    lines.forEach((l, i) => {
+      legendHTML += `<div class="trend-legend-item"><div class="trend-legend-dot" style="background:${l.color}"></div>${l.label}</div>`;
+      if (i === 0 && priorLine) {
+        legendHTML += `<div class="trend-legend-item"><div class="trend-legend-dash" style="border-color:${priorLine.color}"></div>${priorLine.label}</div>`;
+      }
+    });
     if (m2Line) {
       legendHTML += `<div class="trend-legend-item"><div class="trend-legend-dash" style="border-color:${m2Line.color}"></div>${m2Line.label}</div>`;
     }
@@ -16054,13 +17266,12 @@ function renderTrends() {
     const allHist = (c.history || []).filter(h => h.date).sort((a,b) => a.date.localeCompare(b.date));
     const inRange    = allHist.filter(h => new Date(h.date) >= cutoff);
     const beforeRange = allHist.filter(h => new Date(h.date) < cutoff);
-    // Use latest entry before range as baseline (matches getDelta7d logic)
-    const baseline = beforeRange.length ? beforeRange[beforeRange.length - 1].score
-                   : inRange.length     ? inRange[0].score
-                   : c.score;
+    // Only compute delta when there's real baseline data before the range
+    const hasBaseline = beforeRange.length > 0;
+    const baseline = hasBaseline ? beforeRange[beforeRange.length - 1].score : null;
     const endScore = inRange.length ? inRange[inRange.length - 1].score : c.score;
-    const delta = endScore - baseline;
-    return { name: c.name, score: c.score, delta, absDelta: Math.abs(delta), status: c.status, mrr: c.mrr || 0, manager: c.manager || '—', tickets: c.tickets != null ? c.tickets : 0, logins: c.logins, adoption: c.adoption, id: c.id };
+    const delta = hasBaseline ? endScore - baseline : null;
+    return { name: c.name, score: c.score, delta, absDelta: delta !== null ? Math.abs(delta) : 0, noBaseline: !hasBaseline, status: c.status, mrr: c.mrr || 0, manager: c.manager || '—', tickets: c.tickets != null ? c.tickets : 0, logins: c.logins, adoption: c.adoption, id: c.id };
   });
   renderTrendMovers();
 }
@@ -16082,13 +17293,16 @@ function renderTrendMovers() {
   const statusColors = { critical:'#dc2626', risk:'#ea580c', watch:'#d97706', healthy:'#16a34a', expand:'#7c3aed' };
   const statusOrder = { critical:0, risk:1, watch:2, healthy:3, expand:4 };
 
+  // Filter by search
+  const filtered = _trendSearch ? _trendMovers.filter(m => m.name.toLowerCase().includes(_trendSearch) || m.manager.toLowerCase().includes(_trendSearch) || m.status.includes(_trendSearch)) : _trendMovers;
+
   // Sort
-  const sorted = [..._trendMovers].sort((a, b) => {
+  const sorted = [...filtered].sort((a, b) => {
     let av, bv;
     switch (_trendSortKey) {
       case 'name':     av = a.name.toLowerCase(); bv = b.name.toLowerCase(); break;
       case 'score':    av = a.score; bv = b.score; break;
-      case 'delta':    av = a.delta; bv = b.delta; break;
+      case 'delta':    av = a.delta !== null ? a.delta : -9999; bv = b.delta !== null ? b.delta : -9999; break;
       case 'absDelta': av = a.absDelta; bv = b.absDelta; break;
       case 'status':   av = statusOrder[a.status]||9; bv = statusOrder[b.status]||9; break;
       case 'mrr':      av = a.mrr; bv = b.mrr; break;
@@ -16108,37 +17322,38 @@ function renderTrendMovers() {
     return;
   }
 
-  const arrow = (key) => _trendSortKey === key ? (_trendSortDir === 1 ? ' ▲' : ' ▼') : '';
-  const thStyle = 'padding:8px 12px;font-weight:700;color:var(--fg);cursor:pointer;user-select:none;white-space:nowrap;position:sticky;top:0;background:var(--surface);z-index:1';
+  // Apply column filters
+  const trendFinal = cfApplyFilters('trend', sorted, _trendVal);
 
-  wrap.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:var(--fs-base)">
-    <thead><tr style="text-align:left;border-bottom:2px solid var(--border)">
-      <th style="${thStyle}" onclick="sortTrendMovers('name')">Customer${arrow('name')}</th>
-      <th style="${thStyle}" onclick="sortTrendMovers('score')">Score${arrow('score')}</th>
-      <th style="${thStyle}" onclick="sortTrendMovers('delta')">Change${arrow('delta')}${_trendSortKey==='absDelta'?arrow('absDelta'):''}</th>
-      <th style="${thStyle}" onclick="sortTrendMovers('status')">Status${arrow('status')}</th>
-      <th style="${thStyle}" onclick="sortTrendMovers('mrr')">MRR${arrow('mrr')}</th>
-      <th style="${thStyle}" onclick="sortTrendMovers('logins')">Logins${arrow('logins')}</th>
-      <th style="${thStyle}" onclick="sortTrendMovers('adoption')">Adoption${arrow('adoption')}</th>
-      <th style="${thStyle}" onclick="sortTrendMovers('tickets')">Tickets${arrow('tickets')}</th>
-      <th style="${thStyle}" onclick="sortTrendMovers('manager')">CSM${arrow('manager')}</th>
-    </tr></thead>
-    <tbody>${sorted.map(m => {
-      const dColor = m.delta > 0 ? '#16a34a' : m.delta < 0 ? '#dc2626' : 'var(--subtle)';
-      const dSign = m.delta > 0 ? '+' : '';
-      return `<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="openDetail('${escHtml(m.id)}')">
-        <td style="padding:8px 12px;color:var(--text);font-weight:600">${escHtml(m.name)}</td>
-        <td style="padding:8px 12px;color:var(--text)">${m.score}</td>
-        <td style="padding:8px 12px;color:${dColor};font-weight:700">${dSign}${m.delta}</td>
-        <td style="padding:8px 12px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${statusColors[m.status]||'#888'};margin-right:4px"></span>${m.status}</td>
-        <td style="padding:8px 12px;color:var(--text)">$${fmtNum(m.mrr)}</td>
-        <td style="padding:8px 12px;color:${m.logins != null && m.logins < 5 ? '#d97706' : 'var(--subtle)'};font-weight:${m.logins != null && m.logins < 5 ? '700' : '400'}">${m.logins != null ? m.logins + '/mo' : 'N/A'}</td>
-        <td style="padding:8px 12px;color:${m.adoption != null && m.adoption < 30 ? '#d97706' : 'var(--subtle)'};font-weight:${m.adoption != null && m.adoption < 30 ? '700' : '400'}">${m.adoption != null ? m.adoption + '%' : 'N/A'}</td>
-        <td style="padding:8px 12px;color:${m.tickets > 0 ? '#dc2626' : 'var(--subtle)'};font-weight:${m.tickets > 0 ? '700' : '400'}">${m.tickets}</td>
-        <td style="padding:8px 12px;color:var(--subtle)">${escHtml(m.manager)}</td>
+  // Build column headers
+  const trCols = TREND_COLS.map(col => cfBuildTh('trend', col, _trendSortKey, _trendSortDir)).join('');
+
+  // Remove scroll from outer wrapper — we put it on the table div only
+  wrap.style.maxHeight = 'none';
+  wrap.style.overflowY = 'visible';
+
+  wrap.innerHTML = `<div style="margin-bottom:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><input type="text" placeholder="Search customers..." value="${escHtml(_trendSearch)}" oninput="_trendSearch=this.value.toLowerCase();renderTrendMovers()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-base);width:220px"/><span style="font-size:var(--fs-sm);color:var(--muted)">${trendFinal.length} customer${trendFinal.length!==1?'s':''}</span></div>
+    ${cfRenderPills('trend')}
+    <div style="max-height:480px;overflow-y:auto">
+    <table class="ct">
+    <thead><tr>${trCols}</tr></thead>
+    <tbody>${trendFinal.map(m => {
+      const dColor = m.delta === null ? 'var(--muted)' : m.delta > 0 ? '#16a34a' : m.delta < 0 ? '#dc2626' : 'var(--subtle)';
+      const dText = m.delta === null ? 'N/A' : (m.delta > 0 ? '+' : '') + m.delta;
+      const _onChart = _trendClientOverlays.includes(m.id);
+      return `<tr style="cursor:pointer${_onChart ? ';background:color-mix(in srgb, var(--blue) 8%, transparent)' : ''}" onclick="toggleTrendOverlay('${escHtml(m.id)}')">
+        <td style="font-weight:600;color:var(--text)"><a href="#" onclick="event.stopPropagation();openDetail('${escHtml(m.id)}');return false" style="color:inherit;text-decoration:none;border-bottom:1px dashed var(--border)">${escHtml(m.name)}</a>${_onChart ? ' <span style="font-size:9px;color:var(--blue);font-weight:700">ON CHART</span>' : ''}</td>
+        <td>${m.score}</td>
+        <td style="color:${dColor};font-weight:700">${dText}</td>
+        <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${statusColors[m.status]||'#888'};margin-right:4px"></span>${m.status}</td>
+        <td>$${fmtNum(m.mrr)}</td>
+        <td style="color:${m.logins != null && m.logins < 5 ? '#d97706' : 'var(--subtle)'};font-weight:${m.logins != null && m.logins < 5 ? '700' : '400'}">${m.logins != null ? m.logins + '/mo' : 'N/A'}</td>
+        <td style="color:${m.adoption != null && m.adoption < 30 ? '#d97706' : 'var(--subtle)'};font-weight:${m.adoption != null && m.adoption < 30 ? '700' : '400'}">${m.adoption != null ? m.adoption + '%' : 'N/A'}</td>
+        <td style="color:${m.tickets > 0 ? '#dc2626' : 'var(--subtle)'};font-weight:${m.tickets > 0 ? '700' : '400'}">${m.tickets}</td>
+        <td style="color:var(--subtle)">${escHtml(m.manager)}</td>
       </tr>`;
     }).join('')}</tbody>
-  </table>`;
+  </table></div>`;
 }
 
 // ── Compute nice Y-axis scale from data ──
@@ -16169,11 +17384,13 @@ function _trendNiceScale(linesArr, fixedRange) {
   else if (nSteps > 7) step = mag * 2;
   dMin = Math.floor(dMin / step) * step;
   dMax = Math.ceil(dMax / step) * step;
+  // Don't go negative for metrics that can't be negative
+  if (dMin < 0) dMin = 0;
   if (dMin === dMax) dMax += step;
   return { min: dMin, max: dMax, step };
 }
 
-function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
+function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key, priorLine) {
   if (!lines.length || !lines[0].points.length) {
     return '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:var(--fs-md)">Not enough history to display a trend chart. Score a few customers to get started.</p>';
   }
@@ -16181,16 +17398,18 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
   const m1Cfg = METRIC_CFG[m1Key] || METRIC_CFG.score;
   const m2Cfg = m2Key ? (METRIC_CFG[m2Key] || null) : null;
   const hasM2 = !!(m2Line && m2Line.points.length);
+  const hasPrior = !!(priorLine && priorLine.points.length >= 2);
 
-  const W = 960, H = 260;
-  const pad = { top: 14, right: hasM2 ? 72 : 56, bottom: 36, left: 44 };
+  const W = 960, H = 250;
+  const pad = { top: 16, right: hasM2 ? 66 : 48, bottom: 32, left: 44 };
   const cW = W - pad.left - pad.right;
   const cH = H - pad.top - pad.bottom;
 
-  // Collect all dates across all lines + secondary
+  // Collect all dates across all lines + secondary + prior
   const allDates = new Set();
   lines.forEach(l => l.points.forEach(p => allDates.add(p.date)));
   if (hasM2) m2Line.points.forEach(p => allDates.add(p.date));
+  if (hasPrior) priorLine.points.forEach(p => allDates.add(p.date));
   const dates = [...allDates].sort();
   if (!dates.length) {
     return '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:var(--fs-md)">No data points in this range.</p>';
@@ -16199,10 +17418,13 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
   const xScale = (i) => pad.left + (dates.length === 1 ? cW/2 : (i / (dates.length - 1)) * cW);
 
   // ── Y-axis scales ──
-  const yL = _trendNiceScale(lines, m1Cfg.fixed);
+  const yL = _trendNiceScale(hasPrior ? [...lines, priorLine] : lines, m1Cfg.fixed);
   const yR = hasM2 ? _trendNiceScale([m2Line], m2Cfg.fixed) : null;
   const yScaleL = (v) => pad.top + cH - ((v - yL.min) / (yL.max - yL.min || 1)) * cH;
   const yScaleR = yR ? (v) => pad.top + cH - ((v - yR.min) / (yR.max - yR.min || 1)) * cH : null;
+
+  // ── Chart font ──
+  const _chartFont = "'DM Mono',monospace";
 
   // ── Status bands (only when 'score' is selected) ──
   let bandSVG = '';
@@ -16220,13 +17442,13 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
     bandSVG = bandDefs.map(b => {
       const y = yFn(b.y1);
       const h = yFn(b.y0) - y;
-      return `<rect x="${pad.left}" y="${y}" width="${cW}" height="${h}" fill="${b.color}" opacity="0.055"/>`;
+      return `<rect x="${pad.left}" y="${y}" width="${cW}" height="${h}" fill="${b.color}" opacity="0.04"/>`;
     }).join('');
     // Band labels on right edge only when no secondary axis
     if (!hasM2) {
       bandSVG += bandDefs.map(b => {
         const midY = (yFn(b.y1) + yFn(b.y0)) / 2;
-        return `<text x="${W - pad.right + 6}" y="${midY + 3}" font-size="8" fill="${b.color}" opacity="0.6" font-weight="700">${b.label}</text>`;
+        return `<text x="${W - pad.right + 6}" y="${midY + 3}" font-size="8" font-family="${_chartFont}" fill="${b.color}" opacity="0.5" font-weight="600">${b.label}</text>`;
       }).join('');
     }
   }
@@ -16234,23 +17456,31 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
   // ── Left Y-axis grid lines + labels ──
   let gridSVG = '';
   if (m1Key === 'score' && m1Cfg.fixed) {
-    // Health score 0-100: dense grid with major/minor lines
-    for (let v = yL.min; v <= yL.max; v += 10) {
+    // Health score 0-100: faint guide lines at 25, 50, 75 + edge labels
+    [0, 25, 50, 75, 100].forEach(v => {
+      if (v < yL.min || v > yL.max) return;
       const y = yScaleL(v);
-      const isMajor = v % 25 === 0;
-      gridSVG += `<line x1="${pad.left}" y1="${y}" x2="${W-pad.right}" y2="${y}" stroke="var(--border)" stroke-width="${isMajor?1:0.5}" opacity="${isMajor?0.7:0.35}" stroke-dasharray="${v===yL.min||v===yL.max?'0':'3,3'}"/>`;
-      if (v % 20 === 0) {
-        gridSVG += `<text x="${pad.left-8}" y="${y+3}" text-anchor="end" font-size="8" font-weight="${isMajor?'600':'400'}" fill="var(--subtle)">${m1Cfg.axFmt(v)}</text>`;
+      const isEdge = v === yL.min || v === yL.max;
+      if (!isEdge) {
+        gridSVG += `<line x1="${pad.left}" y1="${y}" x2="${W-pad.right}" y2="${y}" stroke="#cbd5e1" stroke-width="0.5" opacity="0.45"/>`;
       }
-    }
+      gridSVG += `<text x="${pad.left-8}" y="${y+3}" text-anchor="end" font-size="8" font-weight="500" font-family="${_chartFont}" fill="#94a3b8">${m1Cfg.axFmt(v)}</text>`;
+    });
   } else {
-    // All other metrics: use computed step for clean grid
-    const step = yL.step;
-    for (let v = yL.min; v <= yL.max + step * 0.01; v += step) {
+    // All other metrics: 4 evenly spaced guide lines
+    const gRange = yL.max - yL.min;
+    const gStep = gRange / 4;
+    // Smart precision: show decimals when range is small
+    const _axDec = gStep < 1 ? 1 : 0;
+    for (let i = 0; i <= 4; i++) {
+      const v = yL.min + i * gStep;
       const y = yScaleL(v);
-      const isEdge = Math.abs(v - yL.min) < 0.01 || Math.abs(v - yL.max) < 0.01;
-      gridSVG += `<line x1="${pad.left}" y1="${y}" x2="${W-pad.right}" y2="${y}" stroke="var(--border)" stroke-width="${isEdge?1:0.5}" opacity="${isEdge?0.7:0.35}" stroke-dasharray="${isEdge?'0':'3,3'}"/>`;
-      gridSVG += `<text x="${pad.left-8}" y="${y+3}" text-anchor="end" font-size="8" font-weight="${isEdge?'600':'400'}" fill="var(--subtle)">${m1Cfg.axFmt(v)}</text>`;
+      const isEdge = i === 0 || i === 4;
+      if (!isEdge) {
+        gridSVG += `<line x1="${pad.left}" y1="${y}" x2="${W-pad.right}" y2="${y}" stroke="#cbd5e1" stroke-width="0.5" opacity="0.45"/>`;
+      }
+      const vLabel = _axDec ? v.toFixed(_axDec) : String(Math.round(v));
+      gridSVG += `<text x="${pad.left-8}" y="${y+3}" text-anchor="end" font-size="8" font-weight="500" font-family="${_chartFont}" fill="#94a3b8">${m1Cfg.axFmt(parseFloat(vLabel))}</text>`;
     }
   }
 
@@ -16260,7 +17490,7 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
     const step = yR.step;
     for (let v = yR.min; v <= yR.max + step * 0.01; v += step) {
       const y = yScaleR(v);
-      rightAxisSVG += `<text x="${W-pad.right+8}" y="${y+3}" font-size="8" fill="${m2Line.color}" opacity="0.75" font-weight="500">${m2Cfg.axFmt(v)}</text>`;
+      rightAxisSVG += `<text x="${W-pad.right+8}" y="${y+3}" font-size="8.5" font-family="${_chartFont}" fill="${m2Line.color}" opacity="0.75" font-weight="500">${m2Cfg.axFmt(v)}</text>`;
     }
     // Right axis line
     rightAxisSVG += `<line x1="${W-pad.right}" y1="${pad.top}" x2="${W-pad.right}" y2="${yScaleL(yL.min)}" stroke="${m2Line.color}" stroke-width="1" opacity="0.25"/>`;
@@ -16269,20 +17499,30 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
   // ── X-axis date labels ──
   let xLabels = '';
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const labelEvery = rangeDays <= 7 ? 1 : rangeDays <= 30 ? 2 : rangeDays <= 90 ? 7 : rangeDays <= 180 ? 14 : 30;
+  // Smart x-axis: show fewer labels on longer timeframes, include year for 1y+
+  const _xLabelEvery = rangeDays <= 7 ? 1 : rangeDays <= 30 ? Math.ceil(dates.length / 12) : rangeDays <= 90 ? Math.ceil(dates.length / 10) : rangeDays <= 180 ? Math.ceil(dates.length / 8) : Math.ceil(dates.length / 7);
+  const _showYear = rangeDays > 180;
   dates.forEach((d, i) => {
     const x = xScale(i);
     const parts = d.split('-');
+    const yr = parts[0].slice(2);
     const mo = parseInt(parts[1]) - 1;
     const day = parseInt(parts[2]);
-    // Vertical tick marks
-    if (rangeDays <= 30 || (rangeDays <= 90 && i % 3 === 0) || i % 7 === 0) {
-      xLabels += `<line x1="${x}" y1="${yScaleL(yL.min)}" x2="${x}" y2="${yScaleL(yL.min)+4}" stroke="var(--border)" stroke-width="0.5" opacity="0.5"/>`;
+    // Subtle tick marks
+    if (i % Math.max(1, Math.ceil(_xLabelEvery / 2)) === 0) {
+      xLabels += `<line x1="${x}" y1="${yScaleL(yL.min)}" x2="${x}" y2="${yScaleL(yL.min)+3}" stroke="#e2e8f0" stroke-width="0.5" opacity="0.4"/>`;
     }
-    // Labels
-    if (i % labelEvery === 0 || i === dates.length - 1) {
-      const lbl = monthNames[mo] + ' ' + day;
-      xLabels += `<text x="${x}" y="${H - pad.bottom + 16}" text-anchor="middle" font-size="7.5" fill="var(--subtle)">${lbl}</text>`;
+    // Labels — smarter formatting
+    if (i % _xLabelEvery === 0 || i === dates.length - 1) {
+      let lbl;
+      if (_showYear && day <= 7) {
+        lbl = monthNames[mo] + " '" + yr;
+      } else if (rangeDays > 90) {
+        lbl = monthNames[mo] + ' ' + day;
+      } else {
+        lbl = monthNames[mo] + ' ' + day;
+      }
+      xLabels += `<text x="${x}" y="${H - pad.bottom + 16}" text-anchor="middle" font-size="8" font-family="${_chartFont}" fill="#94a3b8">${lbl}</text>`;
     }
   });
 
@@ -16291,6 +17531,9 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
   const dateIdx = {};
   dates.forEach((d,i) => { dateIdx[d] = i; });
 
+  // Max rendered points — downsample for smoother lines on long ranges
+  const _maxRPts = rangeDays > 365 ? 90 : rangeDays > 180 ? 120 : 9999;
+
   const _hasBreakdown = lines.some(l => l.dashed);
   lines.forEach((line, lineIdx) => {
     const pts = line.points.filter(p => dateIdx[p.date] !== undefined && !isNaN(p.avg))
@@ -16298,7 +17541,8 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
     if (pts.length < 2) return;
 
     // Area fill under the main line (first line only, skip in breakdown mode)
-    const xyPts = pts.map(p => ({ x: xScale(dateIdx[p.date]), y: yScaleL(p.avg) }));
+    const xyPtsRaw = pts.map(p => ({ x: xScale(dateIdx[p.date]), y: yScaleL(p.avg) }));
+    const xyPts = _downsampleXY(xyPtsRaw, _maxRPts);
     if (lineIdx === 0 && !_hasBreakdown) {
       const areaBottom = yScaleL(yL.min);
       const firstX = xyPts[0].x;
@@ -16320,18 +17564,21 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
     const lineOp = line.dashed ? '0.45' : '0.9';
     linesSVG += `<path d="${smoothD}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linecap="round" opacity="${lineOp}"${dashAttr}/>`;
 
-    // Value labels on main line only (no dots)
-    if (!line.dashed && !_hasBreakdown && lineIdx === 0) {
-      const labelSkip = pts.length <= 15 ? 1 : pts.length <= 30 ? 2 : pts.length <= 60 ? 4 : 7;
-      pts.forEach((p, pi) => {
-        if (pi % labelSkip === 0 || pi === pts.length - 1) {
-          const cx = xScale(dateIdx[p.date]);
-          const cy = yScaleL(p.avg);
-          linesSVG += `<text x="${cx}" y="${cy - 6}" text-anchor="middle" font-size="7" font-weight="700" fill="${line.color}">${m1Cfg.fmt(p.avg)}</text>`;
-        }
-      });
-    }
+    // No inline labels — hover tooltip shows exact values for all lines
   });
+
+  // ── Draw prior-period comparison line (dashed, muted gray) ──
+  if (hasPrior) {
+    const pPts = priorLine.points
+      .filter(p => dateIdx[p.date] !== undefined && !isNaN(p.avg))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    if (pPts.length >= 2) {
+      const pXYraw = pPts.map(p => ({ x: xScale(dateIdx[p.date]), y: yScaleL(p.avg) }));
+      const pXY = _downsampleXY(pXYraw, _maxRPts);
+      const pSmooth = _smoothPath(pXY);
+      linesSVG += `<path d="${pSmooth}" fill="none" stroke="${priorLine.color}" stroke-width="${priorLine.width}" stroke-linecap="round" opacity="0.5" stroke-dasharray="6,4"/>`;
+    }
+  }
 
   // ── Draw secondary metric line (dashed, right Y-axis) ──
   if (hasM2 && yScaleR) {
@@ -16339,7 +17586,8 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
       .sort((a,b) => a.date.localeCompare(b.date));
     if (pts.length >= 2) {
       // Subtle area fill (smooth)
-      const xyPts2 = pts.map(p => ({ x: xScale(dateIdx[p.date]), y: yScaleR(p.avg) }));
+      const xyPts2raw = pts.map(p => ({ x: xScale(dateIdx[p.date]), y: yScaleR(p.avg) }));
+      const xyPts2 = _downsampleXY(xyPts2raw, _maxRPts);
       const areaBottom = yScaleR(yR.min);
       const firstX = xyPts2[0].x;
       const lastX = xyPts2[xyPts2.length-1].x;
@@ -16360,29 +17608,73 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
     }
   }
 
-  // ── Build tooltip data ──
-  _trendTipData = dates.map((d) => {
+  // ── Build tooltip data (Map-based for reliable lookups) ──
+  // Pre-build date→value maps for each line (fast O(1) lookup)
+  // Also track last-known value so hovering between sparse points still works
+  const _lineMaps = lines.map(l => {
+    const m = new Map();
+    l.points.forEach(p => m.set(p.date, p.avg));
+    return m;
+  });
+  const _m2Map = hasM2 ? (() => { const m = new Map(); m2Line.points.forEach(p => m.set(p.date, p.avg)); return m; })() : null;
+
+  // Build carry-forward lookup: for each line, at each date index, store last known value
+  const _lineCarry = _lineMaps.map(lm => {
+    let last = null;
+    return dates.map(d => {
+      if (lm.has(d)) last = lm.get(d);
+      return last;
+    });
+  });
+  let _m2Carry = null;
+  if (_m2Map) {
+    let last = null;
+    _m2Carry = dates.map(d => {
+      if (_m2Map.has(d)) last = _m2Map.get(d);
+      return last;
+    });
+  }
+
+  // Prior-period carry-forward for tooltip
+  let _priorCarry = null;
+  if (hasPrior) {
+    const priorMap = new Map();
+    priorLine.points.forEach(p => priorMap.set(p.date, p.avg));
+    let last = null;
+    _priorCarry = dates.map(d => {
+      if (priorMap.has(d)) last = priorMap.get(d);
+      return last;
+    });
+  }
+
+  _trendTipData = dates.map((d, di) => {
     const parts = d.split('-');
     const mo = parseInt(parts[1]) - 1;
     const day = parseInt(parts[2]);
     const dateLabel = monthNames[mo] + ' ' + day;
 
-    const primaryVals = lines.map(l => {
-      const pt = l.points.find(x => x.date === d);
-      return pt ? { label: l.label, color: l.color, val: m1Cfg.fmt(pt.avg) } : null;
+    const primaryVals = lines.map((l, li) => {
+      const val = _lineCarry[li][di];
+      return val !== null ? { label: l.label, color: l.color, val: m1Cfg.fmt(val) } : null;
     }).filter(Boolean);
 
     let secondaryVal = null;
-    if (hasM2 && m2Cfg) {
-      const pt = m2Line.points.find(x => x.date === d);
-      if (pt) secondaryVal = { label: m2Line.label, color: m2Line.color, val: m2Cfg.fmt(pt.avg) };
+    if (hasM2 && m2Cfg && _m2Carry) {
+      const val = _m2Carry[di];
+      if (val !== null) secondaryVal = { label: m2Line.label, color: m2Line.color, val: m2Cfg.fmt(val) };
     }
 
-    return { dateLabel, primaryVals, secondaryVal };
+    let priorVal = null;
+    if (_priorCarry) {
+      const val = _priorCarry[di];
+      if (val !== null) priorVal = { label: priorLine.label, color: priorLine.color, val: m1Cfg.fmt(val) };
+    }
+
+    return { dateLabel, primaryVals, secondaryVal, priorVal };
   });
 
-  // ── Hover columns ──
-  let hoverSVG = '';
+  // ── Hover columns with crosshair line ──
+  let hoverSVG = `<line id="trend-crosshair" x1="0" y1="${pad.top}" x2="0" y2="${yScaleL(yL.min)}" stroke="#94a3b8" stroke-width="0.75" stroke-dasharray="3,3" opacity="0" pointer-events="none"/>`;
   const colW = dates.length > 1 ? cW / (dates.length - 1) : cW;
   dates.forEach((d, i) => {
     const cx = xScale(i);
@@ -16392,10 +17684,12 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
   });
 
   // ── Axis border lines ──
-  let axisSVG = `<line x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${yScaleL(yL.min)}" stroke="var(--border)" stroke-width="1.5" opacity="0.5"/>`;
-  axisSVG += `<line x1="${pad.left}" y1="${yScaleL(yL.min)}" x2="${W-pad.right}" y2="${yScaleL(yL.min)}" stroke="var(--border)" stroke-width="1.5" opacity="0.5"/>`;
+  let axisSVG = `<line x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${yScaleL(yL.min)}" stroke="#cbd5e1" stroke-width="1" opacity="0.5"/>`;
+  axisSVG += `<line x1="${pad.left}" y1="${yScaleL(yL.min)}" x2="${W-pad.right}" y2="${yScaleL(yL.min)}" stroke="#cbd5e1" stroke-width="1" opacity="0.5"/>`;
 
-  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;display:block">
+  const _fadeStyle = _trendFirstRender ? 'opacity:0;animation:trendFadeIn .4s ease forwards' : '';
+  _trendFirstRender = false;
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;display:block;font-family:'DM Mono',ui-monospace,monospace;${_fadeStyle}">
     ${bandSVG}${gridSVG}${rightAxisSVG}${axisSVG}${xLabels}${linesSVG}${hoverSVG}
   </svg>`;
 }
@@ -16411,12 +17705,19 @@ function showTrendTip(evt, cx, colIdx) {
   const data = _trendTipData[colIdx];
   if (!data) return;
 
+  // Move crosshair
+  const ch = document.getElementById('trend-crosshair');
+  if (ch) { ch.setAttribute('x1', cx); ch.setAttribute('x2', cx); ch.setAttribute('opacity', '0.5'); }
+
   let rows = '';
   data.primaryVals.forEach(v => {
-    rows += `<div style="display:flex;align-items:center;gap:6px;margin-top:3px"><span style="width:8px;height:8px;border-radius:50%;background:${v.color};flex-shrink:0"></span><span>${v.label}</span><strong style="margin-left:auto">${v.val}</strong></div>`;
+    rows += `<div style="display:flex;align-items:center;gap:6px;margin-top:3px"><span style="width:8px;height:8px;border-radius:50%;background:${v.color};flex-shrink:0"></span><span>${v.label}</span><strong style="margin-left:auto;font-family:'DM Mono',monospace">${v.val}</strong></div>`;
   });
+  if (data.priorVal) {
+    rows += `<div style="display:flex;align-items:center;gap:6px;margin-top:4px;border-top:1px solid var(--border);padding-top:4px;opacity:0.65"><span style="width:14px;height:0;border-top:2px dashed ${data.priorVal.color};flex-shrink:0"></span><span>${data.priorVal.label}</span><strong style="margin-left:auto;font-family:'DM Mono',monospace">${data.priorVal.val}</strong></div>`;
+  }
   if (data.secondaryVal) {
-    rows += `<div style="display:flex;align-items:center;gap:6px;margin-top:4px;border-top:1px solid var(--border);padding-top:4px"><span style="width:14px;height:0;border-top:2.5px dashed ${data.secondaryVal.color};flex-shrink:0"></span><span>${data.secondaryVal.label}</span><strong style="margin-left:auto">${data.secondaryVal.val}</strong></div>`;
+    rows += `<div style="display:flex;align-items:center;gap:6px;margin-top:4px;border-top:1px solid var(--border);padding-top:4px"><span style="width:14px;height:0;border-top:2.5px dashed ${data.secondaryVal.color};flex-shrink:0"></span><span>${data.secondaryVal.label}</span><strong style="margin-left:auto;font-family:'DM Mono',monospace">${data.secondaryVal.val}</strong></div>`;
   }
 
   tip.innerHTML = `<div style="font-weight:700;margin-bottom:4px;font-size:var(--fs-base)">${data.dateLabel}</div>${rows}`;
@@ -16429,13 +17730,21 @@ function showTrendTip(evt, cx, colIdx) {
   const scaleX = rect.width / 960;
   const left = (cx * scaleX) + (rect.left - wRect.left);
   tip.style.display = 'block';
-  tip.style.left = (left + 14) + 'px';
+  // Flip to left side if too close to right edge
+  const tipW = tip.offsetWidth || 160;
+  if (left + tipW + 20 > wRect.width) {
+    tip.style.left = (left - tipW - 14) + 'px';
+  } else {
+    tip.style.left = (left + 14) + 'px';
+  }
   tip.style.top = '8px';
 }
 
 function hideTrendTip() {
   const tip = document.getElementById('trend-tip');
   if (tip) tip.style.display = 'none';
+  const ch = document.getElementById('trend-crosshair');
+  if (ch) ch.setAttribute('opacity', '0');
 }
 
 /* ═══════════════ TREND ANALYSIS ═══════════════ */
@@ -16450,6 +17759,12 @@ const _taSvg = {
   bar:    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
   drop:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>'
 };
+
+// Clickable customer name link for analysis insights
+function _taCustLink(name, id) {
+  const safeId = (id || '').replace(/'/g, "\\'");
+  return `<a href="#" onclick="event.preventDefault();openDetail('${safeId}')" style="color:var(--blue);font-weight:700;text-decoration:none;border-bottom:1px dashed var(--blue)">${escHtml(name)}</a>`;
+}
 
 function _fmtTaVal(v, metricKey) {
   const cfg = METRIC_CFG[metricKey];
@@ -16925,7 +18240,7 @@ function _taDropAttribution(active, data1, metricKey, cutoff, rangeDays) {
     const pe = findClosest(peakT);
     const te = findClosest(troughT);
     const sv = cfg.val(pe, c), ev = cfg.val(te, c);
-    if (sv != null && ev != null) custDeltas.push({ name: c.name, delta: ev - sv });
+    if (sv != null && ev != null) custDeltas.push({ name: c.name, id: c.id, delta: ev - sv });
   });
 
   let concentrationNote = '';
@@ -16939,9 +18254,9 @@ function _taDropAttribution(active, data1, metricKey, cutoff, rangeDays) {
       declined.sort((a, b) => a.delta - b.delta);
       const fv = v => _fmtTaVal(Math.abs(v), metricKey);
       if (declined.length === 1) {
-        concentrationNote = ` This was driven primarily by <strong>${escHtml(declined[0].name)}</strong> (down ${fv(declined[0].delta)}) — the remaining ${custDeltas.length - 1} accounts were relatively flat.`;
+        concentrationNote = ` This was driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv(declined[0].delta)}) — the remaining ${custDeltas.length - 1} accounts were relatively flat.`;
       } else {
-        concentrationNote = ` Driven primarily by <strong>${escHtml(declined[0].name)}</strong> (down ${fv(declined[0].delta)}) and <strong>${escHtml(declined[1].name)}</strong> (down ${fv(declined[1].delta)}) — most of the other ${custDeltas.length - 2} accounts were relatively flat.`;
+        concentrationNote = ` Driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv(declined[0].delta)}) and ${_taCustLink(declined[1].name, declined[1].id)} (down ${fv(declined[1].delta)}) — most of the other ${custDeltas.length - 2} accounts were relatively flat.`;
       }
     } else if (pctDeclined >= 60) {
       if (custDeltas.length <= 5) {
@@ -17085,6 +18400,20 @@ function _buildTrendAnalysis(active, data1, data2, cutoff, rangeDays, m1, m2) {
 
 
 // ─── CSM PERFORMANCE DASHBOARD ───────────────────────────────
+let _csmSortKey = 'perfIndex';
+let _csmSortDir = -1;
+let _csmSearch = '';
+
+function sortCSMTable(key) {
+  if (_csmSortKey === key) _csmSortDir *= -1;
+  else { _csmSortKey = key; _csmSortDir = (key === 'name') ? 1 : -1; }
+  renderCSMPerformance();
+}
+
+function csmSearchFilter(val) {
+  _csmSearch = (val || '').toLowerCase();
+  renderCSMPerformance();
+}
 
 function renderCSMPerformance() {
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
@@ -17181,26 +18510,30 @@ function renderCSMPerformance() {
   const avgAtRiskPerCSM = totalCSMs ? (totalAtRisk / totalCSMs).toFixed(1).replace(/\.0$/, '') : 0;
   const overdueGradient = totalOverdue > 0 ? 'dash-kpi-red' : 'dash-kpi-green';
 
+  // Dynamic number colors (headers stay static)
+  const _csmAvgValColor = overallAvg >= 65 ? '#16a34a' : overallAvg >= 50 ? '#d97706' : '#dc2626';
+  const _csmOverdueValColor = totalOverdue > 0 ? '#dc2626' : '#16a34a';
+
   statsWrap.innerHTML = `
-    <div class="dash-kpi-card dash-kpi-blue">
+    <div class="dash-kpi-card dash-kpi-blue" title="Customer Success Managers with assigned accounts.">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.people}</div><span class="dash-kpi-label">Active CSMs</span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num">${totalCSMs}</div><div class="dash-kpi-sub">${totalAccounts} accounts across team</div></div>
     </div>
-    <div class="dash-kpi-card dash-kpi-purple">
+    <div class="dash-kpi-card dash-kpi-purple" title="Average number of accounts managed per CSM.">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.chart}</div><span class="dash-kpi-label">Avg Book Size</span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num">${avgAccsPerCSM}</div><div class="dash-kpi-sub">accounts per CSM</div></div>
     </div>
-    <div class="dash-kpi-card dash-kpi-teal">
+    <div class="dash-kpi-card dash-kpi-teal" title="Average monthly recurring revenue managed per CSM.">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.dollar}</div><span class="dash-kpi-label">Avg MRR / CSM</span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num">$${fmtNum(avgMRRPerCSM)}</div><div class="dash-kpi-sub">$${fmtNum(totalMRR)} total portfolio</div></div>
     </div>
-    <div class="dash-kpi-card ${healthScoreGradient}">
+    <div class="dash-kpi-card ${healthScoreGradient}" title="Average health score across all managed accounts. Green ≥ 65, amber 50–64, red < 50.">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.pulse}</div><span class="dash-kpi-label">Avg Health Score</span></div>
-      <div class="dash-kpi-body"><div class="dash-kpi-num">${overallAvg}</div><div class="dash-kpi-sub">${deltaIcon} ${Math.abs(overallDelta)} pts this week</div></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:${_csmAvgValColor}">${overallAvg}</div><div class="dash-kpi-sub">${deltaIcon} ${Math.abs(overallDelta)} pts this week</div></div>
     </div>
-    <div class="dash-kpi-card ${overdueGradient}">
+    <div class="dash-kpi-card ${overdueGradient}" title="Customers not contacted within the required interval. Red when any are overdue.">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.alert}</div><span class="dash-kpi-label">Overdue Contacts</span></div>
-      <div class="dash-kpi-body"><div class="dash-kpi-num">${totalOverdue}</div><div class="dash-kpi-sub">${totalOverdue ? avgAtRiskPerCSM + ' at-risk per CSM' : 'All contacts current'}</div></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:${_csmOverdueValColor}">${totalOverdue}</div><div class="dash-kpi-sub">${totalOverdue ? avgAtRiskPerCSM + ' at-risk per CSM' : 'All contacts current'}</div></div>
     </div>
   `;
 
@@ -17235,24 +18568,48 @@ function renderCSMPerformance() {
     </div>`;
   };
 
+  // Apply search filter
+  let filteredList = displayList;
+  if (_csmSearch) {
+    filteredList = displayList.filter(m => m.name.toLowerCase().includes(_csmSearch));
+  }
+
+  // Apply sort
+  const sortedList = [...filteredList].sort((a, b) => {
+    const key = _csmSortKey;
+    let va, vb;
+    if (key === 'name') { va = a.name.toLowerCase(); vb = b.name.toLowerCase(); return va < vb ? -_csmSortDir : va > vb ? _csmSortDir : 0; }
+    va = key === 'avgDays' ? (a[key] ?? 999) : (a[key] || 0);
+    vb = key === 'avgDays' ? (b[key] ?? 999) : (b[key] || 0);
+    return (va - vb) * _csmSortDir;
+  });
+
+  // Re-rank after sort
+  let rankN = 1;
+  sortedList.forEach(m => { if (m.name !== 'Unassigned') m.rank = rankN++; });
+
   // --- CSM Leaderboard Table ---
   const colCount = 12;
-  tableWrap.innerHTML = `<div class="csm-perf-table-wrap"><table class="ct" id="csm-perf-table">
+  const sArr = (key) => _csmSortKey === key ? (_csmSortDir > 0 ? ' ▲' : ' ▼') : '';
+  const sHd = (key, label) => `<th style="cursor:pointer;user-select:none" onclick="sortCSMTable('${key}')">${label}${sArr(key)}</th>`;
+  tableWrap.innerHTML = `
+    <div style="margin-bottom:8px"><input type="text" placeholder="Search CSMs…" value="${escHtml(_csmSearch)}" oninput="csmSearchFilter(this.value)" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-base);width:220px"/></div>
+    <div class="csm-perf-table-wrap"><table class="ct" id="csm-perf-table">
     <thead><tr>
-      <th style="width:36px">Rank</th>
-      <th>CSM</th>
-      <th>Score</th>
-      <th>Perf Index</th>
-      <th>Trend (7d)</th>
+      ${sHd('rank','Rank')}
+      ${sHd('name','CSM')}
+      ${sHd('avgScore','Score')}
+      ${sHd('perfIndex','Perf Index')}
+      ${sHd('avgDelta','Trend (7d)')}
       <th>Health Mix</th>
-      <th>Accounts</th>
-      <th>MRR Managed</th>
-      <th>At-Risk MRR</th>
-      <th>Avg Contact</th>
-      <th>Renewals ≤90d</th>
+      ${sHd('count','Accounts')}
+      ${sHd('totalMRR','MRR Managed')}
+      ${sHd('riskMRR','At-Risk MRR')}
+      ${sHd('avgDays','Avg Contact')}
+      ${sHd('renewals90','Renewals ≤90d')}
       <th></th>
     </tr></thead>
-    <tbody id="csm-perf-tbody">${displayList.map(m => {
+    <tbody id="csm-perf-tbody">${sortedList.map(m => {
       const contactWarn = m.avgDays != null && m.avgDays >= 14;
       const safeName = escHtml(m.name).replace(/'/g, "\\'");
       return `<tr data-csm="${escHtml(m.name)}" class="csm-row">
@@ -18217,22 +19574,23 @@ function _renderCalendar() {
     html += '</div></div>';
   })();
 
-  // ── Stat cards ──
+  // ── Stat cards (dynamic number colors, headers stay static) ──
+  var _calOverdueValColor = overdueCount > 0 ? '#dc2626' : '#16a34a';
   html += '<div class="cal-stats">' +
-    '<div class="cal-stat-card" style="--accent-color:var(--purple)">' +
+    '<div class="cal-stat-card" style="--accent-color:var(--purple)" title="Contract renewals occurring this month.">' +
       '<div class="cal-stat-num">' + renewalCount + '</div>' +
       '<div class="cal-stat-label">Renewals</div>' +
     '</div>' +
-    '<div class="cal-stat-card" style="--accent-color:var(--blue)">' +
+    '<div class="cal-stat-card" style="--accent-color:var(--blue)" title="Upcoming customer touchpoints scheduled this month.">' +
       '<div class="cal-stat-num">' + touchCount + '</div>' +
       '<div class="cal-stat-label">Scheduled</div>' +
     '</div>' +
-    '<div class="cal-stat-card" style="--accent-color:var(--green)">' +
+    '<div class="cal-stat-card" style="--accent-color:var(--green)" title="Completed customer calls and check-ins this month.">' +
       '<div class="cal-stat-num">' + pastTouchCount + '</div>' +
       '<div class="cal-stat-label">Past Calls</div>' +
     '</div>' +
-    '<div class="cal-stat-card" style="--accent-color:var(--red)">' +
-      '<div class="cal-stat-num">' + overdueCount + '</div>' +
+    '<div class="cal-stat-card" style="--accent-color:var(--red)" title="Customers past their required contact interval. Red when any are overdue.">' +
+      '<div class="cal-stat-num" style="color:' + _calOverdueValColor + '">' + overdueCount + '</div>' +
       '<div class="cal-stat-label">Overdue</div>' +
     '</div>' +
   '</div>';
@@ -18934,6 +20292,20 @@ const AUDIT_ACTION_COLORS = {
 let auditLogs   = [];
 let auditOffset = 0;
 const AUDIT_PAGE_SIZE = 50;
+let _auditSortKey = 'created_at';
+let _auditSortDir = -1;
+let _auditSearch = '';
+
+function sortAuditLog(key) {
+  if (_auditSortKey === key) _auditSortDir *= -1;
+  else { _auditSortKey = key; _auditSortDir = (key === 'customer_name' || key === 'action') ? 1 : -1; }
+  renderAuditLog();
+}
+
+function auditSearchFilter(val) {
+  _auditSearch = (val || '').toLowerCase();
+  renderAuditLog();
+}
 
 // logAudit — fire-and-forget insert to Supabase
 function logAudit(action, customerId, customerName, details) {
@@ -19015,11 +20387,40 @@ function renderAuditLog() {
   const pagBot = document.getElementById('audit-pag-bot');
   if (!tbody) return;
 
-  // Apply filter
+  // Apply action filter
   const filterVal = (document.getElementById('audit-filter-action') || {}).value || 'all';
-  const filtered  = filterVal === 'all'
+  let filtered  = filterVal === 'all'
     ? auditLogs
     : auditLogs.filter(e => e.action === filterVal);
+
+  // Apply search filter
+  if (_auditSearch) {
+    filtered = filtered.filter(e => {
+      const label = (AUDIT_ACTION_LABELS[e.action] || e.action || '').toLowerCase();
+      const name = (e.customer_name || '').toLowerCase();
+      let email = '';
+      try { const d = typeof e.details === 'string' ? JSON.parse(e.details) : (e.details || {}); email = (d.user_email || '').toLowerCase(); } catch {}
+      return label.includes(_auditSearch) || name.includes(_auditSearch) || email.includes(_auditSearch);
+    });
+  }
+
+  // Apply sort
+  filtered = [...filtered].sort((a, b) => {
+    let av, bv;
+    switch (_auditSortKey) {
+      case 'created_at': av = a.created_at || ''; bv = b.created_at || ''; break;
+      case 'action': av = (AUDIT_ACTION_LABELS[a.action]||a.action||'').toLowerCase(); bv = (AUDIT_ACTION_LABELS[b.action]||b.action||'').toLowerCase(); break;
+      case 'customer_name': av = (a.customer_name||'').toLowerCase(); bv = (b.customer_name||'').toLowerCase(); break;
+      case 'user_email':
+        try { const da = typeof a.details==='string'?JSON.parse(a.details):(a.details||{}); av = (da.user_email||'').toLowerCase(); } catch { av = ''; }
+        try { const db = typeof b.details==='string'?JSON.parse(b.details):(b.details||{}); bv = (db.user_email||'').toLowerCase(); } catch { bv = ''; }
+        break;
+      default: av = a.created_at || ''; bv = b.created_at || '';
+    }
+    if (av < bv) return -1 * _auditSortDir;
+    if (av > bv) return 1 * _auditSortDir;
+    return 0;
+  });
 
   if (filtered.length === 0) {
     table.style.display = 'none';

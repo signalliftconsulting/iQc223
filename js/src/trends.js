@@ -17,6 +17,25 @@ function _smoothPath(pts) {
   return d;
 }
 
+// ── Downsample screen-space points for smoother long-range lines ──
+// Averages clusters of nearby points down to ~maxPts, preserving endpoints.
+function _downsampleXY(pts, maxPts) {
+  if (!pts || pts.length <= maxPts) return pts;
+  const step = (pts.length - 1) / (maxPts - 1);
+  const half = Math.ceil(step * 0.6);
+  const result = [pts[0]];
+  for (let i = 1; i < maxPts - 1; i++) {
+    const center = Math.round(i * step);
+    const lo = Math.max(0, center - half);
+    const hi = Math.min(pts.length - 1, center + half);
+    let sx = 0, sy = 0, n = 0;
+    for (let j = lo; j <= hi; j++) { sx += pts[j].x; sy += pts[j].y; n++; }
+    result.push({ x: sx / n, y: sy / n });
+  }
+  result.push(pts[pts.length - 1]);
+  return result;
+}
+
 // ── TRENDS PAGE ──────────────────────────────────────────────
 let _trendRange = '30d';
 let _trendCsmOverlay = '';
@@ -24,18 +43,44 @@ let _trendClientOverlays = []; // array of customer ids
 let _trendMovers = [];          // current movers data
 let _trendSortKey = 'absDelta'; // default sort by absolute change
 let _trendSortDir = -1;         // -1 = descending
+let _trendSearch = '';
+const TREND_COLS = [
+  { key:'name',     label:'Customer', ftype:'text',   sortFn:"sortTrendMovers('name')" },
+  { key:'score',    label:'Score',    ftype:'number', sortFn:"sortTrendMovers('score')" },
+  { key:'delta',    label:'Change',   ftype:'number', sortFn:"sortTrendMovers('delta')" },
+  { key:'status',   label:'Status',   ftype:'enum',   sortFn:"sortTrendMovers('status')", enumVals:['critical','risk','watch','healthy','expand'] },
+  { key:'mrr',      label:'MRR',      ftype:'number', sortFn:"sortTrendMovers('mrr')" },
+  { key:'logins',   label:'Logins',   ftype:'number', sortFn:"sortTrendMovers('logins')" },
+  { key:'adoption', label:'Adoption', ftype:'number', sortFn:"sortTrendMovers('adoption')" },
+  { key:'tickets',  label:'Tickets',  ftype:'number', sortFn:"sortTrendMovers('tickets')" },
+  { key:'manager',  label:'CSM',      ftype:'enum',   sortFn:"sortTrendMovers('manager')", enumFn:() => [...new Set(customers.map(c => c.manager || '').filter(Boolean))].sort() },
+];
+const _trendCF = makeColFilters('trend', 'tr-filter-portal', TREND_COLS, renderTrendMovers);
+function _trendVal(m, key) {
+  if (key === 'name') return (m.name || '').toLowerCase();
+  if (key === 'score') return m.score || 0;
+  if (key === 'delta') return m.delta || 0;
+  if (key === 'status') return m.status || '';
+  if (key === 'mrr') return m.mrr || 0;
+  if (key === 'logins') return m.logins != null ? m.logins : -1;
+  if (key === 'adoption') return m.adoption != null ? m.adoption : -1;
+  if (key === 'tickets') return m.tickets != null ? m.tickets : -1;
+  if (key === 'manager') return (m.manager || '').toLowerCase();
+  return 0;
+}
 let _trendMetric1 = 'score';    // primary metric key
 let _trendMetric2 = '';          // secondary metric key (empty = none)
 let _trendTipData = [];          // tooltip data per date column
+let _trendFirstRender = true;    // fade-in only on first render
 
 const METRIC_CFG = {
   score:    { label:'Health Score',        agg:'avg', fixed:[0,100], val: (h,c) => h.score,                            fmt: v => String(Math.round(v)),            axFmt: v => String(Math.round(v)) },
   logins:   { label:'Logins',             agg:'avg', fixed:null,     val: (h,c) => h.signals?.logins,                  fmt: v => String(Math.round(v*10)/10),     axFmt: v => String(Math.round(v*10)/10) },
   adoption: { label:'Adoption %',         agg:'avg', fixed:[0,100], val: (h,c) => h.signals?.adoption,                fmt: v => Math.round(v)+'%',               axFmt: v => Math.round(v)+'%' },
-  tickets:  { label:'Open Tickets',       agg:'avg', fixed:null,     val: (h,c) => h.signals?.tickets,                 fmt: v => String(Math.round(v*10)/10),     axFmt: v => String(Math.round(v*10)/10) },
+  tickets:  { label:'Open Tickets',       agg:'avg', fixed:null,     val: (h,c) => h.signals?.tickets,                 fmt: v => String(Math.round(v*10)/10),     axFmt: v => String(Math.round(v*10)/10), lowerIsBetter:true },
   nps:      { label:'NPS Score',            agg:'avg', fixed:[0,10],  val: (h,c) => h.signals?.nps,                     fmt: v => String(Math.round(v*10)/10),     axFmt: v => String(Math.round(v)) },
   csat:     { label:'CSAT Score',           agg:'avg', fixed:[1,5],   val: (h,c) => h.signals?.csat,                    fmt: v => String(Math.round(v*10)/10),     axFmt: v => String(Math.round(v)) },
-  days:     { label:'Days Since Contact',  agg:'avg', fixed:null,    val: (h,c) => h.signals?.days,                    fmt: v => String(Math.round(v)),            axFmt: v => String(Math.round(v)) },
+  days:     { label:'Days Since Contact',  agg:'avg', fixed:null,    val: (h,c) => h.signals?.days,                    fmt: v => String(Math.round(v)),            axFmt: v => String(Math.round(v)), lowerIsBetter:true },
   mrr:      { label:'Total MRR',          agg:'sum', fixed:null,     val: (h,c) => c.mrr,                              fmt: v => '$'+fmtNum(Math.round(v)),       axFmt: v => { if(Math.abs(v)>=1e6) return '$'+(v/1e6).toFixed(1)+'M'; if(Math.abs(v)>=1e3) return '$'+Math.round(v/1e3)+'K'; return '$'+Math.round(v); } },
   arr:      { label:'Total ARR',          agg:'sum', fixed:null,     val: (h,c) => c.arr,                              fmt: v => '$'+fmtNum(Math.round(v)),       axFmt: v => { if(Math.abs(v)>=1e6) return '$'+(v/1e6).toFixed(1)+'M'; if(Math.abs(v)>=1e3) return '$'+Math.round(v/1e3)+'K'; return '$'+Math.round(v); } },
   customers:{ label:'# Customers',        agg:'count', fixed:null,   val: (h,c) => 1,                                  fmt: v => String(Math.round(v)),            axFmt: v => String(Math.round(v)) },
@@ -49,7 +94,8 @@ function setTrendMetric(slot, key) {
 
 function setTrendRange(range) {
   _trendRange = range;
-  document.querySelectorAll('#trend-range-row .dtab').forEach(b =>
+  // Sync both top and bottom range bars
+  document.querySelectorAll('#trend-range-row .dtab, #trend-range-row2 .dtab').forEach(b =>
     b.classList.toggle('active', b.dataset.range === range));
   renderTrends();
 }
@@ -70,7 +116,142 @@ function addTrendClient(id) {
 
 function removeTrendClient(id) {
   _trendClientOverlays = _trendClientOverlays.filter(x => x !== id);
-  renderTrends();
+  _refreshTrendOverlays();
+}
+
+function toggleTrendOverlay(id) {
+  if (_trendClientOverlays.includes(id)) {
+    _trendClientOverlays = _trendClientOverlays.filter(x => x !== id);
+  } else {
+    _trendClientOverlays.push(id);
+  }
+  _refreshTrendOverlays();
+}
+
+// Light refresh: only update chart lines, tags, and table row highlights — no scroll jump
+function _refreshTrendOverlays() {
+  const range = _trendRange || '30d';
+  const m1 = _trendMetric1 || 'score';
+  const m2 = _trendMetric2 || '';
+  const m1Cfg = METRIC_CFG[m1] || METRIC_CFG.score;
+  const m2Cfg = m2 ? (METRIC_CFG[m2] || null) : null;
+
+  let days;
+  const cutoff = new Date();
+  if (range === 'ytd') {
+    const jan1 = new Date(cutoff.getFullYear(), 0, 1);
+    days = Math.ceil((cutoff - jan1) / 86400000);
+    cutoff.setTime(jan1.getTime());
+  } else {
+    days = { '3d': 3, '7d': 7, '30d': 30, '90d': 90, '6m': 180, '1y': 365, '2y': 730 }[range] || 30;
+    cutoff.setDate(cutoff.getDate() - days);
+  }
+  cutoff.setHours(0,0,0,0);
+
+  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
+  const _rangeName = { '3d':'3 Days','7d':'7 Days','30d':'30 Days','90d':'90 Days','6m':'6 Months','1y':'1 Year','2y':'2 Years','ytd':'YTD' }[range] || range;
+
+  // Rebuild just the chart lines (reuse renderTrends' aggregation inline)
+  function _aggByDay(custs, metricKey, rangeStart, rangeEnd) {
+    const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
+    const isSumMetric = cfg.agg === 'sum';
+    const isCountMetric = cfg.agg === 'count';
+    const _startDate = rangeStart || cutoff;
+    const _endDate = rangeEnd || new Date();
+    const _endStr = _endDate.toISOString().slice(0,10);
+    function _allDays() {
+      const dates = []; const d = new Date(_startDate);
+      while (d.toISOString().slice(0,10) < _endStr) { dates.push(d.toISOString().slice(0,10)); d.setDate(d.getDate() + 1); }
+      return dates;
+    }
+    if (isSumMetric || isCountMetric) {
+      const ce = []; custs.forEach(c => { const vd = {}; (c.history||[]).forEach(h => { if(!h.date) return; const val = cfg.val(h,c); if(val==null||typeof val!=='number'||isNaN(val)) return; vd[new Date(h.date).toISOString().slice(0,10)] = val; }); const sd=Object.keys(vd).sort(); if(sd.length) ce.push({vd,sd}); });
+      return _allDays().map(date => { let t=0,n=0; ce.forEach(e=>{let v=null; for(let i=e.sd.length-1;i>=0;i--){if(e.sd[i]<=date){v=e.vd[e.sd[i]];break;}} if(v!==null){t+=v;n++;}}); return {date,avg:isCountMetric?n:t,_count:n}; }).filter(p=>p._count>0).sort((a,b)=>a.date.localeCompare(b.date));
+    }
+    const cd = []; custs.forEach(c => { const dm={}; (c.history||[]).forEach(h => { if(!h.date) return; const val=cfg.val(h,c); if(val==null||typeof val!=='number'||isNaN(val)) return; dm[new Date(h.date).toISOString().slice(0,10)]=val; }); const sd=Object.keys(dm).sort(); if(sd.length) cd.push({dm,sd}); });
+    return _allDays().map(date => { let t=0,n=0; cd.forEach(e=>{let v=null; for(let i=e.sd.length-1;i>=0;i--){if(e.sd[i]<=date){v=e.dm[e.sd[i]];break;}} if(v!==null){t+=v;n++;}}); return {date,avg:n?t/n:0,_count:n}; }).filter(p=>p._count>0);
+  }
+
+  const OVERLAY_COLORS = ['#7c3aed','#ea580c','#0891b2','#db2777','#059669','#2563eb','#d97706','#dc2626','#16a34a','#64748b'];
+  const m1AggLabel = m1Cfg.agg === 'sum' ? 'Total' : 'Avg';
+  const portfolioData = _aggByDay(active, m1);
+  const lines = [{ label: 'Portfolio ' + m1AggLabel, color: '#3b82f6', width: 2.5, points: portfolioData }];
+
+  if (_trendCsmOverlay) {
+    const csmCusts = active.filter(c => c.manager === _trendCsmOverlay);
+    lines.push({ label: escHtml(_trendCsmOverlay), color: OVERLAY_COLORS[0], width: 1.5, points: _aggByDay(csmCusts, m1) });
+  }
+
+  const _olTodayStr = new Date().toISOString().slice(0,10);
+  _trendClientOverlays.forEach((id, idx) => {
+    const c = customers.find(x => x.id === id);
+    if (!c) return;
+    const dateMap = {};
+    (c.history||[]).forEach(h => { if(!h.date) return; const v=m1Cfg.val(h,c); if(v==null||typeof v!=='number'||isNaN(v)) return; const ds=new Date(h.date).toISOString().slice(0,10); if(ds>=_olTodayStr) return; dateMap[ds]=v; });
+    const scoredDates = Object.keys(dateMap).sort();
+    if (!scoredDates.length) return;
+    const allDays = []; const d = new Date(cutoff); while(d.toISOString().slice(0,10)<_olTodayStr){ allDays.push(d.toISOString().slice(0,10)); d.setDate(d.getDate()+1); }
+    let lastVal = null; const pts = [];
+    allDays.forEach(day => { if(dateMap[day]!==undefined) lastVal=dateMap[day]; if(lastVal===null){ for(let i=scoredDates.length-1;i>=0;i--){if(scoredDates[i]<=day){lastVal=dateMap[scoredDates[i]];break;}}} if(lastVal!==null) pts.push({date:day,avg:lastVal}); });
+    if (pts.length >= 2) lines.push({ label: escHtml(c.name), color: OVERLAY_COLORS[(idx+1)%OVERLAY_COLORS.length], width: 1.5, points: pts });
+  });
+
+  // Prior period
+  const priorCutoff = new Date(cutoff.getTime() - days * 86400000);
+  const priorPortfolioData = _aggByDay(active, m1, priorCutoff, cutoff);
+  let priorLine = null;
+  if (priorPortfolioData.length >= 2) {
+    const shiftedPrior = priorPortfolioData.map(p => { const s=new Date(new Date(p.date).getTime()+days*86400000); return {date:s.toISOString().slice(0,10),avg:p.avg}; });
+    priorLine = { label: 'Prior ' + _rangeName, color: '#94a3b8', width: 1.5, points: shiftedPrior, dashed: true };
+  }
+
+  // Secondary metric
+  let m2Line = null;
+  if (m2Cfg) {
+    const m2Data = _aggByDay(active, m2);
+    if (m2Data.length) m2Line = { label: m2Cfg.label + ' (' + (m2Cfg.agg==='sum'?'Total':'Avg') + ')', color: '#f59e0b', width: 2, points: m2Data };
+  }
+
+  // Update chart only
+  const chartWrap = el('trend-chart-wrap');
+  if (chartWrap) chartWrap.innerHTML = buildTrendChart(lines, days, m1, m2Line, m2, priorLine);
+
+  // Update legend
+  const legendWrap = el('trend-legend');
+  if (legendWrap) {
+    let legendHTML = '';
+    lines.forEach((l, i) => {
+      legendHTML += `<div class="trend-legend-item"><div class="trend-legend-dot" style="background:${l.color}"></div>${l.label}</div>`;
+      if (i === 0 && priorLine) legendHTML += `<div class="trend-legend-item"><div class="trend-legend-dash" style="border-color:${priorLine.color}"></div>${priorLine.label}</div>`;
+    });
+    if (m2Line) legendHTML += `<div class="trend-legend-item"><div class="trend-legend-dash" style="border-color:${m2Line.color}"></div>${m2Line.label}</div>`;
+    legendWrap.innerHTML = legendHTML;
+  }
+
+  // Update client tags
+  const tagsWrap = el('trend-client-tags');
+  if (tagsWrap) tagsWrap.innerHTML = _trendClientOverlays.map(id => { const c=customers.find(x=>x.id===id); return c?`<span class="trend-client-tag">${escHtml(c.name)}<button onclick="removeTrendClient('${escHtml(id)}')">&times;</button></span>`:''; }).join('');
+
+  // Update table row highlights in-place (no rebuild)
+  const rows = document.querySelectorAll('#trend-movers-wrap tbody tr');
+  rows.forEach(row => {
+    const onclick = row.getAttribute('onclick') || '';
+    const idMatch = onclick.match(/toggleTrendOverlay\('([^']+)'\)/);
+    if (!idMatch) return;
+    const rid = idMatch[1];
+    const on = _trendClientOverlays.includes(rid);
+    row.style.background = on ? 'color-mix(in srgb, var(--blue) 8%, transparent)' : '';
+    const nameCell = row.querySelector('td:first-child');
+    if (nameCell) {
+      const badge = nameCell.querySelector('span[style*="ON CHART"]') || nameCell.querySelector('span[style*="font-size:9px"]');
+      if (on && !badge) {
+        const a = nameCell.querySelector('a');
+        if (a) a.insertAdjacentHTML('afterend', ' <span style="font-size:9px;color:var(--blue);font-weight:700">ON CHART</span>');
+      } else if (!on && badge) {
+        badge.remove();
+      }
+    }
+  });
 }
 
 function trendClientAutocomplete() {
@@ -122,17 +303,29 @@ function renderTrends() {
   // ── Aggregate portfolio data by day (supports any metric) ──
   // For avg metrics: forward-fills each customer's last known value so every
   // account contributes to every day, giving a true portfolio average.
-  function aggregateByDay(custs, metricKey) {
+  function aggregateByDay(custs, metricKey, rangeStart, rangeEnd) {
     const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
     const isSumMetric = cfg.agg === 'sum';
     const isCountMetric = cfg.agg === 'count';
-    const _todayStr = new Date().toISOString().slice(0,10);
+    const _startDate = rangeStart || cutoff;
+    const _endDate = rangeEnd || new Date();
+    const _endStr = _endDate.toISOString().slice(0,10);
+
+    // Generate every date from start to end so chart is continuous
+    function _allDaysInRange() {
+      const dates = [];
+      const d = new Date(_startDate);
+      while (d.toISOString().slice(0,10) < _endStr) {
+        dates.push(d.toISOString().slice(0,10));
+        d.setDate(d.getDate() + 1);
+      }
+      return dates;
+    }
 
     if (isSumMetric || isCountMetric) {
       // Sum/Count metrics: forward-fill each customer's value so all
       // customers that have been scored at least once contribute every day
-      const allDates = new Set();
-      const custEntries = []; // { valForDate: { 'YYYY-MM-DD': value }, sortedDates: [...] }
+      const custEntries = [];
       custs.forEach(c => {
         const valForDate = {};
         (c.history || []).forEach(h => {
@@ -145,10 +338,9 @@ function renderTrends() {
         const sortedDates = Object.keys(valForDate).sort();
         if (sortedDates.length) {
           custEntries.push({ valForDate, sortedDates });
-          sortedDates.forEach(d => { if (d >= cutoff.toISOString().slice(0,10) && d < _todayStr) allDates.add(d); });
         }
       });
-      const dates = [...allDates].sort();
+      const dates = _allDaysInRange();
       return dates.map(date => {
         let total = 0, count = 0;
         custEntries.forEach(ce => {
@@ -158,15 +350,13 @@ function renderTrends() {
           }
           if (val !== null) { total += val; count++; }
         });
-        return { date, avg: isCountMetric ? count : total };
-      }).filter(p => p.avg > 0)
+        return { date, avg: isCountMetric ? count : total, _count: count };
+      }).filter(p => p._count > 0)
         .sort((a, b) => a.date.localeCompare(b.date));
     }
 
     // Avg metrics: forward-fill so every customer is represented every day
-    // 1. Collect all unique dates in range and per-customer date→value maps
-    const allDates = new Set();
-    const custData = []; // { dateMap: { 'YYYY-MM-DD': value }, sortedDates: [...] }
+    const custData = [];
     custs.forEach(c => {
       const dateMap = {};
       (c.history || []).forEach(h => {
@@ -174,56 +364,77 @@ function renderTrends() {
         const val = cfg.val(h, c);
         if (val == null || typeof val !== 'number' || isNaN(val)) return;
         const key = new Date(h.date).toISOString().slice(0,10);
-        dateMap[key] = val; // latest value wins if multiple entries on same day
+        dateMap[key] = val;
       });
       const sortedDates = Object.keys(dateMap).sort();
       if (sortedDates.length) {
         custData.push({ dateMap, sortedDates });
-        sortedDates.forEach(d => { if (d >= cutoff.toISOString().slice(0,10) && d < _todayStr) allDates.add(d); });
       }
     });
 
-    // 2. For each date, forward-fill each customer's last known value
-    const dates = [...allDates].sort();
+    // For each date in full range, forward-fill each customer's last known value
+    const dates = _allDaysInRange();
     return dates.map(date => {
       let total = 0, count = 0;
       custData.forEach(cd => {
-        // Find the most recent value at or before this date
         let val = null;
         for (let i = cd.sortedDates.length - 1; i >= 0; i--) {
           if (cd.sortedDates[i] <= date) { val = cd.dateMap[cd.sortedDates[i]]; break; }
         }
         if (val !== null) { total += val; count++; }
       });
-      return { date, avg: count ? total / count : 0 };
-    }).filter(p => p.avg > 0);
+      return { date, avg: count ? total / count : 0, _count: count };
+    }).filter(p => p._count > 0);
   }
 
   const portfolioData = aggregateByDay(active, m1);
+
+  // ── Prior-period comparison data ──
+  const priorCutoff = new Date(cutoff.getTime() - days * 86400000);
+  const priorPortfolioData = aggregateByDay(active, m1, priorCutoff, cutoff);
+
+  // Change indicator: current end vs prior end
+  const _curEnd = portfolioData.length ? portfolioData[portfolioData.length - 1].avg : null;
+  const _priorEnd = priorPortfolioData.length ? priorPortfolioData[priorPortfolioData.length - 1].avg : null;
+  let _absChange = null, _pctChange = null;
+  if (_curEnd !== null && _priorEnd !== null) {
+    _absChange = _curEnd - _priorEnd;
+    if (Math.abs(_priorEnd) > 0.01) _pctChange = (_absChange / Math.abs(_priorEnd)) * 100;
+  }
+
+  // Date range labels
+  const _fmtShort = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const _rangeLabel = _fmtShort(cutoff) + ' – ' + _fmtShort(new Date());
+  const _rangeName = { '3d':'3 Days','7d':'7 Days','30d':'30 Days','90d':'90 Days','6m':'6 Months','1y':'1 Year','2y':'2 Years','ytd':'YTD' }[range] || range;
 
   // ── KPIs (range-aware, based on health score) ──
   const currentAvg = active.length ? Math.round(active.reduce((s,c) => s + (c.score||0), 0) / active.length) : 0;
 
   // Range-aware delta: compare current score to score N days ago
+  // Returns null if no data exists near the range start (no fake baseline)
   function _getDeltaNd(c, n) {
     const ago = new Date(); ago.setDate(ago.getDate() - n);
     const hist = (c.history || []).slice().sort((a,b) => new Date(b.date) - new Date(a.date));
     const recent = hist.filter(h => new Date(h.date) >= ago);
-    if (!recent.length) return 0;
+    if (!recent.length) return null;
     const before = hist.filter(h => new Date(h.date) < ago);
-    const prev = before.length ? before[0].score : hist[hist.length - 1].score;
-    return recent[0].score - prev;
+    if (!before.length) return null; // no data before range start → N/A
+    return recent[0].score - before[0].score;
   }
 
   let improving = 0, declining = 0;
+  let deltaSum = 0, deltaCount = 0;
   active.forEach(c => {
     const d = _getDeltaNd(c, days);
+    if (d === null) return; // skip accounts without baseline data
     if (d > 0) improving++;
     else if (d < 0) declining++;
+    deltaSum += d;
+    deltaCount++;
   });
-  const avgDelta = active.length ? (active.reduce((s,c) => s + _getDeltaNd(c, days), 0) / active.length) : 0;
-  const trendDir = avgDelta > 0.5 ? 'Improving' : avgDelta < -0.5 ? 'Declining' : 'Stable';
-  const trendDirColor = avgDelta > 0.5 ? 'dash-kpi-green' : avgDelta < -0.5 ? 'dash-kpi-red' : 'dash-kpi-blue';
+  const avgDelta = deltaCount ? (deltaSum / deltaCount) : null;
+  const trendDir = avgDelta === null ? 'N/A' : avgDelta > 0.5 ? 'Improving' : avgDelta < -0.5 ? 'Declining' : 'Stable';
+  const trendDirColor = avgDelta === null ? 'dash-kpi-blue' : avgDelta > 0.5 ? 'dash-kpi-green' : avgDelta < -0.5 ? 'dash-kpi-red' : 'dash-kpi-blue';
   const rangeLabel = range === 'ytd' ? 'YTD' : range;
 
   const _ti = (path) => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
@@ -234,23 +445,33 @@ function renderTrends() {
     down:  _ti('<polyline points="6 9 12 15 18 9"/>'),
   };
 
+  // Dynamic number colors (headers stay static)
+  const _tAvgValColor = currentAvg >= 65 ? '#16a34a' : currentAvg >= 50 ? '#d97706' : '#dc2626';
+  const _tDirValColor = avgDelta === null ? '' : avgDelta > 0.5 ? '#16a34a' : avgDelta < -0.5 ? '#dc2626' : '';
+  const _tImpValColor = improving > 0 ? '#16a34a' : '';
+  const _tDecValColor = declining > 0 ? '#dc2626' : '#16a34a';
+  const _deltaText = avgDelta === null ? 'N/A — not enough history' : `${avgDelta >= 0 ? '+' : ''}${avgDelta.toFixed(1)} avg ${rangeLabel} change`;
+  const _impPct = deltaCount ? Math.round(improving / deltaCount * 100) : 0;
+  const _decPct = deltaCount ? Math.round(declining / deltaCount * 100) : 0;
+  const _trendSub = avgDelta === null ? 'not enough history for this range' : `across ${deltaCount} account${deltaCount !== 1 ? 's' : ''} with baseline data`;
+
   const kpiRow = el('trend-kpi-row');
   if (kpiRow) kpiRow.innerHTML = `
-    <div class="dash-kpi-card dash-kpi-blue">
+    <div class="dash-kpi-card dash-kpi-blue" title="Average health score across all active accounts for the selected time range.">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.score}</div><span class="dash-kpi-label">Portfolio Avg Score</span></div>
-      <div class="dash-kpi-body"><div class="dash-kpi-num">${currentAvg}</div><div class="dash-kpi-sub">${avgDelta >= 0 ? '+' : ''}${avgDelta.toFixed(1)} avg ${rangeLabel} change</div></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:${_tAvgValColor}">${currentAvg}</div><div class="dash-kpi-sub">${_deltaText}</div></div>
     </div>
-    <div class="dash-kpi-card ${trendDirColor}">
+    <div class="dash-kpi-card ${trendDirColor}" title="Overall portfolio health trend — Improving (avg change > +0.5), Declining (< −0.5), or Stable. Only accounts with data before the range start are included.">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.trend}</div><span class="dash-kpi-label">Trend Direction</span></div>
-      <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.5rem">${trendDir}</div><div class="dash-kpi-sub">across ${active.length} active account${active.length !== 1 ? 's' : ''}</div></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.5rem${_tDirValColor ? ';color:' + _tDirValColor : ''}">${trendDir}</div><div class="dash-kpi-sub">${_trendSub}</div></div>
     </div>
-    <div class="dash-kpi-card dash-kpi-teal">
+    <div class="dash-kpi-card dash-kpi-teal" title="Accounts with a positive health score change over the selected period.">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.up}</div><span class="dash-kpi-label">Accounts Improving</span></div>
-      <div class="dash-kpi-body"><div class="dash-kpi-num">${improving}</div><div class="dash-kpi-sub">${active.length ? Math.round(improving/active.length*100) : 0}% of portfolio</div></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num"${_tImpValColor ? ` style="color:${_tImpValColor}"` : ''}>${improving}</div><div class="dash-kpi-sub">${_impPct}% of accounts with data</div></div>
     </div>
-    <div class="dash-kpi-card dash-kpi-red">
+    <div class="dash-kpi-card dash-kpi-red" title="Accounts with a negative health score change over the selected period.">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.down}</div><span class="dash-kpi-label">Accounts Declining</span></div>
-      <div class="dash-kpi-body"><div class="dash-kpi-num">${declining}</div><div class="dash-kpi-sub">${active.length ? Math.round(declining/active.length*100) : 0}% of portfolio</div></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:${_tDecValColor}">${declining}</div><div class="dash-kpi-sub">${_decPct}% of accounts with data</div></div>
     </div>
   `;
 
@@ -260,7 +481,7 @@ function renderTrends() {
   const m1AggLabel = m1Cfg.agg === 'sum' ? 'Total' : 'Avg';
 
   // Main portfolio line (primary metric)
-  lines.push({ label: 'Portfolio ' + m1AggLabel, color: '#3b82f6', width: 2, points: portfolioData });
+  lines.push({ label: 'Portfolio ' + m1AggLabel, color: '#3b82f6', width: 2.5, points: portfolioData });
 
   // CSM overlay (primary metric)
   if (_trendCsmOverlay) {
@@ -269,27 +490,57 @@ function renderTrends() {
     lines.push({ label: escHtml(_trendCsmOverlay), color: OVERLAY_COLORS[0], width: 1.5, points: csmData });
   }
 
-  // Client overlays (primary metric)
+  // Client overlays (primary metric) — forward-fill to keep line continuous
+  const _olTodayStr = new Date().toISOString().slice(0,10);
   _trendClientOverlays.forEach((id, idx) => {
     const c = customers.find(x => x.id === id);
     if (!c) return;
-    const _olTodayStr = new Date().toISOString().slice(0,10);
-    const hist = (c.history || []).filter(h => {
-      if (!h.date) return false;
-      const ds = new Date(h.date).toISOString().slice(0,10);
-      if (ds >= _olTodayStr) return false;
-      if (new Date(h.date) < cutoff) return false;
+    // Build date→value map from history
+    const dateMap = {};
+    (c.history || []).forEach(h => {
+      if (!h.date) return;
       const v = m1Cfg.val(h, c);
-      return v != null && typeof v === 'number' && !isNaN(v);
-    }).map(h => ({
-      date: new Date(h.date).toISOString().slice(0,10),
-      avg: m1Cfg.val(h, c)
-    })).sort((a,b) => a.date.localeCompare(b.date));
-    if (hist.length) {
+      if (v == null || typeof v !== 'number' || isNaN(v)) return;
+      const ds = new Date(h.date).toISOString().slice(0,10);
+      if (ds >= _olTodayStr) return;
+      dateMap[ds] = v;
+    });
+    const scoredDates = Object.keys(dateMap).sort();
+    if (!scoredDates.length) return;
+    // Forward-fill across every day in the range
+    const allDays = [];
+    const d = new Date(cutoff);
+    while (d.toISOString().slice(0,10) < _olTodayStr) {
+      allDays.push(d.toISOString().slice(0,10));
+      d.setDate(d.getDate() + 1);
+    }
+    let lastVal = null;
+    const pts = [];
+    allDays.forEach(day => {
+      if (dateMap[day] !== undefined) lastVal = dateMap[day];
+      // Also check for scores before range to seed initial value
+      if (lastVal === null) {
+        for (let i = scoredDates.length - 1; i >= 0; i--) {
+          if (scoredDates[i] <= day) { lastVal = dateMap[scoredDates[i]]; break; }
+        }
+      }
+      if (lastVal !== null) pts.push({ date: day, avg: lastVal });
+    });
+    if (pts.length >= 2) {
       const ci = (idx + 1) % OVERLAY_COLORS.length;
-      lines.push({ label: escHtml(c.name), color: OVERLAY_COLORS[ci], width: 1.5, points: hist });
+      lines.push({ label: escHtml(c.name), color: OVERLAY_COLORS[ci], width: 1.5, points: pts });
     }
   });
+
+  // ── Prior-period comparison line (date-shifted to overlay on current X axis) ──
+  let priorLine = null;
+  if (priorPortfolioData.length >= 2) {
+    const shiftedPrior = priorPortfolioData.map(p => {
+      const shifted = new Date(new Date(p.date).getTime() + days * 86400000);
+      return { date: shifted.toISOString().slice(0, 10), avg: p.avg };
+    });
+    priorLine = { label: 'Prior ' + _rangeName, color: '#94a3b8', width: 1.5, points: shiftedPrior, dashed: true };
+  }
 
   // ── Secondary metric line ──
   let m2Line = null;
@@ -304,23 +555,45 @@ function renderTrends() {
   // Render chart
   const chartWrap = el('trend-chart-wrap');
   if (chartWrap) {
-    chartWrap.innerHTML = buildTrendChart(lines, days, m1, m2Line, m2);
+    chartWrap.innerHTML = buildTrendChart(lines, days, m1, m2Line, m2, priorLine);
   }
 
-  // Dynamic chart title
-  const chartTitle = document.querySelector('#view-trends .chart-title');
-  if (chartTitle) {
-    let title = m1Cfg.label;
-    if (m2Cfg) title += ' vs ' + m2Cfg.label;
-    chartTitle.textContent = title + ' Trend';
+  // ── Populate chart header ──
+  const _chartTitleEl = el('trend-chart-title');
+  const _chartRangeEl = el('trend-chart-range');
+  const _chartChangeEl = el('trend-chart-change');
+  if (_chartTitleEl) {
+    let t = m1Cfg.label;
+    if (m2Cfg) t += ' vs ' + m2Cfg.label;
+    _chartTitleEl.textContent = t + ' Trend';
+  }
+  if (_chartRangeEl) _chartRangeEl.textContent = _rangeLabel;
+  if (_chartChangeEl) {
+    if (_absChange !== null) {
+      const isUp = _absChange >= 0;
+      const arrow = isUp ? '▲' : '▼';
+      const isGood = m1Cfg.lowerIsBetter ? !isUp : isUp;
+      const color = isGood ? '#16a34a' : '#dc2626';
+      const sign = isUp ? '+' : '';
+      const pctStr = _pctChange !== null ? ' (' + sign + _pctChange.toFixed(1) + '%)' : '';
+      _chartChangeEl.innerHTML = '<span style="color:' + color + ';font-weight:700;font-size:.85rem;display:flex;align-items:center;gap:4px">' +
+        arrow + ' ' + sign + m1Cfg.fmt(Math.abs(_absChange)) + pctStr +
+        '<span style="font-weight:500;font-size:.7rem;color:var(--muted);margin-left:4px">vs prior ' + _rangeName.toLowerCase() + '</span></span>';
+    } else {
+      _chartChangeEl.innerHTML = '';
+    }
   }
 
-  // Render legend
+  // Render legend — prior period immediately after portfolio avg
   const legendWrap = el('trend-legend');
   if (legendWrap) {
-    let legendHTML = lines.map(l =>
-      `<div class="trend-legend-item"><div class="trend-legend-dot" style="background:${l.color}"></div>${l.label}</div>`
-    ).join('');
+    let legendHTML = '';
+    lines.forEach((l, i) => {
+      legendHTML += `<div class="trend-legend-item"><div class="trend-legend-dot" style="background:${l.color}"></div>${l.label}</div>`;
+      if (i === 0 && priorLine) {
+        legendHTML += `<div class="trend-legend-item"><div class="trend-legend-dash" style="border-color:${priorLine.color}"></div>${priorLine.label}</div>`;
+      }
+    });
     if (m2Line) {
       legendHTML += `<div class="trend-legend-item"><div class="trend-legend-dash" style="border-color:${m2Line.color}"></div>${m2Line.label}</div>`;
     }
@@ -359,13 +632,12 @@ function renderTrends() {
     const allHist = (c.history || []).filter(h => h.date).sort((a,b) => a.date.localeCompare(b.date));
     const inRange    = allHist.filter(h => new Date(h.date) >= cutoff);
     const beforeRange = allHist.filter(h => new Date(h.date) < cutoff);
-    // Use latest entry before range as baseline (matches getDelta7d logic)
-    const baseline = beforeRange.length ? beforeRange[beforeRange.length - 1].score
-                   : inRange.length     ? inRange[0].score
-                   : c.score;
+    // Only compute delta when there's real baseline data before the range
+    const hasBaseline = beforeRange.length > 0;
+    const baseline = hasBaseline ? beforeRange[beforeRange.length - 1].score : null;
     const endScore = inRange.length ? inRange[inRange.length - 1].score : c.score;
-    const delta = endScore - baseline;
-    return { name: c.name, score: c.score, delta, absDelta: Math.abs(delta), status: c.status, mrr: c.mrr || 0, manager: c.manager || '—', tickets: c.tickets != null ? c.tickets : 0, logins: c.logins, adoption: c.adoption, id: c.id };
+    const delta = hasBaseline ? endScore - baseline : null;
+    return { name: c.name, score: c.score, delta, absDelta: delta !== null ? Math.abs(delta) : 0, noBaseline: !hasBaseline, status: c.status, mrr: c.mrr || 0, manager: c.manager || '—', tickets: c.tickets != null ? c.tickets : 0, logins: c.logins, adoption: c.adoption, id: c.id };
   });
   renderTrendMovers();
 }
@@ -387,13 +659,16 @@ function renderTrendMovers() {
   const statusColors = { critical:'#dc2626', risk:'#ea580c', watch:'#d97706', healthy:'#16a34a', expand:'#7c3aed' };
   const statusOrder = { critical:0, risk:1, watch:2, healthy:3, expand:4 };
 
+  // Filter by search
+  const filtered = _trendSearch ? _trendMovers.filter(m => m.name.toLowerCase().includes(_trendSearch) || m.manager.toLowerCase().includes(_trendSearch) || m.status.includes(_trendSearch)) : _trendMovers;
+
   // Sort
-  const sorted = [..._trendMovers].sort((a, b) => {
+  const sorted = [...filtered].sort((a, b) => {
     let av, bv;
     switch (_trendSortKey) {
       case 'name':     av = a.name.toLowerCase(); bv = b.name.toLowerCase(); break;
       case 'score':    av = a.score; bv = b.score; break;
-      case 'delta':    av = a.delta; bv = b.delta; break;
+      case 'delta':    av = a.delta !== null ? a.delta : -9999; bv = b.delta !== null ? b.delta : -9999; break;
       case 'absDelta': av = a.absDelta; bv = b.absDelta; break;
       case 'status':   av = statusOrder[a.status]||9; bv = statusOrder[b.status]||9; break;
       case 'mrr':      av = a.mrr; bv = b.mrr; break;
@@ -413,37 +688,38 @@ function renderTrendMovers() {
     return;
   }
 
-  const arrow = (key) => _trendSortKey === key ? (_trendSortDir === 1 ? ' ▲' : ' ▼') : '';
-  const thStyle = 'padding:8px 12px;font-weight:700;color:var(--fg);cursor:pointer;user-select:none;white-space:nowrap;position:sticky;top:0;background:var(--surface);z-index:1';
+  // Apply column filters
+  const trendFinal = cfApplyFilters('trend', sorted, _trendVal);
 
-  wrap.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:var(--fs-base)">
-    <thead><tr style="text-align:left;border-bottom:2px solid var(--border)">
-      <th style="${thStyle}" onclick="sortTrendMovers('name')">Customer${arrow('name')}</th>
-      <th style="${thStyle}" onclick="sortTrendMovers('score')">Score${arrow('score')}</th>
-      <th style="${thStyle}" onclick="sortTrendMovers('delta')">Change${arrow('delta')}${_trendSortKey==='absDelta'?arrow('absDelta'):''}</th>
-      <th style="${thStyle}" onclick="sortTrendMovers('status')">Status${arrow('status')}</th>
-      <th style="${thStyle}" onclick="sortTrendMovers('mrr')">MRR${arrow('mrr')}</th>
-      <th style="${thStyle}" onclick="sortTrendMovers('logins')">Logins${arrow('logins')}</th>
-      <th style="${thStyle}" onclick="sortTrendMovers('adoption')">Adoption${arrow('adoption')}</th>
-      <th style="${thStyle}" onclick="sortTrendMovers('tickets')">Tickets${arrow('tickets')}</th>
-      <th style="${thStyle}" onclick="sortTrendMovers('manager')">CSM${arrow('manager')}</th>
-    </tr></thead>
-    <tbody>${sorted.map(m => {
-      const dColor = m.delta > 0 ? '#16a34a' : m.delta < 0 ? '#dc2626' : 'var(--subtle)';
-      const dSign = m.delta > 0 ? '+' : '';
-      return `<tr style="border-bottom:1px solid var(--border);cursor:pointer" onclick="openDetail('${escHtml(m.id)}')">
-        <td style="padding:8px 12px;color:var(--text);font-weight:600">${escHtml(m.name)}</td>
-        <td style="padding:8px 12px;color:var(--text)">${m.score}</td>
-        <td style="padding:8px 12px;color:${dColor};font-weight:700">${dSign}${m.delta}</td>
-        <td style="padding:8px 12px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${statusColors[m.status]||'#888'};margin-right:4px"></span>${m.status}</td>
-        <td style="padding:8px 12px;color:var(--text)">$${fmtNum(m.mrr)}</td>
-        <td style="padding:8px 12px;color:${m.logins != null && m.logins < 5 ? '#d97706' : 'var(--subtle)'};font-weight:${m.logins != null && m.logins < 5 ? '700' : '400'}">${m.logins != null ? m.logins + '/mo' : 'N/A'}</td>
-        <td style="padding:8px 12px;color:${m.adoption != null && m.adoption < 30 ? '#d97706' : 'var(--subtle)'};font-weight:${m.adoption != null && m.adoption < 30 ? '700' : '400'}">${m.adoption != null ? m.adoption + '%' : 'N/A'}</td>
-        <td style="padding:8px 12px;color:${m.tickets > 0 ? '#dc2626' : 'var(--subtle)'};font-weight:${m.tickets > 0 ? '700' : '400'}">${m.tickets}</td>
-        <td style="padding:8px 12px;color:var(--subtle)">${escHtml(m.manager)}</td>
+  // Build column headers
+  const trCols = TREND_COLS.map(col => cfBuildTh('trend', col, _trendSortKey, _trendSortDir)).join('');
+
+  // Remove scroll from outer wrapper — we put it on the table div only
+  wrap.style.maxHeight = 'none';
+  wrap.style.overflowY = 'visible';
+
+  wrap.innerHTML = `<div style="margin-bottom:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><input type="text" placeholder="Search customers..." value="${escHtml(_trendSearch)}" oninput="_trendSearch=this.value.toLowerCase();renderTrendMovers()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-base);width:220px"/><span style="font-size:var(--fs-sm);color:var(--muted)">${trendFinal.length} customer${trendFinal.length!==1?'s':''}</span></div>
+    ${cfRenderPills('trend')}
+    <div style="max-height:480px;overflow-y:auto">
+    <table class="ct">
+    <thead><tr>${trCols}</tr></thead>
+    <tbody>${trendFinal.map(m => {
+      const dColor = m.delta === null ? 'var(--muted)' : m.delta > 0 ? '#16a34a' : m.delta < 0 ? '#dc2626' : 'var(--subtle)';
+      const dText = m.delta === null ? 'N/A' : (m.delta > 0 ? '+' : '') + m.delta;
+      const _onChart = _trendClientOverlays.includes(m.id);
+      return `<tr style="cursor:pointer${_onChart ? ';background:color-mix(in srgb, var(--blue) 8%, transparent)' : ''}" onclick="toggleTrendOverlay('${escHtml(m.id)}')">
+        <td style="font-weight:600;color:var(--text)"><a href="#" onclick="event.stopPropagation();openDetail('${escHtml(m.id)}');return false" style="color:inherit;text-decoration:none;border-bottom:1px dashed var(--border)">${escHtml(m.name)}</a>${_onChart ? ' <span style="font-size:9px;color:var(--blue);font-weight:700">ON CHART</span>' : ''}</td>
+        <td>${m.score}</td>
+        <td style="color:${dColor};font-weight:700">${dText}</td>
+        <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${statusColors[m.status]||'#888'};margin-right:4px"></span>${m.status}</td>
+        <td>$${fmtNum(m.mrr)}</td>
+        <td style="color:${m.logins != null && m.logins < 5 ? '#d97706' : 'var(--subtle)'};font-weight:${m.logins != null && m.logins < 5 ? '700' : '400'}">${m.logins != null ? m.logins + '/mo' : 'N/A'}</td>
+        <td style="color:${m.adoption != null && m.adoption < 30 ? '#d97706' : 'var(--subtle)'};font-weight:${m.adoption != null && m.adoption < 30 ? '700' : '400'}">${m.adoption != null ? m.adoption + '%' : 'N/A'}</td>
+        <td style="color:${m.tickets > 0 ? '#dc2626' : 'var(--subtle)'};font-weight:${m.tickets > 0 ? '700' : '400'}">${m.tickets}</td>
+        <td style="color:var(--subtle)">${escHtml(m.manager)}</td>
       </tr>`;
     }).join('')}</tbody>
-  </table>`;
+  </table></div>`;
 }
 
 // ── Compute nice Y-axis scale from data ──
@@ -474,11 +750,13 @@ function _trendNiceScale(linesArr, fixedRange) {
   else if (nSteps > 7) step = mag * 2;
   dMin = Math.floor(dMin / step) * step;
   dMax = Math.ceil(dMax / step) * step;
+  // Don't go negative for metrics that can't be negative
+  if (dMin < 0) dMin = 0;
   if (dMin === dMax) dMax += step;
   return { min: dMin, max: dMax, step };
 }
 
-function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
+function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key, priorLine) {
   if (!lines.length || !lines[0].points.length) {
     return '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:var(--fs-md)">Not enough history to display a trend chart. Score a few customers to get started.</p>';
   }
@@ -486,16 +764,18 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
   const m1Cfg = METRIC_CFG[m1Key] || METRIC_CFG.score;
   const m2Cfg = m2Key ? (METRIC_CFG[m2Key] || null) : null;
   const hasM2 = !!(m2Line && m2Line.points.length);
+  const hasPrior = !!(priorLine && priorLine.points.length >= 2);
 
-  const W = 960, H = 260;
-  const pad = { top: 14, right: hasM2 ? 72 : 56, bottom: 36, left: 44 };
+  const W = 960, H = 250;
+  const pad = { top: 16, right: hasM2 ? 66 : 48, bottom: 32, left: 44 };
   const cW = W - pad.left - pad.right;
   const cH = H - pad.top - pad.bottom;
 
-  // Collect all dates across all lines + secondary
+  // Collect all dates across all lines + secondary + prior
   const allDates = new Set();
   lines.forEach(l => l.points.forEach(p => allDates.add(p.date)));
   if (hasM2) m2Line.points.forEach(p => allDates.add(p.date));
+  if (hasPrior) priorLine.points.forEach(p => allDates.add(p.date));
   const dates = [...allDates].sort();
   if (!dates.length) {
     return '<p style="color:var(--subtle);text-align:center;padding:40px 0;font-size:var(--fs-md)">No data points in this range.</p>';
@@ -504,10 +784,13 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
   const xScale = (i) => pad.left + (dates.length === 1 ? cW/2 : (i / (dates.length - 1)) * cW);
 
   // ── Y-axis scales ──
-  const yL = _trendNiceScale(lines, m1Cfg.fixed);
+  const yL = _trendNiceScale(hasPrior ? [...lines, priorLine] : lines, m1Cfg.fixed);
   const yR = hasM2 ? _trendNiceScale([m2Line], m2Cfg.fixed) : null;
   const yScaleL = (v) => pad.top + cH - ((v - yL.min) / (yL.max - yL.min || 1)) * cH;
   const yScaleR = yR ? (v) => pad.top + cH - ((v - yR.min) / (yR.max - yR.min || 1)) * cH : null;
+
+  // ── Chart font ──
+  const _chartFont = "'DM Mono',monospace";
 
   // ── Status bands (only when 'score' is selected) ──
   let bandSVG = '';
@@ -525,13 +808,13 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
     bandSVG = bandDefs.map(b => {
       const y = yFn(b.y1);
       const h = yFn(b.y0) - y;
-      return `<rect x="${pad.left}" y="${y}" width="${cW}" height="${h}" fill="${b.color}" opacity="0.055"/>`;
+      return `<rect x="${pad.left}" y="${y}" width="${cW}" height="${h}" fill="${b.color}" opacity="0.04"/>`;
     }).join('');
     // Band labels on right edge only when no secondary axis
     if (!hasM2) {
       bandSVG += bandDefs.map(b => {
         const midY = (yFn(b.y1) + yFn(b.y0)) / 2;
-        return `<text x="${W - pad.right + 6}" y="${midY + 3}" font-size="8" fill="${b.color}" opacity="0.6" font-weight="700">${b.label}</text>`;
+        return `<text x="${W - pad.right + 6}" y="${midY + 3}" font-size="8" font-family="${_chartFont}" fill="${b.color}" opacity="0.5" font-weight="600">${b.label}</text>`;
       }).join('');
     }
   }
@@ -539,23 +822,31 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
   // ── Left Y-axis grid lines + labels ──
   let gridSVG = '';
   if (m1Key === 'score' && m1Cfg.fixed) {
-    // Health score 0-100: dense grid with major/minor lines
-    for (let v = yL.min; v <= yL.max; v += 10) {
+    // Health score 0-100: faint guide lines at 25, 50, 75 + edge labels
+    [0, 25, 50, 75, 100].forEach(v => {
+      if (v < yL.min || v > yL.max) return;
       const y = yScaleL(v);
-      const isMajor = v % 25 === 0;
-      gridSVG += `<line x1="${pad.left}" y1="${y}" x2="${W-pad.right}" y2="${y}" stroke="var(--border)" stroke-width="${isMajor?1:0.5}" opacity="${isMajor?0.7:0.35}" stroke-dasharray="${v===yL.min||v===yL.max?'0':'3,3'}"/>`;
-      if (v % 20 === 0) {
-        gridSVG += `<text x="${pad.left-8}" y="${y+3}" text-anchor="end" font-size="8" font-weight="${isMajor?'600':'400'}" fill="var(--subtle)">${m1Cfg.axFmt(v)}</text>`;
+      const isEdge = v === yL.min || v === yL.max;
+      if (!isEdge) {
+        gridSVG += `<line x1="${pad.left}" y1="${y}" x2="${W-pad.right}" y2="${y}" stroke="#cbd5e1" stroke-width="0.5" opacity="0.45"/>`;
       }
-    }
+      gridSVG += `<text x="${pad.left-8}" y="${y+3}" text-anchor="end" font-size="8" font-weight="500" font-family="${_chartFont}" fill="#94a3b8">${m1Cfg.axFmt(v)}</text>`;
+    });
   } else {
-    // All other metrics: use computed step for clean grid
-    const step = yL.step;
-    for (let v = yL.min; v <= yL.max + step * 0.01; v += step) {
+    // All other metrics: 4 evenly spaced guide lines
+    const gRange = yL.max - yL.min;
+    const gStep = gRange / 4;
+    // Smart precision: show decimals when range is small
+    const _axDec = gStep < 1 ? 1 : 0;
+    for (let i = 0; i <= 4; i++) {
+      const v = yL.min + i * gStep;
       const y = yScaleL(v);
-      const isEdge = Math.abs(v - yL.min) < 0.01 || Math.abs(v - yL.max) < 0.01;
-      gridSVG += `<line x1="${pad.left}" y1="${y}" x2="${W-pad.right}" y2="${y}" stroke="var(--border)" stroke-width="${isEdge?1:0.5}" opacity="${isEdge?0.7:0.35}" stroke-dasharray="${isEdge?'0':'3,3'}"/>`;
-      gridSVG += `<text x="${pad.left-8}" y="${y+3}" text-anchor="end" font-size="8" font-weight="${isEdge?'600':'400'}" fill="var(--subtle)">${m1Cfg.axFmt(v)}</text>`;
+      const isEdge = i === 0 || i === 4;
+      if (!isEdge) {
+        gridSVG += `<line x1="${pad.left}" y1="${y}" x2="${W-pad.right}" y2="${y}" stroke="#cbd5e1" stroke-width="0.5" opacity="0.45"/>`;
+      }
+      const vLabel = _axDec ? v.toFixed(_axDec) : String(Math.round(v));
+      gridSVG += `<text x="${pad.left-8}" y="${y+3}" text-anchor="end" font-size="8" font-weight="500" font-family="${_chartFont}" fill="#94a3b8">${m1Cfg.axFmt(parseFloat(vLabel))}</text>`;
     }
   }
 
@@ -565,7 +856,7 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
     const step = yR.step;
     for (let v = yR.min; v <= yR.max + step * 0.01; v += step) {
       const y = yScaleR(v);
-      rightAxisSVG += `<text x="${W-pad.right+8}" y="${y+3}" font-size="8" fill="${m2Line.color}" opacity="0.75" font-weight="500">${m2Cfg.axFmt(v)}</text>`;
+      rightAxisSVG += `<text x="${W-pad.right+8}" y="${y+3}" font-size="8.5" font-family="${_chartFont}" fill="${m2Line.color}" opacity="0.75" font-weight="500">${m2Cfg.axFmt(v)}</text>`;
     }
     // Right axis line
     rightAxisSVG += `<line x1="${W-pad.right}" y1="${pad.top}" x2="${W-pad.right}" y2="${yScaleL(yL.min)}" stroke="${m2Line.color}" stroke-width="1" opacity="0.25"/>`;
@@ -574,20 +865,30 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
   // ── X-axis date labels ──
   let xLabels = '';
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const labelEvery = rangeDays <= 7 ? 1 : rangeDays <= 30 ? 2 : rangeDays <= 90 ? 7 : rangeDays <= 180 ? 14 : 30;
+  // Smart x-axis: show fewer labels on longer timeframes, include year for 1y+
+  const _xLabelEvery = rangeDays <= 7 ? 1 : rangeDays <= 30 ? Math.ceil(dates.length / 12) : rangeDays <= 90 ? Math.ceil(dates.length / 10) : rangeDays <= 180 ? Math.ceil(dates.length / 8) : Math.ceil(dates.length / 7);
+  const _showYear = rangeDays > 180;
   dates.forEach((d, i) => {
     const x = xScale(i);
     const parts = d.split('-');
+    const yr = parts[0].slice(2);
     const mo = parseInt(parts[1]) - 1;
     const day = parseInt(parts[2]);
-    // Vertical tick marks
-    if (rangeDays <= 30 || (rangeDays <= 90 && i % 3 === 0) || i % 7 === 0) {
-      xLabels += `<line x1="${x}" y1="${yScaleL(yL.min)}" x2="${x}" y2="${yScaleL(yL.min)+4}" stroke="var(--border)" stroke-width="0.5" opacity="0.5"/>`;
+    // Subtle tick marks
+    if (i % Math.max(1, Math.ceil(_xLabelEvery / 2)) === 0) {
+      xLabels += `<line x1="${x}" y1="${yScaleL(yL.min)}" x2="${x}" y2="${yScaleL(yL.min)+3}" stroke="#e2e8f0" stroke-width="0.5" opacity="0.4"/>`;
     }
-    // Labels
-    if (i % labelEvery === 0 || i === dates.length - 1) {
-      const lbl = monthNames[mo] + ' ' + day;
-      xLabels += `<text x="${x}" y="${H - pad.bottom + 16}" text-anchor="middle" font-size="7.5" fill="var(--subtle)">${lbl}</text>`;
+    // Labels — smarter formatting
+    if (i % _xLabelEvery === 0 || i === dates.length - 1) {
+      let lbl;
+      if (_showYear && day <= 7) {
+        lbl = monthNames[mo] + " '" + yr;
+      } else if (rangeDays > 90) {
+        lbl = monthNames[mo] + ' ' + day;
+      } else {
+        lbl = monthNames[mo] + ' ' + day;
+      }
+      xLabels += `<text x="${x}" y="${H - pad.bottom + 16}" text-anchor="middle" font-size="8" font-family="${_chartFont}" fill="#94a3b8">${lbl}</text>`;
     }
   });
 
@@ -596,6 +897,9 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
   const dateIdx = {};
   dates.forEach((d,i) => { dateIdx[d] = i; });
 
+  // Max rendered points — downsample for smoother lines on long ranges
+  const _maxRPts = rangeDays > 365 ? 90 : rangeDays > 180 ? 120 : 9999;
+
   const _hasBreakdown = lines.some(l => l.dashed);
   lines.forEach((line, lineIdx) => {
     const pts = line.points.filter(p => dateIdx[p.date] !== undefined && !isNaN(p.avg))
@@ -603,7 +907,8 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
     if (pts.length < 2) return;
 
     // Area fill under the main line (first line only, skip in breakdown mode)
-    const xyPts = pts.map(p => ({ x: xScale(dateIdx[p.date]), y: yScaleL(p.avg) }));
+    const xyPtsRaw = pts.map(p => ({ x: xScale(dateIdx[p.date]), y: yScaleL(p.avg) }));
+    const xyPts = _downsampleXY(xyPtsRaw, _maxRPts);
     if (lineIdx === 0 && !_hasBreakdown) {
       const areaBottom = yScaleL(yL.min);
       const firstX = xyPts[0].x;
@@ -625,18 +930,21 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
     const lineOp = line.dashed ? '0.45' : '0.9';
     linesSVG += `<path d="${smoothD}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linecap="round" opacity="${lineOp}"${dashAttr}/>`;
 
-    // Value labels on main line only (no dots)
-    if (!line.dashed && !_hasBreakdown && lineIdx === 0) {
-      const labelSkip = pts.length <= 15 ? 1 : pts.length <= 30 ? 2 : pts.length <= 60 ? 4 : 7;
-      pts.forEach((p, pi) => {
-        if (pi % labelSkip === 0 || pi === pts.length - 1) {
-          const cx = xScale(dateIdx[p.date]);
-          const cy = yScaleL(p.avg);
-          linesSVG += `<text x="${cx}" y="${cy - 6}" text-anchor="middle" font-size="7" font-weight="700" fill="${line.color}">${m1Cfg.fmt(p.avg)}</text>`;
-        }
-      });
-    }
+    // No inline labels — hover tooltip shows exact values for all lines
   });
+
+  // ── Draw prior-period comparison line (dashed, muted gray) ──
+  if (hasPrior) {
+    const pPts = priorLine.points
+      .filter(p => dateIdx[p.date] !== undefined && !isNaN(p.avg))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    if (pPts.length >= 2) {
+      const pXYraw = pPts.map(p => ({ x: xScale(dateIdx[p.date]), y: yScaleL(p.avg) }));
+      const pXY = _downsampleXY(pXYraw, _maxRPts);
+      const pSmooth = _smoothPath(pXY);
+      linesSVG += `<path d="${pSmooth}" fill="none" stroke="${priorLine.color}" stroke-width="${priorLine.width}" stroke-linecap="round" opacity="0.5" stroke-dasharray="6,4"/>`;
+    }
+  }
 
   // ── Draw secondary metric line (dashed, right Y-axis) ──
   if (hasM2 && yScaleR) {
@@ -644,7 +952,8 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
       .sort((a,b) => a.date.localeCompare(b.date));
     if (pts.length >= 2) {
       // Subtle area fill (smooth)
-      const xyPts2 = pts.map(p => ({ x: xScale(dateIdx[p.date]), y: yScaleR(p.avg) }));
+      const xyPts2raw = pts.map(p => ({ x: xScale(dateIdx[p.date]), y: yScaleR(p.avg) }));
+      const xyPts2 = _downsampleXY(xyPts2raw, _maxRPts);
       const areaBottom = yScaleR(yR.min);
       const firstX = xyPts2[0].x;
       const lastX = xyPts2[xyPts2.length-1].x;
@@ -665,29 +974,73 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
     }
   }
 
-  // ── Build tooltip data ──
-  _trendTipData = dates.map((d) => {
+  // ── Build tooltip data (Map-based for reliable lookups) ──
+  // Pre-build date→value maps for each line (fast O(1) lookup)
+  // Also track last-known value so hovering between sparse points still works
+  const _lineMaps = lines.map(l => {
+    const m = new Map();
+    l.points.forEach(p => m.set(p.date, p.avg));
+    return m;
+  });
+  const _m2Map = hasM2 ? (() => { const m = new Map(); m2Line.points.forEach(p => m.set(p.date, p.avg)); return m; })() : null;
+
+  // Build carry-forward lookup: for each line, at each date index, store last known value
+  const _lineCarry = _lineMaps.map(lm => {
+    let last = null;
+    return dates.map(d => {
+      if (lm.has(d)) last = lm.get(d);
+      return last;
+    });
+  });
+  let _m2Carry = null;
+  if (_m2Map) {
+    let last = null;
+    _m2Carry = dates.map(d => {
+      if (_m2Map.has(d)) last = _m2Map.get(d);
+      return last;
+    });
+  }
+
+  // Prior-period carry-forward for tooltip
+  let _priorCarry = null;
+  if (hasPrior) {
+    const priorMap = new Map();
+    priorLine.points.forEach(p => priorMap.set(p.date, p.avg));
+    let last = null;
+    _priorCarry = dates.map(d => {
+      if (priorMap.has(d)) last = priorMap.get(d);
+      return last;
+    });
+  }
+
+  _trendTipData = dates.map((d, di) => {
     const parts = d.split('-');
     const mo = parseInt(parts[1]) - 1;
     const day = parseInt(parts[2]);
     const dateLabel = monthNames[mo] + ' ' + day;
 
-    const primaryVals = lines.map(l => {
-      const pt = l.points.find(x => x.date === d);
-      return pt ? { label: l.label, color: l.color, val: m1Cfg.fmt(pt.avg) } : null;
+    const primaryVals = lines.map((l, li) => {
+      const val = _lineCarry[li][di];
+      return val !== null ? { label: l.label, color: l.color, val: m1Cfg.fmt(val) } : null;
     }).filter(Boolean);
 
     let secondaryVal = null;
-    if (hasM2 && m2Cfg) {
-      const pt = m2Line.points.find(x => x.date === d);
-      if (pt) secondaryVal = { label: m2Line.label, color: m2Line.color, val: m2Cfg.fmt(pt.avg) };
+    if (hasM2 && m2Cfg && _m2Carry) {
+      const val = _m2Carry[di];
+      if (val !== null) secondaryVal = { label: m2Line.label, color: m2Line.color, val: m2Cfg.fmt(val) };
     }
 
-    return { dateLabel, primaryVals, secondaryVal };
+    let priorVal = null;
+    if (_priorCarry) {
+      const val = _priorCarry[di];
+      if (val !== null) priorVal = { label: priorLine.label, color: priorLine.color, val: m1Cfg.fmt(val) };
+    }
+
+    return { dateLabel, primaryVals, secondaryVal, priorVal };
   });
 
-  // ── Hover columns ──
-  let hoverSVG = '';
+  // ── Hover columns with crosshair line ──
+  let hoverSVG = `<line id="trend-crosshair" x1="0" y1="${pad.top}" x2="0" y2="${yScaleL(yL.min)}" stroke="#94a3b8" stroke-width="0.75" stroke-dasharray="3,3" opacity="0" pointer-events="none"/>`;
   const colW = dates.length > 1 ? cW / (dates.length - 1) : cW;
   dates.forEach((d, i) => {
     const cx = xScale(i);
@@ -697,10 +1050,12 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key) {
   });
 
   // ── Axis border lines ──
-  let axisSVG = `<line x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${yScaleL(yL.min)}" stroke="var(--border)" stroke-width="1.5" opacity="0.5"/>`;
-  axisSVG += `<line x1="${pad.left}" y1="${yScaleL(yL.min)}" x2="${W-pad.right}" y2="${yScaleL(yL.min)}" stroke="var(--border)" stroke-width="1.5" opacity="0.5"/>`;
+  let axisSVG = `<line x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${yScaleL(yL.min)}" stroke="#cbd5e1" stroke-width="1" opacity="0.5"/>`;
+  axisSVG += `<line x1="${pad.left}" y1="${yScaleL(yL.min)}" x2="${W-pad.right}" y2="${yScaleL(yL.min)}" stroke="#cbd5e1" stroke-width="1" opacity="0.5"/>`;
 
-  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;display:block">
+  const _fadeStyle = _trendFirstRender ? 'opacity:0;animation:trendFadeIn .4s ease forwards' : '';
+  _trendFirstRender = false;
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;display:block;font-family:'DM Mono',ui-monospace,monospace;${_fadeStyle}">
     ${bandSVG}${gridSVG}${rightAxisSVG}${axisSVG}${xLabels}${linesSVG}${hoverSVG}
   </svg>`;
 }
@@ -716,12 +1071,19 @@ function showTrendTip(evt, cx, colIdx) {
   const data = _trendTipData[colIdx];
   if (!data) return;
 
+  // Move crosshair
+  const ch = document.getElementById('trend-crosshair');
+  if (ch) { ch.setAttribute('x1', cx); ch.setAttribute('x2', cx); ch.setAttribute('opacity', '0.5'); }
+
   let rows = '';
   data.primaryVals.forEach(v => {
-    rows += `<div style="display:flex;align-items:center;gap:6px;margin-top:3px"><span style="width:8px;height:8px;border-radius:50%;background:${v.color};flex-shrink:0"></span><span>${v.label}</span><strong style="margin-left:auto">${v.val}</strong></div>`;
+    rows += `<div style="display:flex;align-items:center;gap:6px;margin-top:3px"><span style="width:8px;height:8px;border-radius:50%;background:${v.color};flex-shrink:0"></span><span>${v.label}</span><strong style="margin-left:auto;font-family:'DM Mono',monospace">${v.val}</strong></div>`;
   });
+  if (data.priorVal) {
+    rows += `<div style="display:flex;align-items:center;gap:6px;margin-top:4px;border-top:1px solid var(--border);padding-top:4px;opacity:0.65"><span style="width:14px;height:0;border-top:2px dashed ${data.priorVal.color};flex-shrink:0"></span><span>${data.priorVal.label}</span><strong style="margin-left:auto;font-family:'DM Mono',monospace">${data.priorVal.val}</strong></div>`;
+  }
   if (data.secondaryVal) {
-    rows += `<div style="display:flex;align-items:center;gap:6px;margin-top:4px;border-top:1px solid var(--border);padding-top:4px"><span style="width:14px;height:0;border-top:2.5px dashed ${data.secondaryVal.color};flex-shrink:0"></span><span>${data.secondaryVal.label}</span><strong style="margin-left:auto">${data.secondaryVal.val}</strong></div>`;
+    rows += `<div style="display:flex;align-items:center;gap:6px;margin-top:4px;border-top:1px solid var(--border);padding-top:4px"><span style="width:14px;height:0;border-top:2.5px dashed ${data.secondaryVal.color};flex-shrink:0"></span><span>${data.secondaryVal.label}</span><strong style="margin-left:auto;font-family:'DM Mono',monospace">${data.secondaryVal.val}</strong></div>`;
   }
 
   tip.innerHTML = `<div style="font-weight:700;margin-bottom:4px;font-size:var(--fs-base)">${data.dateLabel}</div>${rows}`;
@@ -734,13 +1096,21 @@ function showTrendTip(evt, cx, colIdx) {
   const scaleX = rect.width / 960;
   const left = (cx * scaleX) + (rect.left - wRect.left);
   tip.style.display = 'block';
-  tip.style.left = (left + 14) + 'px';
+  // Flip to left side if too close to right edge
+  const tipW = tip.offsetWidth || 160;
+  if (left + tipW + 20 > wRect.width) {
+    tip.style.left = (left - tipW - 14) + 'px';
+  } else {
+    tip.style.left = (left + 14) + 'px';
+  }
   tip.style.top = '8px';
 }
 
 function hideTrendTip() {
   const tip = document.getElementById('trend-tip');
   if (tip) tip.style.display = 'none';
+  const ch = document.getElementById('trend-crosshair');
+  if (ch) ch.setAttribute('opacity', '0');
 }
 
 /* ═══════════════ TREND ANALYSIS ═══════════════ */
@@ -755,6 +1125,12 @@ const _taSvg = {
   bar:    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
   drop:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>'
 };
+
+// Clickable customer name link for analysis insights
+function _taCustLink(name, id) {
+  const safeId = (id || '').replace(/'/g, "\\'");
+  return `<a href="#" onclick="event.preventDefault();openDetail('${safeId}')" style="color:var(--blue);font-weight:700;text-decoration:none;border-bottom:1px dashed var(--blue)">${escHtml(name)}</a>`;
+}
 
 function _fmtTaVal(v, metricKey) {
   const cfg = METRIC_CFG[metricKey];
@@ -1230,7 +1606,7 @@ function _taDropAttribution(active, data1, metricKey, cutoff, rangeDays) {
     const pe = findClosest(peakT);
     const te = findClosest(troughT);
     const sv = cfg.val(pe, c), ev = cfg.val(te, c);
-    if (sv != null && ev != null) custDeltas.push({ name: c.name, delta: ev - sv });
+    if (sv != null && ev != null) custDeltas.push({ name: c.name, id: c.id, delta: ev - sv });
   });
 
   let concentrationNote = '';
@@ -1244,9 +1620,9 @@ function _taDropAttribution(active, data1, metricKey, cutoff, rangeDays) {
       declined.sort((a, b) => a.delta - b.delta);
       const fv = v => _fmtTaVal(Math.abs(v), metricKey);
       if (declined.length === 1) {
-        concentrationNote = ` This was driven primarily by <strong>${escHtml(declined[0].name)}</strong> (down ${fv(declined[0].delta)}) — the remaining ${custDeltas.length - 1} accounts were relatively flat.`;
+        concentrationNote = ` This was driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv(declined[0].delta)}) — the remaining ${custDeltas.length - 1} accounts were relatively flat.`;
       } else {
-        concentrationNote = ` Driven primarily by <strong>${escHtml(declined[0].name)}</strong> (down ${fv(declined[0].delta)}) and <strong>${escHtml(declined[1].name)}</strong> (down ${fv(declined[1].delta)}) — most of the other ${custDeltas.length - 2} accounts were relatively flat.`;
+        concentrationNote = ` Driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv(declined[0].delta)}) and ${_taCustLink(declined[1].name, declined[1].id)} (down ${fv(declined[1].delta)}) — most of the other ${custDeltas.length - 2} accounts were relatively flat.`;
       }
     } else if (pctDeclined >= 60) {
       if (custDeltas.length <= 5) {

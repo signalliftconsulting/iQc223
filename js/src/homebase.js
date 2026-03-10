@@ -9,6 +9,9 @@ function setInsightFilter(label, ids) {
   if (!ids || !ids.length) return;
   insightFilter = { label: label, ids: new Set(ids) };
   mrrExposureFilter = null;
+  _filterTier = null;
+  _filterStage = null;
+  _filterManager = null;
   filterMode = 'all';
   columnFilters = {};
   nav('customers');
@@ -28,6 +31,7 @@ const _hbSvg = {
   calendar: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
   // Insight category icons (16x16)
   trend: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
+  trendDown: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>',
   risk: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
   renewal: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
   workload: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
@@ -457,11 +461,7 @@ function _renderHomeBase() {
   const _ringCirc = 2 * Math.PI * 40;
   const _ringOffset = _ringCirc - (_portfolioScore / 100) * _ringCirc;
 
-  const _momUp = avgDelta > 0, _momDn = avgDelta < 0, _momStrong = Math.abs(avgDelta) > 2;
-  const _welcomeBg = _momUp ? (_momStrong ? 'rgba(22,163,74,.05)' : 'rgba(22,163,74,.025)') : _momDn ? (_momStrong ? 'rgba(239,68,68,.05)' : 'rgba(239,68,68,.025)') : '#fff';
-  const _borderGrad = _momUp ? 'linear-gradient(135deg,#16a34a,#10b981,#06b6d4,#16a34a)' : _momDn ? 'linear-gradient(135deg,#ef4444,#f97316,#ef4444,#dc2626)' : '';
-  const _glowGrad = _momUp ? 'radial-gradient(circle,rgba(22,163,74,.07) 0%,rgba(16,185,129,.03) 40%,transparent 70%)' : _momDn ? 'radial-gradient(circle,rgba(239,68,68,.07) 0%,rgba(249,115,22,.03) 40%,transparent 70%)' : '';
-  const _welcomeVars = `background:${_welcomeBg}` + (_borderGrad ? `;--hb-border-grad:${_borderGrad}` : '') + (_glowGrad ? `;--hb-glow:${_glowGrad}` : '');
+  const _welcomeVars = 'background:#fff';
   html += `<div class="hb-welcome" style="${_welcomeVars}">`;
   html += '<div class="hb-welcome-grid">';
 
@@ -480,7 +480,7 @@ function _renderHomeBase() {
     <div class="hb-pulse-center">
       <div class="hb-pulse-num">${_portfolioScore}</div>
       <div class="hb-pulse-lbl">Portfolio</div>
-      <div class="hb-pulse-delta" style="color:${avgDelta > 0 ? 'var(--green)' : avgDelta < 0 ? 'var(--red)' : 'var(--muted)'}">${avgDelta > 0 ? '\u25B2' : avgDelta < 0 ? '\u25BC' : ''} ${avgDelta !== 0 ? Math.abs(avgDelta) : ''}</div>
+      <div class="hb-pulse-delta" style="color:${avgDelta > 0 ? 'var(--green)' : avgDelta < 0 ? 'var(--red)' : 'var(--muted)'}">${avgDelta > 0 ? '\u25B2 ' + Math.abs(avgDelta) : avgDelta < 0 ? '\u25BC ' + Math.abs(avgDelta) : '— Flat'}</div>
     </div>
   </div>`;
   html += '<div class="hb-quick-stats">';
@@ -525,10 +525,16 @@ function _renderHomeBase() {
   // Health bar segment widths
   const hbPct = (arr) => total ? (arr.length / total * 100).toFixed(1) + '%' : '0%';
 
+  // Dynamic number colors (headers stay static)
+  const _hbRiskValColor = atRiskMRR > 0 ? '#dc2626' : '#16a34a';
+  const _hbRenewValColor = renewals30.length >= 10 ? '#dc2626' : renewals30.length >= 5 ? '#d97706' : '';
+  const _hbExpValColor = expand.length > 0 ? '#16a34a' : '';
+  const _hbScoreValColor = avgScore >= 65 ? '#16a34a' : avgScore >= 50 ? '#d97706' : '#dc2626';
+
   html += '<div class="dash-kpi-row">';
 
   // Card 1: Book Health
-  html += `<div class="dash-kpi-card dash-kpi-blue" onclick="nav('customers');setFilter('all')">
+  html += `<div class="dash-kpi-card dash-kpi-blue" title="Total active accounts and health distribution. Click to view all customers." onclick="nav('customers');setFilter('all')">
     <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.people)}<span class="dash-kpi-label">Book Health</span></div>
     <div class="dash-kpi-body">
       <div class="dash-kpi-num">${total}</div>
@@ -551,10 +557,10 @@ function _renderHomeBase() {
 
   // Card 2: Revenue at Risk
   const _arIds = JSON.stringify(atRisk.map(c => c.id)).replace(/"/g,'&quot;');
-  html += `<div class="dash-kpi-card dash-kpi-red" onclick="setInsightFilter('${atRisk.length} at-risk accounts (Critical + Risk)',${_arIds})">
+  html += `<div class="dash-kpi-card dash-kpi-red" title="Monthly recurring revenue in Critical and Risk accounts. Click to view at-risk accounts." onclick="setInsightFilter('${atRisk.length} at-risk accounts (Critical + Risk)',${_arIds})">
     <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.alert)}<span class="dash-kpi-label">Revenue at Risk</span></div>
     <div class="dash-kpi-body">
-      <div class="dash-kpi-num">$${fmtNum(atRiskMRR)}</div>
+      <div class="dash-kpi-num" style="color:${_hbRiskValColor}">$${fmtNum(atRiskMRR)}</div>
       <div class="dash-kpi-sub">MRR in At Risk accounts</div>
       <div style="margin-top:10px"><span class="dash-kpi-pill red">${atRisk.length} account${atRisk.length !== 1 ? 's' : ''}</span></div>
     </div>
@@ -562,10 +568,10 @@ function _renderHomeBase() {
 
   // Card 3: Upcoming Renewals
   const _r30Ids = JSON.stringify(renewals30.map(c => c.id)).replace(/"/g,'&quot;');
-  html += `<div class="dash-kpi-card dash-kpi-teal" onclick="setInsightFilter('${renewals30.length} upcoming renewals (30 days)',${_r30Ids})">
+  html += `<div class="dash-kpi-card dash-kpi-teal" title="Customer contracts renewing within the next 30 days. Click to view upcoming renewals." onclick="setInsightFilter('${renewals30.length} upcoming renewals (30 days)',${_r30Ids})">
     <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.cal)}<span class="dash-kpi-label">Upcoming Renewals</span></div>
     <div class="dash-kpi-body">
-      <div class="dash-kpi-num">${renewals30.length}</div>
+      <div class="dash-kpi-num"${_hbRenewValColor ? ` style="color:${_hbRenewValColor}"` : ''}>${renewals30.length}</div>
       <div class="dash-kpi-sub">Due in next 30 days</div>
       <div style="margin-top:10px"><span class="dash-kpi-pill teal">${renewMRR ? '$' + fmtNum(renewMRR) + ' at stake' : 'None due'}</span></div>
     </div>
@@ -578,22 +584,22 @@ function _renderHomeBase() {
   const expSub = expansionConfig.mode === 'flat'
     ? `Est. upsell potential ($${fmtNum(expansionConfig.flat)}/acct)`
     : `Est. upsell potential (${expansionConfig.pct}%)`;
-  html += `<div class="dash-kpi-card dash-kpi-green" onclick="nav('customers');setFilter('expand')">
+  html += `<div class="dash-kpi-card dash-kpi-green" title="Estimated upsell potential from expansion-ready accounts. Click to view expansion candidates." onclick="nav('customers');setFilter('expand')">
     <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.trend)}<span class="dash-kpi-label">Expansion Opportunity</span></div>
     <div class="dash-kpi-body">
-      <div class="dash-kpi-num">$${fmtNum(expEst)}</div>
+      <div class="dash-kpi-num"${_hbExpValColor ? ` style="color:${_hbExpValColor}"` : ''}>$${fmtNum(expEst)}</div>
       <div class="dash-kpi-sub">${expSub}</div>
       <div style="margin-top:10px"><span class="dash-kpi-pill green">${expand.length} account${expand.length !== 1 ? 's' : ''} ready</span></div>
     </div>
   </div>`;
 
   // Card 5: Total MRR
-  html += `<div class="dash-kpi-card dash-kpi-purple" onclick="nav('customers');setFilter('all')">
+  html += `<div class="dash-kpi-card dash-kpi-purple" title="Total monthly recurring revenue across all active accounts. Click to view all customers." onclick="nav('customers');setFilter('all')">
     <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.dollar)}<span class="dash-kpi-label">Total MRR</span></div>
     <div class="dash-kpi-body">
       <div class="dash-kpi-num">$${fmtNum(totalMRR)}</div>
       <div class="dash-kpi-sub">All active accounts</div>
-      <div style="margin-top:10px"><span class="dash-kpi-pill blue">Avg score ${avgScore}</span></div>
+      <div style="margin-top:10px"><span class="dash-kpi-pill blue">Avg score <span style="color:${_hbScoreValColor}">${avgScore}</span></span></div>
     </div>
   </div>`;
 
@@ -601,7 +607,7 @@ function _renderHomeBase() {
 
   // ── Renewal Pipeline (moved from Dashboard) ──
   html += '<div class="card" style="margin-bottom:20px">';
-  html += '<div class="card-hd-bar"><span class="card-hd-bar__title">Renewal Pipeline</span></div>';
+  html += '<div class="card-hd-bar" title="Upcoming renewals grouped by time horizon. Prioritize at-risk renewals first."><span class="card-hd-bar__title">Renewal Pipeline</span></div>';
   html += '<div class="card-body" id="renewal-pipeline-wrap"></div>';
   html += '</div>';
 
@@ -630,13 +636,13 @@ function _renderHomeBase() {
 
   // ── Most Improved / Biggest Drops (moved from Dashboard) ──
   html += '<div class="hb-movers-grid">';
-  html += '<div class="card"><div class="card-hd-bar" style="background:#16a34a"><span class="card-hd-bar__title">Most Improved</span><span class="card-hd-bar__badge">7d</span></div><div class="card-body" id="wins-wrap"></div></div>';
-  html += '<div class="card"><div class="card-hd-bar" style="background:#dc2626"><span class="card-hd-bar__title">Biggest Drops</span><span class="card-hd-bar__badge">7d</span></div><div class="card-body" id="drops-wrap"></div></div>';
+  html += '<div class="card"><div class="card-hd-bar" style="background:#16a34a" title="Accounts with the biggest health score gains over the past 7 days."><span class="card-hd-bar__title">Most Improved</span><span class="card-hd-bar__badge">7d</span></div><div class="card-body" id="wins-wrap"></div></div>';
+  html += '<div class="card"><div class="card-hd-bar" style="background:#dc2626" title="Accounts with the steepest health score drops over the past 7 days."><span class="card-hd-bar__title">Biggest Drops</span><span class="card-hd-bar__badge">7d</span></div><div class="card-body" id="drops-wrap"></div></div>';
   html += '</div>';
 
   // ── Signal Heatmap (moved from Dashboard) ──
   html += '<div class="card">';
-  html += '<div class="card-hd-bar"><span class="card-hd-bar__title">Signal Heatmap</span></div>';
+  html += '<div class="card-hd-bar" title="Health signals for each customer across key metrics. Click column headers to sort."><span class="card-hd-bar__title">Signal Heatmap</span></div>';
   html += '<div class="card-body heatmap" id="heatmap-wrap"></div>';
   html += '</div>';
 
@@ -1163,6 +1169,7 @@ function _insightDayOverDay(active) {
 
   return {
     category: 'Trend',
+    icon: 'trendDown',
     priority: 1,
     title,
     detail,
@@ -1204,7 +1211,7 @@ function _renderInsightCard(ins) {
   };
   const c = catColors[ins.category] || catColors['Trend'];
   const catClass = _hbCatClass[ins.category] || 'trend';
-  const iconKey = _hbCatIcon[ins.category] || 'trend';
+  const iconKey = ins.icon || _hbCatIcon[ins.category] || 'trend';
   const iconSvg = _hbSvg[iconKey] || _hbSvg.trend;
 
   // Priority class for background tinting
@@ -1227,9 +1234,40 @@ function _renderInsightCard(ins) {
 // Signal heatmap, wins/drops, renewal pipeline — all called by renderHomeBase()
 
 // ─── SIGNAL HEATMAP ─────────────────────────────────────────
+let _heatSearch = '';
+const HEAT_COLS = [
+  { key:'name',     label:'Customer',  ftype:'text',   sortFn:"dashHeatSortBy('name')" },
+  { key:'score',    label:'Score',     ftype:'number', sortFn:"dashHeatSortBy('score')" },
+  { key:'logins',   label:'Logins',    ftype:'number', sortFn:"dashHeatSortBy('logins')" },
+  { key:'adoption', label:'Adoption',  ftype:'number', sortFn:"dashHeatSortBy('adoption')" },
+  { key:'tickets',  label:'Tickets',   ftype:'number', sortFn:"dashHeatSortBy('tickets')" },
+  { key:'nps',      label:'NPS',       ftype:'number', sortFn:"dashHeatSortBy('nps')" },
+  { key:'csat',     label:'CSAT',      ftype:'number', sortFn:"dashHeatSortBy('csat')" },
+  { key:'days',     label:'Last Cont.',ftype:'number', sortFn:"dashHeatSortBy('days')" },
+  { key:'growth',   label:'Growth',    ftype:'enum',   sortFn:"dashHeatSortBy('growth')", enumVals:['none','mild','strong'] },
+];
+const _heatCF = makeColFilters('heat', 'hb-filter-portal', HEAT_COLS, function() {
+  renderHeatmap(customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c)));
+});
+function _heatVal(c, key) {
+  if (key === 'name') return (c.name || '').toLowerCase();
+  if (key === 'score') return c.score || 0;
+  if (key === 'logins') return c.logins != null ? c.logins : -1;
+  if (key === 'adoption') return c.adoption != null ? c.adoption : -1;
+  if (key === 'tickets') return c.tickets != null ? c.tickets : -1;
+  if (key === 'nps') return npsNormalized(c.nps);
+  if (key === 'csat') return csatNormalized(c.csat);
+  if (key === 'days') return c.days != null ? c.days : -1;
+  if (key === 'growth') return c.growth || 'none';
+  return 0;
+}
 function dashHeatSortBy(key) {
   if (dashHeatSort.key === key) dashHeatSort.dir *= -1;
   else { dashHeatSort.key = key; dashHeatSort.dir = key === 'name' ? 1 : -1; }
+  renderHeatmap(customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c)));
+}
+function heatSearchFilter(val) {
+  _heatSearch = (val || '').toLowerCase();
   renderHeatmap(customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c)));
 }
 
@@ -1241,9 +1279,12 @@ function renderHeatmap(active) {
     return;
   }
 
+  // Filter by search
+  const heatFiltered = _heatSearch ? active.filter(c => c.name.toLowerCase().includes(_heatSearch) || (c.manager||'').toLowerCase().includes(_heatSearch)) : active;
+
   // Sort — NPS/CSAT sort uses normalized 0-100
   const growOrder = { strong:2, mild:1, none:0 };
-  const sorted = [...active].sort((a, b) => {
+  const sorted = [...heatFiltered].sort((a, b) => {
     let av, bv;
     switch (dashHeatSort.key) {
       case 'name':    av = a.name;     bv = b.name;     break;
@@ -1268,34 +1309,26 @@ function renderHeatmap(active) {
     return 'hm-g';
   };
 
-  // Header helper — shows sort arrow on active column
-  const thHeat = (key, label) => {
-    const isActive = dashHeatSort.key === key;
-    const arrow    = isActive ? (dashHeatSort.dir === 1 ? ' ↑' : ' ↓') : '';
-    return `<th onclick="dashHeatSortBy('${key}')" style="cursor:pointer;user-select:none;${isActive?'color:var(--blue)':''}" title="Sort by ${label}">${label}${arrow}</th>`;
-  };
+  // Apply column filters
+  const heatFinal = cfApplyFilters('heat', sorted, _heatVal);
 
-  wrap.innerHTML = `<table>
-    <thead><tr>
-      ${thHeat('name',    'Customer')}
-      ${thHeat('score',   'Score')}
-      ${thHeat('logins',  'Logins')}
-      ${thHeat('adoption','Adoption')}
-      ${thHeat('tickets', 'Tickets')}
-      ${thHeat('nps',     'NPS')}
-      ${thHeat('csat',    'CSAT')}
-      ${thHeat('days',    'Last Cont.')}
-      ${thHeat('growth',  'Growth')}
-    </tr></thead>
-    <tbody>${sorted.map(c => {
+  // Build column headers with sort + funnel
+  const thCols = HEAT_COLS.map(col => cfBuildTh('heat', col, dashHeatSort.key, dashHeatSort.dir)).join('');
+
+  wrap.innerHTML = `<div style="margin-bottom:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><input type="text" placeholder="Search customers..." value="${escHtml(_heatSearch)}" oninput="heatSearchFilter(this.value)" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-base);width:220px"/><span style="font-size:var(--fs-sm);color:var(--muted)">${heatFinal.length} customer${heatFinal.length!==1?'s':''}</span></div>
+    ${cfRenderPills('heat')}
+    <div style="max-height:480px;overflow-y:auto">
+    <table class="ct heatmap-tbl">
+    <thead><tr>${thCols}</tr></thead>
+    <tbody>${heatFinal.map(c => {
       const loginPct  = c.logins != null ? Math.round((c.logins/30)*100) : 50;
       const ticketPct = c.tickets != null ? Math.max(0,100-c.tickets*20) : 50;
       const npsPct    = npsNormalized(c.nps);
       const csatPct   = csatNormalized(c.csat);
       const daysPct   = c.days != null ? Math.max(0,100-(c.days/180)*100) : 50;
       const growPct   = {none:25,mild:65,strong:100}[c.growth]||25;
-      return `<tr>
-        <td class="nc" style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">${c.name}</td>
+      return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
+        <td style="font-weight:600;color:var(--text)">${escHtml(c.name)}</td>
         <td class="${hmColor(c.score,false)}">${c.score}</td>
         <td class="${hmColor(loginPct,false)}">${c.logins != null ? c.logins+'d' : '<span style="color:var(--subtle)">N/A</span>'}</td>
         <td class="${hmColor(c.adoption != null ? c.adoption : 50,false)}">${c.adoption != null ? c.adoption+'%' : '<span style="color:var(--subtle)">N/A</span>'}</td>
@@ -1305,7 +1338,7 @@ function renderHeatmap(active) {
         <td class="${hmColor(daysPct,false)}">${c.days != null ? c.days+'d' : '<span style="color:var(--subtle)">N/A</span>'}</td>
         <td class="${hmColor(growPct,false)}">${c.growth}</td>
       </tr>`;
-    }).join('')}</tbody></table>`;
+    }).join('')}</tbody></table></div>`;
 }
 
 // ─── THIS WEEK'S WINS ────────────────────────────────────────

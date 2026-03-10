@@ -166,7 +166,7 @@ a{color:var(--blue);text-decoration:none}
 .card-body{padding:1.1rem 1.25rem}
 
 /* CARD WIDGET HEADER BAR */
-.card-hd-bar{background:#0f766e;padding:9px 14px;display:flex;align-items:center;justify-content:space-between}
+.card-hd-bar{background:#0f766e;padding:9px 14px;display:flex;align-items:center;justify-content:space-between;border-radius:8px 8px 0 0}
 .card-hd-bar__title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.85)}
 .card-hd-bar__meta{font-size:10px;color:rgba(255,255,255,.7)}
 .card-hd-bar__badge{font-size:9.5px;font-weight:600;padding:2px 7px;border-radius:3px;background:rgba(255,255,255,.15);color:rgba(255,255,255,.85);text-transform:uppercase;letter-spacing:.04em}
@@ -216,8 +216,14 @@ a{color:var(--blue);text-decoration:none}
 .tier-pill-smb{color:#7c3aed;background:rgba(124,58,237,.1)}
 .tier-pill-mid{color:#2563eb;background:rgba(37,99,235,.1)}
 .tier-pill-ent{color:#0891b2;background:rgba(8,145,178,.1)}
-.chart-card{background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 1px 2px rgba(0,0,0,.05);overflow:hidden}
-.chart-card>.card-hd-bar~*{padding:1rem 1.25rem}
+.chart-card{background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 1px 2px rgba(0,0,0,.05);overflow:visible}
+.chart-card>.card-hd-bar~*{padding:.6rem 1rem}
+.trend-chart-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px 10px;border-bottom:1px solid #f1f5f9;gap:12px;flex-wrap:wrap}
+.trend-chart-header__left{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.trend-chart-header__title{font-size:.88rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text)}
+.trend-chart-header__range{font-size:.75rem;font-weight:500;color:var(--subtle);font-family:'DM Mono',monospace}
+.trend-chart-header__right{display:flex;align-items:center}
+@keyframes trendFadeIn{from{opacity:0}to{opacity:1}}
 .chart-title{font-size:var(--fs-md);font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:16px;display:flex;align-items:center;gap:6px}
 .chart-title::before{content:'';display:inline-block;width:3px;height:12px;border-radius:2px;background:#0f766e;flex-shrink:0}
 
@@ -243,14 +249,16 @@ a{color:var(--blue);text-decoration:none}
 svg.sparkline{display:block}
 
 /* HEATMAP */
-.heatmap{overflow-x:auto;overflow-y:auto;max-height:420px}
-.heatmap table{border-collapse:collapse;font-size:var(--fs-sm);width:100%}
-.heatmap thead{position:sticky;top:0;z-index:2}
-.heatmap thead th{background:var(--surface)}
-.heatmap th{padding:4px 7px;text-align:left;font-weight:600;color:var(--subtle);font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;transition:color .14s}
-.heatmap th:hover{color:var(--blue)}
-.heatmap td{padding:4px 7px;border-radius:3px;text-align:center;font-weight:700;min-width:48px}
-.heatmap td.nc{text-align:left;font-weight:600;color:var(--text);min-width:120px;padding-right:10px}
+.heatmap{overflow-x:auto}
+.heatmap table:not(.ct){border-collapse:collapse;font-size:var(--fs-sm);width:100%}
+.heatmap table:not(.ct) thead{position:sticky;top:0;z-index:2}
+.heatmap table:not(.ct) thead th{background:var(--surface)}
+.heatmap table:not(.ct) th{padding:4px 7px;text-align:left;font-weight:600;color:var(--subtle);font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;transition:color .14s}
+.heatmap table:not(.ct) th:hover{color:var(--blue)}
+.heatmap table:not(.ct) td{padding:4px 7px;border-radius:3px;text-align:center;font-weight:700;min-width:48px}
+.heatmap table:not(.ct) td.nc{text-align:left;font-weight:600;color:var(--text);min-width:120px;padding-right:10px}
+.heatmap-tbl td{text-align:center;font-weight:700;border-radius:3px}
+.heatmap-tbl td:first-child{text-align:left}
 .hm-r{color:var(--red);background:var(--red-l)}.hm-y{color:var(--amber);background:var(--amber-l)}.hm-g{color:var(--green);background:var(--green-l)}
 
 /* ═══════════════════════════════════════════
@@ -355,6 +363,44 @@ svg.sparkline{display:block}
 .alert-view-btn{padding:5px 14px 7px;font-size:.75rem;font-weight:600;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;transition:color .15s,border-color .15s;margin-bottom:-1.5px}
 .alert-view-btn:hover{color:var(--text);background:none}
 .alert-view-btn.active{color:#0f766e;border-bottom-color:#0f766e;background:none;box-shadow:none}
+
+/* ── BRIEFING VIEW ── */
+.brief-hd{display:flex;align-items:baseline;gap:10px;padding:.85rem 1.25rem;border-bottom:1px solid var(--border)}
+.brief-hd__day{font-size:.95rem;font-weight:700;color:var(--text)}
+.brief-hd__date{font-size:.75rem;color:var(--muted);font-family:'DM Mono',monospace}
+
+.brief-tier{margin-bottom:0;border-bottom:1px solid var(--border)}
+.brief-tier:last-child{border-bottom:none}
+.brief-tier__hd{display:flex;align-items:center;gap:8px;padding:.8rem 1.25rem;cursor:pointer;user-select:none;background:var(--bg);transition:background .12s}
+.brief-tier__hd:hover{background:rgba(15,118,110,.03)}
+.brief-tier__dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.brief-tier__label{font-weight:700;font-size:.88rem;color:var(--text)}
+.brief-tier__count{font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px;background:rgba(15,118,110,.08);color:#0f766e;font-family:'DM Mono',monospace}
+.brief-tier__desc{font-size:.72rem;color:var(--muted);flex:1}
+.brief-tier__chevron{margin-left:auto;color:var(--muted);font-size:.85rem;transition:transform .2s;transform:rotate(-90deg)}
+.brief-tier:not(.collapsed) .brief-tier__chevron{transform:rotate(0deg)}
+.brief-tier.collapsed .brief-tier__body{display:none}
+
+.brief-item{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:.85rem 1.25rem;border-bottom:1px solid rgba(0,0,0,.04);cursor:pointer;transition:background .12s}
+.brief-item:last-child{border-bottom:none}
+.brief-item:hover{background:rgba(15,118,110,.03)}
+.brief-item__left{display:flex;gap:10px;flex:1;min-width:0}
+.brief-item__score{width:34px;height:34px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem;color:#fff;flex-shrink:0;font-family:'DM Mono',monospace}
+.brief-item__info{flex:1;min-width:0}
+.brief-item__name{font-weight:600;font-size:.85rem;color:var(--text);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.brief-item__delta{font-size:.72rem;font-weight:700;font-family:'DM Mono',monospace}
+.brief-item__mrr{font-size:.72rem;color:var(--muted);font-family:'DM Mono',monospace}
+.brief-item__renew{font-size:.72rem;color:var(--muted)}
+.brief-item__cats{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}
+.brief-cat-pill{display:inline-flex;align-items:center;gap:3px;padding:1px 7px;border-radius:3px;font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.brief-cat-pill svg{width:9px;height:9px}
+.brief-item__action{font-size:.75rem;color:var(--subtle);line-height:1.5;margin-top:4px}
+.brief-item__action strong{color:var(--text);font-weight:600}
+.brief-action-sep{margin:0 6px;color:var(--border)}
+.brief-item__right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0}
+.brief-item__mgr{font-size:.68rem;color:var(--muted);white-space:nowrap}
+.brief-item__btn{white-space:nowrap;font-size:.7rem;opacity:0;transition:opacity .15s}
+.brief-item:hover .brief-item__btn{opacity:1}
 
 /* ── BULK BAR ── */
 .alert-bulk-bar{display:none;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--teal-m);border-left:3px solid #0f766e;border-radius:8px;padding:8px 14px;font-size:.8125rem;font-weight:600;color:#0f766e}
@@ -939,7 +985,7 @@ svg.sparkline{display:block}
 .seg-pill:hover{border-color:var(--blue)}
 .seg-pill.active{background:var(--blue);color:#fff;border-color:var(--blue)}
 .seg-pill-color{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px;flex-shrink:0}
-.seg-chart-tooltip{position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:var(--fs-base);pointer-events:none;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,.1);display:none;white-space:nowrap}
+.seg-chart-tooltip{position:absolute;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;font-size:var(--fs-sm);pointer-events:none;z-index:10;box-shadow:0 4px 16px rgba(0,0,0,.1);display:none;white-space:nowrap;backdrop-filter:blur(4px)}
 .seg-chart-legend{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;padding:10px 0 2px}
 .seg-chart-legend-item{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-base);font-weight:600;color:var(--fg)}
 .seg-chart-legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
@@ -1199,7 +1245,7 @@ td .sparkline{vertical-align:middle}
 .ta-label{font-size:var(--fs-sm);font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);margin-bottom:2px}
 .ta-card-clickable{cursor:pointer;transition:background .14s,box-shadow .14s}
 .ta-card-clickable:hover{background:var(--bg);box-shadow:0 2px 8px rgba(0,0,0,.06)}
-.trend-tooltip{position:absolute;background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:8px 12px;font-size:var(--fs-base);box-shadow:var(--sh);pointer-events:none;z-index:50;white-space:nowrap}
+.trend-tooltip{position:absolute;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;font-size:var(--fs-sm);box-shadow:0 4px 16px rgba(0,0,0,.1);pointer-events:none;z-index:50;white-space:nowrap;backdrop-filter:blur(4px)}
 .trend-controls{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:16px}
 .trend-controls select,.trend-controls input{padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)}
 .trend-controls select{min-width:160px}
@@ -1770,27 +1816,28 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <!-- Detail cards row: MRR, Category, Stage -->
   <div class="aw-detail-row">
     <div class="aw-card">
-      <div class="aw-hd" style="background:#dc2626"><span class="aw-hd-title">MRR Exposure</span><span class="aw-hd-badge" id="alert-mrr-total">$0</span></div>
+      <div class="aw-hd" style="background:#dc2626"><span class="aw-hd-title">MRR Exposure <span class="info-tip tip-below" data-tip="Total is deduplicated. Each customer's MRR counted once even if they appear in multiple categories. Click a row to filter.">ⓘ</span></span><span class="aw-hd-badge" id="alert-mrr-total">$0</span></div>
       <div class="aw-body" id="alert-mrr-wrap"></div>
     </div>
     <div class="aw-card">
-      <div class="aw-hd" style="background:#16a34a"><span class="aw-hd-title">By Stage</span><span class="aw-hd-badge" id="alert-stage-total">0</span></div>
+      <div class="aw-hd" style="background:#16a34a"><span class="aw-hd-title">By Stage <span class="info-tip tip-below" data-tip="Alerts grouped by customer lifecycle stage. Click a stage to filter.">ⓘ</span></span><span class="aw-hd-badge" id="alert-stage-total">0</span></div>
       <div class="aw-body" id="alert-stage-wrap"></div>
     </div>
   </div>
 
   <!-- Alert feed card -->
   <div class="aw-card">
-    <div class="aw-hd"><span class="aw-hd-title">Alert Feed</span><span class="aw-hd-badge" id="aw-feed-count">0</span></div>
+    <div class="aw-hd"><span class="aw-hd-title">Alert Feed <span class="info-tip tip-below" data-tip="All active alerts sorted by priority. Use filters and search to narrow. Click any row to open the customer.">ⓘ</span></span><span class="aw-hd-badge" id="aw-feed-count">0</span></div>
     <div class="aw-toolbar" id="alert-sticky-bar">
       <div id="alert-view-bar" style="display:flex;align-items:center;gap:8px">
         <div class="alert-view-toggle">
-          <button class="alert-view-btn active" id="alert-view-cat" onclick="setAlertView('category')">Category</button>
+          <button class="alert-view-btn active" id="alert-view-brief" onclick="setAlertView('briefing')">Briefing</button>
+          <button class="alert-view-btn" id="alert-view-cat" onclick="setAlertView('category')">Category</button>
           <button class="alert-view-btn" id="alert-view-pri" onclick="setAlertView('priority')">Priority</button>
           <button class="alert-view-btn" id="alert-view-cust" onclick="setAlertView('customer')">Customer</button>
           <button class="alert-view-btn" id="alert-view-tbl" onclick="setAlertView('table')">Table</button>
         </div>
-        <input type="text" id="alert-cust-search" placeholder="Search customer..." oninput="renderAlerts()" autocomplete="off" style="display:none;padding:5px 12px;font-size:var(--fs-base);border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);width:200px;outline:none">
+        <input type="text" id="alert-cust-search" placeholder="Search customer..." oninput="renderAlerts()" autocomplete="off" style="padding:5px 12px;font-size:var(--fs-base);border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);width:200px;outline:none">
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <button class="btn btn-sm btn-ghost" id="alerts-select-all-btn" onclick="alertsSelectAll()">Select All</button>
@@ -1887,11 +1934,19 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   </div>
   <div id="seg-kpi-row" class="dash-kpi-row"></div>
 
-  <!-- Cross-segment portfolio insights -->
-  <div id="seg-insights-wrap" class="trend-analysis-wrap"></div>
-
-  <!-- Segment Analysis (right under KPIs, matching Trends layout) -->
-  <div id="seg-chart-analysis" class="trend-analysis-wrap"></div>
+  <!-- Date range selector -->
+  <div style="display:flex;align-items:center;gap:12px;margin:0 0 18px">
+    <span style="font-size:var(--fs-base);font-weight:700;color:var(--text);letter-spacing:.02em;white-space:nowrap">Date Range</span>
+    <div class="dtab-row trend-range-bar" style="margin:0" id="seg-chart-range-row">
+      <button class="dtab" data-range="7d" onclick="setSegChartRange('7d')">7 Days</button>
+      <button class="dtab" data-range="30d" onclick="setSegChartRange('30d')">30 Days</button>
+      <button class="dtab active" data-range="90d" onclick="setSegChartRange('90d')">90 Days</button>
+      <button class="dtab" data-range="6m" onclick="setSegChartRange('6m')">6 Months</button>
+      <button class="dtab" data-range="1y" onclick="setSegChartRange('1y')">1 Year</button>
+      <button class="dtab" data-range="2y" onclick="setSegChartRange('2y')">2 Years</button>
+      <button class="dtab" data-range="ytd" onclick="setSegChartRange('ytd')">YTD</button>
+    </div>
+  </div>
 
   <!-- Metric + filter controls -->
   <div class="trend-controls">
@@ -1918,30 +1973,21 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
     </div>
   </div>
 
-  <!-- Date range selector -->
-  <div style="display:flex;align-items:center;gap:12px;margin:0 0 18px">
-    <span style="font-size:var(--fs-base);font-weight:700;color:var(--text);letter-spacing:.02em;white-space:nowrap">Date Range</span>
-    <div class="dtab-row trend-range-bar" style="margin:0" id="seg-chart-range-row">
-      <button class="dtab" data-range="7d" onclick="setSegChartRange('7d')">7 Days</button>
-      <button class="dtab" data-range="30d" onclick="setSegChartRange('30d')">30 Days</button>
-      <button class="dtab active" data-range="90d" onclick="setSegChartRange('90d')">90 Days</button>
-      <button class="dtab" data-range="6m" onclick="setSegChartRange('6m')">6 Months</button>
-      <button class="dtab" data-range="1y" onclick="setSegChartRange('1y')">1 Year</button>
-      <button class="dtab" data-range="2y" onclick="setSegChartRange('2y')">2 Years</button>
-      <button class="dtab" data-range="ytd" onclick="setSegChartRange('ytd')">YTD</button>
-    </div>
-  </div>
-
   <!-- Main chart -->
   <div class="chart-card" id="seg-chart-card">
-    <div class="card-hd-bar"><span class="card-hd-bar__title">Segment Comparison</span></div>
+    <div class="card-hd-bar" title="Health score trends compared across segments over time. Click segment pills to toggle visibility."><span class="card-hd-bar__title">Segment Comparison</span></div>
     <div style="padding:1rem 1.25rem">
       <div id="seg-chart-pills" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
       <div id="seg-chart-wrap" style="position:relative"></div>
     </div>
   </div>
-  <div class="card">
-    <div class="card-hd-bar" style="background:#7c3aed"><span class="card-hd-bar__title">Segment Detail</span></div>
+
+  <!-- Cross-segment portfolio insights + Segment chart analysis (fixed min-height to prevent layout shift) -->
+  <div id="seg-insights-wrap" class="trend-analysis-wrap" style="margin-top:16px;min-height:180px"></div>
+  <div id="seg-chart-analysis" class="trend-analysis-wrap"></div>
+
+  <div class="card" style="margin-top:16px">
+    <div class="card-hd-bar" style="background:#7c3aed" title="Detailed breakdown of each segment — accounts, MRR, health mix, and trends. Click to expand."><span class="card-hd-bar__title">Segment Detail</span></div>
     <div class="card-body" id="seg-table-wrap"></div>
   </div>
 </div><!-- /segments -->
@@ -1955,8 +2001,20 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <!-- KPI summary row -->
   <div class="dash-kpi-row" id="trend-kpi-row"></div>
 
-  <!-- Trend Analysis (right under KPIs) -->
-  <div id="trend-analysis-wrap" class="trend-analysis-wrap"></div>
+  <!-- Date range selector -->
+  <div id="trend-range-row" style="display:flex;align-items:center;gap:12px;margin:0 0 18px">
+    <span style="font-size:var(--fs-base);font-weight:700;color:var(--text);letter-spacing:.02em;white-space:nowrap">Date Range</span>
+    <div class="dtab-row trend-range-bar" style="margin:0">
+      <button class="dtab" data-range="3d" onclick="setTrendRange('3d')">3 Days</button>
+      <button class="dtab" data-range="7d" onclick="setTrendRange('7d')">7 Days</button>
+      <button class="dtab active" data-range="30d" onclick="setTrendRange('30d')">30 Days</button>
+      <button class="dtab" data-range="90d" onclick="setTrendRange('90d')">90 Days</button>
+      <button class="dtab" data-range="6m" onclick="setTrendRange('6m')">6 Months</button>
+      <button class="dtab" data-range="1y" onclick="setTrendRange('1y')">1 Year</button>
+      <button class="dtab" data-range="2y" onclick="setTrendRange('2y')">2 Years</button>
+      <button class="dtab" data-range="ytd" onclick="setTrendRange('ytd')">YTD</button>
+    </div>
+  </div>
 
   <!-- Metric + filter controls -->
   <div class="trend-controls">
@@ -2004,10 +2062,28 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
     </div>
   </div>
 
-  <!-- Date range selector -->
-  <div id="trend-range-row" style="display:flex;align-items:center;gap:12px;margin:0 0 18px">
+  <!-- Main chart -->
+  <div class="chart-card">
+    <div class="trend-chart-header" id="trend-chart-header">
+      <div class="trend-chart-header__left">
+        <span class="trend-chart-header__title" id="trend-chart-title">Portfolio Health Trend</span>
+        <span class="trend-chart-header__range" id="trend-chart-range"></span>
+      </div>
+      <div class="trend-chart-header__right" id="trend-chart-change"></div>
+    </div>
+    <div style="padding:.8rem 1.25rem">
+      <div id="trend-chart-wrap" style="position:relative"></div>
+      <div id="trend-legend" class="trend-legend"></div>
+    </div>
+  </div>
+
+  <!-- Trend Analysis (fixed min-height so dynamic box count doesn't shift table below) -->
+  <div id="trend-analysis-wrap" class="trend-analysis-wrap" style="margin-top:16px;min-height:180px"></div>
+
+  <!-- Secondary date range (synced with top) -->
+  <div style="display:flex;align-items:center;gap:12px;margin:16px 0 0">
     <span style="font-size:var(--fs-base);font-weight:700;color:var(--text);letter-spacing:.02em;white-space:nowrap">Date Range</span>
-    <div class="dtab-row trend-range-bar" style="margin:0">
+    <div class="dtab-row trend-range-bar" style="margin:0" id="trend-range-row2">
       <button class="dtab" data-range="3d" onclick="setTrendRange('3d')">3 Days</button>
       <button class="dtab" data-range="7d" onclick="setTrendRange('7d')">7 Days</button>
       <button class="dtab active" data-range="30d" onclick="setTrendRange('30d')">30 Days</button>
@@ -2019,18 +2095,9 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
     </div>
   </div>
 
-  <!-- Main chart -->
-  <div class="chart-card">
-    <div class="card-hd-bar"><span class="card-hd-bar__title">Portfolio Health Trend</span></div>
-    <div style="padding:1rem 1.25rem">
-      <div id="trend-chart-wrap" style="position:relative"></div>
-      <div id="trend-legend" class="trend-legend"></div>
-    </div>
-  </div>
-
   <!-- Score Changes table -->
   <div class="card" style="margin-top:16px">
-    <div class="card-hd-bar" style="background:#7c3aed"><span class="card-hd-bar__title">Score Changes</span></div>
+    <div class="card-hd-bar" style="background:#7c3aed" title="Accounts with the biggest health score changes over the selected period. Click column headers to sort."><span class="card-hd-bar__title">Score Changes</span></div>
     <div class="card-body" id="trend-movers-wrap" style="max-height:480px;overflow-y:auto"></div>
   </div>
 </div>
@@ -2044,28 +2111,28 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <div class="dash-kpi-row" id="csmperf-stats"></div>
   <!-- Per-CSM leaderboard + inline expand -->
   <div class="card">
-    <div class="card-hd-bar"><span class="card-hd-bar__title">CSM Leaderboard</span></div>
+    <div class="card-hd-bar" title="CSM performance ranked by composite index (health, trend, retention, engagement). Click column headers to sort."><span class="card-hd-bar__title">CSM Leaderboard</span></div>
     <div class="card-body" id="csmperf-wrap"></div>
   </div>
   <!-- Suggested Focus Areas + Workload Balance row -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;align-items:start" id="csm-insights-row">
     <div class="card">
-      <div class="card-hd-bar" style="background:#d97706"><span class="card-hd-bar__title">Suggested Focus Areas</span></div>
+      <div class="card-hd-bar" style="background:#d97706" title="AI-generated action items for the team based on current alerts and trends. Click to navigate."><span class="card-hd-bar__title">Suggested Focus Areas</span></div>
       <div class="card-body" id="csm-focus-wrap"></div>
     </div>
     <div class="card">
-      <div class="card-hd-bar" style="background:#2563eb"><span class="card-hd-bar__title">Workload Balance</span></div>
+      <div class="card-hd-bar" style="background:#2563eb" title="Account and MRR distribution across the team. Red bars indicate overloaded CSMs (>140% of average). Click a CSM to filter."><span class="card-hd-bar__title">Workload Balance</span></div>
       <div class="card-body" id="csm-workload-wrap"></div>
     </div>
   </div>
   <!-- Portfolio Movement + Activity Feed row -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;align-items:start" id="csm-bottom-row">
     <div class="card">
-      <div class="card-hd-bar" style="background:#7c3aed"><span class="card-hd-bar__title">Portfolio Movement</span><span class="card-hd-bar__badge">7d</span></div>
+      <div class="card-hd-bar" style="background:#7c3aed" title="Health score changes across the portfolio over the past 7 days — upgrades, downgrades, and new accounts."><span class="card-hd-bar__title">Portfolio Movement</span><span class="card-hd-bar__badge">7d</span></div>
       <div class="card-body" id="csm-movement-wrap"></div>
     </div>
     <div class="card">
-      <div class="card-hd-bar" style="background:#0e7490"><span class="card-hd-bar__title">CSM Activity Feed</span></div>
+      <div class="card-hd-bar" style="background:#0e7490" title="Recent scoring and touchpoint activity by CSMs."><span class="card-hd-bar__title">CSM Activity Feed</span></div>
       <div class="card-body" id="csm-activity-wrap"></div>
     </div>
   </div>
@@ -2117,6 +2184,8 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
         <div class="fg">
           <!-- Section: Account -->
           <div class="field full"><label>Company / Customer Name *</label><input type="text" id="f-name" placeholder="Acme Corp" required/></div>
+          <div class="field"><label>Contact Name <span style="font-weight:400;color:var(--subtle);font-size:.7rem">optional</span></label><input type="text" id="f-contact-name" placeholder="Jane Smith"/></div>
+          <div class="field"><label>Contact Email <span style="font-weight:400;color:var(--subtle);font-size:.7rem">optional</span></label><input type="email" id="f-contact-email" placeholder="jane@acme.com"/></div>
           <div class="field"><label>Assigned Manager</label><select id="f-manager" onchange="if(this.value==='__add_new__'){this.style.display='none';document.getElementById('f-manager-new').style.display='';document.getElementById('f-manager-new').focus()}"><option value="">— Select —</option></select><input type="text" id="f-manager-new" placeholder="Type new manager name..." style="display:none;width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-base);margin-top:4px" onblur="if(!this.value){this.style.display='none';document.getElementById('f-manager').style.display='';document.getElementById('f-manager').value=''}" /><datalist id="manager-datalist"></datalist></div>
           <div class="field"><label>Scoring Profile <span style="font-weight:400;color:var(--subtle);font-size:.7rem">optional</span></label><select id="f-profile" onchange="applyProfileSignalState()"><option value="">Global Weights (default)</option></select></div>
           <div class="field"><label>MRR <span style="font-weight:400;color:var(--subtle);font-size:.7rem">$/mo</span></label><input type="number" id="f-mrr" min="0" placeholder="5000"/></div>
@@ -2149,7 +2218,13 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
           <div class="form-section full"><div class="form-section-label">Notes</div></div>
           <div class="field full"><label>Note <span style="font-weight:400;color:var(--subtle);font-size:.7rem">optional</span></label><textarea id="f-note" placeholder="Quick context note…"></textarea></div>
         </div>
-        <div class="score-submit-bar"><button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;font-size:.9rem">Calculate Health Score →</button></div>
+        <div class="score-submit-bar" style="display:flex;gap:8px">
+          <button type="submit" class="btn btn-primary" style="flex:1;justify-content:center;padding:12px;font-size:.9rem">Calculate Health Score →</button>
+          <button type="button" class="btn btn-success btn-sm" id="save-details-btn" style="display:none;padding:12px 18px;font-size:.9rem;white-space:nowrap" onclick="saveDetailsOnly()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Save Details
+          </button>
+        </div>
       </form>
     </div>
     <div>
@@ -2596,12 +2671,13 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
     <div class="card">
       <div id="audit-loading" style="text-align:center;padding:32px;color:var(--muted);font-size:.85rem">Loading audit log…</div>
       <div id="audit-pag-top"></div>
+      <div style="margin-bottom:8px"><input type="text" id="audit-search" placeholder="Search audit log…" oninput="auditSearchFilter(this.value)" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-base);width:220px"/></div>
       <table class="ct" id="audit-table" style="display:none">
         <thead><tr>
-          <th>Time</th>
-          <th>User</th>
-          <th>Action</th>
-          <th>Customer</th>
+          <th style="cursor:pointer;user-select:none" onclick="sortAuditLog('created_at')">Time</th>
+          <th style="cursor:pointer;user-select:none" onclick="sortAuditLog('user_email')">User</th>
+          <th style="cursor:pointer;user-select:none" onclick="sortAuditLog('action')">Action</th>
+          <th style="cursor:pointer;user-select:none" onclick="sortAuditLog('customer_name')">Customer</th>
           <th>Details</th>
         </tr></thead>
         <tbody id="audit-tbody"></tbody>
@@ -3644,6 +3720,9 @@ Header: Content-Type: application/json
 <!-- Column filter portal — appended to body so it clears overflow:hidden on ancestors -->
 <div id="col-filter-portal" class="col-filter-menu"></div>
 <div id="alert-filter-portal" class="col-filter-menu"></div>
+<div id="at-filter-portal" class="col-filter-menu"></div>
+<div id="hb-filter-portal" class="col-filter-menu"></div>
+<div id="tr-filter-portal" class="col-filter-menu"></div>
 
 <!-- REPORT EMAIL MODAL -->
 <div class="modal-bg" id="report-email-modal" onclick="if(event.target===this)closeModal('report-email-modal')">

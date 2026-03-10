@@ -61,8 +61,18 @@ function aggregateSegmentByDay(custs, metricKey, cutoff) {
   const cutoffStr = cutoff.toISOString().slice(0, 10);
   const _todayStr = new Date().toISOString().slice(0, 10);
 
+  // Generate every date from cutoff to yesterday so chart is continuous
+  function _allDaysInRange() {
+    const dates = [];
+    const d = new Date(cutoff);
+    while (d.toISOString().slice(0, 10) < _todayStr) {
+      dates.push(d.toISOString().slice(0, 10));
+      d.setDate(d.getDate() + 1);
+    }
+    return dates;
+  }
+
   if (isSumMetric || isCountMetric) {
-    const allDates = new Set();
     const custEntries = [];
     custs.forEach(c => {
       const valForDate = {};
@@ -76,10 +86,9 @@ function aggregateSegmentByDay(custs, metricKey, cutoff) {
       const sortedDates = Object.keys(valForDate).sort();
       if (sortedDates.length) {
         custEntries.push({ valForDate, sortedDates });
-        sortedDates.forEach(d => { if (d >= cutoffStr && d < _todayStr) allDates.add(d); });
       }
     });
-    const dates = [...allDates].sort();
+    const dates = _allDaysInRange();
     return dates.map(date => {
       let total = 0, count = 0;
       custEntries.forEach(ce => {
@@ -89,12 +98,11 @@ function aggregateSegmentByDay(custs, metricKey, cutoff) {
         }
         if (val !== null) { total += val; count++; }
       });
-      return { date, avg: isCountMetric ? count : total };
-    }).filter(p => p.avg > 0).sort((a, b) => a.date.localeCompare(b.date));
+      return { date, avg: isCountMetric ? count : total, _count: count };
+    }).filter(p => p._count > 0).sort((a, b) => a.date.localeCompare(b.date));
   }
 
   // Avg metrics: forward-fill
-  const allDates = new Set();
   const custData = [];
   custs.forEach(c => {
     const dateMap = {};
@@ -108,10 +116,9 @@ function aggregateSegmentByDay(custs, metricKey, cutoff) {
     const sortedDates = Object.keys(dateMap).sort();
     if (sortedDates.length) {
       custData.push({ dateMap, sortedDates });
-      sortedDates.forEach(d => { if (d >= cutoffStr && d < _todayStr) allDates.add(d); });
     }
   });
-  const dates = [...allDates].sort();
+  const dates = _allDaysInRange();
   return dates.map(date => {
     let total = 0, count = 0;
     custData.forEach(cd => {
@@ -121,8 +128,8 @@ function aggregateSegmentByDay(custs, metricKey, cutoff) {
       }
       if (val !== null) { total += val; count++; }
     });
-    return { date, avg: count ? total / count : 0 };
-  }).filter(p => p.avg > 0);
+    return { date, avg: count ? total / count : 0, _count: count };
+  }).filter(p => p._count > 0);
 }
 
 function toggleSegView(view) {
@@ -280,26 +287,30 @@ function renderSegKPIs(segments, active) {
   // Fastest growing segment (by avgDelta)
   const fastestGrow = segments.length ? segments.reduce((a, b) => a.avgDelta > b.avgDelta ? a : b) : null;
 
+  // Dynamic number colors (headers stay static)
+  const _segHrValColor = highestRisk ? (highestRisk.riskPct >= 40 ? '#dc2626' : highestRisk.riskPct >= 20 ? '#d97706' : '#16a34a') : '';
+  const _segGrowValColor = fastestGrow ? (fastestGrow.avgDelta > 0 ? '#16a34a' : fastestGrow.avgDelta < 0 ? '#dc2626' : '') : '';
+
   wrap.innerHTML = `
-    <div class="dash-kpi-card dash-kpi-blue">
+    <div class="dash-kpi-card dash-kpi-blue" title="Number of customer tag groups (segments) in your book.">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.tag}</div><span class="dash-kpi-label">Total Segments</span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num">${segments.length}</div><div class="dash-kpi-sub">customer tag groups</div></div>
     </div>
-    <div class="dash-kpi-card dash-kpi-purple">
+    <div class="dash-kpi-card dash-kpi-purple" title="Unique customers across all segments. A customer in multiple segments is counted once.">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.people}</div><span class="dash-kpi-label">Total Accounts</span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num">${uniqueCount}</div><div class="dash-kpi-sub">across ${segments.length} segment${segments.length !== 1 ? 's' : ''}</div></div>
     </div>
-    <div class="dash-kpi-card dash-kpi-teal">
+    <div class="dash-kpi-card dash-kpi-teal" title="Total monthly recurring revenue across all segmented accounts.">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.dollar}</div><span class="dash-kpi-label">Segment MRR</span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num">$${fmtNum(totalMRR)}</div><div class="dash-kpi-sub">${riskMRR > 0 ? '$' + fmtNum(riskMRR) + ' at risk' : 'No MRR at risk'}</div></div>
     </div>
-    <div class="dash-kpi-card ${hrColor}">
+    <div class="dash-kpi-card ${hrColor}" title="Segment with the highest percentage of Critical/Risk customers (min 2 accounts).">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.alert}</div><span class="dash-kpi-label">Highest-Risk</span></div>
-      <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.4rem">${highestRisk ? escHtml(segDisplayLabel(highestRisk.tag)) : '—'}</div><div class="dash-kpi-sub">${highestRisk ? highestRisk.riskPct + '% at risk' : 'No data'}</div></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.4rem${_segHrValColor ? ';color:' + _segHrValColor : ''}">${highestRisk ? escHtml(segDisplayLabel(highestRisk.tag)) : '—'}</div><div class="dash-kpi-sub">${highestRisk ? highestRisk.riskPct + '% at risk' : 'No data'}</div></div>
     </div>
-    <div class="dash-kpi-card dash-kpi-green">
+    <div class="dash-kpi-card dash-kpi-green" title="Segment with the highest average health score improvement.">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.trendUp}</div><span class="dash-kpi-label">Fastest-Growing</span></div>
-      <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.4rem">${fastestGrow ? escHtml(segDisplayLabel(fastestGrow.tag)) : '—'}</div><div class="dash-kpi-sub">${fastestGrow ? (fastestGrow.avgDelta >= 0 ? '+' : '') + fastestGrow.avgDelta + ' avg trend' : 'No data'}</div></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.4rem${_segGrowValColor ? ';color:' + _segGrowValColor : ''}">${fastestGrow ? escHtml(segDisplayLabel(fastestGrow.tag)) : '—'}</div><div class="dash-kpi-sub">${fastestGrow ? (fastestGrow.avgDelta >= 0 ? '+' : '') + fastestGrow.avgDelta + ' avg trend' : 'No data'}</div></div>
     </div>
   `;
 }
@@ -382,7 +393,7 @@ function renderTierTable(active, deltaCache) {
         const trendIcon = t.avgDelta > 0 ? '▲' : t.avgDelta < 0 ? '▼' : '—';
         const trendTxt = t.avgDelta > 0 ? '+' + t.avgDelta : '' + t.avgDelta;
         const contactStr = t.avgDays != null ? t.avgDays + 'd' : '—';
-        return `<tr class="seg-table-row" data-tier="${t.key}">
+        return `<tr class="seg-table-row" data-tier="${t.key}" onclick="drillTier('${t.key}')" style="cursor:pointer">
           <td><span class="tier-pill ${t.pill}">${t.label}</span></td>
           <td>${t.count}</td>
           <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${scoreColor(t.avgScore)};background:${t.avgScore >= 65 ? 'var(--green-l)' : t.avgScore >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${t.avgScore}</span></td>
@@ -613,7 +624,7 @@ function renderStageTable(active, deltaCache) {
         const trendTxt = t.avgDelta > 0 ? '+' + t.avgDelta : '' + t.avgDelta;
         const contactStr = t.avgDays != null ? t.avgDays + 'd' : '—';
         const sc = stageColors[t.key] || '#64748b';
-        return `<tr class="seg-table-row" data-stage="${t.key}">
+        return `<tr class="seg-table-row" data-stage="${t.key}" onclick="drillStage('${t.key}')" style="cursor:pointer">
           <td><span class="stage-pill" style="background:${sc}15;color:${sc};border:1px solid ${sc}30;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700">${t.label}</span></td>
           <td>${t.count}</td>
           <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${scoreColor(t.avgScore)};background:${t.avgScore >= 65 ? 'var(--green-l)' : t.avgScore >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${t.avgScore}</span></td>
@@ -878,7 +889,7 @@ function renderSegTable(segments) {
         const trendTxt = seg.avgDelta > 0 ? '+' + seg.avgDelta : '' + seg.avgDelta;
         const safeTag = seg.tag.replace(/'/g, "\\'").replace(/"/g, '&quot;');
         const contactStr = seg.avgDays != null ? seg.avgDays + 'd' : '—';
-        return `<tr class="seg-table-row" data-seg="${escHtml(seg.tag)}">
+        return `<tr class="seg-table-row" data-seg="${escHtml(seg.tag)}" onclick="drillSeg('${safeTag}')" style="cursor:pointer">
           <td><strong>${escHtml(segDisplayLabel(seg.tag))}</strong></td>
           <td>${seg.count}</td>
           <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${scoreColor(seg.avgScore)};background:${seg.avgScore >= 65 ? 'var(--green-l)' : seg.avgScore >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${seg.avgScore}</span></td>
@@ -1436,8 +1447,8 @@ function _buildSegChartSVG(data) {
     return;
   }
 
-  const W = 960, H = 260;
-  const pad = { top: 14, right: 56, bottom: 36, left: 44 };
+  const W = 960, H = 210;
+  const pad = { top: 12, right: 48, bottom: 28, left: 40 };
   const cW = W - pad.left - pad.right;
   const cH = H - pad.top - pad.bottom;
 
@@ -1471,40 +1482,60 @@ function _buildSegChartSVG(data) {
   }
 
   // Grid lines + Y-axis labels
+  const _chartFont = "'DM Mono',monospace";
   let gridSVG = '';
   if (metric === 'score' && cfg.fixed) {
-    for (let v = yL.min; v <= yL.max; v += 10) {
+    // Health score 0-100: faint guide lines at 25, 50, 75 + edge labels
+    [0, 25, 50, 75, 100].forEach(v => {
+      if (v < yL.min || v > yL.max) return;
       const y = yScaleL(v);
-      const isMajor = v % 25 === 0;
-      gridSVG += `<line x1="${pad.left}" y1="${y}" x2="${W - pad.right}" y2="${y}" stroke="var(--border)" stroke-width="${isMajor ? 1 : 0.5}" opacity="${isMajor ? 0.7 : 0.35}" stroke-dasharray="${v === yL.min || v === yL.max ? '0' : '3,3'}"/>`;
-      if (v % 20 === 0) {
-        gridSVG += `<text x="${pad.left - 8}" y="${y + 3}" text-anchor="end" font-size="8" font-weight="${isMajor ? '600' : '400'}" fill="var(--subtle)">${cfg.axFmt(v)}</text>`;
+      const isEdge = v === yL.min || v === yL.max;
+      if (!isEdge) {
+        gridSVG += `<line x1="${pad.left}" y1="${y}" x2="${W - pad.right}" y2="${y}" stroke="#cbd5e1" stroke-width="0.5" opacity="0.45"/>`;
       }
-    }
+      gridSVG += `<text x="${pad.left - 8}" y="${y + 3}" text-anchor="end" font-size="8" font-weight="500" font-family="${_chartFont}" fill="#94a3b8">${cfg.axFmt(v)}</text>`;
+    });
   } else {
-    const step = yL.step;
-    for (let v = yL.min; v <= yL.max + step * 0.01; v += step) {
+    // All other metrics: 4 evenly spaced guide lines
+    const gRange = yL.max - yL.min;
+    const gStep = gRange / 4;
+    const _axDec = gStep < 1 ? 1 : 0;
+    for (let i = 0; i <= 4; i++) {
+      const v = yL.min + i * gStep;
       const y = yScaleL(v);
-      const isEdge = Math.abs(v - yL.min) < 0.01 || Math.abs(v - yL.max) < 0.01;
-      gridSVG += `<line x1="${pad.left}" y1="${y}" x2="${W - pad.right}" y2="${y}" stroke="var(--border)" stroke-width="${isEdge ? 1 : 0.5}" opacity="${isEdge ? 0.7 : 0.35}" stroke-dasharray="${isEdge ? '0' : '3,3'}"/>`;
-      gridSVG += `<text x="${pad.left - 8}" y="${y + 3}" text-anchor="end" font-size="8" font-weight="${isEdge ? '600' : '400'}" fill="var(--subtle)">${cfg.axFmt(v)}</text>`;
+      const isEdge = i === 0 || i === 4;
+      if (!isEdge) {
+        gridSVG += `<line x1="${pad.left}" y1="${y}" x2="${W - pad.right}" y2="${y}" stroke="#cbd5e1" stroke-width="0.5" opacity="0.45"/>`;
+      }
+      const vLabel = _axDec ? v.toFixed(_axDec) : String(Math.round(v));
+      gridSVG += `<text x="${pad.left - 8}" y="${y + 3}" text-anchor="end" font-size="8" font-weight="500" font-family="${_chartFont}" fill="#94a3b8">${cfg.axFmt(parseFloat(vLabel))}</text>`;
     }
   }
 
   // X-axis date labels
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   let xLabels = '';
-  const labelEvery = rangeDays <= 30 ? 2 : rangeDays <= 60 ? 4 : 7;
+  const _xLabelEvery = rangeDays <= 7 ? 1 : rangeDays <= 30 ? Math.ceil(dates.length / 12) : rangeDays <= 90 ? Math.ceil(dates.length / 10) : rangeDays <= 180 ? Math.ceil(dates.length / 8) : Math.ceil(dates.length / 7);
+  const _showYear = rangeDays > 180;
   dates.forEach((d, i) => {
     const x = xScale(i);
     const parts = d.split('-');
+    const yr = parts[0].slice(2);
     const mo = parseInt(parts[1]) - 1;
     const day = parseInt(parts[2]);
-    if (rangeDays <= 30 || (rangeDays <= 60 && i % 2 === 0) || i % 3 === 0) {
-      xLabels += `<line x1="${x}" y1="${yScaleL(yL.min)}" x2="${x}" y2="${yScaleL(yL.min) + 4}" stroke="var(--border)" stroke-width="0.5" opacity="0.5"/>`;
+    if (i % Math.max(1, Math.ceil(_xLabelEvery / 2)) === 0) {
+      xLabels += `<line x1="${x}" y1="${yScaleL(yL.min)}" x2="${x}" y2="${yScaleL(yL.min) + 3}" stroke="#e2e8f0" stroke-width="0.5" opacity="0.4"/>`;
     }
-    if (i % labelEvery === 0 || i === dates.length - 1) {
-      xLabels += `<text x="${x}" y="${H - pad.bottom + 16}" text-anchor="middle" font-size="7.5" fill="var(--subtle)">${monthNames[mo]} ${day}</text>`;
+    if (i % _xLabelEvery === 0 || i === dates.length - 1) {
+      let lbl;
+      if (_showYear && day <= 7) {
+        lbl = monthNames[mo] + " '" + yr;
+      } else if (rangeDays > 90) {
+        lbl = monthNames[mo] + ' ' + day;
+      } else {
+        lbl = monthNames[mo] + ' ' + day;
+      }
+      xLabels += `<text x="${x}" y="${H - pad.bottom + 16}" text-anchor="middle" font-size="8" font-family="${_chartFont}" fill="#94a3b8">${lbl}</text>`;
     }
   });
 
@@ -1518,8 +1549,10 @@ function _buildSegChartSVG(data) {
       .sort((a, b) => a.date.localeCompare(b.date));
     if (pts.length < 2) return;
 
-    // Build xy points for smooth path
-    const xyPts = pts.map(p => ({ x: xScale(dateIdx[p.date]), y: yScaleL(p.avg) }));
+    // Build xy points for smooth path — downsample for long ranges
+    const xyPtsRaw = pts.map(p => ({ x: xScale(dateIdx[p.date]), y: yScaleL(p.avg) }));
+    const _maxRPts = rangeDays > 365 ? 90 : rangeDays > 180 ? 120 : 9999;
+    const xyPts = _downsampleXY(xyPtsRaw, _maxRPts);
 
     // Area fill (only for first line or single line)
     if (lines.length === 1 || lineIdx === 0) {
@@ -1541,28 +1574,30 @@ function _buildSegChartSVG(data) {
     const smoothD = _smoothPath(xyPts);
     linesSVG += `<path d="${smoothD}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linecap="round" opacity="0.9"/>`;
 
-    // Value labels on single-line view (no dots)
-    if (lines.length <= 2) {
-      const labelSkip = pts.length <= 10 ? 1 : pts.length <= 20 ? 3 : pts.length <= 40 ? 5 : 8;
-      pts.forEach((p, pi) => {
-        if (pi % labelSkip === 0 || pi === pts.length - 1) {
-          const cx = xScale(dateIdx[p.date]);
-          const cy = yScaleL(p.avg);
-          linesSVG += `<text x="${cx}" y="${cy - 6}" text-anchor="middle" font-size="7" font-weight="700" fill="${line.color}">${cfg.fmt(p.avg)}</text>`;
-        }
-      });
-    }
+    // No inline labels — hover tooltip shows exact values for all lines
   });
 
-  // Build tooltip data
-  _segChartTipData = dates.map((d) => {
+  // Build tooltip data (Map-based with carry-forward for reliable lookups)
+  const _segLineMaps = lines.map(l => {
+    const m = new Map();
+    l.points.forEach(p => m.set(p.date, p.avg));
+    return m;
+  });
+  const _segLineCarry = _segLineMaps.map(lm => {
+    let last = null;
+    return dates.map(d => {
+      if (lm.has(d)) last = lm.get(d);
+      return last;
+    });
+  });
+  _segChartTipData = dates.map((d, di) => {
     const parts = d.split('-');
     const mo = parseInt(parts[1]) - 1;
     const day = parseInt(parts[2]);
     const dateLabel = monthNames[mo] + ' ' + day;
-    const vals = lines.map(l => {
-      const pt = l.points.find(x => x.date === d);
-      return pt ? { label: l.label, color: l.color, val: cfg.fmt(pt.avg) } : null;
+    const vals = lines.map((l, li) => {
+      const val = _segLineCarry[li][di];
+      return val !== null ? { label: l.label, color: l.color, val: cfg.fmt(val) } : null;
     }).filter(Boolean);
     return { dateLabel, vals };
   });
@@ -1578,16 +1613,19 @@ function _buildSegChartSVG(data) {
   });
 
   // Axis borders
-  let axisSVG = `<line x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${yScaleL(yL.min)}" stroke="var(--border)" stroke-width="1.5" opacity="0.5"/>`;
-  axisSVG += `<line x1="${pad.left}" y1="${yScaleL(yL.min)}" x2="${W - pad.right}" y2="${yScaleL(yL.min)}" stroke="var(--border)" stroke-width="1.5" opacity="0.5"/>`;
+  let axisSVG = `<line x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${yScaleL(yL.min)}" stroke="#cbd5e1" stroke-width="1" opacity="0.5"/>`;
+  axisSVG += `<line x1="${pad.left}" y1="${yScaleL(yL.min)}" x2="${W - pad.right}" y2="${yScaleL(yL.min)}" stroke="#cbd5e1" stroke-width="1" opacity="0.5"/>`;
+
+  // Crosshair for hover
+  const crosshairSVG = `<line id="seg-crosshair" x1="0" y1="${pad.top}" x2="0" y2="${yScaleL(yL.min)}" stroke="#94a3b8" stroke-width="0.75" stroke-dasharray="3,3" opacity="0" pointer-events="none"/>`;
 
   // Legend (HTML below chart)
   const legendHTML = `<div class="seg-chart-legend">${lines.map(l =>
     `<span class="seg-chart-legend-item"><span class="seg-chart-legend-dot" style="background:${l.color}"></span>${escHtml(l.label)}</span>`
   ).join('')}</div>`;
 
-  wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;display:block">
-    ${bandSVG}${gridSVG}${axisSVG}${xLabels}${linesSVG}${hoverSVG}
+  wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;display:block;font-family:'DM Mono',ui-monospace,monospace">
+    ${bandSVG}${gridSVG}${axisSVG}${xLabels}${linesSVG}${crosshairSVG}${hoverSVG}
   </svg>${legendHTML}`;
 }
 
@@ -1602,9 +1640,13 @@ function showSegChartTip(evt, cx, colIdx) {
   const data = _segChartTipData[colIdx];
   if (!data) return;
 
+  // Move crosshair
+  const ch = document.getElementById('seg-crosshair');
+  if (ch) { ch.setAttribute('x1', cx); ch.setAttribute('x2', cx); ch.setAttribute('opacity', '0.5'); }
+
   let rows = '';
   data.vals.forEach(v => {
-    rows += `<div style="display:flex;align-items:center;gap:6px;margin-top:3px"><span style="width:8px;height:8px;border-radius:50%;background:${v.color};flex-shrink:0"></span><span>${escHtml(v.label)}</span><strong style="margin-left:auto">${v.val}</strong></div>`;
+    rows += `<div style="display:flex;align-items:center;gap:6px;margin-top:3px"><span style="width:8px;height:8px;border-radius:50%;background:${v.color};flex-shrink:0"></span><span>${escHtml(v.label)}</span><strong style="margin-left:auto;font-family:'DM Mono',monospace">${v.val}</strong></div>`;
   });
 
   tip.innerHTML = `<div style="font-weight:700;margin-bottom:4px;font-size:var(--fs-base)">${data.dateLabel}</div>${rows}`;
@@ -1617,8 +1659,9 @@ function showSegChartTip(evt, cx, colIdx) {
   const left = (cx * scaleX) + (rect.left - wRect.left);
   tip.style.display = 'block';
   // Flip to left side if too close to right edge
-  if (left + 160 > wRect.width) {
-    tip.style.left = (left - 170) + 'px';
+  const tipW = tip.offsetWidth || 160;
+  if (left + tipW + 20 > wRect.width) {
+    tip.style.left = (left - tipW - 14) + 'px';
   } else {
     tip.style.left = (left + 14) + 'px';
   }
@@ -1628,6 +1671,8 @@ function showSegChartTip(evt, cx, colIdx) {
 function hideSegChartTip() {
   const tip = document.getElementById('seg-chart-tip');
   if (tip) tip.style.display = 'none';
+  const ch = document.getElementById('seg-crosshair');
+  if (ch) ch.setAttribute('opacity', '0');
 }
 
 /* ── Segment Chart Analysis ─────────────────────────────── */
@@ -1924,7 +1969,7 @@ function _buildSegChartAnalysis(data) {
         );
         const pe = findClosest(peakT), te = findClosest(troughT);
         const sv = cfg.val(pe, c), ev = cfg.val(te, c);
-        if (sv != null && ev != null) custDeltas.push({ name: c.name, delta: ev - sv });
+        if (sv != null && ev != null) custDeltas.push({ name: c.name, id: c.id, delta: ev - sv });
       });
       let concentrationNote = '';
       if (custDeltas.length >= 2) {
@@ -1935,9 +1980,9 @@ function _buildSegChartAnalysis(data) {
         if (declined.length <= 2 && declined.length > 0 && custDeltas.length > 3) {
           declined.sort((a, b) => a.delta - b.delta);
           if (declined.length === 1) {
-            concentrationNote = ` This was driven primarily by <strong>${escHtml(declined[0].name)}</strong> (down ${fv2(declined[0].delta)}) — the remaining ${custDeltas.length - 1} accounts were relatively flat.`;
+            concentrationNote = ` This was driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv2(declined[0].delta)}) — the remaining ${custDeltas.length - 1} accounts were relatively flat.`;
           } else {
-            concentrationNote = ` Driven primarily by <strong>${escHtml(declined[0].name)}</strong> (down ${fv2(declined[0].delta)}) and <strong>${escHtml(declined[1].name)}</strong> (down ${fv2(declined[1].delta)}) — most of the other ${custDeltas.length - 2} accounts were relatively flat.`;
+            concentrationNote = ` Driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv2(declined[0].delta)}) and ${_taCustLink(declined[1].name, declined[1].id)} (down ${fv2(declined[1].delta)}) — most of the other ${custDeltas.length - 2} accounts were relatively flat.`;
           }
         } else if (pctDeclined >= 60) {
           if (custDeltas.length <= 5) {
