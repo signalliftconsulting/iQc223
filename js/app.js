@@ -1612,21 +1612,32 @@ async function seedDemoData() {
 
   // 4. Push to Supabase under that user's ID
   console.log('4/4 — Pushing to Supabase (250 rows)…');
+  console.log('   auth.uid =', (await sb.auth.getUser()).data?.user?.id);
+  console.log('   target user_id =', prof.user_id);
+  console.log('   target client_id =', prof.client_id);
   const rows = customers.map(c => {
     const row = toRow(c);
     row.user_id = prof.user_id;       // audit: who seeded
     row.client_id = prof.client_id;   // ownership: target client
     return row;
   });
+  console.log('   Sample row keys:', Object.keys(rows[0]).join(', '));
+  console.log('   Sample row client_id:', rows[0].client_id, ' user_id:', rows[0].user_id);
 
   let inserted = 0;
   for (let i = 0; i < rows.length; i += 25) {
     const chunk = rows.slice(i, i + 25);
-    const { error } = await sb.from('customers').upsert(chunk, { onConflict: 'id' });
-    if (error) { console.error('Insert error at chunk', i, error.message); return; }
+    const { data: upsertData, error, status, statusText } = await sb.from('customers').upsert(chunk, { onConflict: 'id' });
+    if (error) { console.error('Insert error at chunk', i, ':', error.message, 'code:', error.code, 'details:', error.details); return; }
     inserted += chunk.length;
-    console.log('   ' + inserted + '/' + rows.length + ' rows…');
+    console.log('   ' + inserted + '/' + rows.length + ' rows — status:', status, statusText, 'returned:', upsertData?.length ?? 'null');
   }
+
+  // Verify rows actually landed
+  const { data: verify, error: verifyErr } = await sb.from('customers').select('id', { count: 'exact', head: true }).eq('client_id', prof.client_id);
+  const { count } = await sb.from('customers').select('*', { count: 'exact', head: true }).eq('client_id', prof.client_id);
+  console.log('   ✓ Verification: ' + (count ?? 'unknown') + ' rows in Supabase for client ' + prof.client_id);
+  if (verifyErr) console.warn('   Verify error:', verifyErr.message);
 
   console.log('✓ Done! 250 demo customers seeded under ' + targetEmail + ' (client: ' + prof.client_id + ')');
   console.log('Any user assigned to client ' + prof.client_id + ' will see these profiles.');
