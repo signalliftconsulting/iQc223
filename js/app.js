@@ -1612,36 +1612,49 @@ async function seedDemoData() {
 
   // 4. Push to Supabase under that user's ID
   console.log('4/4 — Pushing to Supabase (250 rows)…');
-  console.log('   auth.uid =', (await sb.auth.getUser()).data?.user?.id);
-  console.log('   target user_id =', prof.user_id);
-  console.log('   target client_id =', prof.client_id);
   const rows = customers.map(c => {
     const row = toRow(c);
     row.user_id = prof.user_id;       // audit: who seeded
     row.client_id = prof.client_id;   // ownership: target client
     return row;
   });
-  console.log('   Sample row keys:', Object.keys(rows[0]).join(', '));
-  console.log('   Sample row client_id:', rows[0].client_id, ' user_id:', rows[0].user_id);
 
+  // Auto-detect missing columns: try first row, strip any column the DB rejects, retry
+  let badCols = new Set();
+  let testRow = { ...rows[0] };
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const { error: testErr } = await sb.from('customers').upsert([testRow], { onConflict: 'id' });
+    if (!testErr) break;
+    const colMatch = testErr.message.match(/Could not find the '(\w+)' column/);
+    if (colMatch) {
+      badCols.add(colMatch[1]);
+      delete testRow[colMatch[1]];
+      console.warn('   Stripping missing column: ' + colMatch[1]);
+    } else {
+      console.error('Insert error:', testErr.message);
+      return;
+    }
+  }
+  if (badCols.size) {
+    console.log('   Stripped ' + badCols.size + ' missing columns: ' + [...badCols].join(', '));
+    rows.forEach(r => badCols.forEach(col => delete r[col]));
+  }
+
+  // Bulk upsert in chunks of 25 (row 0 already inserted by test, upsert is idempotent)
   let inserted = 0;
   for (let i = 0; i < rows.length; i += 25) {
     const chunk = rows.slice(i, i + 25);
-    const { data: upsertData, error, status, statusText } = await sb.from('customers').upsert(chunk, { onConflict: 'id' });
-    if (error) { console.error('Insert error at chunk', i, ':', error.message, 'code:', error.code, 'details:', error.details); return; }
+    const { error } = await sb.from('customers').upsert(chunk, { onConflict: 'id' });
+    if (error) { console.error('Insert error at row ' + i + ':', error.message); return; }
     inserted += chunk.length;
-    console.log('   ' + inserted + '/' + rows.length + ' rows — status:', status, statusText, 'returned:', upsertData?.length ?? 'null');
+    console.log('   ' + inserted + '/' + rows.length + ' rows…');
   }
 
   // Verify rows actually landed
-  const { data: verify, error: verifyErr } = await sb.from('customers').select('id', { count: 'exact', head: true }).eq('client_id', prof.client_id);
   const { count } = await sb.from('customers').select('*', { count: 'exact', head: true }).eq('client_id', prof.client_id);
-  console.log('   ✓ Verification: ' + (count ?? 'unknown') + ' rows in Supabase for client ' + prof.client_id);
-  if (verifyErr) console.warn('   Verify error:', verifyErr.message);
-
-  console.log('✓ Done! 250 demo customers seeded under ' + targetEmail + ' (client: ' + prof.client_id + ')');
-  console.log('Any user assigned to client ' + prof.client_id + ' will see these profiles.');
-  toast('Demo data seeded — 250 customers for ' + targetEmail, 'success');
+  console.log('✓ Verification: ' + (count ?? 'unknown') + ' rows in Supabase for client ' + prof.client_id);
+  console.log('✓ Done! Refresh the page to load them.');
+  toast('Demo data seeded — ' + (count ?? 250) + ' customers', 'success');
 }
 
 // ─── DEMO ACCOUNT SEED ──────────────────────────────────────
