@@ -1203,7 +1203,17 @@ async function disconnectIntegration(platform) {
 async function syncIntegration(platform) {
   const fnName = platform + '-sync'; // e.g. 'stripe-sync'
   const { data, error } = await sb.functions.invoke(fnName, { body: {} });
-  if (error) throw new Error(error.message || 'Sync failed');
+  if (error) {
+    // Try to extract server error message from the response
+    let msg = error.message || 'Sync failed';
+    try {
+      if (error.context && typeof error.context.json === 'function') {
+        const body = await error.context.json();
+        if (body?.error) msg = body.error;
+      }
+    } catch(_) {}
+    throw new Error(msg);
+  }
   if (data && !data.success) throw new Error(data.error || 'Sync failed');
   return data;
 }

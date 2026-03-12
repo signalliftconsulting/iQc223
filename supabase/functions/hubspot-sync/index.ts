@@ -312,6 +312,7 @@ serve(async (req) => {
   }
 
   try {
+    console.log('[hubspot-sync] Starting...');
     // ── Verify JWT ──
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) throw new Error('Missing authorization');
@@ -324,6 +325,7 @@ serve(async (req) => {
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) throw new Error('Unauthorized');
+    console.log('[hubspot-sync] User:', user.id);
 
     const serviceClient = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -338,6 +340,7 @@ serve(async (req) => {
       .single();
     if (!profile?.client_id) throw new Error('No client found for user');
     const clientId = profile.client_id;
+    console.log('[hubspot-sync] Client:', clientId);
 
     // Load HubSpot integration
     const { data: integration } = await serviceClient
@@ -350,8 +353,10 @@ serve(async (req) => {
     if (!integration || integration.status !== 'connected') {
       throw new Error('HubSpot is not connected. Go to Settings → API & Integrations to connect.');
     }
+    console.log('[hubspot-sync] Integration found, auth_type:', integration.config?._auth_type);
 
     const token = await getHubSpotToken(serviceClient, integration);
+    console.log('[hubspot-sync] Token retrieved, length:', token?.length);
 
     // ── Fetch HubSpot data (parallel where possible) ──
     const [companies, deals, tickets] = await Promise.all([
@@ -591,6 +596,7 @@ serve(async (req) => {
     }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
 
   } catch (err) {
+    console.error('[hubspot-sync] ERROR:', err.message, err.stack);
     return new Response(JSON.stringify({ success: false, error: err.message }), {
       status: 400,
       headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
