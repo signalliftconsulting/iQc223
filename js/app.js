@@ -13866,7 +13866,19 @@ function renderHubSpotCard(integration) {
   }
 }
 
-// HubSpot OAuth — redirect to HubSpot authorization page
+// PKCE helpers for OAuth 2.1
+function _generateCodeVerifier() {
+  const arr = new Uint8Array(32);
+  crypto.getRandomValues(arr);
+  return btoa(String.fromCharCode(...arr)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+async function _generateCodeChallenge(verifier) {
+  const data = new TextEncoder().encode(verifier);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return btoa(String.fromCharCode(...new Uint8Array(hash))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+// HubSpot OAuth 2.1 + PKCE — redirect to HubSpot authorization page
 async function connectHubSpotOAuth() {
   const btn = el('hubspot-connect-btn');
   const status = el('hubspot-connect-status');
@@ -13886,17 +13898,23 @@ async function connectHubSpotOAuth() {
     return;
   }
 
+  // Generate PKCE code verifier + challenge
+  const codeVerifier = _generateCodeVerifier();
+  const codeChallenge = await _generateCodeChallenge(codeVerifier);
+
+  // Store verifier in sessionStorage so the callback Edge Function can use it
+  // We pass it via state since the callback needs it server-side
   const state = btoa(JSON.stringify({
     client_id: clientId,
     user_id: userId,
-    return_url: window.location.origin + window.location.pathname
+    return_url: window.location.origin + window.location.pathname,
+    code_verifier: codeVerifier
   }));
 
   const HUBSPOT_CLIENT_ID = '5182d65c-2b72-4b90-8676-ff87ca97e846';
   const redirectUri = encodeURIComponent(SUPABASE_URL + '/functions/v1/hubspot-oauth-callback');
-  const scopes = encodeURIComponent('crm.objects.companies.read crm.objects.companies.write crm.objects.deals.read crm.objects.contacts.read tickets crm.objects.owners.read');
 
-  const authUrl = `https://app.hubspot.com/oauth/authorize?client_id=${HUBSPOT_CLIENT_ID}&redirect_uri=${redirectUri}&scope=${scopes}&state=${state}`;
+  const authUrl = `https://app-na2.hubspot.com/oauth/authorize?client_id=${HUBSPOT_CLIENT_ID}&redirect_uri=${redirectUri}&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=S256`;
 
   if (status) status.innerHTML = '<span style="color:var(--muted)">Redirecting to HubSpot…</span>';
   window.location.href = authUrl;

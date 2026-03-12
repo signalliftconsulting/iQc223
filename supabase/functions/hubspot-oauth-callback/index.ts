@@ -19,33 +19,40 @@ serve(async (req) => {
     }
 
     // Decode state
-    let stateData: { client_id: string; user_id: string; return_url: string };
+    let stateData: { client_id: string; user_id: string; return_url: string; code_verifier?: string };
     try {
       stateData = JSON.parse(atob(state));
     } catch {
       return new Response('Invalid state parameter', { status: 400 });
     }
 
-    const { client_id, user_id, return_url } = stateData;
+    const { client_id, user_id, return_url, code_verifier } = stateData;
     if (!client_id || !user_id) {
       return new Response('Invalid state: missing client_id or user_id', { status: 400 });
     }
 
-    // Exchange code for tokens
+    // Exchange code for tokens (OAuth 2.1 + PKCE)
     const clientId = Deno.env.get('HUBSPOT_CLIENT_ID')!;
     const clientSecret = Deno.env.get('HUBSPOT_CLIENT_SECRET')!;
     const redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/hubspot-oauth-callback`;
 
+    // Build token exchange params — use PKCE if code_verifier present, else fallback to client_secret
+    const tokenParams: Record<string, string> = {
+      grant_type: 'authorization_code',
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      code,
+    };
+    if (code_verifier) {
+      tokenParams.code_verifier = code_verifier;
+    } else {
+      tokenParams.client_secret = clientSecret;
+    }
+
     const tokenResp = await fetch('https://api.hubapi.com/oauth/v1/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        client_id: clientId,
-        client_secret: clientSecret,
-        redirect_uri: redirectUri,
-        code,
-      }),
+      body: new URLSearchParams(tokenParams),
     });
 
     if (!tokenResp.ok) {
