@@ -21897,11 +21897,23 @@ async function adminCreateUser() {
   el('cu-btn').textContent = 'Creating…';
 
   try {
+    // Save current admin session before signUp swaps it
+    const { data: adminSession } = await sb.auth.getSession();
+    const adminTokens = adminSession?.session ? {
+      access_token: adminSession.session.access_token,
+      refresh_token: adminSession.session.refresh_token,
+    } : null;
+
     const { data: signUpData, error: signUpErr } = await sb.auth.signUp({
       email, password: pw,
       options: { emailRedirectTo: window.location.href }
     });
     if (signUpErr) throw signUpErr;
+
+    // Restore admin session immediately so we don't stay signed in as the new user
+    if (adminTokens) {
+      await sb.auth.setSession(adminTokens);
+    }
 
     // If identities is empty, this email already exists in Supabase
     if (signUpData?.user?.identities?.length === 0) {
