@@ -140,8 +140,29 @@
     } finally {
       setLoading(false);
       refreshMgrDropdown();
-      nav('homebase');
-      renderSettings();
+
+      // Check for HubSpot OAuth callback
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('hubspot_connected') === '1') {
+        // Clean URL
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, '', cleanUrl);
+        toast('HubSpot connected successfully!', 'success');
+        // Refresh integration cache and navigate to settings
+        try { delete _integrationCache['hubspot']; } catch(_) {}
+        nav('settings');
+        renderSettings();
+      } else if (urlParams.get('hubspot_error')) {
+        const err = urlParams.get('hubspot_error');
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, '', cleanUrl);
+        toast('HubSpot connection failed: ' + err, 'error');
+        nav('settings');
+        renderSettings();
+      } else {
+        nav('homebase');
+        renderSettings();
+      }
     }
   });
 })();

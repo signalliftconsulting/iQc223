@@ -211,12 +211,96 @@ function detectTierFromCompany(props: any): string | null {
   return null;
 }
 
-// Retrieve HubSpot token from Vault or config fallback
+// Refresh an expired OAuth access token using the refresh token
+async function refreshOAuthToken(serviceClient: any, integration: any, tokenData: any): Promise<string> {
+  const clientId = Deno.env.get('HUBSPOT_CLIENT_ID');
+  const clientSecret = Deno.env.get('HUBSPOT_CLIENT_SECRET');
+  if (!clientId || !clientSecret || !tokenData.refresh_token) {
+    throw new Error('Cannot refresh token — missing client credentials or refresh token');
+  }
+
+  const resp = await fetch('https://api.hubapi.com/oauth/v1/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: tokenData.refresh_token,
+    }),
+  });
+
+  if (!resp.ok) {
+    const err = await resp.text();
+    console.error('Token refresh failed:', err);
+    throw new Error('HubSpot token refresh failed. Please reconnect.');
+  }
+
+  const newTokens = await resp.json();
+  const newPayload = JSON.stringify({
+    access_token: newTokens.access_token,
+    refresh_token: newTokens.refresh_token,
+    expires_at: Date.now() + (newTokens.expires_in * 1000),
+  });
+
+  // Update Vault
+  if (integration.vault_secret_id) {
+    const secretName = `hubspot_oauth_${integration.client_id}`;
+    try { await serviceClient.rpc('vault_delete_secret_by_name', { secret_name: secretName }); } catch (_) {}
+    const { data: newSecretId } = await serviceClient.rpc('vault_create_secret', {
+      new_secret: newPayload,
+      new_name: secretName,
+      new_description: `HubSpot OAuth tokens for client ${integration.client_id}`,
+    });
+    if (newSecretId) {
+      await serviceClient.from('integrations').update({
+        vault_secret_id: newSecretId,
+        updated_at: new Date().toISOString(),
+      }).eq('client_id', integration.client_id).eq('platform', 'hubspot');
+    }
+  } else {
+    // Fallback: update config
+    const config = { ...(integration.config || {}), _credential: newTokens.access_token, _refresh_token: newTokens.refresh_token, _expires_at: Date.now() + (newTokens.expires_in * 1000) };
+    await serviceClient.from('integrations').update({ config, updated_at: new Date().toISOString() }).eq('client_id', integration.client_id).eq('platform', 'hubspot');
+  }
+
+  return newTokens.access_token;
+}
+
+// Retrieve HubSpot token from Vault or config fallback, with auto-refresh for OAuth
 async function getHubSpotToken(serviceClient: any, integration: any): Promise<string> {
+  // Try Vault first
   if (integration.vault_secret_id) {
     const { data, error } = await serviceClient
       .rpc('vault_read_secret', { secret_id: integration.vault_secret_id });
-    if (!error && data) return data;
+    if (!error && data) {
+      // Check if this is an OAuth JSON payload
+      try {
+        const tokenData = JSON.parse(data);
+        if (tokenData.access_token) {
+          // Check if expired (with 5 min buffer)
+          if (tokenData.expires_at && tokenData.expires_at < Date.now() + 300000) {
+            return await refreshOAuthToken(serviceClient, integration, tokenData);
+          }
+          return tokenData.access_token;
+        }
+      } catch {
+        // Not JSON — it's a plain PAT token
+        return data;
+      }
+    }
+  }
+  // Config fallback
+  if (integration.config?._auth_type === 'oauth') {
+    const tokenData = {
+      access_token: integration.config._credential,
+      refresh_token: integration.config._refresh_token,
+      expires_at: integration.config._expires_at,
+    };
+    if (tokenData.expires_at && tokenData.expires_at < Date.now() + 300000) {
+      return await refreshOAuthToken(serviceClient, integration, tokenData);
+    }
+    if (tokenData.access_token) return tokenData.access_token;
   }
   if (integration.config?._credential) return integration.config._credential;
   throw new Error('No HubSpot token found. Please reconnect your HubSpot integration.');

@@ -13808,12 +13808,13 @@ function renderHubSpotCard(integration) {
     body.innerHTML = `
       <p style="font-size:var(--fs-base);color:var(--muted);margin-bottom:14px">
         Connect your HubSpot account to sync companies, deals, tickets, and engagement activity.
-        Create a <a href="https://developers.hubspot.com/docs/api/private-apps" target="_blank" rel="noopener" style="color:var(--blue)">Private App</a> with <strong>read</strong> access to CRM objects (Companies, Deals, Tickets, Communications).
+        Click below to authorize IQcadence with your HubSpot portal.
       </p>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <input type="password" id="hubspot-key-input" placeholder="pat-na1-..."
-          style="flex:1;min-width:240px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font-mono,monospace);color:var(--text);background:var(--surface)" />
-        <button class="btn btn-sm btn-success" onclick="connectHubSpotUI()" id="hubspot-connect-btn">Connect HubSpot</button>
+        <button class="btn btn-sm btn-success" onclick="connectHubSpotOAuth()" id="hubspot-connect-btn" style="display:inline-flex;align-items:center;gap:6px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+          Connect with HubSpot
+        </button>
       </div>
       <div id="hubspot-connect-status" style="margin-top:8px;font-size:var(--fs-sm)"></div>`;
   } else {
@@ -13865,32 +13866,37 @@ function renderHubSpotCard(integration) {
   }
 }
 
-async function connectHubSpotUI() {
-  const input = el('hubspot-key-input');
+// HubSpot OAuth — redirect to HubSpot authorization page
+function connectHubSpotOAuth() {
   const btn = el('hubspot-connect-btn');
   const status = el('hubspot-connect-status');
-  const key = input?.value?.trim();
-  if (!key) { toast('Enter your HubSpot Private App token', 'error'); return; }
-  if (!key.startsWith('pat-')) {
-    toast('Token should start with pat-', 'error'); return;
+  if (btn) { btn.disabled = true; btn.textContent = 'Redirecting…'; }
+
+  // Build state payload with client_id, user_id, and return URL
+  const session = sb.auth?.session?.() || null;
+  const userId = _currentUserId || '';
+  const clientId = _userClientId || activeClientId || '';
+
+  if (!clientId || !userId) {
+    toast('Please sign in first', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Connect with HubSpot'; }
+    return;
   }
 
-  btn.disabled = true;
-  btn.textContent = 'Connecting…';
-  status.innerHTML = '<span style="color:var(--muted)">Validating token with HubSpot…</span>';
+  const state = btoa(JSON.stringify({
+    client_id: clientId,
+    user_id: userId,
+    return_url: window.location.origin + window.location.pathname
+  }));
 
-  try {
-    await connectIntegration('hubspot', key);
-    toast('HubSpot connected!', 'success');
-    input.value = '';
-    renderIntegrationsSection();
-  } catch(e) {
-    status.innerHTML = `<span style="color:var(--red)">${escHtml(e.message)}</span>`;
-    toast('Connection failed: ' + e.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Connect HubSpot';
-  }
+  const HUBSPOT_CLIENT_ID = '5182d65c-2b72-4b90-8676-ff87ca97e846';
+  const redirectUri = encodeURIComponent(SUPABASE_URL + '/functions/v1/hubspot-oauth-callback');
+  const scopes = encodeURIComponent('crm.objects.companies.read crm.objects.companies.write crm.objects.deals.read crm.objects.contacts.read tickets crm.objects.owners.read');
+
+  const authUrl = `https://app.hubspot.com/oauth/authorize?client_id=${HUBSPOT_CLIENT_ID}&redirect_uri=${redirectUri}&scope=${scopes}&state=${state}`;
+
+  if (status) status.innerHTML = '<span style="color:var(--muted)">Redirecting to HubSpot…</span>';
+  window.location.href = authUrl;
 }
 
 async function disconnectHubSpotUI() {
@@ -22167,8 +22173,29 @@ async function ensureUserProfile(user) {
     } finally {
       setLoading(false);
       refreshMgrDropdown();
-      nav('homebase');
-      renderSettings();
+
+      // Check for HubSpot OAuth callback
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('hubspot_connected') === '1') {
+        // Clean URL
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, '', cleanUrl);
+        toast('HubSpot connected successfully!', 'success');
+        // Refresh integration cache and navigate to settings
+        try { delete _integrationCache['hubspot']; } catch(_) {}
+        nav('settings');
+        renderSettings();
+      } else if (urlParams.get('hubspot_error')) {
+        const err = urlParams.get('hubspot_error');
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, '', cleanUrl);
+        toast('HubSpot connection failed: ' + err, 'error');
+        nav('settings');
+        renderSettings();
+      } else {
+        nav('homebase');
+        renderSettings();
+      }
     }
   });
 })();
