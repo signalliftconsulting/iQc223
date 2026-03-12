@@ -13867,15 +13867,18 @@ function renderHubSpotCard(integration) {
 }
 
 // HubSpot OAuth — redirect to HubSpot authorization page
-function connectHubSpotOAuth() {
+async function connectHubSpotOAuth() {
   const btn = el('hubspot-connect-btn');
   const status = el('hubspot-connect-status');
   if (btn) { btn.disabled = true; btn.textContent = 'Redirecting…'; }
 
   // Build state payload with client_id, user_id, and return URL
-  const session = sb.auth?.session?.() || null;
-  const userId = _currentUserId || '';
-  const clientId = _userClientId || activeClientId || '';
+  let userId = '';
+  try {
+    const { data } = await sb.auth.getSession();
+    userId = data?.session?.user?.id || '';
+  } catch(_) {}
+  const clientId = _userClientId || (activeClientId !== '__own__' ? activeClientId : '');
 
   if (!clientId || !userId) {
     toast('Please sign in first', 'error');
