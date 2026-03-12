@@ -1127,6 +1127,9 @@ let _integrationCache = {};
 let _stripeSyncInProgress = false;
 let _lastStripeSyncTime = 0;
 let _stripeSyncTimer = null;
+let _hubspotSyncInProgress = false;
+let _lastHubSpotSyncTime = 0;
+let _hubspotSyncTimer = null;
 
 async function renderIntegrationsSection() {
   const wrap = el('integrations-section');
@@ -1165,12 +1168,14 @@ async function renderIntegrationsSection() {
       <div class="card-hd">
         <h2>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom;margin-right:6px"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>HubSpot
-          <span class="info-tip" data-tip="Connect your HubSpot account to sync company activity data. Coming soon — use the API or Zapier for now.">ⓘ</span>
+          <span class="info-tip" data-tip="Connect your HubSpot account to sync companies, deals, tickets, and engagement data. Use a Private App token with read access to CRM objects.">ⓘ</span>
         </h2>
-        <span style="font-size:var(--fs-sm);color:var(--muted);font-style:italic">Coming soon</span>
+        ${hubspotInt?.status === 'connected' ? '<span style="font-size:var(--fs-sm);color:var(--green);font-weight:700">● Connected</span>' : '<span style="font-size:var(--fs-sm);color:var(--muted)">Not connected</span>'}
       </div>
-      <p style="font-size:var(--fs-base);color:var(--muted);padding:0 0 8px">HubSpot integration is on the roadmap. In the meantime, use the <strong>API endpoints</strong> below or connect via <strong>Zapier webhooks</strong> to push HubSpot data into iQcadence.</p>
+      <div id="integration-hubspot-body"></div>
     </div>`;
+
+  renderHubSpotCard(hubspotInt);
 
   renderStripeCard(stripeInt);
 }
@@ -1347,6 +1352,7 @@ async function updateMetricToggle(platform, metric, enabled) {
     toast('Failed to update setting: ' + e.message, 'error');
     // Re-render to revert the toggle visually
     if (platform === 'stripe') renderStripeCard(integration);
+    if (platform === 'hubspot') renderHubSpotCard(integration);
   }
 }
 
@@ -1497,9 +1503,14 @@ async function topbarSyncStripe() {
     btn.classList.remove('syncing');
     btn.disabled = false;
   }
+
+  // Also sync HubSpot if connected
+  if (_integrationCache['hubspot']?.status === 'connected' && !_hubspotSyncInProgress) {
+    autoSyncHubSpot();
+  }
 }
 
-// Show/hide topbar sync button based on Stripe connection status
+// Show/hide topbar sync button based on integration connection status
 async function updateTopbarSyncVisibility() {
   const btn = el('topbar-sync-btn');
   if (!btn) return;
@@ -1508,7 +1519,8 @@ async function updateTopbarSyncVisibility() {
       const integrations = await loadIntegrationStatus();
       for (const i of integrations) _integrationCache[i.platform] = i;
     }
-    btn.style.display = _integrationCache['stripe']?.status === 'connected' ? '' : 'none';
+    const hasAny = _integrationCache['stripe']?.status === 'connected' || _integrationCache['hubspot']?.status === 'connected';
+    btn.style.display = hasAny ? '' : 'none';
   } catch(e) {
     btn.style.display = 'none';
   }
@@ -1584,6 +1596,315 @@ async function autoSyncStripe() {
     console.warn('[Auto-sync] Stripe error:', e.message);
   } finally {
     _stripeSyncInProgress = false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HUBSPOT INTEGRATION UI
+// ═══════════════════════════════════════════════════════════════
+
+function renderHubSpotCard(integration) {
+  const body = el('integration-hubspot-body');
+  if (!body) return;
+
+  if (!integration || integration.status !== 'connected') {
+    body.innerHTML = `
+      <p style="font-size:var(--fs-base);color:var(--muted);margin-bottom:14px">
+        Connect your HubSpot account to sync companies, deals, tickets, and engagement activity.
+        Create a <a href="https://developers.hubspot.com/docs/api/private-apps" target="_blank" rel="noopener" style="color:var(--blue)">Private App</a> with <strong>read</strong> access to CRM objects (Companies, Deals, Tickets, Communications).
+      </p>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="password" id="hubspot-key-input" placeholder="pat-na1-..."
+          style="flex:1;min-width:240px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font-mono,monospace);color:var(--text);background:var(--surface)" />
+        <button class="btn btn-sm btn-success" onclick="connectHubSpotUI()" id="hubspot-connect-btn">Connect HubSpot</button>
+      </div>
+      <div id="hubspot-connect-status" style="margin-top:8px;font-size:var(--fs-sm)"></div>`;
+  } else {
+    const syncAt = integration.last_sync_at
+      ? new Date(integration.last_sync_at).toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })
+      : 'Never';
+    const stats = integration.sync_stats || {};
+    const accountName = integration.config?.account_name || '';
+
+    body.innerHTML = `
+      <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:14px">
+        ${accountName ? `<div style="font-size:var(--fs-base)"><span style="color:var(--muted)">Account:</span> <strong>${escHtml(accountName)}</strong></div>` : ''}
+        <div style="font-size:var(--fs-base)"><span style="color:var(--muted)">Last sync:</span> <strong>${syncAt}</strong></div>
+        ${stats.matched != null ? `<div style="font-size:var(--fs-base)"><span style="color:var(--muted)">Matched:</span> <strong>${stats.matched}</strong></div>` : ''}
+        ${stats.created != null ? `<div style="font-size:var(--fs-base)"><span style="color:var(--muted)">Created:</span> <strong>${stats.created}</strong></div>` : ''}
+        ${stats.updated != null ? `<div style="font-size:var(--fs-base)"><span style="color:var(--muted)">Updated:</span> <strong>${stats.updated}</strong></div>` : ''}
+      </div>
+      ${integration.last_sync_message ? `<p style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:12px">${escHtml(integration.last_sync_message)}</p>` : ''}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="btn btn-sm btn-primary" onclick="syncHubSpotUI()" id="hubspot-sync-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Sync Now
+        </button>
+        <button class="btn btn-sm btn-danger" onclick="disconnectHubSpotUI()">Disconnect</button>
+      </div>
+      <div id="hubspot-sync-status" style="margin-top:8px;font-size:var(--fs-sm)"></div>
+      <div class="metric-toggles">
+        <h3>Sync Settings</h3>
+        ${buildMetricTogglesHTML('hubspot', integration)}
+      </div>
+      <div class="metric-toggles" style="margin-top:12px">
+        <h3>Push Back to HubSpot</h3>
+        <div class="mt-row">
+          <span class="mt-label">Push alerts as tasks</span>
+          <label class="mt-switch">
+            <input type="checkbox" ${integration.config?.push_alerts !== false ? 'checked' : ''}
+              onchange="updateHubSpotPushToggle('push_alerts',this.checked)" />
+            <span class="mt-slider"></span>
+          </label>
+        </div>
+        <div class="mt-row">
+          <span class="mt-label">Push health score to company</span>
+          <label class="mt-switch">
+            <input type="checkbox" ${integration.config?.push_score === true ? 'checked' : ''}
+              onchange="updateHubSpotPushToggle('push_score',this.checked)" />
+            <span class="mt-slider"></span>
+          </label>
+        </div>
+      </div>`;
+  }
+}
+
+async function connectHubSpotUI() {
+  const input = el('hubspot-key-input');
+  const btn = el('hubspot-connect-btn');
+  const status = el('hubspot-connect-status');
+  const key = input?.value?.trim();
+  if (!key) { toast('Enter your HubSpot Private App token', 'error'); return; }
+  if (!key.startsWith('pat-')) {
+    toast('Token should start with pat-', 'error'); return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Connecting…';
+  status.innerHTML = '<span style="color:var(--muted)">Validating token with HubSpot…</span>';
+
+  try {
+    await connectIntegration('hubspot', key);
+    toast('HubSpot connected!', 'success');
+    input.value = '';
+    renderIntegrationsSection();
+  } catch(e) {
+    status.innerHTML = `<span style="color:var(--red)">${escHtml(e.message)}</span>`;
+    toast('Connection failed: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Connect HubSpot';
+  }
+}
+
+async function disconnectHubSpotUI() {
+  confirmAction('Disconnect HubSpot? This will remove the stored token.', async () => {
+    try {
+      await disconnectIntegration('hubspot');
+      toast('HubSpot disconnected', 'warn');
+      renderIntegrationsSection();
+    } catch(e) {
+      toast('Disconnect failed: ' + e.message, 'error');
+    }
+  });
+}
+
+async function syncHubSpotUI() {
+  const btn = el('hubspot-sync-btn');
+  const status = el('hubspot-sync-status');
+  if (!btn) return;
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-sm"></span> Syncing…';
+  status.innerHTML = '<span style="color:var(--muted)">Pulling companies, deals & tickets from HubSpot…</span>';
+  _hubspotSyncInProgress = true;
+
+  try {
+    const result = await syncIntegration('hubspot');
+    const stats = result.stats || {};
+    _lastHubSpotSyncTime = Date.now();
+    status.innerHTML = `<span style="color:var(--green)">✓ ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated (${stats.total || 0} companies)</span>`;
+    toast(`HubSpot sync: ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated`, 'success');
+
+    // Force-reload after sync
+    if ((stats.updated || 0) > 0 || (stats.created || 0) > 0) {
+      const preScores = new Map(customers.map(c => [c.id, c.score]));
+      const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
+      try {
+        if (isAdmin() && activeClientId !== '__own__') {
+          await loadClientCustomers(activeClientId, true);
+        } else {
+          await loadCustomersFromSupabase();
+        }
+      } catch(e) { console.warn('Post-sync reload:', e); }
+      _lastSyncTime = Date.now();
+      refreshLiveScores();
+      // Log history entries for changed customers
+      const syncedNames = (result.updates || []).map(u => u.name?.toLowerCase());
+      const toSave = [];
+      for (const c of customers) {
+        if (!syncedNames.includes(c.name.toLowerCase())) continue;
+        const oldScore = preScores.get(c.id);
+        const oldSnap = preSignals.get(c.id);
+        const newSnap = buildHistorySnapshot(c);
+        const scoreChanged = oldScore != null && oldScore !== c.score;
+        const signalsChanged = JSON.stringify(oldSnap) !== JSON.stringify(newSnap);
+        if (scoreChanged || signalsChanged) {
+          c.history = c.history || [];
+          c.history.push({ score: c.score, date: new Date().toISOString(), signals: newSnap, prevSignals: oldSnap });
+          toSave.push(c);
+        }
+      }
+      if (toSave.length) {
+        pauseSync(10000);
+        for (const c of toSave) { try { await save(c); } catch(_) {} }
+      }
+      refreshMgrDropdown();
+      const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
+      if (active === 'homebase')  renderHomeBase();
+      if (active === 'customers') renderCustomers();
+      if (active === 'alerts')    renderAlerts();
+      if (active === 'trends')    renderTrends();
+    }
+
+    _integrationCache['hubspot'] = {
+      ...(_integrationCache['hubspot'] || {}),
+      last_sync_at: new Date().toISOString(),
+      last_sync_status: 'success',
+      last_sync_message: `${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated`,
+      sync_stats: stats
+    };
+  } catch(e) {
+    status.innerHTML = `<span style="color:var(--red)">✕ ${escHtml(e.message)}</span>`;
+    toast('HubSpot sync failed: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Sync Now';
+    _hubspotSyncInProgress = false;
+  }
+}
+
+async function updateHubSpotPushToggle(key, enabled) {
+  const integration = _integrationCache['hubspot'];
+  if (!integration) return;
+
+  const config = { ...(integration.config || {}), [key]: enabled };
+
+  try {
+    const { error } = await sb.from('integrations')
+      .update({ config, updated_at: new Date().toISOString() })
+      .eq('client_id', integration.client_id)
+      .eq('platform', 'hubspot');
+    if (error) throw error;
+    integration.config = config;
+    _integrationCache['hubspot'] = integration;
+    toast(`HubSpot ${key.replace('_',' ')} ${enabled ? 'enabled' : 'disabled'}`, enabled ? 'success' : 'warn');
+  } catch(e) {
+    toast('Failed to update: ' + e.message, 'error');
+    renderHubSpotCard(integration);
+  }
+}
+
+async function autoSyncHubSpot() {
+  if (_hubspotSyncInProgress) return;
+  if (!_integrationCache['hubspot']) {
+    try {
+      const integrations = await loadIntegrationStatus();
+      for (const i of integrations) _integrationCache[i.platform] = i;
+    } catch(_) { return; }
+  }
+  if (_integrationCache['hubspot']?.status !== 'connected') return;
+  if (Date.now() - _lastHubSpotSyncTime < 30 * 60 * 1000) return; // 30-min cooldown
+
+  _hubspotSyncInProgress = true;
+  try {
+    const result = await syncIntegration('hubspot');
+    const stats = result.stats || {};
+    _lastHubSpotSyncTime = Date.now();
+    console.log(`[Auto-sync] HubSpot: ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated`);
+
+    if ((stats.updated || 0) > 0 || (stats.created || 0) > 0) {
+      const preScores = new Map(customers.map(c => [c.id, c.score]));
+      const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
+      try {
+        if (isAdmin() && activeClientId !== '__own__') {
+          await loadClientCustomers(activeClientId, true);
+        } else {
+          await loadCustomersFromSupabase();
+        }
+      } catch(e) { console.warn('Auto-sync reload:', e); }
+      _lastSyncTime = Date.now();
+      refreshLiveScores();
+      const syncedNames = (result.updates || []).map(u => u.name?.toLowerCase());
+      const toSave = [];
+      for (const c of customers) {
+        if (!syncedNames.includes(c.name.toLowerCase())) continue;
+        const oldScore = preScores.get(c.id);
+        const oldSnap = preSignals.get(c.id);
+        const newSnap = buildHistorySnapshot(c);
+        if ((oldScore != null && oldScore !== c.score) || JSON.stringify(oldSnap) !== JSON.stringify(newSnap)) {
+          c.history = c.history || [];
+          c.history.push({ score: c.score, date: new Date().toISOString(), signals: newSnap, prevSignals: oldSnap });
+          toSave.push(c);
+        }
+      }
+      if (toSave.length) {
+        pauseSync(10000);
+        for (const c of toSave) { try { await save(c); } catch(_) {} }
+      }
+      refreshMgrDropdown();
+      const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
+      if (active === 'homebase')  renderHomeBase();
+      if (active === 'customers') renderCustomers();
+      if (active === 'alerts')    renderAlerts();
+      if (active === 'trends')    renderTrends();
+    }
+
+    _integrationCache['hubspot'] = {
+      ...(_integrationCache['hubspot'] || {}),
+      last_sync_at: new Date().toISOString(),
+      last_sync_status: 'success',
+      last_sync_message: `${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated`,
+      sync_stats: stats
+    };
+  } catch(e) {
+    console.warn('[Auto-sync] HubSpot error:', e.message);
+  } finally {
+    _hubspotSyncInProgress = false;
+  }
+}
+
+// Push an alert to HubSpot as a task
+async function pushAlertToHubSpot(alertId, customerId) {
+  if (!_integrationCache['hubspot'] || _integrationCache['hubspot'].status !== 'connected') {
+    toast('HubSpot is not connected', 'error'); return;
+  }
+  if (_integrationCache['hubspot'].config?.push_alerts === false) {
+    toast('Push alerts is disabled in HubSpot settings', 'warn'); return;
+  }
+
+  const c = customers.find(x => x.id === customerId);
+  if (!c) { toast('Customer not found', 'error'); return; }
+
+  const alert = buildAlerts().find(a => a.id === alertId);
+  const alertText = alert ? alert.label : 'IQcadence alert';
+
+  try {
+    const result = await sb.functions.invoke('hubspot-push', {
+      body: {
+        action: 'create_task',
+        customerId,
+        data: {
+          subject: `[IQcadence] ${alertText} — ${c.name}`,
+          body: `Alert: ${alertText}\nCustomer: ${c.name}\nHealth Score: ${c.score}\nMRR: $${fmtNum(c.mrr || 0)}\n\nGenerated by IQcadence`,
+          priority: c.score < 40 ? 'HIGH' : 'MEDIUM'
+        }
+      }
+    });
+    if (result.error) throw new Error(result.error.message || 'Push failed');
+    if (result.data && !result.data.success) throw new Error(result.data.error || 'Push failed');
+    toast(`Alert pushed to HubSpot as task`, 'success');
+  } catch(e) {
+    toast('Failed to push to HubSpot: ' + e.message, 'error');
   }
 }
 

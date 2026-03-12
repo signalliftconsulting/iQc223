@@ -75,6 +75,11 @@
         setTimeout(autoSyncStripe, 5000); // 5s delay to let UI settle
         _stripeSyncTimer = setInterval(autoSyncStripe, 60 * 60 * 1000);
       }
+      // Auto-sync HubSpot on page load (silent) + start hourly interval
+      if (typeof autoSyncHubSpot === 'function') {
+        setTimeout(autoSyncHubSpot, 8000); // 8s delay (after Stripe)
+        _hubspotSyncTimer = setInterval(autoSyncHubSpot, 60 * 60 * 1000);
+      }
     }
 
   } else {

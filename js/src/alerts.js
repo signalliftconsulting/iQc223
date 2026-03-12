@@ -1481,6 +1481,9 @@ function alertItemHTML(a, isSnzd) {
                <button class="snooze-dd__item" onclick="event.stopPropagation();snoozeAlert('${escHtml(a.id)}',30)">30 days</button>
              </div></div>
              <button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();dismissAlert('${escHtml(a.id)}')" title="Dismiss">✕</button>`}
+        ${(_integrationCache['hubspot']?.status === 'connected' && _integrationCache['hubspot']?.config?.push_alerts !== false)
+          ? `<button class="btn btn-xs btn-ghost" onclick="event.stopPropagation();pushAlertToHubSpot('${escHtml(a.id)}','${escHtml(a.cid)}')" title="Push to HubSpot" style="color:var(--blue)">⬆ HS</button>`
+          : ''}
       </div>
     </div>`;
 }
