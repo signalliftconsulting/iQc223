@@ -457,20 +457,20 @@ function renderTrends() {
 
   const kpiRow = el('trend-kpi-row');
   if (kpiRow) kpiRow.innerHTML = `
-    <div class="dash-kpi-card dash-kpi-blue" title="Average health score across all active accounts for the selected time range.">
-      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.score}</div><span class="dash-kpi-label">Portfolio Avg Score</span></div>
+    <div class="dash-kpi-card dash-kpi-blue">
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.score}</div><span class="dash-kpi-label">Portfolio Avg Score <span class="info-tip tip-below" data-tip="Average health score across all active accounts for the selected time range.">\u24d8</span></span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:${_tAvgValColor}">${currentAvg}</div><div class="dash-kpi-sub">${_deltaText}</div></div>
     </div>
-    <div class="dash-kpi-card ${trendDirColor}" title="Overall portfolio health trend — Improving (avg change > +0.5), Declining (< −0.5), or Stable. Only accounts with data before the range start are included.">
-      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.trend}</div><span class="dash-kpi-label">Trend Direction</span></div>
+    <div class="dash-kpi-card ${trendDirColor}">
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.trend}</div><span class="dash-kpi-label">Trend Direction <span class="info-tip tip-below" data-tip="Overall portfolio health trend — Improving (avg change > +0.5), Declining (< −0.5), or Stable.">\u24d8</span></span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.5rem${_tDirValColor ? ';color:' + _tDirValColor : ''}">${trendDir}</div><div class="dash-kpi-sub">${_trendSub}</div></div>
     </div>
-    <div class="dash-kpi-card dash-kpi-teal" title="Accounts with a positive health score change over the selected period.">
-      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.up}</div><span class="dash-kpi-label">Accounts Improving</span></div>
+    <div class="dash-kpi-card dash-kpi-teal">
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.up}</div><span class="dash-kpi-label">Accounts Improving <span class="info-tip tip-below" data-tip="Accounts with a positive health score change over the selected period.">\u24d8</span></span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num"${_tImpValColor ? ` style="color:${_tImpValColor}"` : ''}>${improving}</div><div class="dash-kpi-sub">${_impPct}% of accounts with data</div></div>
     </div>
-    <div class="dash-kpi-card dash-kpi-red" title="Accounts with a negative health score change over the selected period.">
-      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.down}</div><span class="dash-kpi-label">Accounts Declining</span></div>
+    <div class="dash-kpi-card dash-kpi-red">
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.down}</div><span class="dash-kpi-label">Accounts Declining <span class="info-tip tip-below" data-tip="Accounts with a negative health score change over the selected period.">\u24d8</span></span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:${_tDecValColor}">${declining}</div><div class="dash-kpi-sub">${_decPct}% of accounts with data</div></div>
     </div>
   `;

@@ -337,8 +337,12 @@ async function loadCustomersFromSupabase() {
   const all = (data || []).map(fromRow);
   customers = all.filter(c => !c.deleted_at);
   trash     = all.filter(c =>  c.deleted_at);
-  localStorage.setItem('iqc_customers_cache', JSON.stringify(customers));
-  localStorage.setItem('iqc_last_refresh', String(Date.now()));
+  try {
+    localStorage.setItem('iqc_customers_cache', JSON.stringify(customers));
+    localStorage.setItem('iqc_last_refresh', String(Date.now()));
+  } catch (e) {
+    console.warn('localStorage cache skipped (quota exceeded)');
+  }
   snapshotCustomerStates();
 }
 
@@ -387,7 +391,7 @@ function _showOverlay(on) {
 async function save(c) {
   if (!currentUser) return;
   // Always update localStorage cache immediately so UI stays intact
-  localStorage.setItem('iqc_customers_cache', JSON.stringify(customers));
+  try { localStorage.setItem('iqc_customers_cache', JSON.stringify(customers)); } catch(e) {}
   const { error } = await sb.from('customers').upsert(toRow(c), { onConflict: 'id' });
   if (error) {
     console.error('Supabase save error:', error.message, error);
@@ -421,7 +425,7 @@ async function restoreCustomer(id) {
   c.deleted_at = null;
   customers.unshift(c);
   trash = trash.filter(x => x.id !== id);
-  localStorage.setItem('iqc_customers_cache', JSON.stringify(customers));
+  try { localStorage.setItem('iqc_customers_cache', JSON.stringify(customers)); } catch(e) {}
   renderTrash();
   renderCustomers();
   logAudit('customer_restored', c.id, c.name, { summary: `Restored from trash — Score: ${c.score}/100, MRR: $${c.mrr||0}` });
@@ -576,16 +580,54 @@ const _DEMO_SUFFIXES = [
 ];
 // Weighted CSM list — senior reps get more accounts, junior fewer
 // Duplicates control weight: more entries = more accounts assigned
-const _DEMO_CSMS_WEIGHTED = [
-  'Sarah Mitchell','Sarah Mitchell','Sarah Mitchell','Sarah Mitchell','Sarah Mitchell','Sarah Mitchell',  // Sr — ~48
-  'James Chen','James Chen','James Chen','James Chen','James Chen','James Chen',                          // Sr — ~48
-  'Maria Rodriguez','Maria Rodriguez','Maria Rodriguez','Maria Rodriguez',                                  // Mid — ~32
-  'David Kim','David Kim','David Kim','David Kim',                                                          // Mid — ~32
-  'Rachel Foster','Rachel Foster','Rachel Foster',                                                          // Mid — ~24
-  'Anil Patel','Anil Patel','Anil Patel',                                                                  // Jr — ~24
-  'Emily Nakamura','Emily Nakamura',                                                                        // Jr — ~16
-  'Tom Brennan','Tom Brennan'                                                                                // Jr — ~16
-]; // 30 entries → 250/30 ≈ 8.3 accounts per slot
+// CSM definitions with target account share and health bias
+// bias: 'good' = mostly healthy accounts, 'mixed' = realistic spread, 'tough' = more at-risk
+const _DEMO_CSMS = [
+  { name: 'Sarah Mitchell',   pct: 0.19, bias: 'good'  },  // Sr — largest book, mostly healthy
+  { name: 'James Chen',       pct: 0.17, bias: 'mixed' },  // Sr — big book, realistic mix
+  { name: 'Maria Rodriguez',  pct: 0.15, bias: 'mixed' },  // Mid — solid portfolio
+  { name: 'David Kim',        pct: 0.13, bias: 'tough' },  // Mid — inherited some tough accounts
+  { name: 'Rachel Foster',    pct: 0.12, bias: 'good'  },  // Mid — strong performer
+  { name: 'Anil Patel',       pct: 0.10, bias: 'tough' },  // Jr — newer, got at-risk book
+  { name: 'Emily Nakamura',   pct: 0.08, bias: 'mixed' },  // Jr — small book, still ramping
+  { name: 'Tom Brennan',      pct: 0.06, bias: 'mixed' },  // Jr — smallest book
+];
+
+// Build weighted CSM list for round-robin (legacy compat for 250-count)
+const _DEMO_CSMS_WEIGHTED = [];
+_DEMO_CSMS.forEach(c => {
+  const n = Math.max(1, Math.round(30 * c.pct / 0.19));
+  for (let i = 0; i < n; i++) _DEMO_CSMS_WEIGHTED.push(c.name);
+});
+
+// Assign CSMs with uneven counts + health-biased sorting
+function _assignCSMs(trajList, count) {
+  // Build CSM slots
+  const slots = [];
+  _DEMO_CSMS.forEach(c => {
+    const n = Math.max(1, Math.round(count * c.pct));
+    for (let i = 0; i < n; i++) slots.push(c);
+  });
+  while (slots.length > count) slots.pop();
+  while (slots.length < count) slots.push(_DEMO_CSMS[0]);
+
+  // Sort trajectories by health: good trajectories first, tough last
+  const healthOrder = { 'stable-healthy':0,'seasonal':1,'recovered':2,'improving':3,
+    'stable-mid':4,'volatile':5,'onboarding':6,'slow-decline':7,'declining':8,'stable-low':9,'churned':10 };
+  const indices = trajList.map((t,i) => i);
+  indices.sort((a,b) => healthOrder[trajList[a]] - healthOrder[trajList[b]]);
+
+  // Sort slots: 'good' bias CSMs get first pick (healthy), 'tough' get last (at-risk)
+  const biasOrder = { good: 0, mixed: 1, tough: 2 };
+  slots.sort((a,b) => biasOrder[a.bias] - biasOrder[b.bias]);
+
+  // Map: for each original index, assign a CSM name
+  const assignments = new Array(count);
+  indices.forEach((origIdx, slotIdx) => {
+    assignments[origIdx] = slots[slotIdx].name;
+  });
+  return assignments;
+}
 const _DEMO_NOTES = [
   'QBR went well. Champion is engaged and open to upsell convo.',
   'Escalated to VP of Support — tickets still climbing.',
@@ -719,21 +761,34 @@ const _DEMO_TRAJECTORIES = {
   }
 };
 
-// Trajectory assignment order (sums to 250)
-// Realistic SaaS portfolio: ~65% healthy, ~15% watch, ~12% at-risk, ~8% churned
-const _DEMO_TRAJ_DIST = [
-  ...Array(68).fill('stable-healthy'),  // 27% — solid core
-  ...Array(20).fill('stable-mid'),      //  8% — watch zone, not terrible
-  ...Array(8).fill('stable-low'),       //  3% — genuinely struggling (few)
-  ...Array(32).fill('improving'),       // 13% — on the upswing, end healthy
-  ...Array(12).fill('declining'),       //  5% — sliding (small group)
-  ...Array(8).fill('slow-decline'),     //  3% — gradual decline
-  ...Array(18).fill('volatile'),        //  7% — unpredictable but avg ~60
-  ...Array(18).fill('onboarding'),      //  7% — new clients ramping
-  ...Array(20).fill('churned'),         //  8% — lost (filtered from active)
-  ...Array(25).fill('recovered'),       // 10% — bounced back, end healthy
-  ...Array(21).fill('seasonal')         //  8% — generally healthy with dips
+// Trajectory percentages — realistic SaaS portfolio
+// ~65% healthy, ~15% watch, ~12% at-risk, ~8% churned
+const _DEMO_TRAJ_PCTS = [
+  ['stable-healthy', 0.27],  // solid core
+  ['stable-mid',     0.08],  // watch zone
+  ['stable-low',     0.04],  // genuinely struggling
+  ['improving',      0.13],  // on the upswing
+  ['declining',      0.05],  // sliding
+  ['slow-decline',   0.03],  // gradual decline
+  ['volatile',       0.07],  // unpredictable
+  ['onboarding',     0.07],  // new clients ramping
+  ['churned',        0.08],  // lost
+  ['recovered',      0.10],  // bounced back
+  ['seasonal',       0.08],  // generally healthy with dips
 ];
+function _buildTrajDist(count) {
+  const dist = [];
+  _DEMO_TRAJ_PCTS.forEach(([key, pct]) => {
+    const n = Math.max(1, Math.round(count * pct));
+    for (let i = 0; i < n; i++) dist.push(key);
+  });
+  // Trim or pad to exact count
+  while (dist.length > count) dist.pop();
+  while (dist.length < count) dist.push('stable-healthy');
+  return dist;
+}
+// Legacy compat
+const _DEMO_TRAJ_DIST = _buildTrajDist(250);
 
 function _dClamp(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); }
 function _dLerp([lo,hi],t){ return lo+(hi-lo)*_dClamp(t,0,1); }
@@ -788,8 +843,9 @@ function _generateDemoHistory(trajKey, now, overrideDays) {
   return entries;
 }
 
-function _generateDemoCustomer(name, index, now) {
-  const trajKey = _DEMO_TRAJ_DIST[index % _DEMO_TRAJ_DIST.length];
+function _generateDemoCustomer(name, index, now, trajList, csmAssignments) {
+  const dist = trajList || _DEMO_TRAJ_DIST;
+  const trajKey = dist[index % dist.length];
   const traj = _DEMO_TRAJECTORIES[trajKey];
 
   // Tier & MRR — decouple from trajectory so high-value accounts appear in any bucket
@@ -799,14 +855,31 @@ function _generateDemoCustomer(name, index, now) {
             : tier === 'mid' ? Math.round(_dRand(3000,18000)/100)*100
             : Math.round(_dRand(15000,55000)/500)*500;
 
-  // History
-  const history = _generateDemoHistory(trajKey, now);
+  // History — always 2+ years (730-900 days)
+  const histDays = 730 + Math.floor(Math.random() * 170);
+  const history = _generateDemoHistory(trajKey, now, histDays);
   const last = history[history.length - 1];
   const lastSig = last.signals;
 
-  // Lifecycle
+  // Lifecycle — spread across all stages for realistic mix
   let lifecycle = traj.lifecycle;
-  if (trajKey === 'stable-healthy' && last.score >= 88 && Math.random() < 0.2) lifecycle = 'won';
+  if (trajKey === 'stable-healthy') {
+    const r = Math.random();
+    if (r < 0.15) lifecycle = 'won';
+    else if (r < 0.25) lifecycle = 'onboarding'; // long-time customer re-onboarding a new product
+  } else if (trajKey === 'improving') {
+    if (Math.random() < 0.30) lifecycle = 'onboarding';
+  } else if (trajKey === 'recovered') {
+    if (Math.random() < 0.20) lifecycle = 'won';
+  } else if (trajKey === 'declining' || trajKey === 'slow-decline') {
+    if (Math.random() < 0.35) lifecycle = 'atrisk';
+  } else if (trajKey === 'volatile') {
+    const r = Math.random();
+    if (r < 0.15) lifecycle = 'atrisk';
+    else if (r < 0.25) lifecycle = 'onboarding';
+  } else if (trajKey === 'seasonal') {
+    if (Math.random() < 0.15) lifecycle = 'won';
+  }
 
   // Renewal date
   const renDate = new Date(now);
@@ -820,11 +893,9 @@ function _generateDemoCustomer(name, index, now) {
   const renewal_date = renDate.toISOString().slice(0,10);
   const renewal = Math.max(0, Math.round((renDate - new Date(now)) / (1000*60*60*24*30.44)));
 
-  // Customer-since date
+  // Customer-since date — always 2+ years back to match history depth
   const sinceDate = new Date(now);
-  if (lifecycle === 'churned') sinceDate.setMonth(sinceDate.getMonth() - 18 - Math.floor(Math.random()*12));
-  else if (trajKey === 'onboarding') sinceDate.setMonth(sinceDate.getMonth() - 1 - Math.floor(Math.random()*2));
-  else sinceDate.setMonth(sinceDate.getMonth() - 6 - Math.floor(Math.random()*22));
+  sinceDate.setDate(sinceDate.getDate() - histDays - Math.floor(Math.random() * 60));
   const since = sinceDate.toISOString().slice(0,10);
 
   // Created date
@@ -838,10 +909,6 @@ function _generateDemoCustomer(name, index, now) {
     'retail','professional-services','manufacturing'
   ];
   const tags = [_DEMO_INDUSTRIES[index % _DEMO_INDUSTRIES.length]];
-  // Only add a second tag for ~20% of accounts — keeps it sparse and realistic
-  if (lifecycle !== 'churned' && renewal <= 2 && Math.random() < 0.5) tags.push('renewal-soon');
-  if (trajKey === 'onboarding') tags.push('onboarding');
-  if (lifecycle === 'churned') tags.push('churned');
 
   // Notes (~30% of customers, up to 2 notes each)
   const notes = [];
@@ -919,7 +986,7 @@ function _generateDemoCustomer(name, index, now) {
     notes,
     history,
     sentiment,
-    manager:         _DEMO_CSMS_WEIGHTED[index % _DEMO_CSMS_WEIGHTED.length],
+    manager:         (csmAssignments && csmAssignments[index]) || _DEMO_CSMS_WEIGHTED[index % _DEMO_CSMS_WEIGHTED.length],
     scoring_profile: '',
     deleted_at:      null,
     created,
@@ -930,66 +997,90 @@ function _generateDemoCustomer(name, index, now) {
   };
 }
 
-function initDemo() {
+function initDemo(count) {
+  count = count || 250;
   const now = Date.now();
-  const names = _generateDemoNames(250);
-  _DEMO_TRAJ_DIST.sort(() => Math.random() - 0.5);
-  customers = names.map((name, i) => _generateDemoCustomer(name, i, now));
+  const names = _generateDemoNames(count);
+  // Build trajectory list scaled to count
+  const trajList = _buildTrajDist(count);
+  trajList.sort(() => Math.random() - 0.5);
+  // Assign CSMs with uneven book sizes and health bias
+  const csmAssignments = _assignCSMs(trajList, count);
+  customers = names.map((name, i) => _generateDemoCustomer(name, i, now, trajList, csmAssignments));
 }
 
 // One-time admin function: push demo data to Supabase for demo@iqcadence.com
 // Run from browser console while logged in as admin: seedDemoData()
-async function seedDemoData() {
-  // Seeds 250 demo customers into an EXISTING client.
-  // Usage: seedDemoData()           — auto-finds demo@iqcadence.com's client
-  //        seedDemoData('some-email@x.com') — uses that user's client instead
+async function seedDemoData(emailOrClientId, count) {
+  // Seeds demo customers into an EXISTING client.
+  // Usage: seedDemoData()                           — 75 accounts into demo@iqcadence.com's client
+  //        seedDemoData('some-email@x.com')         — 75 accounts via email lookup
+  //        seedDemoData('some-uuid-client-id')      — 75 accounts via client_id
+  //        seedDemoData('client-uuid', 100)         — custom count
+  count = count || 75;
   if (!isAdmin()) { console.error('Must be logged in as admin'); return; }
 
-  const targetEmail = arguments[0] || 'demo@iqcadence.com';
+  const arg = emailOrClientId || 'demo@iqcadence.com';
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(arg);
 
-  // 1. Find the user's profile and client
-  console.log('1/4 — Finding user profile for ' + targetEmail + '…');
-  let prof;
-  try {
-    const { data, error: profErr } = await sb.from('user_profiles')
-      .select('user_id, client_id, email, business_name')
-      .eq('email', targetEmail.toLowerCase())
-      .limit(1);
-    if (profErr) { console.error('Profile query error:', profErr.message); return; }
-    prof = data && data.length ? data[0] : null;
-  } catch(e) { console.error('Profile query exception:', e); return; }
+  let targetClientId, targetUserId;
 
-  if (!prof) {
-    console.error('No user_profiles row found for ' + targetEmail);
-    console.error('Make sure the user has logged in at least once, or create their profile in User Management.');
-    return;
+  if (isUUID) {
+    // Direct client_id passed — verify it exists
+    console.log('1/4 — Verifying client ' + arg + '…');
+    const { data: cl, error: clErr } = await sb.from('clients').select('id, name').eq('id', arg).limit(1);
+    if (clErr) { console.error('Client query error:', clErr.message); return; }
+    if (!cl || !cl.length) { console.error('No client found with ID ' + arg); return; }
+    targetClientId = cl[0].id;
+    targetUserId = (await sb.auth.getUser()).data.user.id; // audit: current admin
+    console.log('   Client:', cl[0].name, '(' + targetClientId + ')');
+  } else {
+    // Email passed — resolve to client_id
+    const targetEmail = arg;
+    console.log('1/4 — Finding user profile for ' + targetEmail + '…');
+    let prof;
+    try {
+      const { data, error: profErr } = await sb.from('user_profiles')
+        .select('user_id, client_id, email, business_name')
+        .eq('email', targetEmail.toLowerCase())
+        .limit(1);
+      if (profErr) { console.error('Profile query error:', profErr.message); return; }
+      prof = data && data.length ? data[0] : null;
+    } catch(e) { console.error('Profile query exception:', e); return; }
+
+    if (!prof) {
+      console.error('No user_profiles row found for ' + targetEmail);
+      console.error('Make sure the user has logged in at least once, or create their profile in User Management.');
+      return;
+    }
+    if (!prof.client_id) {
+      console.error('User ' + targetEmail + ' is not assigned to any client.');
+      console.error('Go to Settings → User Management → Edit, and assign them to a client first.');
+      return;
+    }
+    targetClientId = prof.client_id;
+    targetUserId = prof.user_id;
+    console.log('   User ID:', prof.user_id);
+    console.log('   Client ID:', prof.client_id);
+    console.log('   Business:', prof.business_name || '(none)');
   }
-  if (!prof.client_id) {
-    console.error('User ' + targetEmail + ' is not assigned to any client.');
-    console.error('Go to Settings → User Management → Edit, and assign them to a client first.');
-    return;
-  }
-
-  console.log('   User ID:', prof.user_id);
-  console.log('   Client ID:', prof.client_id);
-  console.log('   Business:', prof.business_name || '(none)');
 
   // 2. Delete existing customers for this client
-  console.log('2/4 — Deleting existing customers for client ' + prof.client_id + '…');
-  const { error: delErr } = await sb.from('customers').delete().eq('client_id', prof.client_id);
+  console.log('2/4 — Deleting existing customers for client ' + targetClientId + '…');
+  const { error: delErr } = await sb.from('customers').delete().eq('client_id', targetClientId);
   if (delErr) { console.error('Delete error:', delErr.message); return; }
   console.log('   Old data cleared.');
 
-  // 3. Generate 250 demo customers in memory
-  console.log('3/4 — Generating 250 demo customers…');
-  initDemo(); // populates customers[]
+  // 3. Generate demo customers in memory
+  console.log('3/4 — Generating ' + count + ' demo customers (2+ years history each)…');
+  initDemo(count); // populates customers[]
 
   // 4. Push to Supabase under that user's ID
-  console.log('4/4 — Pushing to Supabase (250 rows)…');
+  console.log('4/4 — Pushing to Supabase (' + count + ' rows)…');
   const rows = customers.map(c => {
     const row = toRow(c);
-    row.user_id = prof.user_id;       // audit: who seeded
-    row.client_id = prof.client_id;   // ownership: target client
+    row.user_id = targetUserId;       // audit: who seeded
+    row.client_id = targetClientId;   // ownership: target client
     return row;
   });
 
@@ -1025,10 +1116,18 @@ async function seedDemoData() {
   }
 
   // Verify rows actually landed
-  const { count } = await sb.from('customers').select('*', { count: 'exact', head: true }).eq('client_id', prof.client_id);
-  console.log('✓ Verification: ' + (count ?? 'unknown') + ' rows in Supabase for client ' + prof.client_id);
+  const { count: verifyCount } = await sb.from('customers').select('*', { count: 'exact', head: true }).eq('client_id', targetClientId);
+  console.log('✓ Verification: ' + (verifyCount ?? 'unknown') + ' rows in Supabase for client ' + targetClientId);
   console.log('✓ Done! Refresh the page to load them.');
-  toast('Demo data seeded — ' + (count ?? 250) + ' customers', 'success');
+  toast('Demo data seeded — ' + (verifyCount ?? count) + ' customers', 'success');
+}
+
+// Helper: list all clients (logs to console, no await needed)
+function listClients() {
+  sb.from('clients').select('id, name, plan_tier').then(({ data, error }) => {
+    if (error) { console.error('Error:', error.message); return; }
+    console.table(data);
+  });
 }
 
 // ─── DEMO ACCOUNT SEED ──────────────────────────────────────

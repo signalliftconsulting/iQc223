@@ -114,24 +114,24 @@ function renderCSMPerformance() {
   const _csmOverdueValColor = totalOverdue > 0 ? '#dc2626' : '#16a34a';
 
   statsWrap.innerHTML = `
-    <div class="dash-kpi-card dash-kpi-blue" title="Customer Success Managers with assigned accounts.">
-      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.people}</div><span class="dash-kpi-label">Active CSMs</span></div>
+    <div class="dash-kpi-card dash-kpi-blue">
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.people}</div><span class="dash-kpi-label">Active CSMs <span class="info-tip tip-below" data-tip="Customer Success Managers with assigned accounts.">\u24d8</span></span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num">${totalCSMs}</div><div class="dash-kpi-sub">${totalAccounts} accounts across team</div></div>
     </div>
-    <div class="dash-kpi-card dash-kpi-purple" title="Average number of accounts managed per CSM.">
-      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.chart}</div><span class="dash-kpi-label">Avg Book Size</span></div>
+    <div class="dash-kpi-card dash-kpi-purple">
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.chart}</div><span class="dash-kpi-label">Avg Book Size <span class="info-tip tip-below" data-tip="Average number of accounts managed per CSM.">\u24d8</span></span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num">${avgAccsPerCSM}</div><div class="dash-kpi-sub">accounts per CSM</div></div>
     </div>
-    <div class="dash-kpi-card dash-kpi-teal" title="Average monthly recurring revenue managed per CSM.">
-      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.dollar}</div><span class="dash-kpi-label">Avg MRR / CSM</span></div>
+    <div class="dash-kpi-card dash-kpi-teal">
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.dollar}</div><span class="dash-kpi-label">Avg MRR / CSM <span class="info-tip tip-below" data-tip="Average monthly recurring revenue managed per CSM.">\u24d8</span></span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num">$${fmtNum(avgMRRPerCSM)}</div><div class="dash-kpi-sub">$${fmtNum(totalMRR)} total portfolio</div></div>
     </div>
-    <div class="dash-kpi-card ${healthScoreGradient}" title="Average health score across all managed accounts. Green ≥ 65, amber 50–64, red < 50.">
-      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.pulse}</div><span class="dash-kpi-label">Avg Health Score</span></div>
+    <div class="dash-kpi-card ${healthScoreGradient}">
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.pulse}</div><span class="dash-kpi-label">Avg Health Score <span class="info-tip tip-below" data-tip="Average health score across all managed accounts. Green ≥ 65, amber 50–64, red < 50.">\u24d8</span></span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:${_csmAvgValColor}">${overallAvg}</div><div class="dash-kpi-sub">${deltaIcon} ${Math.abs(overallDelta)} pts this week</div></div>
     </div>
-    <div class="dash-kpi-card ${overdueGradient}" title="Customers not contacted within the required interval. Red when any are overdue.">
-      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.alert}</div><span class="dash-kpi-label">Overdue Contacts</span></div>
+    <div class="dash-kpi-card ${overdueGradient}">
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.alert}</div><span class="dash-kpi-label">Overdue Contacts <span class="info-tip tip-below" data-tip="Customers not contacted within the required interval. Red when any are overdue.">\u24d8</span></span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:${_csmOverdueValColor}">${totalOverdue}</div><div class="dash-kpi-sub">${totalOverdue ? avgAtRiskPerCSM + ' at-risk per CSM' : 'All contacts current'}</div></div>
     </div>
   `;

@@ -53,8 +53,13 @@
       await loadCustomersFromSupabase();
       await resolveClientPlanTier();
     } catch(err) {
-      console.error('Supabase sync error:', err?.message || err);
-      toast('Could not reach Supabase — showing cached data', 'warn');
+      console.error('Supabase sync error:', err?.message || err, err);
+      if (err?.message?.includes('quota')) {
+        console.warn('[sync] localStorage quota — clearing cache');
+        try { localStorage.removeItem('iqc_customers_cache'); } catch(e2) {}
+      } else {
+        toast('Could not reach Supabase — showing cached data', 'warn');
+      }
     } finally {
       setLoading(false);
       refreshLiveScores();
@@ -120,8 +125,13 @@
       await loadCustomersFromSupabase();
       await resolveClientPlanTier();
     } catch(err) {
-      console.error('Supabase sync error:', err?.message || err);
-      toast('Could not reach Supabase — showing cached data', 'warn');
+      console.error('Supabase sync error:', err?.message || err, err);
+      if (err?.message?.includes('quota')) {
+        console.warn('[sync] localStorage quota — clearing cache');
+        try { localStorage.removeItem('iqc_customers_cache'); } catch(e2) {}
+      } else {
+        toast('Could not reach Supabase — showing cached data', 'warn');
+      }
     } finally {
       setLoading(false);
       refreshMgrDropdown();

@@ -273,7 +273,7 @@ svg.sparkline{display:block}
 .aw-page-hd p{color:var(--muted);font-size:.82rem;margin-top:.15rem}
 
 /* ── WIDGET CARD ── */
-.aw-card{background:#fff;border-radius:8px;border:1px solid var(--border);box-shadow:0 1px 2px rgba(0,0,0,.05);overflow:hidden;transition:box-shadow .15s}
+.aw-card{background:#fff;border-radius:8px;border:1px solid var(--border);box-shadow:0 1px 2px rgba(0,0,0,.05);overflow:visible;transition:box-shadow .15s}
 .aw-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.07)}
 .aw-card:empty{display:none}
 
@@ -1115,9 +1115,9 @@ svg.sparkline{display:block}
 @media(max-width:600px){.main{padding:14px 12px 48px}.fg{grid-column:1/-1}.fg{grid-template-columns:1fr}.stat-grid{grid-template-columns:1fr 1fr}h1{font-size:1.35rem}.dash-kpi-row{grid-template-columns:1fr 1fr}}
 
 /* AUTH GATE */
-#auth-gate{position:fixed;inset:0;background:linear-gradient(135deg,#f0f4f8 0%,#e8eef5 100%);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}
-.auth-card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:40px 36px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(15,23,42,.12)}
-.auth-logo{width:56px;height:56px;background:linear-gradient(135deg,#2563eb,#1d4ed8);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;box-shadow:0 4px 14px rgba(37,99,235,.35)}
+#auth-gate{position:fixed;inset:0;background:linear-gradient(135deg,#e6f5f3 0%,#d0edea 50%,#e0f0ef 100%);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}
+.auth-card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:40px 36px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(18,145,139,.12)}
+.auth-logo{width:200px;border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;overflow:hidden}
 .auth-card h1{font-size:1.4rem;margin-bottom:4px;text-align:center;letter-spacing:-.02em}
 .auth-card .sub{font-size:var(--fs-md);color:var(--muted);margin-bottom:24px;text-align:center}
 .auth-tabs{display:flex;gap:3px;background:var(--border);border-radius:var(--r);padding:3px;margin-bottom:20px}
@@ -1126,13 +1126,13 @@ svg.sparkline{display:block}
 .auth-field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
 .auth-field label{font-size:var(--fs-base);font-weight:600;color:var(--text)}
 .auth-input{padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r);font-size:var(--fs-lg);font-family:var(--font);outline:none;transition:border-color .16s;width:100%}
-.auth-input:focus{border-color:var(--focus);box-shadow:0 0 0 3px rgba(59,130,246,.1)}
-.auth-btn{width:100%;padding:11px;background:var(--blue);color:#fff;border:none;border-radius:var(--r);font-size:var(--fs-lg);font-weight:700;cursor:pointer;font-family:var(--font);transition:background .15s;margin-top:4px}
-.auth-btn:hover{background:var(--blue-d)}
+.auth-input:focus{border-color:#12918b;box-shadow:0 0 0 3px rgba(18,145,139,.12)}
+.auth-btn{width:100%;padding:11px;background:#12918b;color:#fff;border:none;border-radius:var(--r);font-size:var(--fs-lg);font-weight:700;cursor:pointer;font-family:var(--font);transition:background .15s;margin-top:4px}
+.auth-btn:hover{background:#0e7a75}
 .auth-btn:disabled{opacity:.5;cursor:not-allowed}
 .auth-err{font-size:var(--fs-base);color:var(--red);margin-top:10px;min-height:18px;font-weight:600;text-align:center}
 .auth-ok{font-size:var(--fs-base);color:var(--green);margin-top:10px;min-height:18px;font-weight:600;text-align:center}
-.auth-link{font-size:var(--fs-base);color:var(--blue);cursor:pointer;text-align:center;margin-top:12px;display:block}
+.auth-link{font-size:var(--fs-base);color:#12918b;cursor:pointer;text-align:center;margin-top:12px;display:block}
 .auth-link:hover{text-decoration:underline}
 .auth-divider{display:flex;align-items:center;gap:8px;margin:14px 0;color:var(--subtle);font-size:var(--fs-sm)}
 .auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--border)}
@@ -1182,7 +1182,7 @@ svg.sparkline{display:block}
 .info-tip:hover::before{opacity:1}
 .info-tip.tip-below::after{bottom:auto;top:calc(100% + 6px)}
 .info-tip.tip-below::before{bottom:auto;top:calc(100% + 2px);border-top-color:transparent;border-bottom-color:#1e293b}
-.dash-kpi-card:has(.info-tip:hover),.card:has(.info-tip:hover),.chart-card:has(.info-tip:hover){z-index:100;position:relative}
+.dash-kpi-card:has(.info-tip:hover),.card:has(.info-tip:hover),.chart-card:has(.info-tip:hover),.aw-card:has(.info-tip:hover),.stat-card:has(.info-tip:hover){z-index:100;position:relative;overflow:visible}
 /* ─── Sparklines ─── */
 .sparkline{display:block;overflow:visible}
 td .sparkline{vertical-align:middle}
@@ -1603,15 +1603,8 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 <div id="auth-gate" style="display:none">
   <div class="auth-card">
     <div class="auth-logo">
-      <svg width="28" height="28" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="1" y="9" width="3" height="8" rx="1.5" fill="white" opacity=".7"/>
-        <rect x="6" y="5" width="3" height="12" rx="1.5" fill="white" opacity=".85"/>
-        <rect x="11" y="1" width="3" height="16" rx="1.5" fill="white"/>
-        <circle cx="15.5" cy="3" r="1.5" fill="#93c5fd"/>
-      </svg>
+      <img src="Logo/iQcadence_logo.png" alt="IQcadence" style="width:100%;height:auto;display:block;border-radius:16px"/>
     </div>
-    <h1>IQcadence</h1>
-    <p class="sub">CS Health Score</p>
 
     <!-- Login form only — no public sign-up -->
     <div id="form-login">
@@ -1975,7 +1968,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 
   <!-- Main chart -->
   <div class="chart-card" id="seg-chart-card">
-    <div class="card-hd-bar" title="Health score trends compared across segments over time. Click segment pills to toggle visibility."><span class="card-hd-bar__title">Segment Comparison</span></div>
+    <div class="card-hd-bar"><span class="card-hd-bar__title">Segment Comparison <span class="info-tip tip-below" data-tip="Health score trends compared across segments over time. Click segment pills to toggle visibility.">ⓘ</span></span></div>
     <div style="padding:1rem 1.25rem">
       <div id="seg-chart-pills" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
       <div id="seg-chart-wrap" style="position:relative"></div>
@@ -1987,7 +1980,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <div id="seg-chart-analysis" class="trend-analysis-wrap"></div>
 
   <div class="card" style="margin-top:16px">
-    <div class="card-hd-bar" style="background:#7c3aed" title="Detailed breakdown of each segment — accounts, MRR, health mix, and trends. Click to expand."><span class="card-hd-bar__title">Segment Detail</span></div>
+    <div class="card-hd-bar" style="background:#7c3aed"><span class="card-hd-bar__title">Segment Detail <span class="info-tip tip-below" data-tip="Detailed breakdown of each segment — accounts, MRR, health mix, and trends. Click to expand.">ⓘ</span></span></div>
     <div class="card-body" id="seg-table-wrap"></div>
   </div>
 </div><!-- /segments -->
@@ -2097,7 +2090,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 
   <!-- Score Changes table -->
   <div class="card" style="margin-top:16px">
-    <div class="card-hd-bar" style="background:#7c3aed" title="Accounts with the biggest health score changes over the selected period. Click column headers to sort."><span class="card-hd-bar__title">Score Changes</span></div>
+    <div class="card-hd-bar" style="background:#7c3aed"><span class="card-hd-bar__title">Score Changes <span class="info-tip tip-below" data-tip="Accounts with the biggest health score changes over the selected period. Click column headers to sort.">ⓘ</span></span></div>
     <div class="card-body" id="trend-movers-wrap" style="max-height:480px;overflow-y:auto"></div>
   </div>
 </div>
@@ -2111,28 +2104,28 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <div class="dash-kpi-row" id="csmperf-stats"></div>
   <!-- Per-CSM leaderboard + inline expand -->
   <div class="card">
-    <div class="card-hd-bar" title="CSM performance ranked by composite index (health, trend, retention, engagement). Click column headers to sort."><span class="card-hd-bar__title">CSM Leaderboard</span></div>
+    <div class="card-hd-bar"><span class="card-hd-bar__title">CSM Leaderboard <span class="info-tip tip-below" data-tip="CSM performance ranked by composite index (health, trend, retention, engagement). Click column headers to sort.">ⓘ</span></span></div>
     <div class="card-body" id="csmperf-wrap"></div>
   </div>
   <!-- Suggested Focus Areas + Workload Balance row -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;align-items:start" id="csm-insights-row">
     <div class="card">
-      <div class="card-hd-bar" style="background:#d97706" title="AI-generated action items for the team based on current alerts and trends. Click to navigate."><span class="card-hd-bar__title">Suggested Focus Areas</span></div>
+      <div class="card-hd-bar" style="background:#d97706"><span class="card-hd-bar__title">Suggested Focus Areas <span class="info-tip tip-below" data-tip="AI-generated action items for the team based on current alerts and trends. Click to navigate.">ⓘ</span></span></div>
       <div class="card-body" id="csm-focus-wrap"></div>
     </div>
     <div class="card">
-      <div class="card-hd-bar" style="background:#2563eb" title="Account and MRR distribution across the team. Red bars indicate overloaded CSMs (>140% of average). Click a CSM to filter."><span class="card-hd-bar__title">Workload Balance</span></div>
+      <div class="card-hd-bar" style="background:#2563eb"><span class="card-hd-bar__title">Workload Balance <span class="info-tip tip-below" data-tip="Account and MRR distribution across the team. Red bars indicate overloaded CSMs (>140% of average). Click a CSM to filter.">ⓘ</span></span></div>
       <div class="card-body" id="csm-workload-wrap"></div>
     </div>
   </div>
   <!-- Portfolio Movement + Activity Feed row -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;align-items:start" id="csm-bottom-row">
     <div class="card">
-      <div class="card-hd-bar" style="background:#7c3aed" title="Health score changes across the portfolio over the past 7 days — upgrades, downgrades, and new accounts."><span class="card-hd-bar__title">Portfolio Movement</span><span class="card-hd-bar__badge">7d</span></div>
+      <div class="card-hd-bar" style="background:#7c3aed"><span class="card-hd-bar__title">Portfolio Movement <span class="info-tip tip-below" data-tip="Health score changes across the portfolio over the past 7 days — upgrades, downgrades, and new accounts.">ⓘ</span></span><span class="card-hd-bar__badge">7d</span></div>
       <div class="card-body" id="csm-movement-wrap"></div>
     </div>
     <div class="card">
-      <div class="card-hd-bar" style="background:#0e7490" title="Recent scoring and touchpoint activity by CSMs."><span class="card-hd-bar__title">CSM Activity Feed</span></div>
+      <div class="card-hd-bar" style="background:#0e7490"><span class="card-hd-bar__title">CSM Activity Feed <span class="info-tip tip-below" data-tip="Recent scoring and touchpoint activity by CSMs.">ⓘ</span></span></div>
       <div class="card-body" id="csm-activity-wrap"></div>
     </div>
   </div>

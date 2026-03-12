@@ -534,8 +534,8 @@ function _renderHomeBase() {
   html += '<div class="dash-kpi-row">';
 
   // Card 1: Book Health
-  html += `<div class="dash-kpi-card dash-kpi-blue" title="Total active accounts and health distribution. Click to view all customers." onclick="nav('customers');setFilter('all')">
-    <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.people)}<span class="dash-kpi-label">Book Health</span></div>
+  html += `<div class="dash-kpi-card dash-kpi-blue" onclick="nav('customers');setFilter('all')">
+    <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.people)}<span class="dash-kpi-label">Book Health <span class="info-tip tip-below" data-tip="Total active accounts and health distribution. Click to view all customers.">\u24d8</span></span></div>
     <div class="dash-kpi-body">
       <div class="dash-kpi-num">${total}</div>
       <div class="dash-kpi-sub">Total active accounts</div>
@@ -557,8 +557,8 @@ function _renderHomeBase() {
 
   // Card 2: Revenue at Risk
   const _arIds = JSON.stringify(atRisk.map(c => c.id)).replace(/"/g,'&quot;');
-  html += `<div class="dash-kpi-card dash-kpi-red" title="Monthly recurring revenue in Critical and Risk accounts. Click to view at-risk accounts." onclick="setInsightFilter('${atRisk.length} at-risk accounts (Critical + Risk)',${_arIds})">
-    <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.alert)}<span class="dash-kpi-label">Revenue at Risk</span></div>
+  html += `<div class="dash-kpi-card dash-kpi-red" onclick="setInsightFilter('${atRisk.length} at-risk accounts (Critical + Risk)',${_arIds})">
+    <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.alert)}<span class="dash-kpi-label">Revenue at Risk <span class="info-tip tip-below" data-tip="Monthly recurring revenue in Critical and Risk accounts. Click to view at-risk accounts.">\u24d8</span></span></div>
     <div class="dash-kpi-body">
       <div class="dash-kpi-num" style="color:${_hbRiskValColor}">$${fmtNum(atRiskMRR)}</div>
       <div class="dash-kpi-sub">MRR in At Risk accounts</div>
@@ -568,8 +568,8 @@ function _renderHomeBase() {
 
   // Card 3: Upcoming Renewals
   const _r30Ids = JSON.stringify(renewals30.map(c => c.id)).replace(/"/g,'&quot;');
-  html += `<div class="dash-kpi-card dash-kpi-teal" title="Customer contracts renewing within the next 30 days. Click to view upcoming renewals." onclick="setInsightFilter('${renewals30.length} upcoming renewals (30 days)',${_r30Ids})">
-    <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.cal)}<span class="dash-kpi-label">Upcoming Renewals</span></div>
+  html += `<div class="dash-kpi-card dash-kpi-teal" onclick="setInsightFilter('${renewals30.length} upcoming renewals (30 days)',${_r30Ids})">
+    <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.cal)}<span class="dash-kpi-label">Upcoming Renewals <span class="info-tip tip-below" data-tip="Customer contracts renewing within the next 30 days. Click to view upcoming renewals.">\u24d8</span></span></div>
     <div class="dash-kpi-body">
       <div class="dash-kpi-num"${_hbRenewValColor ? ` style="color:${_hbRenewValColor}"` : ''}>${renewals30.length}</div>
       <div class="dash-kpi-sub">Due in next 30 days</div>
@@ -584,8 +584,8 @@ function _renderHomeBase() {
   const expSub = expansionConfig.mode === 'flat'
     ? `Est. upsell potential ($${fmtNum(expansionConfig.flat)}/acct)`
     : `Est. upsell potential (${expansionConfig.pct}%)`;
-  html += `<div class="dash-kpi-card dash-kpi-green" title="Estimated upsell potential from expansion-ready accounts. Click to view expansion candidates." onclick="nav('customers');setFilter('expand')">
-    <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.trend)}<span class="dash-kpi-label">Expansion Opportunity</span></div>
+  html += `<div class="dash-kpi-card dash-kpi-green" onclick="nav('customers');setFilter('expand')">
+    <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.trend)}<span class="dash-kpi-label">Expansion Opportunity <span class="info-tip tip-below" data-tip="Estimated upsell potential from expansion-ready accounts. Click to view expansion candidates.">\u24d8</span></span></div>
     <div class="dash-kpi-body">
       <div class="dash-kpi-num"${_hbExpValColor ? ` style="color:${_hbExpValColor}"` : ''}>$${fmtNum(expEst)}</div>
       <div class="dash-kpi-sub">${expSub}</div>
@@ -594,8 +594,8 @@ function _renderHomeBase() {
   </div>`;
 
   // Card 5: Total MRR
-  html += `<div class="dash-kpi-card dash-kpi-purple" title="Total monthly recurring revenue across all active accounts. Click to view all customers." onclick="nav('customers');setFilter('all')">
-    <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.dollar)}<span class="dash-kpi-label">Total MRR</span></div>
+  html += `<div class="dash-kpi-card dash-kpi-purple" onclick="nav('customers');setFilter('all')">
+    <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.dollar)}<span class="dash-kpi-label">Total MRR <span class="info-tip tip-below" data-tip="Total monthly recurring revenue across all active accounts. Click to view all customers.">\u24d8</span></span></div>
     <div class="dash-kpi-body">
       <div class="dash-kpi-num">$${fmtNum(totalMRR)}</div>
       <div class="dash-kpi-sub">All active accounts</div>
@@ -607,7 +607,7 @@ function _renderHomeBase() {
 
   // ── Renewal Pipeline (moved from Dashboard) ──
   html += '<div class="card" style="margin-bottom:20px">';
-  html += '<div class="card-hd-bar" title="Upcoming renewals grouped by time horizon. Prioritize at-risk renewals first."><span class="card-hd-bar__title">Renewal Pipeline</span></div>';
+  html += '<div class="card-hd-bar"><span class="card-hd-bar__title">Renewal Pipeline <span class="info-tip tip-below" data-tip="Upcoming renewals grouped by time horizon. Prioritize at-risk renewals first.">\u24d8</span></span></div>';
   html += '<div class="card-body" id="renewal-pipeline-wrap"></div>';
   html += '</div>';
 
@@ -636,13 +636,13 @@ function _renderHomeBase() {
 
   // ── Most Improved / Biggest Drops (moved from Dashboard) ──
   html += '<div class="hb-movers-grid">';
-  html += '<div class="card"><div class="card-hd-bar" style="background:#16a34a" title="Accounts with the biggest health score gains over the past 7 days."><span class="card-hd-bar__title">Most Improved</span><span class="card-hd-bar__badge">7d</span></div><div class="card-body" id="wins-wrap"></div></div>';
-  html += '<div class="card"><div class="card-hd-bar" style="background:#dc2626" title="Accounts with the steepest health score drops over the past 7 days."><span class="card-hd-bar__title">Biggest Drops</span><span class="card-hd-bar__badge">7d</span></div><div class="card-body" id="drops-wrap"></div></div>';
+  html += '<div class="card"><div class="card-hd-bar" style="background:#16a34a"><span class="card-hd-bar__title">Most Improved <span class="info-tip tip-below" data-tip="Accounts with the biggest health score gains over the past 7 days.">\u24d8</span></span><span class="card-hd-bar__badge">7d</span></div><div class="card-body" id="wins-wrap"></div></div>';
+  html += '<div class="card"><div class="card-hd-bar" style="background:#dc2626"><span class="card-hd-bar__title">Biggest Drops <span class="info-tip tip-below" data-tip="Accounts with the steepest health score drops over the past 7 days.">\u24d8</span></span><span class="card-hd-bar__badge">7d</span></div><div class="card-body" id="drops-wrap"></div></div>';
   html += '</div>';
 
   // ── Signal Heatmap (moved from Dashboard) ──
   html += '<div class="card">';
-  html += '<div class="card-hd-bar" title="Health signals for each customer across key metrics. Click column headers to sort."><span class="card-hd-bar__title">Signal Heatmap</span></div>';
+  html += '<div class="card-hd-bar"><span class="card-hd-bar__title">Signal Heatmap <span class="info-tip tip-below" data-tip="Health signals for each customer across key metrics. Click column headers to sort.">\u24d8</span></span></div>';
   html += '<div class="card-body heatmap" id="heatmap-wrap"></div>';
   html += '</div>';
 

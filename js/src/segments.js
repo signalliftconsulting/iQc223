@@ -292,24 +292,24 @@ function renderSegKPIs(segments, active) {
   const _segGrowValColor = fastestGrow ? (fastestGrow.avgDelta > 0 ? '#16a34a' : fastestGrow.avgDelta < 0 ? '#dc2626' : '') : '';
 
   wrap.innerHTML = `
-    <div class="dash-kpi-card dash-kpi-blue" title="Number of customer tag groups (segments) in your book.">
-      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.tag}</div><span class="dash-kpi-label">Total Segments</span></div>
+    <div class="dash-kpi-card dash-kpi-blue">
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.tag}</div><span class="dash-kpi-label">Total Segments <span class="info-tip tip-below" data-tip="Number of customer tag groups (segments) in your book.">\u24d8</span></span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num">${segments.length}</div><div class="dash-kpi-sub">customer tag groups</div></div>
     </div>
-    <div class="dash-kpi-card dash-kpi-purple" title="Unique customers across all segments. A customer in multiple segments is counted once.">
-      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.people}</div><span class="dash-kpi-label">Total Accounts</span></div>
+    <div class="dash-kpi-card dash-kpi-purple">
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.people}</div><span class="dash-kpi-label">Total Accounts <span class="info-tip tip-below" data-tip="Unique customers across all segments. A customer in multiple segments is counted once.">\u24d8</span></span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num">${uniqueCount}</div><div class="dash-kpi-sub">across ${segments.length} segment${segments.length !== 1 ? 's' : ''}</div></div>
     </div>
-    <div class="dash-kpi-card dash-kpi-teal" title="Total monthly recurring revenue across all segmented accounts.">
-      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.dollar}</div><span class="dash-kpi-label">Segment MRR</span></div>
+    <div class="dash-kpi-card dash-kpi-teal">
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.dollar}</div><span class="dash-kpi-label">Segment MRR <span class="info-tip tip-below" data-tip="Total monthly recurring revenue across all segmented accounts.">\u24d8</span></span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num">$${fmtNum(totalMRR)}</div><div class="dash-kpi-sub">${riskMRR > 0 ? '$' + fmtNum(riskMRR) + ' at risk' : 'No MRR at risk'}</div></div>
     </div>
-    <div class="dash-kpi-card ${hrColor}" title="Segment with the highest percentage of Critical/Risk customers (min 2 accounts).">
-      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.alert}</div><span class="dash-kpi-label">Highest-Risk</span></div>
+    <div class="dash-kpi-card ${hrColor}">
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.alert}</div><span class="dash-kpi-label">Highest-Risk <span class="info-tip tip-below" data-tip="Segment with the highest percentage of Critical/Risk customers (min 2 accounts).">\u24d8</span></span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.4rem${_segHrValColor ? ';color:' + _segHrValColor : ''}">${highestRisk ? escHtml(segDisplayLabel(highestRisk.tag)) : '—'}</div><div class="dash-kpi-sub">${highestRisk ? highestRisk.riskPct + '% at risk' : 'No data'}</div></div>
     </div>
-    <div class="dash-kpi-card dash-kpi-green" title="Segment with the highest average health score improvement.">
-      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.trendUp}</div><span class="dash-kpi-label">Fastest-Growing</span></div>
+    <div class="dash-kpi-card dash-kpi-green">
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.trendUp}</div><span class="dash-kpi-label">Fastest-Growing <span class="info-tip tip-below" data-tip="Segment with the highest average health score improvement.">\u24d8</span></span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.4rem${_segGrowValColor ? ';color:' + _segGrowValColor : ''}">${fastestGrow ? escHtml(segDisplayLabel(fastestGrow.tag)) : '—'}</div><div class="dash-kpi-sub">${fastestGrow ? (fastestGrow.avgDelta >= 0 ? '+' : '') + fastestGrow.avgDelta + ' avg trend' : 'No data'}</div></div>
     </div>
   `;
