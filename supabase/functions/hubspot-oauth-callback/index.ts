@@ -36,29 +36,34 @@ serve(async (req) => {
     const clientSecret = Deno.env.get('HUBSPOT_CLIENT_SECRET')!;
     const redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/hubspot-oauth-callback`;
 
-    // Build token exchange params — use PKCE if code_verifier present, else fallback to client_secret
+    // Build token exchange params — include client_secret as form param
     const tokenParams: Record<string, string> = {
       grant_type: 'authorization_code',
       client_id: clientId,
+      client_secret: clientSecret,
       redirect_uri: redirectUri,
       code,
     };
     if (code_verifier) {
       tokenParams.code_verifier = code_verifier;
-    } else {
-      tokenParams.client_secret = clientSecret;
     }
 
+    console.log('Token exchange params:', JSON.stringify({ ...tokenParams, code: code.substring(0, 8) + '...' }));
+
+    const basicAuth = btoa(`${clientId}:${clientSecret}`);
     const tokenResp = await fetch('https://api.hubapi.com/oauth/v1/token', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${basicAuth}`,
+      },
       body: new URLSearchParams(tokenParams),
     });
 
     if (!tokenResp.ok) {
       const err = await tokenResp.text();
-      console.error('HubSpot token exchange failed:', err);
-      const failUrl = return_url + (return_url.includes('?') ? '&' : '?') + 'hubspot_error=' + encodeURIComponent('Token exchange failed');
+      console.error('HubSpot token exchange failed:', tokenResp.status, err);
+      const failUrl = return_url + (return_url.includes('?') ? '&' : '?') + 'hubspot_error=' + encodeURIComponent(`Token exchange failed (${tokenResp.status}): ${err}`);
       return Response.redirect(failUrl, 302);
     }
 

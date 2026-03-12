@@ -13632,79 +13632,93 @@ async function syncStripeUI() {
   }
 }
 
-// ── Topbar Stripe Sync (quick access from header) ──
+// ── Topbar Sync (quick access from header — syncs all connected integrations) ──
 async function topbarSyncStripe() {
   const btn = el('topbar-sync-btn');
   if (!btn || btn.classList.contains('syncing')) return;
 
   btn.classList.add('syncing');
   btn.disabled = true;
-  _stripeSyncInProgress = true;
 
-  try {
-    const result = await syncIntegration('stripe');
-    const stats = result.stats || {};
-    _lastStripeSyncTime = Date.now();
-    toast(`Stripe sync: ${stats.updated || 0} of ${stats.customers_matched || 0} customers updated`, 'success');
+  const hasStripe = _integrationCache['stripe']?.status === 'connected';
+  const hasHubSpot = _integrationCache['hubspot']?.status === 'connected';
+  const msgs = [];
 
-    if (stats.updated > 0) {
-      const preScores = new Map(customers.map(c => [c.id, c.score]));
-      const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
-      try {
-        if (isAdmin() && activeClientId !== '__own__') {
-          await loadClientCustomers(activeClientId, true);
-        } else {
-          await loadCustomersFromSupabase();
+  // Sync Stripe if connected
+  if (hasStripe) {
+    _stripeSyncInProgress = true;
+    try {
+      const result = await syncIntegration('stripe');
+      const stats = result.stats || {};
+      _lastStripeSyncTime = Date.now();
+      msgs.push(`Stripe: ${stats.updated || 0} updated`);
+
+      if (stats.updated > 0) {
+        const preScores = new Map(customers.map(c => [c.id, c.score]));
+        const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
+        try {
+          if (isAdmin() && activeClientId !== '__own__') {
+            await loadClientCustomers(activeClientId, true);
+          } else {
+            await loadCustomersFromSupabase();
+          }
+        } catch(e) { console.warn('Post-sync reload:', e); }
+        _lastSyncTime = Date.now();
+        refreshLiveScores();
+        const syncedNames = (result.updates || []).map(u => u.name?.toLowerCase());
+        const toSave = [];
+        for (const c of customers) {
+          if (!syncedNames.includes(c.name.toLowerCase())) continue;
+          const oldScore = preScores.get(c.id);
+          const oldSnap = preSignals.get(c.id);
+          const newSnap = buildHistorySnapshot(c);
+          const scoreChanged = oldScore != null && oldScore !== c.score;
+          const signalsChanged = JSON.stringify(oldSnap) !== JSON.stringify(newSnap);
+          if (scoreChanged || signalsChanged) {
+            c.history = c.history || [];
+            c.history.push({ score: c.score, date: new Date().toISOString(), signals: newSnap, prevSignals: oldSnap });
+            toSave.push(c);
+          }
         }
-      } catch(e) { console.warn('Post-sync reload:', e); }
-      _lastSyncTime = Date.now();
-      refreshLiveScores();
-      const syncedNames = (result.updates || []).map(u => u.name?.toLowerCase());
-      const toSave = [];
-      for (const c of customers) {
-        if (!syncedNames.includes(c.name.toLowerCase())) continue;
-        const oldScore = preScores.get(c.id);
-        const oldSnap = preSignals.get(c.id);
-        const newSnap = buildHistorySnapshot(c);
-        const scoreChanged = oldScore != null && oldScore !== c.score;
-        const signalsChanged = JSON.stringify(oldSnap) !== JSON.stringify(newSnap);
-        if (scoreChanged || signalsChanged) {
-          c.history = c.history || [];
-          c.history.push({ score: c.score, date: new Date().toISOString(), signals: newSnap, prevSignals: oldSnap });
-          toSave.push(c);
+        if (toSave.length) {
+          pauseSync(10000);
+          for (const c of toSave) { try { await save(c); } catch(_) {} }
         }
+        refreshMgrDropdown();
+        const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
+        if (active === 'homebase')  renderHomeBase();
+        if (active === 'customers') renderCustomers();
+        if (active === 'alerts')    renderAlerts();
+        if (active === 'trends')    renderTrends();
       }
-      if (toSave.length) {
-        pauseSync(10000);
-        for (const c of toSave) { try { await save(c); } catch(_) {} }
-      }
-      refreshMgrDropdown();
-      const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
-      if (active === 'homebase')  renderHomeBase();
-      if (active === 'customers') renderCustomers();
-      if (active === 'alerts')    renderAlerts();
-      if (active === 'trends')    renderTrends();
+      _integrationCache['stripe'] = {
+        ...(_integrationCache['stripe'] || {}),
+        last_sync_at: new Date().toISOString(),
+        last_sync_status: 'success',
+        last_sync_message: `${stats.customers_matched || 0} matched, ${stats.updated} updated`,
+        sync_stats: stats
+      };
+    } catch(e) {
+      msgs.push('Stripe: failed');
+    } finally {
+      _stripeSyncInProgress = false;
     }
-
-    _integrationCache['stripe'] = {
-      ...(_integrationCache['stripe'] || {}),
-      last_sync_at: new Date().toISOString(),
-      last_sync_status: 'success',
-      last_sync_message: `${stats.customers_matched || 0} customers matched, ${stats.updated} updated`,
-      sync_stats: stats
-    };
-  } catch(e) {
-    toast('Stripe sync failed: ' + e.message, 'error');
-  } finally {
-    _stripeSyncInProgress = false;
-    btn.classList.remove('syncing');
-    btn.disabled = false;
   }
 
-  // Also sync HubSpot if connected
-  if (_integrationCache['hubspot']?.status === 'connected' && !_hubspotSyncInProgress) {
-    autoSyncHubSpot();
+  // Sync HubSpot if connected
+  if (hasHubSpot && !_hubspotSyncInProgress) {
+    try {
+      const result = await syncIntegration('hubspot');
+      const stats = result.stats || {};
+      msgs.push(`HubSpot: ${stats.updated || 0} updated`);
+    } catch(e) {
+      msgs.push('HubSpot: failed');
+    }
   }
+
+  toast(msgs.length ? msgs.join(' · ') : 'No integrations connected', msgs.some(m => m.includes('failed')) ? 'error' : 'success');
+  btn.classList.remove('syncing');
+  btn.disabled = false;
 }
 
 // Show/hide topbar sync button based on integration connection status
