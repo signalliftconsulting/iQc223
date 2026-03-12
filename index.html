@@ -2544,7 +2544,8 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       </div>
       <div id="auto-log-loading" style="text-align:center;padding:32px;color:var(--muted);font-size:.85rem">Loading event log…</div>
       <div id="auto-log-pag-top"></div>
-      <table class="ct" id="auto-log-table" style="display:none">
+      <div style="overflow-x:auto;width:100%">
+      <table class="ct" id="auto-log-table" style="display:none;min-width:700px">
         <thead><tr>
           <th>Time</th>
           <th>Direction</th>
@@ -2555,6 +2556,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
         </tr></thead>
         <tbody id="auto-log-tbody"></tbody>
       </table>
+      </div>
       <div id="auto-log-empty" class="empty-st" style="display:none">
         <div class="ei"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
         <h3>No webhook events yet</h3>

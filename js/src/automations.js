@@ -1515,7 +1515,8 @@ async function topbarSyncStripe() {
       const stats = result.stats || {};
       msgs.push(`HubSpot: ${stats.updated || 0} updated`);
     } catch(e) {
-      msgs.push('HubSpot: failed');
+      console.error('HubSpot sync error:', e);
+      msgs.push('HubSpot: ' + (e.message || 'failed'));
     }
   }
 
