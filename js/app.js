@@ -7837,7 +7837,7 @@ function saveScore() {
   logAudit('customer_created', cust.id, cust.name, { score, status, summary: `New customer — Score: ${score}/100 (${status}), MRR: $${cust.mrr}, Tier: ${cust.tier}, Lifecycle: ${cust.lifecycle}` });
   pendingResult = null;
   resetForm();
-  nav(_returnToPage || 'dashboard');
+  nav(_returnToPage || 'customers');
   _returnToPage = '';
   if (_returnToDetail) { const rid = _returnToDetail; _returnToDetail = ''; setTimeout(() => openDetail(rid), 80); }
 }
