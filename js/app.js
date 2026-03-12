@@ -274,6 +274,7 @@ const COL_DEFS = [
   { key:'mrr',       label:'MRR',          ftype:'number', sortKey:'mrr' },
   { key:'arr',       label:'ARR',          ftype:'number', sortKey:'arr' },
   { key:'since',     label:'Tenure',       ftype:'number', sortKey:'since' },
+  { key:'tickets',   label:'Tickets',      ftype:'number', sortKey:'tickets' },
   { key:'days',      label:'Last Contact', ftype:'number', sortKey:'days' },
   { key:'renewal',   label:'Renewal',      ftype:'number', sortKey:'renewal' },
   { key:'next_touch',label:'Next Touch',   ftype:'number', sortKey:'next_touch' },
@@ -7009,6 +7010,7 @@ function _renderCustomers() {
           const yrs = Math.floor(months/12), rem = months%12;
           return rem ? `${yrs}y ${rem}mo` : `${yrs}y`;
         })()}</td>
+        <td>${c.tickets ? `<span style="font-weight:600${c.tickets >= 3 ? ';color:#dc2626' : c.tickets >= 1 ? ';color:#d97706' : ''}">${c.tickets}</span>` : '<span style="color:var(--muted)">0</span>'}</td>
         <td><div class="ct-two-line"><span class="${cad.cls}">${cad.label.replace(/\s*\(\d+d\)/,'')}</span><span class="ct-sub">${c.days != null ? c.days + 'd ago' : 'N/A'}</span></div></td>
         <td>${(()=>{
           if (c.renewal_date) {
@@ -8258,8 +8260,12 @@ function renderDetailOverview() {
       ${(c.tags&&c.tags.length) ? `<div style="padding:8px 12px;grid-column:1/-1${c.external_id||c.stripe_customer_id?';border-bottom:1px solid var(--border)':''}"><div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:3px">Tags</div><div style="display:flex;gap:4px;flex-wrap:wrap">${c.tags.map(t=>`<span style="font-size:var(--fs-xs);background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 6px">${escHtml(t)}</span>`).join('')}</div></div>` : ''}
       ${c.external_id||c.stripe_customer_id ? `<div style="padding:8px 12px;grid-column:1/-1;display:flex;gap:16px">${c.external_id?`<div><span style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle)">External ID</span> <span style="font-size:var(--fs-sm);color:var(--muted);margin-left:4px">${escHtml(c.external_id)}</span></div>`:''}${c.stripe_customer_id?`<div><span style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle)">Stripe</span> <span style="font-size:var(--fs-sm);color:var(--muted);margin-left:4px">${escHtml(c.stripe_customer_id)} <a href="https://dashboard.stripe.com/customers/${encodeURIComponent(c.stripe_customer_id)}" target="_blank" rel="noopener" style="color:var(--blue)" title="Open in Stripe">↗</a></span></div>`:''}</div>` : ''}
     </div>
-    <!-- Signals row: last contact + next touch + renewal + sentiment -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;padding:10px 12px;background:var(--bg);border-radius:var(--r);border:1px solid var(--border)">
+    <!-- Signals row: tickets + last contact + next touch + renewal + sentiment -->
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px;padding:10px 12px;background:var(--bg);border-radius:var(--r);border:1px solid var(--border)">
+      <div>
+        <div class="sig-label">Open Tickets</div>
+        <span style="font-size:var(--fs-base);font-weight:600${(c.tickets||0) >= 3 ? ';color:#dc2626' : (c.tickets||0) >= 1 ? ';color:#d97706' : ''}">${c.tickets || 0}</span>
+      </div>
       <div>
         <div class="sig-label">Last Contact</div>
         ${(()=>{

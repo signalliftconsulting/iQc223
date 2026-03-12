@@ -268,6 +268,7 @@ const COL_DEFS = [
   { key:'mrr',       label:'MRR',          ftype:'number', sortKey:'mrr' },
   { key:'arr',       label:'ARR',          ftype:'number', sortKey:'arr' },
   { key:'since',     label:'Tenure',       ftype:'number', sortKey:'since' },
+  { key:'tickets',   label:'Tickets',      ftype:'number', sortKey:'tickets' },
   { key:'days',      label:'Last Contact', ftype:'number', sortKey:'days' },
   { key:'renewal',   label:'Renewal',      ftype:'number', sortKey:'renewal' },
   { key:'next_touch',label:'Next Touch',   ftype:'number', sortKey:'next_touch' },

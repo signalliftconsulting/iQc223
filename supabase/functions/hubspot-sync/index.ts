@@ -41,12 +41,13 @@ async function hsGet(token: string, path: string): Promise<any> {
 }
 
 // Paginate through a HubSpot CRM search/list endpoint
-async function hsFetchAll(token: string, path: string, properties: string[], limit = 100): Promise<any[]> {
+async function hsFetchAll(token: string, path: string, properties: string[], limit = 100, associations?: string[]): Promise<any[]> {
   const all: any[] = [];
   let after: string | undefined;
 
   while (true) {
     let url = `${path}?limit=${limit}&properties=${properties.join(',')}`;
+    if (associations?.length) url += `&associations=${associations.join(',')}`;
     if (after) url += `&after=${after}`;
     const data = await hsGet(token, url);
     all.push(...(data.results || []));
@@ -65,68 +66,31 @@ async function fetchCompanies(token: string): Promise<any[]> {
   ]);
 }
 
-// Fetch deals associated with companies
+// Fetch deals with inline company associations
 async function fetchDeals(token: string): Promise<any[]> {
   return hsFetchAll(token, '/crm/v3/objects/deals', [
     'dealname', 'amount', 'closedate', 'dealstage', 'pipeline',
-    'hs_is_closed_won', 'hs_is_closed', 'recurring_revenue_amount',
-    'associations.company'
-  ]);
+    'hs_is_closed_won', 'hs_is_closed', 'recurring_revenue_amount'
+  ], 100, ['companies']);
 }
 
-// Fetch deal-to-company associations
-async function fetchDealAssociations(token: string, dealIds: string[]): Promise<Map<string, string[]>> {
-  const map = new Map<string, string[]>(); // dealId → [companyIds]
-  // Batch in groups of 100
-  for (let i = 0; i < dealIds.length; i += 100) {
-    const batch = dealIds.slice(i, i + 100);
-    try {
-      const resp = await fetch(`${HS_BASE}/crm/v3/associations/deals/companies/batch/read`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inputs: batch.map(id => ({ id })) })
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        for (const result of (data.results || [])) {
-          const dealId = result.from?.id;
-          const companyIds = (result.to || []).map((t: any) => t.id);
-          if (dealId && companyIds.length) map.set(dealId, companyIds);
-        }
-      }
-    } catch (_) { /* continue */ }
-  }
-  return map;
-}
-
-// Fetch open tickets with company associations
+// Fetch open tickets with company associations inline
 async function fetchTickets(token: string): Promise<any[]> {
   return hsFetchAll(token, '/crm/v3/objects/tickets', [
     'subject', 'hs_pipeline_stage', 'hs_ticket_priority',
     'createdate', 'hs_lastmodifieddate'
-  ]);
+  ], 100, ['companies']);
 }
 
-// Fetch ticket-to-company associations
-async function fetchTicketAssociations(token: string, ticketIds: string[]): Promise<Map<string, string[]>> {
+// Extract ticket-to-company associations from inline associations data
+function extractTicketAssociations(tickets: any[]): Map<string, string[]> {
   const map = new Map<string, string[]>();
-  for (let i = 0; i < ticketIds.length; i += 100) {
-    const batch = ticketIds.slice(i, i + 100);
-    try {
-      const resp = await fetch(`${HS_BASE}/crm/v3/associations/tickets/companies/batch/read`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inputs: batch.map(id => ({ id })) })
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        for (const result of (data.results || [])) {
-          const ticketId = result.from?.id;
-          const companyIds = (result.to || []).map((t: any) => t.id);
-          if (ticketId && companyIds.length) map.set(ticketId, companyIds);
-        }
-      }
-    } catch (_) { /* continue */ }
+  for (const ticket of tickets) {
+    const companyAssocs = ticket.associations?.companies?.results || [];
+    const companyIds = companyAssocs.map((a: any) => String(a.id)).filter(Boolean);
+    if (companyIds.length) {
+      map.set(ticket.id, companyIds);
+    }
   }
   return map;
 }
@@ -137,41 +101,26 @@ async function fetchEngagements(token: string): Promise<Map<string, number>> {
   const companyLastContact = new Map<string, number>(); // companyId → timestamp ms
   const now = Date.now();
 
-  // Fetch recent emails
+  // Fetch engagements with inline company associations (avoids batch assoc 403)
   for (const objType of ['emails', 'calls', 'meetings']) {
     try {
       const items = await hsFetchAll(token, `/crm/v3/objects/${objType}`, [
         'hs_timestamp', 'hs_createdate'
-      ], 100);
+      ], 100, ['companies']);
+      console.log(`[hubspot-sync] ${objType}: ${items.length} items, associations:`, items.map(i => ({ id: i.id, assoc: i.associations?.companies?.results?.length || 0 })));
 
-      // Get associations to companies
-      const ids = items.map(i => i.id);
-      if (!ids.length) continue;
-
-      for (let i = 0; i < ids.length; i += 100) {
-        const batch = ids.slice(i, i + 100);
-        try {
-          const resp = await fetch(`${HS_BASE}/crm/v3/associations/${objType}/companies/batch/read`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ inputs: batch.map(id => ({ id })) })
-          });
-          if (resp.ok) {
-            const data = await resp.json();
-            for (const result of (data.results || [])) {
-              const engId = result.from?.id;
-              const eng = items.find(e => e.id === engId);
-              if (!eng) continue;
-              const ts = new Date(eng.properties?.hs_timestamp || eng.properties?.hs_createdate || 0).getTime();
-              for (const to of (result.to || [])) {
-                const existing = companyLastContact.get(to.id) || 0;
-                if (ts > existing) companyLastContact.set(to.id, ts);
-              }
-            }
-          }
-        } catch (_) { /* continue */ }
+      for (const eng of items) {
+        const ts = new Date(eng.properties?.hs_timestamp || eng.properties?.hs_createdate || 0).getTime();
+        const companyAssocs = eng.associations?.companies?.results || [];
+        for (const assoc of companyAssocs) {
+          const companyId = String(assoc.id);
+          const existing = companyLastContact.get(companyId) || 0;
+          if (ts > existing) companyLastContact.set(companyId, ts);
+        }
       }
-    } catch (_) { /* continue — engagement type may not be available */ }
+    } catch (e) {
+      console.warn(`[hubspot-sync] Engagement fetch (${objType}) skipped:`, e.message);
+    }
   }
 
   // Convert timestamps to days
@@ -365,15 +314,22 @@ serve(async (req) => {
       fetchTickets(token),
     ]);
 
-    // Fetch associations + engagements
-    const dealIds = deals.map(d => d.id);
-    const ticketIds = tickets.map(t => t.id);
+    // Extract associations from inline data (no separate batch API calls needed)
+    const ticketAssoc = extractTicketAssociations(tickets);
 
-    const [dealAssoc, ticketAssoc, engagementDays] = await Promise.all([
-      dealIds.length ? fetchDealAssociations(token, dealIds) : Promise.resolve(new Map()),
-      ticketIds.length ? fetchTicketAssociations(token, ticketIds) : Promise.resolve(new Map()),
-      fetchEngagements(token),
-    ]);
+    // Extract deal associations inline too
+    const dealAssoc = new Map<string, string[]>();
+    for (const deal of deals) {
+      const companyAssocs = deal.associations?.companies?.results || [];
+      const companyIds = companyAssocs.map((a: any) => String(a.id)).filter(Boolean);
+      if (companyIds.length) dealAssoc.set(deal.id, companyIds);
+    }
+    console.log('[hubspot-sync] Deal associations extracted:', dealAssoc.size, 'of', deals.length, 'deals');
+
+    const engagementDays = await fetchEngagements(token);
+
+    console.log('[hubspot-sync] Data fetched — companies:', companies.length, 'deals:', deals.length, 'tickets:', tickets.length);
+    console.log('[hubspot-sync] Associations — deals:', dealAssoc.size, 'tickets:', ticketAssoc.size, 'engagements:', engagementDays.size);
 
     // ── Aggregate deal data per company ──
     const companyDeals = new Map<string, { mrr: number; renewalDate: string }>(); // companyId → aggregated
@@ -403,8 +359,8 @@ serve(async (req) => {
       }
     }
 
-    // ── Aggregate ticket counts per company ──
-    const companyTickets = new Map<string, number>(); // companyId → open ticket count
+    // ── Aggregate ticket counts per company (deduplicated by ticket ID) ──
+    const companyTicketSets = new Map<string, Set<string>>(); // companyId → Set of ticket IDs
 
     for (const ticket of tickets) {
       const assocCompanyIds = ticketAssoc.get(ticket.id) || [];
@@ -414,24 +370,37 @@ serve(async (req) => {
       if (!isOpen) continue;
 
       for (const companyId of assocCompanyIds) {
-        companyTickets.set(companyId, (companyTickets.get(companyId) || 0) + 1);
+        if (!companyTicketSets.has(companyId)) companyTicketSets.set(companyId, new Set());
+        companyTicketSets.get(companyId)!.add(ticket.id);
       }
+    }
+    // Convert sets to counts
+    const companyTickets = new Map<string, number>();
+    for (const [companyId, ticketSet] of companyTicketSets) {
+      companyTickets.set(companyId, ticketSet.size);
     }
 
     // ── Load existing customers ──
-    const { data: customers } = await serviceClient
+    console.log('[hubspot-sync] Loading customers for client:', clientId);
+    const { data: customers, error: custError } = await serviceClient
       .from('customers')
-      .select('id, name, mrr, arr, tier, lifecycle, tickets, days, nps, csat, hubspot_company_id, external_id, renewal_date, renewal, contact_name, contact_email')
-      .eq('client_id', clientId)
-      .is('deleted_at', null);
+      .select('*')
+      .eq('client_id', clientId);
 
-    if (!customers) throw new Error('Failed to load customers');
+    if (custError) {
+      console.error('[hubspot-sync] Customer load error:', custError.message);
+      throw new Error('Failed to load customers: ' + custError.message);
+    }
+    if (!customers) throw new Error('Failed to load customers (null result)');
+    // Filter out soft-deleted for updates, but keep all for matching (prevent re-creation)
+    const activeCustomers = customers.filter((c: any) => !c.deleted_at);
+    const deletedHsIds = new Set(customers.filter((c: any) => c.deleted_at && c.hubspot_company_id).map((c: any) => c.hubspot_company_id));
 
-    // Build lookup maps
+    // Build lookup maps (active customers only)
     const byHubSpotId = new Map<string, any>();
     const byExtId = new Map<string, any>();
     const byName = new Map<string, any>();
-    for (const c of customers) {
+    for (const c of activeCustomers) {
       if (c.hubspot_company_id) byHubSpotId.set(c.hubspot_company_id, c);
       if (c.external_id) byExtId.set(c.external_id.toLowerCase(), c);
       byName.set(c.name.toLowerCase().trim(), c);
@@ -450,6 +419,9 @@ serve(async (req) => {
       const props = company.properties || {};
       const companyName = (props.name || '').trim();
       if (!companyName) { stats.skipped++; continue; }
+
+      // Skip if this HubSpot company was previously deleted in IQcadence
+      if (deletedHsIds.has(hsId)) { stats.skipped++; continue; }
 
       // Match cascade
       let match = byHubSpotId.get(hsId);
