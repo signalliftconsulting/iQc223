@@ -924,26 +924,61 @@ function renderPresetDd() {
   menu.innerHTML = html;
 }
 
+function serializeColumnFilters(cf) {
+  const out = {};
+  for (const [k, f] of Object.entries(cf)) {
+    if (f.type === 'enum' && f.vals instanceof Set) {
+      out[k] = { ...f, vals: [...f.vals] };
+    } else {
+      out[k] = { ...f };
+    }
+  }
+  return out;
+}
+function deserializeColumnFilters(cf) {
+  const out = {};
+  for (const [k, f] of Object.entries(cf)) {
+    if (f.type === 'enum' && Array.isArray(f.vals)) {
+      out[k] = { ...f, vals: new Set(f.vals) };
+    } else {
+      out[k] = { ...f };
+    }
+  }
+  return out;
+}
+
 function saveCurrentPreset() {
   const name = prompt('Name this filter preset:');
   if (!name || !name.trim()) return;
   filterPresets.push({
     name: name.trim(),
     filterMode,
-    columnFilters: JSON.parse(JSON.stringify(columnFilters)),
+    columnFilters: serializeColumnFilters(columnFilters),
     sortKey,
     sortDir
   });
-  localStorage.setItem('iqc_filter_presets', JSON.stringify(filterPresets));
+  persistPresets();
   renderPresetDd();
   toast('Preset saved', 'success');
 }
 
+function persistPresets() {
+  // Ensure Sets are serialized as arrays before writing to localStorage
+  const toSave = filterPresets.map(p => ({
+    ...p,
+    columnFilters: serializeColumnFilters(p.columnFilters || {})
+  }));
+  localStorage.setItem('iqc_filter_presets', JSON.stringify(toSave));
+}
+
 function applyPreset(idx) {
   const p = filterPresets[idx];
-  if (!p) return;
+  if (!p) { console.error('applyPreset: no preset at index', idx); return; }
+  console.log('applyPreset: raw preset', JSON.stringify(p, (_,v) => v instanceof Set ? [...v] : v));
   filterMode    = p.filterMode;
-  columnFilters = JSON.parse(JSON.stringify(p.columnFilters));
+  columnFilters = deserializeColumnFilters(p.columnFilters || {});
+  console.log('applyPreset: deserialized columnFilters', JSON.stringify(columnFilters, (_,v) => v instanceof Set ? [...v] : v));
+  console.log('applyPreset: filterMode=', filterMode, 'sortKey=', p.sortKey, 'sortDir=', p.sortDir);
   sortKey       = p.sortKey;
   sortDir       = p.sortDir;
   // Sync status chip UI
@@ -957,7 +992,7 @@ function applyPreset(idx) {
 
 function deletePreset(idx) {
   filterPresets.splice(idx, 1);
-  localStorage.setItem('iqc_filter_presets', JSON.stringify(filterPresets));
+  persistPresets();
   renderPresetDd();
 }
 

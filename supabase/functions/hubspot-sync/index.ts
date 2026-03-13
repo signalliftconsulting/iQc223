@@ -74,6 +74,14 @@ async function fetchDeals(token: string): Promise<any[]> {
   ], 100, ['companies']);
 }
 
+// Fetch contacts with company associations (for primary email/name)
+async function fetchContacts(token: string): Promise<any[]> {
+  return hsFetchAll(token, '/crm/v3/objects/contacts', [
+    'firstname', 'lastname', 'email', 'jobtitle', 'hs_lead_status',
+    'lastmodifieddate'
+  ], 100, ['companies']);
+}
+
 // Fetch open tickets with company associations inline
 async function fetchTickets(token: string): Promise<any[]> {
   return hsFetchAll(token, '/crm/v3/objects/tickets', [
@@ -308,10 +316,11 @@ serve(async (req) => {
     console.log('[hubspot-sync] Token retrieved, length:', token?.length);
 
     // ── Fetch HubSpot data (parallel where possible) ──
-    const [companies, deals, tickets] = await Promise.all([
+    const [companies, deals, tickets, contacts] = await Promise.all([
       fetchCompanies(token),
       fetchDeals(token),
       fetchTickets(token),
+      fetchContacts(token).catch(e => { console.warn('[hubspot-sync] Contacts fetch skipped:', e.message); return []; }),
     ]);
 
     // Extract associations from inline data (no separate batch API calls needed)
@@ -325,6 +334,28 @@ serve(async (req) => {
       if (companyIds.length) dealAssoc.set(deal.id, companyIds);
     }
     console.log('[hubspot-sync] Deal associations extracted:', dealAssoc.size, 'of', deals.length, 'deals');
+
+    // Build primary contact per company — use most recently modified contact
+    const companyContact = new Map<string, { name: string; email: string; modifiedAt: number }>(); // companyId → best contact
+    for (const contact of contacts) {
+      const props = contact.properties || {};
+      const email = (props.email || '').trim();
+      if (!email) continue;
+      const name = [props.firstname, props.lastname].filter(Boolean).join(' ').trim();
+      const modifiedAt = new Date(props.lastmodifieddate || 0).getTime();
+      const assocCompanies = contact.associations?.companies?.results || [];
+      for (const assoc of assocCompanies) {
+        const companyId = String(assoc.id);
+        const existing = companyContact.get(companyId);
+        if (!existing || modifiedAt > existing.modifiedAt) {
+          companyContact.set(companyId, { name, email, modifiedAt });
+        }
+      }
+    }
+    console.log('[hubspot-sync] Contacts mapped:', companyContact.size, 'companies with primary contact');
+    for (const [cId, c] of companyContact) {
+      console.log(`[hubspot-sync]   → company ${cId}: ${c.name} <${c.email}>`);
+    }
 
     const engagementDays = await fetchEngagements(token);
 
@@ -394,7 +425,12 @@ serve(async (req) => {
     if (!customers) throw new Error('Failed to load customers (null result)');
     // Filter out soft-deleted for updates, but keep all for matching (prevent re-creation)
     const activeCustomers = customers.filter((c: any) => !c.deleted_at);
-    const deletedHsIds = new Set(customers.filter((c: any) => c.deleted_at && c.hubspot_company_id).map((c: any) => c.hubspot_company_id));
+    const activeHsIds = new Set(activeCustomers.filter((c: any) => c.hubspot_company_id).map((c: any) => c.hubspot_company_id));
+    // Only skip deleted IDs that DON'T also belong to an active customer
+    const deletedHsIds = new Set(
+      customers.filter((c: any) => c.deleted_at && c.hubspot_company_id && !activeHsIds.has(c.hubspot_company_id))
+        .map((c: any) => c.hubspot_company_id)
+    );
 
     // Build lookup maps (active customers only)
     const byHubSpotId = new Map<string, any>();
@@ -476,6 +512,14 @@ serve(async (req) => {
           }
         }
 
+        // Primary contact email/name
+        const contact = companyContact.get(hsId);
+        console.log(`[hubspot-sync] Contact lookup for "${companyName}" hsId=${hsId}: ${contact ? `${contact.name} <${contact.email}>` : 'NO MATCH in companyContact map'}`);
+        if (contact) {
+          if (contact.email && contact.email !== (match.contact_email || '')) changes.contact_email = contact.email;
+          if (contact.name && contact.name !== (match.contact_name || '')) changes.contact_name = contact.name;
+        }
+
         if (Object.keys(changes).length > 0) {
           updates.push({ id: match.id, name: match.name, changes });
           stats.updated++;
@@ -495,6 +539,8 @@ serve(async (req) => {
           tier: detectTierFromCompany(props) || 'smb',
           tickets: companyTickets.get(hsId) || 0,
           days: engagementDays.get(hsId) ?? 0,
+          contact_email: companyContact.get(hsId)?.email || '',
+          contact_name: companyContact.get(hsId)?.name || '',
           tags: props.industry || '',
           logins: 0,
           adoption: 0,

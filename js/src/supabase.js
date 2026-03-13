@@ -76,7 +76,13 @@ function loadSettings() {
   } catch(e) {}
   try {
     const fp = localStorage.getItem('iqc_filter_presets');
-    if (fp) filterPresets = JSON.parse(fp);
+    if (fp) {
+      filterPresets = JSON.parse(fp);
+      // Restore Sets in enum filters that were serialized as arrays
+      filterPresets.forEach(p => {
+        if (p.columnFilters) p.columnFilters = deserializeColumnFilters(p.columnFilters);
+      });
+    }
   } catch(e) {}
   try {
     const ex = localStorage.getItem('iqc_expansion');
