@@ -445,13 +445,18 @@ serve(async (req) => {
       fetchContacts(token).catch(e => { console.warn('[hubspot-sync] Contacts fetch skipped:', e.message); return []; }),
     ]);
 
-    // Fetch tasks + notes via CRM v3 API (same endpoints as hubspot-push)
+    // Fetch tasks + notes — use Private App token if available (public OAuth can't read tasks/notes)
+    // Private App tokens support crm.objects.tasks.read and crm.objects.notes.read scopes
+    const patToken = integration.config?.private_app_token || '';
+    const activityToken = patToken || token; // fallback to OAuth token (will likely 403 but worth trying)
+    if (patToken) console.log('[hubspot-sync] Using Private App token for tasks/notes');
+
     let hsTasks: any[] = [];
     let hsNotes: any[] = [];
     if (pullTasks || pullNotes) {
       const [fetchedTasks, fetchedNotes] = await Promise.all([
-        pullTasks ? fetchHubSpotTasks(token) : Promise.resolve([]),
-        pullNotes ? fetchHubSpotNotes(token) : Promise.resolve([]),
+        pullTasks ? fetchHubSpotTasks(activityToken) : Promise.resolve([]),
+        pullNotes ? fetchHubSpotNotes(activityToken) : Promise.resolve([]),
       ]);
       hsTasks = fetchedTasks;
       hsNotes = fetchedNotes;
