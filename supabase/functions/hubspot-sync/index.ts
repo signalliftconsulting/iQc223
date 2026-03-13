@@ -141,62 +141,96 @@ async function fetchEngagements(token: string): Promise<Map<string, number>> {
   return result;
 }
 
-// Fetch HubSpot tasks via CRM v3 API (same endpoint used by hubspot-push for creating tasks)
-async function fetchHubSpotTasks(token: string): Promise<any[]> {
+// Fetch tasks/notes for specific companies via Associations + batch read
+// Strategy: get task/note IDs associated to each company, then batch-read details
+// This avoids the restricted list endpoints by using associations + individual reads
+async function fetchActivitiesViaAssociations(
+  token: string,
+  companyIds: string[],
+  objectType: 'tasks' | 'notes'
+): Promise<any[]> {
   const results: any[] = [];
-  try {
-    const items = await hsFetchAll(token, '/crm/v3/objects/tasks', [
-      'hs_task_subject', 'hs_task_body', 'hs_task_status', 'hs_task_priority',
-      'hs_timestamp', 'hs_task_due_date'
-    ], 100, ['companies', 'contacts']);
-    for (const item of items) {
-      const props = item.properties || {};
-      const companyAssocs = item.associations?.companies?.results || [];
-      const contactAssocs = item.associations?.contacts?.results || [];
-      results.push({
-        id: String(item.id),
-        type: 'task',
-        subject: props.hs_task_subject || '',
-        body: props.hs_task_body || '',
-        status: props.hs_task_status || 'NOT_STARTED',
-        priority: props.hs_task_priority || 'NONE',
-        date: props.hs_timestamp || '',
-        due_date: props.hs_task_due_date || '',
-        companyIds: companyAssocs.map((a: any) => String(a.id)),
-        contactIds: contactAssocs.map((a: any) => String(a.id)),
-      });
-    }
-    console.log(`[hubspot-sync] CRM v3 tasks: ${results.length} fetched`);
-  } catch (e) {
-    console.warn('[hubspot-sync] Tasks fetch skipped:', e.message);
-  }
-  return results;
-}
+  const allObjectIds = new Map<string, Set<string>>(); // objectId → set of companyIds
 
-// Fetch HubSpot notes via CRM v3 API (same endpoint used by hubspot-push for creating notes)
-async function fetchHubSpotNotes(token: string): Promise<any[]> {
-  const results: any[] = [];
-  try {
-    const items = await hsFetchAll(token, '/crm/v3/objects/notes', [
-      'hs_note_body', 'hs_timestamp', 'hs_lastmodifieddate'
-    ], 100, ['companies', 'contacts']);
-    for (const item of items) {
-      const props = item.properties || {};
-      const companyAssocs = item.associations?.companies?.results || [];
-      const contactAssocs = item.associations?.contacts?.results || [];
-      results.push({
-        id: String(item.id),
-        type: 'note',
-        body: props.hs_note_body || '',
-        date: props.hs_timestamp || props.hs_lastmodifieddate || '',
-        companyIds: companyAssocs.map((a: any) => String(a.id)),
-        contactIds: contactAssocs.map((a: any) => String(a.id)),
-      });
+  // Step 1: Get associated task/note IDs for each company
+  for (const companyId of companyIds) {
+    try {
+      const data = await hsGet(token, `/crm/v4/objects/companies/${companyId}/associations/${objectType}`);
+      for (const assoc of (data.results || [])) {
+        const objId = String(assoc.toObjectId);
+        if (!allObjectIds.has(objId)) allObjectIds.set(objId, new Set());
+        allObjectIds.get(objId)!.add(companyId);
+      }
+    } catch (e) {
+      // If associations API fails, skip this company
+      if (companyIds.indexOf(companyId) === 0) {
+        console.warn(`[hubspot-sync] ${objectType} associations skipped:`, e.message);
+        return []; // If first company fails, the endpoint itself is blocked
+      }
     }
-    console.log(`[hubspot-sync] CRM v3 notes: ${results.length} fetched`);
-  } catch (e) {
-    console.warn('[hubspot-sync] Notes fetch skipped:', e.message);
   }
+
+  if (allObjectIds.size === 0) return [];
+  console.log(`[hubspot-sync] Found ${allObjectIds.size} ${objectType} via associations`);
+
+  // Step 2: Batch read the object details
+  const ids = [...allObjectIds.keys()];
+  const properties = objectType === 'tasks'
+    ? ['hs_task_subject', 'hs_task_body', 'hs_task_status', 'hs_task_priority', 'hs_timestamp', 'hs_task_due_date']
+    : ['hs_note_body', 'hs_timestamp', 'hs_lastmodifieddate'];
+
+  // Batch read in chunks of 100
+  for (let i = 0; i < ids.length; i += 100) {
+    const batch = ids.slice(i, i + 100);
+    try {
+      const resp = await fetch(`${HS_BASE}/crm/v3/objects/${objectType}/batch/read`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inputs: batch.map(id => ({ id })),
+          properties,
+        }),
+      });
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({}));
+        throw new Error(`HubSpot batch read ${resp.status}: ${body?.message || resp.statusText}`);
+      }
+      const data = await resp.json();
+      for (const item of (data.results || [])) {
+        const props = item.properties || {};
+        const objId = String(item.id);
+        const compIds = [...(allObjectIds.get(objId) || [])];
+
+        if (objectType === 'tasks') {
+          results.push({
+            id: objId,
+            type: 'task',
+            subject: props.hs_task_subject || '',
+            body: props.hs_task_body || '',
+            status: props.hs_task_status || 'NOT_STARTED',
+            priority: props.hs_task_priority || 'NONE',
+            date: props.hs_timestamp || '',
+            due_date: props.hs_task_due_date || '',
+            companyIds: compIds,
+            contactIds: [],
+          });
+        } else {
+          results.push({
+            id: objId,
+            type: 'note',
+            body: props.hs_note_body || '',
+            date: props.hs_timestamp || props.hs_lastmodifieddate || '',
+            companyIds: compIds,
+            contactIds: [],
+          });
+        }
+      }
+    } catch (e) {
+      console.warn(`[hubspot-sync] ${objectType} batch read failed:`, e.message);
+    }
+  }
+
+  console.log(`[hubspot-sync] ${objectType} via associations: ${results.length} fetched`);
   return results;
 }
 
@@ -445,18 +479,15 @@ serve(async (req) => {
       fetchContacts(token).catch(e => { console.warn('[hubspot-sync] Contacts fetch skipped:', e.message); return []; }),
     ]);
 
-    // Fetch tasks + notes — use Private App token if available (public OAuth can't read tasks/notes)
-    // Private App tokens support crm.objects.tasks.read and crm.objects.notes.read scopes
-    const patToken = integration.config?.private_app_token || '';
-    const activityToken = patToken || token; // fallback to OAuth token (will likely 403 but worth trying)
-    if (patToken) console.log('[hubspot-sync] Using Private App token for tasks/notes');
-
+    // Fetch tasks + notes via Associations API (company → tasks/notes)
+    // The list endpoints are blocked for public OAuth apps, but associations + batch read work
+    const companyIds = companies.map((c: any) => String(c.id));
     let hsTasks: any[] = [];
     let hsNotes: any[] = [];
-    if (pullTasks || pullNotes) {
+    if ((pullTasks || pullNotes) && companyIds.length > 0) {
       const [fetchedTasks, fetchedNotes] = await Promise.all([
-        pullTasks ? fetchHubSpotTasks(activityToken) : Promise.resolve([]),
-        pullNotes ? fetchHubSpotNotes(activityToken) : Promise.resolve([]),
+        pullTasks ? fetchActivitiesViaAssociations(token, companyIds, 'tasks') : Promise.resolve([]),
+        pullNotes ? fetchActivitiesViaAssociations(token, companyIds, 'notes') : Promise.resolve([]),
       ]);
       hsTasks = fetchedTasks;
       hsNotes = fetchedNotes;

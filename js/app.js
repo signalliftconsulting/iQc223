@@ -14196,17 +14196,7 @@ function renderHubSpotCard(integration) {
           </label>
         </div>
       </div>
-      <div class="metric-toggles" style="margin-top:12px">
-        <h3>Private App Token <span style="font-weight:400;font-size:var(--fs-sm);color:var(--muted)">(optional)</span></h3>
-        <p style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:8px">HubSpot restricts task &amp; note read access for public OAuth apps. To pull tasks/notes, create a <a href="https://app.hubspot.com/private-apps/" target="_blank" style="color:var(--accent)">Private App</a> with <code>crm.objects.tasks.read</code> and <code>crm.objects.notes.read</code> scopes, then paste the token here.</p>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input type="password" id="hs-pat-input" placeholder="pat-na1-..." value="${integration.config?.private_app_token ? '••••••••' : ''}"
-            style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg);font-size:var(--fs-sm)" />
-          <button class="btn btn-sm btn-primary" onclick="saveHubSpotPAT()">Save</button>
-          ${integration.config?.private_app_token ? '<button class="btn btn-sm btn-danger" onclick="clearHubSpotPAT()">Clear</button>' : ''}
-        </div>
-        <div id="hs-pat-status" style="margin-top:4px;font-size:var(--fs-sm)"></div>
-      </div>`;
+      `;
   }
 }
 
@@ -14377,68 +14367,6 @@ async function updateHubSpotPushToggle(key, enabled) {
   } catch(e) {
     toast('Failed to update: ' + e.message, 'error');
     renderHubSpotCard(integration);
-  }
-}
-
-async function saveHubSpotPAT() {
-  const input = el('hs-pat-input');
-  const status = el('hs-pat-status');
-  const token = (input?.value || '').trim();
-  if (!token || token === '••••••••') {
-    if (status) status.innerHTML = '<span style="color:var(--warn)">Enter a token first</span>';
-    return;
-  }
-  const integration = _integrationCache['hubspot'];
-  if (!integration) return;
-
-  // Validate token by making a test call
-  if (status) status.innerHTML = '<span style="color:var(--muted)">Validating…</span>';
-  try {
-    const resp = await fetch('https://api.hubapi.com/crm/v3/objects/tasks?limit=1', {
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
-    });
-    if (!resp.ok) {
-      const body = await resp.json().catch(() => ({}));
-      throw new Error(body?.message || `HTTP ${resp.status}`);
-    }
-  } catch (e) {
-    if (status) status.innerHTML = `<span style="color:var(--danger)">Invalid token: ${escHtml(e.message)}</span>`;
-    return;
-  }
-
-  const config = { ...(integration.config || {}), private_app_token: token };
-  try {
-    const { error } = await sb.from('integrations')
-      .update({ config, updated_at: new Date().toISOString() })
-      .eq('client_id', integration.client_id)
-      .eq('platform', 'hubspot');
-    if (error) throw error;
-    integration.config = config;
-    _integrationCache['hubspot'] = integration;
-    if (status) status.innerHTML = '<span style="color:var(--success)">✓ Token saved — tasks & notes will sync on next Sync Now</span>';
-    toast('Private App token saved', 'success');
-  } catch(e) {
-    if (status) status.innerHTML = `<span style="color:var(--danger)">Save failed: ${escHtml(e.message)}</span>`;
-  }
-}
-
-async function clearHubSpotPAT() {
-  const integration = _integrationCache['hubspot'];
-  if (!integration) return;
-  const config = { ...(integration.config || {}) };
-  delete config.private_app_token;
-  try {
-    const { error } = await sb.from('integrations')
-      .update({ config, updated_at: new Date().toISOString() })
-      .eq('client_id', integration.client_id)
-      .eq('platform', 'hubspot');
-    if (error) throw error;
-    integration.config = config;
-    _integrationCache['hubspot'] = integration;
-    toast('Private App token cleared', 'success');
-    renderHubSpotCard(integration);
-  } catch(e) {
-    toast('Failed: ' + e.message, 'error');
   }
 }
 
