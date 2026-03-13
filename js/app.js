@@ -877,6 +877,7 @@ function fromRow(row) {
     external_id:        row.external_id        || '',
     stripe_customer_id:  row.stripe_customer_id  || '',
     hubspot_company_id:  row.hubspot_company_id  || '',
+    salesforce_account_id: row.salesforce_account_id || '',
     billing_interval:    row.billing_interval    || '',
     renewal_date:        row.renewal_date        || '',
     contact_name:        row.contact_name        || '',
@@ -926,6 +927,7 @@ function toRow(c) {
     external_id:        c.external_id        || '',
     stripe_customer_id:  c.stripe_customer_id  || '',
     hubspot_company_id:  c.hubspot_company_id  || '',
+    salesforce_account_id: c.salesforce_account_id || '',
     billing_interval:    c.billing_interval    || '',
     contact_name:        c.contact_name        || '',
     contact_email:       c.contact_email       || ''
@@ -13424,6 +13426,7 @@ async function renderIntegrationsSection() {
 
   const stripeInt = _integrationCache['stripe'] || null;
   const hubspotInt = _integrationCache['hubspot'] || null;
+  const salesforceInt = _integrationCache['salesforce'] || null;
 
   // Update topbar sync button visibility
   const topSyncBtn = el('topbar-sync-btn');
@@ -13449,11 +13452,21 @@ async function renderIntegrationsSection() {
         ${hubspotInt?.status === 'connected' ? '<span style="font-size:var(--fs-sm);color:var(--green);font-weight:700">● Connected</span>' : '<span style="font-size:var(--fs-sm);color:var(--muted)">Not connected</span>'}
       </div>
       <div id="integration-hubspot-body"></div>
+    </div>
+    <div class="card" style="max-width:720px;margin-bottom:18px">
+      <div class="card-hd">
+        <h2>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom;margin-right:6px"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>Salesforce
+          <span class="info-tip" data-tip="Connect your Salesforce org to sync Accounts, Opportunities, Cases, and Contacts. Uses OAuth for secure access.">ⓘ</span>
+        </h2>
+        ${salesforceInt?.status === 'connected' ? '<span style="font-size:var(--fs-sm);color:var(--green);font-weight:700">● Connected</span>' : '<span style="font-size:var(--fs-sm);color:var(--muted)">Not connected</span>'}
+      </div>
+      <div id="integration-salesforce-body"></div>
     </div>`;
 
   renderHubSpotCard(hubspotInt);
-
   renderStripeCard(stripeInt);
+  renderSalesforceCard(salesforceInt);
 }
 
 // Metric definitions: which metrics each platform can provide
@@ -13474,6 +13487,14 @@ const PLATFORM_METRICS = {
     { key: 'nps',        label: 'NPS' },
     { key: 'csat',       label: 'CSAT' },
     { key: 'lifecycle',  label: 'Lifecycle Stage' },
+  ],
+  salesforce: [
+    { key: 'mrr',       label: 'MRR / ARR (Opportunities)' },
+    { key: 'tier',      label: 'Tier (Account property)' },
+    { key: 'renewal',   label: 'Renewal Date (Opp close)' },
+    { key: 'tickets',   label: 'Support Cases' },
+    { key: 'days',      label: 'Days Since Activity' },
+    { key: 'lifecycle', label: 'Account Type' },
   ]
 };
 
@@ -13629,6 +13650,7 @@ async function updateMetricToggle(platform, metric, enabled) {
     // Re-render to revert the toggle visually
     if (platform === 'stripe') renderStripeCard(integration);
     if (platform === 'hubspot') renderHubSpotCard(integration);
+    if (platform === 'salesforce') renderSalesforceCard(integration);
   }
 }
 
@@ -14193,6 +14215,244 @@ async function autoSyncHubSpot() {
   }
 }
 
+
+// ══════════════════════════════════════════════════════════════
+// ── SALESFORCE INTEGRATION ──
+// ══════════════════════════════════════════════════════════════
+
+const SALESFORCE_CLIENT_ID = ''; // Set after creating Salesforce Connected App
+
+let _salesforceSyncInProgress = false;
+let _lastSalesforceSyncTime = 0;
+
+function renderSalesforceCard(integration) {
+  const body = el('integration-salesforce-body');
+  if (!body) return;
+
+  if (!integration || integration.status !== 'connected') {
+    body.innerHTML = `
+      <div style="padding:16px">
+        <p style="font-size:var(--fs-base);color:var(--subtle);margin-bottom:12px">Connect your Salesforce org to sync Accounts, Opportunities, Cases, and Contacts via OAuth.</p>
+        <button class="btn btn-primary" onclick="connectSalesforceOAuth()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>Connect with Salesforce
+        </button>
+        <div id="salesforce-connect-status" style="margin-top:8px;font-size:var(--fs-sm)"></div>
+      </div>`;
+    return;
+  }
+
+  const syncTime = integration.last_sync_at ? fmtDate(integration.last_sync_at) : 'Never';
+  const stats = integration.sync_stats || {};
+  const statsLine = stats.total ? `${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated` : '';
+  const lastMsg = integration.last_sync_message || '';
+
+  body.innerHTML = `
+    <div style="padding:16px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+        <span style="font-size:var(--fs-base);font-weight:600">${escHtml(integration.config?.account_name || integration.config?.org_name || 'Salesforce Org')}</span>
+      </div>
+      <div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:8px">Last sync: ${syncTime}${statsLine ? ' — ' + statsLine : ''}${lastMsg && !statsLine ? ' — ' + escHtml(lastMsg) : ''}</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <button class="btn btn-sm" id="salesforce-sync-btn" onclick="syncSalesforceUI()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Sync Now
+        </button>
+        <button class="btn btn-sm btn-danger" onclick="disconnectSalesforceUI()">Disconnect</button>
+      </div>
+      <div id="salesforce-sync-status" style="margin-top:8px;font-size:var(--fs-sm)"></div>
+      <div class="metric-toggles">
+        <h3>Sync Settings</h3>
+        ${buildMetricTogglesHTML('salesforce', integration)}
+      </div>
+    </div>
+    `;
+}
+
+async function connectSalesforceOAuth() {
+  const statusEl = el('salesforce-connect-status');
+  if (statusEl) statusEl.innerHTML = '<span style="color:var(--muted)">Redirecting to Salesforce…</span>';
+
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session?.user) { toast('Please sign in first', 'error'); return; }
+
+    const clientId = _userClientId || activeClientId;
+    if (!clientId) { toast('No client found', 'error'); return; }
+
+    // Generate PKCE
+    const verifier = _generateCodeVerifier();
+    const challenge = await _generateCodeChallenge(verifier);
+
+    const state = btoa(JSON.stringify({
+      client_id: clientId,
+      user_id: session.user.id,
+      return_url: window.location.origin + window.location.pathname,
+      code_verifier: verifier
+    }));
+
+    const sfClientId = SALESFORCE_CLIENT_ID;
+    const redirectUri = encodeURIComponent(SUPABASE_URL + '/functions/v1/salesforce-oauth-callback');
+    const scopes = encodeURIComponent('api refresh_token');
+
+    const authUrl = `https://login.salesforce.com/services/oauth2/authorize?response_type=code&client_id=${sfClientId}&redirect_uri=${redirectUri}&scope=${scopes}&state=${state}&code_challenge=${challenge}&code_challenge_method=S256`;
+    window.location.href = authUrl;
+  } catch(e) {
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--red)">Error: ${escHtml(e.message)}</span>`;
+    toast('Failed to start Salesforce OAuth: ' + e.message, 'error');
+  }
+}
+
+async function disconnectSalesforceUI() {
+  if (!await confirmAction('Disconnect Salesforce?', 'This will remove the Salesforce connection. Customer data already synced will remain.')) return;
+  try {
+    await disconnectIntegration('salesforce');
+    delete _integrationCache['salesforce'];
+    toast('Salesforce disconnected', 'warn');
+    renderIntegrationsSection();
+  } catch(e) {
+    toast('Failed to disconnect: ' + e.message, 'error');
+  }
+}
+
+async function syncSalesforceUI() {
+  if (_salesforceSyncInProgress) return;
+  _salesforceSyncInProgress = true;
+
+  const btn = el('salesforce-sync-btn');
+  const status = el('salesforce-sync-status');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-sm"></span> Syncing…'; }
+  if (status) status.innerHTML = '<span style="color:var(--muted)">Syncing with Salesforce…</span>';
+
+  try {
+    const result = await syncIntegration('salesforce');
+    const stats = result.stats || {};
+    _lastSalesforceSyncTime = Date.now();
+
+    if (status) status.innerHTML = `<span style="color:var(--green)">✓ ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated (${stats.total || 0} accounts)</span>`;
+
+    // Reload customers
+    if ((stats.updated || 0) > 0 || (stats.created || 0) > 0) {
+      const preScores = new Map(customers.map(c => [c.id, c.score]));
+      const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
+      try {
+        if (isAdmin() && activeClientId !== '__own__') {
+          await loadClientCustomers(activeClientId, true);
+        } else {
+          await loadCustomersFromSupabase();
+        }
+      } catch(e) { console.warn('Salesforce sync reload:', e); }
+      _lastSyncTime = Date.now();
+      refreshLiveScores();
+
+      const syncedNames = (result.updates || []).map(u => u.name?.toLowerCase());
+      const toSave = [];
+      for (const c of customers) {
+        if (!syncedNames.includes(c.name.toLowerCase())) continue;
+        const oldScore = preScores.get(c.id);
+        const oldSnap = preSignals.get(c.id);
+        const newSnap = buildHistorySnapshot(c);
+        if ((oldScore != null && oldScore !== c.score) || JSON.stringify(oldSnap) !== JSON.stringify(newSnap)) {
+          c.history = c.history || [];
+          c.history.push({ score: c.score, date: new Date().toISOString(), signals: newSnap, prevSignals: oldSnap });
+          toSave.push(c);
+        }
+      }
+      if (toSave.length) {
+        pauseSync(10000);
+        for (const c of toSave) { try { await save(c); } catch(_) {} }
+      }
+    }
+
+    refreshMgrDropdown();
+    const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
+    if (active === 'homebase')  renderHomeBase();
+    if (active === 'customers') renderCustomers();
+    if (active === 'alerts')    renderAlerts();
+    if (active === 'trends')    renderTrends();
+
+    _integrationCache['salesforce'] = {
+      ...(_integrationCache['salesforce'] || {}),
+      last_sync_at: new Date().toISOString(),
+      last_sync_status: 'success',
+      last_sync_message: `${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated`,
+      sync_stats: stats
+    };
+  } catch(e) {
+    if (status) status.innerHTML = `<span style="color:var(--red)">✕ ${escHtml(e.message)}</span>`;
+    toast('Salesforce sync failed: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Sync Now'; }
+    _salesforceSyncInProgress = false;
+  }
+}
+
+async function autoSyncSalesforce() {
+  if (_salesforceSyncInProgress) return;
+  if (!_integrationCache['salesforce']) {
+    try {
+      const integrations = await loadIntegrationStatus();
+      for (const i of integrations) _integrationCache[i.platform] = i;
+    } catch(_) { return; }
+  }
+  if (_integrationCache['salesforce']?.status !== 'connected') return;
+  if (Date.now() - _lastSalesforceSyncTime < 30 * 60 * 1000) return; // 30-min cooldown
+
+  _salesforceSyncInProgress = true;
+  try {
+    const result = await syncIntegration('salesforce');
+    const stats = result.stats || {};
+    _lastSalesforceSyncTime = Date.now();
+    console.log(`[Auto-sync] Salesforce: ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated`);
+
+    const preScores = new Map(customers.map(c => [c.id, c.score]));
+    const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
+    try {
+      if (isAdmin() && activeClientId !== '__own__') {
+        await loadClientCustomers(activeClientId, true);
+      } else {
+        await loadCustomersFromSupabase();
+      }
+    } catch(e) { console.warn('Auto-sync reload:', e); }
+    _lastSyncTime = Date.now();
+    refreshLiveScores();
+    if ((stats.updated || 0) > 0 || (stats.created || 0) > 0) {
+      const syncedNames = (result.updates || []).map(u => u.name?.toLowerCase());
+      const toSave = [];
+      for (const c of customers) {
+        if (!syncedNames.includes(c.name.toLowerCase())) continue;
+        const oldScore = preScores.get(c.id);
+        const oldSnap = preSignals.get(c.id);
+        const newSnap = buildHistorySnapshot(c);
+        if ((oldScore != null && oldScore !== c.score) || JSON.stringify(oldSnap) !== JSON.stringify(newSnap)) {
+          c.history = c.history || [];
+          c.history.push({ score: c.score, date: new Date().toISOString(), signals: newSnap, prevSignals: oldSnap });
+          toSave.push(c);
+        }
+      }
+      if (toSave.length) {
+        pauseSync(10000);
+        for (const c of toSave) { try { await save(c); } catch(_) {} }
+      }
+    }
+    refreshMgrDropdown();
+    const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
+    if (active === 'homebase')  renderHomeBase();
+    if (active === 'customers') renderCustomers();
+    if (active === 'alerts')    renderAlerts();
+    if (active === 'trends')    renderTrends();
+
+    _integrationCache['salesforce'] = {
+      ...(_integrationCache['salesforce'] || {}),
+      last_sync_at: new Date().toISOString(),
+      last_sync_status: 'success',
+      last_sync_message: `${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated`,
+      sync_stats: stats
+    };
+  } catch(e) {
+    console.warn('[Auto-sync] Salesforce error:', e.message);
+  } finally {
+    _salesforceSyncInProgress = false;
+  }
+}
 
 // ── Topbar Customer Search ──
 let _topbarSearchHL = -1; // highlighted index for keyboard nav
@@ -22210,6 +22470,11 @@ async function ensureUserProfile(user) {
         setTimeout(autoSyncHubSpot, 8000); // 8s delay (after Stripe)
         _hubspotSyncTimer = setInterval(autoSyncHubSpot, 60 * 60 * 1000);
       }
+      // Auto-sync Salesforce on page load (silent) + start hourly interval
+      if (typeof autoSyncSalesforce === 'function') {
+        setTimeout(autoSyncSalesforce, 11000); // 11s delay (after HubSpot)
+        setInterval(autoSyncSalesforce, 60 * 60 * 1000);
+      }
     }
 
   } else {
@@ -22287,6 +22552,20 @@ async function ensureUserProfile(user) {
         const cleanUrl = window.location.origin + window.location.pathname;
         window.history.replaceState({}, '', cleanUrl);
         toast('HubSpot connection failed: ' + err, 'error');
+        nav('settings');
+        renderSettings();
+      } else if (urlParams.get('salesforce_connected') === '1') {
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, '', cleanUrl);
+        toast('Salesforce connected successfully!', 'success');
+        try { delete _integrationCache['salesforce']; } catch(_) {}
+        nav('settings');
+        renderSettings();
+      } else if (urlParams.get('salesforce_error')) {
+        const err = urlParams.get('salesforce_error');
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, '', cleanUrl);
+        toast('Salesforce connection failed: ' + err, 'error');
         nav('settings');
         renderSettings();
       } else {

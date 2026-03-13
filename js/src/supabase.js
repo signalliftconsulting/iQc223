@@ -224,6 +224,7 @@ function fromRow(row) {
     external_id:        row.external_id        || '',
     stripe_customer_id:  row.stripe_customer_id  || '',
     hubspot_company_id:  row.hubspot_company_id  || '',
+    salesforce_account_id: row.salesforce_account_id || '',
     billing_interval:    row.billing_interval    || '',
     renewal_date:        row.renewal_date        || '',
     contact_name:        row.contact_name        || '',
@@ -273,6 +274,7 @@ function toRow(c) {
     external_id:        c.external_id        || '',
     stripe_customer_id:  c.stripe_customer_id  || '',
     hubspot_company_id:  c.hubspot_company_id  || '',
+    salesforce_account_id: c.salesforce_account_id || '',
     billing_interval:    c.billing_interval    || '',
     contact_name:        c.contact_name        || '',
     contact_email:       c.contact_email       || ''

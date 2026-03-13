@@ -80,6 +80,11 @@
         setTimeout(autoSyncHubSpot, 8000); // 8s delay (after Stripe)
         _hubspotSyncTimer = setInterval(autoSyncHubSpot, 60 * 60 * 1000);
       }
+      // Auto-sync Salesforce on page load (silent) + start hourly interval
+      if (typeof autoSyncSalesforce === 'function') {
+        setTimeout(autoSyncSalesforce, 11000); // 11s delay (after HubSpot)
+        setInterval(autoSyncSalesforce, 60 * 60 * 1000);
+      }
     }
 
   } else {
@@ -157,6 +162,20 @@
         const cleanUrl = window.location.origin + window.location.pathname;
         window.history.replaceState({}, '', cleanUrl);
         toast('HubSpot connection failed: ' + err, 'error');
+        nav('settings');
+        renderSettings();
+      } else if (urlParams.get('salesforce_connected') === '1') {
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, '', cleanUrl);
+        toast('Salesforce connected successfully!', 'success');
+        try { delete _integrationCache['salesforce']; } catch(_) {}
+        nav('settings');
+        renderSettings();
+      } else if (urlParams.get('salesforce_error')) {
+        const err = urlParams.get('salesforce_error');
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, '', cleanUrl);
+        toast('Salesforce connection failed: ' + err, 'error');
         nav('settings');
         renderSettings();
       } else {

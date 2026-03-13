@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════════
 // integration-connect — Supabase Edge Function
-// Connects / disconnects native integrations (Stripe, HubSpot)
+// Connects / disconnects native integrations (Stripe, HubSpot, Salesforce)
 // Validates credentials, stores in Supabase Vault, manages status
 // Called by: sb.functions.invoke('integration-connect', { body: {...} })
 // ═══════════════════════════════════════════════════════════════
@@ -37,6 +37,24 @@ async function validateStripeKey(key: string): Promise<{ valid: boolean; name?: 
     }
     const acct = await resp.json();
     return { valid: true, name: acct.settings?.dashboard?.display_name || acct.business_profile?.name || acct.id };
+  } catch (e) {
+    return { valid: false, error: e.message };
+  }
+}
+
+// Validate a Salesforce token by running a test SOQL query
+async function validateSalesforceToken(token: string, instanceUrl: string): Promise<{ valid: boolean; name?: string; error?: string }> {
+  try {
+    const resp = await fetch(`${instanceUrl}/services/data/v59.0/query?q=${encodeURIComponent('SELECT Name FROM Organization LIMIT 1')}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}));
+      return { valid: false, error: body?.[0]?.message || `Salesforce returned ${resp.status}` };
+    }
+    const data = await resp.json();
+    const orgName = data.records?.[0]?.Name || 'Salesforce Org';
+    return { valid: true, name: orgName };
   } catch (e) {
     return { valid: false, error: e.message };
   }
@@ -96,14 +114,15 @@ serve(async (req) => {
     const body = await req.json();
     const { platform, action, credential } = body;
 
-    if (!['stripe', 'hubspot'].includes(platform)) {
-      throw new Error('Invalid platform. Must be "stripe" or "hubspot".');
+    if (!['stripe', 'hubspot', 'salesforce'].includes(platform)) {
+      throw new Error('Invalid platform. Must be "stripe", "hubspot", or "salesforce".');
     }
 
     // Default metric toggles per platform
     const DEFAULT_SYNC_METRICS: Record<string, Record<string, boolean>> = {
-      stripe:  { mrr: true, arr: true, tier: true, growth: true, renewal: true, billing: true },
-      hubspot: { tickets: true, days: true, nps: true, csat: true, lifecycle: true },
+      stripe:     { mrr: true, arr: true, tier: true, growth: true, renewal: true, billing: true },
+      hubspot:    { tickets: true, days: true, nps: true, csat: true, lifecycle: true },
+      salesforce: { mrr: true, tier: true, renewal: true, tickets: true, days: true, lifecycle: true },
     };
     if (!['connect', 'disconnect'].includes(action)) {
       throw new Error('Invalid action. Must be "connect" or "disconnect".');
@@ -119,6 +138,10 @@ serve(async (req) => {
       let validationResult: { valid: boolean; name?: string; error?: string };
       if (platform === 'stripe') {
         validationResult = await validateStripeKey(credential);
+      } else if (platform === 'salesforce') {
+        // Salesforce uses OAuth, not direct credential connect — this path is for manual token entry
+        const instanceUrl = body.instance_url || 'https://login.salesforce.com';
+        validationResult = await validateSalesforceToken(credential, instanceUrl);
       } else {
         validationResult = await validateHubSpotToken(credential);
       }
@@ -207,9 +230,9 @@ serve(async (req) => {
         .single();
 
       if (existing?.vault_secret_id) {
-        // Delete from Vault
-        const secretName = `${platform}_key_${clientId}`;
-        try { await serviceClient.rpc('vault_delete_secret_by_name', { secret_name: secretName }); } catch(_) {}
+        // Delete from Vault — try both naming patterns (key-based and OAuth-based)
+        try { await serviceClient.rpc('vault_delete_secret_by_name', { secret_name: `${platform}_key_${clientId}` }); } catch(_) {}
+        try { await serviceClient.rpc('vault_delete_secret_by_name', { secret_name: `${platform}_oauth_${clientId}` }); } catch(_) {}
       }
 
       // Update status
