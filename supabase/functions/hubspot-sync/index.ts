@@ -173,60 +173,59 @@ async function fetchActivitiesViaAssociations(
   if (allObjectIds.size === 0) return [];
   console.log(`[hubspot-sync] Found ${allObjectIds.size} ${objectType} via associations`);
 
-  // Step 2: Batch read the object details
+  // Step 2: Read each object individually (batch read and list endpoints are blocked for public OAuth)
   const ids = [...allObjectIds.keys()];
   const properties = objectType === 'tasks'
     ? ['hs_task_subject', 'hs_task_body', 'hs_task_status', 'hs_task_priority', 'hs_timestamp', 'hs_task_due_date']
     : ['hs_note_body', 'hs_timestamp', 'hs_lastmodifieddate'];
+  const propsParam = properties.join(',');
 
-  // Batch read in chunks of 100
-  for (let i = 0; i < ids.length; i += 100) {
-    const batch = ids.slice(i, i + 100);
-    try {
-      const resp = await fetch(`${HS_BASE}/crm/v3/objects/${objectType}/batch/read`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          inputs: batch.map(id => ({ id })),
-          properties,
-        }),
-      });
-      if (!resp.ok) {
-        const body = await resp.json().catch(() => ({}));
-        throw new Error(`HubSpot batch read ${resp.status}: ${body?.message || resp.statusText}`);
-      }
-      const data = await resp.json();
-      for (const item of (data.results || [])) {
+  // Try v3 individual read first, fall back to v1 engagements read, then stub
+  let v3Blocked = false;
+  let v1Blocked = false;
+  for (const objId of ids) {
+    const compIds = [...(allObjectIds.get(objId) || [])];
+
+    // Attempt 1: CRM v3 individual read
+    if (!v3Blocked) {
+      try {
+        const item = await hsGet(token, `/crm/v3/objects/${objectType}/${objId}?properties=${propsParam}`);
         const props = item.properties || {};
-        const objId = String(item.id);
-        const compIds = [...(allObjectIds.get(objId) || [])];
-
         if (objectType === 'tasks') {
-          results.push({
-            id: objId,
-            type: 'task',
-            subject: props.hs_task_subject || '',
-            body: props.hs_task_body || '',
-            status: props.hs_task_status || 'NOT_STARTED',
-            priority: props.hs_task_priority || 'NONE',
-            date: props.hs_timestamp || '',
-            due_date: props.hs_task_due_date || '',
-            companyIds: compIds,
-            contactIds: [],
-          });
+          results.push({ id: objId, type: 'task', subject: props.hs_task_subject || '', body: props.hs_task_body || '', status: props.hs_task_status || 'NOT_STARTED', priority: props.hs_task_priority || 'NONE', date: props.hs_timestamp || '', due_date: props.hs_task_due_date || '', companyIds: compIds, contactIds: [] });
         } else {
-          results.push({
-            id: objId,
-            type: 'note',
-            body: props.hs_note_body || '',
-            date: props.hs_timestamp || props.hs_lastmodifieddate || '',
-            companyIds: compIds,
-            contactIds: [],
-          });
+          results.push({ id: objId, type: 'note', body: props.hs_note_body || '', date: props.hs_timestamp || props.hs_lastmodifieddate || '', companyIds: compIds, contactIds: [] });
         }
+        continue; // success
+      } catch (e) {
+        if (e.message?.includes('403')) { v3Blocked = true; console.warn(`[hubspot-sync] ${objectType} v3 read blocked, trying v1`); }
+        else { console.warn(`[hubspot-sync] ${objectType} v3 read ${objId}:`, e.message); }
       }
-    } catch (e) {
-      console.warn(`[hubspot-sync] ${objectType} batch read failed:`, e.message);
+    }
+
+    // Attempt 2: v1 engagements individual read (task/note IDs = engagement IDs)
+    if (!v1Blocked) {
+      try {
+        const eng = await hsGet(token, `/engagements/v1/engagements/${objId}`);
+        const meta = eng.metadata || {};
+        const ts = eng.engagement?.timestamp ? new Date(eng.engagement.timestamp).toISOString() : '';
+        if (objectType === 'tasks') {
+          results.push({ id: objId, type: 'task', subject: meta.subject || meta.body?.substring(0, 100) || '', body: meta.body || '', status: meta.status || 'NOT_STARTED', priority: meta.priority || 'NONE', date: ts, due_date: '', companyIds: compIds, contactIds: [] });
+        } else {
+          results.push({ id: objId, type: 'note', body: meta.body || '', date: ts, companyIds: compIds, contactIds: [] });
+        }
+        continue; // success
+      } catch (e) {
+        if (e.message?.includes('403')) { v1Blocked = true; console.warn(`[hubspot-sync] ${objectType} v1 read also blocked`); }
+        else { console.warn(`[hubspot-sync] ${objectType} v1 read ${objId}:`, e.message); }
+      }
+    }
+
+    // Fallback: store stub with just ID (we know it exists from associations)
+    if (objectType === 'tasks') {
+      results.push({ id: objId, type: 'task', subject: 'HubSpot Task', body: '', status: '', priority: '', date: '', due_date: '', companyIds: compIds, contactIds: [] });
+    } else {
+      results.push({ id: objId, type: 'note', body: '(Details unavailable — view in HubSpot)', date: '', companyIds: compIds, contactIds: [] });
     }
   }
 
