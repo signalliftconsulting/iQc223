@@ -1767,20 +1767,20 @@ async function syncHubSpotUI() {
     status.innerHTML = `<span style="color:var(--green)">✓ ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated (${stats.total || 0} companies)</span>`;
     toast(`HubSpot sync: ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated`, 'success');
 
-    // Force-reload after sync
+    // Always reload after sync
+    const preScores = new Map(customers.map(c => [c.id, c.score]));
+    const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
+    try {
+      if (isAdmin() && activeClientId !== '__own__') {
+        await loadClientCustomers(activeClientId, true);
+      } else {
+        await loadCustomersFromSupabase();
+      }
+    } catch(e) { console.warn('Post-sync reload:', e); }
+    _lastSyncTime = Date.now();
+    refreshLiveScores();
+    // Log history entries for changed customers
     if ((stats.updated || 0) > 0 || (stats.created || 0) > 0) {
-      const preScores = new Map(customers.map(c => [c.id, c.score]));
-      const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
-      try {
-        if (isAdmin() && activeClientId !== '__own__') {
-          await loadClientCustomers(activeClientId, true);
-        } else {
-          await loadCustomersFromSupabase();
-        }
-      } catch(e) { console.warn('Post-sync reload:', e); }
-      _lastSyncTime = Date.now();
-      refreshLiveScores();
-      // Log history entries for changed customers
       const syncedNames = (result.updates || []).map(u => u.name?.toLowerCase());
       const toSave = [];
       for (const c of customers) {
@@ -1800,13 +1800,13 @@ async function syncHubSpotUI() {
         pauseSync(10000);
         for (const c of toSave) { try { await save(c); } catch(_) {} }
       }
-      refreshMgrDropdown();
-      const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
-      if (active === 'homebase')  renderHomeBase();
-      if (active === 'customers') renderCustomers();
-      if (active === 'alerts')    renderAlerts();
-      if (active === 'trends')    renderTrends();
     }
+    refreshMgrDropdown();
+    const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
+    if (active === 'homebase')  renderHomeBase();
+    if (active === 'customers') renderCustomers();
+    if (active === 'alerts')    renderAlerts();
+    if (active === 'trends')    renderTrends();
 
     _integrationCache['hubspot'] = {
       ...(_integrationCache['hubspot'] || {}),
