@@ -62,7 +62,7 @@ async function fetchCompanies(token: string): Promise<any[]> {
   return hsFetchAll(token, '/crm/v3/objects/companies', [
     'name', 'domain', 'hubspot_owner_id', 'hs_lastmodifieddate',
     'lifecyclestage', 'industry', 'annualrevenue', 'numberofemployees',
-    'hs_lead_status', 'notes_last_updated'
+    'hs_lead_status', 'notes_last_updated', 'notes_last_contacted'
   ]);
 }
 
@@ -355,6 +355,21 @@ serve(async (req) => {
     console.log('[hubspot-sync] Contacts mapped:', companyContact.size, 'companies with primary contact');
 
     const engagementDays = await fetchEngagements(token);
+
+    // Fallback: use company-level notes_last_contacted for days since contact
+    // when engagement API scopes aren't available
+    const now = Date.now();
+    for (const company of companies) {
+      const hsId = company.id;
+      if (engagementDays.has(hsId)) continue; // engagement data already found
+      const lastContacted = company.properties?.notes_last_contacted || company.properties?.notes_last_updated;
+      if (lastContacted) {
+        const ts = new Date(lastContacted).getTime();
+        if (ts > 0) {
+          engagementDays.set(hsId, Math.floor((now - ts) / (1000 * 60 * 60 * 24)));
+        }
+      }
+    }
 
     console.log('[hubspot-sync] Data fetched — companies:', companies.length, 'deals:', deals.length, 'tickets:', tickets.length);
     console.log('[hubspot-sync] Associations — deals:', dealAssoc.size, 'tickets:', ticketAssoc.size, 'engagements:', engagementDays.size);
