@@ -141,48 +141,94 @@ async function fetchEngagements(token: string): Promise<Map<string, number>> {
   return result;
 }
 
-// Fetch HubSpot tasks with company associations
-async function fetchHubSpotTasks(token: string): Promise<any[]> {
+// Fetch HubSpot engagements (tasks + notes) via v1 API
+// This avoids the crm.objects.tasks.read / crm.objects.notes.read scopes
+// which are not available in many HubSpot app configurations
+async function fetchEngagementActivities(token: string): Promise<{ tasks: any[]; notes: any[] }> {
+  const tasks: any[] = [];
+  const notes: any[] = [];
+  let offset = 0;
+  const limit = 250;
+
   try {
-    return await hsFetchAll(token, '/crm/v3/objects/tasks', [
-      'hs_task_subject', 'hs_task_body', 'hs_task_status', 'hs_task_priority',
-      'hs_timestamp', 'hs_task_due_date', 'hs_lastmodifieddate'
-    ], 100, ['companies']);
+    while (true) {
+      const resp = await fetch(`${HS_BASE}/engagements/v1/engagements/paged?limit=${limit}&offset=${offset}`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({}));
+        throw new Error(`HubSpot Engagements API ${resp.status}: ${body?.message || resp.statusText}`);
+      }
+      const data = await resp.json();
+      const results = data.results || [];
+
+      for (const eng of results) {
+        const type = eng.engagement?.type;
+        const companyIds = (eng.associations?.companyIds || []).map(String);
+        const contactIds = (eng.associations?.contactIds || []).map(String);
+
+        if (type === 'TASK') {
+          tasks.push({
+            id: String(eng.engagement.id),
+            type: 'task',
+            subject: eng.metadata?.subject || eng.metadata?.body?.substring(0, 100) || '',
+            body: eng.metadata?.body || '',
+            status: eng.metadata?.status || 'NOT_STARTED',
+            priority: eng.metadata?.priority || 'NONE',
+            date: eng.engagement?.timestamp ? new Date(eng.engagement.timestamp).toISOString() : '',
+            due_date: eng.metadata?.forObjectType === 'COMPANY' ? '' : '',
+            companyIds,
+            contactIds,
+          });
+        } else if (type === 'NOTE') {
+          notes.push({
+            id: String(eng.engagement.id),
+            type: 'note',
+            body: eng.metadata?.body || '',
+            date: eng.engagement?.timestamp ? new Date(eng.engagement.timestamp).toISOString() : '',
+            companyIds,
+            contactIds,
+          });
+        }
+      }
+
+      if (!data.hasMore) break;
+      offset = data.offset;
+    }
+    console.log(`[hubspot-sync] Engagements v1: ${tasks.length} tasks, ${notes.length} notes fetched`);
   } catch (e) {
-    console.warn('[hubspot-sync] Tasks fetch skipped:', e.message);
-    return [];
+    console.warn('[hubspot-sync] Engagements v1 fetch skipped:', e.message);
   }
+
+  return { tasks, notes };
 }
 
-// Fetch HubSpot notes with company associations
-async function fetchHubSpotNotes(token: string): Promise<any[]> {
-  try {
-    return await hsFetchAll(token, '/crm/v3/objects/notes', [
-      'hs_note_body', 'hs_timestamp', 'hs_lastmodifieddate'
-    ], 100, ['companies']);
-  } catch (e) {
-    console.warn('[hubspot-sync] Notes fetch skipped:', e.message);
-    return [];
-  }
-}
-
-// Group HubSpot tasks/notes by company ID into activity entries
-function buildActivities(tasks: any[], notes: any[]): Map<string, any[]> {
+// Group v1 engagement tasks/notes by company ID into activity entries
+// v1 engagements have companyIds and contactIds directly (not nested associations)
+function buildActivities(tasks: any[], notes: any[], contactToCompanies: Map<string, string[]>): Map<string, any[]> {
   const companyActivities = new Map<string, any[]>();
 
+  function resolveCompanyIds(item: any): string[] {
+    const ids = new Set<string>();
+    for (const cid of (item.companyIds || [])) ids.add(String(cid));
+    for (const contactId of (item.contactIds || [])) {
+      const mapped = contactToCompanies.get(String(contactId)) || [];
+      for (const cid of mapped) ids.add(cid);
+    }
+    return [...ids].filter(Boolean);
+  }
+
   for (const task of tasks) {
-    const props = task.properties || {};
-    const companyAssocs = task.associations?.companies?.results || [];
-    const companyIds = [...new Set(companyAssocs.map((a: any) => String(a.id)).filter(Boolean))];
+    const companyIds = resolveCompanyIds(task);
     const entry = {
       type: 'task',
       hs_id: task.id,
-      subject: props.hs_task_subject || '',
-      body: props.hs_task_body || '',
-      status: props.hs_task_status || 'NOT_STARTED',
-      priority: props.hs_task_priority || 'NONE',
-      date: props.hs_timestamp || props.hs_lastmodifieddate || '',
-      due_date: props.hs_task_due_date || '',
+      subject: task.subject || '',
+      body: task.body || '',
+      status: task.status || 'NOT_STARTED',
+      priority: task.priority || 'NONE',
+      date: task.date || '',
+      due_date: task.due_date || '',
       source: 'hubspot',
     };
     for (const cid of companyIds) {
@@ -192,14 +238,12 @@ function buildActivities(tasks: any[], notes: any[]): Map<string, any[]> {
   }
 
   for (const note of notes) {
-    const props = note.properties || {};
-    const companyAssocs = note.associations?.companies?.results || [];
-    const companyIds = [...new Set(companyAssocs.map((a: any) => String(a.id)).filter(Boolean))];
+    const companyIds = resolveCompanyIds(note);
     const entry = {
       type: 'note',
       hs_id: note.id,
-      body: props.hs_note_body || '',
-      date: props.hs_timestamp || props.hs_lastmodifieddate || '',
+      body: note.body || '',
+      date: note.date || '',
       source: 'hubspot',
     };
     for (const cid of companyIds) {
@@ -213,6 +257,7 @@ function buildActivities(tasks: any[], notes: any[]): Map<string, any[]> {
     acts.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }
 
+  console.log(`[hubspot-sync] buildActivities: ${tasks.length} tasks, ${notes.length} notes → ${companyActivities.size} companies with activities`);
   return companyActivities;
 }
 
@@ -396,14 +441,21 @@ serve(async (req) => {
     const pullTasks = shouldSync('pull_tasks');
     const pullNotes = shouldSync('pull_notes');
 
-    const [companies, deals, tickets, contacts, hsTasks, hsNotes] = await Promise.all([
+    const [companies, deals, tickets, contacts] = await Promise.all([
       fetchCompanies(token),
       fetchDeals(token),
       fetchTickets(token),
       fetchContacts(token).catch(e => { console.warn('[hubspot-sync] Contacts fetch skipped:', e.message); return []; }),
-      pullTasks ? fetchHubSpotTasks(token) : Promise.resolve([]),
-      pullNotes ? fetchHubSpotNotes(token) : Promise.resolve([]),
     ]);
+
+    // Fetch tasks + notes via Engagements v1 API (avoids scope issues with v3 tasks/notes endpoints)
+    let hsTasks: any[] = [];
+    let hsNotes: any[] = [];
+    if (pullTasks || pullNotes) {
+      const engActivities = await fetchEngagementActivities(token);
+      if (pullTasks) hsTasks = engActivities.tasks;
+      if (pullNotes) hsNotes = engActivities.notes;
+    }
     console.log('[hubspot-sync] Tasks:', hsTasks.length, 'Notes:', hsNotes.length, '(pull_tasks:', pullTasks, 'pull_notes:', pullNotes, ')');
 
     // Extract associations from inline data (no separate batch API calls needed)
@@ -436,6 +488,17 @@ serve(async (req) => {
       }
     }
     console.log('[hubspot-sync] Contacts mapped:', companyContact.size, 'companies with primary contact');
+
+    // Build contact → company mapping (for resolving task/note associations via contacts)
+    const contactToCompanies = new Map<string, string[]>();
+    for (const contact of contacts) {
+      const assocCompanies = contact.associations?.companies?.results || [];
+      if (assocCompanies.length) {
+        const compIds = [...new Set(assocCompanies.map((a: any) => String(a.id)).filter(Boolean))];
+        contactToCompanies.set(String(contact.id), compIds);
+      }
+    }
+    console.log('[hubspot-sync] Contact→Company mapping:', contactToCompanies.size, 'contacts mapped');
 
     const engagementDays = await fetchEngagements(token);
 
@@ -538,7 +601,7 @@ serve(async (req) => {
     }
 
     // ── Build activities map (tasks + notes per company) ──
-    const companyActivities = buildActivities(hsTasks, hsNotes);
+    const companyActivities = buildActivities(hsTasks, hsNotes, contactToCompanies);
     console.log('[hubspot-sync] Activities mapped for', companyActivities.size, 'companies');
 
     // ── Match & update ──

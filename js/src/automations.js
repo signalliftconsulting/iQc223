@@ -1742,7 +1742,15 @@ async function connectHubSpotOAuth() {
   const HUBSPOT_CLIENT_ID = '5182d65c-2b72-4b90-8676-ff87ca97e846';
   const redirectUri = encodeURIComponent(SUPABASE_URL + '/functions/v1/hubspot-oauth-callback');
 
-  const authUrl = `https://mcp-na2.hubspot.com/oauth/authorize/user?client_id=${HUBSPOT_CLIENT_ID}&redirect_uri=${redirectUri}&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=S256`;
+  // Request all scopes IQcadence needs: companies, contacts, deals, tickets, engagements (tasks/notes)
+  const hsScopes = [
+    'crm.objects.companies.read',
+    'crm.objects.contacts.read',
+    'crm.objects.deals.read',
+    'crm.objects.tickets.read',
+    'sales-email-read',
+  ].join('%20');
+  const authUrl = `https://mcp-na2.hubspot.com/oauth/authorize/user?client_id=${HUBSPOT_CLIENT_ID}&redirect_uri=${redirectUri}&scope=${hsScopes}&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=S256`;
 
   if (status) status.innerHTML = '<span style="color:var(--muted)">Redirecting to HubSpot…</span>';
   window.location.href = authUrl;
