@@ -1068,16 +1068,45 @@ function togglePlayCheck(idx, checked) {
 function renderDetailNotes() {
   const c = customers.find(x => x.id === detailId);
   if (!c) return;
-  const notes = c.notes || [];
-  el('dm-notes-list').innerHTML = notes.length
-    ? notes.map((n,i) => `
-        <div class="note-item">
+  const localNotes = (c.notes || []).map((n, i) => ({ ...n, _source: 'local', _idx: i }));
+
+  // Include HubSpot notes from hubspot_activities
+  let hsNotes = [];
+  try {
+    const activities = JSON.parse(c.hubspot_activities || '[]');
+    hsNotes = activities
+      .filter(a => a.type === 'note')
+      .map(a => ({
+        text: a.body || '(Details unavailable — view in HubSpot)',
+        date: a.date || '',
+        _source: a.source || 'hubspot',
+        _hsId: a.hs_id || a.id || '',
+      }));
+  } catch(_) {}
+
+  // Merge and sort by date (newest first)
+  const allNotes = [...localNotes, ...hsNotes].sort((a, b) =>
+    new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()
+  );
+
+  el('dm-notes-list').innerHTML = allNotes.length
+    ? allNotes.map(n => {
+        const sourceBadge = n._source === 'hubspot'
+          ? '<span style="display:inline-block;font-size:11px;padding:1px 6px;border-radius:3px;background:#ff7a59;color:#fff;margin-left:6px">HubSpot</span>'
+          : n._source === 'iqcadence'
+          ? '<span style="display:inline-block;font-size:11px;padding:1px 6px;border-radius:3px;background:var(--accent);color:#fff;margin-left:6px">IQcadence</span>'
+          : '';
+        const deleteBtn = n._source === 'local'
+          ? `<button class="btn btn-xs btn-danger" onclick="deleteNote(${n._idx})">✕</button>`
+          : '';
+        return `<div class="note-item">
           <div class="note-hd">
-            <span class="note-date">${fmtDate(n.date)}</span>
-            <button class="btn btn-xs btn-danger" onclick="deleteNote(${i})">✕</button>
+            <span class="note-date">${fmtDate(n.date)}</span>${sourceBadge}
+            ${deleteBtn}
           </div>
           <div class="note-text">${escHtml(n.text)}</div>
-        </div>`).join('')
+        </div>`;
+      }).join('')
     : '<p style="font-size:var(--fs-base);color:var(--muted)">No notes yet. Add one below.</p>';
   el('note-input').value = '';
 }
