@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 // hubspot-push — Supabase Edge Function
-// Pushes IQcadence data back to HubSpot: create tasks, notes,
-// or update company properties (health score, lifecycle)
+// Pushes IQcadence data back to HubSpot: update company
+// properties (health score, lifecycle)
 // Called by: sb.functions.invoke('hubspot-push', { body: {...} })
 // ═══════════════════════════════════════════════════════════════
 
@@ -26,19 +26,6 @@ function getCorsHeaders(req: Request) {
 }
 
 const HS_BASE = 'https://api.hubapi.com';
-
-async function hsPost(token: string, path: string, body: any): Promise<any> {
-  const resp = await fetch(`${HS_BASE}${path}`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  if (!resp.ok) {
-    const data = await resp.json().catch(() => ({}));
-    throw new Error(`HubSpot API ${resp.status}: ${data?.message || resp.statusText}`);
-  }
-  return resp.json();
-}
 
 async function hsPatch(token: string, path: string, body: any): Promise<any> {
   const resp = await fetch(`${HS_BASE}${path}`, {
@@ -176,89 +163,8 @@ serve(async (req) => {
     const companyId = customer.hubspot_company_id;
     let result: any = {};
 
-    // ── CREATE TASK ──
-    if (action === 'create_task') {
-      const taskBody = data?.body || `IQcadence alert for ${customer.name}`;
-      const subject = data?.subject || `[IQcadence] Action needed: ${customer.name}`;
-      const priority = data?.priority || 'MEDIUM';
-      console.log(`[hubspot-push] Creating task for company ${companyId}: "${subject}"`);
-
-      // Try v1 Engagements API first (bundles create + association, different scope path)
-      let taskId: string | null = null;
-      try {
-        const eng = await hsPost(token, '/engagements/v1/engagements', {
-          engagement: { active: true, type: 'TASK', timestamp: Date.now() },
-          associations: { companyIds: [parseInt(companyId, 10)], contactIds: [], dealIds: [], ownerIds: [] },
-          metadata: { body: taskBody, subject, status: 'NOT_STARTED', priority }
-        });
-        taskId = String(eng?.engagement?.id || '');
-        console.log(`[hubspot-push] Task created via v1: id=${taskId}`);
-      } catch (e) {
-        console.warn(`[hubspot-push] v1 task create failed: ${e.message}, trying v3`);
-        // Fallback to v3
-        const task = await hsPost(token, '/crm/v3/objects/tasks', {
-          properties: {
-            hs_task_subject: subject, hs_task_body: taskBody,
-            hs_task_status: 'NOT_STARTED', hs_task_priority: priority,
-            hs_timestamp: new Date().toISOString()
-          }
-        });
-        taskId = task?.id ? String(task.id) : null;
-        console.log(`[hubspot-push] Task created via v3: id=${taskId}`);
-        // Associate via v4
-        if (taskId) {
-          try {
-            await fetch(`${HS_BASE}/crm/v4/objects/tasks/${taskId}/associations/companies/${companyId}`, {
-              method: 'PUT',
-              headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-              body: JSON.stringify([{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 204 }])
-            });
-          } catch (_) {}
-        }
-      }
-
-      result = { taskId, subject };
-    }
-
-    // ── CREATE NOTE ──
-    else if (action === 'create_note') {
-      const noteBody = data?.body || `Health score: ${customer.score} | Status: ${customer.lifecycle}`;
-      console.log(`[hubspot-push] Creating note for company ${companyId}: "${noteBody.substring(0, 80)}"`);
-
-      // Try v1 Engagements API first
-      let noteId: string | null = null;
-      try {
-        const eng = await hsPost(token, '/engagements/v1/engagements', {
-          engagement: { active: true, type: 'NOTE', timestamp: Date.now() },
-          associations: { companyIds: [parseInt(companyId, 10)], contactIds: [], dealIds: [], ownerIds: [] },
-          metadata: { body: noteBody }
-        });
-        noteId = String(eng?.engagement?.id || '');
-        console.log(`[hubspot-push] Note created via v1: id=${noteId}`);
-      } catch (e) {
-        console.warn(`[hubspot-push] v1 note create failed: ${e.message}, trying v3`);
-        // Fallback to v3
-        const note = await hsPost(token, '/crm/v3/objects/notes', {
-          properties: { hs_note_body: noteBody, hs_timestamp: new Date().toISOString() }
-        });
-        noteId = note?.id ? String(note.id) : null;
-        console.log(`[hubspot-push] Note created via v3: id=${noteId}`);
-        if (noteId) {
-          try {
-            await fetch(`${HS_BASE}/crm/v4/objects/notes/${noteId}/associations/companies/${companyId}`, {
-              method: 'PUT',
-              headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-              body: JSON.stringify([{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 190 }])
-            });
-          } catch (_) {}
-        }
-      }
-
-      result = { noteId };
-    }
-
     // ── UPDATE COMPANY PROPERTY ──
-    else if (action === 'update_property') {
+    if (action === 'update_property') {
       const properties = data?.properties || {};
 
       // Map IQcadence fields to HubSpot properties
@@ -275,7 +181,7 @@ serve(async (req) => {
     }
 
     else {
-      throw new Error('Invalid action. Must be "create_task", "create_note", or "update_property".');
+      throw new Error('Invalid action. Must be "update_property".');
     }
 
     // Log event

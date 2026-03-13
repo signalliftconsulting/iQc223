@@ -741,8 +741,7 @@ function renderDetailAlerts() {
       : state !== 'dismissed'
       ? `<button class="btn btn-xs btn-ghost" onclick="snoozeAlert('${escHtml(a.id)}',7);renderDetailAlerts()">Snooze 7d</button>
          <button class="btn btn-xs btn-ghost" onclick="dismissAlert('${escHtml(a.id)}');renderDetailAlerts()">Dismiss</button>
-         ${(_integrationCache['hubspot']?.status === 'connected' && _integrationCache['hubspot']?.config?.push_alerts !== false)
-           ? `<button class="btn btn-xs btn-ghost" onclick="pushAlertToHubSpot('${escHtml(a.id)}','${escHtml(a.cid)}')" title="Push to HubSpot" style="color:var(--blue)">⬆ HS</button>` : ''}`
+`
       : '';
     return `
       <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:var(--r);border:1.5px solid ${color}22;background:${color}08;${opacity}">
