@@ -141,66 +141,63 @@ async function fetchEngagements(token: string): Promise<Map<string, number>> {
   return result;
 }
 
-// Fetch HubSpot engagements (tasks + notes) via v1 API
-// This avoids the crm.objects.tasks.read / crm.objects.notes.read scopes
-// which are not available in many HubSpot app configurations
-async function fetchEngagementActivities(token: string): Promise<{ tasks: any[]; notes: any[] }> {
-  const tasks: any[] = [];
-  const notes: any[] = [];
-  let offset = 0;
-  const limit = 250;
-
+// Fetch HubSpot tasks via CRM v3 API (same endpoint used by hubspot-push for creating tasks)
+async function fetchHubSpotTasks(token: string): Promise<any[]> {
+  const results: any[] = [];
   try {
-    while (true) {
-      const resp = await fetch(`${HS_BASE}/engagements/v1/engagements/paged?limit=${limit}&offset=${offset}`, {
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+    const items = await hsFetchAll(token, '/crm/v3/objects/tasks', [
+      'hs_task_subject', 'hs_task_body', 'hs_task_status', 'hs_task_priority',
+      'hs_timestamp', 'hs_task_due_date'
+    ], 100, ['companies', 'contacts']);
+    for (const item of items) {
+      const props = item.properties || {};
+      const companyAssocs = item.associations?.companies?.results || [];
+      const contactAssocs = item.associations?.contacts?.results || [];
+      results.push({
+        id: String(item.id),
+        type: 'task',
+        subject: props.hs_task_subject || '',
+        body: props.hs_task_body || '',
+        status: props.hs_task_status || 'NOT_STARTED',
+        priority: props.hs_task_priority || 'NONE',
+        date: props.hs_timestamp || '',
+        due_date: props.hs_task_due_date || '',
+        companyIds: companyAssocs.map((a: any) => String(a.id)),
+        contactIds: contactAssocs.map((a: any) => String(a.id)),
       });
-      if (!resp.ok) {
-        const body = await resp.json().catch(() => ({}));
-        throw new Error(`HubSpot Engagements API ${resp.status}: ${body?.message || resp.statusText}`);
-      }
-      const data = await resp.json();
-      const results = data.results || [];
-
-      for (const eng of results) {
-        const type = eng.engagement?.type;
-        const companyIds = (eng.associations?.companyIds || []).map(String);
-        const contactIds = (eng.associations?.contactIds || []).map(String);
-
-        if (type === 'TASK') {
-          tasks.push({
-            id: String(eng.engagement.id),
-            type: 'task',
-            subject: eng.metadata?.subject || eng.metadata?.body?.substring(0, 100) || '',
-            body: eng.metadata?.body || '',
-            status: eng.metadata?.status || 'NOT_STARTED',
-            priority: eng.metadata?.priority || 'NONE',
-            date: eng.engagement?.timestamp ? new Date(eng.engagement.timestamp).toISOString() : '',
-            due_date: eng.metadata?.forObjectType === 'COMPANY' ? '' : '',
-            companyIds,
-            contactIds,
-          });
-        } else if (type === 'NOTE') {
-          notes.push({
-            id: String(eng.engagement.id),
-            type: 'note',
-            body: eng.metadata?.body || '',
-            date: eng.engagement?.timestamp ? new Date(eng.engagement.timestamp).toISOString() : '',
-            companyIds,
-            contactIds,
-          });
-        }
-      }
-
-      if (!data.hasMore) break;
-      offset = data.offset;
     }
-    console.log(`[hubspot-sync] Engagements v1: ${tasks.length} tasks, ${notes.length} notes fetched`);
+    console.log(`[hubspot-sync] CRM v3 tasks: ${results.length} fetched`);
   } catch (e) {
-    console.warn('[hubspot-sync] Engagements v1 fetch skipped:', e.message);
+    console.warn('[hubspot-sync] Tasks fetch skipped:', e.message);
   }
+  return results;
+}
 
-  return { tasks, notes };
+// Fetch HubSpot notes via CRM v3 API (same endpoint used by hubspot-push for creating notes)
+async function fetchHubSpotNotes(token: string): Promise<any[]> {
+  const results: any[] = [];
+  try {
+    const items = await hsFetchAll(token, '/crm/v3/objects/notes', [
+      'hs_note_body', 'hs_timestamp', 'hs_lastmodifieddate'
+    ], 100, ['companies', 'contacts']);
+    for (const item of items) {
+      const props = item.properties || {};
+      const companyAssocs = item.associations?.companies?.results || [];
+      const contactAssocs = item.associations?.contacts?.results || [];
+      results.push({
+        id: String(item.id),
+        type: 'note',
+        body: props.hs_note_body || '',
+        date: props.hs_timestamp || props.hs_lastmodifieddate || '',
+        companyIds: companyAssocs.map((a: any) => String(a.id)),
+        contactIds: contactAssocs.map((a: any) => String(a.id)),
+      });
+    }
+    console.log(`[hubspot-sync] CRM v3 notes: ${results.length} fetched`);
+  } catch (e) {
+    console.warn('[hubspot-sync] Notes fetch skipped:', e.message);
+  }
+  return results;
 }
 
 // Group v1 engagement tasks/notes by company ID into activity entries
@@ -448,13 +445,16 @@ serve(async (req) => {
       fetchContacts(token).catch(e => { console.warn('[hubspot-sync] Contacts fetch skipped:', e.message); return []; }),
     ]);
 
-    // Fetch tasks + notes via Engagements v1 API (avoids scope issues with v3 tasks/notes endpoints)
+    // Fetch tasks + notes via CRM v3 API (same endpoints as hubspot-push)
     let hsTasks: any[] = [];
     let hsNotes: any[] = [];
     if (pullTasks || pullNotes) {
-      const engActivities = await fetchEngagementActivities(token);
-      if (pullTasks) hsTasks = engActivities.tasks;
-      if (pullNotes) hsNotes = engActivities.notes;
+      const [fetchedTasks, fetchedNotes] = await Promise.all([
+        pullTasks ? fetchHubSpotTasks(token) : Promise.resolve([]),
+        pullNotes ? fetchHubSpotNotes(token) : Promise.resolve([]),
+      ]);
+      hsTasks = fetchedTasks;
+      hsNotes = fetchedNotes;
     }
     console.log('[hubspot-sync] Tasks:', hsTasks.length, 'Notes:', hsNotes.length, '(pull_tasks:', pullTasks, 'pull_notes:', pullNotes, ')');
 
