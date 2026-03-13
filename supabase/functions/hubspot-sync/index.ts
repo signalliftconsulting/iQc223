@@ -141,6 +141,81 @@ async function fetchEngagements(token: string): Promise<Map<string, number>> {
   return result;
 }
 
+// Fetch HubSpot tasks with company associations
+async function fetchHubSpotTasks(token: string): Promise<any[]> {
+  try {
+    return await hsFetchAll(token, '/crm/v3/objects/tasks', [
+      'hs_task_subject', 'hs_task_body', 'hs_task_status', 'hs_task_priority',
+      'hs_timestamp', 'hs_task_due_date', 'hs_lastmodifieddate'
+    ], 100, ['companies']);
+  } catch (e) {
+    console.warn('[hubspot-sync] Tasks fetch skipped:', e.message);
+    return [];
+  }
+}
+
+// Fetch HubSpot notes with company associations
+async function fetchHubSpotNotes(token: string): Promise<any[]> {
+  try {
+    return await hsFetchAll(token, '/crm/v3/objects/notes', [
+      'hs_note_body', 'hs_timestamp', 'hs_lastmodifieddate'
+    ], 100, ['companies']);
+  } catch (e) {
+    console.warn('[hubspot-sync] Notes fetch skipped:', e.message);
+    return [];
+  }
+}
+
+// Group HubSpot tasks/notes by company ID into activity entries
+function buildActivities(tasks: any[], notes: any[]): Map<string, any[]> {
+  const companyActivities = new Map<string, any[]>();
+
+  for (const task of tasks) {
+    const props = task.properties || {};
+    const companyAssocs = task.associations?.companies?.results || [];
+    const companyIds = [...new Set(companyAssocs.map((a: any) => String(a.id)).filter(Boolean))];
+    const entry = {
+      type: 'task',
+      hs_id: task.id,
+      subject: props.hs_task_subject || '',
+      body: props.hs_task_body || '',
+      status: props.hs_task_status || 'NOT_STARTED',
+      priority: props.hs_task_priority || 'NONE',
+      date: props.hs_timestamp || props.hs_lastmodifieddate || '',
+      due_date: props.hs_task_due_date || '',
+      source: 'hubspot',
+    };
+    for (const cid of companyIds) {
+      if (!companyActivities.has(cid)) companyActivities.set(cid, []);
+      companyActivities.get(cid)!.push(entry);
+    }
+  }
+
+  for (const note of notes) {
+    const props = note.properties || {};
+    const companyAssocs = note.associations?.companies?.results || [];
+    const companyIds = [...new Set(companyAssocs.map((a: any) => String(a.id)).filter(Boolean))];
+    const entry = {
+      type: 'note',
+      hs_id: note.id,
+      body: props.hs_note_body || '',
+      date: props.hs_timestamp || props.hs_lastmodifieddate || '',
+      source: 'hubspot',
+    };
+    for (const cid of companyIds) {
+      if (!companyActivities.has(cid)) companyActivities.set(cid, []);
+      companyActivities.get(cid)!.push(entry);
+    }
+  }
+
+  // Sort each company's activities by date descending
+  for (const [cid, acts] of companyActivities) {
+    acts.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }
+
+  return companyActivities;
+}
+
 // Detect lifecycle from HubSpot lifecycle stage
 function mapLifecycle(hsStage: string | null): string | null {
   if (!hsStage) return null;
@@ -316,12 +391,20 @@ serve(async (req) => {
     console.log('[hubspot-sync] Token retrieved, length:', token?.length);
 
     // ── Fetch HubSpot data (parallel where possible) ──
-    const [companies, deals, tickets, contacts] = await Promise.all([
+    const syncMetrics = integration.config?.sync_metrics || {};
+    const shouldSync = (metric: string) => syncMetrics[metric] !== false;
+    const pullTasks = shouldSync('pull_tasks');
+    const pullNotes = shouldSync('pull_notes');
+
+    const [companies, deals, tickets, contacts, hsTasks, hsNotes] = await Promise.all([
       fetchCompanies(token),
       fetchDeals(token),
       fetchTickets(token),
       fetchContacts(token).catch(e => { console.warn('[hubspot-sync] Contacts fetch skipped:', e.message); return []; }),
+      pullTasks ? fetchHubSpotTasks(token) : Promise.resolve([]),
+      pullNotes ? fetchHubSpotNotes(token) : Promise.resolve([]),
     ]);
+    console.log('[hubspot-sync] Tasks:', hsTasks.length, 'Notes:', hsNotes.length, '(pull_tasks:', pullTasks, 'pull_notes:', pullNotes, ')');
 
     // Extract associations from inline data (no separate batch API calls needed)
     const ticketAssoc = extractTicketAssociations(tickets);
@@ -454,10 +537,11 @@ serve(async (req) => {
       byName.set(c.name.toLowerCase().trim(), c);
     }
 
-    // ── Match & update ──
-    const syncMetrics = integration.config?.sync_metrics || {};
-    const shouldSync = (metric: string) => syncMetrics[metric] !== false;
+    // ── Build activities map (tasks + notes per company) ──
+    const companyActivities = buildActivities(hsTasks, hsNotes);
+    console.log('[hubspot-sync] Activities mapped for', companyActivities.size, 'companies');
 
+    // ── Match & update ──
     const stats = { total: companies.length, matched: 0, created: 0, updated: 0, skipped: 0 };
     const updates: any[] = [];
     const creates: any[] = [];
@@ -539,6 +623,21 @@ serve(async (req) => {
           if (contact.name && contact.name !== (match.contact_name || '')) changes.contact_name = contact.name;
         }
 
+        // HubSpot activities (tasks + notes)
+        if (pullTasks || pullNotes) {
+          const activities = companyActivities.get(hsId) || [];
+          // Merge with existing local activities (preserve IQcadence-sourced entries)
+          let existing: any[] = [];
+          try { existing = JSON.parse(match.hubspot_activities || '[]'); } catch(_) {}
+          const localEntries = existing.filter((e: any) => e.source === 'iqcadence');
+          const merged = [...activities, ...localEntries];
+          merged.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          const mergedJson = JSON.stringify(merged);
+          if (mergedJson !== (match.hubspot_activities || '[]')) {
+            changes.hubspot_activities = mergedJson;
+          }
+        }
+
         if (Object.keys(changes).length > 0) {
           updates.push({ id: match.id, name: match.name, changes });
           stats.updated++;
@@ -561,6 +660,7 @@ serve(async (req) => {
           last_contact_date: engagementDays.has(hsId) ? new Date(Date.now() - (engagementDays.get(hsId)! * 86400000)).toISOString().split('T')[0] : null,
           contact_email: companyContact.get(hsId)?.email || '',
           contact_name: companyContact.get(hsId)?.name || '',
+          hubspot_activities: JSON.stringify(companyActivities.get(hsId) || []),
           tags: props.industry || '',
           logins: 0,
           adoption: 0,

@@ -227,7 +227,8 @@ function fromRow(row) {
     billing_interval:    row.billing_interval    || '',
     renewal_date:        row.renewal_date        || '',
     contact_name:        row.contact_name        || '',
-    contact_email:       row.contact_email       || ''
+    contact_email:       row.contact_email       || '',
+    hubspot_activities:  row.hubspot_activities  || '[]'
   };
 }
 
@@ -275,7 +276,8 @@ function toRow(c) {
     hubspot_company_id:  c.hubspot_company_id  || '',
     billing_interval:    c.billing_interval    || '',
     contact_name:        c.contact_name        || '',
-    contact_email:       c.contact_email       || ''
+    contact_email:       c.contact_email       || '',
+    hubspot_activities:  c.hubspot_activities  || '[]'
   };
   if (_dbHasClientId && _userClientId) row.client_id = _userClientId;
   // Strip columns that don't exist in the DB (detected during first load)
@@ -569,6 +571,29 @@ async function syncIntegration(platform) {
     throw new Error(msg);
   }
   if (data && !data.success) throw new Error(data.error || 'Sync failed');
+  return data;
+}
+
+// Push a note to HubSpot for a customer
+async function pushNoteToHubSpot(customerId, body) {
+  const { data, error } = await sb.functions.invoke('hubspot-push', {
+    body: { action: 'create_note', customerId, data: { body } }
+  });
+  if (error) throw new Error(error.message || 'Push failed');
+  if (data && !data.success) throw new Error(data.error || 'Push failed');
+  return data;
+}
+
+// Push a task to HubSpot for a customer
+async function pushTaskToHubSpot(customerId, subject, body, priority, dueDate) {
+  const payload = { subject, body };
+  if (priority) payload.priority = priority;
+  if (dueDate) payload.due_date = dueDate;
+  const { data, error } = await sb.functions.invoke('hubspot-push', {
+    body: { action: 'create_task', customerId, data: payload }
+  });
+  if (error) throw new Error(error.message || 'Push failed');
+  if (data && !data.success) throw new Error(data.error || 'Push failed');
   return data;
 }
 
