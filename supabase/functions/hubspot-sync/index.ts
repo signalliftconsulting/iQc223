@@ -95,7 +95,7 @@ function extractTicketAssociations(tickets: any[]): Map<string, string[]> {
   const map = new Map<string, string[]>();
   for (const ticket of tickets) {
     const companyAssocs = ticket.associations?.companies?.results || [];
-    const companyIds = companyAssocs.map((a: any) => String(a.id)).filter(Boolean);
+    const companyIds = [...new Set(companyAssocs.map((a: any) => String(a.id)).filter(Boolean))];
     if (companyIds.length) {
       map.set(ticket.id, companyIds);
     }
@@ -330,7 +330,7 @@ serve(async (req) => {
     const dealAssoc = new Map<string, string[]>();
     for (const deal of deals) {
       const companyAssocs = deal.associations?.companies?.results || [];
-      const companyIds = companyAssocs.map((a: any) => String(a.id)).filter(Boolean);
+      const companyIds = [...new Set(companyAssocs.map((a: any) => String(a.id)).filter(Boolean))];
       if (companyIds.length) dealAssoc.set(deal.id, companyIds);
     }
     console.log('[hubspot-sync] Deal associations extracted:', dealAssoc.size, 'of', deals.length, 'deals');
