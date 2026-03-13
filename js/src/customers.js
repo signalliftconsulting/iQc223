@@ -672,7 +672,8 @@ async function saveInlineNextTouch(custId, val) {
   c.next_touch = val || '';
   // Recalculate days from last_contact_date if it exists
   if (c.last_contact_date) {
-    const lcd = new Date(c.last_contact_date);
+    const [_y,_m,_d] = c.last_contact_date.split('-').map(Number);
+    const lcd = new Date(_y, _m-1, _d);
     if (!isNaN(lcd.getTime())) {
       const daysSince = Math.max(0, Math.floor((Date.now() - lcd.getTime()) / 86400000));
       c.days = daysSince;

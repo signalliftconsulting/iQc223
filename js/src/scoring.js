@@ -151,7 +151,8 @@ function getEffectiveDays(c) {
   if (c.days == null && c._baseDays == null) return null; // N/A
   // If last_contact_date exists, calculate directly from it (exact, no drift)
   if (c.last_contact_date) {
-    var lcd = new Date(c.last_contact_date);
+    var _p = c.last_contact_date.split('-').map(Number);
+    var lcd = new Date(_p[0], _p[1]-1, _p[2]);
     if (!isNaN(lcd.getTime())) {
       return Math.max(0, Math.floor((Date.now() - lcd.getTime()) / 86400000));
     }

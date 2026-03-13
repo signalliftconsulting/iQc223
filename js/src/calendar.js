@@ -43,7 +43,8 @@ function _renderCalendar() {
       }
     }
     if (c.last_contact_date) {
-      const lcd = new Date(c.last_contact_date);
+      const [_y,_m,_d] = c.last_contact_date.split('-').map(Number);
+      const lcd = new Date(_y, _m-1, _d);
       const daysSince = Math.floor((now - lcd) / 86400000);
       if (daysSince > 30) {
         events.push({ date: todayStr, type: 'overdue', customer: c, daysSince: daysSince });
@@ -453,7 +454,8 @@ function calShowPopover(cellEl, dateStr) {
       evts.push({ type: dateStr < todayStr ? 'past-completed' : 'touch', customer: c, isNextTouch: true });
     }
     if (c.last_contact_date && todayStr === dateStr) {
-      var daysSince = Math.floor((now - new Date(c.last_contact_date)) / 86400000);
+      var _lp = c.last_contact_date.split('-').map(Number);
+      var daysSince = Math.floor((now - new Date(_lp[0], _lp[1]-1, _lp[2])) / 86400000);
       if (daysSince > 30) {
         evts.push({ type: 'overdue', customer: c, daysSince: daysSince });
       }

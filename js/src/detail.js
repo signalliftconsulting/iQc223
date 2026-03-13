@@ -851,7 +851,8 @@ function renderDetailOverview() {
         <div class="sig-label">Last Contact</div>
         ${(()=>{
           if (c.last_contact_date) {
-            const lcd = new Date(c.last_contact_date);
+            const [y,m,d] = c.last_contact_date.split('-').map(Number);
+            const lcd = new Date(y, m-1, d); // local date, no timezone shift
             const daysAgo = Math.max(0, Math.floor((Date.now() - lcd.getTime()) / 86400000));
             return `<span style="font-size:var(--fs-base);font-weight:600">${lcd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span> <span style="font-size:var(--fs-sm);color:var(--muted)">(${daysAgo}d ago)</span>`;
           }
@@ -1275,7 +1276,8 @@ function editCustomer(id) {
   const daysDisp = el('rv-days-display');
   if (daysDisp) {
     if (c.last_contact_date) {
-      const lcd = new Date(c.last_contact_date);
+      const [_y,_m,_d] = c.last_contact_date.split('-').map(Number);
+      const lcd = new Date(_y, _m-1, _d);
       const daysAgo = Math.max(0, Math.floor((Date.now() - lcd.getTime()) / 86400000));
       const dateStr = lcd.toLocaleDateString('en-US', { month:'short', day:'numeric' });
       daysDisp.innerHTML = `<span>${daysAgo} days</span> <span style="font-weight:400;font-size:var(--fs-sm);color:var(--muted)">since ${dateStr}</span>`;
