@@ -141,156 +141,6 @@ async function fetchEngagements(token: string): Promise<Map<string, number>> {
   return result;
 }
 
-// Fetch tasks/notes for specific companies via Associations + batch read
-// Strategy: get task/note IDs associated to each company, then batch-read details
-// This avoids the restricted list endpoints by using associations + individual reads
-async function fetchActivitiesViaAssociations(
-  token: string,
-  companyIds: string[],
-  objectType: 'tasks' | 'notes'
-): Promise<any[]> {
-  const results: any[] = [];
-  const allObjectIds = new Map<string, Set<string>>(); // objectId → set of companyIds
-
-  // Step 1: Get associated task/note IDs for each company
-  for (const companyId of companyIds) {
-    try {
-      const data = await hsGet(token, `/crm/v4/objects/companies/${companyId}/associations/${objectType}`);
-      for (const assoc of (data.results || [])) {
-        const objId = String(assoc.toObjectId);
-        if (!allObjectIds.has(objId)) allObjectIds.set(objId, new Set());
-        allObjectIds.get(objId)!.add(companyId);
-      }
-    } catch (e) {
-      // If associations API fails, skip this company
-      if (companyIds.indexOf(companyId) === 0) {
-        console.warn(`[hubspot-sync] ${objectType} associations skipped:`, e.message);
-        return []; // If first company fails, the endpoint itself is blocked
-      }
-    }
-  }
-
-  if (allObjectIds.size === 0) return [];
-  console.log(`[hubspot-sync] Found ${allObjectIds.size} ${objectType} via associations`);
-
-  // Step 2: Read each object individually (batch read and list endpoints are blocked for public OAuth)
-  const ids = [...allObjectIds.keys()];
-  const properties = objectType === 'tasks'
-    ? ['hs_task_subject', 'hs_task_body', 'hs_task_status', 'hs_task_priority', 'hs_timestamp', 'hs_task_due_date']
-    : ['hs_note_body', 'hs_timestamp', 'hs_lastmodifieddate'];
-  const propsParam = properties.join(',');
-
-  // Try v3 individual read first, fall back to v1 engagements read, then stub
-  let v3Blocked = false;
-  let v1Blocked = false;
-  for (const objId of ids) {
-    const compIds = [...(allObjectIds.get(objId) || [])];
-
-    // Attempt 1: CRM v3 individual read
-    if (!v3Blocked) {
-      try {
-        const item = await hsGet(token, `/crm/v3/objects/${objectType}/${objId}?properties=${propsParam}`);
-        const props = item.properties || {};
-        if (objectType === 'tasks') {
-          results.push({ id: objId, type: 'task', subject: props.hs_task_subject || '', body: props.hs_task_body || '', status: props.hs_task_status || 'NOT_STARTED', priority: props.hs_task_priority || 'NONE', date: props.hs_timestamp || '', due_date: props.hs_task_due_date || '', companyIds: compIds, contactIds: [] });
-        } else {
-          results.push({ id: objId, type: 'note', body: props.hs_note_body || '', date: props.hs_timestamp || props.hs_lastmodifieddate || '', companyIds: compIds, contactIds: [] });
-        }
-        continue; // success
-      } catch (e) {
-        if (e.message?.includes('403')) { v3Blocked = true; console.warn(`[hubspot-sync] ${objectType} v3 read blocked, trying v1`); }
-        else { console.warn(`[hubspot-sync] ${objectType} v3 read ${objId}:`, e.message); }
-      }
-    }
-
-    // Attempt 2: v1 engagements individual read (task/note IDs = engagement IDs)
-    if (!v1Blocked) {
-      try {
-        const eng = await hsGet(token, `/engagements/v1/engagements/${objId}`);
-        const meta = eng.metadata || {};
-        const ts = eng.engagement?.timestamp ? new Date(eng.engagement.timestamp).toISOString() : '';
-        if (objectType === 'tasks') {
-          results.push({ id: objId, type: 'task', subject: meta.subject || meta.body?.substring(0, 100) || '', body: meta.body || '', status: meta.status || 'NOT_STARTED', priority: meta.priority || 'NONE', date: ts, due_date: '', companyIds: compIds, contactIds: [] });
-        } else {
-          results.push({ id: objId, type: 'note', body: meta.body || '', date: ts, companyIds: compIds, contactIds: [] });
-        }
-        continue; // success
-      } catch (e) {
-        if (e.message?.includes('403')) { v1Blocked = true; console.warn(`[hubspot-sync] ${objectType} v1 read also blocked`); }
-        else { console.warn(`[hubspot-sync] ${objectType} v1 read ${objId}:`, e.message); }
-      }
-    }
-
-    // Fallback: store stub with just ID (we know it exists from associations)
-    if (objectType === 'tasks') {
-      results.push({ id: objId, type: 'task', subject: 'HubSpot Task', body: '', status: '', priority: '', date: '', due_date: '', companyIds: compIds, contactIds: [] });
-    } else {
-      results.push({ id: objId, type: 'note', body: '(Details unavailable — view in HubSpot)', date: '', companyIds: compIds, contactIds: [] });
-    }
-  }
-
-  console.log(`[hubspot-sync] ${objectType} via associations: ${results.length} fetched`);
-  return results;
-}
-
-// Group v1 engagement tasks/notes by company ID into activity entries
-// v1 engagements have companyIds and contactIds directly (not nested associations)
-function buildActivities(tasks: any[], notes: any[], contactToCompanies: Map<string, string[]>): Map<string, any[]> {
-  const companyActivities = new Map<string, any[]>();
-
-  function resolveCompanyIds(item: any): string[] {
-    const ids = new Set<string>();
-    for (const cid of (item.companyIds || [])) ids.add(String(cid));
-    for (const contactId of (item.contactIds || [])) {
-      const mapped = contactToCompanies.get(String(contactId)) || [];
-      for (const cid of mapped) ids.add(cid);
-    }
-    return [...ids].filter(Boolean);
-  }
-
-  for (const task of tasks) {
-    const companyIds = resolveCompanyIds(task);
-    const entry = {
-      type: 'task',
-      hs_id: task.id,
-      subject: task.subject || '',
-      body: task.body || '',
-      status: task.status || 'NOT_STARTED',
-      priority: task.priority || 'NONE',
-      date: task.date || '',
-      due_date: task.due_date || '',
-      source: 'hubspot',
-    };
-    for (const cid of companyIds) {
-      if (!companyActivities.has(cid)) companyActivities.set(cid, []);
-      companyActivities.get(cid)!.push(entry);
-    }
-  }
-
-  for (const note of notes) {
-    const companyIds = resolveCompanyIds(note);
-    const entry = {
-      type: 'note',
-      hs_id: note.id,
-      body: note.body || '',
-      date: note.date || '',
-      source: 'hubspot',
-    };
-    for (const cid of companyIds) {
-      if (!companyActivities.has(cid)) companyActivities.set(cid, []);
-      companyActivities.get(cid)!.push(entry);
-    }
-  }
-
-  // Sort each company's activities by date descending
-  for (const [cid, acts] of companyActivities) {
-    acts.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }
-
-  console.log(`[hubspot-sync] buildActivities: ${tasks.length} tasks, ${notes.length} notes → ${companyActivities.size} companies with activities`);
-  return companyActivities;
-}
-
 // Detect lifecycle from HubSpot lifecycle stage
 function mapLifecycle(hsStage: string | null): string | null {
   if (!hsStage) return null;
@@ -468,30 +318,12 @@ serve(async (req) => {
     // ── Fetch HubSpot data (parallel where possible) ──
     const syncMetrics = integration.config?.sync_metrics || {};
     const shouldSync = (metric: string) => syncMetrics[metric] !== false;
-    const pullTasks = shouldSync('pull_tasks');
-    const pullNotes = shouldSync('pull_notes');
-
     const [companies, deals, tickets, contacts] = await Promise.all([
       fetchCompanies(token),
       fetchDeals(token),
       fetchTickets(token),
       fetchContacts(token).catch(e => { console.warn('[hubspot-sync] Contacts fetch skipped:', e.message); return []; }),
     ]);
-
-    // Fetch tasks + notes via Associations API (company → tasks/notes)
-    // The list endpoints are blocked for public OAuth apps, but associations + batch read work
-    const companyIds = companies.map((c: any) => String(c.id));
-    let hsTasks: any[] = [];
-    let hsNotes: any[] = [];
-    if ((pullTasks || pullNotes) && companyIds.length > 0) {
-      const [fetchedTasks, fetchedNotes] = await Promise.all([
-        pullTasks ? fetchActivitiesViaAssociations(token, companyIds, 'tasks') : Promise.resolve([]),
-        pullNotes ? fetchActivitiesViaAssociations(token, companyIds, 'notes') : Promise.resolve([]),
-      ]);
-      hsTasks = fetchedTasks;
-      hsNotes = fetchedNotes;
-    }
-    console.log('[hubspot-sync] Tasks:', hsTasks.length, 'Notes:', hsNotes.length, '(pull_tasks:', pullTasks, 'pull_notes:', pullNotes, ')');
 
     // Extract associations from inline data (no separate batch API calls needed)
     const ticketAssoc = extractTicketAssociations(tickets);
@@ -523,17 +355,6 @@ serve(async (req) => {
       }
     }
     console.log('[hubspot-sync] Contacts mapped:', companyContact.size, 'companies with primary contact');
-
-    // Build contact → company mapping (for resolving task/note associations via contacts)
-    const contactToCompanies = new Map<string, string[]>();
-    for (const contact of contacts) {
-      const assocCompanies = contact.associations?.companies?.results || [];
-      if (assocCompanies.length) {
-        const compIds = [...new Set(assocCompanies.map((a: any) => String(a.id)).filter(Boolean))];
-        contactToCompanies.set(String(contact.id), compIds);
-      }
-    }
-    console.log('[hubspot-sync] Contact→Company mapping:', contactToCompanies.size, 'contacts mapped');
 
     const engagementDays = await fetchEngagements(token);
 
@@ -635,10 +456,6 @@ serve(async (req) => {
       byName.set(c.name.toLowerCase().trim(), c);
     }
 
-    // ── Build activities map (tasks + notes per company) ──
-    const companyActivities = buildActivities(hsTasks, hsNotes, contactToCompanies);
-    console.log('[hubspot-sync] Activities mapped for', companyActivities.size, 'companies');
-
     // ── Match & update ──
     const stats = { total: companies.length, matched: 0, created: 0, updated: 0, skipped: 0 };
     const updates: any[] = [];
@@ -721,21 +538,6 @@ serve(async (req) => {
           if (contact.name && contact.name !== (match.contact_name || '')) changes.contact_name = contact.name;
         }
 
-        // HubSpot activities (tasks + notes)
-        if (pullTasks || pullNotes) {
-          const activities = companyActivities.get(hsId) || [];
-          // Merge with existing local activities (preserve IQcadence-sourced entries)
-          let existing: any[] = [];
-          try { existing = JSON.parse(match.hubspot_activities || '[]'); } catch(_) {}
-          const localEntries = existing.filter((e: any) => e.source === 'iqcadence');
-          const merged = [...activities, ...localEntries];
-          merged.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
-          const mergedJson = JSON.stringify(merged);
-          if (mergedJson !== (match.hubspot_activities || '[]')) {
-            changes.hubspot_activities = mergedJson;
-          }
-        }
-
         if (Object.keys(changes).length > 0) {
           updates.push({ id: match.id, name: match.name, changes });
           stats.updated++;
@@ -758,7 +560,6 @@ serve(async (req) => {
           last_contact_date: engagementDays.has(hsId) ? new Date(Date.now() - (engagementDays.get(hsId)! * 86400000)).toISOString().split('T')[0] : null,
           contact_email: companyContact.get(hsId)?.email || '',
           contact_name: companyContact.get(hsId)?.name || '',
-          hubspot_activities: JSON.stringify(companyActivities.get(hsId) || []),
           tags: props.industry || '',
           logins: 0,
           adoption: 0,

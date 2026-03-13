@@ -1198,8 +1198,6 @@ const PLATFORM_METRICS = {
     { key: 'nps',        label: 'NPS' },
     { key: 'csat',       label: 'CSAT' },
     { key: 'lifecycle',  label: 'Lifecycle Stage' },
-    { key: 'pull_tasks', label: 'Pull HubSpot Tasks' },
-    { key: 'pull_notes', label: 'Pull HubSpot Notes' },
   ]
 };
 
@@ -1671,14 +1669,6 @@ function renderHubSpotCard(integration) {
           <label class="mt-switch">
             <input type="checkbox" ${integration.config?.push_alerts !== false ? 'checked' : ''}
               onchange="updateHubSpotPushToggle('push_alerts',this.checked)" />
-            <span class="mt-slider"></span>
-          </label>
-        </div>
-        <div class="mt-row">
-          <span class="mt-label">Push notes to HubSpot</span>
-          <label class="mt-switch">
-            <input type="checkbox" ${integration.config?.push_notes === true ? 'checked' : ''}
-              onchange="updateHubSpotPushToggle('push_notes',this.checked)" />
             <span class="mt-slider"></span>
           </label>
         </div>

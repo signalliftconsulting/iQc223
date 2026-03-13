@@ -695,7 +695,7 @@ function openDetail(id) {
 }
 
 function dtab(which) {
-  ['overview','alerts','playbook','notes','activity','sentiment','history'].forEach(t => {
+  ['overview','alerts','playbook','notes','sentiment','history'].forEach(t => {
     el('dt-'+t)?.classList.toggle('active', t===which);
     el('dp-'+t)?.classList.toggle('active', t===which);
   });
@@ -703,7 +703,6 @@ function dtab(which) {
   if (which === 'alerts')    renderDetailAlerts();
   if (which === 'playbook')  { if (hasFeature('playbooks')) renderDetailPlaybook(); else el('dm-playbook').innerHTML = upgradeHTML('playbooks'); }
   if (which === 'notes')     renderDetailNotes();
-  if (which === 'activity')  renderDetailActivity();
   if (which === 'sentiment') { if (hasFeature('sentiment')) renderDetailSentiment(); else el('dm-sentiment-list').innerHTML = upgradeHTML('sentiment'); }
   if (which === 'history')   renderDetailHistory();
 }
@@ -1068,45 +1067,16 @@ function togglePlayCheck(idx, checked) {
 function renderDetailNotes() {
   const c = customers.find(x => x.id === detailId);
   if (!c) return;
-  const localNotes = (c.notes || []).map((n, i) => ({ ...n, _source: 'local', _idx: i }));
-
-  // Include HubSpot notes from hubspot_activities
-  let hsNotes = [];
-  try {
-    const activities = JSON.parse(c.hubspot_activities || '[]');
-    hsNotes = activities
-      .filter(a => a.type === 'note')
-      .map(a => ({
-        text: a.body || '(Details unavailable — view in HubSpot)',
-        date: a.date || '',
-        _source: a.source || 'hubspot',
-        _hsId: a.hs_id || a.id || '',
-      }));
-  } catch(_) {}
-
-  // Merge and sort by date (newest first)
-  const allNotes = [...localNotes, ...hsNotes].sort((a, b) =>
-    new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()
-  );
-
-  el('dm-notes-list').innerHTML = allNotes.length
-    ? allNotes.map(n => {
-        const sourceBadge = n._source === 'hubspot'
-          ? '<span style="display:inline-block;font-size:11px;padding:1px 6px;border-radius:3px;background:#ff7a59;color:#fff;margin-left:6px">HubSpot</span>'
-          : n._source === 'iqcadence'
-          ? '<span style="display:inline-block;font-size:11px;padding:1px 6px;border-radius:3px;background:var(--accent);color:#fff;margin-left:6px">IQcadence</span>'
-          : '';
-        const deleteBtn = n._source === 'local'
-          ? `<button class="btn btn-xs btn-danger" onclick="deleteNote(${n._idx})">✕</button>`
-          : '';
-        return `<div class="note-item">
+  const notes = c.notes || [];
+  el('dm-notes-list').innerHTML = notes.length
+    ? notes.map((n,i) => `
+        <div class="note-item">
           <div class="note-hd">
-            <span class="note-date">${fmtDate(n.date)}</span>${sourceBadge}
-            ${deleteBtn}
+            <span class="note-date">${fmtDate(n.date)}</span>
+            <button class="btn btn-xs btn-danger" onclick="deleteNote(${i})">✕</button>
           </div>
           <div class="note-text">${escHtml(n.text)}</div>
-        </div>`;
-      }).join('')
+        </div>`).join('')
     : '<p style="font-size:var(--fs-base);color:var(--muted)">No notes yet. Add one below.</p>';
   el('note-input').value = '';
 }
@@ -1130,205 +1100,6 @@ function deleteNote(idx) {
   c.notes.splice(idx,1);
   renderDetailNotes();
   save(c).catch(e => console.error('Note delete sync failed:', e));
-}
-
-// ─── HUBSPOT ACTIVITY TAB ────────────────────────────────────
-
-function renderDetailActivity() {
-  const c = customers.find(x => x.id === detailId);
-  if (!c) return;
-  const actionsWrap = el('dm-activity-actions');
-  const listWrap = el('dm-activity-list');
-  if (!actionsWrap || !listWrap) return;
-
-  // Check HubSpot connection
-  const hsInt = _integrationCache?.hubspot || _integrationCache?.['hubspot'];
-  const hsConnected = hsInt && hsInt.status === 'connected';
-  const canPushNotes = hsConnected && hsInt.config?.push_notes === true;
-  const canPushTasks = hsConnected && hsInt.config?.push_alerts !== false;
-
-  // Action buttons (Add Note / Add Task to HubSpot)
-  let actionsHtml = '';
-  if (hsConnected && (canPushNotes || canPushTasks)) {
-    actionsHtml += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">';
-    if (canPushNotes) {
-      actionsHtml += '<button class="btn btn-sm btn-outline" onclick="toggleActivityForm(\'note\')" id="act-btn-note">+ Add Note</button>';
-    }
-    if (canPushTasks) {
-      actionsHtml += '<button class="btn btn-sm btn-outline" onclick="toggleActivityForm(\'task\')" id="act-btn-task">+ Add Task</button>';
-    }
-    actionsHtml += '</div>';
-
-    // Note form (hidden by default)
-    actionsHtml += `<div id="act-form-note" style="display:none;margin-bottom:14px;padding:12px;border:1.5px solid var(--border);border-radius:var(--r);background:var(--bg-card)">
-      <label style="font-size:var(--fs-sm);font-weight:600;margin-bottom:4px;display:block">Note body</label>
-      <textarea id="act-note-body" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:var(--r);font-size:var(--fs-base);font-family:var(--font);resize:vertical;min-height:64px;outline:none" placeholder="Write a note..."></textarea>
-      <div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end">
-        <button class="btn btn-sm btn-ghost" onclick="toggleActivityForm(null)">Cancel</button>
-        <button class="btn btn-sm btn-primary" onclick="submitActivityNote()" id="act-submit-note">Push Note to HubSpot</button>
-      </div>
-    </div>`;
-
-    // Task form (hidden by default)
-    actionsHtml += `<div id="act-form-task" style="display:none;margin-bottom:14px;padding:12px;border:1.5px solid var(--border);border-radius:var(--r);background:var(--bg-card)">
-      <label style="font-size:var(--fs-sm);font-weight:600;margin-bottom:4px;display:block">Subject</label>
-      <input type="text" id="act-task-subject" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:var(--r);font-size:var(--fs-base);font-family:var(--font);outline:none;margin-bottom:8px" placeholder="Task subject..." />
-      <label style="font-size:var(--fs-sm);font-weight:600;margin-bottom:4px;display:block">Details (optional)</label>
-      <textarea id="act-task-body" style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:var(--r);font-size:var(--fs-base);font-family:var(--font);resize:vertical;min-height:48px;outline:none" placeholder="Task details..."></textarea>
-      <div style="display:flex;gap:12px;margin-top:8px;align-items:center">
-        <div>
-          <label style="font-size:var(--fs-sm);font-weight:600">Priority</label>
-          <select id="act-task-priority" style="padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--r);font-size:var(--fs-base);font-family:var(--font)">
-            <option value="NONE">None</option>
-            <option value="LOW">Low</option>
-            <option value="MEDIUM" selected>Medium</option>
-            <option value="HIGH">High</option>
-          </select>
-        </div>
-        <div>
-          <label style="font-size:var(--fs-sm);font-weight:600">Due date</label>
-          <input type="date" id="act-task-due" style="padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--r);font-size:var(--fs-base);font-family:var(--font)" />
-        </div>
-        <div style="flex:1;display:flex;gap:8px;justify-content:flex-end;align-self:flex-end">
-          <button class="btn btn-sm btn-ghost" onclick="toggleActivityForm(null)">Cancel</button>
-          <button class="btn btn-sm btn-primary" onclick="submitActivityTask()" id="act-submit-task">Push Task to HubSpot</button>
-        </div>
-      </div>
-    </div>`;
-  }
-  actionsWrap.innerHTML = actionsHtml;
-
-  // Render timeline
-  let activities = [];
-  try { activities = JSON.parse(c.hubspot_activities || '[]'); } catch(_) {}
-
-  if (!activities.length) {
-    if (!hsConnected) {
-      listWrap.innerHTML = '<div class="empty-st" style="padding:24px"><h3>HubSpot not connected</h3><p>Connect HubSpot in Settings to see tasks and notes.</p></div>';
-    } else {
-      listWrap.innerHTML = '<div class="empty-st" style="padding:24px"><h3>No activity yet</h3><p>Sync HubSpot to pull in tasks and notes, or create one above.</p></div>';
-    }
-    return;
-  }
-
-  listWrap.innerHTML = activities.map(a => {
-    const isTask = a.type === 'task';
-    const icon = isTask ? '\u{1F4CB}' : '\u{1F4DD}';
-    const dateStr = a.date ? fmtDate(a.date) : '';
-    const sourceBadge = a.source === 'iqcadence'
-      ? '<span style="font-size:11px;padding:1px 6px;border-radius:10px;background:var(--blue);color:#fff;margin-left:6px">IQcadence</span>'
-      : '<span style="font-size:11px;padding:1px 6px;border-radius:10px;background:#ff7a59;color:#fff;margin-left:6px">HubSpot</span>';
-
-    let content = '';
-    if (isTask) {
-      const statusColor = (a.status || '').toUpperCase() === 'COMPLETED' ? 'var(--green)' : 'var(--amber)';
-      const statusText = (a.status || 'NOT_STARTED').replace(/_/g, ' ');
-      const priorityBadge = a.priority && a.priority !== 'NONE'
-        ? `<span style="font-size:11px;padding:1px 6px;border-radius:10px;background:${a.priority === 'HIGH' ? 'var(--red)' : 'var(--muted)'};color:#fff;margin-left:4px">${escHtml(a.priority)}</span>`
-        : '';
-      const dueStr = a.due_date ? ` &middot; Due ${fmtDate(a.due_date)}` : '';
-      content = `
-        <div style="font-weight:600;font-size:var(--fs-base)">${escHtml(a.subject || 'Untitled task')}</div>
-        <div style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px">
-          <span style="color:${statusColor};font-weight:600">${statusText}</span>${priorityBadge}${dueStr}
-        </div>
-        ${a.body ? `<div style="font-size:var(--fs-sm);color:var(--text);margin-top:4px;white-space:pre-wrap">${escHtml(a.body).substring(0, 300)}${a.body.length > 300 ? '...' : ''}</div>` : ''}`;
-    } else {
-      const bodyText = (a.body || '').replace(/<[^>]*>/g, ''); // strip HTML from HubSpot notes
-      content = `<div style="font-size:var(--fs-base);white-space:pre-wrap">${escHtml(bodyText).substring(0, 400)}${bodyText.length > 400 ? '...' : ''}</div>`;
-    }
-
-    return `<div style="padding:12px;border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;background:var(--bg-card)">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-        <span style="font-size:16px">${icon}</span>
-        <span style="font-size:var(--fs-sm);color:var(--muted)">${dateStr}</span>
-        ${sourceBadge}
-      </div>
-      ${content}
-    </div>`;
-  }).join('');
-}
-
-function toggleActivityForm(type) {
-  const noteForm = el('act-form-note');
-  const taskForm = el('act-form-task');
-  if (noteForm) noteForm.style.display = type === 'note' ? 'block' : 'none';
-  if (taskForm) taskForm.style.display = type === 'task' ? 'block' : 'none';
-}
-
-async function submitActivityNote() {
-  const c = customers.find(x => x.id === detailId);
-  if (!c) return;
-  const body = (el('act-note-body')?.value || '').trim();
-  if (!body) { toast('Note body is required', 'warn'); return; }
-
-  const btn = el('act-submit-note');
-  if (btn) { btn.disabled = true; btn.textContent = 'Pushing...'; }
-
-  try {
-    await pushNoteToHubSpot(c.id, body);
-
-    // Optimistically add to local activities
-    let activities = [];
-    try { activities = JSON.parse(c.hubspot_activities || '[]'); } catch(_) {}
-    activities.unshift({
-      type: 'note',
-      body: body,
-      date: new Date().toISOString(),
-      source: 'iqcadence',
-    });
-    c.hubspot_activities = JSON.stringify(activities);
-    await save(c);
-
-    toast('Note pushed to HubSpot', 'success');
-    toggleActivityForm(null);
-    renderDetailActivity();
-  } catch(e) {
-    toast('Failed to push note: ' + e.message, 'error');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Push Note to HubSpot'; }
-  }
-}
-
-async function submitActivityTask() {
-  const c = customers.find(x => x.id === detailId);
-  if (!c) return;
-  const subject = (el('act-task-subject')?.value || '').trim();
-  if (!subject) { toast('Task subject is required', 'warn'); return; }
-  const body = (el('act-task-body')?.value || '').trim();
-  const priority = el('act-task-priority')?.value || 'MEDIUM';
-  const dueDate = el('act-task-due')?.value || '';
-
-  const btn = el('act-submit-task');
-  if (btn) { btn.disabled = true; btn.textContent = 'Pushing...'; }
-
-  try {
-    await pushTaskToHubSpot(c.id, subject, body, priority, dueDate);
-
-    // Optimistically add to local activities
-    let activities = [];
-    try { activities = JSON.parse(c.hubspot_activities || '[]'); } catch(_) {}
-    activities.unshift({
-      type: 'task',
-      subject: subject,
-      body: body,
-      status: 'NOT_STARTED',
-      priority: priority,
-      date: new Date().toISOString(),
-      due_date: dueDate,
-      source: 'iqcadence',
-    });
-    c.hubspot_activities = JSON.stringify(activities);
-    await save(c);
-
-    toast('Task pushed to HubSpot', 'success');
-    toggleActivityForm(null);
-    renderDetailActivity();
-  } catch(e) {
-    toast('Failed to push task: ' + e.message, 'error');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Push Task to HubSpot'; }
-  }
 }
 
 function renderDetailHistory() {

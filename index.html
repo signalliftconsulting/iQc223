@@ -3577,7 +3577,6 @@ Header: Content-Type: application/json
       <button class="dtab" id="dt-alerts"            onclick="dtab('alerts')">Alerts</button>
       <button class="dtab" id="dt-playbook"          onclick="dtab('playbook')">Playbook</button>
       <button class="dtab" id="dt-notes"             onclick="dtab('notes')">Notes</button>
-      <button class="dtab" id="dt-activity"           onclick="dtab('activity')">Activity</button>
       <button class="dtab" id="dt-sentiment"         onclick="dtab('sentiment')">Sentiment</button>
       <button class="dtab" id="dt-history"           onclick="dtab('history')">History</button>
     </div>
@@ -3590,10 +3589,6 @@ Header: Content-Type: application/json
         <textarea id="note-input" style="flex:1;padding:8px 11px;border:1.5px solid var(--border);border-radius:var(--r);font-size:var(--fs-md);font-family:var(--font);resize:vertical;min-height:64px;outline:none" placeholder="Add a note…"></textarea>
         <button class="btn btn-primary btn-sm" style="align-self:flex-end" onclick="addNote()">Add</button>
       </div>
-    </div>
-    <div class="dtab-pane" id="dp-activity">
-      <div id="dm-activity-actions" style="margin-bottom:12px"></div>
-      <div id="dm-activity-list"></div>
     </div>
     <div class="dtab-pane" id="dp-sentiment">
       <p style="font-size:var(--fs-base);color:var(--muted);margin-bottom:10px">Log a quick vibe check after each call. Builds a sentiment trend over time.</p>
@@ -3787,6 +3782,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=377"></script>
+<script src="js/app.js?v=378"></script>
 </body>
 </html>
