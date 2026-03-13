@@ -938,8 +938,20 @@ function serializeColumnFilters(cf) {
 function deserializeColumnFilters(cf) {
   const out = {};
   for (const [k, f] of Object.entries(cf)) {
-    if (f.type === 'enum' && Array.isArray(f.vals)) {
-      out[k] = { ...f, vals: new Set(f.vals) };
+    if (f.type === 'enum') {
+      // Handle all possible stored formats for vals
+      if (f.vals instanceof Set) {
+        out[k] = { ...f };
+      } else if (Array.isArray(f.vals)) {
+        out[k] = { ...f, vals: new Set(f.vals) };
+      } else if (f.vals && typeof f.vals === 'object') {
+        // Old broken format: Set serialized as {} or {0:"a",1:"b"} — try Object.values
+        const arr = Object.values(f.vals);
+        out[k] = { ...f, vals: arr.length ? new Set(arr) : new Set() };
+      } else {
+        // vals missing or null — skip this broken filter
+        continue;
+      }
     } else {
       out[k] = { ...f };
     }
