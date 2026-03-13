@@ -515,7 +515,12 @@ serve(async (req) => {
         // Days since contact
         if (shouldSync('days')) {
           const days = engagementDays.get(hsId);
-          if (days != null && days !== (match.days || 0)) changes.days = days;
+          if (days != null) {
+            if (days !== (match.days || 0)) changes.days = days;
+            // Also set last_contact_date so the UI displays the actual date
+            const contactDate = new Date(Date.now() - days * 86400000).toISOString().split('T')[0];
+            if (contactDate !== match.last_contact_date) changes.last_contact_date = contactDate;
+          }
         }
 
         // Renewal date from deals
@@ -553,6 +558,7 @@ serve(async (req) => {
           tier: detectTierFromCompany(props) || 'smb',
           tickets: companyTickets.get(hsId) || 0,
           days: engagementDays.get(hsId) ?? 0,
+          last_contact_date: engagementDays.has(hsId) ? new Date(Date.now() - (engagementDays.get(hsId)! * 86400000)).toISOString().split('T')[0] : null,
           contact_email: companyContact.get(hsId)?.email || '',
           contact_name: companyContact.get(hsId)?.name || '',
           tags: props.industry || '',
