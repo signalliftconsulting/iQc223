@@ -2427,7 +2427,8 @@ function getEffectiveDays(c) {
   if (c.days == null && c._baseDays == null) return null; // N/A
   // If last_contact_date exists, calculate directly from it (exact, no drift)
   if (c.last_contact_date) {
-    var lcd = new Date(c.last_contact_date);
+    var _p = c.last_contact_date.split('-').map(Number);
+    var lcd = new Date(_p[0], _p[1]-1, _p[2]);
     if (!isNaN(lcd.getTime())) {
       return Math.max(0, Math.floor((Date.now() - lcd.getTime()) / 86400000));
     }
@@ -7109,7 +7110,8 @@ async function saveInlineNextTouch(custId, val) {
   c.next_touch = val || '';
   // Recalculate days from last_contact_date if it exists
   if (c.last_contact_date) {
-    const lcd = new Date(c.last_contact_date);
+    const [_y,_m,_d] = c.last_contact_date.split('-').map(Number);
+    const lcd = new Date(_y, _m-1, _d);
     if (!isNaN(lcd.getTime())) {
       const daysSince = Math.max(0, Math.floor((Date.now() - lcd.getTime()) / 86400000));
       c.days = daysSince;
@@ -8333,7 +8335,8 @@ function renderDetailOverview() {
         <div class="sig-label">Last Contact</div>
         ${(()=>{
           if (c.last_contact_date) {
-            const lcd = new Date(c.last_contact_date);
+            const [y,m,d] = c.last_contact_date.split('-').map(Number);
+            const lcd = new Date(y, m-1, d); // local date, no timezone shift
             const daysAgo = Math.max(0, Math.floor((Date.now() - lcd.getTime()) / 86400000));
             return `<span style="font-size:var(--fs-base);font-weight:600">${lcd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span> <span style="font-size:var(--fs-sm);color:var(--muted)">(${daysAgo}d ago)</span>`;
           }
@@ -8757,7 +8760,8 @@ function editCustomer(id) {
   const daysDisp = el('rv-days-display');
   if (daysDisp) {
     if (c.last_contact_date) {
-      const lcd = new Date(c.last_contact_date);
+      const [_y,_m,_d] = c.last_contact_date.split('-').map(Number);
+      const lcd = new Date(_y, _m-1, _d);
       const daysAgo = Math.max(0, Math.floor((Date.now() - lcd.getTime()) / 86400000));
       const dateStr = lcd.toLocaleDateString('en-US', { month:'short', day:'numeric' });
       daysDisp.innerHTML = `<span>${daysAgo} days</span> <span style="font-weight:400;font-size:var(--fs-sm);color:var(--muted)">since ${dateStr}</span>`;
@@ -14043,20 +14047,20 @@ async function syncHubSpotUI() {
     status.innerHTML = `<span style="color:var(--green)">✓ ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated (${stats.total || 0} companies)</span>`;
     toast(`HubSpot sync: ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated`, 'success');
 
-    // Force-reload after sync
+    // Always reload after sync
+    const preScores = new Map(customers.map(c => [c.id, c.score]));
+    const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
+    try {
+      if (isAdmin() && activeClientId !== '__own__') {
+        await loadClientCustomers(activeClientId, true);
+      } else {
+        await loadCustomersFromSupabase();
+      }
+    } catch(e) { console.warn('Post-sync reload:', e); }
+    _lastSyncTime = Date.now();
+    refreshLiveScores();
+    // Log history entries for changed customers
     if ((stats.updated || 0) > 0 || (stats.created || 0) > 0) {
-      const preScores = new Map(customers.map(c => [c.id, c.score]));
-      const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
-      try {
-        if (isAdmin() && activeClientId !== '__own__') {
-          await loadClientCustomers(activeClientId, true);
-        } else {
-          await loadCustomersFromSupabase();
-        }
-      } catch(e) { console.warn('Post-sync reload:', e); }
-      _lastSyncTime = Date.now();
-      refreshLiveScores();
-      // Log history entries for changed customers
       const syncedNames = (result.updates || []).map(u => u.name?.toLowerCase());
       const toSave = [];
       for (const c of customers) {
@@ -14076,13 +14080,13 @@ async function syncHubSpotUI() {
         pauseSync(10000);
         for (const c of toSave) { try { await save(c); } catch(_) {} }
       }
-      refreshMgrDropdown();
-      const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
-      if (active === 'homebase')  renderHomeBase();
-      if (active === 'customers') renderCustomers();
-      if (active === 'alerts')    renderAlerts();
-      if (active === 'trends')    renderTrends();
     }
+    refreshMgrDropdown();
+    const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
+    if (active === 'homebase')  renderHomeBase();
+    if (active === 'customers') renderCustomers();
+    if (active === 'alerts')    renderAlerts();
+    if (active === 'trends')    renderTrends();
 
     _integrationCache['hubspot'] = {
       ...(_integrationCache['hubspot'] || {}),
@@ -14140,18 +14144,19 @@ async function autoSyncHubSpot() {
     _lastHubSpotSyncTime = Date.now();
     console.log(`[Auto-sync] HubSpot: ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated`);
 
+    // Always reload after auto-sync
+    const preScores = new Map(customers.map(c => [c.id, c.score]));
+    const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
+    try {
+      if (isAdmin() && activeClientId !== '__own__') {
+        await loadClientCustomers(activeClientId, true);
+      } else {
+        await loadCustomersFromSupabase();
+      }
+    } catch(e) { console.warn('Auto-sync reload:', e); }
+    _lastSyncTime = Date.now();
+    refreshLiveScores();
     if ((stats.updated || 0) > 0 || (stats.created || 0) > 0) {
-      const preScores = new Map(customers.map(c => [c.id, c.score]));
-      const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
-      try {
-        if (isAdmin() && activeClientId !== '__own__') {
-          await loadClientCustomers(activeClientId, true);
-        } else {
-          await loadCustomersFromSupabase();
-        }
-      } catch(e) { console.warn('Auto-sync reload:', e); }
-      _lastSyncTime = Date.now();
-      refreshLiveScores();
       const syncedNames = (result.updates || []).map(u => u.name?.toLowerCase());
       const toSave = [];
       for (const c of customers) {
@@ -14169,13 +14174,13 @@ async function autoSyncHubSpot() {
         pauseSync(10000);
         for (const c of toSave) { try { await save(c); } catch(_) {} }
       }
-      refreshMgrDropdown();
-      const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
-      if (active === 'homebase')  renderHomeBase();
-      if (active === 'customers') renderCustomers();
-      if (active === 'alerts')    renderAlerts();
-      if (active === 'trends')    renderTrends();
     }
+    refreshMgrDropdown();
+    const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
+    if (active === 'homebase')  renderHomeBase();
+    if (active === 'customers') renderCustomers();
+    if (active === 'alerts')    renderAlerts();
+    if (active === 'trends')    renderTrends();
 
     _integrationCache['hubspot'] = {
       ...(_integrationCache['hubspot'] || {}),
@@ -20011,7 +20016,8 @@ function _renderCalendar() {
       }
     }
     if (c.last_contact_date) {
-      const lcd = new Date(c.last_contact_date);
+      const [_y,_m,_d] = c.last_contact_date.split('-').map(Number);
+      const lcd = new Date(_y, _m-1, _d);
       const daysSince = Math.floor((now - lcd) / 86400000);
       if (daysSince > 30) {
         events.push({ date: todayStr, type: 'overdue', customer: c, daysSince: daysSince });
@@ -20421,7 +20427,8 @@ function calShowPopover(cellEl, dateStr) {
       evts.push({ type: dateStr < todayStr ? 'past-completed' : 'touch', customer: c, isNextTouch: true });
     }
     if (c.last_contact_date && todayStr === dateStr) {
-      var daysSince = Math.floor((now - new Date(c.last_contact_date)) / 86400000);
+      var _lp = c.last_contact_date.split('-').map(Number);
+      var daysSince = Math.floor((now - new Date(_lp[0], _lp[1]-1, _lp[2])) / 86400000);
       if (daysSince > 30) {
         evts.push({ type: 'overdue', customer: c, daysSince: daysSince });
       }
