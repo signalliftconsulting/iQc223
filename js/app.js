@@ -7347,6 +7347,7 @@ function renderPresetDd() {
     if (p.filterMode && p.filterMode !== 'all') parts.push(p.filterMode);
     const cf = p.columnFilters ? Object.keys(p.columnFilters).length : 0;
     if (cf) parts.push(`${cf} filter${cf>1?'s':''}`);
+    if (p.searchText) parts.push(`"${p.searchText}"`);
     const desc = parts.length ? parts.join(' + ') : 'all';
     html += `<div class="snooze-dd__item">
       <span style="flex:1;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="applyPreset(${i})">
@@ -7399,10 +7400,12 @@ function deserializeColumnFilters(cf) {
 function saveCurrentPreset() {
   const name = prompt('Name this filter preset:');
   if (!name || !name.trim()) return;
+  const searchVal = (el('search-input') ? el('search-input').value : '').trim();
   filterPresets.push({
     name: name.trim(),
     filterMode,
     columnFilters: serializeColumnFilters(columnFilters),
+    searchText: searchVal || '',
     sortKey,
     sortDir
   });
@@ -7422,14 +7425,14 @@ function persistPresets() {
 
 function applyPreset(idx) {
   const p = filterPresets[idx];
-  if (!p) { console.error('applyPreset: no preset at index', idx); return; }
-  console.log('applyPreset: raw preset', JSON.stringify(p, (_,v) => v instanceof Set ? [...v] : v));
+  if (!p) return;
   filterMode    = p.filterMode;
   columnFilters = deserializeColumnFilters(p.columnFilters || {});
-  console.log('applyPreset: deserialized columnFilters', JSON.stringify(columnFilters, (_,v) => v instanceof Set ? [...v] : v));
-  console.log('applyPreset: filterMode=', filterMode, 'sortKey=', p.sortKey, 'sortDir=', p.sortDir);
   sortKey       = p.sortKey;
   sortDir       = p.sortDir;
+  // Restore search text
+  const searchInput = el('search-input');
+  if (searchInput) searchInput.value = p.searchText || '';
   // Sync status chip UI
   document.querySelectorAll('.fchip').forEach(b => b.classList.remove('fa'));
   const chipId = filterMode === 'all' ? 'fc-all' : 'fc-' + filterMode;
