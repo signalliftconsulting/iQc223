@@ -7918,6 +7918,13 @@ function saveDetailsOnly() {
   const data = getFormData();
   if (!data.name) { toast('Customer name is required', 'error'); return; }
 
+  // Block duplicate names (different customer with same name)
+  const nameConflict = customers.find(x => x.id !== editId && x.name.toLowerCase() === data.name.toLowerCase());
+  if (nameConflict) {
+    toast(`A customer named "${nameConflict.name}" already exists. Please use a different name.`, 'error');
+    return;
+  }
+
   c.name             = data.name;
   c.contact_name     = data.contact_name || '';
   c.contact_email    = data.contact_email || '';
