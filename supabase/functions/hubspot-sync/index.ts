@@ -115,7 +115,7 @@ async function fetchEngagements(token: string): Promise<Map<string, number>> {
       const items = await hsFetchAll(token, `/crm/v3/objects/${objType}`, [
         'hs_timestamp', 'hs_createdate'
       ], 100, ['companies']);
-      console.log(`[hubspot-sync] ${objType}: ${items.length} items, associations:`, items.map(i => ({ id: i.id, assoc: i.associations?.companies?.results?.length || 0 })));
+      console.log(`[hubspot-sync] ${objType}: ${items.length} items`);
 
       for (const eng of items) {
         const ts = new Date(eng.properties?.hs_timestamp || eng.properties?.hs_createdate || 0).getTime();
@@ -353,9 +353,6 @@ serve(async (req) => {
       }
     }
     console.log('[hubspot-sync] Contacts mapped:', companyContact.size, 'companies with primary contact');
-    for (const [cId, c] of companyContact) {
-      console.log(`[hubspot-sync]   → company ${cId}: ${c.name} <${c.email}>`);
-    }
 
     const engagementDays = await fetchEngagements(token);
 
@@ -472,6 +469,9 @@ serve(async (req) => {
         // Always link hubspot_company_id
         if (hsId !== match.hubspot_company_id) changes.hubspot_company_id = hsId;
 
+        // Sync company name if changed in HubSpot
+        if (companyName && companyName !== match.name) changes.name = companyName;
+
         // MRR from deals
         const dealData = companyDeals.get(hsId);
         if (shouldSync('mrr') && dealData?.mrr && dealData.mrr !== (match.mrr || 0)) {
@@ -514,7 +514,6 @@ serve(async (req) => {
 
         // Primary contact email/name
         const contact = companyContact.get(hsId);
-        console.log(`[hubspot-sync] Contact lookup for "${companyName}" hsId=${hsId}: ${contact ? `${contact.name} <${contact.email}>` : 'NO MATCH in companyContact map'}`);
         if (contact) {
           if (contact.email && contact.email !== (match.contact_email || '')) changes.contact_email = contact.email;
           if (contact.name && contact.name !== (match.contact_name || '')) changes.contact_name = contact.name;
@@ -567,10 +566,12 @@ serve(async (req) => {
 
     // ── Apply updates ──
     for (const upd of updates) {
-      await serviceClient
+      console.log(`[hubspot-sync] Updating "${upd.name}":`, Object.keys(upd.changes).join(', '));
+      const { error: updErr } = await serviceClient
         .from('customers')
         .update(upd.changes)
         .eq('id', upd.id);
+      if (updErr) console.error(`[hubspot-sync] UPDATE FAILED for "${upd.name}":`, updErr.message);
     }
 
     // ── Insert new customers ──
