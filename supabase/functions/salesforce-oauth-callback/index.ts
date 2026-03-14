@@ -67,7 +67,7 @@ serve(async (req) => {
 
     console.log('Token exchange params:', JSON.stringify({ ...tokenParams, code: code.substring(0, 8) + '...' }));
 
-    const tokenResp = await fetch('https://login.salesforce.com/services/oauth2/token', {
+    const tokenResp = await fetch('https://orgfarm-3966efd483-dev-ed.develop.my.salesforce.com/services/oauth2/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -128,7 +128,7 @@ serve(async (req) => {
         new_description: `Salesforce OAuth tokens for client ${client_id}`,
       });
 
-    const DEFAULT_SYNC_METRICS = { mrr: true, tier: true, renewal: true, tickets: true, days: true, lifecycle: true };
+    const DEFAULT_SYNC_METRICS = { mrr: true, tier: true, renewal: true, tickets: true, days: true, contact: true, lifecycle: true };
 
     if (vaultError) {
       console.warn('Vault not available, storing in config:', vaultError.message);

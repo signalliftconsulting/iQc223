@@ -532,10 +532,12 @@ serve(async (req) => {
         }
 
         // Primary contact email/name
-        const contact = companyContact.get(hsId);
-        if (contact) {
-          if (contact.email && contact.email !== (match.contact_email || '')) changes.contact_email = contact.email;
-          if (contact.name && contact.name !== (match.contact_name || '')) changes.contact_name = contact.name;
+        if (shouldSync('contact')) {
+          const contact = companyContact.get(hsId);
+          if (contact) {
+            if (contact.email && contact.email !== (match.contact_email || '')) changes.contact_email = contact.email;
+            if (contact.name && contact.name !== (match.contact_name || '')) changes.contact_name = contact.name;
+          }
         }
 
         if (Object.keys(changes).length > 0) {

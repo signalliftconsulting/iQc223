@@ -500,10 +500,12 @@ serve(async (req) => {
         }
 
         // Primary contact
-        const contact = accountContact.get(sfId);
-        if (contact) {
-          if (contact.email && contact.email !== (match.contact_email || '')) changes.contact_email = contact.email;
-          if (contact.name && contact.name !== (match.contact_name || '')) changes.contact_name = contact.name;
+        if (shouldSync('contact')) {
+          const contact = accountContact.get(sfId);
+          if (contact) {
+            if (contact.email && contact.email !== (match.contact_email || '')) changes.contact_email = contact.email;
+            if (contact.name && contact.name !== (match.contact_name || '')) changes.contact_name = contact.name;
+          }
         }
 
         // External ID (domain)

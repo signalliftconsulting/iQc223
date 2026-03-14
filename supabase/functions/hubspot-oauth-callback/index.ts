@@ -124,7 +124,7 @@ serve(async (req) => {
         new_description: `HubSpot OAuth tokens for client ${client_id}`,
       });
 
-    const DEFAULT_SYNC_METRICS = { tickets: true, days: true, nps: true, csat: true, lifecycle: true };
+    const DEFAULT_SYNC_METRICS = { tickets: true, days: true, contact: true, nps: true, csat: true, lifecycle: true };
 
     if (vaultError) {
       console.warn('Vault not available, storing in config:', vaultError.message);

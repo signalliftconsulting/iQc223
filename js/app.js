@@ -13489,6 +13489,7 @@ const PLATFORM_METRICS = {
     { key: 'renewal',    label: 'Renewal Date (Deal close)' },
     { key: 'tickets',    label: 'Support Tickets' },
     { key: 'days',       label: 'Days Since Contact' },
+    { key: 'contact',    label: 'Primary Contact' },
     { key: 'nps',        label: 'NPS' },
     { key: 'csat',       label: 'CSAT' },
     { key: 'lifecycle',  label: 'Lifecycle Stage' },
@@ -13499,6 +13500,7 @@ const PLATFORM_METRICS = {
     { key: 'renewal',   label: 'Renewal Date (Opp close)' },
     { key: 'tickets',   label: 'Support Cases' },
     { key: 'days',      label: 'Days Since Activity' },
+    { key: 'contact',   label: 'Primary Contact' },
     { key: 'lifecycle', label: 'Account Type' },
   ]
 };
