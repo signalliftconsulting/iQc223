@@ -13552,13 +13552,15 @@ const PLATFORM_METRICS = {
 };
 
 // Returns { metric: platform } for all currently-enabled metrics across all connected integrations
+// Metrics default to true if not explicitly set (matching shouldSync() in edge functions)
 function getMetricOwners() {
   const owners = {};
   for (const [platform, integration] of Object.entries(_integrationCache)) {
     if (integration?.status !== 'connected') continue;
     const sm = integration.config?.sync_metrics || {};
-    for (const [metric, enabled] of Object.entries(sm)) {
-      if (enabled) owners[metric] = platform;
+    const metrics = PLATFORM_METRICS[platform] || [];
+    for (const m of metrics) {
+      if (sm[m.key] !== false && !owners[m.key]) owners[m.key] = platform;
     }
   }
   return owners;
