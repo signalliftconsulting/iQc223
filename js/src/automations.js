@@ -1161,6 +1161,11 @@ async function renderIntegrationsSection() {
 
   wrap.innerHTML = `
     <div class="card" style="max-width:720px;margin-bottom:18px">
+      <div class="card-hd"><h2>Sync Overview</h2></div>
+      <p style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:8px">Which integration is providing each metric.</p>
+      <div id="sync-overview" style="font-size:var(--fs-base)"></div>
+    </div>
+    <div class="card" style="max-width:720px;margin-bottom:18px">
       <div class="card-hd">
         <h2>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom;margin-right:6px"><path d="M6 3v12"/><path d="M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>Stripe
@@ -1194,6 +1199,36 @@ async function renderIntegrationsSection() {
   renderHubSpotCard(hubspotInt);
   renderStripeCard(stripeInt);
   renderSalesforceCard(salesforceInt);
+  renderSyncOverview();
+}
+
+function renderSyncOverview() {
+  const container = el('sync-overview');
+  if (!container) return;
+  const owners = getMetricOwners();
+  const allMetrics = [
+    { key: 'mrr',       label: 'MRR / ARR' },
+    { key: 'tier',      label: 'Plan Tier' },
+    { key: 'renewal',   label: 'Renewal Date' },
+    { key: 'tickets',   label: 'Support Tickets' },
+    { key: 'days',      label: 'Days Since Contact' },
+    { key: 'contact',   label: 'Primary Contact' },
+    { key: 'lifecycle', label: 'Lifecycle Stage' },
+    { key: 'nps',       label: 'NPS' },
+    { key: 'csat',      label: 'CSAT' },
+    { key: 'growth',    label: 'Growth Signal' },
+    { key: 'billing',   label: 'Billing Interval' },
+  ];
+  const platformColors = { stripe: '#635bff', hubspot: '#ff7a59', salesforce: '#00a1e0' };
+  const platformLabels = { stripe: 'Stripe', hubspot: 'HubSpot', salesforce: 'Salesforce' };
+  const rows = allMetrics.map(m => {
+    const owner = owners[m.key];
+    const dot = owner
+      ? `<span style="display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-sm);font-weight:600;color:${platformColors[owner]}"><span style="width:8px;height:8px;border-radius:50%;background:${platformColors[owner]};display:inline-block"></span>${platformLabels[owner]}</span>`
+      : `<span style="font-size:var(--fs-sm);color:var(--muted)">—</span>`;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)">${m.label}${dot}</div>`;
+  }).join('');
+  container.innerHTML = rows;
 }
 
 // Metric definitions: which metrics each platform can provide
