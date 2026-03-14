@@ -13426,6 +13426,9 @@ async function renderIntegrationsSection() {
     console.warn('Failed to load integrations:', e);
   }
 
+  // Reconcile metric ownership — ensure only one platform owns each metric
+  await reconcileMetricOwnership();
+
   const stripeInt = _integrationCache['stripe'] || null;
   const hubspotInt = _integrationCache['hubspot'] || null;
   const salesforceInt = _integrationCache['salesforce'] || null;
@@ -13511,6 +13514,50 @@ function getMetricOwners() {
     }
   }
   return owners;
+}
+
+// Reconcile metric ownership across all connected integrations.
+// If metric X is enabled on platform A, ensure all other platforms have it explicitly set to false.
+async function reconcileMetricOwnership() {
+  const owners = getMetricOwners();
+  const updates = []; // { platform, config }
+
+  for (const [platform, integration] of Object.entries(_integrationCache)) {
+    if (integration?.status !== 'connected') continue;
+    const metrics = PLATFORM_METRICS[platform] || [];
+    const sm = integration.config?.sync_metrics || {};
+    let changed = false;
+    const newSm = { ...sm };
+
+    for (const m of metrics) {
+      const owner = owners[m.key];
+      if (owner && owner !== platform && newSm[m.key] !== false) {
+        // Another platform owns this metric — disable it here
+        newSm[m.key] = false;
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      const newConfig = { ...(integration.config || {}), sync_metrics: newSm };
+      updates.push({ platform, config: newConfig, integration });
+    }
+  }
+
+  // Write changes to DB
+  for (const u of updates) {
+    try {
+      await sb.from('integrations')
+        .update({ config: u.config, updated_at: new Date().toISOString() })
+        .eq('client_id', u.integration.client_id)
+        .eq('platform', u.platform);
+      u.integration.config = u.config;
+      _integrationCache[u.platform] = u.integration;
+      console.log(`[reconcile] Set conflicting metrics to false on ${u.platform}`);
+    } catch (e) {
+      console.warn(`[reconcile] Failed to update ${u.platform}:`, e);
+    }
+  }
 }
 
 // Build toggle HTML for a platform's metric list
@@ -13644,9 +13691,33 @@ async function updateMetricToggle(platform, metric, enabled) {
     integration.config = config;
     _integrationCache[platform] = integration;
 
+    // If enabling a metric, disable it on other connected platforms
+    if (enabled) {
+      for (const [otherPlatform, otherInteg] of Object.entries(_integrationCache)) {
+        if (otherPlatform === platform || otherInteg?.status !== 'connected') continue;
+        const otherMetrics = (PLATFORM_METRICS[otherPlatform] || []).map(m => m.key);
+        if (!otherMetrics.includes(metric)) continue;
+        const otherSm = otherInteg.config?.sync_metrics || {};
+        if (otherSm[metric] === false) continue; // already off
+        const otherConfig = { ...(otherInteg.config || {}) };
+        otherConfig.sync_metrics = { ...(otherConfig.sync_metrics || {}), [metric]: false };
+        await sb.from('integrations')
+          .update({ config: otherConfig, updated_at: new Date().toISOString() })
+          .eq('client_id', otherInteg.client_id)
+          .eq('platform', otherPlatform);
+        otherInteg.config = otherConfig;
+        _integrationCache[otherPlatform] = otherInteg;
+      }
+    }
+
     const label = (PLATFORM_METRICS[platform] || []).find(m => m.key === metric)?.label || metric;
     const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
     toast(`${platformName} will ${enabled ? 'now' : 'no longer'} sync ${label}`, enabled ? 'success' : 'warn');
+
+    // Re-render all integration cards to update ownership labels
+    if (_integrationCache['stripe']) renderStripeCard(_integrationCache['stripe']);
+    if (_integrationCache['hubspot']) renderHubSpotCard(_integrationCache['hubspot']);
+    if (_integrationCache['salesforce']) renderSalesforceCard(_integrationCache['salesforce']);
   } catch(e) {
     toast('Failed to update setting: ' + e.message, 'error');
     // Re-render to revert the toggle visually
@@ -13821,6 +13892,35 @@ async function topbarSyncStripe() {
     }
   }
 
+  // Sync Salesforce if connected
+  const hasSalesforce = _integrationCache['salesforce']?.status === 'connected';
+  if (hasSalesforce && !_salesforceSyncInProgress) {
+    _salesforceSyncInProgress = true;
+    try {
+      const result = await syncIntegration('salesforce');
+      const stats = result.stats || {};
+      _lastSalesforceSyncTime = Date.now();
+      msgs.push(`Salesforce: ${stats.updated || 0} updated`);
+
+      if ((stats.updated || 0) > 0 || (stats.created || 0) > 0) {
+        try {
+          if (isAdmin() && activeClientId !== '__own__') {
+            await loadClientCustomers(activeClientId, true);
+          } else {
+            await loadCustomersFromSupabase();
+          }
+        } catch(e) { console.warn('Post-sync reload:', e); }
+        _lastSyncTime = Date.now();
+        refreshLiveScores();
+      }
+    } catch(e) {
+      console.error('Salesforce sync error:', e);
+      msgs.push('Salesforce: ' + (e.message || 'failed'));
+    } finally {
+      _salesforceSyncInProgress = false;
+    }
+  }
+
   toast(msgs.length ? msgs.join(' · ') : 'No integrations connected', msgs.some(m => m.includes('failed')) ? 'error' : 'success');
   btn.classList.remove('syncing');
   btn.disabled = false;
@@ -13835,7 +13935,7 @@ async function updateTopbarSyncVisibility() {
       const integrations = await loadIntegrationStatus();
       for (const i of integrations) _integrationCache[i.platform] = i;
     }
-    const hasAny = _integrationCache['stripe']?.status === 'connected' || _integrationCache['hubspot']?.status === 'connected';
+    const hasAny = _integrationCache['stripe']?.status === 'connected' || _integrationCache['hubspot']?.status === 'connected' || _integrationCache['salesforce']?.status === 'connected';
     btn.style.display = hasAny ? '' : 'none';
   } catch(e) {
     btn.style.display = 'none';
