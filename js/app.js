@@ -9382,7 +9382,18 @@ function cfgTab(which) {
       if (pane) pane.innerHTML = upgradeHTML('api_webhooks');
       return;
     }
+    apiSubTab('integrations');
+  }
+}
+
+function apiSubTab(which) {
+  ['integrations','devtools'].forEach(t => {
+    el('api-tab-'+t)?.classList.toggle('active', t === which);
+    el('api-pane-'+t)?.classList.toggle('active', t === which);
+  });
+  if (which === 'integrations') {
     renderIntegrationsSection();
+  } else if (which === 'devtools') {
     renderWebhookConfig();
     renderApiSection();
     loadWebhookLog();
