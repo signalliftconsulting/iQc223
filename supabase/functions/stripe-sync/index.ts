@@ -374,7 +374,8 @@ serve(async (req) => {
       success: true,
       action: 'stripe_sync',
       stats,
-      updates: updates.map(u => ({ name: u.name, ...u.changes }))
+      updates: updates.map(u => ({ name: u.name, _action: 'updated', ...u.changes })),
+      created: [],
     }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
 
   } catch (err) {

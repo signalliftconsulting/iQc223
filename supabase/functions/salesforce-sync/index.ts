@@ -84,7 +84,7 @@ async function refreshSalesforceToken(
 
   console.log('[salesforce-sync] Refreshing expired access token...');
 
-  const resp = await fetch('https://login.salesforce.com/services/oauth2/token', {
+  const resp = await fetch('https://orgfarm-3966efd483-dev-ed.develop.my.salesforce.com/services/oauth2/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -156,11 +156,14 @@ async function getSalesforceToken(
 ): Promise<{ token: string; instanceUrl: string }> {
   // Try Vault first
   if (integration.vault_secret_id) {
+    console.log('[salesforce-sync] Reading vault secret:', integration.vault_secret_id);
     const { data, error } = await serviceClient
       .rpc('vault_read_secret', { secret_id: integration.vault_secret_id });
+    console.log('[salesforce-sync] Vault result - error:', error, 'data type:', typeof data, 'data:', typeof data === 'string' ? data.substring(0, 80) : JSON.stringify(data)?.substring(0, 80));
     if (!error && data) {
       try {
-        const tokenData = JSON.parse(data);
+        const raw = typeof data === 'string' ? data : (Array.isArray(data) ? data[0]?.secret : data.secret || JSON.stringify(data));
+        const tokenData = JSON.parse(raw);
         if (tokenData.access_token && tokenData.instance_url) {
           // Check if expired (with 5 min buffer)
           if (tokenData.expires_at && tokenData.expires_at < Date.now() + 300000) {
@@ -177,11 +180,11 @@ async function getSalesforceToken(
   }
 
   // Config fallback
-  if (integration.config?._credential && integration.config?._instance_url) {
+  if (integration.config?._credential && (integration.config?._instance_url || integration.config?.instance_url)) {
     const tokenData = {
       access_token: integration.config._credential,
       refresh_token: integration.config._refresh_token,
-      instance_url: integration.config._instance_url,
+      instance_url: integration.config._instance_url || integration.config.instance_url,
       expires_at: integration.config._expires_at,
     };
     if (tokenData.expires_at && tokenData.expires_at < Date.now() + 300000) {
@@ -623,7 +626,8 @@ serve(async (req) => {
       success: true,
       action: 'salesforce_sync',
       stats,
-      updates: updates.map(u => ({ name: u.name, ...u.changes })),
+      updates: updates.map(u => ({ name: u.name, _action: 'updated', ...u.changes })),
+      created: creates.map(c => ({ name: c.name, _action: 'created', mrr: c.mrr, tier: c.tier, lifecycle: c.lifecycle, tickets: c.tickets, days: c.days, renewal_date: c.renewal_date || null, contact_email: c.contact_email || '', contact_name: c.contact_name || '' })),
     }), {
       headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });

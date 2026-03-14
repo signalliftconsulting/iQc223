@@ -631,7 +631,8 @@ serve(async (req) => {
       success: true,
       action: 'hubspot_sync',
       stats,
-      updates: updates.map(u => ({ name: u.name, ...u.changes }))
+      updates: updates.map(u => ({ name: u.name, _action: 'updated', ...u.changes })),
+      created: creates.map(c => ({ name: c.name, _action: 'created', mrr: c.mrr, tier: c.tier, lifecycle: c.lifecycle, tickets: c.tickets, days: c.days, renewal_date: c.renewal_date || null, contact_email: c.contact_email || '', contact_name: c.contact_name || '' })),
     }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
 
   } catch (err) {

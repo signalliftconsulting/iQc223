@@ -1126,9 +1126,11 @@ const WEBHOOK_TRIGGERS = [
 let _integrationCache = {};
 let _stripeSyncInProgress = false;
 let _lastStripeSyncTime = 0;
+let _lastStripeSyncResult = null;
 let _stripeSyncTimer = null;
 let _hubspotSyncInProgress = false;
 let _lastHubSpotSyncTime = 0;
+let _lastHubSpotSyncResult = null;
 let _hubspotSyncTimer = null;
 
 async function renderIntegrationsSection() {
@@ -1390,7 +1392,8 @@ async function syncStripeUI() {
     const result = await syncIntegration('stripe');
     const stats = result.stats || {};
     _lastStripeSyncTime = Date.now();
-    status.innerHTML = `<span style="color:var(--green)">✓ ${stats.customers_matched || 0} customers matched (${stats.total || 0} subscriptions), ${stats.updated || 0} updated</span>`;
+    status.innerHTML = `<span style="color:var(--green)">✓ ${stats.customers_matched || 0} customers matched (${stats.total || 0} subscriptions), ${stats.updated || 0} updated</span> <a href="#" onclick="event.preventDefault();showSyncResultsModal('stripe',_lastStripeSyncResult)" style="font-size:var(--fs-sm);margin-left:6px">View Details</a>`;
+    _lastStripeSyncResult = result;
     toast(`Stripe sync: ${stats.updated || 0} of ${stats.customers_matched || 0} customers updated`, 'success');
 
     // Force-reload customer data after sync (bypass all silentSync guards)
@@ -1635,6 +1638,137 @@ async function autoSyncStripe() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// SYNC RESULTS MODAL
+// ═══════════════════════════════════════════════════════════════
+
+let _lastSyncResult = null;
+
+function showSyncResultsModal(platform, result) {
+  _lastSyncResult = result;
+  const stats = result.stats || {};
+  const updates = result.updates || [];
+  const created = result.created || [];
+  const allChanges = [...created, ...updates];
+
+  // Field display labels
+  const FIELD_LABELS = {
+    mrr: 'MRR', arr: 'ARR', tier: 'Tier', lifecycle: 'Lifecycle',
+    tickets: 'Tickets', days: 'Days Inactive', renewal_date: 'Renewal',
+    contact_email: 'Contact', contact_name: 'Contact Name',
+    growth: 'Growth', billing_interval: 'Billing', external_id: 'Domain',
+    name: 'Name',
+  };
+
+  const platformLabel = platform.charAt(0).toUpperCase() + platform.slice(1);
+  const ts = new Date().toLocaleString();
+
+  // Build rows
+  let rowsHtml = '';
+  if (allChanges.length === 0) {
+    rowsHtml = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:16px">No changes in this sync</td></tr>';
+  } else {
+    for (const item of allChanges) {
+      const action = item._action || 'updated';
+      const badge = action === 'created'
+        ? '<span style="background:var(--green);color:#fff;padding:2px 8px;border-radius:10px;font-size:11px">Created</span>'
+        : '<span style="background:var(--blue,#3b82f6);color:#fff;padding:2px 8px;border-radius:10px;font-size:11px">Updated</span>';
+
+      const fields = Object.entries(item)
+        .filter(([k]) => k !== 'name' && k !== '_action' && k !== 'id')
+        .map(([k, v]) => {
+          const label = FIELD_LABELS[k] || k;
+          let val = v;
+          if (k === 'mrr' || k === 'arr') val = '$' + Number(v).toLocaleString();
+          return `<span style="display:inline-block;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 6px;margin:1px;font-size:11px"><b>${escHtml(label)}</b>: ${escHtml(String(val))}</span>`;
+        }).join(' ');
+
+      rowsHtml += `<tr>
+        <td style="white-space:nowrap;font-weight:500">${escHtml(item.name || '—')}</td>
+        <td style="text-align:center">${badge}</td>
+        <td>${fields || '<span style="color:var(--muted)">—</span>'}</td>
+      </tr>`;
+    }
+  }
+
+  // Remove existing modal if present
+  const existing = document.getElementById('sync-results-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'sync-results-modal';
+  modal.className = 'modal-bg';
+  modal.onclick = function(e) { if (e.target === modal) modal.classList.remove('open'); };
+  modal.innerHTML = `
+    <div class="modal" style="max-width:750px;max-height:80vh;display:flex;flex-direction:column">
+      <div class="modal-hd">
+        <h2>${platformLabel} Sync Results</h2>
+        <button class="modal-close" onclick="document.getElementById('sync-results-modal').classList.remove('open')">
+          <svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-bd" style="overflow:auto;flex:1">
+        <div style="display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap">
+          <span style="font-size:var(--fs-sm);color:var(--muted)">${ts}</span>
+          <span style="font-size:var(--fs-sm)"><b>${stats.matched || 0}</b> matched</span>
+          <span style="font-size:var(--fs-sm);color:var(--green)"><b>${stats.created || 0}</b> created</span>
+          <span style="font-size:var(--fs-sm);color:var(--blue,#3b82f6)"><b>${stats.updated || 0}</b> updated</span>
+          ${stats.skipped ? `<span style="font-size:var(--fs-sm);color:var(--muted)"><b>${stats.skipped}</b> skipped</span>` : ''}
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:var(--fs-sm)">
+          <thead>
+            <tr style="border-bottom:2px solid var(--border);text-align:left">
+              <th style="padding:6px 8px">Customer</th>
+              <th style="padding:6px 8px;text-align:center">Action</th>
+              <th style="padding:6px 8px">Changes</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+      <div class="modal-ft">
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('sync-results-modal').classList.remove('open')">Close</button>
+        <button class="btn btn-sm" onclick="exportSyncResultsCsv('${platform}')">Export CSV</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(modal);
+  requestAnimationFrame(() => modal.classList.add('open'));
+}
+
+function exportSyncResultsCsv(platform) {
+  if (!_lastSyncResult) return;
+  const updates = _lastSyncResult.updates || [];
+  const created = _lastSyncResult.created || [];
+  const allChanges = [...created, ...updates];
+  if (!allChanges.length) return;
+
+  // Collect all field keys
+  const fieldKeys = new Set();
+  for (const item of allChanges) {
+    Object.keys(item).forEach(k => { if (k !== '_action' && k !== 'id') fieldKeys.add(k); });
+  }
+  const cols = ['name', 'action', ...([...fieldKeys].filter(k => k !== 'name').sort())];
+
+  const csvEsc = (v) => { const s = String(v ?? ''); return s.includes(',') || s.includes('"') || s.includes('\n') ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const rows = [cols.join(',')];
+  for (const item of allChanges) {
+    const row = cols.map(c => {
+      if (c === 'action') return item._action || 'updated';
+      return csvEsc(item[c] ?? '');
+    });
+    rows.push(row.join(','));
+  }
+
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${platform}-sync-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════════════════════════════
 // HUBSPOT INTEGRATION UI
 // ═══════════════════════════════════════════════════════════════
 
@@ -1785,7 +1919,8 @@ async function syncHubSpotUI() {
     const result = await syncIntegration('hubspot');
     const stats = result.stats || {};
     _lastHubSpotSyncTime = Date.now();
-    status.innerHTML = `<span style="color:var(--green)">✓ ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated (${stats.total || 0} companies)</span>`;
+    status.innerHTML = `<span style="color:var(--green)">✓ ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated (${stats.total || 0} companies)</span> <a href="#" onclick="event.preventDefault();showSyncResultsModal('hubspot',_lastHubSpotSyncResult)" style="font-size:var(--fs-sm);margin-left:6px">View Details</a>`;
+    _lastHubSpotSyncResult = result;
     toast(`HubSpot sync: ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated`, 'success');
 
     // Always reload after sync
@@ -1942,10 +2077,11 @@ async function autoSyncHubSpot() {
 // ── SALESFORCE INTEGRATION ──
 // ══════════════════════════════════════════════════════════════
 
-const SALESFORCE_CLIENT_ID = ''; // Set after creating Salesforce Connected App
+const SALESFORCE_CLIENT_ID = '3MVG9GCMQoQ6rpzTE_H36Kn9iT7OO1uFRmzH2RH9NRRmXXVy5bhLgANafBXmTE6XDmQyuUgmWCQ==';
 
 let _salesforceSyncInProgress = false;
 let _lastSalesforceSyncTime = 0;
+let _lastSalesforceSyncResult = null;
 
 function renderSalesforceCard(integration) {
   const body = el('integration-salesforce-body');
@@ -2015,7 +2151,7 @@ async function connectSalesforceOAuth() {
     const redirectUri = encodeURIComponent(SUPABASE_URL + '/functions/v1/salesforce-oauth-callback');
     const scopes = encodeURIComponent('api refresh_token');
 
-    const authUrl = `https://login.salesforce.com/services/oauth2/authorize?response_type=code&client_id=${sfClientId}&redirect_uri=${redirectUri}&scope=${scopes}&state=${state}&code_challenge=${challenge}&code_challenge_method=S256`;
+    const authUrl = `https://orgfarm-3966efd483-dev-ed.develop.my.salesforce.com/services/oauth2/authorize?response_type=code&client_id=${encodeURIComponent(sfClientId)}&redirect_uri=${redirectUri}&scope=${scopes}&state=${state}&code_challenge=${challenge}&code_challenge_method=S256`;
     window.location.href = authUrl;
   } catch(e) {
     if (statusEl) statusEl.innerHTML = `<span style="color:var(--red)">Error: ${escHtml(e.message)}</span>`;
@@ -2049,7 +2185,8 @@ async function syncSalesforceUI() {
     const stats = result.stats || {};
     _lastSalesforceSyncTime = Date.now();
 
-    if (status) status.innerHTML = `<span style="color:var(--green)">✓ ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated (${stats.total || 0} accounts)</span>`;
+    _lastSalesforceSyncResult = result;
+    if (status) status.innerHTML = `<span style="color:var(--green)">✓ ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated (${stats.total || 0} accounts)</span> <a href="#" onclick="event.preventDefault();showSyncResultsModal('salesforce',_lastSalesforceSyncResult)" style="font-size:var(--fs-sm);margin-left:6px">View Details</a>`;
 
     // Reload customers
     if ((stats.updated || 0) > 0 || (stats.created || 0) > 0) {
