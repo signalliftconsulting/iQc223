@@ -14220,7 +14220,7 @@ async function autoSyncHubSpot() {
 // ── SALESFORCE INTEGRATION ──
 // ══════════════════════════════════════════════════════════════
 
-const SALESFORCE_CLIENT_ID = ''; // Set after creating Salesforce Connected App
+const SALESFORCE_CLIENT_ID = '3MVG9GCMQoQ6rpzTE_H36Kn9iT7OO1uFRmzH2RH9NRRmXXVy5bhLgANafBXmTE6XDmQyuUgmWCQ==';
 
 let _salesforceSyncInProgress = false;
 let _lastSalesforceSyncTime = 0;
@@ -14293,7 +14293,7 @@ async function connectSalesforceOAuth() {
     const redirectUri = encodeURIComponent(SUPABASE_URL + '/functions/v1/salesforce-oauth-callback');
     const scopes = encodeURIComponent('api refresh_token');
 
-    const authUrl = `https://login.salesforce.com/services/oauth2/authorize?response_type=code&client_id=${sfClientId}&redirect_uri=${redirectUri}&scope=${scopes}&state=${state}&code_challenge=${challenge}&code_challenge_method=S256`;
+    const authUrl = `https://orgfarm-3966efd483-dev-ed.develop.my.salesforce.com/services/oauth2/authorize?response_type=code&client_id=${encodeURIComponent(sfClientId)}&redirect_uri=${redirectUri}&scope=${scopes}&state=${state}&code_challenge=${challenge}&code_challenge_method=S256`;
     window.location.href = authUrl;
   } catch(e) {
     if (statusEl) statusEl.innerHTML = `<span style="color:var(--red)">Error: ${escHtml(e.message)}</span>`;
