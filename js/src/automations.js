@@ -1519,6 +1519,9 @@ async function syncStripeUI() {
       sync_stats: stats
     };
     renderStripeCard(_integrationCache['stripe']);
+    // Re-set status after card re-render (renderStripeCard wipes the status div)
+    const statusAfter = el('stripe-sync-status');
+    if (statusAfter) statusAfter.innerHTML = `<span style="color:var(--green)">✓ ${stats.customers_matched || 0} customers matched (${stats.total || 0} subscriptions), ${stats.updated || 0} updated</span> <a href="#" onclick="event.preventDefault();showSyncResultsModal('stripe',_lastStripeSyncResult)" style="font-size:var(--fs-sm);margin-left:6px">View Details</a>`;
   } catch(e) {
     status.innerHTML = `<span style="color:var(--red)">✗ ${escHtml(e.message)}</span>`;
     toast('Sync failed: ' + e.message, 'error');
