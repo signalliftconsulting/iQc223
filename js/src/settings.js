@@ -119,6 +119,7 @@ function updateWeightFromSlider(key, val) {
   const inp = el('wp-'+key);
   if (inp) inp.value = v;
   updateTotalBar();
+  _previewDistFromSliders();
 }
 
 function updateWeightFromInput(key, val) {
@@ -126,6 +127,15 @@ function updateWeightFromInput(key, val) {
   const slider = el('wr-'+key);
   if (slider) slider.value = v;
   updateTotalBar();
+  _previewDistFromSliders();
+}
+
+/* Live-preview score distribution as sliders move */
+function _previewDistFromSliders() {
+  const keys = ['logins','adoption','tickets','nps','csat','days','growth'];
+  const pw = {};
+  keys.forEach(k => { pw[k] = parseInt(el('wr-'+k)?.value||0); });
+  renderScoreDistribution(pw);
 }
 
 function updateTotalBar() {
