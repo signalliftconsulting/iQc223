@@ -818,12 +818,15 @@ function _dPick(arr,t){
 }
 
 function _generateDemoNames(count) {
-  // Build all possible combinations, shuffle, and pick the first `count`
+  // Build all possible combinations, shuffle deterministically, and pick the first `count`
   const combos = [];
   for (const p of _DEMO_PREFIXES) for (const s of _DEMO_SUFFIXES) combos.push(p + ' ' + s);
-  // Fisher-Yates shuffle
+  // Seeded PRNG (mulberry32) for deterministic shuffle — same names every time
+  let _s = 42;
+  const rng = () => { _s = (_s + 0x6D2B79F5) | 0; let t = Math.imul(_s ^ (_s >>> 15), 1 | _s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  // Fisher-Yates shuffle with seeded RNG
   for (let i = combos.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rng() * (i + 1));
     [combos[i], combos[j]] = [combos[j], combos[i]];
   }
   return combos.slice(0, count);
