@@ -196,7 +196,7 @@ function renderTableHeaders() {
   const funnelSVG = `<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>`;
   COL_DEFS.forEach(col => {
     const th = document.createElement('th');
-    if (col.key === 'name') th.classList.add('col-frozen');
+    /* name column no longer frozen to side — scrolls normally */
     const isActiveSort = col.sortKey && sortKey === col.sortKey;
     const filterActive = col.ftype && (col.key in columnFilters);
     const hasSort      = !!col.sortKey;
@@ -243,6 +243,11 @@ function renderFilterPills() {
     else if (f.type === 'lt')      { summary = `< ${f.val}`; }
     else if (f.type === 'eq')      { summary = `= ${f.val}`; }
     else if (f.type === 'between') { summary = `${f.min} – ${f.max}`; }
+    else if (f.type === 'date') {
+      const from = f.from || '…';
+      const to   = f.to || '…';
+      summary = `${from} – ${to}`;
+    }
     else if (f.type === 'up')      { summary = 'Improving this week'; }
     else if (f.type === 'down')    { summary = 'Declining this week'; }
 
@@ -341,6 +346,14 @@ function buildColFilterMenu(col) {
         <input type="checkbox" value="${escHtml(v)}" class="cf-enum-cb" onchange="applyColFilterLive()">
         ${ENUM_DISPLAY[v] !== undefined ? ENUM_DISPLAY[v] : escHtml(v)}
       </label>`).join('')}</div>`;
+  } else if (col.ftype === 'date') {
+    body = `
+      <div class="cff-date-wrap">
+        <label class="cff-date-label">From</label>
+        <input class="cff-date-input" id="cf-date-from" type="date" onchange="applyColFilterLive()">
+        <label class="cff-date-label">To</label>
+        <input class="cff-date-input" id="cf-date-to" type="date" onchange="applyColFilterLive()">
+      </div>`;
   } else if (col.ftype === 'text') {
     body = `<input class="cff-text-input" id="cf-text" type="text" placeholder="Search ${col.label.toLowerCase()}…" oninput="applyColFilterLive()" autocomplete="off">`;
   }
@@ -374,6 +387,11 @@ function populateColFilterUI(key, col) {
     if (v2 && f.max != null) v2.value = f.max;
   } else if (col.ftype === 'enum') {
     document.querySelectorAll('.cf-enum-cb').forEach(cb => { cb.checked = f.vals.has(cb.value); });
+  } else if (col.ftype === 'date') {
+    const from = document.getElementById('cf-date-from');
+    const to   = document.getElementById('cf-date-to');
+    if (from && f.from) from.value = f.from;
+    if (to && f.to)     to.value = f.to;
   } else if (col.ftype === 'text') {
     const inp = document.getElementById('cf-text');
     if (inp) inp.value = f.q || '';
@@ -396,6 +414,11 @@ function applyColFilterLive() {
     } else {
       columnFilters[key] = { type:op, val:v1 };
     }
+  } else if (col.ftype === 'date') {
+    const from = document.getElementById('cf-date-from')?.value || '';
+    const to   = document.getElementById('cf-date-to')?.value || '';
+    if (from || to) columnFilters[key] = { type:'date', from, to };
+    else delete columnFilters[key];
   } else if (col.ftype === 'enum') {
     const checked = [...document.querySelectorAll('.cf-enum-cb:checked')].map(cb => cb.value);
     if (checked.length) columnFilters[key] = { type:'enum', vals: new Set(checked) };
@@ -442,6 +465,21 @@ function applyColumnFilters(list) {
           v = Math.floor((Date.now() - new Date(c.since)) / (1000*60*60*24*30.44));
           break;
         }
+        case 'created': {
+          if (f.type === 'date') {
+            const cd = c.created ? new Date(c.created).toISOString().slice(0,10) : '';
+            if (f.from && cd < f.from) return false;
+            if (f.to   && cd > f.to)   return false;
+            continue;
+          }
+          v = 0; break;
+        }
+        case 'tickets':  v = c.tickets != null ? c.tickets : 0; break;
+        case 'nps':      v = c.nps != null ? c.nps : -1; break;
+        case 'csat':     v = c.csat != null ? c.csat : -1; break;
+        case 'logins':   v = c.logins != null ? c.logins : -1; break;
+        case 'adoption': v = c.adoption != null ? c.adoption : -1; break;
+        case 'growth':   v = c.growth || 'none'; break;
         case 'days':    v = c.days != null ? c.days : 999; break;
         case 'renewal': v = c.renewal || 0; break;
         case 'next_touch': {
@@ -528,6 +566,9 @@ function _renderCustomers() {
     return (av - bv) * sortDir;
   });
 
+  // Cache visible IDs in display order for shift-click range selection
+  _visibleIds = list.map(c => c.id);
+
   const lbl = el('cust-count-lbl');
   if (lbl) lbl.textContent = `${list.length} customer${list.length!==1?'s':''}`;
 
@@ -561,8 +602,8 @@ function _renderCustomers() {
     const cad   = getCadenceStatus(c);
     return `
       <tr class="${isSel?'selected':''}" data-id="${c.id}">
-        <td class="cb-col"><input type="checkbox" ${isSel?'checked':''} onchange="toggleSelect('${escHtml(c.id)}',this.checked)" onclick="event.stopPropagation()"/></td>
-        <td class="col-frozen" style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')"><strong>${escHtml(c.name)}</strong>${(()=>{ if (!c.next_touch) return ''; const ntd = Math.round((new Date(c.next_touch)-new Date())/86400000); return ntd < 0 ? ' <span class="nt-badge nt-overdue" style="font-size:var(--fs-xs);padding:1px 5px">Touch overdue</span>' : ''; })()}</td>
+        <td class="cb-col"><input type="checkbox" ${isSel?'checked':''} onchange="toggleSelect('${escHtml(c.id)}',this.checked,event)" onclick="event.stopPropagation()"/></td>
+        <td style="cursor:pointer;min-width:160px" onclick="openDetail('${escHtml(c.id)}')"><strong>${escHtml(c.name)}</strong>${(()=>{ if (!c.next_touch) return ''; const ntd = Math.round((new Date(c.next_touch)-new Date())/86400000); return ntd < 0 ? ' <span class="nt-badge nt-overdue" style="font-size:var(--fs-xs);padding:1px 5px">Touch overdue</span>' : ''; })()}</td>
         <td>${c.manager ? escHtml(c.manager) : '<span style="color:var(--muted);font-style:italic">—</span>'}</td>
         <td>${c.scoring_profile && c.scoring_profile !== 'Global Weights' ? `<span class="tag">${escHtml(c.scoring_profile)}</span>` : '<span style="color:var(--muted);font-style:italic;font-size:var(--fs-sm)">Global</span>'}</td>
         <td>${scoreHTML(c)}</td>
@@ -789,9 +830,22 @@ function deltaHTML(delta) {
 }
 
 // ─── BULK ACTIONS ────────────────────────────────────────────
-function toggleSelect(id, checked) {
-  if (checked) selectedIds.add(id);
-  else         selectedIds.delete(id);
+let _lastClickedId = null;   // for shift-click range selection
+
+function toggleSelect(id, checked, ev) {
+  // Shift-click: select range between last click and this click
+  if (ev && ev.shiftKey && _lastClickedId && _lastClickedId !== id && checked && _visibleIds) {
+    const fromIdx = _visibleIds.indexOf(_lastClickedId);
+    const toIdx   = _visibleIds.indexOf(id);
+    if (fromIdx !== -1 && toIdx !== -1) {
+      const lo = Math.min(fromIdx, toIdx), hi = Math.max(fromIdx, toIdx);
+      for (let i = lo; i <= hi; i++) selectedIds.add(_visibleIds[i]);
+    }
+  } else {
+    if (checked) selectedIds.add(id);
+    else         selectedIds.delete(id);
+  }
+  _lastClickedId = id;
   updateBulkBar();
   renderCustomers();
 }

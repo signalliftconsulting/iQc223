@@ -564,13 +564,9 @@ svg.sparkline{display:block}
 .ct thead{position:sticky;top:0;z-index:3}
 .ct th{text-align:left;font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;padding:8px 10px;border-bottom:1px solid #e2e8f0;background:#f8fafc;cursor:pointer;user-select:none;white-space:normal;line-height:1.25;min-width:0;transition:color .13s}
 .ct th:hover{color:#0f766e}
-/* Frozen first columns: checkbox + Customer name */
-.ct .cb-col{position:sticky;left:0;z-index:4;background:#f8fafc}
+/* Checkbox column */
+.ct .cb-col{background:#f8fafc}
 .ct td.cb-col{background:var(--surface)}
-.ct .col-frozen{position:sticky;left:32px;z-index:4;background:#f8fafc;min-width:160px;border-right:2px solid #e2e8f0}
-.ct td.col-frozen{background:var(--surface);border-right:2px solid #e2e8f0}
-.ct tr:hover td.cb-col,.ct tr:hover td.col-frozen{background:var(--row-hover,#f1f5f9)}
-.ct tr.selected td.cb-col,.ct tr.selected td.col-frozen{background:var(--row-sel,#eff6ff)}
 .ct td{padding:9px 10px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
 .ct tr:last-child td{border-bottom:none}
 .ct tbody tr{transition:background .1s}
@@ -1181,6 +1177,10 @@ svg.sparkline{display:block}
 .cff-check-item input[type=checkbox]{accent-color:var(--blue);width:13px;height:13px;cursor:pointer;flex-shrink:0}
 .cff-text-input{width:100%;padding:6px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface);outline:none;transition:border-color .13s;box-sizing:border-box}
 .cff-text-input:focus{border-color:var(--focus)}
+.cff-date-wrap{display:flex;flex-direction:column;gap:6px}
+.cff-date-label{font-size:var(--fs-xs);font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.cff-date-input{width:100%;padding:5px 7px;border:1.5px solid var(--border);border-radius:5px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface);outline:none;transition:border-color .13s;box-sizing:border-box}
+.cff-date-input:focus{border-color:var(--focus)}
 .widget-see-all{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:var(--fs-sm);font-weight:600;color:var(--blue);cursor:pointer;text-align:center;transition:opacity .13s}
 .widget-see-all:hover{opacity:.7}
 .filter-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 8px 3px 10px;background:var(--blue-l);color:var(--blue);border:1.5px solid var(--blue-m);border-radius:100px;font-size:var(--fs-sm);font-weight:600;white-space:nowrap;cursor:pointer;transition:background .12s}
@@ -3829,6 +3829,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=413"></script>
+<script src="js/app.js?v=415"></script>
 </body>
 </html>
