@@ -13870,7 +13870,14 @@ async function topbarSyncStripe() {
 
   const hasStripe = _integrationCache['stripe']?.status === 'connected';
   const hasHubSpot = _integrationCache['hubspot']?.status === 'connected';
+  const hasSalesforce = _integrationCache['salesforce']?.status === 'connected';
   const msgs = [];
+  const allSyncedNames = [];
+  let anyUpdated = false;
+
+  // Snapshot scores and signals BEFORE any syncs
+  const preScores = new Map(customers.map(c => [c.id, c.score]));
+  const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
 
   // Sync Stripe if connected
   if (hasStripe) {
@@ -13880,45 +13887,8 @@ async function topbarSyncStripe() {
       const stats = result.stats || {};
       _lastStripeSyncTime = Date.now();
       msgs.push(`Stripe: ${stats.updated || 0} updated`);
-
-      if (stats.updated > 0) {
-        const preScores = new Map(customers.map(c => [c.id, c.score]));
-        const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
-        try {
-          if (isAdmin() && activeClientId !== '__own__') {
-            await loadClientCustomers(activeClientId, true);
-          } else {
-            await loadCustomersFromSupabase();
-          }
-        } catch(e) { console.warn('Post-sync reload:', e); }
-        _lastSyncTime = Date.now();
-        refreshLiveScores();
-        const syncedNames = (result.updates || []).map(u => u.name?.toLowerCase());
-        const toSave = [];
-        for (const c of customers) {
-          if (!syncedNames.includes(c.name.toLowerCase())) continue;
-          const oldScore = preScores.get(c.id);
-          const oldSnap = preSignals.get(c.id);
-          const newSnap = buildHistorySnapshot(c);
-          const scoreChanged = oldScore != null && oldScore !== c.score;
-          const signalsChanged = JSON.stringify(oldSnap) !== JSON.stringify(newSnap);
-          if (scoreChanged || signalsChanged) {
-            c.history = c.history || [];
-            c.history.push({ score: c.score, date: new Date().toISOString(), signals: newSnap, prevSignals: oldSnap });
-            toSave.push(c);
-          }
-        }
-        if (toSave.length) {
-          pauseSync(10000);
-          for (const c of toSave) { try { await save(c); } catch(_) {} }
-        }
-        refreshMgrDropdown();
-        const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
-        if (active === 'homebase')  renderHomeBase();
-        if (active === 'customers') renderCustomers();
-        if (active === 'alerts')    renderAlerts();
-        if (active === 'trends')    renderTrends();
-      }
+      if ((stats.updated || 0) > 0) anyUpdated = true;
+      (result.updates || []).forEach(u => { if (u.name) allSyncedNames.push(u.name.toLowerCase()); });
       _integrationCache['stripe'] = {
         ...(_integrationCache['stripe'] || {}),
         last_sync_at: new Date().toISOString(),
@@ -13939,6 +13909,8 @@ async function topbarSyncStripe() {
       const result = await syncIntegration('hubspot');
       const stats = result.stats || {};
       msgs.push(`HubSpot: ${stats.updated || 0} updated`);
+      if ((stats.updated || 0) > 0 || (stats.created || 0) > 0) anyUpdated = true;
+      (result.updates || []).forEach(u => { if (u.name) allSyncedNames.push(u.name.toLowerCase()); });
     } catch(e) {
       console.error('HubSpot sync error:', e);
       msgs.push('HubSpot: ' + (e.message || 'failed'));
@@ -13946,7 +13918,6 @@ async function topbarSyncStripe() {
   }
 
   // Sync Salesforce if connected
-  const hasSalesforce = _integrationCache['salesforce']?.status === 'connected';
   if (hasSalesforce && !_salesforceSyncInProgress) {
     _salesforceSyncInProgress = true;
     try {
@@ -13954,24 +13925,53 @@ async function topbarSyncStripe() {
       const stats = result.stats || {};
       _lastSalesforceSyncTime = Date.now();
       msgs.push(`Salesforce: ${stats.updated || 0} updated`);
-
-      if ((stats.updated || 0) > 0 || (stats.created || 0) > 0) {
-        try {
-          if (isAdmin() && activeClientId !== '__own__') {
-            await loadClientCustomers(activeClientId, true);
-          } else {
-            await loadCustomersFromSupabase();
-          }
-        } catch(e) { console.warn('Post-sync reload:', e); }
-        _lastSyncTime = Date.now();
-        refreshLiveScores();
-      }
+      if ((stats.updated || 0) > 0 || (stats.created || 0) > 0) anyUpdated = true;
+      (result.updates || []).forEach(u => { if (u.name) allSyncedNames.push(u.name.toLowerCase()); });
     } catch(e) {
       console.error('Salesforce sync error:', e);
       msgs.push('Salesforce: ' + (e.message || 'failed'));
     } finally {
       _salesforceSyncInProgress = false;
     }
+  }
+
+  // Reload customers and track history for ALL synced platforms at once
+  if (anyUpdated) {
+    try {
+      if (isAdmin() && activeClientId !== '__own__') {
+        await loadClientCustomers(activeClientId, true);
+      } else {
+        await loadCustomersFromSupabase();
+      }
+    } catch(e) { console.warn('Post-sync reload:', e); }
+    _lastSyncTime = Date.now();
+    refreshLiveScores();
+
+    // Log history entries for changed customers
+    const toSave = [];
+    for (const c of customers) {
+      if (!allSyncedNames.includes(c.name.toLowerCase())) continue;
+      const oldScore = preScores.get(c.id);
+      const oldSnap = preSignals.get(c.id);
+      const newSnap = buildHistorySnapshot(c);
+      const scoreChanged = oldScore != null && oldScore !== c.score;
+      const signalsChanged = JSON.stringify(oldSnap) !== JSON.stringify(newSnap);
+      if (scoreChanged || signalsChanged) {
+        c.history = c.history || [];
+        c.history.push({ score: c.score, date: new Date().toISOString(), signals: newSnap, prevSignals: oldSnap });
+        toSave.push(c);
+      }
+    }
+    if (toSave.length) {
+      pauseSync(10000);
+      for (const c of toSave) { try { await save(c); } catch(_) {} }
+    }
+    refreshMgrDropdown();
+    const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
+    if (active === 'homebase')  renderHomeBase();
+    if (active === 'customers') renderCustomers();
+    if (active === 'alerts')    renderAlerts();
+    if (active === 'trends')    renderTrends();
   }
 
   toast(msgs.length ? msgs.join(' · ') : 'No integrations connected', msgs.some(m => m.includes('failed')) ? 'error' : 'success');
