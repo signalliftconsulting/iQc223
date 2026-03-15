@@ -243,11 +243,7 @@ function renderFilterPills() {
     else if (f.type === 'lt')      { summary = `< ${f.val}`; }
     else if (f.type === 'eq')      { summary = `= ${f.val}`; }
     else if (f.type === 'between') { summary = `${f.min} – ${f.max}`; }
-    else if (f.type === 'date') {
-      const from = f.from || '…';
-      const to   = f.to || '…';
-      summary = `${from} – ${to}`;
-    }
+    /* date filters use gt/lt/eq/between — handled by those branches above */
     else if (f.type === 'up')      { summary = 'Improving this week'; }
     else if (f.type === 'down')    { summary = 'Declining this week'; }
 
@@ -348,11 +344,16 @@ function buildColFilterMenu(col) {
       </label>`).join('')}</div>`;
   } else if (col.ftype === 'date') {
     body = `
-      <div class="cff-date-wrap">
-        <label class="cff-date-label">From</label>
-        <input class="cff-date-input" id="cf-date-from" type="date" onchange="applyColFilterLive()">
-        <label class="cff-date-label">To</label>
-        <input class="cff-date-input" id="cf-date-to" type="date" onchange="applyColFilterLive()">
+      <div class="cff-radio-group">
+        <label class="cff-radio"><input type="radio" name="cfop" value="gt" onchange="cfOpChange()"> After</label>
+        <label class="cff-radio"><input type="radio" name="cfop" value="lt" onchange="cfOpChange()"> Before</label>
+        <label class="cff-radio"><input type="radio" name="cfop" value="eq" onchange="cfOpChange()"> Exactly</label>
+        <label class="cff-radio"><input type="radio" name="cfop" value="between" onchange="cfOpChange()"> Between</label>
+      </div>
+      <div class="cff-inputs">
+        <input class="cff-date-input" id="cf-val" type="date" onchange="applyColFilterLive()">
+        <span class="cff-between-sep" id="cf-sep" style="display:none">and</span>
+        <input class="cff-date-input" id="cf-val2" type="date" style="display:none" onchange="applyColFilterLive()">
       </div>`;
   } else if (col.ftype === 'text') {
     body = `<input class="cff-text-input" id="cf-text" type="text" placeholder="Search ${col.label.toLowerCase()}…" oninput="applyColFilterLive()" autocomplete="off">`;
@@ -388,10 +389,12 @@ function populateColFilterUI(key, col) {
   } else if (col.ftype === 'enum') {
     document.querySelectorAll('.cf-enum-cb').forEach(cb => { cb.checked = f.vals.has(cb.value); });
   } else if (col.ftype === 'date') {
-    const from = document.getElementById('cf-date-from');
-    const to   = document.getElementById('cf-date-to');
-    if (from && f.from) from.value = f.from;
-    if (to && f.to)     to.value = f.to;
+    const radio = document.querySelector(`input[name="cfop"][value="${f.type}"]`);
+    if (radio) { radio.checked = true; cfOpChange(); }
+    const v1 = document.getElementById('cf-val');
+    const v2 = document.getElementById('cf-val2');
+    if (v1) v1.value = (f.type === 'between' ? f.min : f.val) ?? '';
+    if (v2 && f.max != null) v2.value = f.max;
   } else if (col.ftype === 'text') {
     const inp = document.getElementById('cf-text');
     if (inp) inp.value = f.q || '';
@@ -415,10 +418,16 @@ function applyColFilterLive() {
       columnFilters[key] = { type:op, val:v1 };
     }
   } else if (col.ftype === 'date') {
-    const from = document.getElementById('cf-date-from')?.value || '';
-    const to   = document.getElementById('cf-date-to')?.value || '';
-    if (from || to) columnFilters[key] = { type:'date', from, to };
-    else delete columnFilters[key];
+    const op = document.querySelector('input[name="cfop"]:checked')?.value;
+    const v1 = document.getElementById('cf-val')?.value || '';
+    const v2 = document.getElementById('cf-val2')?.value || '';
+    if (!op || !v1) { delete columnFilters[key]; }
+    else if (op === 'between') {
+      if (v2) columnFilters[key] = { type:'between', min:v1, max:v2 };
+      else delete columnFilters[key];
+    } else {
+      columnFilters[key] = { type:op, val:v1 };
+    }
   } else if (col.ftype === 'enum') {
     const checked = [...document.querySelectorAll('.cf-enum-cb:checked')].map(cb => cb.value);
     if (checked.length) columnFilters[key] = { type:'enum', vals: new Set(checked) };
@@ -466,13 +475,13 @@ function applyColumnFilters(list) {
           break;
         }
         case 'created': {
-          if (f.type === 'date') {
-            const cd = c.created ? new Date(c.created).toISOString().slice(0,10) : '';
-            if (f.from && cd < f.from) return false;
-            if (f.to   && cd > f.to)   return false;
-            continue;
-          }
-          v = 0; break;
+          const cd = c.created ? new Date(c.created).toISOString().slice(0,10) : '';
+          if (!cd) return false;
+          if (f.type === 'gt')      { if (!(cd > f.val))              return false; }
+          else if (f.type === 'lt') { if (!(cd < f.val))              return false; }
+          else if (f.type === 'eq') { if (cd !== f.val)               return false; }
+          else if (f.type === 'between') { if (cd < f.min || cd > f.max) return false; }
+          continue;
         }
         case 'tickets':  v = c.tickets != null ? c.tickets : 0; break;
         case 'nps':      v = c.nps != null ? c.nps : -1; break;
