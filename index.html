@@ -1703,6 +1703,9 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   </div>
   <div class="topbar__right">
     <!-- Quick Stripe Sync -->
+    <button class="btn btn-sm btn-ghost" id="topbar-sync-details-btn" onclick="showLastSyncResults()" title="View last sync details" style="display:none;padding:6px 8px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+    </button>
     <button class="btn btn-sm btn-ghost" id="topbar-sync-btn" onclick="topbarSyncStripe()" title="Sync integrations" style="display:none;padding:6px 8px">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
     </button>
@@ -3811,6 +3814,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=403"></script>
+<script src="js/app.js?v=404"></script>
 </body>
 </html>

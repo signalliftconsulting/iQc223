@@ -14022,6 +14022,12 @@ async function topbarSyncStripe() {
   const preScores = new Map(customers.map(c => [c.id, c.score]));
   const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
 
+  // Collect combined results across all platforms
+  const allUpdates = [];
+  const allCreated = [];
+  const combinedStats = { updated: 0, created: 0, matched: 0, total: 0 };
+  const platforms = [];
+
   // Sync Stripe if connected
   if (hasStripe) {
     _stripeSyncInProgress = true;
@@ -14032,6 +14038,13 @@ async function topbarSyncStripe() {
       msgs.push(`Stripe: ${stats.updated || 0} updated`);
       if ((stats.updated || 0) > 0) anyUpdated = true;
       (result.updates || []).forEach(u => { if (u.name) allSyncedNames.push(u.name.toLowerCase()); });
+      allUpdates.push(...(result.updates || []));
+      allCreated.push(...(result.created || []));
+      combinedStats.updated += stats.updated || 0;
+      combinedStats.created += stats.created || 0;
+      combinedStats.matched += stats.customers_matched || stats.matched || 0;
+      combinedStats.total += stats.total || 0;
+      platforms.push('stripe');
       _integrationCache['stripe'] = {
         ...(_integrationCache['stripe'] || {}),
         last_sync_at: new Date().toISOString(),
@@ -14054,6 +14067,13 @@ async function topbarSyncStripe() {
       msgs.push(`HubSpot: ${stats.updated || 0} updated`);
       if ((stats.updated || 0) > 0 || (stats.created || 0) > 0) anyUpdated = true;
       (result.updates || []).forEach(u => { if (u.name) allSyncedNames.push(u.name.toLowerCase()); });
+      allUpdates.push(...(result.updates || []));
+      allCreated.push(...(result.created || []));
+      combinedStats.updated += stats.updated || 0;
+      combinedStats.created += stats.created || 0;
+      combinedStats.matched += stats.matched || 0;
+      combinedStats.total += stats.total || 0;
+      platforms.push('hubspot');
     } catch(e) {
       console.error('HubSpot sync error:', e);
       msgs.push('HubSpot: ' + (e.message || 'failed'));
@@ -14070,12 +14090,26 @@ async function topbarSyncStripe() {
       msgs.push(`Salesforce: ${stats.updated || 0} updated`);
       if ((stats.updated || 0) > 0 || (stats.created || 0) > 0) anyUpdated = true;
       (result.updates || []).forEach(u => { if (u.name) allSyncedNames.push(u.name.toLowerCase()); });
+      allUpdates.push(...(result.updates || []));
+      allCreated.push(...(result.created || []));
+      combinedStats.updated += stats.updated || 0;
+      combinedStats.created += stats.created || 0;
+      combinedStats.matched += stats.matched || 0;
+      combinedStats.total += stats.total || 0;
+      platforms.push('salesforce');
     } catch(e) {
       console.error('Salesforce sync error:', e);
       msgs.push('Salesforce: ' + (e.message || 'failed'));
     } finally {
       _salesforceSyncInProgress = false;
     }
+  }
+
+  // Store combined results for the topbar details button
+  if (allUpdates.length || allCreated.length) {
+    _lastSyncPlatform = platforms.join(' + ');
+    _lastSyncResult = { stats: combinedStats, updates: allUpdates, created: allCreated };
+    _updateTopbarSyncDetailsBtn();
   }
 
   // Reload customers and track history for ALL synced platforms at once
@@ -14150,6 +14184,20 @@ async function autoSyncStripe() {
 // ═══════════════════════════════════════════════════════════════
 
 let _lastSyncResult = null;
+let _lastSyncPlatform = null;
+
+function showLastSyncResults() {
+  if (_lastSyncResult && _lastSyncPlatform) {
+    showSyncResultsModal(_lastSyncPlatform, _lastSyncResult);
+  } else {
+    toast('No sync results to show — run a sync first', 'warn');
+  }
+}
+
+function _updateTopbarSyncDetailsBtn() {
+  const btn = el('topbar-sync-details-btn');
+  if (btn) btn.style.display = _lastSyncResult ? '' : 'none';
+}
 
 function _syncFmtVal(key, val) {
   if (val == null || val === '') return '—';
@@ -14172,7 +14220,9 @@ const _SYNC_FIELD_LABELS = {
 const _SYNC_SKIP_KEYS = new Set(['name', '_action', '_prev', 'id']);
 
 function showSyncResultsModal(platform, result) {
+  _lastSyncPlatform = platform;
   _lastSyncResult = result;
+  _updateTopbarSyncDetailsBtn();
   const stats = result.stats || {};
   const updates = result.updates || [];
   const created = result.created || [];
