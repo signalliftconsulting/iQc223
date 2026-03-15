@@ -263,24 +263,28 @@ function applyTierGating() {
 }
 
 // Column definitions — drives header rendering + filter logic
-// Order: Customer (frozen) → details/meta → scores/signals at end
 const COL_DEFS = [
   { key:'name',      label:'Customer',      ftype:'text',   sortKey:'name' },
   { key:'manager',   label:'Manager',       ftype:'text',   sortKey:'manager' },
   { key:'profile',   label:'Profile',       ftype:'enum',   sortKey:'profile', enumFn:()=>profiles.map(p=>p.name) },
+  { key:'score',     label:'Score',         ftype:'number', sortKey:'score' },
+  { key:'_momentum', label:'Momentum (7d)', ftype:'enum',   sortKey:'_momentum',  enumVals:['up','dn','flat','new'] },
+  { key:'status',    label:'Status',        ftype:'enum',   sortKey:'status',     enumVals:['critical','risk','watch','healthy','expand'] },
   { key:'lifecycle', label:'Stage',         ftype:'enum',   sortKey:'lifecycle',  enumVals:['onboarding','active','atrisk','won','churned'] },
   { key:'mrr',       label:'MRR',           ftype:'number', sortKey:'mrr' },
   { key:'arr',       label:'ARR',           ftype:'number', sortKey:'arr' },
   { key:'since',     label:'Tenure',        ftype:'number', sortKey:'since' },
   { key:'created',   label:'Date Added',    ftype:'number', sortKey:'created' },
+  { key:'tickets',   label:'Tickets',       ftype:'number', sortKey:'tickets' },
+  { key:'days',      label:'Last Contact',  ftype:'number', sortKey:'days' },
+  { key:'nps',       label:'NPS',           ftype:'number', sortKey:'nps' },
+  { key:'csat',      label:'CSAT',          ftype:'number', sortKey:'csat' },
+  { key:'logins',    label:'Logins',        ftype:'number', sortKey:'logins' },
+  { key:'adoption',  label:'Adoption',      ftype:'number', sortKey:'adoption' },
+  { key:'growth',    label:'Growth',        ftype:'enum',   sortKey:'growth',     enumVals:['strong','mild','none'] },
   { key:'renewal',   label:'Renewal',       ftype:'number', sortKey:'renewal' },
   { key:'next_touch',label:'Next Touch',    ftype:'number', sortKey:'next_touch' },
-  { key:'days',      label:'Last Contact',  ftype:'number', sortKey:'days' },
   { key:'tags',      label:'Tags',          ftype:'text',   sortKey:'tags' },
-  { key:'score',     label:'Score',         ftype:'number', sortKey:'score' },
-  { key:'_momentum', label:'Momentum (7d)', ftype:'enum',   sortKey:'_momentum',  enumVals:['up','dn','flat','new'] },
-  { key:'status',    label:'Status',        ftype:'enum',   sortKey:'status',     enumVals:['critical','risk','watch','healthy','expand'] },
-  { key:'tickets',   label:'Tickets',       ftype:'number', sortKey:'tickets' },
 ];
 
 const ENUM_DISPLAY = {
@@ -7023,8 +7027,8 @@ function _renderCustomers() {
 
   // Sort
   list.sort((a,b) => {
-    let av = sortKey==='_delta'?getDelta7d(a): sortKey==='_momentum'?getDelta7d(a): sortKey==='status'?(a.status||''): sortKey==='lifecycle'?(a.lifecycle||''): sortKey==='tags'?(a.tags||[]).join(', '): sortKey==='name'?a.name: sortKey==='manager'?(a.manager||'zzz'): sortKey==='profile'?(a.scoring_profile||'zzz'): sortKey==='score'?a.score: sortKey==='mrr'?a.mrr||0: sortKey==='arr'?(a.arr||(a.mrr*12)||0): sortKey==='since'?(a.since||'9999'): sortKey==='created'?(a.created||'9999'): sortKey==='days'?(a.days != null ? a.days : 999): sortKey==='renewal'?a.renewal||99: sortKey==='next_touch'?(a.next_touch||'9999'):0;
-    let bv = sortKey==='_delta'?getDelta7d(b): sortKey==='_momentum'?getDelta7d(b): sortKey==='status'?(b.status||''): sortKey==='lifecycle'?(b.lifecycle||''): sortKey==='tags'?(b.tags||[]).join(', '): sortKey==='name'?b.name: sortKey==='manager'?(b.manager||'zzz'): sortKey==='profile'?(b.scoring_profile||'zzz'): sortKey==='score'?b.score: sortKey==='mrr'?b.mrr||0: sortKey==='arr'?(b.arr||(b.mrr*12)||0): sortKey==='since'?(b.since||'9999'): sortKey==='created'?(b.created||'9999'): sortKey==='days'?(b.days != null ? b.days : 999): sortKey==='renewal'?b.renewal||99: sortKey==='next_touch'?(b.next_touch||'9999'):0;
+    let av = sortKey==='_delta'?getDelta7d(a): sortKey==='_momentum'?getDelta7d(a): sortKey==='status'?(a.status||''): sortKey==='lifecycle'?(a.lifecycle||''): sortKey==='tags'?(a.tags||[]).join(', '): sortKey==='name'?a.name: sortKey==='manager'?(a.manager||'zzz'): sortKey==='profile'?(a.scoring_profile||'zzz'): sortKey==='score'?a.score: sortKey==='mrr'?a.mrr||0: sortKey==='arr'?(a.arr||(a.mrr*12)||0): sortKey==='since'?(a.since||'9999'): sortKey==='created'?(a.created||'9999'): sortKey==='days'?(a.days != null ? a.days : 999): sortKey==='nps'?(a.nps != null ? a.nps : -1): sortKey==='csat'?(a.csat != null ? a.csat : -1): sortKey==='logins'?(a.logins != null ? a.logins : -1): sortKey==='adoption'?(a.adoption != null ? a.adoption : -1): sortKey==='growth'?(a.growth||'zzz'): sortKey==='renewal'?a.renewal||99: sortKey==='next_touch'?(a.next_touch||'9999'):0;
+    let bv = sortKey==='_delta'?getDelta7d(b): sortKey==='_momentum'?getDelta7d(b): sortKey==='status'?(b.status||''): sortKey==='lifecycle'?(b.lifecycle||''): sortKey==='tags'?(b.tags||[]).join(', '): sortKey==='name'?b.name: sortKey==='manager'?(b.manager||'zzz'): sortKey==='profile'?(b.scoring_profile||'zzz'): sortKey==='score'?b.score: sortKey==='mrr'?b.mrr||0: sortKey==='arr'?(b.arr||(b.mrr*12)||0): sortKey==='since'?(b.since||'9999'): sortKey==='created'?(b.created||'9999'): sortKey==='days'?(b.days != null ? b.days : 999): sortKey==='nps'?(b.nps != null ? b.nps : -1): sortKey==='csat'?(b.csat != null ? b.csat : -1): sortKey==='logins'?(b.logins != null ? b.logins : -1): sortKey==='adoption'?(b.adoption != null ? b.adoption : -1): sortKey==='growth'?(b.growth||'zzz'): sortKey==='renewal'?b.renewal||99: sortKey==='next_touch'?(b.next_touch||'9999'):0;
     if (typeof av === 'string') return av.localeCompare(bv) * sortDir;
     return (av - bv) * sortDir;
   });
@@ -7066,6 +7070,9 @@ function _renderCustomers() {
         <td class="col-frozen" style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')"><strong>${escHtml(c.name)}</strong>${(()=>{ if (!c.next_touch) return ''; const ntd = Math.round((new Date(c.next_touch)-new Date())/86400000); return ntd < 0 ? ' <span class="nt-badge nt-overdue" style="font-size:var(--fs-xs);padding:1px 5px">Touch overdue</span>' : ''; })()}</td>
         <td>${c.manager ? escHtml(c.manager) : '<span style="color:var(--muted);font-style:italic">—</span>'}</td>
         <td>${c.scoring_profile && c.scoring_profile !== 'Global Weights' ? `<span class="tag">${escHtml(c.scoring_profile)}</span>` : '<span style="color:var(--muted);font-style:italic;font-size:var(--fs-sm)">Global</span>'}</td>
+        <td>${scoreHTML(c)}</td>
+        <td>${momentumHTML(c)}</td>
+        <td>${badgeHTML(c.status)}</td>
         <td>${lifecycleBadge(c.lifecycle)}</td>
         <td>${c.mrr ? '$'+fmtNum(c.mrr) : '—'}</td>
         <td>${(()=>{ const arr = c.arr || (c.mrr * 12); return arr ? '$'+fmtNum(arr) : '—'; })()}</td>
@@ -7082,6 +7089,18 @@ function _renderCustomers() {
           if (!c.created) return '—';
           const d = new Date(c.created);
           return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+        })()}</td>
+        <td>${c.tickets ? `<span style="font-weight:600${c.tickets >= 3 ? ';color:#dc2626' : c.tickets >= 1 ? ';color:#d97706' : ''}">${c.tickets}</span>` : '<span style="color:var(--muted)">0</span>'}</td>
+        <td><div class="ct-two-line"><span class="${cad.cls}">${cad.label.replace(/\s*\(\d+d\)/,'')}</span><span class="ct-sub">${c.days != null ? c.days + 'd ago' : 'N/A'}</span></div></td>
+        <td>${c.nps != null ? c.nps : '<span style="color:var(--muted)">—</span>'}</td>
+        <td>${c.csat != null ? c.csat : '<span style="color:var(--muted)">—</span>'}</td>
+        <td>${c.logins != null ? c.logins : '<span style="color:var(--muted)">—</span>'}</td>
+        <td>${c.adoption != null ? c.adoption + '%' : '<span style="color:var(--muted)">—</span>'}</td>
+        <td>${(()=>{
+          const g = c.growth || 'none';
+          if (g === 'strong') return '<span style="color:#16a34a;font-weight:600">Strong</span>';
+          if (g === 'mild') return '<span style="color:#d97706;font-weight:600">Mild</span>';
+          return '<span style="color:var(--muted)">None</span>';
         })()}</td>
         <td>${(()=>{
           if (c.renewal_date) {
@@ -7110,7 +7129,6 @@ function _renderCustomers() {
           if (ntd <= 7)  return `<span class="nt-badge nt-ok">${dateStr}</span>`;
           return `<span style="font-size:var(--fs-sm);color:var(--muted)">${dateStr}</span>`;
         })()}</td>
-        <td><div class="ct-two-line"><span class="${cad.cls}">${cad.label.replace(/\s*\(\d+d\)/,'')}</span><span class="ct-sub">${c.days != null ? c.days + 'd ago' : 'N/A'}</span></div></td>
         <td>${((tags) => {
           if (!tags.length) return '';
           const first = `<span class="tag">${escHtml(tags[0])}</span>`;
@@ -7118,10 +7136,6 @@ function _renderCustomers() {
           const allTags = tags.map(t => escHtml(t)).join(', ');
           return first + `<span class="tag tag-more" title="${allTags}">+${tags.length - 1}</span>`;
         })(c.tags||[])}</td>
-        <td>${scoreHTML(c)}</td>
-        <td>${momentumHTML(c)}</td>
-        <td>${badgeHTML(c.status)}</td>
-        <td>${c.tickets ? `<span style="font-weight:600${c.tickets >= 3 ? ';color:#dc2626' : c.tickets >= 1 ? ';color:#d97706' : ''}">${c.tickets}</span>` : '<span style="color:var(--muted)">0</span>'}</td>
       </tr>`;
   }).join('');
 
