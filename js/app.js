@@ -14402,12 +14402,15 @@ async function syncHubSpotUI() {
       last_sync_message: `${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated`,
       sync_stats: stats
     };
+    // Re-render the card to show updated last sync time and stats
+    renderHubSpotCard(_integrationCache['hubspot']);
+    // Re-set status after card re-render (renderHubSpotCard wipes the status div)
+    const statusAfterHS = el('hubspot-sync-status');
+    if (statusAfterHS) statusAfterHS.innerHTML = `<span style="color:var(--green)">✓ ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated (${stats.total || 0} companies)</span> <a href="#" onclick="event.preventDefault();showSyncResultsModal('hubspot',_lastHubSpotSyncResult)" style="font-size:var(--fs-sm);margin-left:6px">View Details</a>`;
   } catch(e) {
     status.innerHTML = `<span style="color:var(--red)">✕ ${escHtml(e.message)}</span>`;
     toast('HubSpot sync failed: ' + e.message, 'error');
   } finally {
-    btn.disabled = false;
-    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Sync Now';
     _hubspotSyncInProgress = false;
   }
 }
@@ -14666,11 +14669,15 @@ async function syncSalesforceUI() {
       last_sync_message: `${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated`,
       sync_stats: stats
     };
+    // Re-render the card to show updated last sync time and stats
+    renderSalesforceCard(_integrationCache['salesforce']);
+    // Re-set status after card re-render
+    const statusAfterSF = el('salesforce-sync-status');
+    if (statusAfterSF) statusAfterSF.innerHTML = `<span style="color:var(--green)">✓ ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated (${stats.total || 0} accounts)</span> <a href="#" onclick="event.preventDefault();showSyncResultsModal('salesforce',_lastSalesforceSyncResult)" style="font-size:var(--fs-sm);margin-left:6px">View Details</a>`;
   } catch(e) {
     if (status) status.innerHTML = `<span style="color:var(--red)">✕ ${escHtml(e.message)}</span>`;
     toast('Salesforce sync failed: ' + e.message, 'error');
   } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Sync Now'; }
     _salesforceSyncInProgress = false;
   }
 }
@@ -21877,10 +21884,14 @@ function applyMapping() {
 
   const parsed = csvRows.map((row,ri) => {
     const get = (f, def='') => mapping[f]>=0 ? (row[mapping[f]]||'').trim() : def;
+    // "CLEAR" keyword: explicitly clears a field (case-insensitive)
+    const isClr = (f) => get(f).toLowerCase() === 'clear';
+
     // NPS: accept numeric 0-10, legacy categories, or encoded formats
     const npsRaw = get('nps','').trim();
     let nps = null;
-    if (npsRaw && npsRaw !== 'unknown' && npsRaw !== 'N/A') {
+    if (isClr('nps')) { nps = null; }
+    else if (npsRaw && npsRaw !== 'unknown' && npsRaw !== 'N/A') {
       const num = parseFloat(npsRaw);
       if (!isNaN(num)) { nps = Math.max(0, Math.min(10, Math.round(num))); }
       else {
@@ -21891,39 +21902,40 @@ function applyMapping() {
     // CSAT: accept numeric 1-5
     const csatRaw = get('csat','').trim();
     let csat = null;
-    if (csatRaw && csatRaw !== 'unknown' && csatRaw !== 'N/A') {
+    if (isClr('csat')) { csat = null; }
+    else if (csatRaw && csatRaw !== 'unknown' && csatRaw !== 'N/A') {
       const num = parseFloat(csatRaw);
       if (!isNaN(num)) { csat = Math.max(1, Math.min(5, Math.round(num))); }
     }
-    const growRaw = get('growth','none').toLowerCase();
+    const growRaw = isClr('growth') ? 'none' : get('growth','none').toLowerCase();
     let growth = 'none';
     Object.entries(growMap).forEach(([k,vs])=>{ if(vs.includes(growRaw)) growth=k; });
 
-    const sentRaw = get('sentiment','').toLowerCase();
+    const sentRaw = isClr('sentiment') ? '' : get('sentiment','').toLowerCase();
     const sentVal = ['positive','neutral','negative'].includes(sentRaw) ? sentRaw : '';
 
     return {
       _row: ri+2,
       name:            get('name'),
-      manager:         get('manager',''),
-      mrr:             parseFloat(get('mrr')) || 0,
-      arr:             parseFloat(get('arr')) || 0,
-      logins:          get('logins').trim() !== '' ? (parseInt(get('logins')) || 0) : null,
-      adoption:        get('adoption').trim() !== '' ? (parseInt(get('adoption')) || 0) : null,
-      tickets:         get('tickets').trim() !== '' ? (parseInt(get('tickets')) || 0) : null,
+      manager:         isClr('manager') ? '' : get('manager',''),
+      mrr:             isClr('mrr') ? 0 : (parseFloat(get('mrr')) || 0),
+      arr:             isClr('arr') ? 0 : (parseFloat(get('arr')) || 0),
+      logins:          isClr('logins') ? null : (get('logins').trim() !== '' ? (parseInt(get('logins')) || 0) : null),
+      adoption:        isClr('adoption') ? null : (get('adoption').trim() !== '' ? (parseInt(get('adoption')) || 0) : null),
+      tickets:         isClr('tickets') ? null : (get('tickets').trim() !== '' ? (parseInt(get('tickets')) || 0) : null),
       nps,
       csat,
-      days:            get('days').trim() !== '' ? (parseInt(get('days')) || 0) : null,
-      renewal_date:    normalizeDate(get('renewal_date','')),
-      renewal:         parseInt(get('renewal'))|| 0,
+      days:            isClr('days') ? null : (get('days').trim() !== '' ? (parseInt(get('days')) || 0) : null),
+      renewal_date:    isClr('renewal_date') ? '' : normalizeDate(get('renewal_date','')),
+      renewal:         isClr('renewal') ? 0 : (parseInt(get('renewal'))|| 0),
       growth,
       tier:            ['smb','mid','enterprise'].includes(get('tier','mid').toLowerCase()) ? get('tier','mid').toLowerCase() : 'mid',
-      tags:            get('tags').split(/[,|]/).map(t=>t.trim()).filter(Boolean),
+      tags:            isClr('tags') ? [] : get('tags').split(/[,|]/).map(t=>t.trim()).filter(Boolean),
       lifecycle:       ['onboarding','active','atrisk','won','churned'].includes(get('lifecycle','active').toLowerCase()) ? get('lifecycle','active').toLowerCase() : 'active',
-      since:           normalizeDate(get('since','')),
-      next_touch:        normalizeDate(get('next_touch','')),
-      last_contact_date: normalizeDate(get('last_contact_date','')),
-      scoring_profile:   get('scoring_profile',''),
+      since:           isClr('since') ? '' : normalizeDate(get('since','')),
+      next_touch:        isClr('next_touch') ? '' : normalizeDate(get('next_touch','')),
+      last_contact_date: isClr('last_contact_date') ? '' : normalizeDate(get('last_contact_date','')),
+      scoring_profile:   isClr('scoring_profile') ? '' : get('scoring_profile',''),
       _note:           get('note',''),
       _sentiment:      sentVal
     };

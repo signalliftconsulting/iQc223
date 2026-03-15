@@ -2113,12 +2113,15 @@ async function syncHubSpotUI() {
       last_sync_message: `${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated`,
       sync_stats: stats
     };
+    // Re-render the card to show updated last sync time and stats
+    renderHubSpotCard(_integrationCache['hubspot']);
+    // Re-set status after card re-render (renderHubSpotCard wipes the status div)
+    const statusAfterHS = el('hubspot-sync-status');
+    if (statusAfterHS) statusAfterHS.innerHTML = `<span style="color:var(--green)">✓ ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated (${stats.total || 0} companies)</span> <a href="#" onclick="event.preventDefault();showSyncResultsModal('hubspot',_lastHubSpotSyncResult)" style="font-size:var(--fs-sm);margin-left:6px">View Details</a>`;
   } catch(e) {
     status.innerHTML = `<span style="color:var(--red)">✕ ${escHtml(e.message)}</span>`;
     toast('HubSpot sync failed: ' + e.message, 'error');
   } finally {
-    btn.disabled = false;
-    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Sync Now';
     _hubspotSyncInProgress = false;
   }
 }
@@ -2377,11 +2380,15 @@ async function syncSalesforceUI() {
       last_sync_message: `${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated`,
       sync_stats: stats
     };
+    // Re-render the card to show updated last sync time and stats
+    renderSalesforceCard(_integrationCache['salesforce']);
+    // Re-set status after card re-render
+    const statusAfterSF = el('salesforce-sync-status');
+    if (statusAfterSF) statusAfterSF.innerHTML = `<span style="color:var(--green)">✓ ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated (${stats.total || 0} accounts)</span> <a href="#" onclick="event.preventDefault();showSyncResultsModal('salesforce',_lastSalesforceSyncResult)" style="font-size:var(--fs-sm);margin-left:6px">View Details</a>`;
   } catch(e) {
     if (status) status.innerHTML = `<span style="color:var(--red)">✕ ${escHtml(e.message)}</span>`;
     toast('Salesforce sync failed: ' + e.message, 'error');
   } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Sync Now'; }
     _salesforceSyncInProgress = false;
   }
 }
