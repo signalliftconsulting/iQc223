@@ -349,8 +349,8 @@ function saveScore() {
         dupe.renewal         = data.renewal;
         dupe.renewal_date    = data.renewal_date || '';
         dupe.growth          = data.growth;
-        dupe.mrr             = data.mrr;
-        dupe.arr             = data.arr || (data.mrr * 12);
+        dupe.mrr             = data.mrr || (data.arr ? Math.round(data.arr / 12) : 0);
+        dupe.arr             = data.arr || (data.mrr ? data.mrr * 12 : 0);
         dupe.since           = data.since || '';
         dupe.tier            = data.tier;
         dupe.lifecycle       = data.lifecycle;
@@ -385,8 +385,8 @@ function saveScore() {
     contact_email:   data.contact_email || '',
     manager:         data.manager || '',
     scoring_profile: data.profile || '',
-    mrr:             data.mrr,
-    arr:             data.arr || (data.mrr * 12),
+    mrr:             data.mrr || (data.arr ? Math.round(data.arr / 12) : 0),
+    arr:             data.arr || (data.mrr ? data.mrr * 12 : 0),
     since:           data.since || '',
     tier:            data.tier,
     lifecycle:       data.lifecycle,
@@ -447,8 +447,8 @@ function saveDetailsOnly() {
   c.contact_name     = data.contact_name || '';
   c.contact_email    = data.contact_email || '';
   c.manager          = data.manager || c.manager || '';
-  c.mrr              = data.mrr;
-  c.arr              = data.arr || (data.mrr * 12);
+  c.mrr              = data.mrr || (data.arr ? Math.round(data.arr / 12) : 0);
+  c.arr              = data.arr || (data.mrr ? data.mrr * 12 : 0);
   c.since            = data.since || c.since || '';
   c.tier             = data.tier;
   c.lifecycle        = data.lifecycle;
@@ -1351,8 +1351,8 @@ window.saveScore = function() {
       c.next_touch      = (el('f-next-touch') ? el('f-next-touch').value : '') || '';
       c.next_touch_time = c.next_touch ? (el('f-next-touch-time') ? el('f-next-touch-time').value : '') || '' : '';
       c.growth          = data.growth;
-      c.mrr             = data.mrr;
-      c.arr             = data.arr || (data.mrr * 12);
+      c.mrr             = data.mrr || (data.arr ? Math.round(data.arr / 12) : 0);
+      c.arr             = data.arr || (data.mrr ? data.mrr * 12 : 0);
       c.since           = data.since || '';
       c.tier            = data.tier;
       c.lifecycle       = data.lifecycle;

@@ -191,8 +191,8 @@ function fromRow(row) {
     name:      row.name      || '',
     score:     row.score     || 0,
     status:    getStatus(row.score || 0),  // always derive from score, never trust stored value
-    mrr:       row.mrr       || 0,
-    arr:       row.arr       || 0,
+    mrr:       row.mrr || (row.arr ? Math.round(row.arr / 12) : 0),
+    arr:       row.arr || (row.mrr ? row.mrr * 12 : 0),
     since:     row.since     || '',
     tier:      row.tier      || 'mid',
     lifecycle: row.lifecycle || 'active',
