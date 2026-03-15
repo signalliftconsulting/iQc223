@@ -13,6 +13,7 @@ const ALERT_ICONS = {
   snoozed:   _ico('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'),
   engagement:_ico('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'),
   quiet:     _ico('<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>'),
+  onboarding:_ico('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>'),
 };
 const ALERT_CATS = {
   health:     { label:'Health',     icon: ALERT_ICONS.health,     type:'red'   },
@@ -24,6 +25,7 @@ const ALERT_CATS = {
   engagement: { label:'Engagement', icon: ALERT_ICONS.engagement, type:'amber' },
   quiet:      { label:'Quiet',      icon: ALERT_ICONS.quiet,      type:'amber' },
   expansion:  { label:'Expansion',  icon: ALERT_ICONS.expansion,  type:'green' },
+  onboarding: { label:'Onboarding', icon: ALERT_ICONS.onboarding, type:'red'   },
 };
 
 // Severity order for sorting (lower = higher priority)
@@ -141,12 +143,93 @@ function buildAlerts() {
     }
 
     // ── Quiet Account (zero activity across all signals) ──
-    if (isQuietAccount(c)) {
+    const _quietFired = isQuietAccount(c);
+    if (_quietFired) {
       const qDays = getQuietDays(c);
       const qType = qDays >= 30 ? 'red' : 'amber';
       alerts.push({ id:c.id+'-quiet', cid:c.id, cat:'quiet', type:qType,
         msg:`<strong>${escHtml(c.name)}</strong> <span>has gone completely quiet — ${qDays} days, zero activity</span>`,
         sub:`No logins · No tickets · No contact · MRR $${fmtNum(c.mrr||0)}`, ...snap(c) });
+    }
+
+    // ── Key Contact Gone Quiet — named contact, no activity 21+ days ──
+    if (!_quietFired && c.contact_name) {
+      const kcDays = getEffectiveDays(c);
+      if (kcDays != null && kcDays >= 21) {
+        const kcType = kcDays >= 30 ? 'red' : 'amber';
+        alerts.push({ id:c.id+'-kcQuiet', cid:c.id, cat:'quiet', type:kcType,
+          msg:`<strong>${escHtml(c.name)}</strong> <span>key contact ${escHtml(c.contact_name)} — no activity in ${kcDays}d</span>`,
+          sub:`Last touch ${kcDays}d ago · MRR $${fmtNum(c.mrr||0)}`, ...snap(c) });
+      }
+    }
+
+    // ── Pre-Renewal Risk — engagement drop within 60 days of renewal ──
+    if (c.renewal_date) {
+      const prDays = Math.round((new Date(c.renewal_date) - now) / 86400000);
+      if (prDays >= 0 && prDays <= 60 && (getMomentum(c) === 'dn' || getDelta7d(c) <= -5)) {
+        const delta = getDelta7d(c);
+        alerts.push({ id:c.id+'-preRenew', cid:c.id, cat:'renewal', type:'red',
+          msg:`<strong>${escHtml(c.name)}</strong> <span>renews in ${prDays}d with declining health (${delta >= 0 ? '+' : ''}${delta} pts)</span>`,
+          sub:`Score ${c.score} ↘ · MRR $${fmtNum(c.mrr||0)}`, ...snap(c) });
+      }
+    }
+
+    // ── Expansion Signal Enhanced — multi-signal strength ──
+    const _expFired = signalOn(c,'growth') && (c.status === 'expand' || c.status === 'healthy') && (c.mrr||0) >= 3000;
+    if (!_expFired && c.score >= 75 && (c.adoption != null && c.adoption >= 70) && c.growth && c.growth !== 'none' && (c.logins != null && c.logins >= 10)) {
+      alerts.push({ id:c.id+'-expSig', cid:c.id, cat:'expansion', type:'green',
+        msg:`<strong>${escHtml(c.name)}</strong> <span>expansion signals — ${c.adoption}% adoption, strong engagement, growth detected</span>`,
+        sub:`Score ${c.score} · Logins ${c.logins}/mo · MRR $${fmtNum(c.mrr||0)}`, ...snap(c) });
+    }
+
+    // ── Support Spike — tickets above historical baseline ──
+    if (signalOn(c,'tickets') && c.tickets >= 3) {
+      const hist = c.history || [];
+      const d30 = new Date(now - 30*86400000), d90 = new Date(now - 90*86400000);
+      const older = hist.filter(h => { const d = new Date(h.date); return d >= d90 && d < d30 && h.signals?.tickets != null; });
+      const baseline = older.length ? older.reduce((s,h) => s + h.signals.tickets, 0) / older.length : null;
+      if (baseline != null && c.tickets >= baseline * 2) {
+        alerts.push({ id:c.id+'-tixSpike', cid:c.id, cat:'tickets', type:'red',
+          msg:`<strong>${escHtml(c.name)}</strong> <span>support spike — ${c.tickets} tickets vs ${Math.round(baseline)} avg baseline</span>`,
+          sub:`${Math.round(c.tickets / baseline)}x above normal · MRR $${fmtNum(c.mrr||0)}`, ...snap(c) });
+      }
+    }
+
+    // ── Ghosted After Onboarding — login drop-off 30-90 days post-start ──
+    if (c.since && c.lifecycle !== 'churned' && c.lifecycle !== 'won') {
+      const sinceDays = Math.round((now - new Date(c.since)) / 86400000);
+      if (sinceDays >= 30 && sinceDays <= 90 && (c.logins == null || c.logins < 3)) {
+        alerts.push({ id:c.id+'-ghostOb', cid:c.id, cat:'onboarding', type:'red',
+          msg:`<strong>${escHtml(c.name)}</strong> <span>going dark ${sinceDays}d after onboarding — ${c.logins != null ? c.logins + ' logins/mo' : 'no login data'}</span>`,
+          sub:`Started ${new Date(c.since).toLocaleDateString('en-US',{month:'short',day:'numeric'})} · Score ${c.score}`, ...snap(c) });
+      }
+    }
+
+    // ── NPS Drop + Silence — NPS decreased with no engagement ──
+    if (signalOn(c,'nps') && c.nps != null) {
+      const npsHist = (c.history || []).filter(h => h.signals?.nps != null).sort((a,b) => new Date(b.date) - new Date(a.date));
+      const prevNps = npsHist.length >= 2 ? npsHist[1].signals.nps : null;
+      if (prevNps != null && c.nps < prevNps) {
+        const effDays = getEffectiveDays(c);
+        const silent = (effDays != null && effDays >= 14) || (c.logins != null && c.logins < 5);
+        if (silent)
+          alerts.push({ id:c.id+'-npsDrop', cid:c.id, cat:'sentiment', type:'red',
+            msg:`<strong>${escHtml(c.name)}</strong> <span>NPS dropped ${prevNps} → ${c.nps} with low engagement</span>`,
+            sub:`${npsDisplay(c.nps)} · ${effDays != null ? effDays + 'd since contact' : 'Logins ' + (c.logins||0) + '/mo'}`, ...snap(c) });
+      }
+    }
+
+    // ── Renewal ≤30 Days + Health Below 70 ──
+    if (c.renewal_date) {
+      const r30Days = Math.round((new Date(c.renewal_date) - now) / 86400000);
+      if (r30Days >= 0 && r30Days <= 30 && c.score < 70) {
+        // Skip if pre-renewal risk already fired (more specific)
+        const preRenewFired = c.renewal_date && Math.round((new Date(c.renewal_date) - now) / 86400000) <= 60 && (getMomentum(c) === 'dn' || getDelta7d(c) <= -5);
+        if (!preRenewFired)
+          alerts.push({ id:c.id+'-renew70', cid:c.id, cat:'renewal', type:'red',
+            msg:`<strong>${escHtml(c.name)}</strong> <span>renews in ${r30Days}d with health score ${c.score} — below 70</span>`,
+            sub:`MRR $${fmtNum(c.mrr||0)} · Needs attention before renewal`, ...snap(c) });
+      }
     }
   });
 
@@ -550,7 +633,7 @@ function _renderAlerts() {
         return name.includes(_viewSearch) || (a.label||'').toLowerCase().includes(_viewSearch);
       });
     }
-    const cats = ['health','tickets','quiet','engagement','renewal','cadence','momentum','sentiment','expansion'];
+    const cats = ['health','tickets','quiet','engagement','renewal','cadence','momentum','sentiment','expansion','onboarding'];
     const catGroups = cats.map(cat => ({ cat, alerts: catActive.filter(a => a.cat === cat) })).filter(g => g.alerts.length > 0);
     catGroups.sort((a, b) => b.alerts.length - a.alerts.length);
     if (catGroups.length) {
@@ -1431,6 +1514,9 @@ function _briefAction(ca) {
 
   if (ca.cats.has('expansion')) {
     parts.push('<strong>Opportunity:</strong> Expansion signals detected — explore upsell');
+  }
+  if (ca.cats.has('onboarding')) {
+    parts.push('<strong>Onboarding:</strong> Customer going dark post-implementation — re-engage immediately');
   }
 
   if (!parts.length) {
