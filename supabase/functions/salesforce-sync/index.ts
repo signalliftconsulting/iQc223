@@ -498,18 +498,14 @@ serve(async (req) => {
 
         // Days since activity
         if (shouldSync('days')) {
-          let days: number;
           if (account.LastActivityDate) {
             const activityTs = new Date(account.LastActivityDate).getTime();
-            days = Math.floor((now - activityTs) / (1000 * 60 * 60 * 24));
-          } else {
-            days = 999;
-          }
-          if (days !== (match.days || 0)) changes.days = days;
-          if (account.LastActivityDate) {
+            const days = Math.floor((now - activityTs) / (1000 * 60 * 60 * 24));
+            if (days !== (match.days || 0)) changes.days = days;
             const contactDate = account.LastActivityDate.split('T')[0];
             if (contactDate !== match.last_contact_date) changes.last_contact_date = contactDate;
           }
+          // If no LastActivityDate in Salesforce, don't overwrite existing days data
         }
 
         // Renewal date from opportunities
