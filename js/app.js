@@ -18537,7 +18537,12 @@ function renderTrendMovers() {
   });
 
   if (!sorted.length) {
-    wrap.innerHTML = '<p style="color:var(--subtle);font-size:var(--fs-md);padding:12px">No score history available for this period.</p>';
+    wrap.style.maxHeight = 'none';
+    wrap.style.overflowY = 'visible';
+    const noMsg = _trendSearch
+      ? `No customers matching "${escHtml(_trendSearch)}".`
+      : 'No score history available for this period.';
+    wrap.innerHTML = `<div style="margin-bottom:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><input type="text" placeholder="Search customers..." value="${escHtml(_trendSearch)}" oninput="_trendSearch=this.value.toLowerCase();renderTrendMovers()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-base);width:220px"/></div><p style="color:var(--subtle);font-size:var(--fs-md);padding:12px">${noMsg}</p>`;
     return;
   }
 
