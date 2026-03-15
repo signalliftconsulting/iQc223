@@ -21914,8 +21914,12 @@ function applyMapping() {
     const sentRaw = isClr('sentiment') ? '' : get('sentiment','').toLowerCase();
     const sentVal = ['positive','neutral','negative'].includes(sentRaw) ? sentRaw : '';
 
+    // Track which fields are actually mapped in the CSV (for partial updates)
+    const _mapped = Object.keys(mapping).filter(f => mapping[f] >= 0 && f !== 'name');
+
     return {
       _row: ri+2,
+      _mapped,
       name:            get('name'),
       manager:         isClr('manager') ? '' : get('manager',''),
       mrr:             isClr('mrr') ? 0 : (parseFloat(get('mrr')) || 0),
@@ -21990,18 +21994,32 @@ async function importCSV() {
     // Extract transient import fields (prefixed with _)
     const importNote = r._note || '';
     const importSentiment = r._sentiment || '';
-    delete r._note; delete r._sentiment; delete r._row;
+    const mappedFields = r._mapped || [];
+    delete r._note; delete r._sentiment; delete r._row; delete r._mapped;
 
     // If renewal_date provided, recalculate renewal months
     if (r.renewal_date) {
       r.renewal = Math.max(0, Math.round((new Date(r.renewal_date) - new Date()) / (1000*60*60*24*30.44)));
     }
 
-    const { score } = calcScore(r);
-    const status = getStatus(score);
     const dupe = customers.find(c => c.name.toLowerCase() === r.name.toLowerCase());
     if (dupe) {
-      Object.assign(dupe, { ...r, score, status });
+      // Only overwrite fields that were actually mapped in the CSV
+      // Unmapped fields keep their existing values
+      if (mappedFields.length) {
+        for (const f of mappedFields) {
+          if (f in r) dupe[f] = r[f];
+        }
+        // ARR follows MRR
+        if (mappedFields.includes('mrr') && !mappedFields.includes('arr')) dupe.arr = (dupe.mrr || 0) * 12;
+      } else {
+        // Fallback: all fields mapped (legacy behavior)
+        Object.assign(dupe, r);
+      }
+      const { score } = calcScore(dupe);
+      const status = getStatus(score);
+      dupe.score = score;
+      dupe.status = status;
       dupe._baseDays = dupe.days != null ? dupe.days : null;
       dupe.history = dupe.history || [];
       dupe.history.push({ score, date: now, signals: buildHistorySnapshot(dupe) });
@@ -22018,6 +22036,8 @@ async function importCSV() {
       applyAutoStage(dupe);
       toUpdate.push(dupe);
     } else {
+      const { score } = calcScore(r);
+      const status = getStatus(score);
       const notes = importNote ? [{ text: importNote, date: now }] : [];
       const sentiment = importSentiment ? [{ val: importSentiment, note: 'CSV import', date: now }] : [];
       const newCust = {
