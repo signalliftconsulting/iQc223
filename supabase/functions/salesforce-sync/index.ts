@@ -84,7 +84,9 @@ async function refreshSalesforceToken(
 
   console.log('[salesforce-sync] Refreshing expired access token...');
 
-  const resp = await fetch('https://orgfarm-3966efd483-dev-ed.develop.my.salesforce.com/services/oauth2/token', {
+  // Use the stored instance_url so token refresh works for any Salesforce org
+  const baseUrl = tokenData.instance_url || 'https://login.salesforce.com';
+  const resp = await fetch(`${baseUrl}/services/oauth2/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -299,6 +301,7 @@ serve(async (req) => {
     // ── Fetch Salesforce data (parallel) ──
     const syncMetrics = integration.config?.sync_metrics || {};
     const allowCreates = integration.config?.sync_creates !== false;
+    const dealAmountIsMonthly = integration.config?.deal_amount_frequency === 'monthly';
     const shouldSync = (m: string) => syncMetrics[m] !== false;
 
     async function fetchAllData(t: string, url: string) {
@@ -354,7 +357,7 @@ serve(async (req) => {
 
       if (opp.IsWon) {
         // Won opportunities — sum as MRR (normalize annual → monthly)
-        existing.mrr += amount > 0 ? Math.round(amount / 12) : 0;
+        existing.mrr += amount > 0 ? Math.round(dealAmountIsMonthly ? amount : amount / 12) : 0;
       }
 
       if (!opp.IsClosed && opp.CloseDate) {
@@ -543,7 +546,9 @@ serve(async (req) => {
         if (domain && domain !== (match.external_id || '')) changes.external_id = domain;
 
         if (Object.keys(changes).length > 0) {
-          updates.push({ id: match.id, name: match.name, changes });
+          const prev: any = {};
+          for (const k of Object.keys(changes)) prev[k] = match[k] ?? null;
+          updates.push({ id: match.id, name: match.name, changes, prev });
           stats.updated++;
         }
       } else if (allowCreates) {
@@ -659,7 +664,7 @@ serve(async (req) => {
       success: true,
       action: 'salesforce_sync',
       stats,
-      updates: updates.map(u => ({ name: u.name, _action: 'updated', ...u.changes })),
+      updates: updates.map(u => ({ name: u.name, _action: 'updated', _prev: u.prev || {}, ...u.changes })),
       created: creates.map(c => ({ name: c.name, _action: 'created', mrr: c.mrr, tier: c.tier, lifecycle: c.lifecycle, tickets: c.tickets, days: c.days, renewal_date: c.renewal_date || null, contact_email: c.contact_email || '', contact_name: c.contact_name || '' })),
     }), {
       headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },

@@ -57,7 +57,8 @@ const APP_FIELDS = {
   hubspot_company_id:  { label:'HubSpot Company ID',   required:false },
   renewal_date:        { label:'Renewal Date',          required:false },
   note:                { label:'Note',                  required:false },
-  sentiment:           { label:'Sentiment',             required:false }
+  sentiment:           { label:'Sentiment',             required:false },
+  history:             { label:'History (JSON)',        required:false }
 };
 
 const FIELD_ALIASES = {
@@ -85,7 +86,8 @@ const FIELD_ALIASES = {
   stripe_customer_id:  ['stripe_customer_id','stripe id','stripe customer id'],
   hubspot_company_id:  ['hubspot_company_id','hubspot id','hubspot company id'],
   note:                ['note','notes','comment','comments'],
-  sentiment:           ['sentiment','sentiment value','customer sentiment']
+  sentiment:           ['sentiment','sentiment value','customer sentiment'],
+  history:             ['history','score history','health history']
 };
 
 function autoMap() {
@@ -239,7 +241,8 @@ function applyMapping() {
       last_contact_date: isClr('last_contact_date') ? '' : normalizeDate(get('last_contact_date','')),
       scoring_profile:   isClr('scoring_profile') ? '' : get('scoring_profile',''),
       _note:           get('note',''),
-      _sentiment:      sentVal
+      _sentiment:      sentVal,
+      _history:        get('history','')
     };
   }).filter(r => r.name);
 
@@ -292,8 +295,9 @@ async function importCSV() {
     // Extract transient import fields (prefixed with _)
     const importNote = r._note || '';
     const importSentiment = r._sentiment || '';
+    const importHistory = r._history || '';
     const mappedFields = r._mapped || [];
-    delete r._note; delete r._sentiment; delete r._row; delete r._mapped;
+    delete r._note; delete r._sentiment; delete r._history; delete r._row; delete r._mapped;
 
     // If renewal_date provided, recalculate renewal months
     if (r.renewal_date) {
@@ -320,6 +324,16 @@ async function importCSV() {
       dupe.status = status;
       dupe._baseDays = dupe.days != null ? dupe.days : null;
       dupe.history = dupe.history || [];
+      // Merge imported history entries if provided (JSON array)
+      if (importHistory) {
+        try {
+          const parsed = JSON.parse(importHistory);
+          if (Array.isArray(parsed)) {
+            // Prepend imported entries before the current snapshot
+            dupe.history = [...parsed, ...dupe.history];
+          }
+        } catch(_) { console.warn('Invalid history JSON for', r.name); }
+      }
       dupe.history.push({ score, date: now, signals: buildHistorySnapshot(dupe) });
       // Append note if provided
       if (importNote) {
@@ -338,16 +352,21 @@ async function importCSV() {
       const status = getStatus(score);
       const notes = importNote ? [{ text: importNote, date: now }] : [];
       const sentiment = importSentiment ? [{ val: importSentiment, note: 'CSV import', date: now }] : [];
+      let importedHistory = [];
+      if (importHistory) {
+        try { const p = JSON.parse(importHistory); if (Array.isArray(p)) importedHistory = p; }
+        catch(_) { console.warn('Invalid history JSON for', r.name); }
+      }
       const newCust = {
         id: crypto.randomUUID(),
         ...r, score, status,
         _baseDays: r.days != null ? r.days : null,
         notes,
         sentiment,
-        history: [{ score, date: now }],
+        history: [...importedHistory, { score, date: now }],
         created: now
       };
-      newCust.history[0].signals = buildHistorySnapshot(newCust);
+      newCust.history[newCust.history.length - 1].signals = buildHistorySnapshot(newCust);
       applyAutoStage(newCust);
       customers.unshift(newCust);
       toCreate.push(newCust);

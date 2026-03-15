@@ -13449,7 +13449,8 @@ async function renderIntegrationsSection() {
 
   // Update topbar sync button visibility
   const topSyncBtn = el('topbar-sync-btn');
-  if (topSyncBtn) topSyncBtn.style.display = stripeInt?.status === 'connected' ? '' : 'none';
+  const hasAnyConnected = stripeInt?.status === 'connected' || hubspotInt?.status === 'connected' || salesforceInt?.status === 'connected';
+  if (topSyncBtn) topSyncBtn.style.display = hasAnyConnected ? '' : 'none';
 
   wrap.innerHTML = `
     <div class="card" style="max-width:720px;margin-bottom:18px">
@@ -13552,6 +13553,50 @@ async function recoverWipedSignals() {
   return recovered;
 }
 
+/**
+ * Shared post-sync handler: snapshots before, reloads, compares, saves history.
+ * @param {Map} preScores  – Map<id, score> captured before sync
+ * @param {Map} preSignals – Map<id, snapshot> captured before sync
+ * @param {string[]} syncedNames – lowercased names of updated/created customers
+ * @returns {Promise<void>}
+ */
+async function postSyncHistoryTrack(preScores, preSignals, syncedNames) {
+  try {
+    if (isAdmin() && activeClientId !== '__own__') {
+      await loadClientCustomers(activeClientId, true);
+    } else {
+      await loadCustomersFromSupabase();
+    }
+  } catch(e) { console.warn('Post-sync reload:', e); }
+  _lastSyncTime = Date.now();
+  refreshLiveScores();
+
+  const toSave = [];
+  for (const c of customers) {
+    if (!syncedNames.includes(c.name.toLowerCase())) continue;
+    const oldScore = preScores.get(c.id);
+    const oldSnap = preSignals.get(c.id);
+    const newSnap = buildHistorySnapshot(c);
+    const scoreChanged = oldScore != null && oldScore !== c.score;
+    const signalsChanged = JSON.stringify(oldSnap) !== JSON.stringify(newSnap);
+    if (scoreChanged || signalsChanged) {
+      c.history = c.history || [];
+      c.history.push({ score: c.score, date: new Date().toISOString(), signals: newSnap, prevSignals: oldSnap });
+      toSave.push(c);
+    }
+  }
+  if (toSave.length) {
+    pauseSync(10000);
+    for (const c of toSave) { try { await save(c); } catch(_) {} }
+  }
+  refreshMgrDropdown();
+  const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
+  if (active === 'homebase')  renderHomeBase();
+  if (active === 'customers') renderCustomers();
+  if (active === 'alerts')    renderAlerts();
+  if (active === 'trends')    renderTrends();
+}
+
 function renderSyncOverview() {
   const container = el('sync-overview');
   if (!container) return;
@@ -13593,6 +13638,7 @@ const PLATFORM_METRICS = {
   hubspot: [
     { key: 'mrr',        label: 'MRR / ARR (Deals)' },
     { key: 'tier',       label: 'Tier (Company property)' },
+    { key: 'growth',     label: 'Growth Signal' },
     { key: 'renewal',    label: 'Renewal Date (Deal close)' },
     { key: 'tickets',    label: 'Support Tickets' },
     { key: 'days',       label: 'Days Since Contact' },
@@ -13604,6 +13650,7 @@ const PLATFORM_METRICS = {
   salesforce: [
     { key: 'mrr',       label: 'MRR / ARR (Opportunities)' },
     { key: 'tier',      label: 'Tier (Account property)' },
+    { key: 'growth',    label: 'Growth Signal' },
     { key: 'renewal',   label: 'Renewal Date (Opp close)' },
     { key: 'tickets',   label: 'Support Cases' },
     { key: 'days',      label: 'Days Since Activity' },
@@ -13866,49 +13913,13 @@ async function syncStripeUI() {
     _lastStripeSyncTime = Date.now();
     status.innerHTML = `<span style="color:var(--green)">✓ ${stats.customers_matched || 0} customers matched (${stats.total || 0} subscriptions), ${stats.updated || 0} updated</span> <a href="#" onclick="event.preventDefault();showSyncResultsModal('stripe',_lastStripeSyncResult)" style="font-size:var(--fs-sm);margin-left:6px">View Details</a>`;
     _lastStripeSyncResult = result;
-    toast(`Stripe sync: ${stats.updated || 0} of ${stats.customers_matched || 0} customers updated`, 'success');
+    toast(`Stripe sync: ${stats.updated || 0} of ${stats.customers_matched || 0} customers updated`, 'success', 6000);
 
-    // Force-reload customer data after sync (bypass all silentSync guards)
     if (stats.updated > 0) {
-      // Snapshot scores AND signals before reload to detect any changes
       const preScores = new Map(customers.map(c => [c.id, c.score]));
       const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
-      try {
-        if (isAdmin() && activeClientId !== '__own__') {
-          await loadClientCustomers(activeClientId, true);
-        } else {
-          await loadCustomersFromSupabase();
-        }
-      } catch(e) { console.warn('Post-sync reload:', e); }
-      _lastSyncTime = Date.now();
-      refreshLiveScores();
-      // Log history entries for customers whose scores OR signals changed from the sync
       const syncedNames = (result.updates || []).map(u => u.name?.toLowerCase());
-      const toSave = [];
-      for (const c of customers) {
-        if (!syncedNames.includes(c.name.toLowerCase())) continue;
-        const oldScore = preScores.get(c.id);
-        const oldSnap = preSignals.get(c.id);
-        const newSnap = buildHistorySnapshot(c);
-        const scoreChanged = oldScore != null && oldScore !== c.score;
-        const signalsChanged = JSON.stringify(oldSnap) !== JSON.stringify(newSnap);
-        if (scoreChanged || signalsChanged) {
-          c.history = c.history || [];
-          c.history.push({ score: c.score, date: new Date().toISOString(), signals: newSnap, prevSignals: oldSnap });
-          toSave.push(c);
-        }
-      }
-      if (toSave.length) {
-        pauseSync(10000);
-        for (const c of toSave) { try { await save(c); } catch(_) {} }
-      }
-      refreshMgrDropdown();
-      // Re-render whichever view is currently active
-      const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
-      if (active === 'homebase')  renderHomeBase();
-      if (active === 'customers') renderCustomers();
-      if (active === 'alerts')    renderAlerts();
-      if (active === 'trends')    renderTrends();
+      await postSyncHistoryTrack(preScores, preSignals, syncedNames);
     }
 
     // Refresh the card to show updated sync stats
@@ -14010,44 +14021,10 @@ async function topbarSyncStripe() {
 
   // Reload customers and track history for ALL synced platforms at once
   if (anyUpdated) {
-    try {
-      if (isAdmin() && activeClientId !== '__own__') {
-        await loadClientCustomers(activeClientId, true);
-      } else {
-        await loadCustomersFromSupabase();
-      }
-    } catch(e) { console.warn('Post-sync reload:', e); }
-    _lastSyncTime = Date.now();
-    refreshLiveScores();
-
-    // Log history entries for changed customers
-    const toSave = [];
-    for (const c of customers) {
-      if (!allSyncedNames.includes(c.name.toLowerCase())) continue;
-      const oldScore = preScores.get(c.id);
-      const oldSnap = preSignals.get(c.id);
-      const newSnap = buildHistorySnapshot(c);
-      const scoreChanged = oldScore != null && oldScore !== c.score;
-      const signalsChanged = JSON.stringify(oldSnap) !== JSON.stringify(newSnap);
-      if (scoreChanged || signalsChanged) {
-        c.history = c.history || [];
-        c.history.push({ score: c.score, date: new Date().toISOString(), signals: newSnap, prevSignals: oldSnap });
-        toSave.push(c);
-      }
-    }
-    if (toSave.length) {
-      pauseSync(10000);
-      for (const c of toSave) { try { await save(c); } catch(_) {} }
-    }
-    refreshMgrDropdown();
-    const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
-    if (active === 'homebase')  renderHomeBase();
-    if (active === 'customers') renderCustomers();
-    if (active === 'alerts')    renderAlerts();
-    if (active === 'trends')    renderTrends();
+    await postSyncHistoryTrack(preScores, preSignals, allSyncedNames);
   }
 
-  toast(msgs.length ? msgs.join(' · ') : 'No integrations connected', msgs.some(m => m.includes('failed')) ? 'error' : 'success');
+  toast(msgs.length ? msgs.join(' · ') : 'No integrations connected', msgs.some(m => m.includes('failed')) ? 'error' : 'success', 6000);
   btn.classList.remove('syncing');
   btn.disabled = false;
 }
@@ -14091,40 +14068,8 @@ async function autoSyncStripe() {
     if (stats.updated > 0) {
       const preScores = new Map(customers.map(c => [c.id, c.score]));
       const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
-      try {
-        if (isAdmin() && activeClientId !== '__own__') {
-          await loadClientCustomers(activeClientId, true);
-        } else {
-          await loadCustomersFromSupabase();
-        }
-      } catch(e) { console.warn('Auto-sync reload:', e); }
-      _lastSyncTime = Date.now();
-      refreshLiveScores();
       const syncedNames = (result.updates || []).map(u => u.name?.toLowerCase());
-      const toSave = [];
-      for (const c of customers) {
-        if (!syncedNames.includes(c.name.toLowerCase())) continue;
-        const oldScore = preScores.get(c.id);
-        const oldSnap = preSignals.get(c.id);
-        const newSnap = buildHistorySnapshot(c);
-        const scoreChanged = oldScore != null && oldScore !== c.score;
-        const signalsChanged = JSON.stringify(oldSnap) !== JSON.stringify(newSnap);
-        if (scoreChanged || signalsChanged) {
-          c.history = c.history || [];
-          c.history.push({ score: c.score, date: new Date().toISOString(), signals: newSnap, prevSignals: oldSnap });
-          toSave.push(c);
-        }
-      }
-      if (toSave.length) {
-        pauseSync(10000);
-        for (const c of toSave) { try { await save(c); } catch(_) {} }
-      }
-      refreshMgrDropdown();
-      const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
-      if (active === 'homebase')  renderHomeBase();
-      if (active === 'customers') renderCustomers();
-      if (active === 'alerts')    renderAlerts();
-      if (active === 'trends')    renderTrends();
+      await postSyncHistoryTrack(preScores, preSignals, syncedNames);
     }
 
     _integrationCache['stripe'] = {
@@ -14147,50 +14092,82 @@ async function autoSyncStripe() {
 
 let _lastSyncResult = null;
 
+function _syncFmtVal(key, val) {
+  if (val == null || val === '') return '—';
+  if (key === 'mrr' || key === 'arr') return '$' + Number(val).toLocaleString();
+  if (key === 'renewal_date') return val.split('T')[0];
+  if (key === 'renewal') return val + ' mo';
+  if (key === 'days') return val + 'd';
+  return String(val);
+}
+
+const _SYNC_FIELD_LABELS = {
+  mrr: 'MRR', arr: 'ARR', tier: 'Tier', lifecycle: 'Lifecycle',
+  tickets: 'Tickets', days: 'Days Inactive', renewal_date: 'Renewal Date',
+  renewal: 'Months to Renewal', contact_email: 'Contact Email',
+  contact_name: 'Contact Name', growth: 'Growth', billing_interval: 'Billing',
+  external_id: 'Domain', nps: 'NPS', csat: 'CSAT',
+  hubspot_company_id: 'HubSpot ID', salesforce_account_id: 'Salesforce ID',
+  last_contact_date: 'Last Contact', name: 'Name',
+};
+const _SYNC_SKIP_KEYS = new Set(['name', '_action', '_prev', 'id']);
+
 function showSyncResultsModal(platform, result) {
   _lastSyncResult = result;
   const stats = result.stats || {};
   const updates = result.updates || [];
   const created = result.created || [];
-  const allChanges = [...created, ...updates];
-
-  // Field display labels
-  const FIELD_LABELS = {
-    mrr: 'MRR', arr: 'ARR', tier: 'Tier', lifecycle: 'Lifecycle',
-    tickets: 'Tickets', days: 'Days Inactive', renewal_date: 'Renewal',
-    contact_email: 'Contact', contact_name: 'Contact Name',
-    growth: 'Growth', billing_interval: 'Billing', external_id: 'Domain',
-    name: 'Name',
-  };
+  const allChanges = [...updates, ...created];
 
   const platformLabel = platform.charAt(0).toUpperCase() + platform.slice(1);
   const ts = new Date().toLocaleString();
 
-  // Build rows
+  // Build change log rows — one row per changed field per customer
   let rowsHtml = '';
   if (allChanges.length === 0) {
-    rowsHtml = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:16px">No changes in this sync</td></tr>';
+    rowsHtml = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:16px">No changes in this sync</td></tr>';
   } else {
     for (const item of allChanges) {
       const action = item._action || 'updated';
-      const badge = action === 'created'
-        ? '<span style="background:var(--green);color:#fff;padding:2px 8px;border-radius:10px;font-size:11px">Created</span>'
-        : '<span style="background:var(--blue,#3b82f6);color:#fff;padding:2px 8px;border-radius:10px;font-size:11px">Updated</span>';
+      const prev = item._prev || {};
+      const isCreated = action === 'created';
 
-      const fields = Object.entries(item)
-        .filter(([k]) => k !== 'name' && k !== '_action' && k !== 'id')
-        .map(([k, v]) => {
-          const label = FIELD_LABELS[k] || k;
-          let val = v;
-          if (k === 'mrr' || k === 'arr') val = '$' + Number(v).toLocaleString();
-          return `<span style="display:inline-block;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 6px;margin:1px;font-size:11px"><b>${escHtml(label)}</b>: ${escHtml(String(val))}</span>`;
-        }).join(' ');
+      // Get changed fields (exclude internal keys)
+      const changedFields = Object.keys(item).filter(k => !_SYNC_SKIP_KEYS.has(k));
 
-      rowsHtml += `<tr>
-        <td style="white-space:nowrap;font-weight:500">${escHtml(item.name || '—')}</td>
-        <td style="text-align:center">${badge}</td>
-        <td>${fields || '<span style="color:var(--muted)">—</span>'}</td>
-      </tr>`;
+      if (isCreated) {
+        // Created: single summary row
+        const summary = changedFields
+          .filter(k => item[k] != null && item[k] !== '' && item[k] !== 0)
+          .map(k => `<b>${_SYNC_FIELD_LABELS[k] || k}</b>: ${escHtml(_syncFmtVal(k, item[k]))}`)
+          .join(' · ');
+        rowsHtml += `<tr style="border-top:1px solid var(--border)">
+          <td style="padding:6px 8px;white-space:nowrap;font-weight:500;vertical-align:top">${escHtml(item.name || '—')}</td>
+          <td style="padding:6px 8px;color:var(--green);font-weight:600">New</td>
+          <td style="padding:6px 8px;color:var(--muted)" colspan="2"><span style="font-size:11px">${summary || '—'}</span></td>
+        </tr>`;
+      } else {
+        // Updated: one row per changed field
+        const fieldRows = changedFields.map(k => ({
+          label: _SYNC_FIELD_LABELS[k] || k,
+          oldVal: _syncFmtVal(k, prev[k]),
+          newVal: _syncFmtVal(k, item[k]),
+        }));
+
+        for (let fi = 0; fi < fieldRows.length; fi++) {
+          const f = fieldRows[fi];
+          const isFirst = fi === 0;
+          const borderStyle = isFirst ? 'border-top:1px solid var(--border)' : '';
+          rowsHtml += `<tr style="${borderStyle}">
+            ${isFirst
+              ? `<td style="padding:6px 8px;white-space:nowrap;font-weight:500;vertical-align:top" rowspan="${fieldRows.length}">${escHtml(item.name || '—')}</td>`
+              : ''}
+            <td style="padding:4px 8px;color:var(--muted);font-size:12px">${escHtml(f.label)}</td>
+            <td style="padding:4px 8px;font-size:12px">${escHtml(f.oldVal)}</td>
+            <td style="padding:4px 8px;font-size:12px;font-weight:500">${escHtml(f.newVal)}</td>
+          </tr>`;
+        }
+      }
     }
   }
 
@@ -14203,9 +14180,9 @@ function showSyncResultsModal(platform, result) {
   modal.className = 'modal-bg';
   modal.onclick = function(e) { if (e.target === modal) modal.classList.remove('open'); };
   modal.innerHTML = `
-    <div class="modal" style="max-width:750px;max-height:80vh;display:flex;flex-direction:column">
+    <div class="modal" style="max-width:800px;max-height:80vh;display:flex;flex-direction:column">
       <div class="modal-hd">
-        <h2>${platformLabel} Sync Results</h2>
+        <h2>${platformLabel} Sync Changes</h2>
         <button class="modal-close" onclick="document.getElementById('sync-results-modal').classList.remove('open')">
           <svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
@@ -14222,8 +14199,9 @@ function showSyncResultsModal(platform, result) {
           <thead>
             <tr style="border-bottom:2px solid var(--border);text-align:left">
               <th style="padding:6px 8px">Customer</th>
-              <th style="padding:6px 8px;text-align:center">Action</th>
-              <th style="padding:6px 8px">Changes</th>
+              <th style="padding:6px 8px">Field</th>
+              <th style="padding:6px 8px">Previous</th>
+              <th style="padding:6px 8px">New</th>
             </tr>
           </thead>
           <tbody>${rowsHtml}</tbody>
@@ -14243,31 +14221,40 @@ function exportSyncResultsCsv(platform) {
   if (!_lastSyncResult) return;
   const updates = _lastSyncResult.updates || [];
   const created = _lastSyncResult.created || [];
-  const allChanges = [...created, ...updates];
+  const allChanges = [...updates, ...created];
   if (!allChanges.length) return;
 
-  // Collect all field keys
-  const fieldKeys = new Set();
-  for (const item of allChanges) {
-    Object.keys(item).forEach(k => { if (k !== '_action' && k !== 'id') fieldKeys.add(k); });
-  }
-  const cols = ['name', 'action', ...([...fieldKeys].filter(k => k !== 'name').sort())];
-
   const csvEsc = (v) => { const s = String(v ?? ''); return s.includes(',') || s.includes('"') || s.includes('\n') ? '"' + s.replace(/"/g, '""') + '"' : s; };
-  const rows = [cols.join(',')];
+  const rows = ['Customer,Action,Field,Previous,New'];
+
   for (const item of allChanges) {
-    const row = cols.map(c => {
-      if (c === 'action') return item._action || 'updated';
-      return csvEsc(item[c] ?? '');
-    });
-    rows.push(row.join(','));
+    const action = item._action || 'updated';
+    const prev = item._prev || {};
+    const isCreated = action === 'created';
+    const changedFields = Object.keys(item).filter(k => !_SYNC_SKIP_KEYS.has(k));
+
+    if (isCreated) {
+      // Single summary row for creates
+      const summary = changedFields.filter(k => item[k] != null && item[k] !== '' && item[k] !== 0)
+        .map(k => `${_SYNC_FIELD_LABELS[k] || k}: ${_syncFmtVal(k, item[k])}`).join('; ');
+      rows.push([csvEsc(item.name), 'Created', '', '', csvEsc(summary)].join(','));
+    } else {
+      for (const k of changedFields) {
+        rows.push([
+          csvEsc(item.name), 'Updated',
+          csvEsc(_SYNC_FIELD_LABELS[k] || k),
+          csvEsc(_syncFmtVal(k, prev[k])),
+          csvEsc(_syncFmtVal(k, item[k]))
+        ].join(','));
+      }
+    }
   }
 
   const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${platform}-sync-${new Date().toISOString().split('T')[0]}.csv`;
+  a.download = `${platform}-sync-changes-${new Date().toISOString().split('T')[0]}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -14325,6 +14312,14 @@ function renderHubSpotCard(integration) {
               onchange="updateSyncOption('hubspot','sync_creates',this.checked)" />
             <span class="mt-slider"></span>
           </label>
+        </div>
+        <div class="mt-row">
+          <span class="mt-label">Deal amounts are</span>
+          <select style="font-size:var(--fs-sm);padding:4px 8px;border-radius:6px;border:1px solid var(--border)"
+            onchange="updateSyncOption('hubspot','deal_amount_frequency',this.value)">
+            <option value="annual" ${(integration.config?.deal_amount_frequency || 'annual') === 'annual' ? 'selected' : ''}>Annual (÷12 for MRR)</option>
+            <option value="monthly" ${integration.config?.deal_amount_frequency === 'monthly' ? 'selected' : ''}>Monthly</option>
+          </select>
         </div>
         ${buildMetricTogglesHTML('hubspot', integration)}
       </div>
@@ -14433,48 +14428,15 @@ async function syncHubSpotUI() {
     _lastHubSpotSyncTime = Date.now();
     status.innerHTML = `<span style="color:var(--green)">✓ ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated (${stats.total || 0} companies)</span> <a href="#" onclick="event.preventDefault();showSyncResultsModal('hubspot',_lastHubSpotSyncResult)" style="font-size:var(--fs-sm);margin-left:6px">View Details</a>`;
     _lastHubSpotSyncResult = result;
-    toast(`HubSpot sync: ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated`, 'success');
+    toast(`HubSpot sync: ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated`, 'success', 6000);
 
-    // Always reload after sync
-    const preScores = new Map(customers.map(c => [c.id, c.score]));
-    const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
-    try {
-      if (isAdmin() && activeClientId !== '__own__') {
-        await loadClientCustomers(activeClientId, true);
-      } else {
-        await loadCustomersFromSupabase();
-      }
-    } catch(e) { console.warn('Post-sync reload:', e); }
-    _lastSyncTime = Date.now();
-    refreshLiveScores();
-    // Log history entries for changed customers
-    if ((stats.updated || 0) > 0 || (stats.created || 0) > 0) {
+    // Reload and track history
+    {
+      const preScores = new Map(customers.map(c => [c.id, c.score]));
+      const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
       const syncedNames = (result.updates || []).map(u => u.name?.toLowerCase());
-      const toSave = [];
-      for (const c of customers) {
-        if (!syncedNames.includes(c.name.toLowerCase())) continue;
-        const oldScore = preScores.get(c.id);
-        const oldSnap = preSignals.get(c.id);
-        const newSnap = buildHistorySnapshot(c);
-        const scoreChanged = oldScore != null && oldScore !== c.score;
-        const signalsChanged = JSON.stringify(oldSnap) !== JSON.stringify(newSnap);
-        if (scoreChanged || signalsChanged) {
-          c.history = c.history || [];
-          c.history.push({ score: c.score, date: new Date().toISOString(), signals: newSnap, prevSignals: oldSnap });
-          toSave.push(c);
-        }
-      }
-      if (toSave.length) {
-        pauseSync(10000);
-        for (const c of toSave) { try { await save(c); } catch(_) {} }
-      }
+      await postSyncHistoryTrack(preScores, preSignals, syncedNames);
     }
-    refreshMgrDropdown();
-    const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
-    if (active === 'homebase')  renderHomeBase();
-    if (active === 'customers') renderCustomers();
-    if (active === 'alerts')    renderAlerts();
-    if (active === 'trends')    renderTrends();
 
     _integrationCache['hubspot'] = {
       ...(_integrationCache['hubspot'] || {}),
@@ -14535,43 +14497,12 @@ async function autoSyncHubSpot() {
     _lastHubSpotSyncTime = Date.now();
     console.log(`[Auto-sync] HubSpot: ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated`);
 
-    // Always reload after auto-sync
-    const preScores = new Map(customers.map(c => [c.id, c.score]));
-    const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
-    try {
-      if (isAdmin() && activeClientId !== '__own__') {
-        await loadClientCustomers(activeClientId, true);
-      } else {
-        await loadCustomersFromSupabase();
-      }
-    } catch(e) { console.warn('Auto-sync reload:', e); }
-    _lastSyncTime = Date.now();
-    refreshLiveScores();
-    if ((stats.updated || 0) > 0 || (stats.created || 0) > 0) {
+    {
+      const preScores = new Map(customers.map(c => [c.id, c.score]));
+      const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
       const syncedNames = (result.updates || []).map(u => u.name?.toLowerCase());
-      const toSave = [];
-      for (const c of customers) {
-        if (!syncedNames.includes(c.name.toLowerCase())) continue;
-        const oldScore = preScores.get(c.id);
-        const oldSnap = preSignals.get(c.id);
-        const newSnap = buildHistorySnapshot(c);
-        if ((oldScore != null && oldScore !== c.score) || JSON.stringify(oldSnap) !== JSON.stringify(newSnap)) {
-          c.history = c.history || [];
-          c.history.push({ score: c.score, date: new Date().toISOString(), signals: newSnap, prevSignals: oldSnap });
-          toSave.push(c);
-        }
-      }
-      if (toSave.length) {
-        pauseSync(10000);
-        for (const c of toSave) { try { await save(c); } catch(_) {} }
-      }
+      await postSyncHistoryTrack(preScores, preSignals, syncedNames);
     }
-    refreshMgrDropdown();
-    const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
-    if (active === 'homebase')  renderHomeBase();
-    if (active === 'customers') renderCustomers();
-    if (active === 'alerts')    renderAlerts();
-    if (active === 'trends')    renderTrends();
 
     _integrationCache['hubspot'] = {
       ...(_integrationCache['hubspot'] || {}),
@@ -14642,6 +14573,14 @@ function renderSalesforceCard(integration) {
             <span class="mt-slider"></span>
           </label>
         </div>
+        <div class="mt-row">
+          <span class="mt-label">Opportunity amounts are</span>
+          <select style="font-size:var(--fs-sm);padding:4px 8px;border-radius:6px;border:1px solid var(--border)"
+            onchange="updateSyncOption('salesforce','deal_amount_frequency',this.value)">
+            <option value="annual" ${(integration.config?.deal_amount_frequency || 'annual') === 'annual' ? 'selected' : ''}>Annual (÷12 for MRR)</option>
+            <option value="monthly" ${integration.config?.deal_amount_frequency === 'monthly' ? 'selected' : ''}>Monthly</option>
+          </select>
+        </div>
         ${buildMetricTogglesHTML('salesforce', integration)}
       </div>
     </div>
@@ -14710,46 +14649,14 @@ async function syncSalesforceUI() {
 
     _lastSalesforceSyncResult = result;
     if (status) status.innerHTML = `<span style="color:var(--green)">✓ ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated (${stats.total || 0} accounts)</span> <a href="#" onclick="event.preventDefault();showSyncResultsModal('salesforce',_lastSalesforceSyncResult)" style="font-size:var(--fs-sm);margin-left:6px">View Details</a>`;
+    toast(`Salesforce sync: ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated`, 'success', 6000);
 
-    // Reload customers
     if ((stats.updated || 0) > 0 || (stats.created || 0) > 0) {
       const preScores = new Map(customers.map(c => [c.id, c.score]));
       const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
-      try {
-        if (isAdmin() && activeClientId !== '__own__') {
-          await loadClientCustomers(activeClientId, true);
-        } else {
-          await loadCustomersFromSupabase();
-        }
-      } catch(e) { console.warn('Salesforce sync reload:', e); }
-      _lastSyncTime = Date.now();
-      refreshLiveScores();
-
       const syncedNames = (result.updates || []).map(u => u.name?.toLowerCase());
-      const toSave = [];
-      for (const c of customers) {
-        if (!syncedNames.includes(c.name.toLowerCase())) continue;
-        const oldScore = preScores.get(c.id);
-        const oldSnap = preSignals.get(c.id);
-        const newSnap = buildHistorySnapshot(c);
-        if ((oldScore != null && oldScore !== c.score) || JSON.stringify(oldSnap) !== JSON.stringify(newSnap)) {
-          c.history = c.history || [];
-          c.history.push({ score: c.score, date: new Date().toISOString(), signals: newSnap, prevSignals: oldSnap });
-          toSave.push(c);
-        }
-      }
-      if (toSave.length) {
-        pauseSync(10000);
-        for (const c of toSave) { try { await save(c); } catch(_) {} }
-      }
+      await postSyncHistoryTrack(preScores, preSignals, syncedNames);
     }
-
-    refreshMgrDropdown();
-    const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
-    if (active === 'homebase')  renderHomeBase();
-    if (active === 'customers') renderCustomers();
-    if (active === 'alerts')    renderAlerts();
-    if (active === 'trends')    renderTrends();
 
     _integrationCache['salesforce'] = {
       ...(_integrationCache['salesforce'] || {}),
@@ -14765,7 +14672,7 @@ async function syncSalesforceUI() {
     if (statusAfterSF) statusAfterSF.innerHTML = `<span style="color:var(--green)">✓ ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated (${stats.total || 0} accounts)</span> <a href="#" onclick="event.preventDefault();showSyncResultsModal('salesforce',_lastSalesforceSyncResult)" style="font-size:var(--fs-sm);margin-left:6px">View Details</a>`;
   } catch(e) {
     if (status) status.innerHTML = `<span style="color:var(--red)">✕ ${escHtml(e.message)}</span>`;
-    toast('Salesforce sync failed: ' + e.message, 'error');
+    toast('Salesforce sync failed: ' + e.message, 'error', 6000);
   } finally {
     _salesforceSyncInProgress = false;
   }
@@ -14789,42 +14696,12 @@ async function autoSyncSalesforce() {
     _lastSalesforceSyncTime = Date.now();
     console.log(`[Auto-sync] Salesforce: ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated`);
 
-    const preScores = new Map(customers.map(c => [c.id, c.score]));
-    const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
-    try {
-      if (isAdmin() && activeClientId !== '__own__') {
-        await loadClientCustomers(activeClientId, true);
-      } else {
-        await loadCustomersFromSupabase();
-      }
-    } catch(e) { console.warn('Auto-sync reload:', e); }
-    _lastSyncTime = Date.now();
-    refreshLiveScores();
-    if ((stats.updated || 0) > 0 || (stats.created || 0) > 0) {
+    {
+      const preScores = new Map(customers.map(c => [c.id, c.score]));
+      const preSignals = new Map(customers.map(c => [c.id, buildHistorySnapshot(c)]));
       const syncedNames = (result.updates || []).map(u => u.name?.toLowerCase());
-      const toSave = [];
-      for (const c of customers) {
-        if (!syncedNames.includes(c.name.toLowerCase())) continue;
-        const oldScore = preScores.get(c.id);
-        const oldSnap = preSignals.get(c.id);
-        const newSnap = buildHistorySnapshot(c);
-        if ((oldScore != null && oldScore !== c.score) || JSON.stringify(oldSnap) !== JSON.stringify(newSnap)) {
-          c.history = c.history || [];
-          c.history.push({ score: c.score, date: new Date().toISOString(), signals: newSnap, prevSignals: oldSnap });
-          toSave.push(c);
-        }
-      }
-      if (toSave.length) {
-        pauseSync(10000);
-        for (const c of toSave) { try { await save(c); } catch(_) {} }
-      }
+      await postSyncHistoryTrack(preScores, preSignals, syncedNames);
     }
-    refreshMgrDropdown();
-    const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
-    if (active === 'homebase')  renderHomeBase();
-    if (active === 'customers') renderCustomers();
-    if (active === 'alerts')    renderAlerts();
-    if (active === 'trends')    renderTrends();
 
     _integrationCache['salesforce'] = {
       ...(_integrationCache['salesforce'] || {}),
@@ -21853,7 +21730,8 @@ const APP_FIELDS = {
   hubspot_company_id:  { label:'HubSpot Company ID',   required:false },
   renewal_date:        { label:'Renewal Date',          required:false },
   note:                { label:'Note',                  required:false },
-  sentiment:           { label:'Sentiment',             required:false }
+  sentiment:           { label:'Sentiment',             required:false },
+  history:             { label:'History (JSON)',        required:false }
 };
 
 const FIELD_ALIASES = {
@@ -21881,7 +21759,8 @@ const FIELD_ALIASES = {
   stripe_customer_id:  ['stripe_customer_id','stripe id','stripe customer id'],
   hubspot_company_id:  ['hubspot_company_id','hubspot id','hubspot company id'],
   note:                ['note','notes','comment','comments'],
-  sentiment:           ['sentiment','sentiment value','customer sentiment']
+  sentiment:           ['sentiment','sentiment value','customer sentiment'],
+  history:             ['history','score history','health history']
 };
 
 function autoMap() {
@@ -22035,7 +21914,8 @@ function applyMapping() {
       last_contact_date: isClr('last_contact_date') ? '' : normalizeDate(get('last_contact_date','')),
       scoring_profile:   isClr('scoring_profile') ? '' : get('scoring_profile',''),
       _note:           get('note',''),
-      _sentiment:      sentVal
+      _sentiment:      sentVal,
+      _history:        get('history','')
     };
   }).filter(r => r.name);
 
@@ -22088,8 +21968,9 @@ async function importCSV() {
     // Extract transient import fields (prefixed with _)
     const importNote = r._note || '';
     const importSentiment = r._sentiment || '';
+    const importHistory = r._history || '';
     const mappedFields = r._mapped || [];
-    delete r._note; delete r._sentiment; delete r._row; delete r._mapped;
+    delete r._note; delete r._sentiment; delete r._history; delete r._row; delete r._mapped;
 
     // If renewal_date provided, recalculate renewal months
     if (r.renewal_date) {
@@ -22116,6 +21997,16 @@ async function importCSV() {
       dupe.status = status;
       dupe._baseDays = dupe.days != null ? dupe.days : null;
       dupe.history = dupe.history || [];
+      // Merge imported history entries if provided (JSON array)
+      if (importHistory) {
+        try {
+          const parsed = JSON.parse(importHistory);
+          if (Array.isArray(parsed)) {
+            // Prepend imported entries before the current snapshot
+            dupe.history = [...parsed, ...dupe.history];
+          }
+        } catch(_) { console.warn('Invalid history JSON for', r.name); }
+      }
       dupe.history.push({ score, date: now, signals: buildHistorySnapshot(dupe) });
       // Append note if provided
       if (importNote) {
@@ -22134,16 +22025,21 @@ async function importCSV() {
       const status = getStatus(score);
       const notes = importNote ? [{ text: importNote, date: now }] : [];
       const sentiment = importSentiment ? [{ val: importSentiment, note: 'CSV import', date: now }] : [];
+      let importedHistory = [];
+      if (importHistory) {
+        try { const p = JSON.parse(importHistory); if (Array.isArray(p)) importedHistory = p; }
+        catch(_) { console.warn('Invalid history JSON for', r.name); }
+      }
       const newCust = {
         id: crypto.randomUUID(),
         ...r, score, status,
         _baseDays: r.days != null ? r.days : null,
         notes,
         sentiment,
-        history: [{ score, date: now }],
+        history: [...importedHistory, { score, date: now }],
         created: now
       };
-      newCust.history[0].signals = buildHistorySnapshot(newCust);
+      newCust.history[newCust.history.length - 1].signals = buildHistorySnapshot(newCust);
       applyAutoStage(newCust);
       customers.unshift(newCust);
       toCreate.push(newCust);

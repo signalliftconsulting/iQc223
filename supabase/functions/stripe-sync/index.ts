@@ -354,7 +354,9 @@ serve(async (req) => {
       }
 
       if (Object.keys(changes).length > 0) {
-        updates.push({ id: match.id, name: match.name, changes });
+        const prev: any = {};
+        for (const k of Object.keys(changes)) prev[k] = match[k] ?? null;
+        updates.push({ id: match.id, name: match.name, changes, prev });
         stats.updated++;
       }
     }
@@ -394,7 +396,7 @@ serve(async (req) => {
       success: true,
       action: 'stripe_sync',
       stats,
-      updates: updates.map(u => ({ name: u.name, _action: 'updated', ...u.changes })),
+      updates: updates.map(u => ({ name: u.name, _action: 'updated', _prev: u.prev || {}, ...u.changes })),
       created: [],
     }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
 

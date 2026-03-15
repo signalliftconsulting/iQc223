@@ -90,6 +90,58 @@ async function fetchTickets(token: string): Promise<any[]> {
   ], 100, ['companies']);
 }
 
+// Fetch feedback submissions (NPS/CSAT surveys) — requires Service Hub
+async function fetchFeedbackSubmissions(token: string): Promise<any[]> {
+  try {
+    return await hsFetchAll(token, '/crm/v3/objects/feedback_submissions', [
+      'hs_survey_type', 'hs_content', 'hs_submission_timestamp', 'hs_object_id'
+    ], 100, ['contacts']);
+  } catch (e: any) {
+    // Feedback API may not be available (requires Service Hub scope)
+    console.log('[hubspot-sync] Feedback submissions not available:', e.message);
+    return [];
+  }
+}
+
+// Build company → NPS/CSAT maps from feedback submissions + contact→company associations
+function buildFeedbackMaps(
+  feedbackSubmissions: any[],
+  contactCompanyMap: Map<string, string[]>
+): { npsMap: Map<string, number>, csatMap: Map<string, number> } {
+  const npsMap = new Map<string, number>();   // companyId → latest NPS score
+  const csatMap = new Map<string, number>();  // companyId → latest CSAT score
+  const npsTimestamps = new Map<string, number>();
+  const csatTimestamps = new Map<string, number>();
+
+  for (const fb of feedbackSubmissions) {
+    const props = fb.properties || {};
+    const surveyType = (props.hs_survey_type || '').toUpperCase();
+    const score = parseFloat(props.hs_content || '');
+    if (isNaN(score)) continue;
+    const ts = props.hs_submission_timestamp ? new Date(props.hs_submission_timestamp).getTime() : 0;
+
+    // Get associated contact IDs, then map to companies
+    const contactAssocs = fb.associations?.contacts?.results || [];
+    const contactIds = contactAssocs.map((a: any) => String(a.id));
+    const companyIds = new Set<string>();
+    for (const cid of contactIds) {
+      const companies = contactCompanyMap.get(cid) || [];
+      for (const coId of companies) companyIds.add(coId);
+    }
+
+    for (const companyId of companyIds) {
+      if (surveyType === 'NPS') {
+        const prevTs = npsTimestamps.get(companyId) || 0;
+        if (ts >= prevTs) { npsMap.set(companyId, score); npsTimestamps.set(companyId, ts); }
+      } else if (surveyType === 'CSAT' || surveyType === 'CES') {
+        const prevTs = csatTimestamps.get(companyId) || 0;
+        if (ts >= prevTs) { csatMap.set(companyId, score); csatTimestamps.set(companyId, ts); }
+      }
+    }
+  }
+  return { npsMap, csatMap };
+}
+
 // Extract ticket-to-company associations from inline associations data
 function extractTicketAssociations(tickets: any[]): Map<string, string[]> {
   const map = new Map<string, string[]>();
@@ -338,12 +390,14 @@ serve(async (req) => {
     // ── Fetch HubSpot data (parallel where possible) ──
     const syncMetrics = integration.config?.sync_metrics || {};
     const allowCreates = integration.config?.sync_creates !== false;
+    const dealAmountIsMonthly = integration.config?.deal_amount_frequency === 'monthly';
     const shouldSync = (metric: string) => syncMetrics[metric] !== false;
-    const [companies, deals, tickets, contacts] = await Promise.all([
+    const [companies, deals, tickets, contacts, feedbackSubmissions] = await Promise.all([
       fetchCompanies(token),
       fetchDeals(token),
       fetchTickets(token),
       fetchContacts(token).catch(e => { console.warn('[hubspot-sync] Contacts fetch skipped:', e.message); return []; }),
+      (shouldSync('nps') || shouldSync('csat')) ? fetchFeedbackSubmissions(token) : Promise.resolve([]),
     ]);
 
     // Extract associations from inline data (no separate batch API calls needed)
@@ -376,6 +430,22 @@ serve(async (req) => {
       }
     }
     console.log('[hubspot-sync] Contacts mapped:', companyContact.size, 'companies with primary contact');
+
+    // Build contact → company mapping for feedback submissions
+    const contactCompanyMap = new Map<string, string[]>();
+    for (const contact of contacts) {
+      const cid = String(contact.id);
+      const assocCompanies = contact.associations?.companies?.results || [];
+      if (assocCompanies.length) {
+        contactCompanyMap.set(cid, assocCompanies.map((a: any) => String(a.id)));
+      }
+    }
+
+    // Build NPS/CSAT maps from feedback submissions
+    const { npsMap, csatMap } = buildFeedbackMaps(feedbackSubmissions, contactCompanyMap);
+    if (npsMap.size || csatMap.size) {
+      console.log(`[hubspot-sync] Feedback: ${npsMap.size} NPS scores, ${csatMap.size} CSAT scores mapped to companies`);
+    }
 
     const engagementDays = await fetchEngagements(token);
 
@@ -414,7 +484,7 @@ serve(async (req) => {
 
       for (const companyId of assocCompanyIds) {
         const existing = companyDeals.get(companyId) || { mrr: 0, renewalDate: '' };
-        existing.mrr += amount > 0 ? Math.round(amount / 12) : 0; // annual → monthly
+        existing.mrr += amount > 0 ? Math.round(dealAmountIsMonthly ? amount : amount / 12) : 0;
         // Use closest future close date as renewal
         if (closeDate && closeDate > new Date().toISOString().split('T')[0]) {
           if (!existing.renewalDate || closeDate < existing.renewalDate) {
@@ -573,8 +643,24 @@ serve(async (req) => {
           }
         }
 
+        // NPS from feedback surveys
+        if (shouldSync('nps') && npsMap.has(hsId)) {
+          const npsScore = npsMap.get(hsId)!;
+          const npsCategory = npsScore >= 9 ? 'promoter' : npsScore >= 7 ? 'passive' : 'detractor';
+          if (npsCategory !== (match.nps || 'unknown')) changes.nps = npsCategory;
+        }
+
+        // CSAT from feedback surveys
+        if (shouldSync('csat') && csatMap.has(hsId)) {
+          const csatScore = csatMap.get(hsId)!;
+          const csatCategory = csatScore >= 4 ? 'positive' : csatScore >= 3 ? 'neutral' : 'negative';
+          if (csatCategory !== (match.csat || 'unknown')) changes.csat = csatCategory;
+        }
+
         if (Object.keys(changes).length > 0) {
-          updates.push({ id: match.id, name: match.name, changes });
+          const prev: any = {};
+          for (const k of Object.keys(changes)) prev[k] = match[k] ?? null;
+          updates.push({ id: match.id, name: match.name, changes, prev });
           stats.updated++;
         }
       } else if (allowCreates) {
@@ -598,8 +684,8 @@ serve(async (req) => {
           tags: props.industry || '',
           logins: 0,
           adoption: 0,
-          nps: '',
-          csat: null,
+          nps: npsMap.has(hsId) ? (npsMap.get(hsId)! >= 9 ? 'promoter' : npsMap.get(hsId)! >= 7 ? 'passive' : 'detractor') : 'unknown',
+          csat: csatMap.has(hsId) ? (csatMap.get(hsId)! >= 4 ? 'positive' : csatMap.get(hsId)! >= 3 ? 'neutral' : 'negative') : null,
           growth: 'none',
           history: JSON.stringify([]),
           sentiment: JSON.stringify([]),
@@ -666,7 +752,7 @@ serve(async (req) => {
       success: true,
       action: 'hubspot_sync',
       stats,
-      updates: updates.map(u => ({ name: u.name, _action: 'updated', ...u.changes })),
+      updates: updates.map(u => ({ name: u.name, _action: 'updated', _prev: u.prev || {}, ...u.changes })),
       created: creates.map(c => ({ name: c.name, _action: 'created', mrr: c.mrr, tier: c.tier, lifecycle: c.lifecycle, tickets: c.tickets, days: c.days, renewal_date: c.renewal_date || null, contact_email: c.contact_email || '', contact_name: c.contact_name || '' })),
     }), { headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } });
 

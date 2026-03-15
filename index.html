@@ -3437,6 +3437,23 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       <p>Filter automated alerts to a specific manager's portfolio. When set, alerts only fire for customers assigned to that manager — useful for routing notifications to the right CSM's Slack channel or email inbox.</p>
     </div>
 
+    <div class="help-card" data-accent="green">
+      <div class="help-hd">
+        <div class="help-hd-icon" style="background:#f0fdf4;color:#22c55e"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 4h16v16H4z"/><path d="M9 9h6v6H9z"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></svg></div>
+        <div><h3>Integration Sync</h3><p>How Stripe, HubSpot, and Salesforce sync your data</p></div>
+      </div>
+      <div class="help-sub">How it Works</div>
+      <p>Each integration pulls data from the external platform and maps it to customer fields in iQcadence. You control which metrics each integration owns via the <strong>Sync Overview</strong> toggles. Only one integration can own each metric at a time.</p>
+      <div class="help-sub">Tier Defaults</div>
+      <p>When an integration creates a new account and no tier data is available, default tiers differ: <strong>HubSpot</strong> defaults to SMB, <strong>Salesforce</strong> defaults to Mid-Market, and <strong>Stripe</strong> detects tier from product/plan names. You can always override the tier manually or via CSV import.</p>
+      <div class="help-sub">Deal Amount Frequency</div>
+      <p>HubSpot and Salesforce assume deal/opportunity amounts are <strong>annual</strong> by default and divide by 12 to calculate MRR. If your deals are already in monthly amounts, change the "Deal amounts are" setting on each integration card to "Already Monthly".</p>
+      <div class="help-sub">NPS & CSAT (HubSpot)</div>
+      <p>HubSpot can sync NPS and CSAT scores from <strong>Service Hub feedback surveys</strong>. NPS scores (0-10) are mapped to Promoter/Passive/Detractor. CSAT scores (1-5) are mapped to Positive/Neutral/Negative. Requires Service Hub with the feedback submissions scope enabled.</p>
+      <div class="help-sub">Create vs Update</div>
+      <p>HubSpot and Salesforce can create new customer accounts during sync. Toggle "Create new accounts" off if you only want to update existing accounts. Stripe is update-only and never creates new accounts.</p>
+    </div>
+
     <div class="help-card" data-accent="indigo">
       <div class="help-hd">
         <div class="help-hd-icon" style="background:#eef2ff;color:#6366f1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
@@ -3794,6 +3811,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=397"></script>
+<script src="js/app.js?v=399"></script>
 </body>
 </html>
