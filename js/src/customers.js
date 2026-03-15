@@ -196,7 +196,7 @@ function renderTableHeaders() {
   const funnelSVG = `<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>`;
   COL_DEFS.forEach(col => {
     const th = document.createElement('th');
-    /* name column no longer frozen to side — scrolls normally */
+    if (col.key === 'name') th.classList.add('col-frozen');
     const isActiveSort = col.sortKey && sortKey === col.sortKey;
     const filterActive = col.ftype && (col.key in columnFilters);
     const hasSort      = !!col.sortKey;
@@ -612,7 +612,7 @@ function _renderCustomers() {
     return `
       <tr class="${isSel?'selected':''}" data-id="${c.id}">
         <td class="cb-col"><input type="checkbox" ${isSel?'checked':''} onchange="toggleSelect('${escHtml(c.id)}',this.checked,event)" onclick="event.stopPropagation()"/></td>
-        <td style="cursor:pointer;min-width:160px" onclick="openDetail('${escHtml(c.id)}')"><strong>${escHtml(c.name)}</strong>${(()=>{ if (!c.next_touch) return ''; const ntd = Math.round((new Date(c.next_touch)-new Date())/86400000); return ntd < 0 ? ' <span class="nt-badge nt-overdue" style="font-size:var(--fs-xs);padding:1px 5px">Touch overdue</span>' : ''; })()}</td>
+        <td class="col-frozen" style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')"><strong>${escHtml(c.name)}</strong>${(()=>{ if (!c.next_touch) return ''; const ntd = Math.round((new Date(c.next_touch)-new Date())/86400000); return ntd < 0 ? ' <span class="nt-badge nt-overdue" style="font-size:var(--fs-xs);padding:1px 5px">Touch overdue</span>' : ''; })()}</td>
         <td>${c.manager ? escHtml(c.manager) : '<span style="color:var(--muted);font-style:italic">—</span>'}</td>
         <td>${c.scoring_profile && c.scoring_profile !== 'Global Weights' ? `<span class="tag">${escHtml(c.scoring_profile)}</span>` : '<span style="color:var(--muted);font-style:italic;font-size:var(--fs-sm)">Global</span>'}</td>
         <td>${scoreHTML(c)}</td>

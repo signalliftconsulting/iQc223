@@ -561,12 +561,18 @@ svg.sparkline{display:block}
 #customers-table-card{padding:0}
 #customers-table-card .list-toolbar{padding:14px 1.25rem 10px}
 #customers-table-card #filter-pill-bar{padding-left:1.25rem;padding-right:1.25rem}
-.ct thead{position:sticky;top:0;z-index:3}
+.ct thead{position:sticky;top:0;z-index:5}
 .ct th{text-align:left;font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;padding:8px 10px;border-bottom:1px solid #e2e8f0;background:#f8fafc;cursor:pointer;user-select:none;white-space:normal;line-height:1.25;min-width:0;transition:color .13s}
 .ct th:hover{color:#0f766e}
-/* Checkbox column */
-.ct .cb-col{background:#f8fafc}
+/* Frozen first columns: checkbox + Customer name */
+.ct .cb-col{position:sticky;left:0;z-index:4;background:#f8fafc}
 .ct td.cb-col{background:var(--surface)}
+.ct th.cb-col{z-index:6}
+.ct .col-frozen{position:sticky;left:32px;z-index:4;background:#f8fafc;min-width:160px;border-right:2px solid #e2e8f0}
+.ct td.col-frozen{background:var(--surface);border-right:2px solid #e2e8f0}
+.ct th.col-frozen{z-index:6}
+.ct tr:hover td.cb-col,.ct tr:hover td.col-frozen{background:var(--row-hover,#f1f5f9)}
+.ct tr.selected td.cb-col,.ct tr.selected td.col-frozen{background:var(--row-sel,#eff6ff)}
 .ct td{padding:9px 10px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
 .ct tr:last-child td{border-bottom:none}
 .ct tbody tr{transition:background .1s}
@@ -1167,7 +1173,8 @@ svg.sparkline{display:block}
 .cff-radio-group{display:flex;flex-direction:column;gap:3px;margin-bottom:7px}
 .cff-radio{display:flex;align-items:center;gap:6px;font-size:var(--fs-base);color:var(--text);cursor:pointer;padding:2px 0}
 .cff-radio input{accent-color:var(--blue);cursor:pointer}
-.cff-inputs{display:flex;align-items:center;gap:4px}
+.cff-inputs{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.cff-inputs .cff-date-input{flex:1 0 100%}
 .cff-num-input{width:100%;padding:5px 7px;border:1.5px solid var(--border);border-radius:5px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface);outline:none;transition:border-color .13s;box-sizing:border-box}
 .cff-num-input:focus{border-color:var(--focus)}
 .cff-between-sep{font-size:var(--fs-sm);color:var(--muted);flex-shrink:0}
@@ -3829,6 +3836,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=416"></script>
+<script src="js/app.js?v=417"></script>
 </body>
 </html>
