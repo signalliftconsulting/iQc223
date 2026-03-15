@@ -544,8 +544,15 @@ svg.sparkline{display:block}
 .fchip.fe{background:var(--teal-l);color:var(--teal);border-color:var(--teal-m)}
 .fchip.ft{background:#f3f0ef;color:#7a5c58;border-color:#c9b8b5}
 
-.ct{width:100%;min-width:1100px;border-collapse:collapse;font-size:var(--fs-base)}
+.ct{width:100%;min-width:1100px;border-collapse:separate;border-spacing:0;font-size:var(--fs-base)}
 #table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+/* Top scrollbar — mirrors horizontal scroll of the main table */
+#cust-top-scroll{overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}
+#cust-top-scroll::-webkit-scrollbar{height:6px}
+#cust-top-scroll::-webkit-scrollbar-track{background:transparent}
+#cust-top-scroll::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+#cust-top-scroll::-webkit-scrollbar-thumb:hover{background:#94a3b8}
+#cust-top-scroll-inner{height:1px}
 #cust-scroll-wrap{max-height:680px;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}
 #cust-scroll-wrap::-webkit-scrollbar{width:6px;height:6px}
 #cust-scroll-wrap::-webkit-scrollbar-track{background:transparent}
@@ -554,9 +561,16 @@ svg.sparkline{display:block}
 #customers-table-card{padding:0}
 #customers-table-card .list-toolbar{padding:14px 1.25rem 10px}
 #customers-table-card #filter-pill-bar{padding-left:1.25rem;padding-right:1.25rem}
-.ct thead{position:sticky;top:0;z-index:2}
+.ct thead{position:sticky;top:0;z-index:3}
 .ct th{text-align:left;font-size:var(--fs-xs);font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;padding:8px 10px;border-bottom:1px solid #e2e8f0;background:#f8fafc;cursor:pointer;user-select:none;white-space:normal;line-height:1.25;min-width:0;transition:color .13s}
 .ct th:hover{color:#0f766e}
+/* Frozen first columns: checkbox + Customer name */
+.ct .cb-col{position:sticky;left:0;z-index:4;background:#f8fafc}
+.ct td.cb-col{background:var(--surface)}
+.ct .col-frozen{position:sticky;left:32px;z-index:4;background:#f8fafc;min-width:160px;border-right:2px solid #e2e8f0}
+.ct td.col-frozen{background:var(--surface);border-right:2px solid #e2e8f0}
+.ct tr:hover td.cb-col,.ct tr:hover td.col-frozen{background:var(--row-hover,#f1f5f9)}
+.ct tr.selected td.cb-col,.ct tr.selected td.col-frozen{background:var(--row-sel,#eff6ff)}
 .ct td{padding:9px 10px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
 .ct tr:last-child td{border-bottom:none}
 .ct tbody tr{transition:background .1s}
@@ -1909,6 +1923,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
     <div id="filter-pill-bar" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:10px;align-items:center"></div>
     <div id="table-wrap">
       <div class="empty-st" id="cust-empty"><div class="ei"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/></svg></div><h3>No customers yet</h3><p>Score your first customer manually or bulk-import via CSV.</p><div style="display:flex;gap:8px;justify-content:center;margin-top:12px"><button class="btn btn-primary btn-sm" onclick="nav('score')">+ Score a Customer</button><button class="btn btn-outline btn-sm" onclick="nav('csv')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Import CSV</button></div></div>
+      <div id="cust-top-scroll" style="display:none"><div id="cust-top-scroll-inner"></div></div>
       <div id="cust-scroll-wrap">
         <table class="ct" id="cust-table" style="display:none">
           <thead id="cust-thead"><tr>
@@ -3814,6 +3829,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=405"></script>
+<script src="js/app.js?v=406"></script>
 </body>
 </html>

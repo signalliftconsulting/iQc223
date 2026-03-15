@@ -263,22 +263,24 @@ function applyTierGating() {
 }
 
 // Column definitions — drives header rendering + filter logic
+// Order: Customer (frozen) → details/meta → scores/signals at end
 const COL_DEFS = [
-  { key:'name',      label:'Customer',     ftype:'text',   sortKey:'name' },
-  { key:'manager',   label:'Manager',      ftype:'text',   sortKey:'manager' },
-  { key:'profile',   label:'Profile',      ftype:'enum',   sortKey:'profile', enumFn:()=>profiles.map(p=>p.name) },
-  { key:'score',     label:'Score',        ftype:'number', sortKey:'score' },
+  { key:'name',      label:'Customer',      ftype:'text',   sortKey:'name' },
+  { key:'manager',   label:'Manager',       ftype:'text',   sortKey:'manager' },
+  { key:'profile',   label:'Profile',       ftype:'enum',   sortKey:'profile', enumFn:()=>profiles.map(p=>p.name) },
+  { key:'lifecycle', label:'Stage',         ftype:'enum',   sortKey:'lifecycle',  enumVals:['onboarding','active','atrisk','won','churned'] },
+  { key:'mrr',       label:'MRR',           ftype:'number', sortKey:'mrr' },
+  { key:'arr',       label:'ARR',           ftype:'number', sortKey:'arr' },
+  { key:'since',     label:'Tenure',        ftype:'number', sortKey:'since' },
+  { key:'created',   label:'Date Added',    ftype:'number', sortKey:'created' },
+  { key:'renewal',   label:'Renewal',       ftype:'number', sortKey:'renewal' },
+  { key:'next_touch',label:'Next Touch',    ftype:'number', sortKey:'next_touch' },
+  { key:'days',      label:'Last Contact',  ftype:'number', sortKey:'days' },
+  { key:'tags',      label:'Tags',          ftype:'text',   sortKey:'tags' },
+  { key:'score',     label:'Score',         ftype:'number', sortKey:'score' },
   { key:'_momentum', label:'Momentum (7d)', ftype:'enum',   sortKey:'_momentum',  enumVals:['up','dn','flat','new'] },
-  { key:'status',    label:'Status',       ftype:'enum',   sortKey:'status',     enumVals:['critical','risk','watch','healthy','expand'] },
-  { key:'lifecycle', label:'Stage',        ftype:'enum',   sortKey:'lifecycle',  enumVals:['onboarding','active','atrisk','won','churned'] },
-  { key:'mrr',       label:'MRR',          ftype:'number', sortKey:'mrr' },
-  { key:'arr',       label:'ARR',          ftype:'number', sortKey:'arr' },
-  { key:'since',     label:'Tenure',       ftype:'number', sortKey:'since' },
-  { key:'tickets',   label:'Tickets',      ftype:'number', sortKey:'tickets' },
-  { key:'days',      label:'Last Contact', ftype:'number', sortKey:'days' },
-  { key:'renewal',   label:'Renewal',      ftype:'number', sortKey:'renewal' },
-  { key:'next_touch',label:'Next Touch',   ftype:'number', sortKey:'next_touch' },
-  { key:'tags',      label:'Tags',         ftype:'text',   sortKey:'tags' },
+  { key:'status',    label:'Status',        ftype:'enum',   sortKey:'status',     enumVals:['critical','risk','watch','healthy','expand'] },
+  { key:'tickets',   label:'Tickets',       ftype:'number', sortKey:'tickets' },
 ];
 
 const ENUM_DISPLAY = {
@@ -6695,6 +6697,7 @@ function renderTableHeaders() {
   const funnelSVG = `<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>`;
   COL_DEFS.forEach(col => {
     const th = document.createElement('th');
+    if (col.key === 'name') th.classList.add('col-frozen');
     const isActiveSort = col.sortKey && sortKey === col.sortKey;
     const filterActive = col.ftype && (col.key in columnFilters);
     const hasSort      = !!col.sortKey;
@@ -7020,8 +7023,8 @@ function _renderCustomers() {
 
   // Sort
   list.sort((a,b) => {
-    let av = sortKey==='_delta'?getDelta7d(a): sortKey==='_momentum'?getDelta7d(a): sortKey==='status'?(a.status||''): sortKey==='lifecycle'?(a.lifecycle||''): sortKey==='tags'?(a.tags||[]).join(', '): sortKey==='name'?a.name: sortKey==='manager'?(a.manager||'zzz'): sortKey==='profile'?(a.scoring_profile||'zzz'): sortKey==='score'?a.score: sortKey==='mrr'?a.mrr||0: sortKey==='arr'?(a.arr||(a.mrr*12)||0): sortKey==='since'?(a.since||'9999'): sortKey==='days'?(a.days != null ? a.days : 999): sortKey==='renewal'?a.renewal||99: sortKey==='next_touch'?(a.next_touch||'9999'):0;
-    let bv = sortKey==='_delta'?getDelta7d(b): sortKey==='_momentum'?getDelta7d(b): sortKey==='status'?(b.status||''): sortKey==='lifecycle'?(b.lifecycle||''): sortKey==='tags'?(b.tags||[]).join(', '): sortKey==='name'?b.name: sortKey==='manager'?(b.manager||'zzz'): sortKey==='profile'?(b.scoring_profile||'zzz'): sortKey==='score'?b.score: sortKey==='mrr'?b.mrr||0: sortKey==='arr'?(b.arr||(b.mrr*12)||0): sortKey==='since'?(b.since||'9999'): sortKey==='days'?(b.days != null ? b.days : 999): sortKey==='renewal'?b.renewal||99: sortKey==='next_touch'?(b.next_touch||'9999'):0;
+    let av = sortKey==='_delta'?getDelta7d(a): sortKey==='_momentum'?getDelta7d(a): sortKey==='status'?(a.status||''): sortKey==='lifecycle'?(a.lifecycle||''): sortKey==='tags'?(a.tags||[]).join(', '): sortKey==='name'?a.name: sortKey==='manager'?(a.manager||'zzz'): sortKey==='profile'?(a.scoring_profile||'zzz'): sortKey==='score'?a.score: sortKey==='mrr'?a.mrr||0: sortKey==='arr'?(a.arr||(a.mrr*12)||0): sortKey==='since'?(a.since||'9999'): sortKey==='created'?(a.created||'9999'): sortKey==='days'?(a.days != null ? a.days : 999): sortKey==='renewal'?a.renewal||99: sortKey==='next_touch'?(a.next_touch||'9999'):0;
+    let bv = sortKey==='_delta'?getDelta7d(b): sortKey==='_momentum'?getDelta7d(b): sortKey==='status'?(b.status||''): sortKey==='lifecycle'?(b.lifecycle||''): sortKey==='tags'?(b.tags||[]).join(', '): sortKey==='name'?b.name: sortKey==='manager'?(b.manager||'zzz'): sortKey==='profile'?(b.scoring_profile||'zzz'): sortKey==='score'?b.score: sortKey==='mrr'?b.mrr||0: sortKey==='arr'?(b.arr||(b.mrr*12)||0): sortKey==='since'?(b.since||'9999'): sortKey==='created'?(b.created||'9999'): sortKey==='days'?(b.days != null ? b.days : 999): sortKey==='renewal'?b.renewal||99: sortKey==='next_touch'?(b.next_touch||'9999'):0;
     if (typeof av === 'string') return av.localeCompare(bv) * sortDir;
     return (av - bv) * sortDir;
   });
@@ -7060,12 +7063,9 @@ function _renderCustomers() {
     return `
       <tr class="${isSel?'selected':''}" data-id="${c.id}">
         <td class="cb-col"><input type="checkbox" ${isSel?'checked':''} onchange="toggleSelect('${escHtml(c.id)}',this.checked)" onclick="event.stopPropagation()"/></td>
-        <td style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')"><strong>${escHtml(c.name)}</strong>${(()=>{ if (!c.next_touch) return ''; const ntd = Math.round((new Date(c.next_touch)-new Date())/86400000); return ntd < 0 ? ' <span class="nt-badge nt-overdue" style="font-size:var(--fs-xs);padding:1px 5px">Touch overdue</span>' : ''; })()}</td>
+        <td class="col-frozen" style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')"><strong>${escHtml(c.name)}</strong>${(()=>{ if (!c.next_touch) return ''; const ntd = Math.round((new Date(c.next_touch)-new Date())/86400000); return ntd < 0 ? ' <span class="nt-badge nt-overdue" style="font-size:var(--fs-xs);padding:1px 5px">Touch overdue</span>' : ''; })()}</td>
         <td>${c.manager ? escHtml(c.manager) : '<span style="color:var(--muted);font-style:italic">—</span>'}</td>
         <td>${c.scoring_profile && c.scoring_profile !== 'Global Weights' ? `<span class="tag">${escHtml(c.scoring_profile)}</span>` : '<span style="color:var(--muted);font-style:italic;font-size:var(--fs-sm)">Global</span>'}</td>
-        <td>${scoreHTML(c)}</td>
-        <td>${momentumHTML(c)}</td>
-        <td>${badgeHTML(c.status)}</td>
         <td>${lifecycleBadge(c.lifecycle)}</td>
         <td>${c.mrr ? '$'+fmtNum(c.mrr) : '—'}</td>
         <td>${(()=>{ const arr = c.arr || (c.mrr * 12); return arr ? '$'+fmtNum(arr) : '—'; })()}</td>
@@ -7078,8 +7078,11 @@ function _renderCustomers() {
           const yrs = Math.floor(months/12), rem = months%12;
           return rem ? `${yrs}y ${rem}mo` : `${yrs}y`;
         })()}</td>
-        <td>${c.tickets ? `<span style="font-weight:600${c.tickets >= 3 ? ';color:#dc2626' : c.tickets >= 1 ? ';color:#d97706' : ''}">${c.tickets}</span>` : '<span style="color:var(--muted)">0</span>'}</td>
-        <td><div class="ct-two-line"><span class="${cad.cls}">${cad.label.replace(/\s*\(\d+d\)/,'')}</span><span class="ct-sub">${c.days != null ? c.days + 'd ago' : 'N/A'}</span></div></td>
+        <td>${(()=>{
+          if (!c.created) return '—';
+          const d = new Date(c.created);
+          return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+        })()}</td>
         <td>${(()=>{
           if (c.renewal_date) {
             const d = new Date(c.renewal_date);
@@ -7107,6 +7110,7 @@ function _renderCustomers() {
           if (ntd <= 7)  return `<span class="nt-badge nt-ok">${dateStr}</span>`;
           return `<span style="font-size:var(--fs-sm);color:var(--muted)">${dateStr}</span>`;
         })()}</td>
+        <td><div class="ct-two-line"><span class="${cad.cls}">${cad.label.replace(/\s*\(\d+d\)/,'')}</span><span class="ct-sub">${c.days != null ? c.days + 'd ago' : 'N/A'}</span></div></td>
         <td>${((tags) => {
           if (!tags.length) return '';
           const first = `<span class="tag">${escHtml(tags[0])}</span>`;
@@ -7114,8 +7118,47 @@ function _renderCustomers() {
           const allTags = tags.map(t => escHtml(t)).join(', ');
           return first + `<span class="tag tag-more" title="${allTags}">+${tags.length - 1}</span>`;
         })(c.tags||[])}</td>
+        <td>${scoreHTML(c)}</td>
+        <td>${momentumHTML(c)}</td>
+        <td>${badgeHTML(c.status)}</td>
+        <td>${c.tickets ? `<span style="font-weight:600${c.tickets >= 3 ? ';color:#dc2626' : c.tickets >= 1 ? ';color:#d97706' : ''}">${c.tickets}</span>` : '<span style="color:var(--muted)">0</span>'}</td>
       </tr>`;
   }).join('');
+
+  // Sync top scrollbar width and visibility
+  _syncTopScrollbar();
+}
+
+// ─── TOP SCROLLBAR SYNC ─────────────────────────────────────
+let _topScrollSyncing = false;
+function _syncTopScrollbar() {
+  const wrap = el('cust-scroll-wrap');
+  const top  = el('cust-top-scroll');
+  const inner = el('cust-top-scroll-inner');
+  const tbl  = el('cust-table');
+  if (!wrap || !top || !inner || !tbl) return;
+
+  // Match inner width to table width so top scrollbar appears
+  const tw = tbl.scrollWidth;
+  inner.style.width = tw + 'px';
+  top.style.display = tw > wrap.clientWidth ? '' : 'none';
+
+  // Bidirectional scroll sync (avoid infinite loop with flag)
+  if (!top._synced) {
+    top._synced = true;
+    top.addEventListener('scroll', () => {
+      if (_topScrollSyncing) return;
+      _topScrollSyncing = true;
+      wrap.scrollLeft = top.scrollLeft;
+      _topScrollSyncing = false;
+    });
+    wrap.addEventListener('scroll', () => {
+      if (_topScrollSyncing) return;
+      _topScrollSyncing = true;
+      top.scrollLeft = wrap.scrollLeft;
+      _topScrollSyncing = false;
+    });
+  }
 }
 
 // ─── INLINE NEXT TOUCH EDITOR ────────────────────────────────

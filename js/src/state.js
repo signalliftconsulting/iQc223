@@ -257,22 +257,24 @@ function applyTierGating() {
 }
 
 // Column definitions — drives header rendering + filter logic
+// Order: Customer (frozen) → details/meta → scores/signals at end
 const COL_DEFS = [
-  { key:'name',      label:'Customer',     ftype:'text',   sortKey:'name' },
-  { key:'manager',   label:'Manager',      ftype:'text',   sortKey:'manager' },
-  { key:'profile',   label:'Profile',      ftype:'enum',   sortKey:'profile', enumFn:()=>profiles.map(p=>p.name) },
-  { key:'score',     label:'Score',        ftype:'number', sortKey:'score' },
+  { key:'name',      label:'Customer',      ftype:'text',   sortKey:'name' },
+  { key:'manager',   label:'Manager',       ftype:'text',   sortKey:'manager' },
+  { key:'profile',   label:'Profile',       ftype:'enum',   sortKey:'profile', enumFn:()=>profiles.map(p=>p.name) },
+  { key:'lifecycle', label:'Stage',         ftype:'enum',   sortKey:'lifecycle',  enumVals:['onboarding','active','atrisk','won','churned'] },
+  { key:'mrr',       label:'MRR',           ftype:'number', sortKey:'mrr' },
+  { key:'arr',       label:'ARR',           ftype:'number', sortKey:'arr' },
+  { key:'since',     label:'Tenure',        ftype:'number', sortKey:'since' },
+  { key:'created',   label:'Date Added',    ftype:'number', sortKey:'created' },
+  { key:'renewal',   label:'Renewal',       ftype:'number', sortKey:'renewal' },
+  { key:'next_touch',label:'Next Touch',    ftype:'number', sortKey:'next_touch' },
+  { key:'days',      label:'Last Contact',  ftype:'number', sortKey:'days' },
+  { key:'tags',      label:'Tags',          ftype:'text',   sortKey:'tags' },
+  { key:'score',     label:'Score',         ftype:'number', sortKey:'score' },
   { key:'_momentum', label:'Momentum (7d)', ftype:'enum',   sortKey:'_momentum',  enumVals:['up','dn','flat','new'] },
-  { key:'status',    label:'Status',       ftype:'enum',   sortKey:'status',     enumVals:['critical','risk','watch','healthy','expand'] },
-  { key:'lifecycle', label:'Stage',        ftype:'enum',   sortKey:'lifecycle',  enumVals:['onboarding','active','atrisk','won','churned'] },
-  { key:'mrr',       label:'MRR',          ftype:'number', sortKey:'mrr' },
-  { key:'arr',       label:'ARR',          ftype:'number', sortKey:'arr' },
-  { key:'since',     label:'Tenure',       ftype:'number', sortKey:'since' },
-  { key:'tickets',   label:'Tickets',      ftype:'number', sortKey:'tickets' },
-  { key:'days',      label:'Last Contact', ftype:'number', sortKey:'days' },
-  { key:'renewal',   label:'Renewal',      ftype:'number', sortKey:'renewal' },
-  { key:'next_touch',label:'Next Touch',   ftype:'number', sortKey:'next_touch' },
-  { key:'tags',      label:'Tags',         ftype:'text',   sortKey:'tags' },
+  { key:'status',    label:'Status',        ftype:'enum',   sortKey:'status',     enumVals:['critical','risk','watch','healthy','expand'] },
+  { key:'tickets',   label:'Tickets',       ftype:'number', sortKey:'tickets' },
 ];
 
 const ENUM_DISPLAY = {
