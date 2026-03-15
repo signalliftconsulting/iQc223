@@ -10006,7 +10006,7 @@ function renderDataHealth() {
   const sigKeys = ['logins','adoption','tickets','nps','csat','days'];
   customers.forEach(c => {
     if (c.days != null && c.days >= 30) stale++;
-    const miss = sigKeys.filter(s => c[s] === null || c[s] === undefined);
+    const miss = sigKeys.filter(s => signalOn(c, s) && (c[s] === null || c[s] === undefined));
     if (miss.length >= 2) missing++;
   });
   const complete = total - missing;
@@ -10060,7 +10060,7 @@ function showDhDetail(type) {
     title.textContent = 'Incomplete Signals (2+ missing)';
     const rows = [];
     customers.forEach(c => {
-      const miss = sigKeys.filter(s => c[s] === null || c[s] === undefined);
+      const miss = sigKeys.filter(s => signalOn(c, s) && (c[s] === null || c[s] === undefined));
       if (miss.length >= 2) rows.push({ c, miss });
     });
     rows.sort((a,b) => b.miss.length - a.miss.length);
