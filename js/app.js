@@ -881,7 +881,8 @@ function fromRow(row) {
     billing_interval:    row.billing_interval    || '',
     renewal_date:        row.renewal_date        || '',
     contact_name:        row.contact_name        || '',
-    contact_email:       row.contact_email       || ''
+    contact_email:       row.contact_email       || '',
+    _client_id:          row.client_id           || null
   };
 }
 
@@ -932,7 +933,15 @@ function toRow(c) {
     contact_name:        c.contact_name        || '',
     contact_email:       c.contact_email       || ''
   };
-  if (_dbHasClientId && _userClientId) row.client_id = _userClientId;
+  // Preserve the customer's original client_id from the DB row.
+  // Falls back to active client context (admin viewing another client),
+  // then to the current user's own client_id.
+  if (_dbHasClientId) {
+    const cid = c._client_id
+      || (typeof isAdmin === 'function' && isAdmin() && typeof activeClientId !== 'undefined' && activeClientId !== '__own__' ? activeClientId : null)
+      || _userClientId;
+    if (cid) row.client_id = cid;
+  }
   // Strip columns that don't exist in the DB (detected during first load)
   if (_dbColumns) {
     for (const key of Object.keys(row)) {
@@ -1329,105 +1338,134 @@ const _DEMO_SENTIMENTS = [
 
 // ── Trajectory definitions: each has base signal ranges + trend function ──
 // trend(d,t) returns 0–1 where d=dayIndex, t=totalDays. 1=best signals, 0=worst.
+// Wide signal ranges ensure visible metric changes as trend value shifts.
 const _DEMO_TRAJECTORIES = {
   'stable-healthy': {
-    logins:[18,30], adoption:[65,95], tickets:[0,2], days:[2,15],
+    logins:[14,30], adoption:[60,98], tickets:[0,3], days:[1,12],
     npsOpts:[8,9,9,10,10], csatOpts:[4,4,5,5,5],
     growthOpts:['strong','strong','mild'],
-    lifecycle:'active', noise:0.10,
-    trend: (d,t) => 0.82 + 0.14 * Math.sin(d/t * Math.PI * 6) // wobble 82-96
+    lifecycle:'active', noise:0.12,
+    // Healthy but with real wobble — dips into 70s occasionally
+    trend: (d,t) => 0.78 + 0.18 * Math.sin(d/t * Math.PI * 8) + 0.06 * Math.cos(d/t * Math.PI * 3)
   },
   'stable-mid': {
-    logins:[8,18], adoption:[40,65], tickets:[1,3], days:[10,30],
-    npsOpts:[6,7,7,7,8], csatOpts:[3,3,4,4,4],
+    logins:[4,20], adoption:[28,72], tickets:[1,5], days:[8,40],
+    npsOpts:[5,6,7,7,8], csatOpts:[3,3,3,4,4],
     growthOpts:['none','mild','mild'],
-    lifecycle:'active', noise:0.08,
-    trend: (d,t) => 0.55 + 0.10 * Math.sin(d/t * Math.PI * 4) // wobble 55-65, "watch" zone
+    lifecycle:'active', noise:0.10,
+    // Watch zone with noticeable wobble between 40-65
+    trend: (d,t) => 0.48 + 0.18 * Math.sin(d/t * Math.PI * 5) + 0.06 * Math.cos(d/t * Math.PI * 13)
   },
   'stable-low': {
-    logins:[3,10], adoption:[18,40], tickets:[2,5], days:[25,55],
-    npsOpts:[4,4,5,5,6], csatOpts:[2,2,3,3,3],
+    logins:[1,12], adoption:[10,45], tickets:[2,7], days:[20,70],
+    npsOpts:[3,4,4,5,5,6], csatOpts:[1,2,2,3,3],
     growthOpts:['none','none','mild'],
-    lifecycle:'atrisk', noise:0.08,
-    trend: (d,t) => 0.32 + 0.08 * Math.sin(d/t * Math.PI * 3) // wobble 32-40, "risk" zone
+    lifecycle:'atrisk', noise:0.10,
+    // Risk zone — brief upticks that never sustain
+    trend: (d,t) => 0.25 + 0.12 * Math.sin(d/t * Math.PI * 4) + 0.08 * Math.max(0, Math.sin(d/t * Math.PI * 9))
   },
   'improving': {
-    logins:[6,28], adoption:[25,88], tickets:[0,4], days:[5,35],
-    npsOpts:[5,6,7,7,8,9], csatOpts:[3,3,4,4,4,5],
+    logins:[3,28], adoption:[15,92], tickets:[0,6], days:[3,50],
+    npsOpts:[4,5,6,7,8,9], csatOpts:[2,3,3,4,4,5],
     growthOpts:['none','mild','mild','strong'],
     lifecycle:'active', noise:0.10,
-    // Starts moderate, steady climb to healthy
-    trend: (d,t) => { const p = d/t; return 0.30 + 0.65 * (p < 0.3 ? p*0.3/0.3 : 0.30 + 0.70*((p-0.3)/0.7)); }
+    // Clear upward ramp — starts low ~25, ends high ~90, with steps/plateaus
+    trend: (d,t) => {
+      const p = d/t;
+      if (p < 0.15) return 0.18 + 0.10 * p / 0.15;                         // slow start
+      if (p < 0.35) return 0.28 + 0.20 * (p - 0.15) / 0.20;               // first push
+      if (p < 0.45) return 0.48 + 0.04 * Math.sin((p - 0.35) * Math.PI * 8); // plateau
+      if (p < 0.70) return 0.48 + 0.30 * (p - 0.45) / 0.25;               // second push
+      return 0.78 + 0.17 * (p - 0.70) / 0.30;                              // strong finish
+    }
   },
   'declining': {
-    logins:[6,26], adoption:[25,78], tickets:[0,5], days:[5,45],
-    npsOpts:[9,8,7,6,5,5], csatOpts:[5,4,4,3,3,2],
+    logins:[2,26], adoption:[12,85], tickets:[0,8], days:[3,65],
+    npsOpts:[9,8,7,6,5,4,4], csatOpts:[5,4,4,3,2,2,1],
     growthOpts:['strong','mild','none','none'],
-    lifecycle:'atrisk', noise:0.09,
-    // Gradual decline from healthy to watch/risk zone
-    trend: (d,t) => { const p = d/t; return p < 0.35 ? 0.92 - 0.22*p/0.35 : p < 0.55 ? 0.70 : 0.70 - 0.32*(p-0.55)/0.45; }
+    lifecycle:'atrisk', noise:0.08,
+    // Starts healthy ~90, clear decline to ~25 with a false recovery mid-way
+    trend: (d,t) => {
+      const p = d/t;
+      if (p < 0.25) return 0.92 - 0.18 * p / 0.25;                         // initial slide
+      if (p < 0.40) return 0.74 - 0.20 * (p - 0.25) / 0.15;               // accelerating
+      if (p < 0.55) return 0.54 + 0.12 * Math.sin((p - 0.40) / 0.15 * Math.PI); // false rally
+      return 0.54 - 0.35 * (p - 0.55) / 0.45;                              // final decline
+    }
   },
   'slow-decline': {
-    logins:[5,20], adoption:[20,60], tickets:[1,5], days:[10,50],
-    npsOpts:[7,6,6,5,5,4], csatOpts:[4,3,3,3,2,2],
+    logins:[3,22], adoption:[15,68], tickets:[1,6], days:[8,55],
+    npsOpts:[7,7,6,6,5,5,4], csatOpts:[4,4,3,3,3,2,2],
     growthOpts:['mild','none','none'],
-    lifecycle:'active', noise:0.06,
-    // Very gradual, ends in watch zone not critical
-    trend: (d,t) => 0.85 - 0.40 * (d/t)
+    lifecycle:'active', noise:0.07,
+    // Gradual slide from 88 → 38 with small wobbles
+    trend: (d,t) => 0.88 - 0.50 * (d/t) + 0.06 * Math.sin(d/t * Math.PI * 7)
   },
   'volatile': {
-    logins:[6,28], adoption:[30,85], tickets:[0,5], days:[5,40],
-    npsOpts:[5,6,7,9,10,7,5], csatOpts:[2,3,4,5,4,3,3],
+    logins:[2,30], adoption:[15,95], tickets:[0,7], days:[2,55],
+    npsOpts:[4,6,7,9,10,7,4], csatOpts:[2,3,4,5,4,3,2],
     growthOpts:['none','mild','strong','none','mild'],
-    lifecycle:'active', noise:0.12,
-    // Swings around 60-65, generally healthy-ish with dips
-    trend: (d,t) => 0.62 + 0.30 * Math.sin(d/t * Math.PI * 5) * Math.cos(d/t * Math.PI * 1.7)
+    lifecycle:'active', noise:0.14,
+    // Wild swings — big peaks and valleys, 3 full cycles
+    trend: (d,t) => {
+      const p = d/t;
+      return 0.52 + 0.38 * Math.sin(p * Math.PI * 6) * (0.7 + 0.3 * Math.cos(p * Math.PI * 2.3));
+    }
   },
   'onboarding': {
-    logins:[0,22], adoption:[5,60], tickets:[0,3], days:[3,15],
-    npsOpts:[null,null,7,7,8], csatOpts:[null,null,3,4,4],
+    logins:[0,24], adoption:[0,65], tickets:[0,4], days:[2,20],
+    npsOpts:[null,null,6,7,7,8], csatOpts:[null,null,3,3,4,4],
     growthOpts:['none','mild'],
-    lifecycle:'onboarding', noise:0.10,
-    // Ramp up in first half, plateau at healthy
-    trend: (d,t) => d < t*0.5 ? (d/(t*0.5)) * 0.80 : 0.80 + 0.15*(d-t*0.5)/(t*0.5),
+    lifecycle:'onboarding', noise:0.12,
+    // Near-zero start, steep ramp to ~80 with some stutter
+    trend: (d,t) => {
+      const p = d/t;
+      if (p < 0.10) return 0.02 + 0.08 * p / 0.10;
+      if (p < 0.30) return 0.10 + 0.35 * (p - 0.10) / 0.20;
+      if (p < 0.40) return 0.45 + 0.05 * Math.sin((p - 0.30) / 0.10 * Math.PI); // stall
+      return 0.45 + 0.45 * (p - 0.40) / 0.60;
+    },
     historyDays: 90
   },
   'churned': {
-    logins:[0,25], adoption:[5,80], tickets:[0,8], days:[3,120],
-    npsOpts:[9,8,7,5,4,3,3], csatOpts:[5,4,3,2,2,1,1],
+    logins:[0,26], adoption:[0,88], tickets:[0,10], days:[2,120],
+    npsOpts:[9,8,7,5,4,3,2], csatOpts:[5,4,3,2,2,1,1],
     growthOpts:['mild','none','none','none'],
     lifecycle:'churned', noise:0.06,
-    // Healthy first 40%, slow decline 40-70%, collapse 70-100%
+    // Was healthy ~92, held steady, then steep collapse to near-zero
     trend: (d,t) => {
       const p = d/t;
-      if (p < 0.4) return 0.90 - 0.15 * p / 0.4;
-      if (p < 0.7) return 0.75 - 0.40 * (p-0.4)/0.3;
-      return 0.35 - 0.30 * (p-0.7)/0.3;
+      if (p < 0.35) return 0.92 - 0.08 * p / 0.35;                         // stable era
+      if (p < 0.50) return 0.84 - 0.24 * (p - 0.35) / 0.15;               // warning signs
+      if (p < 0.70) return 0.60 - 0.35 * (p - 0.50) / 0.20;               // rapid decline
+      return 0.25 - 0.22 * (p - 0.70) / 0.30;                              // flatline near zero
     }
   },
   'recovered': {
-    logins:[6,28], adoption:[20,85], tickets:[0,5], days:[5,40],
-    npsOpts:[8,6,5,5,6,7,8,9], csatOpts:[4,3,2,3,3,4,4,5],
+    logins:[2,28], adoption:[10,90], tickets:[0,7], days:[3,55],
+    npsOpts:[8,6,4,4,5,7,8,9], csatOpts:[4,3,2,2,3,4,4,5],
     growthOpts:['mild','none','none','mild','strong'],
     lifecycle:'active', noise:0.10,
-    // V-shape: decline for 40%, bottom 40-50%, strong recovery 50-100%
+    // V-shape: healthy 90 → crash to 20 → strong recovery to 85
     trend: (d,t) => {
       const p = d/t;
-      if (p < 0.40) return 0.88 - 0.50 * p / 0.40;
-      if (p < 0.50) return 0.38 + 0.05 * Math.sin((p-0.40)/0.10 * Math.PI);
-      return 0.38 + 0.52 * (p-0.50)/0.50;
+      if (p < 0.30) return 0.90 - 0.65 * p / 0.30;                         // sharp drop
+      if (p < 0.45) return 0.25 - 0.08 * Math.sin((p - 0.30) / 0.15 * Math.PI); // bottom
+      return 0.25 + 0.63 * (p - 0.45) / 0.55;                              // strong recovery
     }
   },
   'seasonal': {
-    logins:[12,30], adoption:[50,92], tickets:[0,3], days:[3,22],
-    npsOpts:[7,8,8,9,9,10], csatOpts:[3,4,4,5,5],
+    logins:[6,30], adoption:[35,95], tickets:[0,4], days:[2,30],
+    npsOpts:[6,7,8,8,9,10], csatOpts:[3,4,4,5,5],
     growthOpts:['mild','strong','mild'],
     lifecycle:'active', noise:0.08,
-    // Moderate seasonal dips — stays mostly healthy
+    // 3-4 pronounced seasonal cycles — deep dips into 40s, peaks at 90+
     trend: (d,t) => {
-      const base = 0.78;
-      const dip = 0.22 * Math.max(0, Math.sin(d/t * Math.PI * 3) - 0.3) / 0.7;
-      return base - dip + 0.08 * Math.sin(d/t * Math.PI * 11);
+      const p = d/t;
+      const base = 0.65;
+      const wave = 0.30 * Math.sin(p * Math.PI * 7);
+      const micro = 0.08 * Math.sin(p * Math.PI * 19);
+      return base + wave + micro;
     }
   }
 };
@@ -1463,11 +1501,16 @@ const _DEMO_TRAJ_DIST = _buildTrajDist(250);
 
 function _dClamp(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); }
 function _dLerp([lo,hi],t){ return lo+(hi-lo)*_dClamp(t,0,1); }
-function _dRand(lo,hi){ return lo+Math.random()*(hi-lo); }
-function _dPick(arr,t){
+function _dRand(lo,hi,rng){ return lo+(rng||Math.random)()*(hi-lo); }
+function _dPick(arr,t,rng){
   const idx = _dClamp(Math.floor(t * arr.length), 0, arr.length-1);
-  const jitter = Math.floor(Math.random() * 2) - 1;
+  const jitter = Math.floor((rng||Math.random)() * 2) - 1;
   return arr[_dClamp(idx+jitter, 0, arr.length-1)];
+}
+// Mulberry32 seeded PRNG — deterministic per customer
+function _makeRng(seed) {
+  let s = seed | 0;
+  return () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
 
 function _generateDemoNames(count) {
@@ -1485,32 +1528,36 @@ function _generateDemoNames(count) {
   return combos.slice(0, count);
 }
 
-function _generateDemoSignals(traj, dayIdx, totalDays) {
-  const t = traj.trend(dayIdx, totalDays);
-  const n = () => 1 + (Math.random()*2-1) * traj.noise;
+function _generateDemoSignals(traj, dayIdx, totalDays, rng, phaseOff) {
+  const r = rng || Math.random;
+  const po = phaseOff || 0;
+  // Apply per-customer phase offset so same trajectory type produces different curves
+  const t = traj.trend(dayIdx + po, totalDays);
+  const n = () => 1 + (r()*2-1) * traj.noise;
   const logins   = _dClamp(Math.round(_dLerp(traj.logins, t) * n()), 0, 40);
   const adoption = _dClamp(Math.round(_dLerp(traj.adoption, t) * n()), 0, 100);
   const tickets  = _dClamp(Math.round(_dLerp(traj.tickets, 1-t) * n()), 0, 10);
   const days     = _dClamp(Math.round(_dLerp(traj.days, 1-t) * n()), 0, 150);
-  const nps      = _dPick(traj.npsOpts, t);
-  const csat     = _dPick(traj.csatOpts, t);
-  const growth   = _dPick(traj.growthOpts, t);
+  const nps      = _dPick(traj.npsOpts, t, r);
+  const csat     = _dPick(traj.csatOpts, t, r);
+  const growth   = _dPick(traj.growthOpts, t, r);
   return { logins, adoption, tickets, nps, csat, days, growth, lifecycle: traj.lifecycle };
 }
 
-function _generateDemoHistory(trajKey, now, overrideDays) {
+function _generateDemoHistory(trajKey, now, overrideDays, rng, phaseOff) {
   const traj = _DEMO_TRAJECTORIES[trajKey];
+  const r = rng || Math.random;
   const totalDays = overrideDays || traj.historyDays || 730;
   const entries = [];
   for (let d = totalDays; d >= 0; d--) {
     // Variable frequency: weekly for old data, denser for recent
     if (d > 0 && d < totalDays) {
-      if (d > 180) { if (d % 7 !== 0 || Math.random() < 0.10) continue; }       // >6mo: ~weekly
-      else if (d > 30) { if (d % 3 !== 0 || Math.random() < 0.12) continue; }    // 1-6mo: every ~3d
-      else { if (Math.random() < 0.20) continue; }                                // <1mo: most days
+      if (d > 180) { if (d % 7 !== 0 || r() < 0.10) continue; }       // >6mo: ~weekly
+      else if (d > 30) { if (d % 3 !== 0 || r() < 0.12) continue; }    // 1-6mo: every ~3d
+      else { if (r() < 0.20) continue; }                                // <1mo: most days
     }
     const dayIdx = totalDays - d;
-    const signals = _generateDemoSignals(traj, dayIdx, totalDays);
+    const signals = _generateDemoSignals(traj, dayIdx, totalDays, rng, phaseOff);
     const { score } = calcScore(signals);
     entries.push({ score, date: new Date(now - d * 86400000).toISOString(), signals });
   }
@@ -1522,59 +1569,68 @@ function _generateDemoCustomer(name, index, now, trajList, csmAssignments) {
   const trajKey = dist[index % dist.length];
   const traj = _DEMO_TRAJECTORIES[trajKey];
 
-  // Tier & MRR — decouple from trajectory so high-value accounts appear in any bucket
-  const tierRoll = Math.random();
-  const tier = tierRoll < 0.55 ? 'smb' : tierRoll < 0.85 ? 'mid' : 'enterprise';
-  const mrr = tier === 'smb' ? Math.round(_dRand(500,3500)/50)*50
-            : tier === 'mid' ? Math.round(_dRand(3000,18000)/100)*100
-            : Math.round(_dRand(15000,55000)/500)*500;
+  // Per-customer seeded RNG — deterministic but unique per customer
+  const rng = _makeRng(1000 + index * 137);
 
-  // History — always 2+ years (730-900 days)
-  const histDays = 730 + Math.floor(Math.random() * 170);
-  const history = _generateDemoHistory(trajKey, now, histDays);
+  // Per-customer phase offset (±10-25% of history) — same trajectory type
+  // produces visibly different curves for each customer
+  const phaseOff = Math.round((rng() - 0.5) * 180);
+
+  // Tier & MRR — deterministic per customer, decoupled from trajectory
+  const tierRoll = rng();
+  const tier = tierRoll < 0.55 ? 'smb' : tierRoll < 0.85 ? 'mid' : 'enterprise';
+  // Per-customer MRR spread — wider ranges so customers differ meaningfully
+  const mrr = tier === 'smb' ? Math.round(_dRand(400,4000,rng)/50)*50
+            : tier === 'mid' ? Math.round(_dRand(2500,22000,rng)/100)*100
+            : Math.round(_dRand(12000,65000,rng)/500)*500;
+
+  // History depth — vary more: 540-1000 days (onboarding stays short)
+  const histDays = trajKey === 'onboarding'
+    ? 60 + Math.floor(rng() * 120)
+    : 540 + Math.floor(rng() * 460);
+  const history = _generateDemoHistory(trajKey, now, histDays, rng, phaseOff);
   const last = history[history.length - 1];
   const lastSig = last.signals;
 
   // Lifecycle — spread across all stages for realistic mix
   let lifecycle = traj.lifecycle;
   if (trajKey === 'stable-healthy') {
-    const r = Math.random();
+    const r = rng();
     if (r < 0.15) lifecycle = 'won';
-    else if (r < 0.25) lifecycle = 'onboarding'; // long-time customer re-onboarding a new product
+    else if (r < 0.25) lifecycle = 'onboarding';
   } else if (trajKey === 'improving') {
-    if (Math.random() < 0.30) lifecycle = 'onboarding';
+    if (rng() < 0.30) lifecycle = 'onboarding';
   } else if (trajKey === 'recovered') {
-    if (Math.random() < 0.20) lifecycle = 'won';
+    if (rng() < 0.20) lifecycle = 'won';
   } else if (trajKey === 'declining' || trajKey === 'slow-decline') {
-    if (Math.random() < 0.35) lifecycle = 'atrisk';
+    if (rng() < 0.35) lifecycle = 'atrisk';
   } else if (trajKey === 'volatile') {
-    const r = Math.random();
+    const r = rng();
     if (r < 0.15) lifecycle = 'atrisk';
     else if (r < 0.25) lifecycle = 'onboarding';
   } else if (trajKey === 'seasonal') {
-    if (Math.random() < 0.15) lifecycle = 'won';
+    if (rng() < 0.15) lifecycle = 'won';
   }
 
   // Renewal date
   const renDate = new Date(now);
   if (lifecycle === 'churned') {
-    // Churned: renewal is in the past (1-6 months ago)
-    renDate.setMonth(renDate.getMonth() - 1 - Math.floor(Math.random() * 5));
+    renDate.setMonth(renDate.getMonth() - 1 - Math.floor(rng() * 5));
   } else {
     renDate.setMonth(renDate.getMonth() + (index % 12) + 1);
   }
-  renDate.setDate(1 + Math.floor(Math.random() * 27));
+  renDate.setDate(1 + Math.floor(rng() * 27));
   const renewal_date = renDate.toISOString().slice(0,10);
   const renewal = Math.max(0, Math.round((renDate - new Date(now)) / (1000*60*60*24*30.44)));
 
-  // Customer-since date — always 2+ years back to match history depth
+  // Customer-since date — match history depth
   const sinceDate = new Date(now);
-  sinceDate.setDate(sinceDate.getDate() - histDays - Math.floor(Math.random() * 60));
+  sinceDate.setDate(sinceDate.getDate() - histDays - Math.floor(rng() * 60));
   const since = sinceDate.toISOString().slice(0,10);
 
   // Created date
   const createdDate = new Date(sinceDate);
-  createdDate.setDate(createdDate.getDate() - Math.floor(Math.random()*14));
+  createdDate.setDate(createdDate.getDate() - Math.floor(rng()*14));
   const created = createdDate.toISOString();
 
   // Industry segment tag — 6 verticals, keeps segments page clean
@@ -1586,30 +1642,29 @@ function _generateDemoCustomer(name, index, now, trajList, csmAssignments) {
 
   // Notes (~30% of customers, up to 2 notes each)
   const notes = [];
-  if (Math.random() < 0.30) {
-    const noteDate = new Date(now - Math.floor(Math.random()*30)*86400000).toISOString();
+  if (rng() < 0.30) {
+    const noteDate = new Date(now - Math.floor(rng()*30)*86400000).toISOString();
     notes.push({ text: _DEMO_NOTES[index % _DEMO_NOTES.length], date: noteDate });
-    if (Math.random() < 0.35) {
-      const noteDate2 = new Date(now - Math.floor(30 + Math.random()*60)*86400000).toISOString();
+    if (rng() < 0.35) {
+      const noteDate2 = new Date(now - Math.floor(30 + rng()*60)*86400000).toISOString();
       notes.push({ text: _DEMO_NOTES[(index + 7) % _DEMO_NOTES.length], date: noteDate2 });
     }
   }
 
   // Sentiment (~35% of customers, 1-3 entries)
   const sentiment = [];
-  if (Math.random() < 0.35) {
-    const sCount = 1 + Math.floor(Math.random() * 2);
+  if (rng() < 0.35) {
+    const sCount = 1 + Math.floor(rng() * 2);
     for (let s = 0; s < sCount; s++) {
       const si = (index + s * 3) % _DEMO_SENTIMENTS.length;
-      // Bias sentiment toward trajectory: declining/churned/slow-decline → more negative
       let pick = _DEMO_SENTIMENTS[si];
-      if (['declining','churned','slow-decline','stable-low'].includes(trajKey) && pick.val === 'positive' && Math.random() < 0.7) {
-        pick = _DEMO_SENTIMENTS[si % 3]; // first 3 are negative
+      if (['declining','churned','slow-decline','stable-low'].includes(trajKey) && pick.val === 'positive' && rng() < 0.7) {
+        pick = _DEMO_SENTIMENTS[si % 3];
       }
-      if (['stable-healthy','improving','recovered'].includes(trajKey) && pick.val === 'negative' && Math.random() < 0.6) {
-        pick = _DEMO_SENTIMENTS[3 + (si % 2)]; // indices 3-4 are positive
+      if (['stable-healthy','improving','recovered'].includes(trajKey) && pick.val === 'negative' && rng() < 0.6) {
+        pick = _DEMO_SENTIMENTS[3 + (si % 2)];
       }
-      const sentDate = new Date(now - Math.floor((s * 30 + Math.random()*25)*86400000)).toISOString();
+      const sentDate = new Date(now - Math.floor((s * 30 + rng()*25)*86400000)).toISOString();
       sentiment.push({ val: pick.val, note: pick.note, date: sentDate });
     }
   }
@@ -1617,20 +1672,20 @@ function _generateDemoCustomer(name, index, now, trajList, csmAssignments) {
   // Next scheduled touch (~40% of active customers)
   let next_touch = '';
   let next_touch_time = '';
-  if (lifecycle !== 'churned' && Math.random() < 0.40) {
+  if (lifecycle !== 'churned' && rng() < 0.40) {
     const ntDate = new Date(now);
-    ntDate.setDate(ntDate.getDate() + 1 + Math.floor(Math.random() * 21));
+    ntDate.setDate(ntDate.getDate() + 1 + Math.floor(rng() * 21));
     next_touch = ntDate.toISOString().slice(0,10);
-    if (Math.random() < 0.50) {
-      const hr = 8 + Math.floor(Math.random() * 10);
-      const mn = [0,15,30,45][Math.floor(Math.random()*4)];
+    if (rng() < 0.50) {
+      const hr = 8 + Math.floor(rng() * 10);
+      const mn = [0,15,30,45][Math.floor(rng()*4)];
       next_touch_time = String(hr).padStart(2,'0') + ':' + String(mn).padStart(2,'0');
     }
   }
 
-  // Last contact date — derive from days since contact for ~60% of active customers
+  // Last contact date
   let last_contact_date = '';
-  if (lifecycle !== 'churned' && lastSig.days != null && lastSig.days > 0 && Math.random() < 0.60) {
+  if (lifecycle !== 'churned' && lastSig.days != null && lastSig.days > 0 && rng() < 0.60) {
     const lcd = new Date(now);
     lcd.setDate(lcd.getDate() - lastSig.days);
     last_contact_date = lcd.toISOString().slice(0,10);
@@ -1675,9 +1730,13 @@ function initDemo(count) {
   count = count || 250;
   const now = Date.now();
   const names = _generateDemoNames(count);
-  // Build trajectory list scaled to count
+  // Build trajectory list scaled to count, shuffle deterministically
   const trajList = _buildTrajDist(count);
-  trajList.sort(() => Math.random() - 0.5);
+  const trajRng = _makeRng(777);
+  for (let i = trajList.length - 1; i > 0; i--) {
+    const j = Math.floor(trajRng() * (i + 1));
+    [trajList[i], trajList[j]] = [trajList[j], trajList[i]];
+  }
   // Assign CSMs with uneven book sizes and health bias
   const csmAssignments = _assignCSMs(trajList, count);
   customers = names.map((name, i) => _generateDemoCustomer(name, i, now, trajList, csmAssignments));
