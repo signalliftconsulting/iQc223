@@ -258,13 +258,35 @@ serve(async (req) => {
     const clientId = profile.client_id;
     console.log('[salesforce-sync] Client:', clientId);
 
-    // Load Salesforce integration
-    const { data: integration } = await serviceClient
+    // Load Salesforce integration (try by client_id first, fall back to RLS-scoped query)
+    let integration: any = null;
+    const { data: integ1 } = await serviceClient
       .from('integrations')
       .select('*')
       .eq('client_id', clientId)
       .eq('platform', 'salesforce')
       .single();
+    integration = integ1;
+
+    if (!integration || integration.status !== 'connected') {
+      // Fallback: query via user-scoped client (RLS) in case client_id mismatch
+      console.log('[salesforce-sync] client_id lookup missed, trying RLS fallback...');
+      const { data: integ2 } = await supabase
+        .from('integrations')
+        .select('*')
+        .eq('platform', 'salesforce')
+        .eq('status', 'connected')
+        .single();
+      if (integ2) {
+        integration = integ2;
+        console.log('[salesforce-sync] Found via RLS, integration client_id:', integ2.client_id, 'vs profile client_id:', clientId);
+        // Fix the mismatch for future syncs
+        if (integ2.client_id !== clientId) {
+          await serviceClient.from('integrations').update({ client_id: clientId }).eq('id', integ2.id);
+          console.log('[salesforce-sync] Fixed client_id mismatch');
+        }
+      }
+    }
 
     if (!integration || integration.status !== 'connected') {
       throw new Error('Salesforce is not connected. Go to Settings → API & Integrations to connect.');

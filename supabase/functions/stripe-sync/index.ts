@@ -173,13 +173,32 @@ serve(async (req) => {
     if (!profile?.client_id) throw new Error('No client found for user');
     const clientId = profile.client_id;
 
-    // Load Stripe integration
-    const { data: integration } = await serviceClient
+    // Load Stripe integration (try by client_id first, fall back to RLS-scoped query)
+    let integration: any = null;
+    const { data: integ1 } = await serviceClient
       .from('integrations')
       .select('*')
       .eq('client_id', clientId)
       .eq('platform', 'stripe')
       .single();
+    integration = integ1;
+
+    if (!integration || integration.status !== 'connected') {
+      console.log('[stripe-sync] client_id lookup missed, trying RLS fallback...');
+      const { data: integ2 } = await supabase
+        .from('integrations')
+        .select('*')
+        .eq('platform', 'stripe')
+        .eq('status', 'connected')
+        .single();
+      if (integ2) {
+        integration = integ2;
+        if (integ2.client_id !== clientId) {
+          await serviceClient.from('integrations').update({ client_id: clientId }).eq('id', integ2.id);
+          console.log('[stripe-sync] Fixed client_id mismatch');
+        }
+      }
+    }
 
     if (!integration || integration.status !== 'connected') {
       throw new Error('Stripe is not connected. Go to Settings → API & Integrations to connect.');

@@ -299,13 +299,33 @@ serve(async (req) => {
     const clientId = profile.client_id;
     console.log('[hubspot-sync] Client:', clientId);
 
-    // Load HubSpot integration
-    const { data: integration } = await serviceClient
+    // Load HubSpot integration (try by client_id first, fall back to RLS-scoped query)
+    let integration: any = null;
+    const { data: integ1 } = await serviceClient
       .from('integrations')
       .select('*')
       .eq('client_id', clientId)
       .eq('platform', 'hubspot')
       .single();
+    integration = integ1;
+
+    if (!integration || integration.status !== 'connected') {
+      console.log('[hubspot-sync] client_id lookup missed, trying RLS fallback...');
+      const { data: integ2 } = await supabase
+        .from('integrations')
+        .select('*')
+        .eq('platform', 'hubspot')
+        .eq('status', 'connected')
+        .single();
+      if (integ2) {
+        integration = integ2;
+        console.log('[hubspot-sync] Found via RLS, integration client_id:', integ2.client_id, 'vs profile client_id:', clientId);
+        if (integ2.client_id !== clientId) {
+          await serviceClient.from('integrations').update({ client_id: clientId }).eq('id', integ2.id);
+          console.log('[hubspot-sync] Fixed client_id mismatch');
+        }
+      }
+    }
 
     if (!integration || integration.status !== 'connected') {
       throw new Error('HubSpot is not connected. Go to Settings → API & Integrations to connect.');
