@@ -13491,6 +13491,64 @@ async function renderIntegrationsSection() {
   renderSyncOverview();
 }
 
+// One-time recovery: restore wiped signals from last good history snapshot
+async function recoverWipedSignals() {
+  const signalKeys = ['logins','adoption','tickets','nps','csat','days','growth'];
+  const toSave = [];
+  let recovered = 0;
+
+  for (const c of customers) {
+    if (c.lifecycle === 'churned') continue;
+    // Check if signals are wiped (all null/default)
+    const allNull = signalKeys.every(k => c[k] == null || c[k] === 'none');
+    if (!allNull) continue;
+    if (!c.history || c.history.length < 2) continue;
+
+    // Find last history entry with real signal data (before the wipe)
+    let goodSnap = null;
+    for (let i = c.history.length - 1; i >= 0; i--) {
+      const s = c.history[i].signals;
+      if (!s) continue;
+      // Check if this snapshot has real data (not all null)
+      const hasData = signalKeys.some(k => s[k] != null && s[k] !== 'none');
+      if (hasData) { goodSnap = s; break; }
+    }
+    if (!goodSnap) continue;
+
+    // Restore signals from the snapshot
+    let changed = false;
+    for (const k of signalKeys) {
+      if (goodSnap[k] != null && (c[k] == null || c[k] === 'none')) {
+        c[k] = goodSnap[k];
+        changed = true;
+      }
+    }
+    if (changed) {
+      c._baseDays = c.days != null ? c.days : null;
+      const { score } = calcScore(c);
+      c.score = score;
+      c.status = getStatus(score);
+      c.history.push({ score, date: new Date().toISOString(), signals: buildHistorySnapshot(c) });
+      toSave.push(c);
+      recovered++;
+    }
+  }
+
+  if (toSave.length) {
+    pauseSync(10000);
+    for (const c of toSave) { try { await save(c); } catch(_) {} }
+    refreshLiveScores();
+    refreshMgrDropdown();
+    const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
+    if (active === 'homebase')  renderHomeBase();
+    if (active === 'customers') renderCustomers();
+    if (active === 'alerts')    renderAlerts();
+    if (active === 'trends')    renderTrends();
+  }
+  toast(`Recovered signals for ${recovered} customer${recovered !== 1 ? 's' : ''}`, recovered ? 'success' : 'default');
+  return recovered;
+}
+
 function renderSyncOverview() {
   const container = el('sync-overview');
   if (!container) return;
