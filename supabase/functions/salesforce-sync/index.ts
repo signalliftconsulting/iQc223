@@ -298,6 +298,7 @@ serve(async (req) => {
 
     // ── Fetch Salesforce data (parallel) ──
     const syncMetrics = integration.config?.sync_metrics || {};
+    const allowCreates = integration.config?.sync_creates !== false;
     const shouldSync = (m: string) => syncMetrics[m] !== false;
 
     async function fetchAllData(t: string, url: string) {
@@ -545,7 +546,7 @@ serve(async (req) => {
           updates.push({ id: match.id, name: match.name, changes });
           stats.updated++;
         }
-      } else {
+      } else if (allowCreates) {
         // ── Create new customer (if not previously deleted) ──
         if (deletedNames.has(name.toLowerCase())) {
           stats.skipped++;

@@ -1492,6 +1492,18 @@ async function disconnectStripeUI() {
   });
 }
 
+async function updateSyncOption(platform, key, value) {
+  const integration = _integrationCache[platform];
+  if (!integration) return;
+  const config = { ...(integration.config || {}) };
+  config[key] = value;
+  const { error } = await sb.from('integrations').update({ config }).eq('client_id', integration.client_id).eq('platform', platform);
+  if (error) { toast('Failed to save: ' + error.message, 'error'); return; }
+  integration.config = config;
+  _integrationCache[platform] = integration;
+  toast(value ? 'New accounts will be created during sync' : 'Sync will only update existing accounts', 'success');
+}
+
 async function updateMetricToggle(platform, metric, enabled) {
   const integration = _integrationCache[platform];
   if (!integration) return;
@@ -2014,6 +2026,14 @@ function renderHubSpotCard(integration) {
       <div id="hubspot-sync-status" style="margin-top:8px;font-size:var(--fs-sm)"></div>
       <div class="metric-toggles">
         <h3>Sync Settings</h3>
+        <div class="mt-row">
+          <span class="mt-label">Create new accounts from HubSpot</span>
+          <label class="mt-switch">
+            <input type="checkbox" ${integration.config?.sync_creates !== false ? 'checked' : ''}
+              onchange="updateSyncOption('hubspot','sync_creates',this.checked)" />
+            <span class="mt-slider"></span>
+          </label>
+        </div>
         ${buildMetricTogglesHTML('hubspot', integration)}
       </div>
       <div class="metric-toggles" style="margin-top:12px">
@@ -2322,6 +2342,14 @@ function renderSalesforceCard(integration) {
       <div id="salesforce-sync-status" style="margin-top:8px;font-size:var(--fs-sm)"></div>
       <div class="metric-toggles">
         <h3>Sync Settings</h3>
+        <div class="mt-row">
+          <span class="mt-label">Create new accounts from Salesforce</span>
+          <label class="mt-switch">
+            <input type="checkbox" ${integration.config?.sync_creates !== false ? 'checked' : ''}
+              onchange="updateSyncOption('salesforce','sync_creates',this.checked)" />
+            <span class="mt-slider"></span>
+          </label>
+        </div>
         ${buildMetricTogglesHTML('salesforce', integration)}
       </div>
     </div>

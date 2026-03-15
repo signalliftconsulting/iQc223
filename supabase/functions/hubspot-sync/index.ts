@@ -337,6 +337,7 @@ serve(async (req) => {
 
     // ── Fetch HubSpot data (parallel where possible) ──
     const syncMetrics = integration.config?.sync_metrics || {};
+    const allowCreates = integration.config?.sync_creates !== false;
     const shouldSync = (metric: string) => syncMetrics[metric] !== false;
     const [companies, deals, tickets, contacts] = await Promise.all([
       fetchCompanies(token),
@@ -576,7 +577,7 @@ serve(async (req) => {
           updates.push({ id: match.id, name: match.name, changes });
           stats.updated++;
         }
-      } else {
+      } else if (allowCreates) {
         // ── Create new customer ──
         const dealData = companyDeals.get(hsId);
         const newCustomer: any = {
