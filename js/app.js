@@ -8610,44 +8610,77 @@ function renderDetailPlaybook() {
   const playTypeMap2 = { urgent:'U', engage:'E', coach:'C', adopt:'A', support:'S', expand:'X', renew:'R', ok:'OK' };
   const playClsMap2  = { urgent:'play-urgent', engage:'play-engage', coach:'play-coach', adopt:'play-adopt', support:'play-support', expand:'play-expand', renew:'play-renew', ok:'play-ok' };
 
-  /* ── Auto-clear: migrate old index-based checks → key-based, prune stale ── */
+  const RESET_MS = 30 * 24 * 60 * 60 * 1000;  // 30 days
+  const now = Date.now();
+
+  /* ── Auto-clear: migrate old index-based & boolean checks, prune stale, 30d reset ── */
   let checks = c.playbook_checks || {};
   let dirty = false;
+
+  // Migrate old numeric-index checks → key-based
   const numKeys = Object.keys(checks).filter(k => /^\d+$/.test(k));
   if (numKeys.length) {
     const migrated = {};
-    Object.keys(checks).forEach(k => { if (!/^\d+$/.test(k)) migrated[k] = true; });
-    numKeys.forEach(k => { const idx = +k; if (plays[idx]) migrated[playKey(plays[idx])] = true; });
+    Object.keys(checks).forEach(k => { if (!/^\d+$/.test(k)) migrated[k] = checks[k]; });
+    numKeys.forEach(k => { const idx = +k; if (plays[idx]) migrated[playKey(plays[idx])] = now; });
     checks = migrated;
     c.playbook_checks = checks;
     dirty = true;
   }
+
+  // Migrate old boolean `true` values → timestamps
+  Object.keys(checks).forEach(k => {
+    if (checks[k] === true) { checks[k] = now; dirty = true; }
+  });
+
+  // Prune stale keys (play no longer in playbook)
   const validKeys = new Set(plays.map(playKey));
   Object.keys(checks).forEach(k => {
     if (!validKeys.has(k)) { delete checks[k]; dirty = true; }
   });
-  if (dirty) atUpdate(c).catch(() => {});
+
+  // Auto-reset items older than 30 days
+  Object.keys(checks).forEach(k => {
+    if (typeof checks[k] === 'number' && (now - checks[k]) >= RESET_MS) {
+      delete checks[k]; dirty = true;
+    }
+  });
+
+  if (dirty) { c.playbook_checks = checks; atUpdate(c).catch(() => {}); }
 
   const done = Object.keys(checks).length;
   const pct  = plays.length ? Math.round((done / plays.length) * 100) : 0;
+  const clearLink = done > 0
+    ? `<a href="#" onclick="event.preventDefault();clearPlaybookChecks()" style="font-size:var(--fs-sm);color:var(--muted);text-decoration:underline;white-space:nowrap">Clear completed</a>`
+    : '';
   const header = plays.length > 1
-    ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+    ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
         <div class="playbook-title" style="margin:0">Action Playbook for ${escHtml(c.name)}</div>
         <span style="margin-left:auto;font-size:var(--fs-sm);color:var(--muted)">${done}/${plays.length} done</span>
         <div style="width:60px;height:5px;background:var(--border);border-radius:3px;overflow:hidden">
           <div style="width:${pct}%;height:100%;background:var(--green);border-radius:3px"></div>
         </div>
+        ${clearLink}
       </div>`
-    : `<div class="playbook-title" style="margin-bottom:10px">Action Playbook for ${escHtml(c.name)}</div>`;
+    : `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <div class="playbook-title" style="margin:0">Action Playbook for ${escHtml(c.name)}</div>
+        ${clearLink}
+      </div>`;
   el('dm-playbook').innerHTML = header +
     plays.map((p, i) => {
-      const checked = !!checks[playKey(p)];
+      const ts = checks[playKey(p)];
+      const checked = !!ts;
       const cls = playClsMap2[p.type] || '';
       const ltr = playTypeMap2[p.type] || '!';
+      let ageLabel = '';
+      if (checked && typeof ts === 'number') {
+        const days = Math.floor((now - ts) / 86400000);
+        ageLabel = days < 1 ? ' · done today' : days === 1 ? ' · done 1d ago' : ` · done ${days}d ago`;
+      }
       return `<label class="play-item${checked ? ' play-done' : ''}">
         <input type="checkbox" style="flex-shrink:0;margin-top:2px" ${checked ? 'checked' : ''} onchange="togglePlayCheck(${i},this.checked)" onclick="event.stopPropagation()">
         <div class="play-item__icon ${cls}">${ltr}</div>
-        <div class="play-item__text">${p.text}</div>
+        <div class="play-item__text">${p.text}${ageLabel ? '<span style="color:var(--muted);font-size:var(--fs-sm)">' + ageLabel + '</span>' : ''}</div>
       </label>`;
     }).join('');
 }
@@ -8659,8 +8692,16 @@ function togglePlayCheck(idx, checked) {
   if (!plays[idx]) return;
   const key = playKey(plays[idx]);
   c.playbook_checks = c.playbook_checks || {};
-  if (checked) c.playbook_checks[key] = true;
+  if (checked) c.playbook_checks[key] = Date.now();   // timestamp instead of true
   else delete c.playbook_checks[key];
+  atUpdate(c).catch(() => {});
+  renderDetailPlaybook();
+}
+
+function clearPlaybookChecks() {
+  const c = customers.find(x => x.id === detailId);
+  if (!c) return;
+  c.playbook_checks = {};
   atUpdate(c).catch(() => {});
   renderDetailPlaybook();
 }
