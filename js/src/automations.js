@@ -1368,7 +1368,7 @@ const PLATFORM_METRICS = {
 };
 
 // Returns { metric: platform } for all currently-enabled metrics across all connected integrations
-// Metrics default to true if not explicitly set (matching shouldSync() in edge functions)
+// Metrics default to OFF — user must explicitly enable each metric before syncing
 function getMetricOwners() {
   const owners = {};
   for (const [platform, integration] of Object.entries(_integrationCache)) {
@@ -1376,7 +1376,7 @@ function getMetricOwners() {
     const sm = integration.config?.sync_metrics || {};
     const metrics = PLATFORM_METRICS[platform] || [];
     for (const m of metrics) {
-      if (sm[m.key] !== false && !owners[m.key]) owners[m.key] = platform;
+      if (sm[m.key] === true && !owners[m.key]) owners[m.key] = platform;
     }
   }
   return owners;
@@ -1433,7 +1433,7 @@ function buildMetricTogglesHTML(platform, integration) {
   const owners = getMetricOwners();
 
   return metrics.map(m => {
-    const enabled = syncMetrics[m.key] !== false; // default true for backward compat
+    const enabled = syncMetrics[m.key] === true; // default off — user must enable
     const ownedBy = owners[m.key];
     const ownedByOther = ownedBy && ownedBy !== platform;
     const disabled = ownedByOther ? 'disabled' : '';

@@ -302,7 +302,7 @@ serve(async (req) => {
     const syncMetrics = integration.config?.sync_metrics || {};
     const allowCreates = integration.config?.sync_creates !== false;
     const dealAmountIsMonthly = integration.config?.deal_amount_frequency === 'monthly';
-    const shouldSync = (m: string) => syncMetrics[m] !== false;
+    const shouldSync = (m: string) => syncMetrics[m] === true;
 
     async function fetchAllData(t: string, url: string) {
       const [accounts, opportunities, cases, contacts] = await Promise.all([

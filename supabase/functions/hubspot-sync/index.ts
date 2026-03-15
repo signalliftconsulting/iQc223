@@ -391,7 +391,7 @@ serve(async (req) => {
     const syncMetrics = integration.config?.sync_metrics || {};
     const allowCreates = integration.config?.sync_creates !== false;
     const dealAmountIsMonthly = integration.config?.deal_amount_frequency === 'monthly';
-    const shouldSync = (metric: string) => syncMetrics[metric] !== false;
+    const shouldSync = (metric: string) => syncMetrics[metric] === true;
     const [companies, deals, tickets, contacts, feedbackSubmissions] = await Promise.all([
       fetchCompanies(token),
       fetchDeals(token),

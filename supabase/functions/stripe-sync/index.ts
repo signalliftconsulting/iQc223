@@ -268,9 +268,9 @@ serve(async (req) => {
     stats.customers_matched = grouped.size;
 
     // ── Phase 2: Aggregate per customer and build updates ──
-    // Respect metric toggles from integration config (default: sync everything)
+    // Respect metric toggles — default OFF, user must enable each metric
     const syncMetrics = integration.config?.sync_metrics || {};
-    const shouldSync = (metric: string) => syncMetrics[metric] !== false;
+    const shouldSync = (metric: string) => syncMetrics[metric] === true;
     const TIER_RANK: Record<string, number> = { enterprise: 3, mid: 2, smb: 1 };
 
     for (const [, group] of grouped) {
