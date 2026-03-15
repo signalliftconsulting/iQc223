@@ -72,11 +72,12 @@ function detectTier(subscription: any, productsMap: Map<string, any>): string | 
 
 // Detect growth signal by comparing MRR
 function detectGrowth(newMrr: number, oldMrr: number): string {
+  if (oldMrr === 0 && newMrr > 0) return 'strong'; // revenue appeared (new or restored)
   if (oldMrr === 0) return 'none';
   const pctChange = ((newMrr - oldMrr) / oldMrr) * 100;
   if (pctChange >= 10) return 'strong';
-  if (pctChange >= 1) return 'moderate';
-  if (pctChange <= -10) return 'none'; // downgrade — could be flagged differently
+  if (pctChange >= 1) return 'mild';
+  if (pctChange <= -10) return 'none';
   return 'none';
 }
 

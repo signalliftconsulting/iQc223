@@ -506,11 +506,23 @@ serve(async (req) => {
         // Sync company name if changed in HubSpot
         if (companyName && companyName !== match.name) changes.name = companyName;
 
-        // MRR from deals
+        // MRR from deals + growth detection
         const dealData = companyDeals.get(hsId);
         if (shouldSync('mrr') && dealData?.mrr && dealData.mrr !== (match.mrr || 0)) {
+          const oldMrr = match.mrr || 0;
           changes.mrr = dealData.mrr;
           changes.arr = dealData.mrr * 12;
+          // Detect growth signal from MRR change
+          if (shouldSync('growth')) {
+            let newGrowth = 'none';
+            if (oldMrr === 0 && dealData.mrr > 0) newGrowth = 'strong';
+            else if (oldMrr > 0) {
+              const pct = ((dealData.mrr - oldMrr) / oldMrr) * 100;
+              if (pct >= 10) newGrowth = 'strong';
+              else if (pct >= 1) newGrowth = 'mild';
+            }
+            if (newGrowth !== (match.growth || 'none')) changes.growth = newGrowth;
+          }
         }
 
         // Tier
