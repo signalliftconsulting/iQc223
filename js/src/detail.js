@@ -504,7 +504,7 @@ function resetForm() {
   document.getElementById('form-title').textContent = 'Score a Customer';
   pendingResult = null;
   document.getElementById('score-form').dataset.editId = '';
-  if (el('save-details-btn')) el('save-details-btn').style.display = 'none';
+  if (el('save-details-wrap')) el('save-details-wrap').style.display = 'none';
   applyProfileSignalState();
 }
 
@@ -1311,7 +1311,7 @@ function editCustomer(id) {
   nav('score');
   document.getElementById('form-title').textContent = 'Re-score: ' + c.name;
   document.getElementById('score-form').dataset.editId = c.id;
-  if (el('save-details-btn')) el('save-details-btn').style.display = '';
+  if (el('save-details-wrap')) el('save-details-wrap').style.display = '';
 
   el('f-name').value     = c.name;
   if (el('f-contact-name'))  el('f-contact-name').value  = c.contact_name || '';
