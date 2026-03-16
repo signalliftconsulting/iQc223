@@ -279,7 +279,7 @@ const COL_DEFS = [
   { key:'renewal',   label:'Renewal',       ftype:'number', sortKey:'renewal' },
   { key:'next_touch',label:'Next Touch',    ftype:'number', sortKey:'next_touch' },
   { key:'tags',      label:'Tags',          ftype:'text',   sortKey:'tags' },
-  { key:'created',   label:'Date Added',    ftype:'number', sortKey:'created' },
+  { key:'created',   label:'Date Added',    ftype:'date',   sortKey:'created' },
   { key:'nps',       label:'NPS',           ftype:'number', sortKey:'nps' },
   { key:'csat',      label:'CSAT',          ftype:'number', sortKey:'csat' },
   { key:'logins',    label:'Logins',        ftype:'number', sortKey:'logins' },
