@@ -4063,8 +4063,46 @@ async function _loadDemoFromCard() {
   if (!confirm('This will load 75 demo customers into your account. Any existing customers will be replaced. Continue?')) return;
   toast('Loading demo data…', 'default');
   try {
-    await seedDemoData(cid, 75);
-    // Reload customers from Supabase so the UI reflects the new data
+    const COUNT = 75;
+
+    // 1. Delete existing customers for this client
+    console.log('[demo] Deleting existing customers for client ' + cid);
+    const { error: delErr } = await sb.from('customers').delete().eq('client_id', cid);
+    if (delErr) throw new Error('Delete failed: ' + delErr.message);
+
+    // 2. Generate demo customers in memory
+    console.log('[demo] Generating ' + COUNT + ' demo customers…');
+    initDemo(COUNT);
+
+    // 3. Push to Supabase
+    console.log('[demo] Pushing to Supabase…');
+    const rows = customers.map(c => {
+      const row = toRow(c);
+      row.user_id = currentUser.id;
+      row.client_id = cid;
+      return row;
+    });
+
+    // Auto-strip missing columns
+    let badCols = new Set();
+    let testRow = { ...rows[0] };
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const { error: testErr } = await sb.from('customers').upsert([testRow], { onConflict: 'id' });
+      if (!testErr) break;
+      const colMatch = testErr.message.match(/Could not find the '(\w+)' column/);
+      if (colMatch) { badCols.add(colMatch[1]); delete testRow[colMatch[1]]; }
+      else throw new Error('Insert error: ' + testErr.message);
+    }
+    if (badCols.size) rows.forEach(r => badCols.forEach(col => delete r[col]));
+
+    // Bulk upsert in chunks
+    for (let i = 0; i < rows.length; i += 25) {
+      const chunk = rows.slice(i, i + 25);
+      const { error } = await sb.from('customers').upsert(chunk, { onConflict: 'id' });
+      if (error) throw new Error('Insert error at row ' + i + ': ' + error.message);
+    }
+
+    // 4. Reload from Supabase
     if (typeof activeClientId !== 'undefined' && activeClientId && activeClientId !== '__own__') {
       await loadClientCustomers(activeClientId);
     } else {
@@ -4073,7 +4111,7 @@ async function _loadDemoFromCard() {
     rescoreAll();
     renderHomeBase();
     nav('homebase');
-    toast('Demo data loaded — 75 customers ready to explore!', 'success');
+    toast('Demo data loaded — ' + COUNT + ' customers ready to explore!', 'success');
   } catch(e) {
     console.error('Demo seed error:', e);
     toast('Failed to load demo data: ' + e.message, 'error');
