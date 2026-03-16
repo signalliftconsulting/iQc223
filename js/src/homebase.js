@@ -89,11 +89,11 @@ function _gettingStartedHTML() {
     ],
     '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();nav(\'settings\')">Go to Settings →</button>'
   ) + card(pplIco, 'linear-gradient(135deg,#6366f1,#4f46e5)',
-    'I want to add customers first, then connect an integration',
-    'Add your customer list manually, then let integrations enrich their data',
+    'I want to add a selected customer list first, then connect an integration',
+    'Only the accounts you add will be tracked — the integration won\'t pull in everything, just enrich your selected customers',
     [
-      { title:'Add your customers', desc:'Go to <a href="#" onclick="event.stopPropagation();nav(\'customers\')" style="color:var(--teal);font-weight:600">Customers</a> and add them one at a time, or use <a href="#" onclick="event.stopPropagation();nav(\'csv\')" style="color:var(--teal);font-weight:600">CSV Import</a> to bulk upload a list of names.' },
-      { title:'Connect your integration', desc:'Go to <a href="#" onclick="event.stopPropagation();nav(\'settings\')" style="color:var(--teal);font-weight:600">Settings → Integrations</a> and connect your tool. Make sure "Import new accounts" is turned off — this way the integration will only update existing customers you already added, not create new ones.' },
+      { title:'Add your selected customers', desc:'Go to <a href="#" onclick="event.stopPropagation();nav(\'customers\')" style="color:var(--teal);font-weight:600">Customers</a> and add them one at a time, or use <a href="#" onclick="event.stopPropagation();nav(\'csv\')" style="color:var(--teal);font-weight:600">CSV Import</a> to bulk upload just the accounts you want to track.' },
+      { title:'Connect your integration', desc:'Go to <a href="#" onclick="event.stopPropagation();nav(\'settings\')" style="color:var(--teal);font-weight:600">Settings → Integrations</a> and connect your tool. Make sure "Import new accounts" is turned off — the integration will only update the customers you already added, not create new ones from your CRM.' },
       { title:'Sync to enrich data', desc:'Run a sync to pull in metrics like MRR, tickets, NPS, and more for your existing customers. Their scores will update automatically.' }
     ],
     '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();nav(\'csv\')">Import Customers →</button>'
