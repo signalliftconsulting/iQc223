@@ -547,8 +547,8 @@ svg.sparkline{display:block}
 
 .ct{width:100%;min-width:1800px;border-collapse:separate;border-spacing:0;font-size:var(--fs-sm)}
 #table-wrap{overflow-x:hidden;-webkit-overflow-scrolling:touch}
-/* Top scrollbar — mirrors horizontal scroll of the main table */
-#cust-top-scroll{overflow-x:scroll;overflow-y:hidden;height:16px;min-height:16px;background:#f1f5f9;border:1px solid var(--border);border-radius:6px;margin-bottom:6px}
+/* Bottom scrollbar — mirrors horizontal scroll of the main table */
+#cust-top-scroll{overflow-x:scroll;overflow-y:hidden;height:16px;min-height:16px;background:#f1f5f9;border:1px solid var(--border);border-radius:6px;margin-top:4px}
 #cust-top-scroll-inner{height:1px}
 #cust-scroll-wrap{max-height:520px;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}
 #cust-scroll-wrap::-webkit-scrollbar{width:6px;height:6px}
@@ -1965,7 +1965,6 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
     <div id="filter-pill-bar" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:10px;align-items:center"></div>
     <div id="table-wrap">
       <div class="empty-st" id="cust-empty"><div class="ei"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/></svg></div><h3>No customers yet</h3><p>Score your first customer manually or bulk-import via CSV.</p><div style="display:flex;gap:8px;justify-content:center;margin-top:12px"><button class="btn btn-primary btn-sm" onclick="nav('score')">+ Score a Customer</button><button class="btn btn-outline btn-sm" onclick="nav('csv')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Import CSV</button></div></div>
-      <div id="cust-top-scroll" style="display:none"><div id="cust-top-scroll-inner"></div></div>
       <div id="cust-scroll-wrap">
         <table class="ct" id="cust-table" style="display:none">
           <thead id="cust-thead"><tr>
@@ -1974,6 +1973,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
           <tbody id="cust-tbody"></tbody>
         </table>
       </div>
+      <div id="cust-top-scroll" style="display:none"><div id="cust-top-scroll-inner"></div></div>
     </div>
   </div>
   <!-- Trash view — shown when filterMode === 'trash' -->
@@ -3950,6 +3950,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=444"></script>
+<script src="js/app.js?v=445"></script>
 </body>
 </html>
