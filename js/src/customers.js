@@ -667,7 +667,7 @@ function _renderCustomers() {
     const cad   = getCadenceStatus(c);
     return `
       <tr class="${isSel?'selected':''}" data-id="${c.id}">
-        <td class="cb-col"><input type="checkbox" ${isSel?'checked':''} onchange="toggleSelect('${escHtml(c.id)}',this.checked,event)" onclick="event.stopPropagation()"/></td>
+        <td class="cb-col"><input type="checkbox" ${isSel?'checked':''} onclick="event.stopPropagation();toggleSelect('${escHtml(c.id)}',this.checked,event)"/></td>
         <td class="col-frozen" style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')"><strong>${escHtml(c.name)}</strong>${(()=>{ if (!c.next_touch) return ''; const ntd = Math.round((new Date(c.next_touch)-new Date())/86400000); return ntd < 0 ? ' <span class="nt-badge nt-overdue" style="font-size:var(--fs-xs);padding:1px 5px">Touch overdue</span>' : ''; })()}</td>
         <td>${c.manager ? escHtml(c.manager) : '<span style="color:var(--muted);font-style:italic">—</span>'}</td>
         <td>${c.scoring_profile && c.scoring_profile !== 'Global Weights' ? `<span class="tag">${escHtml(c.scoring_profile)}</span>` : '<span style="color:var(--muted);font-style:italic;font-size:var(--fs-sm)">Global</span>'}</td>
@@ -909,6 +909,7 @@ function deltaHTML(delta) {
 let _lastClickedId = null;   // for shift-click range selection
 
 function toggleSelect(id, checked, ev) {
+  console.log('[ShiftSelect] id='+id+' checked='+checked+' shiftKey='+(ev&&ev.shiftKey)+' lastId='+_lastClickedId+' visibleIds='+(!!_visibleIds)+' len='+(_visibleIds?_visibleIds.length:0));
   // Shift-click: select range between last click and this click
   if (ev && ev.shiftKey && _lastClickedId && _lastClickedId !== id && checked && _visibleIds) {
     const fromIdx = _visibleIds.indexOf(_lastClickedId);
