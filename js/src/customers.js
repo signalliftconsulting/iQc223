@@ -701,13 +701,14 @@ function _syncTopScrollbarNow() {
   const tbl  = el('cust-table');
   if (!wrap || !top || !inner || !tbl) return;
 
-  // Use wrap's scrollWidth (the actual scrollable content) vs its visible width
-  const sw = wrap.scrollWidth;
-  const cw = wrap.clientWidth;
-  inner.style.width = sw + 'px';
-  // Show only when table overflows horizontally
-  if (sw > cw + 2) {
+  // Always show if table is visible; set inner width to match table's full width
+  const tw = tbl.offsetWidth;
+  const ww = wrap.offsetWidth;
+  console.log('[TopScroll] table offsetWidth=' + tw + ' wrap offsetWidth=' + ww + ' wrap.scrollWidth=' + wrap.scrollWidth + ' wrap.clientWidth=' + wrap.clientWidth);
+  inner.style.width = tw + 'px';
+  if (tw > ww) {
     top.style.display = 'block';
+    top.style.overflowX = 'auto';
   } else {
     top.style.display = 'none';
   }
