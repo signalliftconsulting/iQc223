@@ -101,11 +101,12 @@ document.addEventListener('click', function(e) {
 
 // Close alert filter dropdown when clicking outside
 document.addEventListener('click', function(e) {
-  if (!_openAlertFilterKey) return;
+  if (!_openAlertFilterKey && !_openCrFilterKey) return;
   const menu = document.getElementById('alert-filter-portal');
   if (menu && menu.contains(e.target)) return;
   if (e.target.closest && e.target.closest('.col-filter-btn')) return;
-  closeAlertFilter();
+  if (_openAlertFilterKey) closeAlertFilter();
+  if (_openCrFilterKey) closeCrFilter();
 });
 
 function mgrAllToggle(cb) {
