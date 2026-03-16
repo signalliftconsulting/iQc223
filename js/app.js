@@ -666,6 +666,32 @@ function cfRenderPills(prefix) {
 // ─── PAGE GUIDE BANNERS ─────────────────────────────────────
 // Shared helper for rendering dismissable guide banners on every page.
 
+// All guide definitions: id → storageKey mapping (for badge management)
+const _GUIDE_DEFS = [
+  { id: 'alerts-guide',      key: 'iqc_alerts_guide_dismissed' },
+  { id: 'customers-guide',   key: 'iqc_customers_guide_dismissed' },
+  { id: 'segments-guide',    key: 'iqc_segments_guide_dismissed' },
+  { id: 'trends-guide',      key: 'iqc_trends_guide_dismissed' },
+  { id: 'csmperf-guide',     key: 'iqc_csmperf_guide_dismissed' },
+  { id: 'calendar-guide',    key: 'iqc_calendar_guide_dismissed' },
+  { id: 'reports-guide',     key: 'iqc_reports_guide_dismissed' },
+  { id: 'score-guide',       key: 'iqc_score_guide_dismissed' },
+  { id: 'users-guide',       key: 'iqc_users_guide_dismissed' },
+  { id: 'auditlog-guide',    key: 'iqc_auditlog_guide_dismissed' },
+  { id: 'automations-guide', key: 'iqc_automations_guide_dismissed' },
+  { id: 'csv-guide',         key: 'iqc_csv_guide_dismissed' },
+  { id: 'settings-guide',    key: 'iqc_settings_guide_dismissed' },
+];
+
+// Show/hide all guide badges based on localStorage state. Called on boot.
+function _updateAllGuideBadges() {
+  _GUIDE_DEFS.forEach(function(g) {
+    var badge = document.getElementById(g.id + '-badge');
+    if (!badge) return;
+    try { badge.style.display = localStorage.getItem(g.key) === '1' ? 'none' : ''; } catch(e) { badge.style.display = 'none'; }
+  });
+}
+
 function _renderGuide(id, storageKey, html) {
   const wrap = document.getElementById(id);
   if (!wrap) return;
@@ -691,10 +717,16 @@ function _guideToggleDsa(storageKey, checked) {
 }
 
 function _dismissGuide(id, storageKey) {
-  // If "Don't show again" is checked, persist; otherwise just hide for this session
+  // If "Don't show again" is checked, persist to localStorage; hide badge permanently
   const cb = document.getElementById(id + '-dsa');
-  if (cb && cb.checked) { try { localStorage.setItem(storageKey, '1'); } catch(e) {} }
+  if (cb && cb.checked) {
+    try { localStorage.setItem(storageKey, '1'); } catch(e) {}
+  }
+  // Always hide the guide banner
   const w = document.getElementById(id); if (w) w.style.display = 'none';
+  // Always hide the nav badge when dismissed (whether permanent or not)
+  const badge = document.getElementById(id + '-badge');
+  if (badge) badge.style.display = 'none';
 }
 
 // ─── GUIDE CONTENT PER PAGE ─────────────────────────────────
@@ -25403,8 +25435,7 @@ function _checkUserSwitch(userId) {
     _checkUserSwitch(currentUser.id);
     hideAuthGate();
     updateUserUI(currentUser);
-    _updateSettingsGuideBadge();
-    _updateCsvGuideBadge();
+    _updateAllGuideBadges();
     await ensureUserProfile(currentUser); // register in user_profiles + resolve _userClientId before loading data
 
     // Load from cache instantly — no spinner
@@ -25519,6 +25550,7 @@ function _checkUserSwitch(userId) {
     _checkUserSwitch(currentUser.id);
     hideAuthGate();
     updateUserUI(currentUser);
+    _updateAllGuideBadges();
     await ensureUserProfile(currentUser); // resolve _userClientId before loading data
     nav('homebase');
     renderSettings();

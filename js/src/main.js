@@ -34,8 +34,7 @@ function _checkUserSwitch(userId) {
     _checkUserSwitch(currentUser.id);
     hideAuthGate();
     updateUserUI(currentUser);
-    _updateSettingsGuideBadge();
-    _updateCsvGuideBadge();
+    _updateAllGuideBadges();
     await ensureUserProfile(currentUser); // register in user_profiles + resolve _userClientId before loading data
 
     // Load from cache instantly — no spinner
@@ -150,6 +149,7 @@ function _checkUserSwitch(userId) {
     _checkUserSwitch(currentUser.id);
     hideAuthGate();
     updateUserUI(currentUser);
+    _updateAllGuideBadges();
     await ensureUserProfile(currentUser); // resolve _userClientId before loading data
     nav('homebase');
     renderSettings();

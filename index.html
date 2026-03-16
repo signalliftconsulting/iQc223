@@ -1790,34 +1790,34 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <div class="nav-section">
     <div class="nav-label">Main</div>
     <button class="nav-item active" id="ni-homebase" onclick="nav('homebase')">Home Base</button>
-    <button class="nav-item" id="ni-customers" onclick="nav('customers')">Customers</button>
-    <button class="nav-item" id="ni-alerts" onclick="nav('alerts')">Alerts<span id="alert-badge" class="nav-badge nav-badge-alert" style="display:none"></span></button>
-    <button class="nav-item" id="ni-segments" onclick="nav('segments')">Segments</button>
-    <button class="nav-item" id="ni-trends" onclick="nav('trends')">Trends</button>
-    <button class="nav-item" id="ni-csmperf" onclick="nav('csmperf')">CSM Performance</button>
-    <button class="nav-item" id="ni-reports" onclick="nav('reports')">Reports</button>
+    <button class="nav-item" id="ni-customers" onclick="nav('customers')">Customers <span id="customers-guide-badge" class="nav-badge" style="display:none">1</span></button>
+    <button class="nav-item" id="ni-alerts" onclick="nav('alerts')">Alerts<span id="alert-badge" class="nav-badge nav-badge-alert" style="display:none"></span><span id="alerts-guide-badge" class="nav-badge" style="display:none">1</span></button>
+    <button class="nav-item" id="ni-segments" onclick="nav('segments')">Segments <span id="segments-guide-badge" class="nav-badge" style="display:none">1</span></button>
+    <button class="nav-item" id="ni-trends" onclick="nav('trends')">Trends <span id="trends-guide-badge" class="nav-badge" style="display:none">1</span></button>
+    <button class="nav-item" id="ni-csmperf" onclick="nav('csmperf')">CSM Performance <span id="csmperf-guide-badge" class="nav-badge" style="display:none">1</span></button>
+    <button class="nav-item" id="ni-reports" onclick="nav('reports')">Reports <span id="reports-guide-badge" class="nav-badge" style="display:none">1</span></button>
   </div>
   <div class="nav-divider"></div>
   <!-- Tools -->
   <div class="nav-section">
     <div class="nav-label">Tools</div>
-    <button class="nav-item" id="ni-score" onclick="nav('score')">Score a Customer</button>
+    <button class="nav-item" id="ni-score" onclick="nav('score')">Score a Customer <span id="score-guide-badge" class="nav-badge" style="display:none">1</span></button>
     <button class="nav-item" id="ni-csv" onclick="nav('csv')">CSV Import <span id="csv-guide-badge" class="nav-badge" style="display:none">1</span></button>
-    <button class="nav-item" id="ni-automations" onclick="nav('automations')">Automations</button>
+    <button class="nav-item" id="ni-automations" onclick="nav('automations')">Automations <span id="automations-guide-badge" class="nav-badge" style="display:none">1</span></button>
   </div>
   <div class="nav-divider"></div>
   <!-- Settings -->
   <div class="nav-section">
     <div class="nav-label">Settings</div>
     <button class="nav-item" id="ni-settings" onclick="nav('settings')">Settings <span id="settings-guide-badge" class="nav-badge" style="display:none">1</span></button>
-    <button class="nav-item" id="ni-auditlog" onclick="nav('auditlog')">Audit Log</button>
+    <button class="nav-item" id="ni-auditlog" onclick="nav('auditlog')">Audit Log <span id="auditlog-guide-badge" class="nav-badge" style="display:none">1</span></button>
     <button class="nav-item" id="ni-help" onclick="nav('help')">Help &amp; Guide</button>
   </div>
   <!-- Admin only -->
   <div class="nav-divider" id="ni-admin-sep" style="display:none"></div>
   <div class="nav-label" id="ni-admin-label" style="display:none">Admin</div>
   <button class="nav-item" id="ni-clients" onclick="nav('clients')" style="display:none">Clients</button>
-  <button class="nav-item" id="ni-users" onclick="nav('users')" style="display:none">User Management</button>
+  <button class="nav-item" id="ni-users" onclick="nav('users')" style="display:none">User Management <span id="users-guide-badge" class="nav-badge" style="display:none">1</span></button>
   <!-- Hidden nav items for pages still accessible but removed from menu -->
   <button class="nav-item" id="ni-calendar" onclick="nav('calendar')" style="display:none">Calendar</button>
   <!-- User area -->
@@ -4024,6 +4024,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=479"></script>
+<script src="js/app.js?v=480"></script>
 </body>
 </html>
