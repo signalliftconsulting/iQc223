@@ -40,9 +40,29 @@ function auditTab(which) {
   if (which === 'config') renderConfigHistory();
 }
 
+function _renderSettingsGuide() {
+  const wrap = el('settings-guide');
+  if (!wrap) return;
+  try { if (localStorage.getItem('iqc_settings_guide_dismissed') === '1') { wrap.style.display = 'none'; return; } } catch(e) {}
+  wrap.style.display = '';
+  wrap.innerHTML = `
+    <div style="display:flex;gap:10px;align-items:flex-start;padding:12px 14px;background:color-mix(in srgb, var(--teal) 8%, var(--surface));border:1px solid color-mix(in srgb, var(--teal) 25%, var(--border));border-radius:var(--r);margin-bottom:14px;position:relative">
+      <div style="width:22px;height:22px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs-xs);flex-shrink:0">1</div>
+      <div style="flex:1;font-size:var(--fs-sm);color:var(--text);line-height:1.5">
+        <strong>Quick overview</strong> — This is where you configure how IQcadence scores your customers.
+        <strong>Config</strong> lets you set signal weights, score thresholds, and scoring profiles.
+        <strong>Account</strong> has your team, data health, and config history.
+        <strong>Integrations</strong> is where you connect CRMs and tools to sync customer data automatically.
+        Start by reviewing the <strong>signal weights</strong> below — they control how each metric impacts the health score.
+      </div>
+      <button onclick="try{localStorage.setItem('iqc_settings_guide_dismissed','1')}catch(e){}document.getElementById('settings-guide').style.display='none'" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;line-height:1;padding:0;flex-shrink:0" title="Dismiss">×</button>
+    </div>`;
+}
+
 function renderSettings() {
   // Always reset to Config tab on navigation
   cfgTab('config');
+  _renderSettingsGuide();
 
   // Thresholds (available to all tiers)
   el('th-critical').value = thresholds.critical;
