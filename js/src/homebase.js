@@ -55,6 +55,30 @@ const _hbCatClass = {
 
 function renderHomeBase() { try { _renderHomeBase(); } catch(e) { console.error('renderHomeBase error:', e); } }
 
+async function _loadDemoFromCard() {
+  if (!currentUser) { toast('Please sign in first', 'warn'); return; }
+  const cid = getEffectiveClientId();
+  if (!cid) { toast('No client found — contact support', 'error'); return; }
+  if (!confirm('This will load 75 demo customers into your account. Any existing customers will be replaced. Continue?')) return;
+  toast('Loading demo data…', 'default');
+  try {
+    await seedDemoData(cid, 75);
+    // Reload customers from Supabase so the UI reflects the new data
+    if (typeof activeClientId !== 'undefined' && activeClientId && activeClientId !== '__own__') {
+      await loadClientCustomers(activeClientId);
+    } else {
+      await loadCustomersFromSupabase();
+    }
+    rescoreAll();
+    renderHomeBase();
+    nav('homebase');
+    toast('Demo data loaded — 75 customers ready to explore!', 'success');
+  } catch(e) {
+    console.error('Demo seed error:', e);
+    toast('Failed to load demo data: ' + e.message, 'error');
+  }
+}
+
 function _gsStepIcon(n) { return `<div style="width:22px;height:22px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs-xs);flex-shrink:0">${n}</div>`; }
 
 function _gettingStartedHTML() {
@@ -106,6 +130,17 @@ function _gettingStartedHTML() {
       { title:'Adjust weights and review', desc:'Fine-tune your <a href="#" onclick="event.stopPropagation();nav(\'settings\')" style="color:var(--teal);font-weight:600">scoring weights</a> to match what matters for your business. Check your dashboard to see health scores and insights.' }
     ],
     '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();nav(\'csv\')">Import CSV →</button><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();nav(\'score\')">+ Score Manually</button>'
+  ) + card(
+    `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
+    'linear-gradient(135deg,#8b5cf6,#7c3aed)',
+    'No data yet? Try a demo',
+    'Load 75 realistic demo customers with 2+ years of history so you can explore every feature',
+    [
+      { title:'One-click demo data', desc:'Click <strong>Load Demo Data</strong> below to generate 75 sample customers with realistic health scores, MRR, signals, score history, and trends.' },
+      { title:'Explore the platform', desc:'Browse <a href="#" onclick="event.stopPropagation();nav(\'alerts\')" style="color:var(--teal);font-weight:600">Alerts</a>, <a href="#" onclick="event.stopPropagation();nav(\'trends\')" style="color:var(--teal);font-weight:600">Trends</a>, <a href="#" onclick="event.stopPropagation();nav(\'segments\')" style="color:var(--teal);font-weight:600">Segments</a>, and <a href="#" onclick="event.stopPropagation();nav(\'csmperf\')" style="color:var(--teal);font-weight:600">CSM Performance</a> to see what IQcadence looks like with a full portfolio.' },
+      { title:'Replace with your own data anytime', desc:'When you\'re ready, delete the demo accounts and import your real customers via CSV or integration. Your settings and configuration will be preserved.' }
+    ],
+    '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();_loadDemoFromCard()">Load Demo Data →</button>'
   );
 }
 
