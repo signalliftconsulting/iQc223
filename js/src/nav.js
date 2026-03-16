@@ -151,6 +151,7 @@ function nav(v) {
   if (v === 'calendar')  renderCalendar();
   if (v === 'settings')  renderSettings();
   if (v === 'auditlog')  { if (!hasFeature('audit_log')) { el('audit-loading').style.display='none'; document.getElementById('audit-table').style.display='none'; document.getElementById('audit-empty').innerHTML = upgradeHTML('audit_log'); document.getElementById('audit-empty').style.display='block'; } else { loadAuditLog(); renderConfigHistory(); } }
+  if (v === 'csv')         _renderCsvGuide();
   if (v === 'reports')     renderReporting();
   if (v === 'automations') renderAutomations();
   if (v === 'users')     renderUsers();

@@ -1802,7 +1802,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <div class="nav-section">
     <div class="nav-label">Tools</div>
     <button class="nav-item" id="ni-score" onclick="nav('score')">Score a Customer</button>
-    <button class="nav-item" id="ni-csv" onclick="nav('csv')">CSV Import</button>
+    <button class="nav-item" id="ni-csv" onclick="nav('csv')">CSV Import <span id="csv-guide-badge" class="nav-badge" style="display:none">1</span></button>
     <button class="nav-item" id="ni-automations" onclick="nav('automations')">Automations</button>
   </div>
   <div class="nav-divider"></div>
@@ -2334,6 +2334,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       </div>
     </div>
   </div>
+  <div id="csv-guide"></div>
   <div class="card">
     <div class="tmpl-box">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
@@ -3950,6 +3951,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=462"></script>
+<script src="js/app.js?v=463"></script>
 </body>
 </html>

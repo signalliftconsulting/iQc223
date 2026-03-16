@@ -3742,6 +3742,7 @@ function nav(v) {
   if (v === 'calendar')  renderCalendar();
   if (v === 'settings')  renderSettings();
   if (v === 'auditlog')  { if (!hasFeature('audit_log')) { el('audit-loading').style.display='none'; document.getElementById('audit-table').style.display='none'; document.getElementById('audit-empty').innerHTML = upgradeHTML('audit_log'); document.getElementById('audit-empty').style.display='block'; } else { loadAuditLog(); renderConfigHistory(); } }
+  if (v === 'csv')         _renderCsvGuide();
   if (v === 'reports')     renderReporting();
   if (v === 'automations') renderAutomations();
   if (v === 'users')     renderUsers();
@@ -23930,6 +23931,36 @@ function exportAuditLog() {
 
 
 // ─── CSV IMPORT ─────────────────────────────────────────────
+
+function _dismissCsvGuide() {
+  try { localStorage.setItem('iqc_csv_guide_dismissed','1'); } catch(e) {}
+  const w = document.getElementById('csv-guide'); if (w) w.style.display = 'none';
+  const b = document.getElementById('csv-guide-badge'); if (b) b.style.display = 'none';
+}
+
+function _updateCsvGuideBadge() {
+  const b = el('csv-guide-badge');
+  if (!b) return;
+  try { b.style.display = localStorage.getItem('iqc_csv_guide_dismissed') === '1' ? 'none' : ''; } catch(e) { b.style.display = 'none'; }
+}
+
+function _renderCsvGuide() {
+  const wrap = el('csv-guide');
+  if (!wrap) return;
+  try { if (localStorage.getItem('iqc_csv_guide_dismissed') === '1') { wrap.style.display = 'none'; return; } } catch(e) {}
+  wrap.style.display = '';
+  wrap.innerHTML = `
+    <div style="display:flex;gap:10px;align-items:flex-start;padding:12px 14px;background:color-mix(in srgb, var(--teal) 8%, var(--surface));border:1px solid color-mix(in srgb, var(--teal) 25%, var(--border));border-radius:var(--r);margin-bottom:14px">
+      <div style="width:22px;height:22px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs-xs);flex-shrink:0">1</div>
+      <div style="flex:1;font-size:var(--fs-sm);color:var(--text);line-height:1.6">
+        <strong>How to use CSV Import</strong><br>
+        <strong>No integration?</strong> Upload a full bulksheet with all your customer data — names, MRR, signals, etc. You can also add customers one at a time via <a href="#" onclick="event.stopPropagation();nav('score')" style="color:var(--teal);font-weight:600">Score a Customer</a>.<br>
+        <strong>Using an integration?</strong> You only need to import customer names here. Keep the other columns blank — once your integration is connected, run a sync and it will fill in MRR, tickets, NPS, and other metrics automatically for matching customers.<br>
+        <strong>Tip:</strong> Download the <strong>Template CSV</strong> above to see all supported columns and the expected format.
+      </div>
+      <button onclick="_dismissCsvGuide()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;line-height:1;padding:0;flex-shrink:0" title="Dismiss">×</button>
+    </div>`;
+}
 function handleDragOver(e)  { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
 function handleDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
 function handleDrop(e)      { e.preventDefault(); e.currentTarget.classList.remove('drag-over'); const f=e.dataTransfer.files[0]; if(f) parseCSVFile(f); }
@@ -24974,6 +25005,7 @@ async function ensureUserProfile(user) {
     hideAuthGate();
     updateUserUI(currentUser);
     _updateSettingsGuideBadge();
+    _updateCsvGuideBadge();
     await ensureUserProfile(currentUser); // register in user_profiles + resolve _userClientId before loading data
 
     // Load from cache instantly — no spinner

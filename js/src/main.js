@@ -14,6 +14,7 @@
     hideAuthGate();
     updateUserUI(currentUser);
     _updateSettingsGuideBadge();
+    _updateCsvGuideBadge();
     await ensureUserProfile(currentUser); // register in user_profiles + resolve _userClientId before loading data
 
     // Load from cache instantly — no spinner
