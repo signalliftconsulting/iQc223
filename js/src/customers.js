@@ -691,16 +691,22 @@ function _renderCustomers() {
 // ─── TOP SCROLLBAR SYNC ─────────────────────────────────────
 let _topScrollSyncing = false;
 function _syncTopScrollbar() {
+  // Double rAF to ensure browser has fully laid out the table
+  requestAnimationFrame(() => { requestAnimationFrame(() => { _syncTopScrollbarNow(); }); });
+}
+function _syncTopScrollbarNow() {
   const wrap = el('cust-scroll-wrap');
   const top  = el('cust-top-scroll');
   const inner = el('cust-top-scroll-inner');
   const tbl  = el('cust-table');
   if (!wrap || !top || !inner || !tbl) return;
 
-  // Match inner width to table width so top scrollbar appears
-  const tw = tbl.scrollWidth;
-  inner.style.width = tw + 'px';
-  top.style.display = tw > wrap.clientWidth ? '' : 'none';
+  // Use wrap's scrollWidth (the actual scrollable width) vs its visible width
+  const sw = wrap.scrollWidth;
+  const cw = wrap.clientWidth;
+  inner.style.width = sw + 'px';
+  top.style.width   = cw + 'px';   // match the visible width of the table area
+  top.style.display = sw > cw ? 'block' : 'none';
 
   // Bidirectional scroll sync (avoid infinite loop with flag)
   if (!top._synced) {
@@ -717,6 +723,8 @@ function _syncTopScrollbar() {
       top.scrollLeft = wrap.scrollLeft;
       _topScrollSyncing = false;
     });
+    // Re-sync on window resize
+    window.addEventListener('resize', () => { _syncTopScrollbarNow(); });
   }
 }
 
