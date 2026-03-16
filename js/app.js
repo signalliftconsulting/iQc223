@@ -24369,9 +24369,9 @@ function clearCSV() {
 function dlTemplate() {
   const hdr = 'name,manager,mrr,arr,logins_30d,feature_adoption_pct,open_tickets,nps,csat,days_since_contact,renewal_date,months_to_renewal,growth_signal,tier,tags,lifecycle,customer_since,next_touch,last_contact_date,scoring_profile,note,sentiment';
   const sample = [
-    'Acme Corp,Jane Smith,5000,60000,22,75,1,9,4,7,2026-09-15,8,strong,mid,"power-user,renewal-soon",active,2024-01-10,2026-03-01,Global Weights,Great engagement,positive',
-    'Beta Inc,Marcus Lee,1200,14400,8,40,3,5,,25,2026-05-01,3,none,smb,,onboarding,2025-11-01,,Global Weights,Needs onboarding help,neutral',
-    'Gamma LLC,Jane Smith,12000,144000,28,90,0,10,5,3,2027-01-20,11,strong,enterprise,enterprise-plan,active,2023-06-15,2026-03-10,Global Weights,,positive'
+    'Acme Corp,Jane Smith,5000,60000,22,75,1,9,4,7,2026-09-15,8,strong,mid,"power-user,renewal-soon",active,2024-01-10,2026-03-01,2026-03-09,Global Weights,Great engagement,positive',
+    'Beta Inc,Marcus Lee,1200,14400,8,40,3,5,,25,2026-05-01,3,none,smb,,onboarding,2025-11-01,,2026-02-19,Global Weights,Needs onboarding help,neutral',
+    'Gamma LLC,Jane Smith,12000,144000,28,90,0,10,5,3,2027-01-20,11,strong,enterprise,enterprise-plan,active,2023-06-15,2026-03-10,2026-03-13,Global Weights,,positive'
   ].join('\n');
   dlText(hdr + '\n' + sample, 'cs-health-template.csv', 'text/csv');
 }

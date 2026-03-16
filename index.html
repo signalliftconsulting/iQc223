@@ -2341,7 +2341,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
         <div><strong>Supported column headers:</strong><p style="font-size:.77rem;margin-top:2px;color:var(--muted)">Or upload any CSV — you can remap columns after upload.</p></div>
         <button class="btn btn-sm btn-outline" onclick="dlTemplate()">Template CSV</button>
       </div>
-      <code>name, manager, mrr, arr, logins_30d, feature_adoption_pct, open_tickets, nps_category, days_since_contact, renewal_date, months_to_renewal, growth_signal, tier, tags, lifecycle, customer_since, next_touch, scoring_profile, note, sentiment</code>
+      <code>name, manager, mrr, arr, logins_30d, feature_adoption_pct, open_tickets, nps, csat, days_since_contact, renewal_date, months_to_renewal, growth_signal, tier, tags, lifecycle, customer_since, next_touch, last_contact_date, scoring_profile, note, sentiment</code>
     </div>
     <div class="drop-zone" id="drop-zone" onclick="document.getElementById('csv-input').click()" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
       <div class="drop-zone__icon">
@@ -3951,6 +3951,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=463"></script>
+<script src="js/app.js?v=464"></script>
 </body>
 </html>
