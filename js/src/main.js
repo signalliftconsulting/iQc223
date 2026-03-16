@@ -8,12 +8,12 @@ function _checkUserSwitch(userId) {
     Object.keys(localStorage)
       .filter(k => k.startsWith('iqc_') && k !== 'iqc_uid')
       .forEach(k => localStorage.removeItem(k));
-    // Reset in-memory state
+    // Reset ALL in-memory state — customers, trash, and every setting
     customers = [];
     trash = [];
-    automationsCfg = {};
-    profiles = [];
-    if (typeof ensureGlobalWeightsProfile === 'function') ensureGlobalWeightsProfile();
+    // Re-run loadSettings() with empty localStorage → resets weights,
+    // thresholds, profiles, automationsCfg, snoozed, dismissed, etc. to defaults
+    loadSettings();
     console.info('[auth] User switch detected — cleared stale cache');
   }
   localStorage.setItem('iqc_uid', userId);
