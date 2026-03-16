@@ -1484,7 +1484,7 @@ function deleteCustomer(id) {
     customers = customers.filter(x => x.id !== id);
     toast(`${c.name} moved to Trash`, 'warn');
     logAudit('customer_deleted', c.id, c.name, { summary: `Moved to trash — Score: ${c.score}/100, MRR: $${c.mrr||0}, Tier: ${c.tier}` });
-    renderCustomers();
+    if (!customers.length) { nav('homebase'); } else { renderCustomers(); }
     setLoading(true);
     await atDelete(c).catch(()=>{});
     setLoading(false);

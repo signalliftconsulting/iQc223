@@ -8482,7 +8482,7 @@ function bulkDelete() {
     clearSelection();
     logAudit('bulk_delete', null, '', { summary: `${n} customer${n===1?'':'s'} moved to Trash` });
     toast(`${n} customer${n!==1?'s':''} moved to Trash`, 'warn');
-    renderCustomers();
+    if (!customers.length) { nav('homebase'); } else { renderCustomers(); }
     setLoading(true);
     await Promise.all(toDelete.map(c => atDelete(c).catch(()=>{}))).finally(() => setLoading(false));
   });
@@ -10133,7 +10133,7 @@ function deleteCustomer(id) {
     customers = customers.filter(x => x.id !== id);
     toast(`${c.name} moved to Trash`, 'warn');
     logAudit('customer_deleted', c.id, c.name, { summary: `Moved to trash — Score: ${c.score}/100, MRR: $${c.mrr||0}, Tier: ${c.tier}` });
-    renderCustomers();
+    if (!customers.length) { nav('homebase'); } else { renderCustomers(); }
     setLoading(true);
     await atDelete(c).catch(()=>{});
     setLoading(false);
