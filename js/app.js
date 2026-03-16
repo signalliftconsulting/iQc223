@@ -25280,18 +25280,15 @@ async function ensureUserProfile(user) {
 // purges stale localStorage + in-memory state from the previous user.
 function _checkUserSwitch(userId) {
   const prev = localStorage.getItem('iqc_uid');
-  if (prev && prev !== userId) {
-    // Purge all cached data from previous user
+  // Purge if: different user detected, OR iqc_uid never set but stale data exists (pre-update)
+  if (prev !== userId) {
     Object.keys(localStorage)
       .filter(k => k.startsWith('iqc_') && k !== 'iqc_uid')
       .forEach(k => localStorage.removeItem(k));
-    // Reset ALL in-memory state — customers, trash, and every setting
     customers = [];
     trash = [];
-    // Re-run loadSettings() with empty localStorage → resets weights,
-    // thresholds, profiles, automationsCfg, snoozed, dismissed, etc. to defaults
-    loadSettings();
-    console.info('[auth] User switch detected — cleared stale cache');
+    loadSettings(); // reset all in-memory state to defaults
+    if (prev) console.info('[auth] User switch detected — cleared stale cache');
   }
   localStorage.setItem('iqc_uid', userId);
 }
