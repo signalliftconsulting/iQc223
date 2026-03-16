@@ -55,29 +55,29 @@ const _hbCatClass = {
 
 function renderHomeBase() { try { _renderHomeBase(); } catch(e) { console.error('renderHomeBase error:', e); } }
 
-function _gsStepIcon(n) { return `<div style="width:28px;height:28px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs-sm);flex-shrink:0">${n}</div>`; }
+function _gsStepIcon(n) { return `<div style="width:22px;height:22px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs-xs);flex-shrink:0">${n}</div>`; }
 
 function _gettingStartedHTML() {
   const si = _gsStepIcon;
   const card = (icon, bg, title, sub, steps, buttons) => `
-    <div class="card" style="margin-bottom:16px;cursor:pointer" onclick="this.querySelector('.gs-detail').style.display=this.querySelector('.gs-detail').style.display==='none'?'block':'none'">
-      <div style="display:flex;align-items:center;gap:14px;padding:18px 20px">
-        <div style="width:40px;height:40px;border-radius:10px;background:${bg};display:flex;align-items:center;justify-content:center">${icon}</div>
-        <div style="flex:1">
-          <div style="font-weight:700;font-size:var(--fs-md);color:var(--text)">${title}</div>
-          <div style="font-size:var(--fs-sm);color:var(--muted)">${sub}</div>
+    <div class="card" style="margin-bottom:8px;cursor:pointer" onclick="this.querySelector('.gs-detail').style.display=this.querySelector('.gs-detail').style.display==='none'?'block':'none'">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px">
+        <div style="width:30px;height:30px;border-radius:8px;background:${bg};display:flex;align-items:center;justify-content:center;flex-shrink:0">${icon}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:var(--fs-sm);color:var(--text)">${title}</div>
+          <div style="font-size:var(--fs-xs);color:var(--muted);line-height:1.3">${sub}</div>
         </div>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
       </div>
-      <div class="gs-detail" style="display:none;padding:0 20px 20px;border-top:1px solid var(--border);margin-top:-2px;padding-top:16px">
-        ${steps.map((s, i) => `<div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">${si(i+1)}<div><strong>${s.title}</strong><br><span style="color:var(--muted);font-size:var(--fs-sm)">${s.desc}</span></div></div>`).join('')}
-        <div style="display:flex;gap:8px;margin-top:4px">${buttons}</div>
+      <div class="gs-detail" style="display:none;padding:0 14px 12px;border-top:1px solid var(--border);padding-top:10px">
+        ${steps.map((s, i) => `<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px">${si(i+1)}<div style="font-size:var(--fs-sm);line-height:1.4"><strong>${s.title}</strong> — <span style="color:var(--muted)">${s.desc}</span></div></div>`).join('')}
+        <div style="display:flex;gap:6px;margin-top:2px">${buttons}</div>
       </div>
     </div>`;
 
-  const linkIco = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
-  const pplIco = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
-  const fileIco = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`;
+  const linkIco = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
+  const pplIco = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
+  const fileIco = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`;
 
   return card(linkIco, 'linear-gradient(135deg,#14b8a6,#0d9488)',
     'I have a CRM or tool to connect',
@@ -111,10 +111,10 @@ function _gettingStartedHTML() {
 
 function _renderGettingStarted(wrap) {
   wrap.innerHTML = `
-  <div style="max-width:720px;margin:0 auto;padding:32px 0">
-    <div style="text-align:center;margin-bottom:32px">
-      <h1 style="font-size:1.5rem;font-weight:800;color:var(--text);margin-bottom:8px">Welcome to IQcadence</h1>
-      <p style="color:var(--muted);font-size:var(--fs-md);max-width:480px;margin:0 auto">Get started by adding your customers. Choose the path that fits your setup.</p>
+  <div style="max-width:600px;margin:0 auto;padding:20px 0">
+    <div style="text-align:center;margin-bottom:20px">
+      <h1 style="font-size:1.25rem;font-weight:800;color:var(--text);margin-bottom:4px">Welcome to IQcadence</h1>
+      <p style="color:var(--muted);font-size:var(--fs-sm)">Get started by adding your customers. Choose the path that fits your setup.</p>
     </div>
     ${_gettingStartedHTML()}
   </div>`;
@@ -123,22 +123,22 @@ function _renderGettingStarted(wrap) {
 function _gsCardHTML() {
   const dismissed = false;
   try { if (localStorage.getItem('iqc_gs_dismissed') === '1') return ''; } catch(e) {}
-  return `<div class="card" id="gs-banner" style="margin-bottom:16px;border-left:4px solid var(--teal);position:relative">
-    <div style="padding:16px 20px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div style="display:flex;align-items:center;gap:10px">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          <span style="font-weight:700;font-size:var(--fs-md);color:var(--text)">Getting Started Guide</span>
+  return `<div class="card" id="gs-banner" style="margin-bottom:10px;border-left:3px solid var(--teal)">
+    <div style="padding:10px 14px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:8px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span style="font-weight:700;font-size:var(--fs-sm);color:var(--text)">Getting Started</span>
+          <button onclick="var b=document.getElementById('gs-banner-body');var open=b.style.display!=='none';b.style.display=open?'none':'block';this.textContent=open?'Hide ↑':'Show ↓'" class="btn btn-outline btn-xs" style="font-size:var(--fs-xs);padding:2px 8px;margin-left:4px">Show ↓</button>
         </div>
-        <div style="display:flex;align-items:center;gap:12px">
-          <label style="display:flex;align-items:center;gap:5px;font-size:var(--fs-sm);color:var(--muted);cursor:pointer;user-select:none">
+        <div style="display:flex;align-items:center;gap:8px">
+          <label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-xs);color:var(--muted);cursor:pointer;user-select:none">
             <input type="checkbox" onchange="dismissGettingStarted(this.checked)"> Don't show again
           </label>
-          <button onclick="document.getElementById('gs-banner').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;line-height:1;padding:2px" title="Close">×</button>
+          <button onclick="document.getElementById('gs-banner').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;line-height:1;padding:0" title="Close">×</button>
         </div>
       </div>
-      <div id="gs-banner-body" style="display:none">${_gettingStartedHTML()}</div>
-      <button onclick="var b=document.getElementById('gs-banner-body');var open=b.style.display!=='none';b.style.display=open?'none':'block';this.textContent=open?'Show guide ↓':'Hide guide ↑'" class="btn btn-outline btn-xs" style="font-size:var(--fs-sm)">Show guide ↓</button>
+      <div id="gs-banner-body" style="display:none;margin-top:10px">${_gettingStartedHTML()}</div>
     </div>
   </div>`;
 }
