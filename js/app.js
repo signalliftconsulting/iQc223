@@ -7945,14 +7945,16 @@ function deltaHTML(delta) {
 let _lastClickedId = null;   // for shift-click range selection
 
 function toggleSelect(id, checked, ev) {
-  console.log('[ShiftSelect] id='+id+' checked='+checked+' shiftKey='+(ev&&ev.shiftKey)+' lastId='+_lastClickedId+' visibleIds='+(!!_visibleIds)+' len='+(_visibleIds?_visibleIds.length:0));
-  // Shift-click: select range between last click and this click
-  if (ev && ev.shiftKey && _lastClickedId && _lastClickedId !== id && checked && _visibleIds) {
+  // Shift-click: select or deselect range between last click and this click
+  if (ev && ev.shiftKey && _lastClickedId && _lastClickedId !== id && _visibleIds) {
     const fromIdx = _visibleIds.indexOf(_lastClickedId);
     const toIdx   = _visibleIds.indexOf(id);
     if (fromIdx !== -1 && toIdx !== -1) {
       const lo = Math.min(fromIdx, toIdx), hi = Math.max(fromIdx, toIdx);
-      for (let i = lo; i <= hi; i++) selectedIds.add(_visibleIds[i]);
+      for (let i = lo; i <= hi; i++) {
+        if (checked) selectedIds.add(_visibleIds[i]);
+        else         selectedIds.delete(_visibleIds[i]);
+      }
     }
   } else {
     if (checked) selectedIds.add(id);
