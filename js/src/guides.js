@@ -32,7 +32,7 @@ function renderAlertsGuide() {
   _renderGuide('alerts-guide', 'iqc_alerts_guide_dismissed',
     '<strong>Quick overview</strong> — Alerts surface customers that need attention based on health score changes, risk signals, and thresholds you configure. ' +
     'Each alert shows the trigger, affected customer, and recommended action. ' +
-    'Click any alert to jump to that customer\'s detail view. Switch to the <strong>Alert Feed</strong> tab to filter by type, snooze, or dismiss individual alerts.');
+    'Click any alert to jump to that customer\'s detail view. Scroll down to the <strong>Alert Feed</strong> to filter by type, snooze, or dismiss individual alerts.');
 }
 
 function renderCustomersGuide() {
