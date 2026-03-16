@@ -25238,6 +25238,27 @@ async function ensureUserProfile(user) {
   } catch(e) { /* silent — non-critical */ }
 }
 
+// ─── USER-SWITCH GUARD ──────────────────────────────────────
+// Detects when a different user signs in on the same browser and
+// purges stale localStorage + in-memory state from the previous user.
+function _checkUserSwitch(userId) {
+  const prev = localStorage.getItem('iqc_uid');
+  if (prev && prev !== userId) {
+    // Purge all cached data from previous user
+    Object.keys(localStorage)
+      .filter(k => k.startsWith('iqc_') && k !== 'iqc_uid')
+      .forEach(k => localStorage.removeItem(k));
+    // Reset in-memory state
+    customers = [];
+    trash = [];
+    automationsCfg = {};
+    profiles = [];
+    if (typeof ensureGlobalWeightsProfile === 'function') ensureGlobalWeightsProfile();
+    console.info('[auth] User switch detected — cleared stale cache');
+  }
+  localStorage.setItem('iqc_uid', userId);
+}
+
 // ─── BOOT ────────────────────────────────────────────────────
 (async function init() {
   // Load settings from localStorage immediately (fast local cache)
@@ -25251,6 +25272,7 @@ async function ensureUserProfile(user) {
   if (existingSession?.user) {
     // Already logged in — show app immediately
     currentUser = existingSession.user;
+    _checkUserSwitch(currentUser.id);
     hideAuthGate();
     updateUserUI(currentUser);
     _updateSettingsGuideBadge();
@@ -25356,14 +25378,17 @@ async function ensureUserProfile(user) {
       return;
     }
 
-    // SIGNED_IN can fire on token refresh after expiry — if we already have data,
-    // treat it like TOKEN_REFRESHED (silent sync, no overlay)
-    if (customers.length > 0) {
+    // SIGNED_IN can fire on token refresh after expiry — if we already have data
+    // AND it's the same user, treat it like TOKEN_REFRESHED (silent sync, no overlay).
+    // If it's a different user, fall through to full sign-in flow.
+    const prevUid = localStorage.getItem('iqc_uid');
+    if (customers.length > 0 && prevUid === currentUser.id) {
       silentSync();
       return;
     }
 
     // Fresh sign-in only (no existing data loaded)
+    _checkUserSwitch(currentUser.id);
     hideAuthGate();
     updateUserUI(currentUser);
     await ensureUserProfile(currentUser); // resolve _userClientId before loading data
