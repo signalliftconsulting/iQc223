@@ -2430,13 +2430,14 @@ async function authSignOut() {
   _userClientId = null;
   customers   = [];
   trash       = [];
-  await sb.auth.signOut();
   // Clear all cached data to prevent leakage to next user
   Object.keys(localStorage).filter(k => k.startsWith('iqc_')).forEach(k => localStorage.removeItem(k));
-  // Show login immediately — onAuthStateChange will also fire
+  // Show login immediately — don't wait for Supabase
   showAuthGate();
   authTab('login');
   toast('Signed out', 'default');
+  // Fire-and-forget Supabase sign out (don't block UI on network issues)
+  try { await sb.auth.signOut(); } catch(e) { console.warn('Sign out request failed:', e); }
 }
 
 function updateUserUI(user) {
