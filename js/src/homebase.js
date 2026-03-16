@@ -456,7 +456,7 @@ function _renderHomeBase() {
   if (_dodBriefing && _dodBriefing.avgDelta <= -2) {
     const d = _dodBriefing;
     const reasonHint = d.reasons.length ? ` \u2014 ${d.reasons.slice(0,2).join(' and ')}` : '';
-    _actionPool.push({ urgency: 90 + Math.abs(d.avgDelta) * 2, tone: 'red', text: `Investigate the overnight score drop across ${d.total} accounts${reasonHint}.`, action: "setTrendRange('1d');nav('trends')", ids: [] });
+    _actionPool.push({ urgency: 90 + Math.abs(d.avgDelta) * 2, tone: 'red', text: `Investigate the overnight score drop across ${d.total} accounts${reasonHint}.`, action: "setTrendRange('3d');nav('trends')", ids: [] });
   }
 
   // 2. Renewal + no contact → Schedule EBR
@@ -1277,7 +1277,7 @@ function _insightDayOverDay(active) {
     detail,
     action: ids.length
       ? { label: 'View Affected Accounts', fn: `setInsightFilter('DoD significant drops',${JSON.stringify(ids)})` }
-      : { label: 'View 1-Day Trend', fn: "setTrendRange('1d');nav('trends')" }
+      : { label: 'View 1-Day Trend', fn: "setTrendRange('3d');nav('trends')" }
   };
 }
 

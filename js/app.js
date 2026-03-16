@@ -4262,7 +4262,7 @@ function _renderHomeBase() {
   if (_dodBriefing && _dodBriefing.avgDelta <= -2) {
     const d = _dodBriefing;
     const reasonHint = d.reasons.length ? ` \u2014 ${d.reasons.slice(0,2).join(' and ')}` : '';
-    _actionPool.push({ urgency: 90 + Math.abs(d.avgDelta) * 2, tone: 'red', text: `Investigate the overnight score drop across ${d.total} accounts${reasonHint}.`, action: "setTrendRange('1d');nav('trends')", ids: [] });
+    _actionPool.push({ urgency: 90 + Math.abs(d.avgDelta) * 2, tone: 'red', text: `Investigate the overnight score drop across ${d.total} accounts${reasonHint}.`, action: "setTrendRange('3d');nav('trends')", ids: [] });
   }
 
   // 2. Renewal + no contact → Schedule EBR
@@ -5083,7 +5083,7 @@ function _insightDayOverDay(active) {
     detail,
     action: ids.length
       ? { label: 'View Affected Accounts', fn: `setInsightFilter('DoD significant drops',${JSON.stringify(ids)})` }
-      : { label: 'View 1-Day Trend', fn: "setTrendRange('1d');nav('trends')" }
+      : { label: 'View 1-Day Trend', fn: "setTrendRange('3d');nav('trends')" }
   };
 }
 
@@ -13568,21 +13568,45 @@ function helpSearch() {
   var q = (el('help-search').value || '').trim().toLowerCase();
   var panes = document.querySelectorAll('#view-help .dtab-pane');
   var tabs = el('help-tab-row');
+  var cards = document.querySelectorAll('#view-help .help-card');
   if (!q) {
     tabs.style.display = '';
     panes.forEach(function(p){ p.style.display = ''; p.classList.remove('active'); });
     var activeBtn = document.querySelector('#view-help .dtab.active');
     if (!activeBtn) activeBtn = document.querySelector('#view-help .dtab');
     if (activeBtn) activeBtn.click();
-    document.querySelectorAll('#view-help .help-section').forEach(function(s){ s.style.display = ''; });
+    cards.forEach(function(s){ s.style.display = ''; });
+    // Also show hero blocks
+    document.querySelectorAll('#view-help .help-hero').forEach(function(h){ h.style.display = ''; });
+    var countEl = document.getElementById('help-search-count');
+    if (countEl) countEl.style.display = 'none';
     return;
   }
   tabs.style.display = 'none';
   panes.forEach(function(p){ p.style.display = 'block'; p.classList.add('active'); });
-  document.querySelectorAll('#view-help .help-section').forEach(function(s){
+  // Hide hero blocks during search
+  document.querySelectorAll('#view-help .help-hero').forEach(function(h){ h.style.display = 'none'; });
+  // Split query into words for multi-word matching
+  var words = q.split(/\s+/).filter(Boolean);
+  var count = 0;
+  cards.forEach(function(s){
     var text = s.textContent.toLowerCase();
-    s.style.display = text.indexOf(q) !== -1 ? '' : 'none';
+    var kw = (s.getAttribute('data-keywords') || '').toLowerCase();
+    var combined = text + ' ' + kw;
+    var match = words.every(function(w){ return combined.indexOf(w) !== -1; });
+    s.style.display = match ? '' : 'none';
+    if (match) count++;
   });
+  // Show result count
+  var countEl = document.getElementById('help-search-count');
+  if (!countEl) {
+    countEl = document.createElement('div');
+    countEl.id = 'help-search-count';
+    countEl.style.cssText = 'font-size:var(--fs-sm);color:var(--muted);margin-bottom:10px';
+    el('help-tab-row').parentNode.insertBefore(countEl, el('help-tab-row').nextSibling);
+  }
+  countEl.style.display = '';
+  countEl.textContent = count + ' result' + (count !== 1 ? 's' : '') + ' for "' + q + '"';
 }
 
 // ── Help tab switching ──
