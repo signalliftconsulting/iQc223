@@ -143,18 +143,19 @@ function nav(v) {
 
   updateAlertBadge(); // Always refresh alert badge on any nav
   if (v === 'homebase')  renderHomeBase();
-  if (v === 'alerts')    renderAlerts();
-  if (v === 'customers') renderCustomers();
-  if (v === 'segments')  { if (!hasFeature('segments')) { el('seg-kpi-row').innerHTML = ''; el('seg-table-wrap').innerHTML = upgradeHTML('segments'); } else renderSegments(); }
-  if (v === 'trends')    { _trendFirstRender = true; renderTrends(); }
-  if (v === 'csmperf')   { if (!hasFeature('csm_performance')) { el('csmperf-wrap').innerHTML = upgradeHTML('csm_performance'); el('csmperf-stats').innerHTML = ''; } else renderCSMPerformance(); }
-  if (v === 'calendar')  renderCalendar();
+  if (v === 'alerts')    { renderAlertsGuide(); renderAlerts(); }
+  if (v === 'customers') { renderCustomersGuide(); renderCustomers(); }
+  if (v === 'segments')  { renderSegmentsGuide(); if (!hasFeature('segments')) { el('seg-kpi-row').innerHTML = ''; el('seg-table-wrap').innerHTML = upgradeHTML('segments'); } else renderSegments(); }
+  if (v === 'trends')    { renderTrendsGuide(); _trendFirstRender = true; renderTrends(); }
+  if (v === 'csmperf')   { renderCsmperfGuide(); if (!hasFeature('csm_performance')) { el('csmperf-wrap').innerHTML = upgradeHTML('csm_performance'); el('csmperf-stats').innerHTML = ''; } else renderCSMPerformance(); }
+  if (v === 'calendar')  { renderCalendarGuide(); renderCalendar(); }
   if (v === 'settings')  renderSettings();
-  if (v === 'auditlog')  { if (!hasFeature('audit_log')) { el('audit-loading').style.display='none'; document.getElementById('audit-table').style.display='none'; document.getElementById('audit-empty').innerHTML = upgradeHTML('audit_log'); document.getElementById('audit-empty').style.display='block'; } else { loadAuditLog(); renderConfigHistory(); } }
+  if (v === 'auditlog')  { renderAuditlogGuide(); if (!hasFeature('audit_log')) { el('audit-loading').style.display='none'; document.getElementById('audit-table').style.display='none'; document.getElementById('audit-empty').innerHTML = upgradeHTML('audit_log'); document.getElementById('audit-empty').style.display='block'; } else { loadAuditLog(); renderConfigHistory(); } }
   if (v === 'csv')         _renderCsvGuide();
-  if (v === 'reports')     renderReporting();
-  if (v === 'automations') renderAutomations();
-  if (v === 'users')     renderUsers();
+  if (v === 'reports')     { renderReportsGuide(); renderReporting(); }
+  if (v === 'automations') { renderAutomationsGuide(); renderAutomations(); }
+  if (v === 'users')     { renderUsersGuide(); renderUsers(); }
+  if (v === 'score')     renderScoreGuide();
   if (v === 'clients')   renderClients();
 }
 

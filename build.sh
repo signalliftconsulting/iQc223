@@ -14,6 +14,7 @@ OUT="$SCRIPT_DIR/js/app.js"
 FILES=(
   state.js
   utils.js
+  guides.js
   supabase.js
   auth.js
   scoring.js

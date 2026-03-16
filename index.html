@@ -1856,6 +1856,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 
   <!-- Page header -->
   <div class="aw-page-hd"><h1><span>Alerts</span></h1><p id="alert-subtitle">Accounts that need your attention</p></div>
+  <div id="alerts-guide"></div>
 
   <!-- KPI Summary Cards -->
   <div class="aw-kpi-row" id="alert-kpi-row"></div>
@@ -1937,6 +1938,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       <button class="btn btn-sm btn-primary" onclick="nav('score')">+ Add Customer</button>
     </div>
   </div>
+  <div id="customers-guide"></div>
   <div class="card" id="customers-table-card">
     <div class="list-toolbar">
       <input class="search-box" type="text" placeholder="Search customers…" id="search-input" oninput="renderCustomers()"/>
@@ -1982,6 +1984,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <div class="page-hd">
     <div><h1><span>Segments</span></h1><p id="seg-subtitle">Customers grouped by tag</p></div>
   </div>
+  <div id="segments-guide"></div>
   <div id="seg-kpi-row" class="dash-kpi-row"></div>
 
   <!-- Date range selector -->
@@ -2047,6 +2050,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <div class="page-hd">
     <div><h1><span>Trends</span></h1><p>Portfolio health over time</p></div>
   </div>
+  <div id="trends-guide"></div>
 
   <!-- KPI summary row -->
   <div class="dash-kpi-row" id="trend-kpi-row"></div>
@@ -2157,6 +2161,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <div class="page-hd">
     <div><h1><span>CSM Performance</span></h1><p>Portfolio metrics for each Customer Success Manager.</p></div>
   </div>
+  <div id="csmperf-guide"></div>
   <!-- Summary stat cards (gradient KPI row) -->
   <div class="dash-kpi-row" id="csmperf-stats"></div>
   <!-- Per-CSM leaderboard + inline expand -->
@@ -2199,6 +2204,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       <button class="btn btn-sm btn-ghost" onclick="renderCalendar()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Refresh</button>
     </div>
   </div>
+  <div id="calendar-guide"></div>
   <div id="calendar-wrap" style="position:relative"></div>
 </div><!-- /calendar -->
 
@@ -2207,6 +2213,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <div class="page-hd">
     <div><h1><span>Reports</span></h1><p>Export data, generate printable reports, and analyze your portfolio.</p></div>
   </div>
+  <div id="reports-guide"></div>
   <div class="dtab-row" style="margin-bottom:18px">
     <button class="dtab active" id="rpt-tab-templates" onclick="reportsTab('templates')">Report Templates</button>
     <button class="dtab" id="rpt-tab-schedules" onclick="reportsTab('schedules')">Scheduled Reports</button>
@@ -2228,6 +2235,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 <!-- ═══════════════ SCORE CUSTOMER ═══════════════ -->
 <div class="view" id="view-score">
   <div class="page-hd"><div><h1 id="form-title"><span>Score a Customer</span></h1><p>Fill in the signals below to calculate a health score.</p></div></div>
+  <div id="score-guide"></div>
   <div class="score-panel">
     <div class="card">
       <form id="score-form" onsubmit="submitForm(event)">
@@ -2675,6 +2683,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
     <div><h1><span>User Management</span></h1><p>Create, view, and remove users of this app.</p></div>
     <button class="btn btn-sm btn-primary" onclick="openCreateUserModal()">+ Create User</button>
   </div>
+  <div id="users-guide"></div>
 
   <div class="card" style="margin-bottom:18px">
     <div class="card-hd" style="margin-bottom:12px"><h2>All Users</h2><span id="users-count" style="font-size:var(--fs-base);color:var(--muted);margin-left:8px"></span></div>
@@ -2722,6 +2731,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <div class="page-hd">
     <div><h1><span>Audit Log</span></h1><p>Track all changes made to customers, settings, and data.</p></div>
   </div>
+  <div id="auditlog-guide"></div>
   <!-- Audit Log tabs -->
   <div class="dtab-row" style="margin-bottom:16px">
     <button class="dtab active" onclick="auditTab('activity')">Activity Log</button>
@@ -2803,6 +2813,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       <p>Configure alerts and custom rules to stay on top of customer changes.</p>
     </div>
   </div>
+  <div id="automations-guide"></div>
 
   <!-- Tab bar -->
   <div class="dtab-row" style="margin-bottom:18px">
@@ -4013,6 +4024,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=478"></script>
+<script src="js/app.js?v=479"></script>
 </body>
 </html>
