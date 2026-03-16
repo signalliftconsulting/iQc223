@@ -25287,6 +25287,8 @@ function _checkUserSwitch(userId) {
       .forEach(k => localStorage.removeItem(k));
     customers = [];
     trash = [];
+    window._manualCSMs = [];
+    auditLogs = []; auditOffset = 0;
     loadSettings(); // reset all in-memory state to defaults
     if (prev) console.info('[auth] User switch detected — cleared stale cache');
   }
