@@ -701,12 +701,16 @@ function _syncTopScrollbarNow() {
   const tbl  = el('cust-table');
   if (!wrap || !top || !inner || !tbl) return;
 
-  // Use wrap's scrollWidth (the actual scrollable width) vs its visible width
+  // Use wrap's scrollWidth (the actual scrollable content) vs its visible width
   const sw = wrap.scrollWidth;
   const cw = wrap.clientWidth;
   inner.style.width = sw + 'px';
-  top.style.width   = cw + 'px';   // match the visible width of the table area
-  top.style.display = sw > cw ? 'block' : 'none';
+  // Show only when table overflows horizontally
+  if (sw > cw + 2) {
+    top.style.display = 'block';
+  } else {
+    top.style.display = 'none';
+  }
 
   // Bidirectional scroll sync (avoid infinite loop with flag)
   if (!top._synced) {
