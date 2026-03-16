@@ -98,6 +98,42 @@ function migrateAutomationsCfg() {
       });
     });
   }
+  // Migrate legacy global alerts → alert_rules[]
+  if (!automationsCfg.alert_rules && automationsCfg.selected_alerts && automationsCfg.selected_alerts.length) {
+    var legacyRule = {
+      id: 'ar-migrated-' + Date.now(),
+      name: 'Migrated Alerts',
+      enabled: true,
+      alert_types: [].concat(automationsCfg.selected_alerts),
+      settings: JSON.parse(JSON.stringify(automationsCfg.alert_settings || {})),
+      channels: {},
+      schedule: JSON.parse(JSON.stringify(automationsCfg.schedule || { mode: 'realtime' })),
+      manager_scope: JSON.parse(JSON.stringify(automationsCfg.manager_scope || { mode: 'all', managers: [] })),
+      created_at: new Date().toISOString(),
+      created_by: (typeof currentUser !== 'undefined' && currentUser && currentUser.email) ? currentUser.email : 'system'
+    };
+    ['slack', 'teams', 'email'].forEach(function(k) {
+      var ch = (automationsCfg.channels || {})[k];
+      legacyRule.channels[k] = (ch && ch.enabled && ch.connection_id) ? ch.connection_id : false;
+    });
+    automationsCfg.alert_rules = [legacyRule];
+  }
+  if (!automationsCfg.alert_rules) automationsCfg.alert_rules = [];
+}
+
+function _newAlertRuleDraft() {
+  return {
+    id: 'ar-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+    name: '',
+    enabled: true,
+    alert_types: [],
+    settings: {},
+    channels: { slack: false, teams: false, email: false },
+    schedule: { mode: 'realtime' },
+    manager_scope: { mode: 'all', managers: [] },
+    created_at: new Date().toISOString(),
+    created_by: (typeof currentUser !== 'undefined' && currentUser && currentUser.email) ? currentUser.email : ''
+  };
 }
 
 // ── Help search ──
@@ -143,7 +179,20 @@ function autoTab(which) {
   if (which === 'rules') renderCustomRulesList();
 }
 
-function openCreateAlertModal() {
+function openCreateAlertModal(ruleId) {
+  if (ruleId) {
+    var existing = (automationsCfg.alert_rules || []).find(function(r) { return r.id === ruleId; });
+    if (existing) {
+      _alertWizardDraft = JSON.parse(JSON.stringify(existing));
+      _editingAlertRule = ruleId;
+    } else {
+      _alertWizardDraft = _newAlertRuleDraft();
+      _editingAlertRule = null;
+    }
+  } else {
+    _alertWizardDraft = _newAlertRuleDraft();
+    _editingAlertRule = null;
+  }
   _wizardStep = 1;
   openModal('create-alert-modal');
   wizardGoToStep(1);
@@ -152,6 +201,8 @@ function openCreateAlertModal() {
 
 function closeCreateAlertModal() {
   closeModal('create-alert-modal');
+  _alertWizardDraft = null;
+  _editingAlertRule = null;
   _wizardStep = 1;
 }
 
@@ -312,6 +363,11 @@ function deleteConnection(connId) {
       if (rule.channels[k] === connId) rule.channels[k] = false;
     });
   });
+  (automationsCfg.alert_rules || []).forEach(function(rule) {
+    Object.keys(rule.channels || {}).forEach(function(k) {
+      if (rule.channels[k] === connId) rule.channels[k] = false;
+    });
+  });
   saveAutomationsCfg();
 }
 
@@ -347,6 +403,8 @@ let _editingRule = null;
 let _ruleBuilderData = null;
 let _ruleWizardStep = 1;
 let _openAlertFilterKey = null;
+let _alertWizardDraft = null;   // draft alert rule being created/edited
+let _editingAlertRule = null;   // ID of alert rule being edited, or null for new
 
 const ALERT_COL_DEFS = [
   { key: 'label',     label: 'Alert',      ftype: 'text' },
@@ -396,14 +454,9 @@ function renderActiveAlerts() {
   const container = el('active-alerts-container');
   if (!container) return;
 
-  const selected = automationsCfg.selected_alerts || [];
-  const channels = automationsCfg.channels || {};
-  const settings = automationsCfg.alert_settings || {};
-  const schedule = automationsCfg.schedule || { mode: 'realtime' };
-  let activeAlerts = ALERT_TYPES.filter(at => selected.includes(at.key));
-  const hasAnyChannel = ['slack', 'teams', 'email'].some(k => channels[k]?.enabled);
+  var rules = automationsCfg.alert_rules || [];
 
-  if (!activeAlerts.length) {
+  if (!rules.length) {
     container.innerHTML = '<div class="active-alerts-empty">' +
       '<div class="empty-icon">' + _aicoLg(AUTO_ICONS.bell) + '</div>' +
       '<h3 style="margin-bottom:6px">No alerts configured yet</h3>' +
@@ -413,224 +466,106 @@ function renderActiveAlerts() {
     return;
   }
 
-  // ── Shared display values (config-level, not per-alert) ──
-  const mgrScope = automationsCfg.manager_scope || { mode: 'all', managers: [] };
-  const scopeDisplay = mgrScope.mode === 'selected' && mgrScope.managers.length > 0
-    ? mgrScope.managers.map(m => escHtml(m)).join(', ')
-    : 'All';
-  const creatorDisplay = currentUser?.email || '\u2014';
-  function alertSentToNames(alertKey) {
-    return ['slack','teams','email']
-      .filter(k => channels[k]?.enabled && (channels[k]?.alerts || []).includes(alertKey))
-      .map(k => k === 'teams' ? 'Teams' : k.charAt(0).toUpperCase()+k.slice(1))
-      .join(', ') || 'None';
-  }
-  const timingLabel = schedule.mode === 'daily' ? 'Daily' : schedule.mode === 'weekly' ? 'Weekly' : 'Real-time';
-
-  function conditionText(at) {
-    const s = settings[at.key] || {};
-    switch (at.key) {
-      case 'health_below_threshold': return 'Score drops below ' + (s.threshold || 50);
-      case 'account_at_risk': return 'Status changes to risk or critical';
-      case 'renewal_approaching': return 'Renewal within ' + (s.days || 30) + ' days';
-      case 'no_contact': return 'No contact for ' + (s.max_days || 14) + '+ days';
-      case 'nps_detractor': return 'NPS changes to detractor';
-      case 'lifecycle_change': return 'Lifecycle transitions to at-risk or churned';
-      case 'rapid_score_drop': return 'Score drops ' + (s.points || 15) + '+ points at once';
-      default: return '\u2014';
-    }
-  }
-
-  // ── Column value extractor for sort/filter ──
-  function alertColValue(at, key) {
+  function conditionTextForKey(key, settings) {
+    var s = settings[key] || {};
     switch (key) {
-      case 'label':     return at.label;
-      case 'condition': return conditionText(at);
-      case 'sentTo':    return alertSentToNames(at.key);
-      case 'timing':    return timingLabel;
-      case 'scope':     return scopeDisplay;
-      case 'creator':   return creatorDisplay;
-      default:          return '';
+      case 'health_below_threshold': return 'Score < ' + (s.threshold || 50);
+      case 'account_at_risk': return 'Status → risk/critical';
+      case 'renewal_approaching': return 'Renewal ≤ ' + (s.days || 30) + 'd';
+      case 'no_contact': return 'Silent ' + (s.max_days || 14) + 'd+';
+      case 'nps_detractor': return 'NPS → detractor';
+      case 'lifecycle_change': return 'Lifecycle → at-risk/churned';
+      case 'rapid_score_drop': return 'Drop ≥ ' + (s.points || 15) + 'pts';
+      default: return '';
     }
   }
 
-  // ── Apply filters ──
-  const fKeys = Object.keys(_alertFilters);
-  if (fKeys.length) {
-    activeAlerts = activeAlerts.filter(at => {
-      for (const key of fKeys) {
-        const f = _alertFilters[key];
-        if (!f) continue;
-        const v = alertColValue(at, key).toLowerCase();
-        if (f.type === 'text' && !v.includes(f.q)) return false;
-        if (f.type === 'enum') {
-          // For sentTo, check per-alert channel subscriptions
-          if (key === 'sentTo') {
-            const subscribedNames = ['slack','teams','email']
-              .filter(k => channels[k]?.enabled && (channels[k]?.alerts || []).includes(at.key))
-              .map(k => k === 'teams' ? 'Teams' : k.charAt(0).toUpperCase()+k.slice(1));
-            if (!subscribedNames.some(n => f.vals.has(n))) return false;
-          } else {
-            if (!f.vals.has(alertColValue(at, key))) return false;
-          }
-        }
-      }
-      return true;
+  function ruleSentToHtml(rule) {
+    var parts = [];
+    ['slack','teams','email'].forEach(function(k) {
+      var connId = rule.channels[k];
+      if (!connId) return;
+      var conn = (automationsCfg.saved_connections || []).find(function(c) { return c.id === connId; });
+      var label = k === 'teams' ? 'Teams' : k.charAt(0).toUpperCase() + k.slice(1);
+      var connName = conn && conn.name ? ' (' + escHtml(conn.name) + ')' : '';
+      parts.push('<span class="dest-tag">' + _aicoSm(AUTO_ICONS[k]) + ' ' + label + connName + '</span>');
     });
+    return parts.length ? parts.join(' ') : '<span style="color:var(--muted);font-size:var(--fs-base)">' + _aicoSm(AUTO_ICONS.warning) + ' None</span>';
   }
 
-  // ── Sort ──
-  activeAlerts.sort((a, b) => {
-    const av = alertColValue(a, _alertSortKey).toLowerCase();
-    const bv = alertColValue(b, _alertSortKey).toLowerCase();
-    return av.localeCompare(bv) * _alertSortDir;
-  });
+  function ruleTimingLabel(rule) {
+    var s = rule.schedule || { mode: 'realtime' };
+    if (s.mode === 'daily') return _aicoSm(AUTO_ICONS.daily) + ' Daily';
+    if (s.mode === 'weekly') return _aicoSm(AUTO_ICONS.weekly) + ' Weekly';
+    return _aicoSm(AUTO_ICONS.realtime) + ' Real-time';
+  }
 
-  // ── Build sortable/filterable <thead> ──
-  const funnelSVG = '<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>';
-  const theadCols = ALERT_COL_DEFS.map(col => {
-    const isActiveSort = _alertSortKey === col.key;
-    const filterActive = col.key in _alertFilters;
-    const arrow = '<span class="col-sort-arrow' + (isActiveSort ? '' : ' idle') + '">' + (_alertSortDir === -1 ? '\u25BC' : '\u25B2') + '</span>';
-    const filterBtn = col.ftype
-      ? '<button class="col-filter-btn' + (filterActive ? ' active' : '') + '" onclick="event.stopPropagation();openAlertFilter(\'' + col.key + '\',this)" title="Filter ' + col.label + '">' + funnelSVG + '</button>'
-      : '';
-    return '<th><div class="col-th-inner"><button class="col-sort-label" onclick="alertSortBy(\'' + col.key + '\')">' + col.label + '</button>' + arrow + filterBtn + '</div></th>';
-  }).join('') + '<th style="width:80px">Actions</th>';
+  function ruleScopeDisplay(rule) {
+    var ms = rule.manager_scope || { mode: 'all', managers: [] };
+    return ms.mode === 'selected' && ms.managers.length > 0 ? ms.managers.map(function(m) { return escHtml(m); }).join(', ') : 'All';
+  }
 
-  // ── Build rows ──
-  const rows = activeAlerts.map(at => {
-    const isEditing = _inlineEditKey === at.key;
+  // ── Build rows — one per rule ──
+  var rows = rules.map(function(rule) {
+    // Alert types column: icons + labels
+    var alertLabels = rule.alert_types.map(function(key) {
+      var at = ALERT_TYPES.find(function(a) { return a.key === key; });
+      return at ? '<span style="display:inline-flex;align-items:center;gap:3px;margin-right:6px;white-space:nowrap"><span style="color:var(--blue)">' + _aicoSm(AUTO_ICONS[key]) + '</span>' + escHtml(at.shortLabel) + '</span>' : '';
+    }).join('');
 
-    // Build inline edit panel if this row is expanded
-    let inlineEditHtml = '';
-    if (isEditing) {
-      // Thresholds
-      let thresholdFields = '';
-      if (at.configFields.length > 0) {
-        thresholdFields = '<div style="margin-bottom:12px">' +
-          '<div style="font-size:var(--fs-base);font-weight:700;margin-bottom:8px;color:var(--text)">Thresholds</div>' +
-          at.configFields.map(f => {
-            const val = (settings[at.key] || {})[f.name] ?? f.default;
-            return '<div class="inline-field">' +
-              '<label>' + escHtml(f.label) + '</label>' +
-              '<input type="' + f.type + '" min="' + f.min + '" max="' + f.max + '" value="' + val + '"' +
-              ' onblur="updateAlertSetting(\'' + at.key + '\', \'' + f.name + '\', +this.value)"' +
-              ' style="width:80px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface);text-align:center"/>' +
-              '<span style="font-size:var(--fs-sm);color:var(--muted)">' + escHtml(f.hint) + '</span>' +
-            '</div>';
-          }).join('') +
-        '</div>';
-      }
+    // Conditions column: summary
+    var conditions = rule.alert_types.map(function(key) {
+      return conditionTextForKey(key, rule.settings || {});
+    }).filter(Boolean).join('; ');
 
-      // Channel toggles (per-alert subscriptions)
-      const channelToggles = CHANNELS.map(ch => {
-        const chCfg = channels[ch.key];
-        const isConfigured = !!chCfg?.enabled;
-        const isOn = isConfigured && (chCfg?.alerts || []).includes(at.key);
-        return '<label' + (!isConfigured ? ' style="opacity:.5" title="Enable ' + escHtml(ch.label) + ' in the alert wizard first"' : '') + '>' +
-          '<input type="checkbox" ' + (isOn ? 'checked' : '') +
-          (!isConfigured ? ' disabled' : '') +
-          ' onchange="toggleChannelInline(\'' + ch.key + '\', \'' + at.key + '\', this.checked)"/>' +
-          ' ' + ch.icon + ' ' + escHtml(ch.label) +
-        '</label>';
-      }).join('');
+    var scope = ruleScopeDisplay(rule);
+    var disabledStyle = rule.enabled ? '' : 'opacity:.5;';
 
-      // Email recipients (conditional)
-      let emailRecipientsHtml = '';
-      if (channels.email?.enabled) {
-        emailRecipientsHtml = '<div style="margin-top:12px">' +
-          '<div style="font-size:var(--fs-base);font-weight:700;margin-bottom:6px;color:var(--text)">Email Recipients</div>' +
-          '<input type="email" multiple value="' + escHtml(channels.email?.recipients || '') + '"' +
-          ' placeholder="alerts@company.com, team@company.com"' +
-          ' onblur="updateChannelValue(\'email\', this.value)"' +
-          ' style="width:100%;max-width:400px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)"/>' +
-          '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:3px">Comma-separated addresses</div>' +
-        '</div>';
-      }
-
-      // Manager scope
-      const allManagers = [...new Set(customers.map(c => c.manager || '').filter(Boolean))].sort();
-      const inlineMgrScope = automationsCfg.manager_scope || { mode: 'all', managers: [] };
-      const mgrScopeHtml = '<div style="margin-top:12px">' +
-        '<div style="font-size:var(--fs-base);font-weight:700;margin-bottom:6px;color:var(--text)">Manager Scope</div>' +
-        '<div style="display:flex;gap:16px;align-items:center;margin-bottom:6px">' +
-          '<label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-base);cursor:pointer">' +
-            '<input type="radio" name="inline-mgr-scope" value="all"' + (inlineMgrScope.mode === 'all' ? ' checked' : '') + ' onchange="setManagerScopeMode(\'all\')"/> All Managers' +
-          '</label>' +
-          '<label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-base);cursor:pointer">' +
-            '<input type="radio" name="inline-mgr-scope" value="selected"' + (inlineMgrScope.mode === 'selected' ? ' checked' : '') + ' onchange="setManagerScopeMode(\'selected\')"/> Selected Managers' +
-          '</label>' +
-        '</div>' +
-        (inlineMgrScope.mode === 'selected' ? '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
-          allManagers.map(m => {
-            const checked = (inlineMgrScope.managers || []).includes(m);
-            return '<label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-base);cursor:pointer">' +
-              '<input type="checkbox"' + (checked ? ' checked' : '') + ' onchange="toggleManagerScope(\'' + escHtml(m).replace(/'/g, "\\'") + '\', this.checked)"/> ' + escHtml(m) +
-            '</label>';
-          }).join('') +
-        '</div>' : '') +
-      '</div>';
-
-      inlineEditHtml = '<tr><td colspan="7" style="padding:0 12px 10px">' +
-        '<div class="summary-inline-edit">' +
-          thresholdFields +
-          '<div>' +
-            '<div style="font-size:var(--fs-base);font-weight:700;margin-bottom:8px;color:var(--text)">Channels</div>' +
-            '<div class="summary-inline-channels">' + channelToggles + '</div>' +
-          '</div>' +
-          emailRecipientsHtml +
-          mgrScopeHtml +
-          '<div style="margin-top:12px;text-align:right">' +
-            '<button class="btn btn-xs btn-ghost" onclick="closeInlineEdit()" style="color:var(--blue)">Done</button>' +
-          '</div>' +
-        '</div>' +
+    return '<tr style="' + disabledStyle + '">' +
+      '<td style="max-width:250px;line-height:1.5">' + alertLabels + '</td>' +
+      '<td style="color:var(--muted);font-size:var(--fs-sm);max-width:200px">' + escHtml(conditions) + '</td>' +
+      '<td>' + ruleSentToHtml(rule) + '</td>' +
+      '<td style="font-size:var(--fs-base);white-space:nowrap">' + ruleTimingLabel(rule) + '</td>' +
+      '<td style="font-size:var(--fs-base);color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis" title="' + escHtml(scope) + '">' + scope + '</td>' +
+      '<td style="font-size:var(--fs-base);color:var(--muted)">' + escHtml(rule.created_by || '\u2014') + '</td>' +
+      '<td style="white-space:nowrap">' +
+        '<label class="toggle-switch toggle-sm" style="vertical-align:middle;margin-right:6px" title="' + (rule.enabled ? 'Enabled' : 'Disabled') + '">' +
+          '<input type="checkbox" ' + (rule.enabled ? 'checked' : '') + ' onchange="toggleAlertRule(\'' + escHtml(rule.id) + '\', this.checked)"/>' +
+          '<span class="toggle-slider"></span>' +
+        '</label>' +
+        '<button class="btn btn-xs btn-ghost" onclick="openCreateAlertModal(\'' + escHtml(rule.id) + '\')" title="Edit">' + _aicoSm(AUTO_ICONS.edit) + '</button> ' +
+        '<button class="btn btn-xs btn-ghost" style="color:var(--red)" onclick="deleteAlertRule(\'' + escHtml(rule.id) + '\')" title="Delete">' + _aicoSm(AUTO_ICONS.x) + '</button>' +
       '</td></tr>';
-    }
-
-    return '<tr class="' + (isEditing ? 'editing' : '') + '">' +
-      '<td><span style="margin-right:6px;display:inline-flex;vertical-align:middle;color:var(--blue)">' + _aicoSm(AUTO_ICONS[at.key]) + '</span>' + escHtml(at.label) + '</td>' +
-      '<td style="color:var(--muted);font-size:var(--fs-base)">' + conditionText(at) + '</td>' +
-      '<td>' + sentToHtml(at.key) + '</td>' +
-      '<td style="font-size:var(--fs-base);white-space:nowrap">' + scheduleText() + '</td>' +
-      '<td style="font-size:var(--fs-base);color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis" title="' + escHtml(scopeDisplay) + '">' + scopeDisplay + '</td>' +
-      '<td style="font-size:var(--fs-base);color:var(--muted)">' + escHtml(creatorDisplay) + '</td>' +
-      '<td>' +
-        '<button class="btn btn-xs btn-ghost" onclick="toggleInlineEdit(\'' + at.key + '\')" title="' + (isEditing ? 'Close' : 'Edit') + '">' + (isEditing ? _aicoSm(AUTO_ICONS.check) : _aicoSm(AUTO_ICONS.edit)) + '</button> ' +
-        '<button class="btn btn-xs btn-ghost" style="color:var(--red)" onclick="wizardRemoveAlert(\'' + at.key + '\')" title="Remove">' + _aicoSm(AUTO_ICONS.x) + '</button>' +
-      '</td></tr>' +
-      inlineEditHtml;
   }).join('');
 
-  // ── Filter pills bar ──
-  let pillsHtml = '';
-  const pillKeys = Object.keys(_alertFilters);
-  if (pillKeys.length) {
-    pillsHtml = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;align-items:center">' +
-      pillKeys.map(key => {
-        const f = _alertFilters[key];
-        const def = ALERT_COL_DEFS.find(d => d.key === key);
-        const label = def ? def.label : key;
-        let summary = '';
-        if (f.type === 'text') summary = '"' + (f.q || '').slice(0, 20) + '"';
-        else if (f.type === 'enum') {
-          const arr = [...(f.vals || [])];
-          summary = arr.length <= 3 ? arr.join(', ') : arr.slice(0, 3).join(', ') + ' +' + (arr.length - 3);
-        }
-        return '<span class="filter-pill">' + escHtml(label) + ': ' + escHtml(summary) +
-          '<button class="filter-pill-x" onclick="event.stopPropagation();clearAlertFilter(\'' + key + '\')" title="Remove filter">' + _aicoSm(AUTO_ICONS.x) + '</button></span>';
-      }).join('') +
-      '<button class="btn btn-xs btn-ghost" onclick="clearAllAlertFilters()" style="font-size:var(--fs-sm);color:var(--muted)">Clear all</button>' +
-    '</div>';
-  }
-
-  container.innerHTML = pillsHtml + '<table class="alert-summary-table">' +
-    '<thead><tr>' + theadCols + '</tr></thead>' +
+  container.innerHTML = '<table class="alert-summary-table">' +
+    '<thead><tr>' +
+      '<th>Alerts</th>' +
+      '<th>Conditions</th>' +
+      '<th>Sent To</th>' +
+      '<th>Timing</th>' +
+      '<th>Scope</th>' +
+      '<th>Created By</th>' +
+      '<th style="width:120px">Actions</th>' +
+    '</tr></thead>' +
     '<tbody>' + rows + '</tbody></table>';
 }
 
 // ── Thin wrapper — keeps existing callers working ──
 function renderAlertSummary() { renderActiveAlerts(); }
+
+function deleteAlertRule(ruleId) {
+  if (!confirm('Delete this alert rule? This cannot be undone.')) return;
+  automationsCfg.alert_rules = (automationsCfg.alert_rules || []).filter(function(r) { return r.id !== ruleId; });
+  saveAutomationsCfg();
+  renderActiveAlerts();
+  toast('Alert rule deleted', 'success');
+}
+
+function toggleAlertRule(ruleId, enabled) {
+  var rule = (automationsCfg.alert_rules || []).find(function(r) { return r.id === ruleId; });
+  if (rule) { rule.enabled = enabled; saveAutomationsCfg(); renderActiveAlerts(); }
+}
 
 // ── Inline Edit Helpers ──
 
@@ -770,7 +705,7 @@ function wizardGoToStep(step) {
   // Validate current step before advancing
   if (step > _wizardStep) {
     if (_wizardStep === 1) {
-      const mgrScope = automationsCfg.manager_scope || { mode: 'all', managers: [] };
+      const mgrScope = _alertWizardDraft ? _alertWizardDraft.manager_scope : { mode: 'all', managers: [] };
       if (mgrScope.mode === 'selected' && (!mgrScope.managers || mgrScope.managers.length === 0)) {
         toast('Please select at least one manager, or choose "All Managers"', 'error');
         return;
@@ -823,13 +758,19 @@ function renderWizardNav() {
 }
 
 function wizardSaveAndFinish() {
-  // Validate: at least one channel enabled with a configured connection
-  var channels = automationsCfg.channels || {};
+  if (!_alertWizardDraft) return;
+  // Validate: at least one alert type selected
+  if (!_alertWizardDraft.alert_types.length) {
+    toast('Select at least one alert type', 'error');
+    return;
+  }
+  // Validate: at least one channel with a configured connection
   var hasConfigured = false;
   var missingConn = [];
   ['slack', 'teams', 'email'].forEach(function(k) {
-    if (channels[k] && channels[k].enabled) {
-      var conn = resolveConnection(k);
+    var connId = _alertWizardDraft.channels[k];
+    if (connId) {
+      var conn = (automationsCfg.saved_connections || []).find(function(c) { return c.id === connId; });
       if (conn && (conn.url || conn.recipients)) {
         hasConfigured = true;
       } else {
@@ -846,19 +787,45 @@ function wizardSaveAndFinish() {
     toast(missingConn.join(', ') + ' enabled but no connection configured — please select or add one', 'error');
     return;
   }
+  // Auto-generate name if empty
+  if (!_alertWizardDraft.name || !_alertWizardDraft.name.trim()) {
+    _alertWizardDraft.name = _alertWizardDraft.alert_types
+      .map(function(k) { var at = ALERT_TYPES.find(function(a) { return a.key === k; }); return at ? at.shortLabel : k; })
+      .slice(0, 3).join(', ') + (_alertWizardDraft.alert_types.length > 3 ? ' +' + (_alertWizardDraft.alert_types.length - 3) + ' more' : '');
+  }
+  // Ensure defaults for settings of configurable alert types
+  _alertWizardDraft.alert_types.forEach(function(key) {
+    var at = ALERT_TYPES.find(function(a) { return a.key === key; });
+    if (at && at.configFields.length > 0 && !_alertWizardDraft.settings[key]) {
+      _alertWizardDraft.settings[key] = {};
+      at.configFields.forEach(function(f) { _alertWizardDraft.settings[key][f.name] = f.default; });
+    }
+  });
+  // Save to alert_rules
+  if (!automationsCfg.alert_rules) automationsCfg.alert_rules = [];
+  if (_editingAlertRule) {
+    var idx = automationsCfg.alert_rules.findIndex(function(r) { return r.id === _editingAlertRule; });
+    if (idx >= 0) automationsCfg.alert_rules[idx] = _alertWizardDraft;
+    else automationsCfg.alert_rules.push(_alertWizardDraft);
+  } else {
+    automationsCfg.alert_rules.push(_alertWizardDraft);
+  }
+  var wasEdit = !!_editingAlertRule;
   saveAutomationsCfg();
+  _alertWizardDraft = null;
+  _editingAlertRule = null;
   _wizardStep = 1;
   closeModal('create-alert-modal');
   renderActiveAlerts();
-  toast('Alerts saved!', 'success');
+  toast(wasEdit ? 'Alert rule updated!' : 'Alert rule created!', 'success');
 }
 
 // ── Step 1: Choose Your Alerts (2-column grid) ──
 
 function renderWizardStep1() {
   const pane = el('wizard-pane-1');
-  if (!pane) return;
-  const selected = automationsCfg.selected_alerts || [];
+  if (!pane || !_alertWizardDraft) return;
+  const selected = _alertWizardDraft.alert_types;
 
   const cards = ALERT_TYPES.map(at => {
     const isSel = selected.includes(at.key);
@@ -872,8 +839,8 @@ function renderWizardStep1() {
     '</div>';
   }).join('');
 
-  // Build manager scope section (moved from Step 3)
-  const mgrScope = automationsCfg.manager_scope || { mode: 'all', managers: [] };
+  // Build manager scope section
+  const mgrScope = _alertWizardDraft.manager_scope || { mode: 'all', managers: [] };
   const allManagers = [...new Set(customers.map(c => c.manager || '').filter(Boolean))].sort();
   const mgrScopeHtml = '<div style="margin-top:24px;margin-bottom:14px">' +
     '<h3 style="margin:0;font-size:1rem">Who should alerts cover?</h3>' +
@@ -914,61 +881,32 @@ function renderWizardStep1() {
 }
 
 function wizardToggleAlert(key) {
-  if (!automationsCfg.selected_alerts) automationsCfg.selected_alerts = [];
-  const idx = automationsCfg.selected_alerts.indexOf(key);
-  if (idx >= 0) {
-    automationsCfg.selected_alerts.splice(idx, 1);
-    // Remove from all channels' alerts arrays
-    ['slack','teams','email'].forEach(chKey => {
-      if (automationsCfg.channels?.[chKey]?.alerts)
-        automationsCfg.channels[chKey].alerts = automationsCfg.channels[chKey].alerts.filter(a => a !== key);
-    });
-  } else {
-    automationsCfg.selected_alerts.push(key);
-    // Subscribe to all enabled channels
-    ['slack','teams','email'].forEach(chKey => {
-      if (automationsCfg.channels?.[chKey]?.enabled) {
-        if (!automationsCfg.channels[chKey].alerts) automationsCfg.channels[chKey].alerts = [];
-        if (!automationsCfg.channels[chKey].alerts.includes(key)) automationsCfg.channels[chKey].alerts.push(key);
-      }
-    });
-  }
-  saveAutomationsCfg();
+  if (!_alertWizardDraft) return;
+  const idx = _alertWizardDraft.alert_types.indexOf(key);
+  if (idx >= 0) _alertWizardDraft.alert_types.splice(idx, 1);
+  else _alertWizardDraft.alert_types.push(key);
   renderWizardStep1();
-  renderAlertSummary();
 }
 
 function wizardSelectAll() {
-  automationsCfg.selected_alerts = ALERT_TYPES.map(a => a.key);
-  // Subscribe all to every enabled channel
-  ['slack','teams','email'].forEach(chKey => {
-    if (automationsCfg.channels?.[chKey]?.enabled)
-      automationsCfg.channels[chKey].alerts = [...automationsCfg.selected_alerts];
-  });
-  saveAutomationsCfg();
+  if (!_alertWizardDraft) return;
+  _alertWizardDraft.alert_types = ALERT_TYPES.map(a => a.key);
   renderWizardStep1();
-  renderAlertSummary();
 }
 
 function wizardClearAll() {
-  automationsCfg.selected_alerts = [];
-  // Clear all channels' alerts arrays
-  ['slack','teams','email'].forEach(chKey => {
-    if (automationsCfg.channels?.[chKey]?.alerts)
-      automationsCfg.channels[chKey].alerts = [];
-  });
-  saveAutomationsCfg();
+  if (!_alertWizardDraft) return;
+  _alertWizardDraft.alert_types = [];
   renderWizardStep1();
-  renderAlertSummary();
 }
 
 // ── Step 2: Configure Thresholds ──
 
 function renderWizardStep2() {
   const pane = el('wizard-pane-2');
-  if (!pane) return;
-  const selected = automationsCfg.selected_alerts || [];
-  const settings = automationsCfg.alert_settings || {};
+  if (!pane || !_alertWizardDraft) return;
+  const selected = _alertWizardDraft.alert_types;
+  const settings = _alertWizardDraft.settings;
 
   // Only show alerts that are selected AND have configurable fields
   const configurable = ALERT_TYPES.filter(at => selected.includes(at.key) && at.configFields.length > 0);
@@ -1011,28 +949,28 @@ function renderWizardStep2() {
 }
 
 function updateAlertSetting(alertKey, fieldName, value) {
-  if (!automationsCfg.alert_settings) automationsCfg.alert_settings = {};
-  if (!automationsCfg.alert_settings[alertKey]) automationsCfg.alert_settings[alertKey] = {};
-  automationsCfg.alert_settings[alertKey][fieldName] = value;
-  saveAutomationsCfg();
-  renderAlertSummary();
+  if (_alertWizardDraft) {
+    if (!_alertWizardDraft.settings[alertKey]) _alertWizardDraft.settings[alertKey] = {};
+    _alertWizardDraft.settings[alertKey][fieldName] = value;
+  }
 }
 
 // ── Step 3: Delivery & Schedule ──
 
 function renderWizardStep3() {
   const pane = el('wizard-pane-3');
-  if (!pane) return;
-  const channels = automationsCfg.channels || {};
-  const schedule = automationsCfg.schedule || { mode: 'realtime' };
+  if (!pane || !_alertWizardDraft) return;
+  const draftChannels = _alertWizardDraft.channels;
+  const schedule = _alertWizardDraft.schedule || { mode: 'realtime' };
 
   // Build channel rows
   const channelRows = CHANNELS.map(ch => {
-    const cfg = channels[ch.key] || { enabled: false };
+    const connId = draftChannels[ch.key];
+    const isEnabled = !!connId;
 
     let configInputs = '';
-    if (cfg.enabled) {
-      configInputs = renderConnectionSelector(ch, cfg.connection_id, 'onWizardConnectionChange', 'wizard');
+    if (isEnabled) {
+      configInputs = renderConnectionSelector(ch, connId, 'onWizardConnectionChange', 'wizard');
     }
 
     return '<div class="wizard-channel-row">' +
@@ -1045,7 +983,7 @@ function renderWizardStep3() {
           '</div>' +
         '</div>' +
         '<label class="toggle-switch">' +
-          '<input type="checkbox" ' + (cfg.enabled ? 'checked' : '') +
+          '<input type="checkbox" ' + (isEnabled ? 'checked' : '') +
             ' onchange="toggleChannel(\'' + ch.key + '\', this.checked)"/>' +
           '<span class="toggle-slider"></span>' +
         '</label>' +
@@ -1117,60 +1055,48 @@ function renderWizardStep3() {
 }
 
 function setScheduleMode(mode) {
-  if (!automationsCfg.schedule) automationsCfg.schedule = {};
-  automationsCfg.schedule.mode = mode;
-  saveAutomationsCfg();
-  renderWizardStep3();
-  renderAlertSummary();
+  if (_alertWizardDraft) {
+    _alertWizardDraft.schedule.mode = mode;
+    renderWizardStep3();
+  }
 }
 
 function updateSchedule(field, value) {
-  if (!automationsCfg.schedule) automationsCfg.schedule = {};
-  automationsCfg.schedule[field] = value;
-  saveAutomationsCfg();
-  renderAlertSummary();
+  if (_alertWizardDraft) {
+    _alertWizardDraft.schedule[field] = value;
+  }
 }
 
 function setManagerScopeMode(mode) {
-  if (!automationsCfg.manager_scope) automationsCfg.manager_scope = { mode: 'all', managers: [] };
-  automationsCfg.manager_scope.mode = mode;
-  saveAutomationsCfg();
-  renderWizardStep1();
-  renderAlertSummary();
+  if (_alertWizardDraft) {
+    _alertWizardDraft.manager_scope.mode = mode;
+    renderWizardStep1();
+  }
 }
 
 function toggleManagerScope(manager, checked) {
-  if (!automationsCfg.manager_scope) automationsCfg.manager_scope = { mode: 'selected', managers: [] };
-  const arr = automationsCfg.manager_scope.managers;
-  if (checked && !arr.includes(manager)) arr.push(manager);
-  if (!checked) automationsCfg.manager_scope.managers = arr.filter(m => m !== manager);
-  saveAutomationsCfg();
-  renderWizardStep1();
-  renderAlertSummary();
+  if (_alertWizardDraft) {
+    var arr = _alertWizardDraft.manager_scope.managers;
+    if (checked && !arr.includes(manager)) arr.push(manager);
+    if (!checked) _alertWizardDraft.manager_scope.managers = arr.filter(m => m !== manager);
+    renderWizardStep1();
+  }
 }
 
 // ── Channel helpers ──
 
 function toggleChannel(key, enabled) {
-  if (!automationsCfg.channels) automationsCfg.channels = {};
-  if (!automationsCfg.channels[key]) automationsCfg.channels[key] = {};
-  automationsCfg.channels[key].enabled = enabled;
-  if (enabled) {
-    // Subscribe all currently selected alerts to this channel
-    automationsCfg.channels[key].alerts = [...(automationsCfg.selected_alerts || ALERT_TYPES.map(a => a.key))];
-    // Default to first saved connection if none selected
-    if (!automationsCfg.channels[key].connection_id) {
+  if (_alertWizardDraft) {
+    if (enabled) {
+      // Default to first saved connection
       var conns = getConnectionsForType(key);
-      if (conns.length > 0) automationsCfg.channels[key].connection_id = conns[0].id;
+      _alertWizardDraft.channels[key] = conns.length > 0 ? conns[0].id : false;
+    } else {
+      _alertWizardDraft.channels[key] = false;
     }
-  } else {
-    // Clear subscriptions when channel is disabled
-    automationsCfg.channels[key].alerts = [];
+    renderWizardStep3();
+    toast(enabled ? CHANNELS.find(c=>c.key===key)?.label + ' enabled' : CHANNELS.find(c=>c.key===key)?.label + ' disabled', 'success');
   }
-  saveAutomationsCfg();
-  renderWizardStep3();
-  renderAlertSummary();
-  toast(enabled ? CHANNELS.find(c=>c.key===key)?.label + ' enabled' : CHANNELS.find(c=>c.key===key)?.label + ' disabled', 'success');
 }
 
 function updateChannelValue(key, value) {
@@ -1273,11 +1199,10 @@ function onWizardConnectionChange(chKey, value) {
     if (form) { form.style.display = 'block'; form.dataset.editingId = ''; }
     return;
   }
-  if (!automationsCfg.channels) automationsCfg.channels = {};
-  if (!automationsCfg.channels[chKey]) automationsCfg.channels[chKey] = {};
-  automationsCfg.channels[chKey].connection_id = value || undefined;
-  saveAutomationsCfg();
-  renderWizardStep3();
+  if (_alertWizardDraft) {
+    _alertWizardDraft.channels[chKey] = value || false;
+    renderWizardStep3();
+  }
 }
 
 function onRuleConnectionChange(chKey, value) {
@@ -1321,10 +1246,9 @@ function saveConnectionForm(chKey, context) {
 
   // Select the connection
   if (context === 'wizard') {
-    if (!automationsCfg.channels) automationsCfg.channels = {};
-    if (!automationsCfg.channels[chKey]) automationsCfg.channels[chKey] = {};
-    automationsCfg.channels[chKey].connection_id = conn.id;
-    saveAutomationsCfg();
+    if (_alertWizardDraft) {
+      _alertWizardDraft.channels[chKey] = conn.id;
+    }
     renderWizardStep3();
   } else {
     if (_ruleBuilderData) {
@@ -3264,108 +3188,116 @@ function _snapFields(c) {
   return { score: c.score, status: c.status, nps: c.nps, csat: c.csat, lifecycle: c.lifecycle, renewal_date: c.renewal_date, days: c.days };
 }
 
+function _checkSingleTrigger(key, c, prev, s) {
+  switch (key) {
+    case 'health_below_threshold': {
+      var th = (s && s.threshold) || 50;
+      return prev && prev.score >= th && c.score < th ? { trigger: key, threshold: th, previous_score: prev.score } : null;
+    }
+    case 'account_at_risk': {
+      var riskS = ['risk', 'critical'];
+      var wasOk = !prev || !riskS.includes(prev.status);
+      return wasOk && riskS.includes(c.status) ? { trigger: key, previous_status: prev ? prev.status : null } : null;
+    }
+    case 'renewal_approaching': {
+      if (!c.renewal_date) return null;
+      var du = Math.round((new Date(c.renewal_date) - new Date()) / 86400000);
+      var rd = (s && s.days) || 30;
+      var pdu = prev && prev.renewal_date ? Math.round((new Date(prev.renewal_date) - new Date()) / 86400000) : null;
+      return du <= rd && du >= 0 && (pdu === null || pdu > rd) ? { trigger: key, days_until_renewal: du, renewal_date: c.renewal_date } : null;
+    }
+    case 'no_contact': {
+      var md = (s && s.max_days) || 14;
+      return prev && prev.days <= md && c.days > md ? { trigger: key, days_since_contact: c.days, max_days: md } : null;
+    }
+    case 'nps_detractor':
+      return prev && !npsIsDetractor(prev.nps) && npsIsDetractor(c.nps) ? { trigger: key, previous_nps: npsDisplay(prev.nps), current_nps: npsDisplay(c.nps) } : null;
+    case 'csat_poor':
+      return prev && !csatIsPoor(prev.csat) && csatIsPoor(c.csat) ? { trigger: key, previous_csat: csatDisplay(prev.csat), current_csat: csatDisplay(c.csat) } : null;
+    case 'lifecycle_change': {
+      var bad = ['atrisk', 'churned'];
+      return prev && !bad.includes(prev.lifecycle) && bad.includes(c.lifecycle) ? { trigger: key, previous_lifecycle: prev.lifecycle, current_lifecycle: c.lifecycle } : null;
+    }
+    case 'rapid_score_drop': {
+      var dp = (s && s.points) || 15;
+      return prev && (prev.score - c.score) >= dp ? { trigger: key, previous_score: prev.score, drop_amount: prev.score - c.score, drop_threshold: dp } : null;
+    }
+    default: return null;
+  }
+}
+
+async function _fireChannelsForRule(eventType, customer, extra, rule) {
+  var conns = automationsCfg.saved_connections || [];
+  ['slack', 'teams', 'email'].forEach(async function(chKey) {
+    var connId = rule.channels[chKey];
+    if (!connId) return;
+    var conn = conns.find(function(c) { return c.id === connId; });
+    if (!conn) return;
+    try {
+      if (chKey === 'email' && conn.recipients) {
+        await fireEmailAlert(eventType, customer, extra, conn);
+      } else if (conn.url) {
+        var payload;
+        if (chKey === 'slack') payload = buildSlackPayload(eventType, customer, extra);
+        else if (chKey === 'teams') payload = buildTeamsPayload(eventType, customer, extra);
+        if (payload) await fireWebhook(eventType + '_' + chKey, conn.url, customer, extra, payload);
+      }
+    } catch (e) { console.warn(chKey + ' fire error:', e.message); }
+  });
+}
+
 function checkWebhookTriggers(c) {
   const prev = _prevCustomerStates.get(c.id);
   const hasWebhooks = !!automationsCfg.webhooks;
-  const hasChannels = !!automationsCfg.channels;
-  if (!hasWebhooks && !hasChannels) { _prevCustomerStates.set(c.id, _snapFields(c)); return; }
+  const rules = automationsCfg.alert_rules || [];
+  if (!hasWebhooks && !rules.length && !(automationsCfg.custom_rules || []).length) {
+    _prevCustomerStates.set(c.id, _snapFields(c));
+    return;
+  }
 
-  // Manager scope filter — skip if customer's manager isn't in scope
-  const mgrScope = automationsCfg.manager_scope;
-  if (mgrScope && mgrScope.mode === 'selected' && mgrScope.managers.length > 0) {
-    if (!mgrScope.managers.includes(c.manager || '')) {
-      _prevCustomerStates.set(c.id, _snapFields(c));
-      return;
+  // ── Cooldown setup ──
+  const COOLDOWN_MS = 24 * 60 * 60 * 1000;
+  try { if (!Object.keys(_alertCooldowns).length) { const stored = localStorage.getItem('iqc_alert_cooldowns'); if (stored) _alertCooldowns = JSON.parse(stored); } } catch(e){}
+  const now = Date.now();
+  Object.keys(_alertCooldowns).forEach(k => { if (now - _alertCooldowns[k] > COOLDOWN_MS) delete _alertCooldowns[k]; });
+
+  // ── Evaluate each alert rule independently ──
+  rules.forEach(function(rule) {
+    if (!rule.enabled) return;
+    // Manager scope filter per-rule
+    var ms = rule.manager_scope;
+    if (ms && ms.mode === 'selected' && ms.managers && ms.managers.length > 0) {
+      if (!ms.managers.includes(c.manager || '')) return;
     }
+    var ruleSettings = rule.settings || {};
+    rule.alert_types.forEach(function(key) {
+      var result = _checkSingleTrigger(key, c, prev, ruleSettings[key] || {});
+      if (!result) return;
+      var cdKey = c.id + '|' + key + '|' + rule.id;
+      if (_alertCooldowns[cdKey] && (now - _alertCooldowns[cdKey]) < COOLDOWN_MS) return;
+      _alertCooldowns[cdKey] = now;
+      _fireChannelsForRule(key, c, result, rule);
+    });
+  });
+
+  // ── Legacy: Fire direct channels for backward compat with old global config ──
+  if (automationsCfg.channels && automationsCfg.selected_alerts && automationsCfg.selected_alerts.length && !rules.length) {
+    var settings = automationsCfg.alert_settings || {};
+    automationsCfg.selected_alerts.forEach(function(key) {
+      var result = _checkSingleTrigger(key, c, prev, settings[key] || {});
+      if (!result) return;
+      var cdKey = c.id + '|' + key;
+      if (_alertCooldowns[cdKey] && (now - _alertCooldowns[cdKey]) < COOLDOWN_MS) return;
+      _alertCooldowns[cdKey] = now;
+      fireDirectChannels(key, c, result);
+    });
   }
 
-  const settings = automationsCfg.alert_settings || {};
-  const triggeredEvents = [];
-
-  // ── Evaluate all 7 trigger conditions ──
-
-  // 1. Health below threshold
-  const hbtThreshold = settings.health_below_threshold?.threshold || 50;
-  if (prev && prev.score >= hbtThreshold && c.score < hbtThreshold) {
-    triggeredEvents.push({ key: 'health_below_threshold',
-      extra: { trigger: 'health_below_threshold', threshold: hbtThreshold, previous_score: prev.score } });
-  }
-
-  // 2. Account at-risk
+  // ── Fire Zapier webhooks (only for original 2 trigger types) ──
   const riskStatuses = ['risk', 'critical'];
   const wasNotRisk = !prev || !riskStatuses.includes(prev.status);
   const isNowRisk = riskStatuses.includes(c.status);
-  if (wasNotRisk && isNowRisk) {
-    triggeredEvents.push({ key: 'account_at_risk',
-      extra: { trigger: 'account_at_risk', previous_status: prev?.status ?? null } });
-  }
 
-  // 3. Renewal approaching
-  if (c.renewal_date) {
-    const daysUntil = Math.round((new Date(c.renewal_date) - new Date()) / (1000 * 60 * 60 * 24));
-    const renewalDays = settings.renewal_approaching?.days || 30;
-    const prevDaysUntil = prev?.renewal_date
-      ? Math.round((new Date(prev.renewal_date) - new Date()) / (1000 * 60 * 60 * 24))
-      : null;
-    if (daysUntil <= renewalDays && daysUntil >= 0 && (prevDaysUntil === null || prevDaysUntil > renewalDays)) {
-      triggeredEvents.push({ key: 'renewal_approaching',
-        extra: { trigger: 'renewal_approaching', days_until_renewal: daysUntil, renewal_date: c.renewal_date } });
-    }
-  }
-
-  // 4. No contact
-  const maxDays = settings.no_contact?.max_days || 14;
-  if (prev && prev.days <= maxDays && c.days > maxDays) {
-    triggeredEvents.push({ key: 'no_contact',
-      extra: { trigger: 'no_contact', days_since_contact: c.days, max_days: maxDays } });
-  }
-
-  // 5. NPS detractor
-  if (prev && !npsIsDetractor(prev.nps) && npsIsDetractor(c.nps)) {
-    triggeredEvents.push({ key: 'nps_detractor',
-      extra: { trigger: 'nps_detractor', previous_nps: npsDisplay(prev.nps), current_nps: npsDisplay(c.nps) } });
-  }
-
-  // 5b. CSAT poor
-  if (prev && !csatIsPoor(prev.csat) && csatIsPoor(c.csat)) {
-    triggeredEvents.push({ key: 'csat_poor',
-      extra: { trigger: 'csat_poor', previous_csat: csatDisplay(prev.csat), current_csat: csatDisplay(c.csat) } });
-  }
-
-  // 6. Lifecycle change to atrisk or churned
-  const badLifecycles = ['atrisk', 'churned'];
-  if (prev && !badLifecycles.includes(prev.lifecycle) && badLifecycles.includes(c.lifecycle)) {
-    triggeredEvents.push({ key: 'lifecycle_change',
-      extra: { trigger: 'lifecycle_change', previous_lifecycle: prev.lifecycle, current_lifecycle: c.lifecycle } });
-  }
-
-  // 7. Rapid score drop
-  const dropThreshold = settings.rapid_score_drop?.points || 15;
-  if (prev && (prev.score - c.score) >= dropThreshold) {
-    triggeredEvents.push({ key: 'rapid_score_drop',
-      extra: { trigger: 'rapid_score_drop', previous_score: prev.score, drop_amount: prev.score - c.score, drop_threshold: dropThreshold } });
-  }
-
-  // ── Cooldown dedup: skip if same alert fired for this customer within 24h ──
-  const COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
-  try { if (!Object.keys(_alertCooldowns).length) { const stored = localStorage.getItem('iqc_alert_cooldowns'); if (stored) _alertCooldowns = JSON.parse(stored); } } catch(e){}
-  const now = Date.now();
-  // Prune expired cooldowns
-  Object.keys(_alertCooldowns).forEach(k => { if (now - _alertCooldowns[k] > COOLDOWN_MS) delete _alertCooldowns[k]; });
-  const deduped = triggeredEvents.filter(evt => {
-    const cdKey = c.id + '|' + evt.key;
-    if (_alertCooldowns[cdKey] && (now - _alertCooldowns[cdKey]) < COOLDOWN_MS) return false;
-    _alertCooldowns[cdKey] = now;
-    return true;
-  });
-  try { localStorage.setItem('iqc_alert_cooldowns', JSON.stringify(_alertCooldowns)); } catch(e){}
-
-  // ── Fire direct channels (per-channel filtering handled inside) ──
-  deduped.forEach(evt => {
-    fireDirectChannels(evt.key, c, evt.extra);
-  });
-
-  // ── Fire Zapier webhooks (only for original 2 trigger types) ──
   const hbt = (automationsCfg.webhooks || {}).health_below_threshold;
   if (hbt?.enabled && hbt?.url && prev && prev.score >= (hbt.threshold || 50) && c.score < (hbt.threshold || 50)) {
     const cdKey = c.id + '|hbt_zapier';
