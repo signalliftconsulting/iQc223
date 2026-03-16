@@ -23956,7 +23956,8 @@ function _renderCsvGuide() {
         <strong>How to use CSV Import</strong><br>
         <strong>No integration?</strong> Upload a full bulksheet with all your customer data — names, MRR, signals, etc. You can also add customers one at a time via <a href="#" onclick="event.stopPropagation();nav('score')" style="color:var(--teal);font-weight:600">Score a Customer</a>.<br>
         <strong>Using an integration?</strong> You only need to import customer names here. Keep the other columns blank — once your integration is connected, run a sync and it will fill in MRR, tickets, NPS, and other metrics automatically for matching customers.<br>
-        <strong>Tip:</strong> Download the <strong>Template CSV</strong> above to see all supported columns and the expected format.
+        <strong>Tip:</strong> Download the <strong>Template CSV</strong> above to see all supported columns and the expected format.<br>
+        <strong>Note:</strong> You can also pull in customers directly from your integration by enabling the <strong>Import new accounts</strong> toggle in <a href="#" onclick="event.stopPropagation();nav('settings');setTimeout(()=>cfgTab('api'),100)" style="color:var(--teal);font-weight:600">Settings → Integrations</a>.
       </div>
       <button onclick="_dismissCsvGuide()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;line-height:1;padding:0;flex-shrink:0" title="Dismiss">×</button>
     </div>`;
