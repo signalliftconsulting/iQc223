@@ -695,87 +695,90 @@ function _dismissGuide(id, storageKey, persist) {
 
 function renderAlertsGuide() {
   _renderGuide('alerts-guide', 'iqc_alerts_guide_dismissed',
-    '<strong>Quick overview</strong> — Alerts surface customers that need attention based on health score changes, risk signals, and thresholds you configure. ' +
-    'Each alert shows the trigger, affected customer, and recommended action. ' +
-    'Click any alert to jump to that customer\'s detail view. Scroll down to the <strong>Alert Feed</strong> to filter by type, snooze, or dismiss individual alerts.');
+    '<strong>What you can do here</strong> — This is your early-warning system. Alerts automatically flag customers when something changes — a score drops, a renewal is approaching, or a risk signal fires.<br>' +
+    '<strong>Click any alert card</strong> to open the customer\'s full detail view and take action.<br>' +
+    '<strong>Scroll down</strong> to the <strong>Alert Feed</strong> for a filterable history of all alerts — you can snooze alerts you\'re already handling or dismiss ones that aren\'t relevant.<br>' +
+    '<strong>Tip:</strong> Configure which alerts fire and where they\'re sent (Slack, Teams, email) in <a href="#" onclick="event.stopPropagation();nav(\'automations\')" style="color:var(--teal);font-weight:600">Automations</a>.');
 }
 
 function renderCustomersGuide() {
   _renderGuide('customers-guide', 'iqc_customers_guide_dismissed',
-    '<strong>Quick overview</strong> — Your full customer portfolio. ' +
-    'Click any column header to <strong>sort</strong>, or use the filter icon to narrow by value. ' +
-    '<strong>Shift-click</strong> rows to select multiple customers for bulk actions. ' +
-    'The first two columns (name & score) stay frozen when scrolling. ' +
-    'Use the <strong>filter chips</strong> above the table to quickly view by health band, or search by name.');
+    '<strong>What you can do here</strong> — This is your full customer portfolio. Click any row to open that customer\'s detail view where you can edit signals, view history, and add notes.<br>' +
+    '<strong>Sort &amp; filter:</strong> Click any column header to sort. Use the filter icon (▼) on each column to narrow by specific values. Use the <strong>health band chips</strong> above to quickly isolate Critical, At Risk, or Watch accounts.<br>' +
+    '<strong>Bulk actions:</strong> <strong>Shift-click</strong> multiple rows to select them, then use bulk actions like stage change or export.<br>' +
+    '<strong>Tip:</strong> The first two columns (name &amp; score) stay frozen when you scroll right, so you never lose context. You can also save filter combinations as <strong>Presets</strong> for quick access.');
 }
 
 function renderSegmentsGuide() {
   _renderGuide('segments-guide', 'iqc_segments_guide_dismissed',
-    '<strong>Quick overview</strong> — Segments group your customers by tag so you can compare cohorts side-by-side. ' +
-    'Each segment card shows health distribution, average score, MRR, and trends. ' +
-    'Add tags to customers in the Score form or detail view, then they\'ll appear here automatically. ' +
-    'Use the date range selector to see how segments have changed over time.');
+    '<strong>What you can do here</strong> — Segments let you compare groups of customers side-by-side. Each segment is based on a <strong>tag</strong> you assign to customers (e.g. "Enterprise", "APAC", "Q1 Cohort").<br>' +
+    '<strong>How to create segments:</strong> Add tags to customers in the Score form or detail view — they\'ll automatically appear here as segment cards.<br>' +
+    '<strong>Each card shows:</strong> health distribution, average score, total MRR, and customer count so you can spot which cohorts are healthy and which need attention.<br>' +
+    '<strong>Tip:</strong> Use the date range selector to see how segment health has changed over time — great for QBRs and board decks.');
 }
 
 function renderTrendsGuide() {
   _renderGuide('trends-guide', 'iqc_trends_guide_dismissed',
-    '<strong>Quick overview</strong> — Trends tracks your portfolio health over time. ' +
-    'The charts show how scores, health bands, and risk signals evolve across your customer base. ' +
-    'Use the <strong>range bar</strong> (3d, 7d, 14d, 30d, 90d) to zoom into different time windows. ' +
-    'Filter by manager or segment to see specific cohort trends.');
+    '<strong>What you can do here</strong> — Trends shows how your portfolio health is changing over time. Use this to spot patterns, measure the impact of your CS efforts, and prepare for leadership reviews.<br>' +
+    '<strong>Range bar:</strong> Switch between 3d, 7d, 14d, 30d, and 90d views to zoom in on recent changes or see the bigger picture.<br>' +
+    '<strong>Filter by manager:</strong> Use the CSM dropdown to isolate a specific manager\'s book and track their portfolio trend independently.<br>' +
+    '<strong>Tip:</strong> The KPI cards at the top give you a quick snapshot — overall health score, MRR at risk, and trend direction.');
 }
 
 function renderCsmperfGuide() {
   _renderGuide('csmperf-guide', 'iqc_csmperf_guide_dismissed',
-    '<strong>Quick overview</strong> — CSM Performance ranks your Customer Success Managers by portfolio health, response times, and account outcomes. ' +
-    'Each CSM card shows their account count, average health score, at-risk MRR, and contact cadence compliance. ' +
-    'Click a CSM row to expand and see their individual customer breakdown.');
+    '<strong>What you can do here</strong> — Compare how each Customer Success Manager is performing across their book of business. Use this for 1:1s, resource planning, and identifying coaching opportunities.<br>' +
+    '<strong>Each CSM row shows:</strong> number of accounts, average health score, at-risk MRR, and whether they\'re meeting contact cadence targets.<br>' +
+    '<strong>Click any CSM</strong> to expand and see their individual customer breakdown with per-account health scores.<br>' +
+    '<strong>Tip:</strong> Set contact cadence targets in <a href="#" onclick="event.stopPropagation();nav(\'settings\')" style="color:var(--teal);font-weight:600">Settings → Config</a> to track whether CSMs are touching accounts on schedule.');
 }
 
 function renderCalendarGuide() {
   _renderGuide('calendar-guide', 'iqc_calendar_guide_dismissed',
-    '<strong>Quick overview</strong> — The Calendar shows upcoming renewals, scheduled customer touches, and overdue contacts in a timeline view. ' +
-    'Events are color-coded: <strong style="color:var(--red)">red</strong> for overdue, <strong style="color:var(--amber)">amber</strong> for due soon, <strong style="color:var(--green)">green</strong> for upcoming. ' +
-    'Schedule a touch by setting the <strong>Next Scheduled Touch</strong> date in a customer\'s score form.');
+    '<strong>What you can do here</strong> — The Calendar gives you a timeline of upcoming renewals, scheduled customer touches, and overdue contacts so nothing slips through the cracks.<br>' +
+    '<strong>Color coding:</strong> <strong style="color:var(--red)">Red</strong> = overdue (needs immediate attention), <strong style="color:var(--amber)">Amber</strong> = due soon, <strong style="color:var(--green)">Green</strong> = upcoming and on track.<br>' +
+    '<strong>How to schedule:</strong> Set the <strong>Next Scheduled Touch</strong> date in any customer\'s score form — it will automatically appear here.<br>' +
+    '<strong>Tip:</strong> Renewal dates are pulled from the customer record. Set renewal windows in <a href="#" onclick="event.stopPropagation();nav(\'settings\')" style="color:var(--teal);font-weight:600">Settings</a> to control when renewal alerts fire (e.g. 30, 60, 90 days out).');
 }
 
 function renderReportsGuide() {
   _renderGuide('reports-guide', 'iqc_reports_guide_dismissed',
-    '<strong>Quick overview</strong> — Generate and export portfolio reports. ' +
-    '<strong>Report Templates</strong> include Executive Summary, Risk Report, Renewal Forecast, and more — click any to preview and print. ' +
-    '<strong>Scheduled Reports</strong> let you email reports automatically on a daily, weekly, or monthly cadence to your team.');
+    '<strong>What you can do here</strong> — Generate polished reports for leadership, board meetings, or your own analysis. Export data or print directly from the browser.<br>' +
+    '<strong>Report Templates:</strong> Choose from Executive Summary, Risk Report, Renewal Forecast, and more. Click any template to preview it, then print or save as PDF.<br>' +
+    '<strong>Scheduled Reports:</strong> Set up automatic email delivery — daily, weekly, or monthly — so stakeholders get reports without you having to remember.<br>' +
+    '<strong>Tip:</strong> Reports use your current filters and date range, so apply the view you want before generating.');
 }
 
 function renderScoreGuide() {
   _renderGuide('score-guide', 'iqc_score_guide_dismissed',
-    '<strong>Quick overview</strong> — Add a new customer or re-score an existing one. ' +
-    'Fill in account details (name, MRR, tier) and health signals (logins, adoption, NPS, tickets). ' +
-    'Click <strong>Calculate Health Score</strong> to see the result, then <strong>Save</strong> to add them to your portfolio. ' +
-    'Signals marked <strong>N/A</strong> are excluded from the score and their weight redistributes to other signals.');
+    '<strong>What you can do here</strong> — Add a new customer to your portfolio or re-score an existing one. Fill in account details and health signals to calculate a health score.<br>' +
+    '<strong>How it works:</strong> Enter signals like login frequency, feature adoption, NPS, and open tickets. Click <strong>Calculate Health Score</strong> to see the result, then <strong>Save</strong> to add them.<br>' +
+    '<strong>N/A signals:</strong> Check the N/A box next to any signal you don\'t track — its weight automatically redistributes to the other signals so your score stays accurate.<br>' +
+    '<strong>Tip:</strong> If you have an integration connected, many signals (MRR, tickets, NPS) can sync automatically — you only need to enter what isn\'t covered. You can also bulk-import via <a href="#" onclick="event.stopPropagation();nav(\'csv\')" style="color:var(--teal);font-weight:600">CSV Import</a>.');
 }
 
 function renderUsersGuide() {
   _renderGuide('users-guide', 'iqc_users_guide_dismissed',
-    '<strong>Quick overview</strong> — Manage who has access to your IQcadence account. ' +
-    'Create new users with the <strong>+ Create User</strong> button above. ' +
-    'Each user gets their own login but shares the same customer data, settings, and scoring profiles within your organization. ' +
-    'Remove users by clicking the delete button on their row.');
+    '<strong>What you can do here</strong> — Manage who has access to your IQcadence account. Add team members so they can view customers, track health scores, and take action on alerts.<br>' +
+    '<strong>Create a user:</strong> Click <strong>+ Create User</strong> above. They\'ll receive a login and share the same customer data, settings, and scoring profiles as your organization.<br>' +
+    '<strong>Remove a user:</strong> Click the delete button on their row. Their data stays — only their login access is revoked.<br>' +
+    '<strong>Tip:</strong> Each user sees the same portfolio, so changes made by one team member (scoring, notes, stage changes) are visible to everyone.');
 }
 
 function renderAuditlogGuide() {
   _renderGuide('auditlog-guide', 'iqc_auditlog_guide_dismissed',
-    '<strong>Quick overview</strong> — The Audit Log tracks all changes across your account. ' +
-    '<strong>Activity Log</strong> records customer-facing actions like score changes, edits, and stage transitions. ' +
-    '<strong>Config History</strong> tracks settings changes like weight updates, threshold edits, profile changes, and CSM modifications. ' +
-    'Use the action filter and search to find specific entries.');
+    '<strong>What you can do here</strong> — The Audit Log gives you a complete record of everything that\'s happened in your account. Use it for accountability, debugging, and compliance.<br>' +
+    '<strong>Activity Log:</strong> Every customer-facing change — score updates, stage transitions, edits, and bulk re-scores — is logged here with who made the change and when.<br>' +
+    '<strong>Config History:</strong> All settings changes — weight adjustments, threshold edits, profile updates, CSM changes — so you can see exactly what was configured and when.<br>' +
+    '<strong>Tip:</strong> Use the search bar and action filter to quickly find specific changes. You can also export the full log as CSV.');
 }
 
 function renderAutomationsGuide() {
   _renderGuide('automations-guide', 'iqc_automations_guide_dismissed',
-    '<strong>Quick overview</strong> — Set up automated alerts and custom rules to stay on top of customer changes. ' +
-    '<strong>Alert Rules</strong> are pre-built triggers (score drops, churn risk, renewal upcoming) that notify you via Slack, Teams, or email. ' +
-    '<strong>Custom Rules</strong> let you build your own conditions with flexible if/then logic. ' +
-    'Use the 3-step wizard to create a new rule: choose trigger, set conditions, pick delivery channel.');
+    '<strong>What you can do here</strong> — Set up automated notifications so you never miss a critical customer change. Alerts can be sent to Slack, Microsoft Teams, or email.<br>' +
+    '<strong>Alert Rules:</strong> Pre-built triggers for common scenarios — score drops below threshold, churn risk detected, renewal approaching, NPS change, and more. Toggle them on/off and choose where they\'re sent.<br>' +
+    '<strong>Custom Rules:</strong> Build your own rules with flexible if/then logic. Define any condition combination and route notifications to the right channel.<br>' +
+    '<strong>Tip:</strong> Start with the built-in Alert Rules — they cover most use cases. You can always add Custom Rules later for more specific workflows. Use the 3-step wizard: choose trigger → set conditions → pick delivery.');
 }
 
 
