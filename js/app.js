@@ -7526,7 +7526,12 @@ function applyColumnFilters(list) {
         case 'adoption': v = c.adoption != null ? c.adoption : -1; break;
         case 'growth':   v = c.growth || 'none'; break;
         case 'days':    v = c.days != null ? c.days : 999; break;
-        case 'renewal': v = c.renewal || 0; break;
+        case 'renewal': {
+          if (c.renewal_date) { v = Math.round((new Date(c.renewal_date) - new Date()) / 86400000); }
+          else if (c.renewal > 0) { v = c.renewal * 30; }
+          else { v = 9999; }
+          break;
+        }
         case 'next_touch': {
           if (!c.next_touch) { v = 9999; break; }
           v = Math.round((new Date(c.next_touch) - new Date()) / 86400000);
@@ -7673,15 +7678,13 @@ function _renderCustomers() {
             const d = new Date(c.renewal_date);
             const today = new Date(); today.setHours(0,0,0,0);
             const days = Math.round((d - today) / 86400000);
-            const dateStr = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-            const countdown = days < 0 ? `<span style="color:#dc2626;font-weight:700">Overdue</span>`
-              : days === 0 ? `<span style="color:#dc2626;font-weight:700">Today</span>`
-              : days <= 30 ? `<span style="color:#ea580c;font-weight:700">${days}d left</span>`
-              : days <= 90 ? `<span style="color:#d97706;font-weight:700">${days}d left</span>`
-              : `<span style="color:var(--muted)">${days}d left</span>`;
-            return `<div class="ct-two-line">${countdown}<span class="ct-sub">${dateStr}</span></div>`;
+            if (days < 0) return `<span style="color:#dc2626;font-weight:700">${days}d</span>`;
+            if (days === 0) return `<span style="color:#dc2626;font-weight:700">Today</span>`;
+            if (days <= 30) return `<span style="color:#ea580c;font-weight:700">${days}d</span>`;
+            if (days <= 90) return `<span style="color:#d97706;font-weight:700">${days}d</span>`;
+            return `<span style="color:var(--muted)">${days}d</span>`;
           }
-          if (c.renewal != null && c.renewal > 0) return `<div class="ct-two-line">${urgencyHTML(c)}<span class="ct-sub">${c.renewal}mo</span></div>`;
+          if (c.renewal != null && c.renewal > 0) { const d = c.renewal * 30; return `<span style="color:${d<=30?'#ea580c':d<=90?'#d97706':'var(--muted)'};font-weight:600">~${d}d</span>`; }
           return '—';
         })()}</td>
         <td class="nt-cell" onclick="event.stopPropagation();openInlineNextTouch('${escHtml(c.id)}',this)">${(()=>{
