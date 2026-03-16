@@ -3858,109 +3858,103 @@ const _hbCatClass = {
 
 function renderHomeBase() { try { _renderHomeBase(); } catch(e) { console.error('renderHomeBase error:', e); } }
 
+function _gsStepIcon(n) { return `<div style="width:28px;height:28px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs-sm);flex-shrink:0">${n}</div>`; }
+
+function _gettingStartedHTML() {
+  const si = _gsStepIcon;
+  const card = (icon, bg, title, sub, steps, buttons) => `
+    <div class="card" style="margin-bottom:16px;cursor:pointer" onclick="this.querySelector('.gs-detail').style.display=this.querySelector('.gs-detail').style.display==='none'?'block':'none'">
+      <div style="display:flex;align-items:center;gap:14px;padding:18px 20px">
+        <div style="width:40px;height:40px;border-radius:10px;background:${bg};display:flex;align-items:center;justify-content:center">${icon}</div>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:var(--fs-md);color:var(--text)">${title}</div>
+          <div style="font-size:var(--fs-sm);color:var(--muted)">${sub}</div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="gs-detail" style="display:none;padding:0 20px 20px;border-top:1px solid var(--border);margin-top:-2px;padding-top:16px">
+        ${steps.map((s, i) => `<div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">${si(i+1)}<div><strong>${s.title}</strong><br><span style="color:var(--muted);font-size:var(--fs-sm)">${s.desc}</span></div></div>`).join('')}
+        <div style="display:flex;gap:8px;margin-top:4px">${buttons}</div>
+      </div>
+    </div>`;
+
+  const linkIco = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`;
+  const pplIco = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
+  const fileIco = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`;
+
+  return card(linkIco, 'linear-gradient(135deg,#14b8a6,#0d9488)',
+    'I have a CRM or tool to connect',
+    'Pull customers and data directly from HubSpot, Salesforce, Stripe, or other integrations',
+    [
+      { title:'Connect your integration', desc:'Go to <a href="#" onclick="event.stopPropagation();nav(\'settings\')" style="color:var(--teal);font-weight:600">Settings → Integrations</a> and connect your CRM or billing tool. Select which metrics to sync.' },
+      { title:'Run your first sync', desc:'Once connected, hit Sync to pull your customer list and their data into IQcadence. Customers will appear in the Customers tab.' },
+      { title:'Configure scoring weights', desc:'Head to <a href="#" onclick="event.stopPropagation();nav(\'settings\')" style="color:var(--teal);font-weight:600">Settings → Scoring</a> to adjust signal weights. Each customer will be scored automatically.' }
+    ],
+    '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();nav(\'settings\')">Go to Settings →</button>'
+  ) + card(pplIco, 'linear-gradient(135deg,#6366f1,#4f46e5)',
+    'I want to add customers first, then connect an integration',
+    'Add your customer list manually, then let integrations enrich their data',
+    [
+      { title:'Add your customers', desc:'Go to <a href="#" onclick="event.stopPropagation();nav(\'customers\')" style="color:var(--teal);font-weight:600">Customers</a> and add them one at a time, or use <a href="#" onclick="event.stopPropagation();nav(\'csv\')" style="color:var(--teal);font-weight:600">CSV Import</a> to bulk upload a list of names.' },
+      { title:'Connect your integration', desc:'Go to <a href="#" onclick="event.stopPropagation();nav(\'settings\')" style="color:var(--teal);font-weight:600">Settings → Integrations</a> and connect your tool. Make sure "Import new accounts" is turned off — this way the integration will only update existing customers you already added, not create new ones.' },
+      { title:'Sync to enrich data', desc:'Run a sync to pull in metrics like MRR, tickets, NPS, and more for your existing customers. Their scores will update automatically.' }
+    ],
+    '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();nav(\'csv\')">Import Customers →</button>'
+  ) + card(fileIco, 'linear-gradient(135deg,#f59e0b,#d97706)',
+    "I don't have an integration to connect",
+    'Add customers and data manually using CSV import or the scoring form',
+    [
+      { title:'Prepare your spreadsheet', desc:'Create a CSV with your customer data. At minimum include a <strong>Name</strong> column. You can also add columns for MRR, ARR, NPS, CSAT, Logins, Tickets, and more.' },
+      { title:'Import via CSV', desc:'Go to <a href="#" onclick="event.stopPropagation();nav(\'csv\')" style="color:var(--teal);font-weight:600">CSV Import</a>, upload your file, map the columns, and import. All customers will be scored automatically.' },
+      { title:'Adjust weights and review', desc:'Fine-tune your <a href="#" onclick="event.stopPropagation();nav(\'settings\')" style="color:var(--teal);font-weight:600">scoring weights</a> to match what matters for your business. Check your dashboard to see health scores and insights.' }
+    ],
+    '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();nav(\'csv\')">Import CSV →</button><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();nav(\'score\')">+ Score Manually</button>'
+  );
+}
+
 function _renderGettingStarted(wrap) {
-  const stepIcon = (n) => `<div style="width:28px;height:28px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs-sm);flex-shrink:0">${n}</div>`;
   wrap.innerHTML = `
   <div style="max-width:720px;margin:0 auto;padding:32px 0">
     <div style="text-align:center;margin-bottom:32px">
       <h1 style="font-size:1.5rem;font-weight:800;color:var(--text);margin-bottom:8px">Welcome to IQcadence</h1>
       <p style="color:var(--muted);font-size:var(--fs-md);max-width:480px;margin:0 auto">Get started by adding your customers. Choose the path that fits your setup.</p>
     </div>
+    ${_gettingStartedHTML()}
+  </div>`;
+}
 
-    <!-- Path A: Integration-first -->
-    <div class="card" style="margin-bottom:16px;cursor:pointer" onclick="this.querySelector('.gs-detail').style.display=this.querySelector('.gs-detail').style.display==='none'?'block':'none'">
-      <div style="display:flex;align-items:center;gap:14px;padding:18px 20px">
-        <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#14b8a6,#0d9488);display:flex;align-items:center;justify-content:center">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+function _gsCardHTML() {
+  const dismissed = false;
+  try { if (localStorage.getItem('iqc_gs_dismissed') === '1') return ''; } catch(e) {}
+  return `<div class="card" id="gs-banner" style="margin-bottom:16px;border-left:4px solid var(--teal);position:relative">
+    <div style="padding:16px 20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span style="font-weight:700;font-size:var(--fs-md);color:var(--text)">Getting Started Guide</span>
         </div>
-        <div style="flex:1">
-          <div style="font-weight:700;font-size:var(--fs-md);color:var(--text)">I have a CRM or tool to connect</div>
-          <div style="font-size:var(--fs-sm);color:var(--muted)">Pull customers and data directly from HubSpot, Salesforce, Stripe, or other integrations</div>
-        </div>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-      </div>
-      <div class="gs-detail" style="display:none;padding:0 20px 20px;border-top:1px solid var(--border);margin-top:-2px;padding-top:16px">
-        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
-          ${stepIcon(1)}
-          <div><strong>Connect your integration</strong><br><span style="color:var(--muted);font-size:var(--fs-sm)">Go to <a href="#" onclick="event.stopPropagation();nav('settings')" style="color:var(--teal);font-weight:600">Settings → Integrations</a> and connect your CRM or billing tool. Select which metrics to sync.</span></div>
-        </div>
-        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
-          ${stepIcon(2)}
-          <div><strong>Run your first sync</strong><br><span style="color:var(--muted);font-size:var(--fs-sm)">Once connected, hit Sync to pull your customer list and their data into IQcadence. Customers will appear in the Customers tab.</span></div>
-        </div>
-        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
-          ${stepIcon(3)}
-          <div><strong>Configure scoring weights</strong><br><span style="color:var(--muted);font-size:var(--fs-sm)">Head to <a href="#" onclick="event.stopPropagation();nav('settings')" style="color:var(--teal);font-weight:600">Settings → Scoring</a> to adjust signal weights. Each customer will be scored automatically.</span></div>
-        </div>
-        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();nav('settings')" style="margin-top:4px">Go to Settings →</button>
-      </div>
-    </div>
-
-    <!-- Path B: Manual-first + Integration -->
-    <div class="card" style="margin-bottom:16px;cursor:pointer" onclick="this.querySelector('.gs-detail').style.display=this.querySelector('.gs-detail').style.display==='none'?'block':'none'">
-      <div style="display:flex;align-items:center;gap:14px;padding:18px 20px">
-        <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#4f46e5);display:flex;align-items:center;justify-content:center">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        </div>
-        <div style="flex:1">
-          <div style="font-weight:700;font-size:var(--fs-md);color:var(--text)">I want to add customers first, then connect an integration</div>
-          <div style="font-size:var(--fs-sm);color:var(--muted)">Add your customer list manually, then let integrations enrich their data</div>
-        </div>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-      </div>
-      <div class="gs-detail" style="display:none;padding:0 20px 20px;border-top:1px solid var(--border);margin-top:-2px;padding-top:16px">
-        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
-          ${stepIcon(1)}
-          <div><strong>Add your customers</strong><br><span style="color:var(--muted);font-size:var(--fs-sm)">Go to <a href="#" onclick="event.stopPropagation();nav('customers')" style="color:var(--teal);font-weight:600">Customers</a> and add them one at a time, or use <a href="#" onclick="event.stopPropagation();nav('csv')" style="color:var(--teal);font-weight:600">CSV Import</a> to bulk upload a list of names.</span></div>
-        </div>
-        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
-          ${stepIcon(2)}
-          <div><strong>Connect your integration</strong><br><span style="color:var(--muted);font-size:var(--fs-sm)">Go to <a href="#" onclick="event.stopPropagation();nav('settings')" style="color:var(--teal);font-weight:600">Settings → Integrations</a> and connect your tool. Make sure "Import new accounts" is turned off — this way the integration will only update existing customers you already added, not create new ones.</span></div>
-        </div>
-        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
-          ${stepIcon(3)}
-          <div><strong>Sync to enrich data</strong><br><span style="color:var(--muted);font-size:var(--fs-sm)">Run a sync to pull in metrics like MRR, tickets, NPS, and more for your existing customers. Their scores will update automatically.</span></div>
-        </div>
-        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();nav('csv')" style="margin-top:4px">Import Customers →</button>
-      </div>
-    </div>
-
-    <!-- Path C: No integration -->
-    <div class="card" style="margin-bottom:16px;cursor:pointer" onclick="this.querySelector('.gs-detail').style.display=this.querySelector('.gs-detail').style.display==='none'?'block':'none'">
-      <div style="display:flex;align-items:center;gap:14px;padding:18px 20px">
-        <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-        </div>
-        <div style="flex:1">
-          <div style="font-weight:700;font-size:var(--fs-md);color:var(--text)">I don't have an integration to connect</div>
-          <div style="font-size:var(--fs-sm);color:var(--muted)">Add customers and data manually using CSV import or the scoring form</div>
-        </div>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-      </div>
-      <div class="gs-detail" style="display:none;padding:0 20px 20px;border-top:1px solid var(--border);margin-top:-2px;padding-top:16px">
-        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
-          ${stepIcon(1)}
-          <div><strong>Prepare your spreadsheet</strong><br><span style="color:var(--muted);font-size:var(--fs-sm)">Create a CSV with your customer data. At minimum include a <strong>Name</strong> column. You can also add columns for MRR, ARR, NPS, CSAT, Logins, Tickets, and more.</span></div>
-        </div>
-        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
-          ${stepIcon(2)}
-          <div><strong>Import via CSV</strong><br><span style="color:var(--muted);font-size:var(--fs-sm)">Go to <a href="#" onclick="event.stopPropagation();nav('csv')" style="color:var(--teal);font-weight:600">CSV Import</a>, upload your file, map the columns, and import. All customers will be scored automatically.</span></div>
-        </div>
-        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
-          ${stepIcon(3)}
-          <div><strong>Adjust weights and review</strong><br><span style="color:var(--muted);font-size:var(--fs-sm)">Fine-tune your <a href="#" onclick="event.stopPropagation();nav('settings')" style="color:var(--teal);font-weight:600">scoring weights</a> to match what matters for your business. Check your dashboard to see health scores and insights.</span></div>
-        </div>
-        <div style="display:flex;gap:8px;margin-top:4px">
-          <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();nav('csv')">Import CSV →</button>
-          <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();nav('score')">+ Score Manually</button>
+        <div style="display:flex;align-items:center;gap:12px">
+          <label style="display:flex;align-items:center;gap:5px;font-size:var(--fs-sm);color:var(--muted);cursor:pointer;user-select:none">
+            <input type="checkbox" onchange="dismissGettingStarted(this.checked)"> Don't show again
+          </label>
+          <button onclick="document.getElementById('gs-banner').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;line-height:1;padding:2px" title="Close">×</button>
         </div>
       </div>
-    </div>
-
-    <div style="text-align:center;margin-top:24px;color:var(--muted);font-size:var(--fs-sm)">
-      You can always access this guide from <strong>Settings → Help</strong> later.
+      <div id="gs-banner-body" style="display:none">${_gettingStartedHTML()}</div>
+      <button onclick="var b=document.getElementById('gs-banner-body');var open=b.style.display!=='none';b.style.display=open?'none':'block';this.textContent=open?'Show guide ↓':'Hide guide ↑'" class="btn btn-outline btn-xs" style="font-size:var(--fs-sm)">Show guide ↓</button>
     </div>
   </div>`;
+}
+
+function dismissGettingStarted(checked) {
+  try { if (checked) localStorage.setItem('iqc_gs_dismissed', '1'); else localStorage.removeItem('iqc_gs_dismissed'); } catch(e) {}
+  if (checked) { const b = document.getElementById('gs-banner'); if (b) b.remove(); }
+}
+
+function showGettingStarted() {
+  try { localStorage.removeItem('iqc_gs_dismissed'); } catch(e) {}
+  renderHomeBase();
+  nav('homebase');
 }
 
 function _renderHomeBase() {
@@ -4557,7 +4551,7 @@ function _renderHomeBase() {
   html += '<div class="card-body heatmap" id="heatmap-wrap"></div>';
   html += '</div>';
 
-  wrap.innerHTML = html;
+  wrap.innerHTML = _gsCardHTML() + html;
 
   // ── Render moved Dashboard widgets into their containers ──
   if (typeof renderRenewalPipeline === 'function') {
