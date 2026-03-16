@@ -630,23 +630,8 @@ function _renderCustomers() {
           const yrs = Math.floor(months/12), rem = months%12;
           return rem ? `${yrs}y ${rem}mo` : `${yrs}y`;
         })()}</td>
-        <td>${(()=>{
-          if (!c.created) return '—';
-          const d = new Date(c.created);
-          return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-        })()}</td>
         <td>${c.tickets ? `<span style="font-weight:600${c.tickets >= 3 ? ';color:#dc2626' : c.tickets >= 1 ? ';color:#d97706' : ''}">${c.tickets}</span>` : '<span style="color:var(--muted)">0</span>'}</td>
         <td><div class="ct-two-line"><span class="${cad.cls}">${cad.label.replace(/\s*\(\d+d\)/,'')}</span><span class="ct-sub">${c.days != null ? c.days + 'd ago' : 'N/A'}</span></div></td>
-        <td>${c.nps != null ? c.nps : '<span style="color:var(--muted)">—</span>'}</td>
-        <td>${c.csat != null ? c.csat : '<span style="color:var(--muted)">—</span>'}</td>
-        <td>${c.logins != null ? c.logins : '<span style="color:var(--muted)">—</span>'}</td>
-        <td>${c.adoption != null ? c.adoption + '%' : '<span style="color:var(--muted)">—</span>'}</td>
-        <td>${(()=>{
-          const g = c.growth || 'none';
-          if (g === 'strong') return '<span style="color:#16a34a;font-weight:600">Strong</span>';
-          if (g === 'mild') return '<span style="color:#d97706;font-weight:600">Mild</span>';
-          return '<span style="color:var(--muted)">None</span>';
-        })()}</td>
         <td>${(()=>{
           if (c.renewal_date) {
             const d = new Date(c.renewal_date);
@@ -681,6 +666,21 @@ function _renderCustomers() {
           const allTags = tags.map(t => escHtml(t)).join(', ');
           return first + `<span class="tag tag-more" title="${allTags}">+${tags.length - 1}</span>`;
         })(c.tags||[])}</td>
+        <td>${(()=>{
+          if (!c.created) return '—';
+          const d = new Date(c.created);
+          return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+        })()}</td>
+        <td>${c.nps != null ? c.nps : '<span style="color:var(--muted)">—</span>'}</td>
+        <td>${c.csat != null ? c.csat : '<span style="color:var(--muted)">—</span>'}</td>
+        <td>${c.logins != null ? c.logins : '<span style="color:var(--muted)">—</span>'}</td>
+        <td>${c.adoption != null ? c.adoption + '%' : '<span style="color:var(--muted)">—</span>'}</td>
+        <td>${(()=>{
+          const g = c.growth || 'none';
+          if (g === 'strong') return '<span style="color:#16a34a;font-weight:600">Strong</span>';
+          if (g === 'mild') return '<span style="color:#d97706;font-weight:600">Mild</span>';
+          return '<span style="color:var(--muted)">None</span>';
+        })()}</td>
       </tr>`;
   }).join('');
 

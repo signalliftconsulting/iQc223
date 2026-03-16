@@ -79,7 +79,6 @@ let currentUser = null; // set after auth
 let customers  = [];
 let snoozed    = new Map(); // id → expiry timestamp (ms)
 let selectedIds= new Set();
-let _visibleIds= [];          // ordered customer IDs in current table view (for shift-click)
 let sortKey    = 'score';
 let sortDir    = -1; // -1 = desc
 let filterMode = 'all';
@@ -281,17 +280,17 @@ const COL_DEFS = [
   { key:'mrr',       label:'MRR',           ftype:'number', sortKey:'mrr' },
   { key:'arr',       label:'ARR',           ftype:'number', sortKey:'arr' },
   { key:'since',     label:'Tenure',        ftype:'number', sortKey:'since' },
-  { key:'created',   label:'Date Added',    ftype:'date',   sortKey:'created' },
   { key:'tickets',   label:'Tickets',       ftype:'number', sortKey:'tickets' },
   { key:'days',      label:'Last Contact',  ftype:'number', sortKey:'days' },
+  { key:'renewal',   label:'Renewal',       ftype:'number', sortKey:'renewal' },
+  { key:'next_touch',label:'Next Touch',    ftype:'number', sortKey:'next_touch' },
+  { key:'tags',      label:'Tags',          ftype:'text',   sortKey:'tags' },
+  { key:'created',   label:'Date Added',    ftype:'number', sortKey:'created' },
   { key:'nps',       label:'NPS',           ftype:'number', sortKey:'nps' },
   { key:'csat',      label:'CSAT',          ftype:'number', sortKey:'csat' },
   { key:'logins',    label:'Logins',        ftype:'number', sortKey:'logins' },
   { key:'adoption',  label:'Adoption',      ftype:'number', sortKey:'adoption' },
   { key:'growth',    label:'Growth',        ftype:'enum',   sortKey:'growth',     enumVals:['strong','mild','none'] },
-  { key:'renewal',   label:'Renewal',       ftype:'number', sortKey:'renewal' },
-  { key:'next_touch',label:'Next Touch',    ftype:'number', sortKey:'next_touch' },
-  { key:'tags',      label:'Tags',          ftype:'text',   sortKey:'tags' },
 ];
 
 const ENUM_DISPLAY = {
@@ -2910,6 +2909,41 @@ function makeRec(score, data) {
   };
   const _cap = function(s) { return s.charAt(0).toUpperCase() + s.slice(1); };
 
+  // ── Contextual enrichment ─────────────────────────────────
+  const tier = data.tier || 'mid';
+  const tierLabel = {enterprise:'an Enterprise',mid:'a Mid-Market',smb:'an SMB'}[tier] || 'a Mid-Market';
+  const isHighValue = tier === 'enterprise' || (data.mrr && data.mrr >= 10000);
+  const mrrStr = data.mrr ? '$' + fmtNum(data.mrr) + '/mo' : '';
+
+  // Compound signal patterns
+  const disengaged = bad.some(function(b){return b.includes('logging in') || b.includes('logged in');}) && bad.some(function(b){return b.includes('using about');});
+  const silentAndSlipping = bad.some(function(b){return b.includes('haven\'t talked');}) && mom === 'dn';
+  const unhappyAndQuiet = (bad.some(function(b){return b.includes('NPS');}) || bad.some(function(b){return b.includes('satisfaction');})) && bad.some(function(b){return b.includes('haven\'t talked');});
+
+  // Renewal proximity
+  const renewSoon = data.renewal != null && data.renewal <= 3;
+  const renewUrgent = data.renewal != null && data.renewal <= 1;
+
+  // Momentum flavor
+  var momFlavor = '';
+  if (mom === 'dn' && score <= 35) momFlavor = 'freefall';
+  else if (mom === 'dn' && score >= 70) momFlavor = 'slipping';
+  else if (mom === 'up' && score <= 35) momFlavor = 'recovering';
+  else if (mom === 'up') momFlavor = 'climbing';
+  else if (!mom || mom === 'flat') momFlavor = 'flat';
+
+  // Kicker: most relevant extra context (only one fires)
+  var _kicker = function(st) {
+    if (disengaged && st !== 'expand' && st !== 'healthy') return ' This looks like full disengagement — not just one signal, they\'ve pulled back across the board.';
+    if (unhappyAndQuiet) return ' They\'re unhappy and we\'re not in touch — that\'s a dangerous combination.';
+    if (silentAndSlipping && st !== 'healthy') return ' Score is dropping and we haven\'t been in contact — that silence is the risk.';
+    if (renewUrgent && (st === 'critical' || st === 'risk')) return ' Renewal is imminent, which puts real timeline pressure on this.';
+    if (renewSoon && (st === 'critical' || st === 'risk' || st === 'watch')) return ' Renewal is in ' + data.renewal + ' month' + (data.renewal !== 1 ? 's' : '') + ' — we need to be in a better position by then.';
+    if (renewSoon && (st === 'healthy' || st === 'expand')) return ' Renewal is in ' + data.renewal + ' month' + (data.renewal !== 1 ? 's' : '') + ' — should be smooth given current health.';
+    if (isHighValue && mrrStr && st !== 'expand' && st !== 'healthy') return ' As ' + tierLabel + ' account at ' + mrrStr + ', this should be a top priority.';
+    return '';
+  };
+
   // ── Lifecycle-first overrides ──
   if (lc === 'onboarding') {
     if ((status === 'critical' || status === 'risk') && mom === 'up') {
@@ -2979,8 +3013,10 @@ function makeRec(score, data) {
     if (bad.length) t += ' ' + _cap(bad[0]) + (bad.length > 1 ? ', and ' + bad[1] : '') + '.';
     if (good.length) t += ' The one bright spot is ' + good[0] + '.';
     if (data.mrr) t += ' That\'s $' + fmtNum(data.mrr) + ' MRR we could lose.';
-    if (mom === 'up') t += ' There are signs of recovery, but they\'re still well below safe levels.';
+    if (momFlavor === 'freefall') t += ' The score is in freefall — this needs immediate intervention before it\'s too late.';
+    else if (momFlavor === 'recovering') t += ' There are early signs of recovery, but they\'re still deep in the danger zone.';
     else if (mom === 'dn') t += ' And it\'s getting worse — without stepping in, this is heading toward churn.';
+    t += _kicker('critical');
     return t;
   }
 
@@ -2989,8 +3025,10 @@ function makeRec(score, data) {
     if (bad.length === 1) t += ' The main concern is ' + bad[0] + '.';
     else if (bad.length > 1) t += ' ' + _cap(bad[0]) + ', and ' + bad[1] + '.';
     if (good.length) t += ' On the plus side, ' + good[0] + '.';
+    if (data.mrr && data.mrr >= 5000) t += ' At ' + mrrStr + ', this is worth prioritizing.';
     if (mom === 'up') t += ' Things are trending up, which is encouraging, but they\'re not out of the woods yet.';
     else if (mom === 'dn') t += ' And the trend is going the wrong direction, which makes this more pressing.';
+    t += _kicker('risk');
     return t;
   }
 
@@ -2998,8 +3036,10 @@ function makeRec(score, data) {
     var t = name + ' is okay but not great — worth keeping an eye on.';
     if (bad.length) t += ' ' + _cap(bad[0]) + ', which is the main thing I\'d flag.';
     if (good.length) t += ' ' + _cap(good[0]) + ' though, which is a positive.';
+    if (isHighValue) t += ' As ' + tierLabel + ' account, even Watch status warrants closer attention.';
     if (mom === 'dn') t += ' If this keeps slipping, they\'ll move into At Risk.';
     else if (mom === 'up') t += ' The trend is positive — a little more attention could push them back to Healthy.';
+    t += _kicker('watch');
     return t;
   }
 
@@ -3007,7 +3047,9 @@ function makeRec(score, data) {
     var t = name + ' is thriving — this is one to get excited about.';
     if (good.length) t += ' ' + _cap(good[0]) + (good.length > 1 ? ', and ' + good[1] : '') + '.';
     if (mom === 'dn') { t += ' Score dipped ' + (Math.abs(delta) || 'a few') + ' points recently though — check the trend chart to see which signals are pulling back before pushing growth conversations.'; }
+    else if (data.mrr) t += ' At ' + mrrStr + ', a successful expansion here would be a big win.';
     else t += ' Great candidate for an expansion conversation.';
+    t += _kicker('expand');
     return t;
   }
 
@@ -3015,8 +3057,9 @@ function makeRec(score, data) {
   var t = name + ' is in good shape — no major concerns.';
   if (good.length) t += ' ' + _cap(good[0]) + (good.length > 1 ? ', and ' + good[1] : '') + '.';
   if (bad.length) t += ' The only thing I\'d keep an eye on is ' + bad[0] + ' — if that gets worse, it could drag the score down.';
-  if (mom === 'dn') t += ' Score has been dipping — down ' + (Math.abs(delta) || 'a few') + ' points recently. Check the signal breakdown to see what\'s changing.';
-  if (data.renewal != null && data.renewal <= 2) t += ' Renewal is coming up in ' + data.renewal + ' month' + (data.renewal !== 1 ? 's' : '') + '.';
+  if (momFlavor === 'slipping') t += ' Score has been dipping from a good position — down ' + (Math.abs(delta) || 'a few') + ' points recently. Check the signal breakdown to see what\'s changing before it becomes a trend.';
+  else if (mom === 'dn') t += ' Score has been dipping — down ' + (Math.abs(delta) || 'a few') + ' points recently. Check the signal breakdown to see what\'s changing.';
+  t += _kicker('healthy');
   return t;
 }
 
@@ -3093,6 +3136,16 @@ function buildPlaybook(score, data) {
     else if (data.days > 21)
       plays.push({ type:'engage', text:`<strong>Check-in email:</strong> ${data.days} days since last contact. Reach out with something valuable — share a relevant case study, tip, or product update, then close with: <em>"Anything you'd like to cover on our next call?"</em>` });
   }
+
+  // ── Compound signal patterns ────────────────────────────
+  if (signalOn(data,'logins') && signalOn(data,'adoption') && data.logins != null && data.logins < 5 && data.adoption != null && data.adoption < 30)
+    plays.push({ type:'urgent', text:`<strong>Full disengagement:</strong> ${name} has both low logins (${data.logins}/mo) and low adoption (${data.adoption}%). This isn't one signal — they've checked out across the board. This needs a direct, honest conversation: <em>"I want to be straight with you — the data shows your team isn't getting value from us right now. Can we reset and figure out what needs to change?"</em>` });
+  if (signalOn(data,'days') && data.days > 30 && getMomentum(data) === 'dn')
+    plays.push({ type:'urgent', text:`<strong>Silent decline:</strong> Score is dropping and we haven't been in touch for ${data.days} days. The longer this goes unaddressed, the harder recovery gets. Break the silence today with a personal note — not a template.` });
+  if ((signalOn(data,'nps') && npsIsDetractor(data.nps)) && signalOn(data,'days') && data.days > 21)
+    plays.push({ type:'urgent', text:`<strong>Unhappy and unreachable:</strong> NPS detractor (${npsDisplay(data.nps)}) combined with ${data.days} days of no contact. They may already be evaluating alternatives. This needs an exec-level save call, not a standard check-in.` });
+  if (data.renewal != null && data.renewal <= 3 && (status === 'critical' || status === 'risk'))
+    plays.push({ type:'urgent', text:`<strong>Renewal at risk:</strong> ${name} renews in ${data.renewal} month${data.renewal !== 1 ? 's' : ''} while in ${status === 'critical' ? 'critical' : 'at-risk'} health. Lead with a recovery plan before any renewal discussion: <em>"I want to make sure we solve what's not working before we talk about next year."</em>` });
 
   // ── Renewal ──────────────────────────────────────────────
   if (data.renewal === 0)
@@ -7613,23 +7666,8 @@ function _renderCustomers() {
           const yrs = Math.floor(months/12), rem = months%12;
           return rem ? `${yrs}y ${rem}mo` : `${yrs}y`;
         })()}</td>
-        <td>${(()=>{
-          if (!c.created) return '—';
-          const d = new Date(c.created);
-          return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-        })()}</td>
         <td>${c.tickets ? `<span style="font-weight:600${c.tickets >= 3 ? ';color:#dc2626' : c.tickets >= 1 ? ';color:#d97706' : ''}">${c.tickets}</span>` : '<span style="color:var(--muted)">0</span>'}</td>
         <td><div class="ct-two-line"><span class="${cad.cls}">${cad.label.replace(/\s*\(\d+d\)/,'')}</span><span class="ct-sub">${c.days != null ? c.days + 'd ago' : 'N/A'}</span></div></td>
-        <td>${c.nps != null ? c.nps : '<span style="color:var(--muted)">—</span>'}</td>
-        <td>${c.csat != null ? c.csat : '<span style="color:var(--muted)">—</span>'}</td>
-        <td>${c.logins != null ? c.logins : '<span style="color:var(--muted)">—</span>'}</td>
-        <td>${c.adoption != null ? c.adoption + '%' : '<span style="color:var(--muted)">—</span>'}</td>
-        <td>${(()=>{
-          const g = c.growth || 'none';
-          if (g === 'strong') return '<span style="color:#16a34a;font-weight:600">Strong</span>';
-          if (g === 'mild') return '<span style="color:#d97706;font-weight:600">Mild</span>';
-          return '<span style="color:var(--muted)">None</span>';
-        })()}</td>
         <td>${(()=>{
           if (c.renewal_date) {
             const d = new Date(c.renewal_date);
@@ -7664,6 +7702,21 @@ function _renderCustomers() {
           const allTags = tags.map(t => escHtml(t)).join(', ');
           return first + `<span class="tag tag-more" title="${allTags}">+${tags.length - 1}</span>`;
         })(c.tags||[])}</td>
+        <td>${(()=>{
+          if (!c.created) return '—';
+          const d = new Date(c.created);
+          return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+        })()}</td>
+        <td>${c.nps != null ? c.nps : '<span style="color:var(--muted)">—</span>'}</td>
+        <td>${c.csat != null ? c.csat : '<span style="color:var(--muted)">—</span>'}</td>
+        <td>${c.logins != null ? c.logins : '<span style="color:var(--muted)">—</span>'}</td>
+        <td>${c.adoption != null ? c.adoption + '%' : '<span style="color:var(--muted)">—</span>'}</td>
+        <td>${(()=>{
+          const g = c.growth || 'none';
+          if (g === 'strong') return '<span style="color:#16a34a;font-weight:600">Strong</span>';
+          if (g === 'mild') return '<span style="color:#d97706;font-weight:600">Mild</span>';
+          return '<span style="color:var(--muted)">None</span>';
+        })()}</td>
       </tr>`;
   }).join('');
 
@@ -9046,6 +9099,34 @@ function renderDetailOverview() {
   `;
 }
 
+function buildSignalModelInsightsHTML(c) {
+  if (!c._signalModel || !c._signalModel.enabled || !c._signalModel.factors.length) return '';
+  var sm = c._signalModel;
+  var adjColor = sm.totalAdj >= 0 ? 'var(--green)' : 'var(--red)';
+  var adjSign = sm.totalAdj >= 0 ? '+' : '';
+  var catIcons = { engagement: appIcon('chartBar',13), revenue: appIcon('trendUp',13), relationship: appIcon('users',13), support: appIcon('clipboard',13), lifecycle: appIcon('calendar',13), compound: appIcon('sparkle',13) };
+  var factorRows = sm.factors.sort(function(a,b){ return a.adj - b.adj; }).map(function(f) {
+    var c2 = f.adj >= 0 ? 'var(--green)' : 'var(--red)';
+    var sign = f.adj >= 0 ? '+' : '';
+    return '<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">' +
+      '<span style="color:#0f766e;flex-shrink:0;margin-top:2px">' + (catIcons[f.category] || '') + '</span>' +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="font-weight:600;font-size:var(--fs-base)">' + f.name +
+          ' <span style="font-weight:700;color:' + c2 + ';margin-left:4px">' + sign + f.adj + '</span></div>' +
+        '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:1px">' + f.reason + '</div>' +
+      '</div></div>';
+  }).join('');
+  return '<div style="margin-top:14px">' +
+    '<div class="bd-title" style="display:flex;align-items:center;gap:8px">' +
+      appIcon('sparkle',16) + ' Signal Model Insights' +
+      '<span style="margin-left:auto;font-size:var(--fs-sm);font-weight:700;color:' + adjColor + '">Net: ' + adjSign + sm.totalAdj + ' pts</span>' +
+    '</div>' +
+    '<div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:8px">' +
+      'Base: ' + sm.baseScore + ' \u2192 Adjusted: ' + sm.adjustedScore +
+      ' (' + sm.sensitivity + ', ' + sm.factors.length + ' factor' + (sm.factors.length !== 1 ? 's' : '') + ' fired)' +
+    '</div>' + factorRows + '</div>';
+}
+
 async function saveNextTouch() {
   const c = customers.find(x => x.id === detailId);
   if (!c) return;
@@ -9136,34 +9217,6 @@ function buildBreakdownHTML(signals, c) {
       ${d.raw ? `<div class="bd-raw">${d.raw}</div>` : ''}
     </div>`;
   }).join('');
-}
-
-function buildSignalModelInsightsHTML(c) {
-  if (!c._signalModel || !c._signalModel.enabled || !c._signalModel.factors.length) return '';
-  var sm = c._signalModel;
-  var adjColor = sm.totalAdj >= 0 ? 'var(--green)' : 'var(--red)';
-  var adjSign = sm.totalAdj >= 0 ? '+' : '';
-  var catIcons = { engagement: appIcon('chartBar',13), revenue: appIcon('trendUp',13), relationship: appIcon('users',13), support: appIcon('clipboard',13), lifecycle: appIcon('calendar',13), compound: appIcon('sparkle',13) };
-  var factorRows = sm.factors.sort(function(a,b){ return a.adj - b.adj; }).map(function(f) {
-    var c2 = f.adj >= 0 ? 'var(--green)' : 'var(--red)';
-    var sign = f.adj >= 0 ? '+' : '';
-    return '<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">' +
-      '<span style="color:#0f766e;flex-shrink:0;margin-top:2px">' + (catIcons[f.category] || '') + '</span>' +
-      '<div style="flex:1;min-width:0">' +
-        '<div style="font-weight:600;font-size:var(--fs-base)">' + f.name +
-          ' <span style="font-weight:700;color:' + c2 + ';margin-left:4px">' + sign + f.adj + '</span></div>' +
-        '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:1px">' + f.reason + '</div>' +
-      '</div></div>';
-  }).join('');
-  return '<div style="margin-top:14px">' +
-    '<div class="bd-title" style="display:flex;align-items:center;gap:8px">' +
-      appIcon('sparkle',16) + ' Signal Model Insights' +
-      '<span style="margin-left:auto;font-size:var(--fs-sm);font-weight:700;color:' + adjColor + '">Net: ' + adjSign + sm.totalAdj + ' pts</span>' +
-    '</div>' +
-    '<div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:8px">' +
-      'Base: ' + sm.baseScore + ' \u2192 Adjusted: ' + sm.adjustedScore +
-      ' (' + sm.sensitivity + ', ' + sm.factors.length + ' factor' + (sm.factors.length !== 1 ? 's' : '') + ' fired)' +
-    '</div>' + factorRows + '</div>';
 }
 
 /* stable key for a play — type + bold title (survives index shifts) */
@@ -11030,98 +11083,6 @@ function deleteProfile(idx) {
 
 
 
-function toggleSignalModel(enabled) {
-  signalModelCfg.enabled = enabled;
-  var wrap = el('cfg-sm-sensitivity-wrap');
-  if (wrap) wrap.style.display = enabled ? '' : 'none';
-  saveSettings();
-  renderSignalModelPreview();
-  logAudit('signal_model_toggled', null, '', { summary: 'Signal Model ' + (enabled ? 'enabled' : 'disabled') });
-  rescoreAllWithModel();
-  renderScoreDistribution();
-}
-
-function setSmSensitivity(level) {
-  signalModelCfg.sensitivity = level;
-  document.querySelectorAll('.sm-sens-btn').forEach(function(b) {
-    b.classList.toggle('active', b.dataset.sens === level);
-  });
-  var desc = { conservative: 'Max adjustment: \u00b18 pts', balanced: 'Max adjustment: \u00b115 pts', aggressive: 'Max adjustment: \u00b125 pts' };
-  var descEl = el('cfg-sm-sens-desc');
-  if (descEl) descEl.textContent = desc[level] || desc.balanced;
-  saveSettings();
-  logAudit('signal_model_sensitivity', null, '', { summary: 'Signal Model sensitivity: ' + level });
-  rescoreAllWithModel();
-  renderScoreDistribution();
-}
-
-function renderSignalModelSettings() {
-  // Plan tier gating
-  var section = el('cfg-sm-section');
-  if (section && !hasFeature('signal_model')) {
-    section.style.position = 'relative';
-    if (!section.querySelector('.upgrade-overlay')) {
-      var ov = document.createElement('div');
-      ov.className = 'upgrade-overlay';
-      ov.style.cssText = 'position:absolute;inset:0;background:rgba(255,255,255,.85);z-index:5;display:flex;align-items:center;justify-content:center;border-radius:14px';
-      ov.innerHTML = upgradeHTML('signal_model');
-      section.appendChild(ov);
-    }
-  }
-  var cb = el('cfg-sm-enabled');
-  if (cb) cb.checked = signalModelCfg.enabled;
-  var wrap = el('cfg-sm-sensitivity-wrap');
-  if (wrap) wrap.style.display = signalModelCfg.enabled ? '' : 'none';
-  document.querySelectorAll('.sm-sens-btn').forEach(function(b) {
-    b.classList.toggle('active', b.dataset.sens === signalModelCfg.sensitivity);
-  });
-  var desc = { conservative: 'Max adjustment: \u00b18 pts', balanced: 'Max adjustment: \u00b115 pts', aggressive: 'Max adjustment: \u00b125 pts' };
-  var descEl = el('cfg-sm-sens-desc');
-  if (descEl) descEl.textContent = desc[signalModelCfg.sensitivity] || desc.balanced;
-  renderSignalModelPreview();
-}
-
-function renderSignalModelPreview() {
-  var wrap = el('cfg-sm-cats');
-  if (!wrap) return;
-  var cats = [
-    { label: 'Engagement & Usage',         count: 5, icon: appIcon('chartBar', 14) },
-    { label: 'Revenue & Growth',            count: 4, icon: appIcon('trendUp', 14) },
-    { label: 'Relationship & Stakeholder',  count: 4, icon: appIcon('users', 14) },
-    { label: 'Support & Sentiment',         count: 4, icon: appIcon('clipboard', 14) },
-    { label: 'Lifecycle & Timing',          count: 5, icon: appIcon('calendar', 14) },
-    { label: 'Compound / Interaction',      count: 4, icon: appIcon('sparkle', 14) },
-  ];
-  wrap.innerHTML = cats.map(function(cat) {
-    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">' +
-      '<span style="color:#0f766e">' + cat.icon + '</span>' +
-      '<span style="flex:1;font-size:var(--fs-base)">' + cat.label + '</span>' +
-      '<span style="font-size:var(--fs-xs);color:var(--muted)">' + cat.count + ' factors</span></div>';
-  }).join('');
-}
-
-function rescoreAllWithModel() {
-  var changed = [];
-  customers.forEach(function(c) {
-    if (c.lifecycle === 'churned') return;
-    var result = scoreWithModel(c);
-    if (c.score !== result.score) {
-      c.history = c.history || [];
-      c.history.push({ score: result.score, date: new Date().toISOString(), signals: buildHistorySnapshot(c) });
-      c.score = result.score;
-      c.status = getStatus(result.score);
-      applyAutoStage(c);
-      changed.push(c);
-    }
-  });
-  if (changed.length) {
-    renderHomeBase(); renderCustomers(); renderAlerts(); renderScoreDistribution();
-    toast('Re-scored ' + changed.length + ' customer' + (changed.length !== 1 ? 's' : '') + ' with Signal Model', 'success');
-    setLoading(true);
-    Promise.all(changed.map(function(c) { return atUpdate(c).catch(function(){}); })).finally(function() { setLoading(false); });
-  }
-}
-
 // ─── BACKUP ─────────────────────────────────────────────────
 function showBackupMenu() { openModal('backup-modal'); }
 
@@ -11226,6 +11187,99 @@ async function changePassword() {
 
   logAudit('password_changed', null, '', { summary: 'Password changed' });
   toast('Password updated successfully!', 'success');
+}
+
+// ─── iQcadence SIGNAL MODEL SETTINGS ───────────────────────
+function toggleSignalModel(enabled) {
+  signalModelCfg.enabled = enabled;
+  var wrap = el('cfg-sm-sensitivity-wrap');
+  if (wrap) wrap.style.display = enabled ? '' : 'none';
+  saveSettings();
+  renderSignalModelPreview();
+  logAudit('signal_model_toggled', null, '', { summary: 'Signal Model ' + (enabled ? 'enabled' : 'disabled') });
+  rescoreAllWithModel();
+  renderScoreDistribution();
+}
+
+function setSmSensitivity(level) {
+  signalModelCfg.sensitivity = level;
+  document.querySelectorAll('.sm-sens-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.sens === level);
+  });
+  var desc = { conservative: 'Max adjustment: \u00b18 pts', balanced: 'Max adjustment: \u00b115 pts', aggressive: 'Max adjustment: \u00b125 pts' };
+  var descEl = el('cfg-sm-sens-desc');
+  if (descEl) descEl.textContent = desc[level] || desc.balanced;
+  saveSettings();
+  logAudit('signal_model_sensitivity', null, '', { summary: 'Signal Model sensitivity: ' + level });
+  rescoreAllWithModel();
+  renderScoreDistribution();
+}
+
+function renderSignalModelSettings() {
+  // Plan tier gating
+  var section = el('cfg-sm-section');
+  if (section && !hasFeature('signal_model')) {
+    section.style.position = 'relative';
+    if (!section.querySelector('.upgrade-overlay')) {
+      var ov = document.createElement('div');
+      ov.className = 'upgrade-overlay';
+      ov.style.cssText = 'position:absolute;inset:0;background:rgba(255,255,255,.85);z-index:5;display:flex;align-items:center;justify-content:center;border-radius:14px';
+      ov.innerHTML = upgradeHTML('signal_model');
+      section.appendChild(ov);
+    }
+  }
+  var cb = el('cfg-sm-enabled');
+  if (cb) cb.checked = signalModelCfg.enabled;
+  var wrap = el('cfg-sm-sensitivity-wrap');
+  if (wrap) wrap.style.display = signalModelCfg.enabled ? '' : 'none';
+  document.querySelectorAll('.sm-sens-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.sens === signalModelCfg.sensitivity);
+  });
+  var desc = { conservative: 'Max adjustment: \u00b18 pts', balanced: 'Max adjustment: \u00b115 pts', aggressive: 'Max adjustment: \u00b125 pts' };
+  var descEl = el('cfg-sm-sens-desc');
+  if (descEl) descEl.textContent = desc[signalModelCfg.sensitivity] || desc.balanced;
+  renderSignalModelPreview();
+}
+
+function renderSignalModelPreview() {
+  var wrap = el('cfg-sm-cats');
+  if (!wrap) return;
+  var cats = [
+    { label: 'Engagement & Usage',         count: 5, icon: appIcon('chartBar', 14) },
+    { label: 'Revenue & Growth',            count: 4, icon: appIcon('trendUp', 14) },
+    { label: 'Relationship & Stakeholder',  count: 4, icon: appIcon('users', 14) },
+    { label: 'Support & Sentiment',         count: 4, icon: appIcon('clipboard', 14) },
+    { label: 'Lifecycle & Timing',          count: 5, icon: appIcon('calendar', 14) },
+    { label: 'Compound / Interaction',      count: 4, icon: appIcon('sparkle', 14) },
+  ];
+  wrap.innerHTML = cats.map(function(cat) {
+    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">' +
+      '<span style="color:#0f766e">' + cat.icon + '</span>' +
+      '<span style="flex:1;font-size:var(--fs-base)">' + cat.label + '</span>' +
+      '<span style="font-size:var(--fs-xs);color:var(--muted)">' + cat.count + ' factors</span></div>';
+  }).join('');
+}
+
+function rescoreAllWithModel() {
+  var changed = [];
+  customers.forEach(function(c) {
+    if (c.lifecycle === 'churned') return;
+    var result = scoreWithModel(c);
+    if (c.score !== result.score) {
+      c.history = c.history || [];
+      c.history.push({ score: result.score, date: new Date().toISOString(), signals: buildHistorySnapshot(c) });
+      c.score = result.score;
+      c.status = getStatus(result.score);
+      applyAutoStage(c);
+      changed.push(c);
+    }
+  });
+  if (changed.length) {
+    renderHomeBase(); renderCustomers(); renderAlerts(); renderScoreDistribution();
+    toast('Re-scored ' + changed.length + ' customer' + (changed.length !== 1 ? 's' : '') + ' with Signal Model', 'success');
+    setLoading(true);
+    Promise.all(changed.map(function(c) { return atUpdate(c).catch(function(){}); })).finally(function() { setLoading(false); });
+  }
 }
 
 
@@ -16850,7 +16904,9 @@ async function fireEmailAlert(eventType, customer, extra, emailCfg) {
   if (data?.error) throw new Error(data.error);
 }
 
-// ── Custom Rules ─────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// CUSTOM RULES — Builder, CRUD, Evaluation, Delivery
+// ═══════════════════════════════════════════════════════════════
 
 // ── List rendering ──
 
@@ -21863,7 +21919,7 @@ function renderCSMFocus(mgrList) {
     var _ndBg = _ndSev === 'high' ? 'var(--red-l)' : 'var(--amber-l)';
     var _ndPri = _ndSev === 'high' ? 6 : _ndSev === 'medium' ? 4 : 3;
     var _ndSuffix = _ndSev === 'high' ? ` This is a systemic issue — too many accounts are bleeding out unnoticed.` : _ndSev === 'medium' ? ` This pattern needs addressing before more accounts slip into critical.` : ` Worth flagging to prevent this from becoming a larger problem.`;
-    const detail = `These accounts are actively losing health points while no one is reaching out — a "silent bleed" that often leads to surprise churn. The worst right now: ` + worst.map(c => `${_cl(c)} is down ${Math.abs(getDelta7d(c))} pts this week with ${c.days} days since last contact ($${fmtNum(c.mrr||0)}/mo)`).join('; ') + `. Together they represent <strong>$${fmtNum(ndMRR)}/mo</strong> in MRR that's eroding without anyone noticing.${_ndSuffix}`;
+    const detail = `These accounts are actively losing health points while no one is reaching out — a "silent bleed" that often leads to surprise churn. The worst right now: ` + worst.map(c => `${_cl(c)} is down ${Math.abs(getDelta7d(c))} pts this week with ${c.days} days since last contact ($${fmtNum(c.mrr||0)}/mo)`).join('; ') + `. Together they represent <strong>$${fmtNum(ndMRR)}/mo</strong> in MRR that\'s eroding without anyone noticing.${_ndSuffix}`;
     items.push({ priority: _ndPri, icon: icPhone,
       color: _ndColor, bg: _ndBg,
       title: `${neglected.length} Neglected & Declining Accounts`,
@@ -21950,7 +22006,7 @@ function renderCSMFocus(mgrList) {
     var _dcColor = _dcSev === 'high' ? 'var(--red)' : 'var(--amber)';
     var _dcBg = _dcSev === 'high' ? 'var(--red-l)' : 'var(--amber-l)';
     var _dcPri = _dcSev === 'high' ? 5 : _dcSev === 'medium' ? 3 : 2;
-    var _dcSuffix = _dcSev === 'high' ? ` This is a widespread adoption gap — these accounts will likely drop scores in the next 1–2 cycles without enablement.` : ` This is a leading indicator of future churn — customers who aren't using the product tend to question its value at renewal.`;
+    var _dcSuffix = _dcSev === 'high' ? ` This is a widespread adoption gap — these accounts will likely drop scores in the next 1–2 cycles without enablement.` : ` This is a leading indicator of future churn — customers who aren\'t using the product tend to question its value at renewal.`;
     items.push({ priority: _dcPri, icon: icDown,
       color: _dcColor, bg: _dcBg,
       title: `${disconnected.length} Accounts with Low Adoption Risk`,

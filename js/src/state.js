@@ -274,17 +274,17 @@ const COL_DEFS = [
   { key:'mrr',       label:'MRR',           ftype:'number', sortKey:'mrr' },
   { key:'arr',       label:'ARR',           ftype:'number', sortKey:'arr' },
   { key:'since',     label:'Tenure',        ftype:'number', sortKey:'since' },
-  { key:'created',   label:'Date Added',    ftype:'number', sortKey:'created' },
   { key:'tickets',   label:'Tickets',       ftype:'number', sortKey:'tickets' },
   { key:'days',      label:'Last Contact',  ftype:'number', sortKey:'days' },
+  { key:'renewal',   label:'Renewal',       ftype:'number', sortKey:'renewal' },
+  { key:'next_touch',label:'Next Touch',    ftype:'number', sortKey:'next_touch' },
+  { key:'tags',      label:'Tags',          ftype:'text',   sortKey:'tags' },
+  { key:'created',   label:'Date Added',    ftype:'number', sortKey:'created' },
   { key:'nps',       label:'NPS',           ftype:'number', sortKey:'nps' },
   { key:'csat',      label:'CSAT',          ftype:'number', sortKey:'csat' },
   { key:'logins',    label:'Logins',        ftype:'number', sortKey:'logins' },
   { key:'adoption',  label:'Adoption',      ftype:'number', sortKey:'adoption' },
   { key:'growth',    label:'Growth',        ftype:'enum',   sortKey:'growth',     enumVals:['strong','mild','none'] },
-  { key:'renewal',   label:'Renewal',       ftype:'number', sortKey:'renewal' },
-  { key:'next_touch',label:'Next Touch',    ftype:'number', sortKey:'next_touch' },
-  { key:'tags',      label:'Tags',          ftype:'text',   sortKey:'tags' },
 ];
 
 const ENUM_DISPLAY = {
