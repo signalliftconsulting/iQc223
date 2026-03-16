@@ -40,6 +40,18 @@ function auditTab(which) {
   if (which === 'config') renderConfigHistory();
 }
 
+function _dismissSettingsGuide() {
+  try { localStorage.setItem('iqc_settings_guide_dismissed','1'); } catch(e) {}
+  const w = document.getElementById('settings-guide'); if (w) w.style.display = 'none';
+  const b = document.getElementById('settings-guide-badge'); if (b) b.style.display = 'none';
+}
+
+function _updateSettingsGuideBadge() {
+  const b = el('settings-guide-badge');
+  if (!b) return;
+  try { b.style.display = localStorage.getItem('iqc_settings_guide_dismissed') === '1' ? 'none' : ''; } catch(e) { b.style.display = 'none'; }
+}
+
 function _renderSettingsGuide() {
   const wrap = el('settings-guide');
   if (!wrap) return;
@@ -55,7 +67,7 @@ function _renderSettingsGuide() {
         <strong>Integrations</strong> is where you connect CRMs and tools to sync customer data automatically.
         Start by reviewing the <strong>signal weights</strong> below — they control how each metric impacts the health score.
       </div>
-      <button onclick="try{localStorage.setItem('iqc_settings_guide_dismissed','1')}catch(e){}document.getElementById('settings-guide').style.display='none'" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;line-height:1;padding:0;flex-shrink:0" title="Dismiss">×</button>
+      <button onclick="_dismissSettingsGuide()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;line-height:1;padding:0;flex-shrink:0" title="Dismiss">×</button>
     </div>`;
 }
 

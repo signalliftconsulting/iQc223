@@ -110,6 +110,7 @@ a{color:var(--blue);text-decoration:none}
 .nav-item{display:flex;align-items:center;justify-content:space-between;padding:7px 14px;font-size:12.5px;color:rgba(255,255,255,.65);cursor:pointer;border:none;background:none;width:100%;text-align:left;border-left:2px solid transparent;transition:all .12s;user-select:none}
 .nav-item:hover{color:#fff;background:rgba(255,255,255,.08)}
 .nav-item.active{color:#fff;background:rgba(255,255,255,.12);border-left-color:#5eead4;font-weight:500}
+.nav-badge{background:#14b8a6;color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:auto;line-height:1.4}
 .nav-icon{display:none}
 .nav-badge{font-size:10px;font-family:'DM Mono',monospace;padding:1px 6px;border-radius:10px;font-weight:500}
 .nav-badge-default{background:rgba(255,255,255,.1);color:rgba(255,255,255,.6)}
@@ -1808,7 +1809,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <!-- Settings -->
   <div class="nav-section">
     <div class="nav-label">Settings</div>
-    <button class="nav-item" id="ni-settings" onclick="nav('settings')">Settings</button>
+    <button class="nav-item" id="ni-settings" onclick="nav('settings')">Settings <span id="settings-guide-badge" class="nav-badge" style="display:none">1</span></button>
     <button class="nav-item" id="ni-auditlog" onclick="nav('auditlog')">Audit Log</button>
     <button class="nav-item" id="ni-help" onclick="nav('help')">Help &amp; Guide</button>
   </div>
@@ -3949,6 +3950,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=460"></script>
+<script src="js/app.js?v=461"></script>
 </body>
 </html>

@@ -13,6 +13,7 @@
     currentUser = existingSession.user;
     hideAuthGate();
     updateUserUI(currentUser);
+    _updateSettingsGuideBadge();
     await ensureUserProfile(currentUser); // register in user_profiles + resolve _userClientId before loading data
 
     // Load from cache instantly — no spinner
