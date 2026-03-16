@@ -2554,25 +2554,6 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       </div>
     </div>
 
-    <!-- SECTION 3: Administration -->
-    <div class="cfg-section">
-      <div class="cfg-section-hd">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        Administration
-      </div>
-      <div class="cfg-columns">
-        <div class="card">
-          <div class="card-hd"><h2>Manage CSMs <span class="info-tip" data-tip="View all CSMs and remove ones no longer needed. Removing a CSM unassigns them from all their customers.">ⓘ</span></h2></div>
-          <p style="font-size:var(--fs-base);margin-bottom:14px">CSMs currently assigned to customers.</p>
-          <div id="cfg-csm-list"></div>
-        </div>
-        <div class="card">
-          <div class="card-hd"><h2>Data Health <span class="info-tip" data-tip="Overview of customer data quality — completeness, freshness, and accounts needing attention.">ⓘ</span></h2></div>
-          <div id="cfg-data-health"></div>
-        </div>
-      </div>
-    </div>
-
   </div>
 
   <!-- Account tab -->
@@ -2600,6 +2581,17 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
         <button class="qa-btn" onclick="resetAllDefaults()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>Reset All Defaults</button>
       </div>
       <input type="file" id="cfg-import-file" accept=".json" style="display:none" onchange="restoreBackup(event)"/>
+    </div>
+    <div class="cfg-columns" style="margin-top:18px">
+      <div class="card">
+        <div class="card-hd"><h2>Manage CSMs <span class="info-tip" data-tip="View all CSMs and remove ones no longer needed. Removing a CSM unassigns them from all their customers.">ⓘ</span></h2></div>
+        <p style="font-size:var(--fs-base);margin-bottom:14px">CSMs currently assigned to customers.</p>
+        <div id="cfg-csm-list"></div>
+      </div>
+      <div class="card">
+        <div class="card-hd"><h2>Data Health <span class="info-tip" data-tip="Overview of customer data quality — completeness, freshness, and accounts needing attention.">ⓘ</span></h2></div>
+        <div id="cfg-data-health"></div>
+      </div>
     </div>
   </div>
 
@@ -3951,6 +3943,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=465"></script>
+<script src="js/app.js?v=466"></script>
 </body>
 </html>

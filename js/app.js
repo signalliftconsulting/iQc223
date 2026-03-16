@@ -10346,6 +10346,10 @@ function cfgTab(which) {
     el('cfg-tab-'+t)?.classList.toggle('active', t === which);
     el('cfg-pane-'+t)?.classList.toggle('active', t === which);
   });
+  if (which === 'account') {
+    renderCSMList();
+    renderDataHealth();
+  }
   if (which === 'api') {
     if (!hasFeature('api_webhooks')) {
       const pane = el('cfg-pane-api');
@@ -10405,7 +10409,7 @@ function _renderSettingsGuide() {
       <div style="flex:1;font-size:var(--fs-sm);color:var(--text);line-height:1.5">
         <strong>Quick overview</strong> — This is where you configure how IQcadence scores your customers.
         <strong>Config</strong> lets you set signal weights, score thresholds, and scoring profiles.
-        <strong>Account</strong> has your team, data health, and config history.
+        <strong>Account</strong> has your team & CSMs, data health, password, and quick actions like backup.
         <strong>Integrations</strong> is where you connect CRMs and tools to sync customer data automatically.
         Start by reviewing the <strong>signal weights</strong> below — they control how each metric impacts the health score.
       </div>
