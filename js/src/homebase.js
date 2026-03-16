@@ -83,8 +83,8 @@ function _gettingStartedHTML() {
     'I have a CRM or tool to connect',
     'Pull customers and data directly from HubSpot, Salesforce, Stripe, or other integrations',
     [
-      { title:'Connect your integration', desc:'Go to <a href="#" onclick="event.stopPropagation();nav(\'settings\')" style="color:var(--teal);font-weight:600">Settings → Integrations</a> and connect your CRM or billing tool. Select which metrics to sync.' },
-      { title:'Run your first sync', desc:'Once connected, hit Sync to pull your customer list and their data into IQcadence. Customers will appear in the Customers tab.' },
+      { title:'Connect your integration', desc:'Go to <a href="#" onclick="event.stopPropagation();nav(\'settings\')" style="color:var(--teal);font-weight:600">Settings → Integrations</a> and connect your CRM or billing tool. Enable the <strong>Import new customers</strong> toggle so new accounts are pulled in automatically, then select which metrics to sync.' },
+      { title:'Run your first sync', desc:'Once connected, hit Sync to pull your full customer list and their data into IQcadence. Customers will appear in the Customers tab automatically.' },
       { title:'Configure scoring weights', desc:'Head to <a href="#" onclick="event.stopPropagation();nav(\'settings\')" style="color:var(--teal);font-weight:600">Settings → Scoring</a> to adjust signal weights. Each customer will be scored automatically.' }
     ],
     '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();nav(\'settings\')">Go to Settings →</button>'
