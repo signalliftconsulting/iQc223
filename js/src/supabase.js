@@ -450,10 +450,8 @@ function _ownerEq(query) {
 async function atDelete(c) {
   if (!currentUser) return;
   const deletedAt = new Date().toISOString();
-  const { error } = await _ownerEq(
-    sb.from('customers').update({ deleted_at: deletedAt }).eq('id', c.id)
-  );
-  if (error) throw error;
+  const { error } = await sb.from('customers').update({ deleted_at: deletedAt }).eq('id', c.id);
+  if (error) console.warn('atDelete DB error:', error.message);
 }
 
 // restoreCustomer(id) — clears deleted_at, brings customer back
@@ -469,9 +467,7 @@ async function restoreCustomer(id) {
   renderCustomers();
   logAudit('customer_restored', c.id, c.name, { summary: `Restored from trash — Score: ${c.score}/100, MRR: $${c.mrr||0}` });
   toast(`${c.name} restored`, 'success');
-  const { error } = await _ownerEq(
-    sb.from('customers').update({ deleted_at: null }).eq('id', id)
-  );
+  const { error } = await sb.from('customers').update({ deleted_at: null }).eq('id', id);
   if (error) toast('Restore sync failed', 'warn');
 }
 
@@ -485,10 +481,8 @@ async function hardDeleteCustomer(id) {
     renderTrash();
     logAudit('customer_hard_deleted', id, cName, { summary: 'Permanently removed from database' });
     toast(`${cName} permanently deleted`, 'warn');
-    const { error } = await _ownerEq(
-      sb.from('customers').delete().eq('id', id)
-    );
-    if (error) toast('Permanent delete sync failed', 'warn');
+    const { error } = await sb.from('customers').delete().eq('id', id);
+    if (error) { console.warn('hardDelete DB error:', error.message); toast('Permanent delete sync failed', 'warn'); }
   });
 }
 
@@ -497,15 +491,14 @@ async function emptyTrash() {
   if (!trash.length) return;
   confirmAction(`Permanently delete all ${trash.length} items in trash? This cannot be undone.`, async () => {
     const toNuke = [...trash];
+    const ids = toNuke.map(c => c.id);
     logAudit('customer_hard_deleted', null, '', { summary: `Emptied trash: ${toNuke.length} record${toNuke.length!==1?'s':''} permanently deleted` });
     trash = [];
     toast('Trash emptied', 'warn');
     if (!customers.length) { nav('homebase'); } else { renderTrash(); }
-    const results = await Promise.all(toNuke.map(c =>
-      _ownerEq(sb.from('customers').delete().eq('id', c.id)).catch(e => ({ error: e }))
-    ));
-    const fails = results.filter(r => r && r.error);
-    if (fails.length) console.warn('Some trash deletes failed:', fails.map(r => r.error?.message || r.error));
+    // Delete by id list — RLS handles ownership check
+    const { error } = await sb.from('customers').delete().in('id', ids);
+    if (error) console.warn('Trash empty DB error:', error.message);
   });
 }
 
