@@ -195,7 +195,6 @@ function saveWeights() {
   ensureGlobalWeightsProfile();   // sync profiles[0] from updated weights
   saveSettings();
   const changed = keys.filter(k => prev[k] !== weights[k]).map(k => `${WEIGHT_LABELS[k]||k}: ${prev[k]}→${weights[k]}`);
-  logAudit('weights_updated', null, '', { summary: `Global weights changed: ${changed.join(', ')}`, weights: { ...weights } });
   rescoreByProfile('Global Weights');
   filterMode = 'all';
 
@@ -307,7 +306,6 @@ function saveThresholds() {
   thresholds.healthy  = h;
   saveSettings();
   const changed = ['critical','risk','watch','healthy'].filter(k => prev[k] !== thresholds[k]).map(k => `${k}: ${prev[k]}→${thresholds[k]}`);
-  logAudit('thresholds_updated', null, '', { summary: `Thresholds changed: ${changed.join(', ')}`, thresholds: { ...thresholds } });
   updateThresholdLabels();
   logConfigChange('Thresholds updated', changed.length ? changed.join(', ') : 'No changes');
   renderScoreDistribution();
@@ -348,7 +346,6 @@ function saveExpansion() {
   if (!isNaN(pct)) expansionConfig.pct = pct;
   if (!isNaN(flat)) expansionConfig.flat = flat;
   saveSettings();
-  logAudit('expansion_updated', null, '', { summary: `Expansion estimate changed: mode=${mode}, pct=${expansionConfig.pct}%, flat=$${expansionConfig.flat}`, expansion: { ...expansionConfig } });
   const expDetail = mode === 'pct' ? `${expansionConfig.pct}% of MRR` : `$${expansionConfig.flat} per account`;
   logConfigChange('Expansion estimate updated', expDetail);
   toast('Expansion settings saved!', 'success');
@@ -381,7 +378,6 @@ function saveCadence() {
     cadenceConfig[t].overdue = parseInt(el('cad-' + t + '-overdue').value);
   });
   saveSettings();
-  logAudit('cadence_updated', null, '', { summary: `Contact cadence updated: ENT ${cadenceConfig.enterprise.warn}/${cadenceConfig.enterprise.overdue}d, MID ${cadenceConfig.mid.warn}/${cadenceConfig.mid.overdue}d, SMB ${cadenceConfig.smb.warn}/${cadenceConfig.smb.overdue}d`, cadence: JSON.parse(JSON.stringify(cadenceConfig)) });
   const cadDetail = `ENT ${cadenceConfig.enterprise.warn}/${cadenceConfig.enterprise.overdue}d, MID ${cadenceConfig.mid.warn}/${cadenceConfig.mid.overdue}d, SMB ${cadenceConfig.smb.warn}/${cadenceConfig.smb.overdue}d`;
   logConfigChange('Contact cadence updated', cadDetail);
   toast('Cadence settings saved!', 'success');
@@ -411,7 +407,6 @@ function saveRenewalWindows() {
   if (!(c < w && w < u)) { toast('Must be in order: Critical < Warning < Upcoming', 'error'); return; }
   renewalWindows.critical = c; renewalWindows.warning = w; renewalWindows.upcoming = u;
   saveSettings();
-  logAudit('renewal_windows_updated', null, '', { summary: `Renewal windows: critical=${c}d, warning=${w}d, upcoming=${u}d` });
   logConfigChange('Renewal windows updated', `Critical ≤${c}d, Warning ≤${w}d, Upcoming ≤${u}d`);
   toast('Renewal windows saved!', 'success');
 }
@@ -438,7 +433,6 @@ function saveMiscThresholds() {
   if (isNaN(m) || m < 1) { toast('Momentum threshold must be positive', 'error'); return; }
   quietDays = q; momentumPts = m;
   saveSettings();
-  logAudit('misc_thresholds_updated', null, '', { summary: `Quiet days=${q}, Momentum sensitivity=±${m} pts` });
   logConfigChange('Signal thresholds updated', `Quiet=${q}d, Momentum=±${m}pts`);
   toast('Thresholds saved!', 'success');
 }
@@ -453,7 +447,6 @@ function resetMiscThresholds() {
 function resetThresholds() {
   thresholds = { ...DEFAULT_THRESHOLDS };
   saveSettings();
-  logAudit('thresholds_reset', null, '', { summary: 'Thresholds reset to defaults', thresholds: { ...thresholds } });
   el('th-critical').value = thresholds.critical;
   el('th-risk').value     = thresholds.risk;
   el('th-watch').value    = thresholds.watch;
@@ -521,7 +514,6 @@ function updateEditingProfile() {
   profiles[editingProfileIdx].weights = newWeights;
   if (isGlobal) weights = { ...newWeights };
   saveSettings();
-  logAudit('profile_updated', null, '', { summary: `Profile "${p.name}" updated via slider`, profile: p.name, weights: newWeights });
   const pDetail = keys.map(k => `${WEIGHT_LABELS[k]||k}: ${newWeights[k]}%`).join(', ');
   logConfigChange('Profile "' + p.name + '" updated', pDetail);
   rescoreByProfile(p.name);
@@ -717,7 +709,6 @@ function resetAllDefaults() {
     thresholds = { ...DEFAULT_THRESHOLDS };
     weights    = { ...DEFAULT_WEIGHTS };
     saveSettings();
-    logAudit('settings_reset', null, '', { summary: 'All settings reset to defaults' });
     logConfigChange('All settings reset to defaults');
     el('th-critical').value = thresholds.critical;
     el('th-risk').value     = thresholds.risk;
@@ -778,7 +769,7 @@ function addCSM() {
   if (!window._manualCSMs) window._manualCSMs = [];
   if (!window._manualCSMs.includes(name)) window._manualCSMs.push(name);
   inp.value = '';
-  logAudit('csm_added', null, '', { summary: `CSM "${name}" added` });
+  logConfigChange(`CSM "${name}" added`);
   renderCSMList();
   refreshMgrDropdown();
   toast(`"${name}" added as a CSM`, 'success');
@@ -788,7 +779,6 @@ function removeCSM(name) {
   const affected = customers.filter(c => c.manager === name);
   confirmAction(`Remove "${name}"? This will unassign them from ${affected.length} customer${affected.length !== 1 ? 's' : ''}.`, () => {
     affected.forEach(c => { c.manager = ''; });
-    logAudit('csm_removed', null, '', { summary: `CSM "${name}" removed — ${affected.length} customer(s) unassigned` });
     logConfigChange(`CSM "${name}" removed`, `${affected.length} customer(s) unassigned`);
     if (affected.length) {
       pauseSync(120000);
@@ -909,14 +899,12 @@ function confirmSaveProfile() {
     }
     const keys = ['logins','adoption','tickets','nps','csat','days','growth'];
     const changed = keys.filter(k => (oldWeights[k]||0) !== profileWeights[k]).map(k => `${WEIGHT_LABELS[k]||k}: ${oldWeights[k]||0}→${profileWeights[k]}`);
-    logAudit('profile_updated', null, '', { summary: `Profile "${name}" updated${changed.length ? ': ' + changed.join(', ') : ''}`, profile: name, weights: profileWeights });
     logConfigChange(`Profile "${name}" updated`, changed.length ? changed.join(', ') : 'No changes');
     toast(`Profile "${name}" updated`, 'success');
     // Rescore all customers assigned to this profile (or all unassigned for Global Weights)
     rescoreByProfile(name);
   } else {
     profiles.push({ name, weights: profileWeights });
-    logAudit('profile_created', null, '', { summary: `New scoring profile "${name}" created`, profile: name, weights: profileWeights });
     const pKeys = ['logins','adoption','tickets','nps','csat','days','growth'];
     const pDetail = pKeys.map(k => `${WEIGHT_LABELS[k]||k}: ${profileWeights[k]}%`).join(', ');
     logConfigChange(`Profile "${name}" created`, pDetail);
@@ -972,7 +960,7 @@ function loadProfile(idx) {
   if (!p) return;
   weights = { ...p.weights };
   saveSettings();
-  logAudit('profile_loaded', null, '', { summary: `Loaded profile "${p.name}" as global weights`, profile: p.name });
+  logConfigChange(`Loaded profile "${p.name}" as global weights`);
   renderWeightRows();
 
   renderCustomers();
@@ -983,7 +971,6 @@ function deleteProfile(idx) {
   const name = profiles[idx]?.name;
   profiles.splice(idx,1);
   saveSettings();
-  logAudit('profile_deleted', null, '', { summary: `Scoring profile "${name}" deleted`, profile: name });
   renderProfiles();
   refreshProfileDropdown();
   logConfigChange(`Profile "${name}" deleted`);
@@ -1002,7 +989,7 @@ function backupExport() {
     customers, weights, thresholds, profiles
   };
   dlText(JSON.stringify(data, null, 2), `cs-health-backup-${Date.now()}.json`, 'application/json');
-  logAudit('backup_exported', null, '', { summary: `Backup exported (${customers.length} customers)` });
+  logConfigChange('Backup exported', `${customers.length} customers`);
   toast('Backup exported', 'success');
 }
 
@@ -1028,7 +1015,7 @@ function restoreBackup(e) {
           customers = data.customers.map(c => ({ ...c, _recId: undefined }));
           await Promise.all(customers.map(c => atCreate(c).catch(()=>{})));
           toast('Backup restored!', 'success');
-          logAudit('backup_restored', null, '', { summary: `Backup restored from ${fmtDate(data.exported)} (${data.customers.length} customers)` });
+          logConfigChange('Backup restored', `From ${fmtDate(data.exported)} (${data.customers.length} customers)`);
           logConfigChange('Backup restored from file');
         
           renderSettings();
@@ -1094,7 +1081,7 @@ async function changePassword() {
   if (el('pw-new'))     el('pw-new').value     = '';
   if (el('pw-confirm')) el('pw-confirm').value = '';
 
-  logAudit('password_changed', null, '', { summary: 'Password changed' });
+  logConfigChange('Password changed');
   toast('Password updated successfully!', 'success');
 }
 
@@ -1105,7 +1092,7 @@ function toggleSignalModel(enabled) {
   if (wrap) wrap.style.display = enabled ? '' : 'none';
   saveSettings();
   renderSignalModelPreview();
-  logAudit('signal_model_toggled', null, '', { summary: 'Signal Model ' + (enabled ? 'enabled' : 'disabled') });
+  logConfigChange('Signal Model ' + (enabled ? 'enabled' : 'disabled'));
   rescoreAllWithModel();
   renderScoreDistribution();
 }
@@ -1119,7 +1106,7 @@ function setSmSensitivity(level) {
   var descEl = el('cfg-sm-sens-desc');
   if (descEl) descEl.textContent = desc[level] || desc.balanced;
   saveSettings();
-  logAudit('signal_model_sensitivity', null, '', { summary: 'Signal Model sensitivity: ' + level });
+  logConfigChange('Signal Model sensitivity', level);
   rescoreAllWithModel();
   renderScoreDistribution();
 }
