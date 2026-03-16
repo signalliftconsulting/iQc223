@@ -1311,7 +1311,7 @@ function editCustomer(id) {
   nav('score');
   document.getElementById('form-title').textContent = 'Re-score: ' + c.name;
   document.getElementById('score-form').dataset.editId = c.id;
-  if (el('save-details-wrap')) el('save-details-wrap').style.display = '';
+  if (el('save-details-wrap')) el('save-details-wrap').style.display = 'flex';
 
   el('f-name').value     = c.name;
   if (el('f-contact-name'))  el('f-contact-name').value  = c.contact_name || '';
