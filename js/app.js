@@ -4115,7 +4115,7 @@ function _gettingStartedHTML() {
     '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();nav(\'settings\')">Go to Settings →</button>'
   ) + card(pplIco, 'linear-gradient(135deg,#6366f1,#4f46e5)',
     'I want to add a selected customer list first, then connect an integration',
-    'Only the accounts you add will be tracked — the integration won\'t pull in everything, just enrich your selected customers',
+    'Only the accounts you add in IQc will be tracked — the integration won\'t pull in everything, just enrich your selected customers',
     [
       { title:'Add your selected customers', desc:'Go to <a href="#" onclick="event.stopPropagation();nav(\'customers\')" style="color:var(--teal);font-weight:600">Customers</a> and add them one at a time, or use <a href="#" onclick="event.stopPropagation();nav(\'csv\')" style="color:var(--teal);font-weight:600">CSV Import</a> to bulk upload just the accounts you want to track.' },
       { title:'Connect your integration', desc:'Go to <a href="#" onclick="event.stopPropagation();nav(\'settings\')" style="color:var(--teal);font-weight:600">Settings → Integrations</a> and connect your tool. Make sure "Import new accounts" is turned off — the integration will only update the customers you already added, not create new ones from your CRM.' },
@@ -4123,7 +4123,7 @@ function _gettingStartedHTML() {
     ],
     '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();nav(\'csv\')">Import Customers →</button>'
   ) + card(fileIco, 'linear-gradient(135deg,#f59e0b,#d97706)',
-    "I don't have an integration to connect",
+    "I want to upload customers but don't have an integration to connect",
     'Add customers and data manually using CSV import or the scoring form',
     [
       { title:'Prepare your spreadsheet', desc:'Create a CSV with your customer data. At minimum include a <strong>Name</strong> column. You can also add columns for MRR, ARR, NPS, CSAT, Logins, Tickets, and more.' },
