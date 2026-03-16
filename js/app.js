@@ -11471,14 +11471,18 @@ function setSmSensitivity(level) {
 function renderSignalModelSettings() {
   // Plan tier gating
   var section = el('cfg-sm-section');
-  if (section && !hasFeature('signal_model')) {
-    section.style.position = 'relative';
-    if (!section.querySelector('.upgrade-overlay')) {
-      var ov = document.createElement('div');
-      ov.className = 'upgrade-overlay';
-      ov.style.cssText = 'position:absolute;inset:0;background:rgba(255,255,255,.85);z-index:5;display:flex;align-items:center;justify-content:center;border-radius:14px';
-      ov.innerHTML = upgradeHTML('signal_model');
-      section.appendChild(ov);
+  if (section) {
+    if (hasFeature('signal_model')) {
+      section.querySelector('.upgrade-overlay')?.remove();
+    } else {
+      section.style.position = 'relative';
+      if (!section.querySelector('.upgrade-overlay')) {
+        var ov = document.createElement('div');
+        ov.className = 'upgrade-overlay';
+        ov.style.cssText = 'position:absolute;inset:0;background:rgba(255,255,255,.85);z-index:5;display:flex;align-items:center;justify-content:center;border-radius:14px';
+        ov.innerHTML = upgradeHTML('signal_model');
+        section.appendChild(ov);
+      }
     }
   }
   var cb = el('cfg-sm-enabled');
