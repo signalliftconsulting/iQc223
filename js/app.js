@@ -710,7 +710,7 @@ function renderAlertsGuide() {
 function renderCustomersGuide() {
   _renderGuide('customers-guide', 'iqc_customers_guide_dismissed',
     '<strong>What you can do here</strong> — This is your full customer portfolio. Click any row to open that customer\'s detail view where you can edit signals, view history, and add notes.<br>' +
-    '<strong>Sort &amp; filter:</strong> Click any column header to sort. Use the filter icon (▼) on each column to narrow by specific values. Use the <strong>health band chips</strong> above to quickly isolate Critical, At Risk, or Watch accounts.<br>' +
+    '<strong>Sort &amp; filter:</strong> Click any column header to sort. Click the small funnel icon next to a column name to filter by specific values. Use the <strong>health band chips</strong> above to quickly isolate Critical, At Risk, or Watch accounts.<br>' +
     '<strong>Bulk actions:</strong> <strong>Shift-click</strong> multiple rows to select them, then use bulk actions like stage change or export.<br>' +
     '<strong>Tip:</strong> The first two columns (name &amp; score) stay frozen when you scroll right, so you never lose context. You can also save filter combinations as <strong>Presets</strong> for quick access.');
 }
