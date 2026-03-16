@@ -1332,11 +1332,13 @@ async function emptyTrash() {
     const toNuke = [...trash];
     logAudit('customer_hard_deleted', null, '', { summary: `Emptied trash: ${toNuke.length} record${toNuke.length!==1?'s':''} permanently deleted` });
     trash = [];
-    renderTrash();
     toast('Trash emptied', 'warn');
-    await Promise.all(toNuke.map(c =>
-      _ownerEq(sb.from('customers').delete().eq('id', c.id)).catch(()=>{})
+    if (!customers.length) { nav('homebase'); } else { renderTrash(); }
+    const results = await Promise.all(toNuke.map(c =>
+      _ownerEq(sb.from('customers').delete().eq('id', c.id)).catch(e => ({ error: e }))
     ));
+    const fails = results.filter(r => r && r.error);
+    if (fails.length) console.warn('Some trash deletes failed:', fails.map(r => r.error?.message || r.error));
   });
 }
 
@@ -4232,8 +4234,9 @@ function _renderHomeBase() {
   const wrap = el('homebase-wrap');
   if (!wrap) return;
 
-  // Show getting started guide if no customers
-  if (!customers.length) { _renderGettingStarted(wrap); return; }
+  // Show getting started guide if no customers (or all churned)
+  const _anyActive = customers.some(c => c.lifecycle !== 'churned');
+  if (!customers.length || !_anyActive) { _renderGettingStarted(wrap); return; }
 
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
   const now = new Date();

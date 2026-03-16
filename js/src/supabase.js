@@ -499,11 +499,13 @@ async function emptyTrash() {
     const toNuke = [...trash];
     logAudit('customer_hard_deleted', null, '', { summary: `Emptied trash: ${toNuke.length} record${toNuke.length!==1?'s':''} permanently deleted` });
     trash = [];
-    renderTrash();
     toast('Trash emptied', 'warn');
-    await Promise.all(toNuke.map(c =>
-      _ownerEq(sb.from('customers').delete().eq('id', c.id)).catch(()=>{})
+    if (!customers.length) { nav('homebase'); } else { renderTrash(); }
+    const results = await Promise.all(toNuke.map(c =>
+      _ownerEq(sb.from('customers').delete().eq('id', c.id)).catch(e => ({ error: e }))
     ));
+    const fails = results.filter(r => r && r.error);
+    if (fails.length) console.warn('Some trash deletes failed:', fails.map(r => r.error?.message || r.error));
   });
 }
 

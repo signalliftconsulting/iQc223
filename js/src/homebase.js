@@ -231,8 +231,9 @@ function _renderHomeBase() {
   const wrap = el('homebase-wrap');
   if (!wrap) return;
 
-  // Show getting started guide if no customers
-  if (!customers.length) { _renderGettingStarted(wrap); return; }
+  // Show getting started guide if no customers (or all churned)
+  const _anyActive = customers.some(c => c.lifecycle !== 'churned');
+  if (!customers.length || !_anyActive) { _renderGettingStarted(wrap); return; }
 
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
   const now = new Date();
