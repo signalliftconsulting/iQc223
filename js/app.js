@@ -279,7 +279,7 @@ const COL_DEFS = [
   { key:'lifecycle', label:'Stage',         ftype:'enum',   sortKey:'lifecycle',  enumVals:['onboarding','active','atrisk','won','churned'] },
   { key:'mrr',       label:'MRR',           ftype:'number', sortKey:'mrr' },
   { key:'arr',       label:'ARR',           ftype:'number', sortKey:'arr' },
-  { key:'since',     label:'Tenure',        ftype:'number', sortKey:'since' },
+  { key:'since',     label:'Tenure',        ftype:'tenure', sortKey:'since' },
   { key:'tickets',   label:'Tickets',       ftype:'number', sortKey:'tickets' },
   { key:'days',      label:'Last Contact',  ftype:'number', sortKey:'days' },
   { key:'renewal',   label:'Renewal',       ftype:'number', sortKey:'renewal' },
@@ -7391,6 +7391,20 @@ function buildColFilterMenu(col) {
         <span class="cff-between-sep" id="cf-sep" style="display:none">and</span>
         <input class="cff-date-input" id="cf-val2" type="date" style="display:none" onchange="applyColFilterLive()">
       </div>`;
+  } else if (col.ftype === 'tenure') {
+    body = `
+      <div class="cff-radio-group">
+        <label class="cff-radio"><input type="radio" name="cfop" value="gt" onchange="cfOpChange()"> More than</label>
+        <label class="cff-radio"><input type="radio" name="cfop" value="lt" onchange="cfOpChange()"> Less than</label>
+        <label class="cff-radio"><input type="radio" name="cfop" value="between" onchange="cfOpChange()"> Between</label>
+      </div>
+      <div class="cff-inputs" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <input class="cff-num-input" id="cf-tenure-y" type="number" min="0" placeholder="0" style="width:50px" oninput="applyColFilterLive()"><span style="font-size:var(--fs-sm);color:var(--muted)">yr</span>
+        <input class="cff-num-input" id="cf-tenure-m" type="number" min="0" max="11" placeholder="0" style="width:50px" oninput="applyColFilterLive()"><span style="font-size:var(--fs-sm);color:var(--muted)">mo</span>
+        <span class="cff-between-sep" id="cf-sep" style="display:none">and</span>
+        <input class="cff-num-input" id="cf-tenure-y2" type="number" min="0" placeholder="0" style="width:50px;display:none" oninput="applyColFilterLive()"><span id="cf-yr2-lbl" style="font-size:var(--fs-sm);color:var(--muted);display:none">yr</span>
+        <input class="cff-num-input" id="cf-tenure-m2" type="number" min="0" max="11" placeholder="0" style="width:50px;display:none" oninput="applyColFilterLive()"><span id="cf-mo2-lbl" style="font-size:var(--fs-sm);color:var(--muted);display:none">mo</span>
+      </div>`;
   } else if (col.ftype === 'text') {
     body = `<input class="cff-text-input" id="cf-text" type="text" placeholder="Search ${col.label.toLowerCase()}…" oninput="applyColFilterLive()" autocomplete="off">`;
   }
@@ -7409,6 +7423,11 @@ function cfOpChange() {
   const btw = op === 'between';
   if (v2)  v2.style.display  = btw ? '' : 'none';
   if (sep) sep.style.display = btw ? '' : 'none';
+  // Tenure between fields
+  ['cf-tenure-y2','cf-tenure-m2','cf-yr2-lbl','cf-mo2-lbl'].forEach(id => {
+    const e = document.getElementById(id);
+    if (e) e.style.display = btw ? '' : 'none';
+  });
   applyColFilterLive();
 }
 
@@ -7431,6 +7450,18 @@ function populateColFilterUI(key, col) {
     const v2 = document.getElementById('cf-val2');
     if (v1) v1.value = (f.type === 'between' ? f.min : f.val) ?? '';
     if (v2 && f.max != null) v2.value = f.max;
+  } else if (col.ftype === 'tenure') {
+    const radio = document.querySelector(`input[name="cfop"][value="${f.type}"]`);
+    if (radio) { radio.checked = true; cfOpChange(); }
+    const val = f.type === 'between' ? f.min : f.val;
+    if (val != null) {
+      const ey = document.getElementById('cf-tenure-y'); if (ey) ey.value = Math.floor(val / 12) || '';
+      const em = document.getElementById('cf-tenure-m'); if (em) em.value = val % 12 || '';
+    }
+    if (f.type === 'between' && f.max != null) {
+      const ey2 = document.getElementById('cf-tenure-y2'); if (ey2) ey2.value = Math.floor(f.max / 12) || '';
+      const em2 = document.getElementById('cf-tenure-m2'); if (em2) em2.value = f.max % 12 || '';
+    }
   } else if (col.ftype === 'text') {
     const inp = document.getElementById('cf-text');
     if (inp) inp.value = f.q || '';
@@ -7468,6 +7499,21 @@ function applyColFilterLive() {
     const checked = [...document.querySelectorAll('.cf-enum-cb:checked')].map(cb => cb.value);
     if (checked.length) columnFilters[key] = { type:'enum', vals: new Set(checked) };
     else delete columnFilters[key];
+  } else if (col.ftype === 'tenure') {
+    const op = document.querySelector('input[name="cfop"]:checked')?.value;
+    const y1 = parseInt(document.getElementById('cf-tenure-y')?.value) || 0;
+    const m1 = parseInt(document.getElementById('cf-tenure-m')?.value) || 0;
+    const months1 = y1 * 12 + m1;
+    if (!op || months1 === 0) { delete columnFilters[key]; }
+    else if (op === 'between') {
+      const y2 = parseInt(document.getElementById('cf-tenure-y2')?.value) || 0;
+      const m2 = parseInt(document.getElementById('cf-tenure-m2')?.value) || 0;
+      const months2 = y2 * 12 + m2;
+      if (months2 > 0) columnFilters[key] = { type:'between', min:months1, max:months2 };
+      else delete columnFilters[key];
+    } else {
+      columnFilters[key] = { type:op, val:months1 };
+    }
   } else if (col.ftype === 'text') {
     const q = (document.getElementById('cf-text')?.value || '').trim().toLowerCase();
     if (q) columnFilters[key] = { type:'text', q };

@@ -273,7 +273,7 @@ const COL_DEFS = [
   { key:'lifecycle', label:'Stage',         ftype:'enum',   sortKey:'lifecycle',  enumVals:['onboarding','active','atrisk','won','churned'] },
   { key:'mrr',       label:'MRR',           ftype:'number', sortKey:'mrr' },
   { key:'arr',       label:'ARR',           ftype:'number', sortKey:'arr' },
-  { key:'since',     label:'Tenure',        ftype:'number', sortKey:'since' },
+  { key:'since',     label:'Tenure',        ftype:'tenure', sortKey:'since' },
   { key:'tickets',   label:'Tickets',       ftype:'number', sortKey:'tickets' },
   { key:'days',      label:'Last Contact',  ftype:'number', sortKey:'days' },
   { key:'renewal',   label:'Renewal',       ftype:'number', sortKey:'renewal' },
