@@ -745,15 +745,43 @@ function renderCSMList() {
     if (!m) return;
     mgrs[m] = (mgrs[m] || 0) + 1;
   });
+  // Include manually added CSMs that have 0 accounts
+  if (window._manualCSMs) window._manualCSMs.forEach(m => { if (!mgrs[m]) mgrs[m] = 0; });
   const sorted = Object.entries(mgrs).sort((a, b) => a[0].localeCompare(b[0]));
   if (!sorted.length) {
-    wrap.innerHTML = '<p style="font-size:var(--fs-base);color:var(--muted)">No CSMs assigned yet.</p>';
+    wrap.innerHTML = `<div style="display:flex;gap:8px;margin-bottom:10px">
+      <input type="text" id="add-csm-input" placeholder="New CSM name…" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:var(--fs-sm)" onkeydown="if(event.key==='Enter')addCSM()"/>
+      <button class="btn btn-sm btn-primary" onclick="addCSM()">Add</button>
+    </div><p style="font-size:var(--fs-base);color:var(--muted)">No CSMs assigned yet.</p>`;
     return;
   }
-  wrap.innerHTML = '<table class="ct" style="width:100%;min-width:0"><thead><tr><th>CSM</th><th style="text-align:center">Accounts</th><th style="text-align:right"></th></tr></thead><tbody>' +
+  wrap.innerHTML = `<div style="display:flex;gap:8px;margin-bottom:10px">
+    <input type="text" id="add-csm-input" placeholder="New CSM name…" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:var(--r);font-size:var(--fs-sm)" onkeydown="if(event.key==='Enter')addCSM()"/>
+    <button class="btn btn-sm btn-primary" onclick="addCSM()">Add</button>
+  </div>` +
+  '<table class="ct" style="width:100%;min-width:0"><thead><tr><th>CSM</th><th style="text-align:center">Accounts</th><th style="text-align:right"></th></tr></thead><tbody>' +
     sorted.map(([name, count]) =>
       `<tr><td style="font-weight:600">${escHtml(name)}</td><td style="text-align:center">${count}</td><td style="text-align:right"><button class="btn btn-xs btn-danger" onclick="removeCSM('${escHtml(name).replace(/'/g, "\\'")}')">Remove</button></td></tr>`
     ).join('') + '</tbody></table>';
+}
+
+function addCSM() {
+  const inp = el('add-csm-input');
+  if (!inp) return;
+  const name = inp.value.trim();
+  if (!name) { toast('Enter a CSM name', 'warn'); return; }
+  // Check if already exists
+  const exists = customers.some(c => (c.manager || '').trim().toLowerCase() === name.toLowerCase());
+  if (exists) { toast(`"${name}" is already a CSM`, 'warn'); return; }
+  // Create a placeholder — add the CSM name to the manager dropdown by assigning to no one yet
+  // We store in a lightweight list so the name appears even with 0 accounts
+  if (!window._manualCSMs) window._manualCSMs = [];
+  if (!window._manualCSMs.includes(name)) window._manualCSMs.push(name);
+  inp.value = '';
+  logAudit('csm_added', null, '', { summary: `CSM "${name}" added` });
+  renderCSMList();
+  refreshMgrDropdown();
+  toast(`"${name}" added as a CSM`, 'success');
 }
 
 function removeCSM(name) {

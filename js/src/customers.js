@@ -21,7 +21,8 @@ function buildManagerSelectOptions(selectedManager) {
 }
 
 function refreshMgrDropdown() {
-  const managers = [...new Set(customers.map(c => c.manager || '').filter(Boolean))].sort();
+  const manualCSMs = window._manualCSMs || [];
+  const managers = [...new Set([...customers.map(c => c.manager || '').filter(Boolean), ...manualCSMs])].sort();
   const wrap = document.getElementById('mgr-filter-wrap');
   if (!wrap) return;
 
