@@ -360,14 +360,21 @@ function buildColFilterMenu(col) {
       <div class="cff-radio-group">
         <label class="cff-radio"><input type="radio" name="cfop" value="gt" onchange="cfOpChange()"> More than</label>
         <label class="cff-radio"><input type="radio" name="cfop" value="lt" onchange="cfOpChange()"> Less than</label>
+        <label class="cff-radio"><input type="radio" name="cfop" value="eq" onchange="cfOpChange()"> Exactly</label>
         <label class="cff-radio"><input type="radio" name="cfop" value="between" onchange="cfOpChange()"> Between</label>
       </div>
-      <div class="cff-inputs" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-        <input class="cff-num-input" id="cf-tenure-y" type="number" min="0" placeholder="0" style="width:50px" oninput="applyColFilterLive()"><span style="font-size:var(--fs-sm);color:var(--muted)">yr</span>
-        <input class="cff-num-input" id="cf-tenure-m" type="number" min="0" max="11" placeholder="0" style="width:50px" oninput="applyColFilterLive()"><span style="font-size:var(--fs-sm);color:var(--muted)">mo</span>
-        <span class="cff-between-sep" id="cf-sep" style="display:none">and</span>
-        <input class="cff-num-input" id="cf-tenure-y2" type="number" min="0" placeholder="0" style="width:50px;display:none" oninput="applyColFilterLive()"><span id="cf-yr2-lbl" style="font-size:var(--fs-sm);color:var(--muted);display:none">yr</span>
-        <input class="cff-num-input" id="cf-tenure-m2" type="number" min="0" max="11" placeholder="0" style="width:50px;display:none" oninput="applyColFilterLive()"><span id="cf-mo2-lbl" style="font-size:var(--fs-sm);color:var(--muted);display:none">mo</span>
+      <div class="cff-inputs">
+        <div style="display:flex;gap:6px;align-items:center">
+          <input class="cff-num-input" id="cf-tenure-y" type="number" min="0" placeholder="0" style="width:50px" oninput="applyColFilterLive()"><span style="font-size:var(--fs-sm);color:var(--muted)">yr</span>
+          <input class="cff-num-input" id="cf-tenure-m" type="number" min="0" max="11" placeholder="0" style="width:50px" oninput="applyColFilterLive()"><span style="font-size:var(--fs-sm);color:var(--muted)">mo</span>
+        </div>
+        <div id="cf-tenure-row2" style="display:none;margin-top:6px">
+          <span style="font-size:var(--fs-sm);color:var(--muted);display:block;margin-bottom:4px">and</span>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input class="cff-num-input" id="cf-tenure-y2" type="number" min="0" placeholder="0" style="width:50px" oninput="applyColFilterLive()"><span style="font-size:var(--fs-sm);color:var(--muted)">yr</span>
+            <input class="cff-num-input" id="cf-tenure-m2" type="number" min="0" max="11" placeholder="0" style="width:50px" oninput="applyColFilterLive()"><span style="font-size:var(--fs-sm);color:var(--muted)">mo</span>
+          </div>
+        </div>
       </div>`;
   } else if (col.ftype === 'text') {
     body = `<input class="cff-text-input" id="cf-text" type="text" placeholder="Search ${col.label.toLowerCase()}…" oninput="applyColFilterLive()" autocomplete="off">`;
@@ -388,10 +395,8 @@ function cfOpChange() {
   if (v2)  v2.style.display  = btw ? '' : 'none';
   if (sep) sep.style.display = btw ? '' : 'none';
   // Tenure between fields
-  ['cf-tenure-y2','cf-tenure-m2','cf-yr2-lbl','cf-mo2-lbl'].forEach(id => {
-    const e = document.getElementById(id);
-    if (e) e.style.display = btw ? '' : 'none';
-  });
+  const row2 = document.getElementById('cf-tenure-row2');
+  if (row2) row2.style.display = btw ? '' : 'none';
   applyColFilterLive();
 }
 
