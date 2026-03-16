@@ -7254,11 +7254,12 @@ document.addEventListener('click', function(e) {
 
 // Close alert filter dropdown when clicking outside
 document.addEventListener('click', function(e) {
-  if (!_openAlertFilterKey) return;
+  if (!_openAlertFilterKey && !_openCrFilterKey) return;
   const menu = document.getElementById('alert-filter-portal');
   if (menu && menu.contains(e.target)) return;
   if (e.target.closest && e.target.closest('.col-filter-btn')) return;
-  closeAlertFilter();
+  if (_openAlertFilterKey) closeAlertFilter();
+  if (_openCrFilterKey) closeCrFilter();
 });
 
 function mgrAllToggle(cb) {
@@ -13832,13 +13833,26 @@ let _openAlertFilterKey = null;
 let _alertWizardDraft = null;   // draft alert rule being created/edited
 let _editingAlertRule = null;   // ID of alert rule being edited, or null for new
 
+// Custom rules sort/filter state
+let _crSortKey = 'name';
+let _crSortDir = 1;
+let _crFilters = {};
+let _openCrFilterKey = null;
+
 const ALERT_COL_DEFS = [
-  { key: 'label',     label: 'Alert',      ftype: 'text' },
-  { key: 'condition', label: 'Condition',   ftype: 'text' },
-  { key: 'sentTo',    label: 'Sent To',     ftype: 'enum', enumVals: ['Slack', 'Teams', 'Email'] },
-  { key: 'timing',    label: 'Timing',      ftype: 'enum', enumVals: ['Real-time', 'Daily', 'Weekly'] },
-  { key: 'scope',     label: 'Scope',       ftype: 'text' },
-  { key: 'creator',   label: 'Created By',  ftype: 'text' },
+  { key: 'label',     label: 'Alerts',      sortKey: 'label',     ftype: 'text' },
+  { key: 'condition', label: 'Conditions',   sortKey: 'condition', ftype: 'text' },
+  { key: 'sentTo',    label: 'Sent To',      sortKey: 'sentTo',   ftype: 'enum', enumVals: ['Slack', 'Teams', 'Email'] },
+  { key: 'timing',    label: 'Timing',       sortKey: 'timing',   ftype: 'enum', enumVals: ['Real-time', 'Daily', 'Weekly'] },
+  { key: 'scope',     label: 'Scope',        sortKey: 'scope',    ftype: 'text' },
+  { key: 'creator',   label: 'Created By',   sortKey: 'creator',  ftype: 'text' },
+];
+
+const CUSTOM_COL_DEFS = [
+  { key: 'name',      label: 'Rule',         sortKey: 'name',      ftype: 'text' },
+  { key: 'condition', label: 'Conditions',    sortKey: 'condition', ftype: 'text' },
+  { key: 'sentTo',    label: 'Sent To',       sortKey: 'sentTo',   ftype: 'enum', enumVals: ['Slack', 'Teams', 'Email'] },
+  { key: 'creator',   label: 'Created By',    sortKey: 'creator',  ftype: 'text' },
 ];
 
 // ── Active Alerts (Tab 1) ──
@@ -13876,6 +13890,85 @@ function scheduleText() {
   return _aicoSm(AUTO_ICONS.realtime) + ' Real-time';
 }
 
+function _alertRowData(rule) {
+  function conditionTextForKey(key, settings) {
+    var s = settings[key] || {};
+    switch (key) {
+      case 'health_below_threshold': return 'Score < ' + (s.threshold || 50);
+      case 'account_at_risk': return 'Status → risk/critical';
+      case 'renewal_approaching': return 'Renewal ≤ ' + (s.days || 30) + 'd';
+      case 'no_contact': return 'Silent ' + (s.max_days || 14) + 'd+';
+      case 'nps_detractor': return 'NPS → detractor';
+      case 'lifecycle_change': return 'Lifecycle → at-risk/churned';
+      case 'rapid_score_drop': return 'Drop ≥ ' + (s.points || 15) + 'pts';
+      default: return '';
+    }
+  }
+  var alertLabel = rule.alert_types.map(function(key) {
+    var at = ALERT_TYPES.find(function(a) { return a.key === key; });
+    return at ? at.shortLabel : key;
+  }).join(', ');
+  var conditions = rule.alert_types.map(function(key) {
+    return conditionTextForKey(key, rule.settings || {});
+  }).filter(Boolean).join('; ');
+  var sentToArr = [];
+  ['slack','teams','email'].forEach(function(k) { if (rule.channels[k]) sentToArr.push(k === 'teams' ? 'Teams' : k.charAt(0).toUpperCase() + k.slice(1)); });
+  var s = rule.schedule || { mode: 'realtime' };
+  var timing = s.mode === 'daily' ? 'Daily' : s.mode === 'weekly' ? 'Weekly' : 'Real-time';
+  var ms = rule.manager_scope || { mode: 'all', managers: [] };
+  var scope = ms.mode === 'selected' && ms.managers.length > 0 ? ms.managers.join(', ') : 'All';
+  return { label: alertLabel, condition: conditions, sentTo: sentToArr.join(', '), sentToArr: sentToArr, timing: timing, scope: scope, creator: rule.created_by || '' };
+}
+
+function _filterAlertRows(rules) {
+  if (!Object.keys(_alertFilters).length) return rules;
+  return rules.filter(function(rule) {
+    var d = _alertRowData(rule);
+    for (var key in _alertFilters) {
+      var f = _alertFilters[key];
+      var val = (d[key] || '').toLowerCase();
+      if (f.type === 'text' && val.indexOf(f.q) === -1) return false;
+      if (f.type === 'enum') {
+        var match = false;
+        f.vals.forEach(function(v) { if (val.indexOf(v.toLowerCase()) !== -1) match = true; });
+        if (!match) return false;
+      }
+    }
+    return true;
+  });
+}
+
+function _sortAlertRows(rules) {
+  if (!_alertSortKey) return rules;
+  var sorted = rules.slice();
+  sorted.sort(function(a, b) {
+    var da = _alertRowData(a), db = _alertRowData(b);
+    var va = (da[_alertSortKey] || '').toLowerCase(), vb = (db[_alertSortKey] || '').toLowerCase();
+    return va < vb ? -_alertSortDir : va > vb ? _alertSortDir : 0;
+  });
+  return sorted;
+}
+
+function _buildSortFilterTh(colDefs, sortKey, sortDir, filters, sortFn, filterFn) {
+  var funnelSVG = '<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>';
+  return colDefs.map(function(col) {
+    var isActiveSort = col.sortKey && sortKey === col.sortKey;
+    var filterActive = col.ftype && (col.key in filters);
+    var hasSort = !!col.sortKey;
+    var hasFilter = !!col.ftype;
+    var labelEl = hasSort
+      ? '<button class="col-sort-label" onclick="' + sortFn + '(\'' + col.sortKey + '\')">' + col.label + '</button>'
+      : '<span class="col-sort-label no-sort">' + col.label + '</span>';
+    var arrowEl = hasSort
+      ? '<span class="col-sort-arrow' + (isActiveSort ? '' : ' idle') + '">' + (sortDir === -1 ? '▼' : '▲') + '</span>'
+      : '';
+    var filterEl = hasFilter
+      ? '<button class="col-filter-btn' + (filterActive ? ' active' : '') + '" onclick="event.stopPropagation();' + filterFn + '(\'' + col.key + '\',this)" title="Filter ' + col.label + '">' + funnelSVG + '</button>'
+      : '';
+    return '<th><div class="col-th-inner">' + labelEl + arrowEl + filterEl + '</div></th>';
+  }).join('');
+}
+
 function renderActiveAlerts() {
   const container = el('active-alerts-container');
   if (!container) return;
@@ -13892,19 +13985,9 @@ function renderActiveAlerts() {
     return;
   }
 
-  function conditionTextForKey(key, settings) {
-    var s = settings[key] || {};
-    switch (key) {
-      case 'health_below_threshold': return 'Score < ' + (s.threshold || 50);
-      case 'account_at_risk': return 'Status → risk/critical';
-      case 'renewal_approaching': return 'Renewal ≤ ' + (s.days || 30) + 'd';
-      case 'no_contact': return 'Silent ' + (s.max_days || 14) + 'd+';
-      case 'nps_detractor': return 'NPS → detractor';
-      case 'lifecycle_change': return 'Lifecycle → at-risk/churned';
-      case 'rapid_score_drop': return 'Drop ≥ ' + (s.points || 15) + 'pts';
-      default: return '';
-    }
-  }
+  // Apply filters then sort
+  var filtered = _filterAlertRows(rules);
+  var sorted = _sortAlertRows(filtered);
 
   function ruleSentToHtml(rule) {
     var parts = [];
@@ -13931,25 +14014,19 @@ function renderActiveAlerts() {
     return ms.mode === 'selected' && ms.managers.length > 0 ? ms.managers.map(function(m) { return escHtml(m); }).join(', ') : 'All';
   }
 
-  // ── Build rows — one per rule ──
-  var rows = rules.map(function(rule) {
-    // Alert types column: icons + labels
+  var rows = sorted.map(function(rule) {
     var alertLabels = rule.alert_types.map(function(key) {
       var at = ALERT_TYPES.find(function(a) { return a.key === key; });
       return at ? '<span style="display:inline-flex;align-items:center;gap:3px;margin-right:6px;white-space:nowrap"><span style="color:var(--blue)">' + _aicoSm(AUTO_ICONS[key]) + '</span>' + escHtml(at.shortLabel) + '</span>' : '';
     }).join('');
 
-    // Conditions column: summary
-    var conditions = rule.alert_types.map(function(key) {
-      return conditionTextForKey(key, rule.settings || {});
-    }).filter(Boolean).join('; ');
-
+    var d = _alertRowData(rule);
     var scope = ruleScopeDisplay(rule);
     var disabledStyle = rule.enabled ? '' : 'opacity:.5;';
 
     return '<tr style="' + disabledStyle + '">' +
       '<td style="max-width:250px;line-height:1.5">' + alertLabels + '</td>' +
-      '<td style="color:var(--muted);font-size:var(--fs-sm);max-width:200px">' + escHtml(conditions) + '</td>' +
+      '<td style="color:var(--muted);font-size:var(--fs-sm);max-width:200px">' + escHtml(d.condition) + '</td>' +
       '<td>' + ruleSentToHtml(rule) + '</td>' +
       '<td style="font-size:var(--fs-base);white-space:nowrap">' + ruleTimingLabel(rule) + '</td>' +
       '<td style="font-size:var(--fs-base);color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis" title="' + escHtml(scope) + '">' + scope + '</td>' +
@@ -13964,16 +14041,14 @@ function renderActiveAlerts() {
       '</td></tr>';
   }).join('');
 
-  container.innerHTML = '<table class="alert-summary-table">' +
-    '<thead><tr>' +
-      '<th>Alerts</th>' +
-      '<th>Conditions</th>' +
-      '<th>Sent To</th>' +
-      '<th>Timing</th>' +
-      '<th>Scope</th>' +
-      '<th>Created By</th>' +
-      '<th style="width:120px">Actions</th>' +
-    '</tr></thead>' +
+  var headerRow = _buildSortFilterTh(ALERT_COL_DEFS, _alertSortKey, _alertSortDir, _alertFilters, 'alertSortBy', 'openAlertFilter') +
+    '<th style="width:120px"><div class="col-th-inner"><span class="col-sort-label no-sort">Actions</span></div></th>';
+
+  var filterPills = _buildFilterPills(_alertFilters, ALERT_COL_DEFS, 'openAlertFilter', 'clearAlertFilter');
+
+  container.innerHTML = filterPills +
+    '<table class="alert-summary-table">' +
+    '<thead><tr>' + headerRow + '</tr></thead>' +
     '<tbody>' + rows + '</tbody></table>';
 }
 
@@ -14123,6 +14198,120 @@ function clearAllAlertFilters() {
   _alertFilters = {};
   closeAlertFilter();
   renderAlertSummary();
+}
+
+// ── Shared filter pill bar builder ──
+function _buildFilterPills(filters, colDefs, openFn, clearFn) {
+  var keys = Object.keys(filters);
+  if (!keys.length) return '';
+  var pills = keys.map(function(key) {
+    var f = filters[key];
+    var def = colDefs.find(function(d) { return d.key === key; });
+    var label = def ? def.label : key;
+    var summary = '';
+    if (f.type === 'text') summary = '"' + (f.q || '').slice(0, 20) + '"';
+    else if (f.type === 'enum') {
+      var arr = []; f.vals.forEach(function(v) { arr.push(v); });
+      summary = arr.length <= 3 ? arr.join(', ') : arr.slice(0, 3).join(', ') + ' +' + (arr.length - 3);
+    }
+    return '<span class="filter-pill">' + escHtml(label) + ': ' + summary +
+      '<button class="filter-pill-x" onclick="event.stopPropagation();' + clearFn + '(\'' + key + '\')" title="Remove filter">✕</button></span>';
+  }).join('');
+  return '<div class="auto-filter-pill-bar" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">' + pills + '</div>';
+}
+
+// ── Custom Rules Sort & Filter Functions ──
+
+function crSortBy(key) {
+  if (_crSortKey === key) _crSortDir *= -1;
+  else { _crSortKey = key; _crSortDir = 1; }
+  renderCustomRulesList();
+}
+
+function openCrFilter(key, btnEl) {
+  if (_openCrFilterKey === key) { closeCrFilter(); return; }
+  closeCrFilter();
+  _openCrFilterKey = key;
+  const col = CUSTOM_COL_DEFS.find(c => c.key === key);
+  const menu = document.getElementById('alert-filter-portal');
+  menu.innerHTML = _buildCrFilterMenu(col);
+  menu.classList.add('open');
+  const rect = (btnEl.closest('th') || btnEl).getBoundingClientRect();
+  menu.style.top  = (rect.bottom + window.scrollY + 4) + 'px';
+  menu.style.left = (rect.left   + window.scrollX)      + 'px';
+  requestAnimationFrame(() => {
+    const mr = menu.getBoundingClientRect();
+    if (mr.right > window.innerWidth - 8)
+      menu.style.left = (window.innerWidth - mr.width - 8 + window.scrollX) + 'px';
+  });
+  _populateCrFilterUI(key, col);
+  setTimeout(() => menu.querySelector('input')?.focus(), 30);
+}
+
+function closeCrFilter() {
+  const menu = document.getElementById('alert-filter-portal');
+  if (menu) { menu.classList.remove('open'); menu.innerHTML = ''; }
+  _openCrFilterKey = null;
+}
+
+function _buildCrFilterMenu(col) {
+  let body = '';
+  if (col.ftype === 'enum') {
+    const vals = col.enumVals || [];
+    body = '<div class="cff-enum-list">' + vals.map(v =>
+      '<label class="cff-check-item">' +
+        '<input type="checkbox" value="' + escHtml(v) + '" class="cr-enum-cb" onchange="applyCrFilterLive()"> ' +
+        escHtml(v) +
+      '</label>'
+    ).join('') + '</div>';
+  } else if (col.ftype === 'text') {
+    body = '<input class="cff-text-input" id="cr-text" type="text" placeholder="Search ' + col.label.toLowerCase() + '…" oninput="applyCrFilterLive()" autocomplete="off">';
+  }
+  return '<div class="col-filter-hd">' +
+      '<span class="col-filter-title">Filter: ' + col.label + '</span>' +
+      '<button class="col-filter-clear" onclick="clearCrFilter(\'' + col.key + '\')">Clear</button>' +
+    '</div>' +
+    '<div class="col-filter-body">' + body + '</div>';
+}
+
+function _populateCrFilterUI(key, col) {
+  const f = _crFilters[key];
+  if (!f) return;
+  if (col.ftype === 'enum') {
+    document.querySelectorAll('.cr-enum-cb').forEach(cb => { cb.checked = f.vals.has(cb.value); });
+  } else if (col.ftype === 'text') {
+    const inp = document.getElementById('cr-text');
+    if (inp) inp.value = f.q || '';
+  }
+}
+
+function applyCrFilterLive() {
+  const key = _openCrFilterKey;
+  if (!key) return;
+  const col = CUSTOM_COL_DEFS.find(c => c.key === key);
+  if (!col) return;
+  if (col.ftype === 'enum') {
+    const checked = [...document.querySelectorAll('.cr-enum-cb:checked')].map(cb => cb.value);
+    if (checked.length) _crFilters[key] = { type: 'enum', vals: new Set(checked) };
+    else delete _crFilters[key];
+  } else if (col.ftype === 'text') {
+    const q = (document.getElementById('cr-text')?.value || '').trim().toLowerCase();
+    if (q) _crFilters[key] = { type: 'text', q };
+    else delete _crFilters[key];
+  }
+  renderCustomRulesList();
+}
+
+function clearCrFilter(key) {
+  delete _crFilters[key];
+  closeCrFilter();
+  renderCustomRulesList();
+}
+
+function clearAllCrFilters() {
+  _crFilters = {};
+  closeCrFilter();
+  renderCustomRulesList();
 }
 
 // ── Wizard Navigation (clickable stepper, animated transitions) ──
@@ -17094,6 +17283,43 @@ async function fireEmailAlert(eventType, customer, extra, emailCfg) {
 
 // ── List rendering ──
 
+function _crRowData(rule) {
+  var condPlain = ruleConditionSummaryPlain(rule);
+  var sentToArr = [];
+  var ch = rule.channels || {};
+  ['slack','teams','email'].forEach(function(k) { if (ch[k]) sentToArr.push(k === 'teams' ? 'Teams' : k.charAt(0).toUpperCase() + k.slice(1)); });
+  return { name: rule.name || '', condition: condPlain, sentTo: sentToArr.join(', '), sentToArr: sentToArr, creator: rule.created_by || '' };
+}
+
+function _filterCrRows(rules) {
+  if (!Object.keys(_crFilters).length) return rules;
+  return rules.filter(function(rule) {
+    var d = _crRowData(rule);
+    for (var key in _crFilters) {
+      var f = _crFilters[key];
+      var val = (d[key] || '').toLowerCase();
+      if (f.type === 'text' && val.indexOf(f.q) === -1) return false;
+      if (f.type === 'enum') {
+        var match = false;
+        f.vals.forEach(function(v) { if (val.indexOf(v.toLowerCase()) !== -1) match = true; });
+        if (!match) return false;
+      }
+    }
+    return true;
+  });
+}
+
+function _sortCrRows(rules) {
+  if (!_crSortKey) return rules;
+  var sorted = rules.slice();
+  sorted.sort(function(a, b) {
+    var da = _crRowData(a), db = _crRowData(b);
+    var va = (da[_crSortKey] || '').toLowerCase(), vb = (db[_crSortKey] || '').toLowerCase();
+    return va < vb ? -_crSortDir : va > vb ? _crSortDir : 0;
+  });
+  return sorted;
+}
+
 function renderCustomRulesList() {
   var container = el('custom-rules-list');
   if (!container) return;
@@ -17109,7 +17335,10 @@ function renderCustomRulesList() {
     return;
   }
 
-  var rows = rules.map(function(rule) {
+  var filtered = _filterCrRows(rules);
+  var sorted = _sortCrRows(filtered);
+
+  var rows = sorted.map(function(rule) {
     var condSummary = ruleConditionSummary(rule);
     var channelTags = ruleChannelTags(rule);
     var disabledStyle = rule.enabled ? '' : 'opacity:.5;';
@@ -17130,14 +17359,14 @@ function renderCustomRulesList() {
       '</td></tr>';
   }).join('');
 
-  container.innerHTML = '<table class="alert-summary-table">' +
-    '<thead><tr>' +
-      '<th>Rule</th>' +
-      '<th>Conditions</th>' +
-      '<th>Sent To</th>' +
-      '<th>Created By</th>' +
-      '<th style="width:120px">Actions</th>' +
-    '</tr></thead>' +
+  var headerRow = _buildSortFilterTh(CUSTOM_COL_DEFS, _crSortKey, _crSortDir, _crFilters, 'crSortBy', 'openCrFilter') +
+    '<th style="width:120px"><div class="col-th-inner"><span class="col-sort-label no-sort">Actions</span></div></th>';
+
+  var filterPills = _buildFilterPills(_crFilters, CUSTOM_COL_DEFS, 'openCrFilter', 'clearCrFilter');
+
+  container.innerHTML = filterPills +
+    '<table class="alert-summary-table">' +
+    '<thead><tr>' + headerRow + '</tr></thead>' +
     '<tbody>' + rows + '</tbody></table>';
 }
 
