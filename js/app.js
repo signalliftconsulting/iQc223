@@ -10631,11 +10631,10 @@ function _updateSettingsGuideBadge() {
 
 function _renderSettingsGuide() {
   _renderGuide('settings-guide', 'iqc_settings_guide_dismissed',
-    '<strong>Quick overview</strong> — This is where you configure how IQcadence scores your customers. ' +
-    '<strong>Config</strong> lets you set signal weights, score thresholds, and scoring profiles. ' +
-    '<strong>Account</strong> has your team & CSMs, data health, password, and quick actions like backup. ' +
-    '<strong>Integrations</strong> is where you connect CRMs and tools to sync customer data automatically. ' +
-    'Start by reviewing the <strong>signal weights</strong> below — they control how each metric impacts the health score.');
+    '<strong>What you can do here</strong> — Configure how IQcadence scores and monitors your customers across three tabs.<br>' +
+    '<strong>Config:</strong> Set <strong>signal weights</strong> to control how each metric (logins, adoption, NPS, etc.) impacts the health score. Adjust <strong>status thresholds</strong> to define what counts as Critical, At Risk, Watch, and Healthy. Create <strong>Scoring Profiles</strong> with custom weights for different customer segments (e.g. Enterprise vs SMB).<br>' +
+    '<strong>Account:</strong> Manage your CSM list, view data health metrics, export/restore backups, and change your password.<br>' +
+    '<strong>Tip:</strong> Connect your CRM or billing tool in the <strong>Integrations</strong> tab to auto-sync customer data. Use Scoring Profiles to apply different weight sets per customer or segment — assign them in the Score form.');
 }
 
 function renderSettings() {
