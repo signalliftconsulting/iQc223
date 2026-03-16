@@ -1115,14 +1115,24 @@ function initDemo(count) {
 // Run from browser console while logged in as admin: seedDemoData()
 async function seedDemoData(emailOrClientId, count) {
   // Seeds demo customers into an EXISTING client.
-  // Usage: seedDemoData()                           — 75 accounts into demo@iqcadence.com's client
+  // Usage: seedDemoData()                           — seeds the currently selected client (admin dropdown)
   //        seedDemoData('some-email@x.com')         — 75 accounts via email lookup
   //        seedDemoData('some-uuid-client-id')      — 75 accounts via client_id
   //        seedDemoData('client-uuid', 100)         — custom count
   count = count || 75;
   if (!isAdmin()) { console.error('Must be logged in as admin'); return; }
 
-  const arg = emailOrClientId || 'demo@iqcadence.com';
+  // Default: use the currently active client from the admin dropdown (or fall back to demo email)
+  let arg = emailOrClientId;
+  if (!arg) {
+    if (typeof activeClientId !== 'undefined' && activeClientId && activeClientId !== '__own__') {
+      arg = activeClientId;
+      console.log('No arg supplied — using active client from dropdown: ' + arg);
+    } else {
+      arg = 'demo@iqcadence.com';
+      console.log('No arg supplied and no client selected — defaulting to demo@iqcadence.com');
+    }
+  }
   const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(arg);
 
   let targetClientId, targetUserId;

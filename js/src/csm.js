@@ -213,7 +213,7 @@ function renderCSMPerformance() {
       const safeName = escHtml(m.name).replace(/'/g, "\\'");
       return `<tr data-csm="${escHtml(m.name)}" class="csm-row">
       <td style="text-align:center">${rankBadge(m.rank)}</td>
-      <td><strong>${escHtml(m.name)}</strong>${m.overdueCount ? ` <span style="font-size:var(--fs-xs);color:var(--red);font-weight:700">${m.overdueCount} overdue</span>` : ''}</td>
+      <td><strong><a href="#" onclick="event.preventDefault();event.stopPropagation();filterByManager('${safeName}')" style="color:inherit;text-decoration:none" onmouseover="this.style.color='var(--teal)'" onmouseout="this.style.color='inherit'">${escHtml(m.name)}</a></strong>${m.overdueCount ? ` <span style="font-size:var(--fs-xs);color:var(--red);font-weight:700">${m.overdueCount} overdue</span>` : ''}</td>
       <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${hmColor(m.avgScore)};background:${hmBg(m.avgScore)}">${m.avgScore}</span></td>
       <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${hmColor(m.perfIndex)};background:${hmBg(m.perfIndex)}">${m.perfIndex}</span></td>
       <td>${trendBadge(m.avgDelta)}</td>
