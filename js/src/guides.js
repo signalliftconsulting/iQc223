@@ -14,15 +14,21 @@ function _renderGuide(id, storageKey, html) {
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
         <label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-xs);color:var(--muted);cursor:pointer;user-select:none;white-space:nowrap">
-          <input type="checkbox" onchange="_dismissGuide('${id}','${storageKey}',this.checked)"> Don't show again
+          <input type="checkbox" id="${id}-dsa" onchange="_guideToggleDsa('${storageKey}',this.checked)"> Don't show again
         </label>
-        <button onclick="_dismissGuide('${id}','${storageKey}',true)" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;line-height:1;padding:0;flex-shrink:0" title="Dismiss">&times;</button>
+        <button onclick="_dismissGuide('${id}','${storageKey}')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;line-height:1;padding:0;flex-shrink:0" title="Dismiss">&times;</button>
       </div>
     </div>`;
 }
 
-function _dismissGuide(id, storageKey, persist) {
-  if (persist) { try { localStorage.setItem(storageKey, '1'); } catch(e) {} }
+function _guideToggleDsa(storageKey, checked) {
+  try { if (checked) localStorage.setItem(storageKey, '1'); else localStorage.removeItem(storageKey); } catch(e) {}
+}
+
+function _dismissGuide(id, storageKey) {
+  // If "Don't show again" is checked, persist; otherwise just hide for this session
+  const cb = document.getElementById(id + '-dsa');
+  if (cb && cb.checked) { try { localStorage.setItem(storageKey, '1'); } catch(e) {} }
   const w = document.getElementById(id); if (w) w.style.display = 'none';
 }
 
