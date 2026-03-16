@@ -55,9 +55,117 @@ const _hbCatClass = {
 
 function renderHomeBase() { try { _renderHomeBase(); } catch(e) { console.error('renderHomeBase error:', e); } }
 
+function _renderGettingStarted(wrap) {
+  const stepIcon = (n) => `<div style="width:28px;height:28px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs-sm);flex-shrink:0">${n}</div>`;
+  wrap.innerHTML = `
+  <div style="max-width:720px;margin:0 auto;padding:32px 0">
+    <div style="text-align:center;margin-bottom:32px">
+      <h1 style="font-size:1.5rem;font-weight:800;color:var(--text);margin-bottom:8px">Welcome to IQcadence</h1>
+      <p style="color:var(--muted);font-size:var(--fs-md);max-width:480px;margin:0 auto">Get started by adding your customers. Choose the path that fits your setup.</p>
+    </div>
+
+    <!-- Path A: Integration-first -->
+    <div class="card" style="margin-bottom:16px;cursor:pointer" onclick="this.querySelector('.gs-detail').style.display=this.querySelector('.gs-detail').style.display==='none'?'block':'none'">
+      <div style="display:flex;align-items:center;gap:14px;padding:18px 20px">
+        <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#14b8a6,#0d9488);display:flex;align-items:center;justify-content:center">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        </div>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:var(--fs-md);color:var(--text)">I have a CRM or tool to connect</div>
+          <div style="font-size:var(--fs-sm);color:var(--muted)">Pull customers and data directly from HubSpot, Salesforce, Stripe, or other integrations</div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="gs-detail" style="display:none;padding:0 20px 20px;border-top:1px solid var(--border);margin-top:-2px;padding-top:16px">
+        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
+          ${stepIcon(1)}
+          <div><strong>Connect your integration</strong><br><span style="color:var(--muted);font-size:var(--fs-sm)">Go to <a href="#" onclick="event.stopPropagation();nav('settings')" style="color:var(--teal);font-weight:600">Settings → Integrations</a> and connect your CRM or billing tool. Select which metrics to sync.</span></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
+          ${stepIcon(2)}
+          <div><strong>Run your first sync</strong><br><span style="color:var(--muted);font-size:var(--fs-sm)">Once connected, hit Sync to pull your customer list and their data into IQcadence. Customers will appear in the Customers tab.</span></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
+          ${stepIcon(3)}
+          <div><strong>Configure scoring weights</strong><br><span style="color:var(--muted);font-size:var(--fs-sm)">Head to <a href="#" onclick="event.stopPropagation();nav('settings')" style="color:var(--teal);font-weight:600">Settings → Scoring</a> to adjust signal weights. Each customer will be scored automatically.</span></div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();nav('settings')" style="margin-top:4px">Go to Settings →</button>
+      </div>
+    </div>
+
+    <!-- Path B: Manual-first + Integration -->
+    <div class="card" style="margin-bottom:16px;cursor:pointer" onclick="this.querySelector('.gs-detail').style.display=this.querySelector('.gs-detail').style.display==='none'?'block':'none'">
+      <div style="display:flex;align-items:center;gap:14px;padding:18px 20px">
+        <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#4f46e5);display:flex;align-items:center;justify-content:center">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:var(--fs-md);color:var(--text)">I want to add customers first, then connect an integration</div>
+          <div style="font-size:var(--fs-sm);color:var(--muted)">Add your customer list manually, then let integrations enrich their data</div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="gs-detail" style="display:none;padding:0 20px 20px;border-top:1px solid var(--border);margin-top:-2px;padding-top:16px">
+        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
+          ${stepIcon(1)}
+          <div><strong>Add your customers</strong><br><span style="color:var(--muted);font-size:var(--fs-sm)">Go to <a href="#" onclick="event.stopPropagation();nav('customers')" style="color:var(--teal);font-weight:600">Customers</a> and add them one at a time, or use <a href="#" onclick="event.stopPropagation();nav('csv')" style="color:var(--teal);font-weight:600">CSV Import</a> to bulk upload a list of names.</span></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
+          ${stepIcon(2)}
+          <div><strong>Connect your integration</strong><br><span style="color:var(--muted);font-size:var(--fs-sm)">Go to <a href="#" onclick="event.stopPropagation();nav('settings')" style="color:var(--teal);font-weight:600">Settings → Integrations</a> and connect your tool. Make sure "Import new accounts" is turned off — this way the integration will only update existing customers you already added, not create new ones.</span></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
+          ${stepIcon(3)}
+          <div><strong>Sync to enrich data</strong><br><span style="color:var(--muted);font-size:var(--fs-sm)">Run a sync to pull in metrics like MRR, tickets, NPS, and more for your existing customers. Their scores will update automatically.</span></div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();nav('csv')" style="margin-top:4px">Import Customers →</button>
+      </div>
+    </div>
+
+    <!-- Path C: No integration -->
+    <div class="card" style="margin-bottom:16px;cursor:pointer" onclick="this.querySelector('.gs-detail').style.display=this.querySelector('.gs-detail').style.display==='none'?'block':'none'">
+      <div style="display:flex;align-items:center;gap:14px;padding:18px 20px">
+        <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        </div>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:var(--fs-md);color:var(--text)">I don't have an integration to connect</div>
+          <div style="font-size:var(--fs-sm);color:var(--muted)">Add customers and data manually using CSV import or the scoring form</div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="gs-detail" style="display:none;padding:0 20px 20px;border-top:1px solid var(--border);margin-top:-2px;padding-top:16px">
+        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
+          ${stepIcon(1)}
+          <div><strong>Prepare your spreadsheet</strong><br><span style="color:var(--muted);font-size:var(--fs-sm)">Create a CSV with your customer data. At minimum include a <strong>Name</strong> column. You can also add columns for MRR, ARR, NPS, CSAT, Logins, Tickets, and more.</span></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
+          ${stepIcon(2)}
+          <div><strong>Import via CSV</strong><br><span style="color:var(--muted);font-size:var(--fs-sm)">Go to <a href="#" onclick="event.stopPropagation();nav('csv')" style="color:var(--teal);font-weight:600">CSV Import</a>, upload your file, map the columns, and import. All customers will be scored automatically.</span></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
+          ${stepIcon(3)}
+          <div><strong>Adjust weights and review</strong><br><span style="color:var(--muted);font-size:var(--fs-sm)">Fine-tune your <a href="#" onclick="event.stopPropagation();nav('settings')" style="color:var(--teal);font-weight:600">scoring weights</a> to match what matters for your business. Check your dashboard to see health scores and insights.</span></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();nav('csv')">Import CSV →</button>
+          <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();nav('score')">+ Score Manually</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-top:24px;color:var(--muted);font-size:var(--fs-sm)">
+      You can always access this guide from <strong>Settings → Help</strong> later.
+    </div>
+  </div>`;
+}
+
 function _renderHomeBase() {
   const wrap = el('homebase-wrap');
   if (!wrap) return;
+
+  // Show getting started guide if no customers
+  if (!customers.length) { _renderGettingStarted(wrap); return; }
 
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
   const now = new Date();
