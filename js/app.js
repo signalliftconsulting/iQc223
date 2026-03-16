@@ -17109,28 +17109,36 @@ function renderCustomRulesList() {
     return;
   }
 
-  container.innerHTML = rules.map(function(rule) {
+  var rows = rules.map(function(rule) {
     var condSummary = ruleConditionSummary(rule);
     var channelTags = ruleChannelTags(rule);
-    return '<div class="rule-card' + (rule.enabled ? '' : ' disabled') + '">' +
-      '<div style="flex:1;min-width:0">' +
-        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
-          '<span style="font-weight:600;font-size:var(--fs-md)">' + escHtml(rule.name) + '</span>' +
-          (!rule.enabled ? '<span style="font-size:var(--fs-xs);color:var(--subtle);font-weight:600;text-transform:uppercase">Paused</span>' : '') +
-        '</div>' +
-        '<div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:6px">' + condSummary + '</div>' +
-        '<div style="display:flex;gap:4px;flex-wrap:wrap">' + channelTags + '</div>' +
-      '</div>' +
-      '<div class="rule-card-actions">' +
-        '<label style="display:flex;align-items:center;cursor:pointer" title="' + (rule.enabled ? 'Disable' : 'Enable') + '">' +
-          '<input type="checkbox" ' + (rule.enabled ? 'checked' : '') +
-            ' onchange="toggleCustomRule(\'' + rule.id + '\', this.checked)" style="accent-color:#0f766e;width:16px;height:16px"/>' +
+    var disabledStyle = rule.enabled ? '' : 'opacity:.5;';
+    var createdBy = rule.created_by || '\u2014';
+
+    return '<tr style="' + disabledStyle + '">' +
+      '<td style="font-weight:600">' + escHtml(rule.name) + '</td>' +
+      '<td style="font-size:var(--fs-sm);color:var(--muted);max-width:280px;line-height:1.5">' + condSummary + '</td>' +
+      '<td>' + channelTags + '</td>' +
+      '<td style="font-size:var(--fs-base);color:var(--muted)">' + escHtml(createdBy) + '</td>' +
+      '<td style="white-space:nowrap">' +
+        '<label class="toggle-switch toggle-sm" style="vertical-align:middle;margin-right:6px" title="' + (rule.enabled ? 'Enabled' : 'Disabled') + '">' +
+          '<input type="checkbox" ' + (rule.enabled ? 'checked' : '') + ' onchange="toggleCustomRule(\'' + escHtml(rule.id) + '\', this.checked)"/>' +
+          '<span class="toggle-slider"></span>' +
         '</label>' +
-        '<button class="btn btn-xs btn-ghost" onclick="editCustomRule(\'' + rule.id + '\')" title="Edit">' + _aicoSm(AUTO_ICONS.edit) + '</button>' +
-        '<button class="btn btn-xs btn-ghost" onclick="deleteCustomRule(\'' + rule.id + '\')" title="Delete" style="color:var(--red)">' + _aicoSm(AUTO_ICONS.x) + '</button>' +
-      '</div>' +
-    '</div>';
+        '<button class="btn btn-xs btn-ghost" onclick="editCustomRule(\'' + escHtml(rule.id) + '\')" title="Edit">' + _aicoSm(AUTO_ICONS.edit) + '</button> ' +
+        '<button class="btn btn-xs btn-ghost" style="color:var(--red)" onclick="deleteCustomRule(\'' + escHtml(rule.id) + '\')" title="Delete">' + _aicoSm(AUTO_ICONS.x) + '</button>' +
+      '</td></tr>';
   }).join('');
+
+  container.innerHTML = '<table class="alert-summary-table">' +
+    '<thead><tr>' +
+      '<th>Rule</th>' +
+      '<th>Conditions</th>' +
+      '<th>Sent To</th>' +
+      '<th>Created By</th>' +
+      '<th style="width:120px">Actions</th>' +
+    '</tr></thead>' +
+    '<tbody>' + rows + '</tbody></table>';
 }
 
 function ruleConditionSummary(rule) {
