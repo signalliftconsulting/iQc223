@@ -550,8 +550,10 @@ svg.sparkline{display:block}
 /* Bottom scrollbar — mirrors horizontal scroll of the main table */
 #cust-top-scroll{overflow-x:scroll;overflow-y:hidden;height:16px;min-height:16px;background:#f1f5f9;border:1px solid var(--border);border-radius:6px;margin-top:4px}
 #cust-top-scroll-inner{height:1px}
-#cust-scroll-wrap{max-height:520px;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}
-#cust-scroll-wrap::-webkit-scrollbar{width:6px;height:6px}
+#cust-scroll-wrap{max-height:520px;overflow-y:auto;overflow-x:scroll;scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}
+#cust-scroll-wrap::-webkit-scrollbar{width:6px;height:0px}
+#cust-scroll-wrap::-webkit-scrollbar:vertical{width:6px}
+#cust-scroll-wrap::-webkit-scrollbar:horizontal{height:0px}
 #cust-scroll-wrap::-webkit-scrollbar-track{background:transparent}
 #cust-scroll-wrap::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
 #cust-scroll-wrap::-webkit-scrollbar-thumb:hover{background:#94a3b8}
@@ -3950,6 +3952,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=445"></script>
+<script src="js/app.js?v=446"></script>
 </body>
 </html>
