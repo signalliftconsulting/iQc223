@@ -3732,6 +3732,7 @@ function nav(v) {
     }
   }
 
+  updateAlertBadge(); // Always refresh alert badge on any nav
   if (v === 'homebase')  renderHomeBase();
   if (v === 'alerts')    renderAlerts();
   if (v === 'customers') renderCustomers();
@@ -3751,6 +3752,7 @@ function nav(v) {
 function refreshCurrentPage() {
   const v = document.querySelector('.view.active');
   if (!v) return;
+  updateAlertBadge(); // Always refresh alert badge
   const id = (v.id || '').replace('view-', '');
   if (id === 'homebase')  renderHomeBase();
   if (id === 'alerts')    renderAlerts();
@@ -5869,6 +5871,18 @@ function bulkDismiss() {
   renderAlerts();
 
   toast(`${n} alert${n===1?'':'s'} dismissed`, 'default');
+}
+
+// Standalone badge update — call after any data refresh to keep badge in sync
+function updateAlertBadge() {
+  try {
+    const all    = buildAlerts();
+    const active = all.filter(a => !isSnoozed(a.id) && !isDismissed(a.id));
+    const ab = el('alert-badge');
+    if (ab) { if (active.length > 0) { ab.textContent = active.length; ab.style.display = ''; } else ab.style.display = 'none'; }
+    const bb = el('bell-badge');
+    if (bb) { if (active.length > 0) { bb.textContent = active.length; bb.style.display = ''; } else bb.style.display = 'none'; }
+  } catch(e) {}
 }
 
 function renderAlerts() { try { _renderAlerts(); } catch(e) { console.error('renderAlerts error:', e); } }

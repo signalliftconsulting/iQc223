@@ -141,6 +141,7 @@ function nav(v) {
     }
   }
 
+  updateAlertBadge(); // Always refresh alert badge on any nav
   if (v === 'homebase')  renderHomeBase();
   if (v === 'alerts')    renderAlerts();
   if (v === 'customers') renderCustomers();
@@ -160,6 +161,7 @@ function nav(v) {
 function refreshCurrentPage() {
   const v = document.querySelector('.view.active');
   if (!v) return;
+  updateAlertBadge(); // Always refresh alert badge
   const id = (v.id || '').replace('view-', '');
   if (id === 'homebase')  renderHomeBase();
   if (id === 'alerts')    renderAlerts();
