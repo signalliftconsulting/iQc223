@@ -548,11 +548,11 @@ svg.sparkline{display:block}
 .ct{width:100%;min-width:1100px;border-collapse:separate;border-spacing:0;font-size:var(--fs-base)}
 #table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 /* Top scrollbar — mirrors horizontal scroll of the main table */
-#cust-top-scroll{overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}
-#cust-top-scroll::-webkit-scrollbar{height:6px}
-#cust-top-scroll::-webkit-scrollbar-track{background:transparent}
-#cust-top-scroll::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
-#cust-top-scroll::-webkit-scrollbar-thumb:hover{background:#94a3b8}
+#cust-top-scroll{overflow-x:auto;overflow-y:hidden;scrollbar-width:auto;scrollbar-color:#94a3b8 #f1f5f9;border:1px solid var(--border);border-radius:6px;margin-bottom:6px}
+#cust-top-scroll::-webkit-scrollbar{height:12px}
+#cust-top-scroll::-webkit-scrollbar-track{background:#f1f5f9;border-radius:6px}
+#cust-top-scroll::-webkit-scrollbar-thumb{background:#94a3b8;border-radius:6px;border:2px solid #f1f5f9}
+#cust-top-scroll::-webkit-scrollbar-thumb:hover{background:#64748b}
 #cust-top-scroll-inner{height:1px}
 #cust-scroll-wrap{max-height:680px;overflow-y:auto;overflow-x:auto;scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}
 #cust-scroll-wrap::-webkit-scrollbar{width:6px;height:6px}
@@ -3954,6 +3954,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=434"></script>
+<script src="js/app.js?v=435"></script>
 </body>
 </html>
