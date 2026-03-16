@@ -2,12 +2,14 @@
 
 function saveAutomationsCfg() {
   localStorage.setItem('iqc_automations', JSON.stringify(automationsCfg));
-  if (currentUser) {
+  const cid = getEffectiveClientId();
+  if (currentUser && cid) {
     sb.from('settings').upsert({
+      client_id:   cid,
       user_id:     currentUser.id,
       automations: JSON.stringify(automationsCfg),
       updated_at:  new Date().toISOString()
-    }, { onConflict: 'user_id' }).then(({ error }) => {
+    }, { onConflict: 'client_id' }).then(({ error }) => {
       if (error) console.warn('Automations config sync failed:', error.message);
     });
   }

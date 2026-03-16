@@ -667,6 +667,17 @@ function cfRenderPills(prefix) {
 // Settings (weights, thresholds, profiles, snoozed) stored in Supabase settings table.
 // Customers stored in Supabase customers table with RLS (each client's users see their client's customers).
 
+// Resolve the effective client_id for settings/audit operations.
+// Admin viewing a client → that client's ID; otherwise → user's own client.
+function getEffectiveClientId() {
+  if (typeof isAdmin === 'function' && isAdmin()
+      && typeof activeClientId !== 'undefined'
+      && activeClientId && activeClientId !== '__own__') {
+    return activeClientId;
+  }
+  return _userClientId || null;
+}
+
 function saveSettings() {
   // Also keep in localStorage as fast local cache
   localStorage.setItem('iqc_weights',    JSON.stringify(weights));
@@ -680,16 +691,18 @@ function saveSettings() {
   localStorage.setItem('iqc_quiet_days', String(quietDays));
   localStorage.setItem('iqc_momentum_pts', String(momentumPts));
   localStorage.setItem('iqc_signal_model', JSON.stringify(signalModelCfg));
-  // Sync to Supabase (fire and forget)
-  if (currentUser) {
+  // Sync to Supabase (fire and forget) — keyed by client_id
+  const cid = getEffectiveClientId();
+  if (currentUser && cid) {
     sb.from('settings').upsert({
+      client_id:  cid,
       user_id:    currentUser.id,
       weights:    JSON.stringify(weights),
       thresholds: JSON.stringify(thresholds),
       profiles:     JSON.stringify(profiles),
       signal_model: JSON.stringify(signalModelCfg),
       updated_at:   new Date().toISOString()
-    }, { onConflict: 'user_id' }).then(({error}) => {
+    }, { onConflict: 'client_id' }).then(({error}) => {
       if (error) console.warn('Settings sync failed:', error.message);
     });
   }
@@ -794,7 +807,9 @@ function ensureGlobalWeightsProfile(persist = false) {
 
 async function loadSettingsFromSupabase() {
   if (!currentUser) return;
-  const { data: settingsRows, error } = await sb.from('settings').select('*').eq('user_id', currentUser.id).limit(1);
+  const cid = getEffectiveClientId();
+  if (!cid) return; // no client assigned yet — use defaults
+  const { data: settingsRows, error } = await sb.from('settings').select('*').eq('client_id', cid).limit(1);
   const data = settingsRows && settingsRows.length ? settingsRows[0] : null;
   if (error || !data) return; // no settings row yet — use defaults
   try { if (data.weights)    weights    = { ...DEFAULT_WEIGHTS,    ...JSON.parse(data.weights) }; }    catch(e){}
@@ -13433,12 +13448,14 @@ async function schedTestSend(reportKey) {
 
 function saveAutomationsCfg() {
   localStorage.setItem('iqc_automations', JSON.stringify(automationsCfg));
-  if (currentUser) {
+  const cid = getEffectiveClientId();
+  if (currentUser && cid) {
     sb.from('settings').upsert({
+      client_id:   cid,
       user_id:     currentUser.id,
       automations: JSON.stringify(automationsCfg),
       updated_at:  new Date().toISOString()
-    }, { onConflict: 'user_id' }).then(({ error }) => {
+    }, { onConflict: 'client_id' }).then(({ error }) => {
       if (error) console.warn('Automations config sync failed:', error.message);
     });
   }
@@ -23966,6 +23983,7 @@ function logAudit(action, customerId, customerName, details) {
   const d = { ...(details || {}), user_email: currentUser.email || '' };
   const entry = {
     user_id:       currentUser.id,
+    client_id:     getEffectiveClientId(),
     action:        action,
     customer_id:   customerId || null,
     customer_name: customerName || '',
@@ -23995,10 +24013,15 @@ async function loadAuditLog(forceRefresh) {
   }
 
   try {
+    const auditCid = getEffectiveClientId();
     let query = sb.from('audit_logs')
-      .select('*')
-      .eq('user_id', currentUser.id)
-      .order('created_at', { ascending: false })
+      .select('*');
+    if (auditCid) {
+      query = query.eq('client_id', auditCid);
+    } else {
+      query = query.eq('user_id', currentUser.id);
+    }
+    query = query.order('created_at', { ascending: false })
       .range(auditOffset, auditOffset + AUDIT_PAGE_SIZE - 1);
 
     const { data, error } = await query;
@@ -24720,24 +24743,34 @@ async function clientRadioChange(radio) {
   updateClientFilterLabel();
   document.getElementById('client-filter-dropdown').style.display = 'none';
 
-  if (activeClientId === '__own__') {
-    // Reload admin's own customers
-    setLoading(true);
-    try {
+  setLoading(true);
+  try {
+    // Reset in-memory settings to defaults, then load selected client's settings
+    Object.keys(localStorage)
+      .filter(k => k.startsWith('iqc_') && k !== 'iqc_uid' && k !== 'iqc_active_view' && k !== 'iqc_customers_cache')
+      .forEach(k => localStorage.removeItem(k));
+    loadSettings(); // reset to defaults (localStorage now empty for settings keys)
+    await loadSettingsFromSupabase(); // load selected client's settings from Supabase
+
+    if (activeClientId === '__own__') {
       await loadCustomersFromSupabase();
-    } catch(e) { /* use cache */ } finally {
-      setLoading(false);
+    } else {
+      await loadClientCustomers(activeClientId);
     }
-  } else {
-    // Load this client's customers (all users assigned to this client)
-    await loadClientCustomers(activeClientId);
+    await resolveClientPlanTier();
+  } catch(e) { /* use cache */ } finally {
+    setLoading(false);
   }
   mgrFilterAll = true;
   activeManagers.clear();
   refreshMgrDropdown();
+  refreshLiveScores();
   renderHomeBase();
   renderCustomers();
   renderAlerts();
+  renderSettings();
+  // Reload audit log if viewing audit
+  try { if (localStorage.getItem('iqc_active_view') === 'audit') loadAuditLog(true); } catch(e) {}
 }
 
 function updateClientFilterLabel() {

@@ -59,24 +59,34 @@ async function clientRadioChange(radio) {
   updateClientFilterLabel();
   document.getElementById('client-filter-dropdown').style.display = 'none';
 
-  if (activeClientId === '__own__') {
-    // Reload admin's own customers
-    setLoading(true);
-    try {
+  setLoading(true);
+  try {
+    // Reset in-memory settings to defaults, then load selected client's settings
+    Object.keys(localStorage)
+      .filter(k => k.startsWith('iqc_') && k !== 'iqc_uid' && k !== 'iqc_active_view' && k !== 'iqc_customers_cache')
+      .forEach(k => localStorage.removeItem(k));
+    loadSettings(); // reset to defaults (localStorage now empty for settings keys)
+    await loadSettingsFromSupabase(); // load selected client's settings from Supabase
+
+    if (activeClientId === '__own__') {
       await loadCustomersFromSupabase();
-    } catch(e) { /* use cache */ } finally {
-      setLoading(false);
+    } else {
+      await loadClientCustomers(activeClientId);
     }
-  } else {
-    // Load this client's customers (all users assigned to this client)
-    await loadClientCustomers(activeClientId);
+    await resolveClientPlanTier();
+  } catch(e) { /* use cache */ } finally {
+    setLoading(false);
   }
   mgrFilterAll = true;
   activeManagers.clear();
   refreshMgrDropdown();
+  refreshLiveScores();
   renderHomeBase();
   renderCustomers();
   renderAlerts();
+  renderSettings();
+  // Reload audit log if viewing audit
+  try { if (localStorage.getItem('iqc_active_view') === 'audit') loadAuditLog(true); } catch(e) {}
 }
 
 function updateClientFilterLabel() {

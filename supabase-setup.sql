@@ -237,19 +237,24 @@ CREATE POLICY "customers_admin" ON customers
 -- 4. SETTINGS TABLE
 -- ─────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS settings (
-  user_id     UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  client_id   UUID PRIMARY KEY REFERENCES clients(id) ON DELETE CASCADE,
+  user_id     UUID REFERENCES auth.users(id) ON DELETE SET NULL, -- last editor
   weights     TEXT DEFAULT '{}',
   thresholds  TEXT DEFAULT '{}',
   profiles    TEXT DEFAULT '[]',
+  automations TEXT DEFAULT '{}',
+  signal_model TEXT DEFAULT '{}',
   updated_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "settings_owner" ON settings
+CREATE POLICY "settings_client_access" ON settings
   FOR ALL
-  USING  (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+  USING (
+    client_id IN (SELECT client_id FROM user_profiles WHERE user_id = auth.uid())
+    OR auth.jwt() ->> 'email' = ANY(ARRAY['ian@iqcadence.com'])
+  );
 
 
 -- ─────────────────────────────────────────────────────────────────
@@ -258,6 +263,7 @@ CREATE POLICY "settings_owner" ON settings
 CREATE TABLE IF NOT EXISTS audit_logs (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id       UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  client_id     UUID REFERENCES clients(id) ON DELETE SET NULL, -- client scope
   action        TEXT NOT NULL,           -- e.g. 'customer_created', 'customer_deleted', 'settings_changed'
   customer_id   UUID DEFAULT NULL,       -- optional: which customer was affected
   customer_name TEXT DEFAULT '',         -- denormalized for readability

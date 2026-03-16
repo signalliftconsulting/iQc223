@@ -94,6 +94,7 @@ function logAudit(action, customerId, customerName, details) {
   const d = { ...(details || {}), user_email: currentUser.email || '' };
   const entry = {
     user_id:       currentUser.id,
+    client_id:     getEffectiveClientId(),
     action:        action,
     customer_id:   customerId || null,
     customer_name: customerName || '',
@@ -123,10 +124,15 @@ async function loadAuditLog(forceRefresh) {
   }
 
   try {
+    const auditCid = getEffectiveClientId();
     let query = sb.from('audit_logs')
-      .select('*')
-      .eq('user_id', currentUser.id)
-      .order('created_at', { ascending: false })
+      .select('*');
+    if (auditCid) {
+      query = query.eq('client_id', auditCid);
+    } else {
+      query = query.eq('user_id', currentUser.id);
+    }
+    query = query.order('created_at', { ascending: false })
       .range(auditOffset, auditOffset + AUDIT_PAGE_SIZE - 1);
 
     const { data, error } = await query;

@@ -2,6 +2,17 @@
 // Settings (weights, thresholds, profiles, snoozed) stored in Supabase settings table.
 // Customers stored in Supabase customers table with RLS (each client's users see their client's customers).
 
+// Resolve the effective client_id for settings/audit operations.
+// Admin viewing a client → that client's ID; otherwise → user's own client.
+function getEffectiveClientId() {
+  if (typeof isAdmin === 'function' && isAdmin()
+      && typeof activeClientId !== 'undefined'
+      && activeClientId && activeClientId !== '__own__') {
+    return activeClientId;
+  }
+  return _userClientId || null;
+}
+
 function saveSettings() {
   // Also keep in localStorage as fast local cache
   localStorage.setItem('iqc_weights',    JSON.stringify(weights));
@@ -15,16 +26,18 @@ function saveSettings() {
   localStorage.setItem('iqc_quiet_days', String(quietDays));
   localStorage.setItem('iqc_momentum_pts', String(momentumPts));
   localStorage.setItem('iqc_signal_model', JSON.stringify(signalModelCfg));
-  // Sync to Supabase (fire and forget)
-  if (currentUser) {
+  // Sync to Supabase (fire and forget) — keyed by client_id
+  const cid = getEffectiveClientId();
+  if (currentUser && cid) {
     sb.from('settings').upsert({
+      client_id:  cid,
       user_id:    currentUser.id,
       weights:    JSON.stringify(weights),
       thresholds: JSON.stringify(thresholds),
       profiles:     JSON.stringify(profiles),
       signal_model: JSON.stringify(signalModelCfg),
       updated_at:   new Date().toISOString()
-    }, { onConflict: 'user_id' }).then(({error}) => {
+    }, { onConflict: 'client_id' }).then(({error}) => {
       if (error) console.warn('Settings sync failed:', error.message);
     });
   }
@@ -129,7 +142,9 @@ function ensureGlobalWeightsProfile(persist = false) {
 
 async function loadSettingsFromSupabase() {
   if (!currentUser) return;
-  const { data: settingsRows, error } = await sb.from('settings').select('*').eq('user_id', currentUser.id).limit(1);
+  const cid = getEffectiveClientId();
+  if (!cid) return; // no client assigned yet — use defaults
+  const { data: settingsRows, error } = await sb.from('settings').select('*').eq('client_id', cid).limit(1);
   const data = settingsRows && settingsRows.length ? settingsRows[0] : null;
   if (error || !data) return; // no settings row yet — use defaults
   try { if (data.weights)    weights    = { ...DEFAULT_WEIGHTS,    ...JSON.parse(data.weights) }; }    catch(e){}
