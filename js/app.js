@@ -683,6 +683,17 @@ const _GUIDE_DEFS = [
   { id: 'settings-guide',    key: 'iqc_settings_guide_dismissed' },
 ];
 
+// One-time migration: reset all guide dismissals so users see the new v480 guides.
+// Bump the version key when you want to force-show guides again.
+(function _migrateGuides() {
+  var VER = 'iqc_guides_v2';
+  try {
+    if (localStorage.getItem(VER)) return; // already migrated
+    _GUIDE_DEFS.forEach(function(g) { localStorage.removeItem(g.key); });
+    localStorage.setItem(VER, '1');
+  } catch(e) {}
+})();
+
 // Show/hide all guide badges based on localStorage state. Called on boot.
 function _updateAllGuideBadges() {
   _GUIDE_DEFS.forEach(function(g) {
