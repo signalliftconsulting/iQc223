@@ -21152,7 +21152,6 @@ function _taTrendAccel(data, metricKey, rangeDays) {
   const d2 = secondHalf[secondHalf.length - 1].avg - secondHalf[0].avg;
   const diff = d2 - d1;
   const label = (METRIC_CFG[metricKey] || {}).label || metricKey;
-  const halfLabel = _taRangeLabel(Math.round(rangeDays / 2));
   const isCurrency = metricKey === 'mrr' || metricKey === 'arr';
   const threshold = isCurrency ? Math.max(Math.abs(d1) * 0.1, 100) : 1;
   if (Math.abs(diff) < threshold) return null;
@@ -21162,14 +21161,45 @@ function _taTrendAccel(data, metricKey, rangeDays) {
   const decel = diff < 0 && d1 > 0 && d2 >= 0;
   const accelDn = diff < 0 && d2 < 0;
   const decelDn = diff > 0 && d1 < 0 && d2 <= 0;
-  let title, accent;
-  if (accel) { title = label + (_lib ? ' is worsening faster' : ' is accelerating'); accent = _lib ? 'red' : 'green'; }
-  else if (decel) { title = label + (_lib ? ' worsening is slowing' : ' growth is decelerating'); accent = 'amber'; }
-  else if (accelDn) { title = label + (_lib ? ' improvement is accelerating' : ' decline is accelerating'); accent = _lib ? 'green' : 'red'; }
-  else if (decelDn) { title = label + (_lib ? ' improvement is slowing' : ' decline is slowing'); accent = 'amber'; }
-  else { title = label + ' momentum shifted'; accent = 'amber'; }
-  const f = v => (v >= 0 ? '+' : '') + _fmtTaVal(v, metricKey);
-  const detail = `Changed <strong>${f(d2)}</strong> in the recent ${halfLabel} vs <strong>${f(d1)}</strong> in the prior ${halfLabel}.`;
+
+  // Current value and recent trajectory for projection
+  const current = data[data.length - 1].avg;
+  const recentRate = d2 / (secondHalf.length || 1); // per data point
+  const daysPerPt = rangeDays / data.length;
+  const proj30 = current + recentRate * (30 / daysPerPt);
+  const f = v => _fmtTaVal(v, metricKey);
+  const fd = v => (v >= 0 ? '+' : '') + _fmtTaVal(v, metricKey);
+  const halfLabel = _taRangeLabel(Math.round(rangeDays / 2));
+  const rateMultiple = d1 !== 0 ? Math.abs(Math.round(d2 / d1 * 10) / 10) : null;
+
+  let title, detail, accent;
+  if (accel) {
+    title = label + (_lib ? ' worsening is picking up speed' : ' gains are accelerating');
+    accent = _lib ? 'red' : 'green';
+    detail = `The pace of change increased <strong>${rateMultiple ? rateMultiple + '×' : 'significantly'}</strong> in the recent ${halfLabel}. `;
+    detail += _lib
+      ? `At this rate, ${label} could reach <strong>${f(proj30)}</strong> within 30 days — act now to reverse the trend.`
+      : `At this pace, ${label} could reach <strong>${f(proj30)}</strong> within 30 days if momentum holds.`;
+  } else if (decel) {
+    title = label + (_lib ? ' worsening is losing steam' : ' growth is plateauing');
+    accent = 'amber';
+    detail = `Gained <strong>${fd(d1)}</strong> in the first half but only <strong>${fd(d2)}</strong> recently. Growth is flattening — the current trajectory may stall without intervention.`;
+  } else if (accelDn) {
+    title = label + (_lib ? ' improvement is speeding up' : ' decline is getting worse');
+    accent = _lib ? 'green' : 'red';
+    detail = `Dropped <strong>${fd(d2)}</strong> recently vs <strong>${fd(d1)}</strong> before — the decline is <strong>${rateMultiple ? rateMultiple + '× faster' : 'steeper'}</strong>. `;
+    detail += _lib
+      ? `This improvement trend is strong and accelerating.`
+      : `If unchecked, ${label} could hit <strong>${f(proj30)}</strong> in 30 days. Identify root causes now.`;
+  } else if (decelDn) {
+    title = label + (_lib ? ' improvement is slowing down' : ' decline is easing');
+    accent = 'amber';
+    detail = `The rate of decline slowed from <strong>${fd(d1)}</strong> to <strong>${fd(d2)}</strong>. The bleeding may be stopping, but ${label} hasn't turned positive yet — watch closely.`;
+  } else {
+    title = label + ' momentum shifted direction';
+    accent = 'amber';
+    detail = `Moved <strong>${fd(d1)}</strong> then <strong>${fd(d2)}</strong> — a reversal in trajectory. Monitor whether this is a correction or a sustained change.`;
+  }
   return { priority: 2, icon: _taSvg.trend, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail };
 }
 
@@ -21333,57 +21363,49 @@ function _taVolatility(data, metricKey) {
 function _taPeriodComparison(data, metricKey, cutoff, rangeDays, active) {
   const label = (METRIC_CFG[metricKey] || {}).label || metricKey;
   const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
-  // Compute prior period data
-  const priorCutoff = new Date(cutoff.getTime() - rangeDays * 86400000);
-  const cutoffStr = cutoff.toISOString().slice(0,10);
-  // Current period avg
-  if (data.length < 2) return null;
-  const currentAvg = data.reduce((s,d) => s + d.avg, 0) / data.length;
-  // Prior period avg — manually scan history
-  const priorPts = [];
-  const allDates = new Set();
+  if (data.length < 2 || active.length < 3) return null;
+
+  // Compute per-customer delta in the current period
+  const movers = [];
   active.forEach(c => {
-    (c.history || []).forEach(h => {
-      if (!h.date) return;
-      const d = new Date(h.date);
-      const key = d.toISOString().slice(0,10);
-      if (d >= priorCutoff && d < cutoff) allDates.add(key);
-    });
+    const hist = (c.history || []).filter(h => h.date).sort((a,b) => a.date.localeCompare(b.date));
+    const inRange = hist.filter(h => new Date(h.date) >= cutoff);
+    const before = hist.filter(h => new Date(h.date) < cutoff);
+    if (!inRange.length) return;
+    const startVal = before.length ? cfg.val(before[before.length - 1], c) : cfg.val(inRange[0], c);
+    const endVal = cfg.val(inRange[inRange.length - 1], c);
+    if (startVal == null || endVal == null) return;
+    movers.push({ name: c.name, id: c.id, delta: endVal - startVal, start: startVal, end: endVal });
   });
-  if (allDates.size < 2) return null;
-  // Use same aggregation approach — simplified: just get avg of all history points in prior window
-  const priorDates = [...allDates].sort();
-  priorDates.forEach(date => {
-    let total = 0, count = 0;
-    active.forEach(c => {
-      const hist = (c.history || []).filter(h => h.date).sort((a,b) => a.date.localeCompare(b.date));
-      let val = null;
-      for (const h of hist) {
-        const key = new Date(h.date).toISOString().slice(0,10);
-        if (key <= date) {
-          const v = cfg.val(h, c);
-          if (v != null && typeof v === 'number' && !isNaN(v)) val = v;
-        }
-      }
-      if (val !== null) { total += val; count++; }
-    });
-    if (count) priorPts.push(total / count);
-  });
-  if (!priorPts.length) return null;
-  const priorAvg = priorPts.reduce((s,v) => s+v, 0) / priorPts.length;
-  const diff = currentAvg - priorAvg;
-  const isCurrency = metricKey === 'mrr' || metricKey === 'arr';
-  const threshold = isCurrency ? 100 : 0.5;
-  if (Math.abs(diff) < threshold) return null;
-  const rangeLabel = rangeDays <= 7 ? rangeDays + ' days' : rangeDays <= 30 ? rangeDays + ' days' : rangeDays <= 90 ? Math.round(rangeDays / 30) + ' month' + (rangeDays > 45 ? 's' : '') : Math.round(rangeDays / 30) + ' months';
-  const wentUp = diff > 0;
-  const isGood = cfg.lowerIsBetter ? !wentUp : wentUp;
-  const f = v => _fmtTaVal(v, metricKey);
-  const fd = v => (v >= 0 ? '+' : '') + _fmtTaVal(v, metricKey);
-  const title = label + (isGood ? ' improved' : ' declined') + ' vs prior period';
-  const detail = `Averaged <strong>${f(currentAvg)}</strong> this period vs <strong>${f(priorAvg)}</strong> in the prior ${rangeLabel} — a <strong>${fd(diff)}</strong> shift.`;
-  const accent = isGood ? 'green' : 'red';
-  return { priority: 2, icon: _taSvg.clock, iconBg: isGood ? 'var(--green-l)' : 'var(--red-l)', iconColor: isGood ? 'var(--green)' : 'var(--red)', accent, title, detail };
+  if (movers.length < 3) return null;
+  movers.sort((a, b) => a.delta - b.delta);
+
+  const improving = movers.filter(m => m.delta > 0.5);
+  const declining = movers.filter(m => m.delta < -0.5);
+  const flat = movers.length - improving.length - declining.length;
+  const pctUp = Math.round(improving.length / movers.length * 100);
+  const pctDn = Math.round(declining.length / movers.length * 100);
+
+  // No significant movement at all
+  if (!improving.length && !declining.length) return null;
+
+  const isGood = cfg.lowerIsBetter ? declining.length > improving.length : improving.length > declining.length;
+  const rl = _taRangeLabel(rangeDays);
+  const f = v => (v >= 0 ? '+' : '') + _fmtTaVal(v, metricKey);
+
+  // Build detail with top movers
+  let detail = `<strong>${pctUp}%</strong> of accounts improved, <strong>${pctDn}%</strong> declined, <strong>${100 - pctUp - pctDn}%</strong> flat over ${rl}. `;
+  const topGainers = movers.slice(-3).reverse().filter(m => m.delta > 0.5);
+  const topDecliners = movers.slice(0, 3).filter(m => m.delta < -0.5);
+  if (topGainers.length) {
+    detail += 'Top movers up: ' + topGainers.map(m => `<strong>${_taCustLink(m.name, m.id)}</strong> (${f(m.delta)})`).join(', ') + '. ';
+  }
+  if (topDecliners.length) {
+    detail += 'Biggest drops: ' + topDecliners.map(m => `<strong>${_taCustLink(m.name, m.id)}</strong> (${f(m.delta)})`).join(', ') + '.';
+  }
+  const title = label + ': ' + pctUp + '% improving, ' + pctDn + '% declining';
+  const accent = isGood ? 'green' : (pctDn > 40 ? 'red' : 'amber');
+  return { priority: 2, icon: _taSvg.clock, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail };
 }
 
 /* 6. CSM Overlay Divergence */
