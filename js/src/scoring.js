@@ -73,6 +73,293 @@ function calcScore(data, w) {
   };
 }
 
+// ─── iQcadence SIGNAL MODEL — 26-Factor Proprietary Engine ──
+const SIGNAL_FACTORS = [
+  // ── Engagement & Usage ──
+  { id:'recency_decay', name:'Recency Decay', category:'engagement',
+    compute:function(c,bs,sig){
+      var hist=(c.history||[]).filter(function(h){return h.date&&h.signals}).sort(function(a,b){return b.date.localeCompare(a.date)});
+      if(hist.length<3) return null;
+      var r=hist[0].signals, o=hist[2].signals, dc=0;
+      ['logins','adoption'].forEach(function(d){if(r[d]!=null&&o[d]!=null&&r[d]<o[d]) dc++});
+      ['tickets','days'].forEach(function(d){if(r[d]!=null&&o[d]!=null&&r[d]>o[d]) dc++});
+      if(dc>=3) return {adj:-3,reason:dc+' signals worse than 2 snapshots ago \u2014 recent activity weighted higher'};
+      if(dc===0) return {adj:+1,reason:'All tracked signals stable or improving vs recent history'};
+      return null;
+    }},
+  { id:'engagement_depth', name:'Engagement Depth', category:'engagement',
+    compute:function(c,bs,sig){
+      if(c.logins==null||c.adoption==null) return null;
+      var depth=(c.logins/30)*(c.adoption/100);
+      if(depth>0.5) return {adj:+2,reason:'High engagement depth ('+c.logins+' logins, '+c.adoption+'% adoption)'};
+      if(depth<0.05&&c.lifecycle!=='onboarding') return {adj:-2,reason:'Very low engagement depth ('+c.logins+' logins, '+c.adoption+'% adoption)'};
+      return null;
+    }},
+  { id:'adoption_plateau', name:'Adoption Plateau', category:'engagement',
+    compute:function(c,bs,sig){
+      if(c.lifecycle==='onboarding'||c.adoption==null) return null;
+      var hist=(c.history||[]).filter(function(h){return h.signals&&h.signals.adoption!=null}).sort(function(a,b){return a.date.localeCompare(b.date)});
+      if(hist.length<4) return null;
+      var last4=hist.slice(-4).map(function(h){return h.signals.adoption});
+      var range=Math.max.apply(null,last4)-Math.min.apply(null,last4);
+      if(range<=3&&c.adoption<60) return {adj:-2,reason:'Adoption plateaued at '+c.adoption+'% for '+last4.length+' snapshots'};
+      return null;
+    }},
+  { id:'login_trend', name:'Login Frequency Trend', category:'engagement',
+    compute:function(c,bs,sig){
+      var hist=(c.history||[]).filter(function(h){return h.signals&&h.signals.logins!=null}).sort(function(a,b){return a.date.localeCompare(b.date)});
+      if(hist.length<3) return null;
+      var l3=hist.slice(-3).map(function(h){return h.signals.logins});
+      var accel=(l3[2]-l3[1])-(l3[1]-l3[0]);
+      if(accel>3) return {adj:+2,reason:'Login frequency accelerating ('+l3[0]+' \u2192 '+l3[1]+' \u2192 '+l3[2]+'/mo)'};
+      if(accel<-3) return {adj:-2,reason:'Login frequency decelerating ('+l3[0]+' \u2192 '+l3[1]+' \u2192 '+l3[2]+'/mo)'};
+      return null;
+    }},
+  { id:'feature_breadth', name:'Feature Breadth', category:'engagement',
+    compute:function(c,bs,sig){
+      if(c.adoption==null) return null;
+      if(c.adoption>=85) return {adj:+2,reason:'Exceptional feature breadth at '+c.adoption+'% \u2014 deep product investment'};
+      if(c.adoption<=15&&c.lifecycle!=='onboarding') return {adj:-1,reason:'Very narrow feature usage at '+c.adoption+'%'};
+      return null;
+    }},
+
+  // ── Revenue & Growth ──
+  { id:'revenue_momentum', name:'Revenue Momentum', category:'revenue',
+    compute:function(c,bs,sig){
+      if(!c.mrr) return null;
+      var hist=(c.history||[]).filter(function(h){return h.signals&&h.signals.mrr!=null});
+      if(hist.length<2) return null;
+      var sorted=hist.sort(function(a,b){return a.date.localeCompare(b.date)});
+      var prev=sorted[sorted.length-2].signals.mrr||0;
+      if(prev===0) return null;
+      var pct=((c.mrr-prev)/prev)*100;
+      if(pct>10) return {adj:+2,reason:'MRR grew '+Math.round(pct)+'% ($'+fmtNum(prev)+' \u2192 $'+fmtNum(c.mrr)+')'};
+      if(pct<-10) return {adj:-2,reason:'MRR declined '+Math.round(Math.abs(pct))+'% ($'+fmtNum(prev)+' \u2192 $'+fmtNum(c.mrr)+')'};
+      return null;
+    }},
+  { id:'growth_health_div', name:'Growth-Health Divergence', category:'revenue',
+    compute:function(c,bs,sig){
+      if(!c.mrr||c.growth!=='strong') return null;
+      if(getMomentum(c)==='dn'&&bs>=40) return {adj:-3,reason:'Revenue growing but health declining \u2014 hidden churn risk'};
+      return null;
+    }},
+  { id:'tier_relative', name:'Tier-Relative Performance', category:'revenue',
+    compute:function(c,bs,sig){
+      var base={enterprise:72,mid:65,smb:58}; var bl=base[c.tier]||base.mid; var diff=bs-bl;
+      if(c.tier==='enterprise'&&diff<-10) return {adj:-2,reason:'Enterprise account underperforming tier baseline by '+Math.abs(Math.round(diff))+' pts'};
+      if(c.tier==='smb'&&diff>15) return {adj:+1,reason:'SMB overperforming tier baseline by '+Math.round(diff)+' pts'};
+      return null;
+    }},
+  { id:'expansion_velocity', name:'Expansion Velocity', category:'revenue',
+    compute:function(c,bs,sig){
+      if(c.growth==='strong'&&c.lifecycle==='active'&&bs>=75) return {adj:+2,reason:'Strong growth signal with healthy active account \u2014 expansion candidate'};
+      if(c.growth==='strong'&&c.lifecycle==='won') return {adj:+1,reason:'Recently expanded with continued strong growth signal'};
+      return null;
+    }},
+
+  // ── Relationship & Stakeholder ──
+  { id:'contact_recency', name:'Contact Recency', category:'relationship',
+    compute:function(c,bs,sig){
+      var days=getEffectiveDays(c); if(days==null) return null;
+      var thres=getCadenceThresholds()[c.tier||'mid']||getCadenceThresholds().mid;
+      if(days>thres.overdue*1.5){
+        var adj=c.mrr>=5000?-3:-2;
+        return {adj:adj,reason:'No contact in '+days+' days \u2014 well past '+(c.tier||'mid')+' overdue threshold ('+thres.overdue+'d)'};
+      }
+      return null;
+    }},
+  { id:'comm_gap_accel', name:'Communication Gap Acceleration', category:'relationship',
+    compute:function(c,bs,sig){
+      var hist=(c.history||[]).filter(function(h){return h.signals&&h.signals.days!=null}).sort(function(a,b){return a.date.localeCompare(b.date)});
+      if(hist.length<3) return null;
+      var l3=hist.slice(-3).map(function(h){return h.signals.days});
+      if(l3[2]>l3[1]&&l3[1]>l3[0]&&(l3[2]-l3[0])>10) return {adj:-2,reason:'Contact gaps accelerating: '+l3[0]+'d \u2192 '+l3[1]+'d \u2192 '+l3[2]+'d since contact'};
+      return null;
+    }},
+  { id:'cadence_compliance', name:'Cadence Compliance', category:'relationship',
+    compute:function(c,bs,sig){
+      var cad=getCadenceStatus(c);
+      if(cad.status==='ok'&&c.next_touch){
+        var ntd=Math.round((new Date(c.next_touch)-new Date())/86400000);
+        if(ntd>=0&&ntd<=3) return {adj:+1,reason:'On-cadence with upcoming scheduled touch'};
+      }
+      return null;
+    }},
+
+  // ── Support & Sentiment ──
+  { id:'support_burden', name:'Support Burden', category:'support',
+    compute:function(c,bs,sig){
+      if(c.tickets==null) return null;
+      var hist=(c.history||[]).filter(function(h){return h.signals&&h.signals.tickets!=null});
+      if(hist.length<2) return null;
+      var avg=hist.reduce(function(s,h){return s+h.signals.tickets},0)/hist.length;
+      if(c.tickets>avg*2&&c.tickets>=3) return {adj:-2,reason:'Ticket volume ('+c.tickets+') is '+Math.round(c.tickets/Math.max(avg,0.1))+'x historical average'};
+      return null;
+    }},
+  { id:'ticket_accel', name:'Ticket Acceleration', category:'support',
+    compute:function(c,bs,sig){
+      var hist=(c.history||[]).filter(function(h){return h.signals&&h.signals.tickets!=null}).sort(function(a,b){return a.date.localeCompare(b.date)});
+      if(hist.length<3) return null;
+      var l3=hist.slice(-3).map(function(h){return h.signals.tickets});
+      if(l3[2]>l3[1]&&l3[1]>l3[0]&&l3[2]>=3) return {adj:-2,reason:'Ticket count accelerating: '+l3[0]+' \u2192 '+l3[1]+' \u2192 '+l3[2]};
+      return null;
+    }},
+  { id:'sentiment_trajectory', name:'Sentiment Trajectory', category:'support',
+    compute:function(c,bs,sig){
+      var hist=(c.history||[]).filter(function(h){return h.signals&&h.signals.nps!=null}).sort(function(a,b){return a.date.localeCompare(b.date)});
+      if(hist.length<3) return null;
+      var l3=hist.slice(-3).map(function(h){return h.signals.nps});
+      if(l3[2]<l3[1]&&l3[1]<l3[0]&&(l3[0]-l3[2])>=2) return {adj:-2,reason:'NPS declining: '+l3[0]+' \u2192 '+l3[1]+' \u2192 '+l3[2]};
+      if(l3[2]>l3[1]&&l3[1]>l3[0]&&(l3[2]-l3[0])>=2) return {adj:+1,reason:'NPS improving: '+l3[0]+' \u2192 '+l3[1]+' \u2192 '+l3[2]};
+      return null;
+    }},
+  { id:'sent_engage_disconnect', name:'Sentiment-Engagement Disconnect', category:'support',
+    compute:function(c,bs,sig){
+      if(c.nps==null||c.logins==null) return null;
+      if(npsIsPromoter(c.nps)&&c.logins<5) return {adj:-2,reason:'Passive happy: NPS promoter ('+c.nps+') but only '+c.logins+' logins/mo \u2014 disengaged advocate'};
+      if(npsIsDetractor(c.nps)&&c.logins>=20) return {adj:+1,reason:'Vocal critic but heavily engaged ('+c.logins+' logins) \u2014 frustration may be fixable'};
+      return null;
+    }},
+
+  // ── Lifecycle & Timing ──
+  { id:'renewal_gravity', name:'Renewal Gravity', category:'lifecycle',
+    compute:function(c,bs,sig){
+      if(!c.renewal_date) return null;
+      var dtr=Math.round((new Date(c.renewal_date)-new Date())/86400000);
+      if(dtr<0||dtr>180||c.lifecycle==='churned') return null;
+      if(dtr<=60&&bs<65) return {adj:-3,reason:'Renewal in '+dtr+' days with below-average health ('+bs+')'};
+      if(dtr<=60&&bs>=80) return {adj:+1,reason:'Renewal in '+dtr+' days with strong health \u2014 likely safe'};
+      if(dtr<=120&&bs<50) return {adj:-2,reason:'Renewal in '+dtr+' days with concerning health ('+bs+')'};
+      return null;
+    }},
+  { id:'onboarding_velocity', name:'Onboarding Velocity', category:'lifecycle',
+    compute:function(c,bs,sig){
+      if(c.lifecycle!=='onboarding') return null;
+      if(c.adoption!=null&&c.adoption>=50&&c.logins>=10) return {adj:+2,reason:'Strong onboarding velocity: '+c.adoption+'% adoption, '+c.logins+' logins in ramp phase'};
+      if(c.adoption!=null&&c.adoption<20&&c.logins!=null&&c.logins<3) return {adj:-3,reason:'Slow onboarding: only '+c.adoption+'% adoption and '+c.logins+' logins \u2014 time-to-value at risk'};
+      return null;
+    }},
+  { id:'tenure_risk', name:'Tenure Risk Curve', category:'lifecycle',
+    compute:function(c,bs,sig){
+      if(!c.since) return null;
+      var td=Math.floor((Date.now()-new Date(c.since).getTime())/86400000);
+      if(isNaN(td)||td<0) return null;
+      if(td>=90&&td<=180&&c.lifecycle==='active'&&bs<65) return {adj:-2,reason:'In the 90\u2013180 day tenure risk zone ('+td+'d) with below-average health'};
+      if(td>365&&bs>=60) return {adj:+1,reason:'Long-tenure customer ('+Math.round(td/365)+'yr+) \u2014 historical retention likelihood higher'};
+      return null;
+    }},
+  { id:'post_onboard_cliff', name:'Post-Onboarding Cliff', category:'lifecycle',
+    compute:function(c,bs,sig){
+      if(c.lifecycle!=='active') return null;
+      var hist=(c.history||[]).filter(function(h){return h.signals&&h.signals.lifecycle}).sort(function(a,b){return a.date.localeCompare(b.date)});
+      var obIdx=-1,actIdx=-1;
+      for(var i=0;i<hist.length;i++){if(hist[i].signals.lifecycle==='onboarding') obIdx=i;}
+      for(var j=obIdx+1;j<hist.length;j++){if(hist[j].signals.lifecycle==='active'){actIdx=j;break;}}
+      if(obIdx<0||actIdx<0) return null;
+      var daysSince=Math.floor((Date.now()-new Date(hist[actIdx].date).getTime())/86400000);
+      if(daysSince>=15&&daysSince<=90){
+        var drop=hist[actIdx].score-bs;
+        if(drop>=8) return {adj:-2,reason:'Post-onboarding cliff: score dropped '+drop+' pts since transitioning to active '+daysSince+'d ago'};
+      }
+      return null;
+    }},
+  { id:'seasonal_norm', name:'Seasonal Normalization', category:'lifecycle',
+    compute:function(c,bs,sig){
+      var hist=(c.history||[]).filter(function(h){return h.date});
+      if(hist.length<12) return null;
+      var cm=new Date().getMonth();
+      var same=hist.filter(function(h){return new Date(h.date).getMonth()===cm});
+      if(same.length<2) return null;
+      var avg=same.reduce(function(s,h){return s+h.score},0)/same.length;
+      if(bs<avg-10) return {adj:+1,reason:'Score below seasonal average for this period (avg '+Math.round(avg)+') \u2014 may normalize'};
+      return null;
+    }},
+
+  // ── Compound / Interaction ──
+  { id:'multi_deterioration', name:'Multi-Signal Deterioration', category:'compound',
+    compute:function(c,bs,sig){
+      var hist=(c.history||[]).filter(function(h){return h.date&&h.signals}).sort(function(a,b){return b.date.localeCompare(a.date)});
+      if(hist.length<2) return null;
+      var prev=hist[1].signals, curr=hist[0].signals, dc=0, names=[];
+      if(curr.logins!=null&&prev.logins!=null&&curr.logins<prev.logins-2){dc++;names.push('logins');}
+      if(curr.adoption!=null&&prev.adoption!=null&&curr.adoption<prev.adoption-3){dc++;names.push('adoption');}
+      if(curr.tickets!=null&&prev.tickets!=null&&curr.tickets>prev.tickets+1){dc++;names.push('tickets');}
+      if(curr.nps!=null&&prev.nps!=null&&curr.nps<prev.nps-1){dc++;names.push('NPS');}
+      if(curr.csat!=null&&prev.csat!=null&&curr.csat<prev.csat){dc++;names.push('CSAT');}
+      if(curr.days!=null&&prev.days!=null&&curr.days>prev.days+7){dc++;names.push('contact');}
+      if(dc>=3) return {adj:-3,reason:dc+' signals declining simultaneously ('+names.join(', ')+') \u2014 compounding risk'};
+      return null;
+    }},
+  { id:'recovery_momentum', name:'Recovery Momentum', category:'compound',
+    compute:function(c,bs,sig){
+      var delta=getDelta7d(c);
+      if(delta>=8&&bs<65) return {adj:+3,reason:'Strong recovery momentum (+'+delta+' pts in 7d) \u2014 keep reinforcing'};
+      if(delta>=5&&bs<50) return {adj:+2,reason:'Recovery underway (+'+delta+' pts in 7d) from critical/risk territory'};
+      return null;
+    }},
+  { id:'silent_churn', name:'Silent Churn Pattern', category:'compound',
+    compute:function(c,bs,sig){
+      var hist=(c.history||[]).filter(function(h){return h.date}).sort(function(a,b){return a.date.localeCompare(b.date)});
+      if(hist.length<4) return null;
+      var l4=hist.slice(-4), sc=l4.map(function(h){return h.score});
+      var allDec=sc.every(function(s,i){return i===0||s<=sc[i-1]});
+      var maxDrop=0; sc.forEach(function(s,i){if(i>0){var d=sc[i-1]-s;if(d>maxDrop)maxDrop=d;}});
+      var totalDrop=sc[0]-sc[sc.length-1];
+      if(allDec&&maxDrop<=5&&totalDrop>=8) return {adj:-3,reason:'Silent churn pattern: score drifted '+totalDrop+' pts over '+l4.length+' snapshots with no single alarm'};
+      return null;
+    }},
+  { id:'false_positive_supp', name:'False Positive Suppression', category:'compound',
+    compute:function(c,bs,sig){
+      if(bs<70) return null;
+      var w=getActiveWeights(c), bad=[];
+      if((w.logins||0)>0&&sig.logins_n<25) bad.push('logins');
+      if((w.adoption||0)>0&&sig.adoption_n<25) bad.push('adoption');
+      if((w.tickets||0)>0&&sig.tickets_n<25) bad.push('tickets');
+      if((w.nps||0)>0&&sig.nps_n<25) bad.push('NPS');
+      if((w.csat||0)>0&&sig.csat_n<25) bad.push('CSAT');
+      if((w.days||0)>0&&sig.days_n<25) bad.push('contact');
+      if(bad.length===1) return {adj:+1,reason:'High overall health despite weak '+bad[0]+' \u2014 likely an anomaly, not a pattern'};
+      return null;
+    }}
+];
+
+function applySignalModel(c, baseScore, baseSignals) {
+  if (!signalModelCfg.enabled) return { adjustedScore: baseScore, factors: [], totalAdj: 0 };
+  var maxAdj = SM_SENSITIVITY[signalModelCfg.sensitivity] || SM_SENSITIVITY.balanced;
+  var raw = [];
+  SIGNAL_FACTORS.forEach(function(f) {
+    try {
+      var result = f.compute(c, baseScore, baseSignals);
+      if (result && result.adj !== 0) raw.push({ id: f.id, name: f.name, category: f.category, adj: result.adj, reason: result.reason });
+    } catch(e) { console.warn('Signal factor error [' + f.id + ']:', e.message); }
+  });
+  var totalRaw = raw.reduce(function(s, f) { return s + f.adj; }, 0);
+  // Sensitivity multiplier: conservative dampens, balanced is 1:1, aggressive amplifies
+  var sensMultiplier = { conservative: 0.5, balanced: 1.0, aggressive: 1.6 };
+  var mult = sensMultiplier[signalModelCfg.sensitivity] || 1.0;
+  var scaled = totalRaw * mult;
+  // Then cap at sensitivity ceiling
+  var capped = Math.max(-maxAdj, Math.min(maxAdj, scaled));
+  var totalAdj = Math.round(capped);
+  var finalScale = totalRaw !== 0 ? capped / totalRaw : 1;
+  raw.forEach(function(f) { f.adj = Math.round(f.adj * finalScale * 10) / 10; });
+  return { adjustedScore: Math.round(Math.max(0, Math.min(100, baseScore + totalAdj))), factors: raw, totalAdj: totalAdj };
+}
+
+function scoreWithModel(c, w) {
+  w = w || getActiveWeights(c);
+  var data = { logins: c.logins, adoption: c.adoption, tickets: c.tickets,
+    nps: c.nps, csat: c.csat, days: c.days != null ? c.days : (getEffectiveDays(c) || c.days), growth: c.growth || 'none' };
+  var base = calcScore(data, w);
+  var model = applySignalModel(c, base.score, base.signals);
+  c._signalModel = {
+    enabled: signalModelCfg.enabled, baseScore: base.score, adjustedScore: model.adjustedScore,
+    totalAdj: model.totalAdj, sensitivity: signalModelCfg.sensitivity,
+    factors: model.factors, computedAt: new Date().toISOString()
+  };
+  return { score: model.adjustedScore, signals: base.signals, _base: base.score };
+}
+
 // ─── STATUS CONSTANTS ────────────────────────────────────────
 // Single source of truth for all 5 status bands
 const STATUS_COLOR = {
@@ -196,12 +483,8 @@ function refreshLiveScores() {
     if (applyNextTouchTransition(c)) transitioned.push(c);
     var effDays = getEffectiveDays(c);
     if (effDays === c.days && !transitioned.includes(c)) return;
-    var data = { logins: c.logins, adoption: c.adoption,
-      tickets: c.tickets, nps: c.nps, csat: c.csat,
-      days: effDays, growth: c.growth || 'none' };
-    var w = getActiveWeights(c);
-    var result = calcScore(data, w);
-    c.days   = effDays;
+    c.days = effDays;
+    var result = scoreWithModel(c);
     c.score  = result.score;
     c.status = getStatus(result.score);
     if (applyAutoStage(c) && !transitioned.includes(c)) transitioned.push(c);
@@ -224,119 +507,201 @@ const LIFECYCLE_CONTEXT = {
 
 function makeRec(score, data) {
   const status = getStatus(score);
-  const name   = data.name ? `${data.name}` : 'This account';
+  const name   = data.name || 'This account';
   const lc     = data.lifecycle || 'active';
   const mom    = getMomentum(data);
   const delta  = (data.history && data.history.length >= 2) ? getDelta7d(data) : 0;
 
-  // ── Build signal snapshot ──────────────────────────────────
-  const strengths = [], weaknesses = [];
+  // ── Build conversational signal observations ─────────────
+  const good = [], bad = [];
   if (signalOn(data,'logins')) {
-    if (data.logins != null && data.logins >= 15) strengths.push('strong login activity (' + data.logins + '/mo)');
-    else if (data.logins != null && data.logins < 5) weaknesses.push('very low logins (' + data.logins + '/mo)');
+    if (data.logins != null && data.logins >= 15) good.push('they\'re logging in consistently');
+    else if (data.logins != null && data.logins < 5) bad.push(data.logins === 0 ? 'they haven\'t logged in at all this month' : 'they\'re only logging in ' + data.logins + ' day' + (data.logins !== 1 ? 's' : '') + ' a month');
   }
   if (signalOn(data,'adoption')) {
-    if (data.adoption != null && data.adoption >= 70) strengths.push('high feature adoption (' + data.adoption + '%)');
-    else if (data.adoption != null && data.adoption < 30) weaknesses.push('low feature adoption (' + data.adoption + '%)');
+    if (data.adoption != null && data.adoption >= 70) good.push('they\'re using the platform heavily');
+    else if (data.adoption != null && data.adoption < 30) bad.push('they\'re only using about ' + data.adoption + '% of what we offer');
   }
   if (signalOn(data,'tickets')) {
-    if (data.tickets != null && data.tickets === 0) strengths.push('no open support tickets');
-    else if (data.tickets != null && data.tickets >= 3) weaknesses.push(data.tickets + ' open support tickets');
+    if (data.tickets != null && data.tickets === 0) good.push('no open support issues');
+    else if (data.tickets != null && data.tickets >= 3) bad.push('they\'ve got ' + data.tickets + ' open support tickets');
   }
   if (signalOn(data,'nps')) {
-    if (npsIsPromoter(data.nps)) strengths.push('NPS promoter (' + npsDisplay(data.nps) + ')');
-    else if (npsIsDetractor(data.nps)) weaknesses.push('NPS detractor (' + npsDisplay(data.nps) + ')');
+    if (npsIsPromoter(data.nps)) good.push('they gave us a ' + data.nps + ' on NPS — a promoter');
+    else if (npsIsDetractor(data.nps)) bad.push('they scored us a ' + data.nps + ' on NPS, which is detractor territory');
   }
   if (signalOn(data,'csat')) {
-    if (data.csat != null && data.csat >= 4) strengths.push('good CSAT (' + csatDisplay(data.csat) + ')');
-    else if (csatIsPoor(data.csat)) weaknesses.push('poor CSAT (' + csatDisplay(data.csat) + ')');
+    if (data.csat != null && data.csat >= 4) good.push('satisfaction scores are solid');
+    else if (csatIsPoor(data.csat)) bad.push('their satisfaction rating came back low');
   }
   if (signalOn(data,'days')) {
-    if (data.days != null && data.days <= 7) strengths.push('recent contact (' + data.days + 'd ago)');
-    else if (data.days != null && data.days > 30) weaknesses.push('no contact in ' + data.days + ' days');
+    if (data.days != null && data.days <= 7) good.push('we spoke with them recently');
+    else if (data.days != null && data.days > 30) bad.push('we haven\'t talked to them in ' + data.days + ' days');
   }
   if (signalOn(data,'growth')) {
-    if (data.growth === 'strong') strengths.push('strong growth signal');
-    else if (data.growth === 'none') weaknesses.push('no growth signal');
+    if (data.growth === 'strong') good.push('there are strong expansion signals');
+    else if (data.growth === 'none') bad.push('there\'s no growth activity happening');
   }
 
-  // Build the NBA so the assessment can reference it
-  const nba = buildNextBestAction(data);
+  const _join = function(arr) {
+    if (arr.length <= 1) return arr[0] || '';
+    if (arr.length === 2) return arr[0] + ' and ' + arr[1];
+    return arr.slice(0,-1).join(', ') + ', and ' + arr[arr.length-1];
+  };
+  const _cap = function(s) { return s.charAt(0).toUpperCase() + s.slice(1); };
 
-  // What drove the improvement (if improving)?
-  const gains = mom === 'up' ? _nbaScoreGains(data) : [];
-  const gainText = gains.length ? gains.map(g => g.label + ' ' + g.desc).join(', ') : '';
+  // ── Contextual enrichment ─────────────────────────────────
+  const tier = data.tier || 'mid';
+  const tierLabel = {enterprise:'an Enterprise',mid:'a Mid-Market',smb:'an SMB'}[tier] || 'a Mid-Market';
+  const isHighValue = tier === 'enterprise' || (data.mrr && data.mrr >= 10000);
+  const mrrStr = data.mrr ? '$' + fmtNum(data.mrr) + '/mo' : '';
+
+  // Compound signal patterns
+  const disengaged = bad.some(function(b){return b.includes('logging in') || b.includes('logged in');}) && bad.some(function(b){return b.includes('using about');});
+  const silentAndSlipping = bad.some(function(b){return b.includes('haven\'t talked');}) && mom === 'dn';
+  const unhappyAndQuiet = (bad.some(function(b){return b.includes('NPS');}) || bad.some(function(b){return b.includes('satisfaction');})) && bad.some(function(b){return b.includes('haven\'t talked');});
+
+  // Renewal proximity
+  const renewSoon = data.renewal != null && data.renewal <= 3;
+  const renewUrgent = data.renewal != null && data.renewal <= 1;
+
+  // Momentum flavor
+  var momFlavor = '';
+  if (mom === 'dn' && score <= 35) momFlavor = 'freefall';
+  else if (mom === 'dn' && score >= 70) momFlavor = 'slipping';
+  else if (mom === 'up' && score <= 35) momFlavor = 'recovering';
+  else if (mom === 'up') momFlavor = 'climbing';
+  else if (!mom || mom === 'flat') momFlavor = 'flat';
+
+  // Kicker: most relevant extra context (only one fires)
+  var _kicker = function(st) {
+    if (disengaged && st !== 'expand' && st !== 'healthy') return ' This looks like full disengagement — not just one signal, they\'ve pulled back across the board.';
+    if (unhappyAndQuiet) return ' They\'re unhappy and we\'re not in touch — that\'s a dangerous combination.';
+    if (silentAndSlipping && st !== 'healthy') return ' Score is dropping and we haven\'t been in contact — that silence is the risk.';
+    if (renewUrgent && (st === 'critical' || st === 'risk')) return ' Renewal is imminent, which puts real timeline pressure on this.';
+    if (renewSoon && (st === 'critical' || st === 'risk' || st === 'watch')) return ' Renewal is in ' + data.renewal + ' month' + (data.renewal !== 1 ? 's' : '') + ' — we need to be in a better position by then.';
+    if (renewSoon && (st === 'healthy' || st === 'expand')) return ' Renewal is in ' + data.renewal + ' month' + (data.renewal !== 1 ? 's' : '') + ' — should be smooth given current health.';
+    if (isHighValue && mrrStr && st !== 'expand' && st !== 'healthy') return ' As ' + tierLabel + ' account at ' + mrrStr + ', this should be a top priority.';
+    return '';
+  };
 
   // ── Lifecycle-first overrides ──
   if (lc === 'onboarding') {
-    if ((status === 'critical' || status === 'risk') && mom === 'up')
-      return `<strong>${nba.action}.</strong> ${gainText ? 'Recovery driven by ' + gainText + '.' : 'Health is recovering.'} ${weaknesses.length ? 'Still dragging it down: ' + weaknesses.slice(0,2).join(' and ') + '.' : ''} Early onboarding recoveries are fragile — these gains can reverse before the customer sees real value.`;
-    if (status === 'critical' || status === 'risk')
-      return `<strong>${nba.action}.</strong> ${weaknesses.length ? weaknesses.slice(0,2).join(' and ').charAt(0).toUpperCase() + weaknesses.slice(0,2).join(' and ').slice(1) + ' are' : 'Key signals are'} well below target during the most critical adoption window. Acting now matters because onboarding-stage issues compound fast — they erode confidence before the customer has seen any value.`;
-    if (status === 'watch')
-      return `<strong>${nba.action}.</strong> ${weaknesses.length ? weaknesses.slice(0,2).join(' and ').charAt(0).toUpperCase() + weaknesses.slice(0,2).join(' and ').slice(1) + ' are' : 'Some signals are'} soft during ramp-up. Common for new customers, but these gaps become structural if they persist past the first 30 days.`;
-    return `<strong>${nba.action}.</strong> ${strengths.length ? strengths.slice(0,2).join(' and ').charAt(0).toUpperCase() + strengths.slice(0,2).join(' and ').slice(1) + '.' : 'Signals look healthy.'} Still in the early adoption window where habits are forming — this is the right time to lock in good patterns.`;
+    if ((status === 'critical' || status === 'risk') && mom === 'up') {
+      var t = name + ' is still ramping up, but things are starting to turn around.';
+      if (bad.length) t += ' The concern is that ' + _join(bad.slice(0,2)) + '.';
+      t += ' Onboarding recoveries are fragile though — these gains can reverse before they\'ve seen real value from the product.';
+      return t;
+    }
+    if (status === 'critical' || status === 'risk') {
+      var t = name + ' is struggling during onboarding, which is the worst time for it.';
+      if (bad.length) t += ' ' + _cap(bad[0]) + (bad.length > 1 ? ', and ' + bad[1] : '') + '.';
+      t += ' Issues this early compound fast — they lose confidence before they\'ve gotten any real value.';
+      return t;
+    }
+    if (status === 'watch') {
+      var t = name + ' is onboarding and mostly on track, but not quite where we\'d want them.';
+      if (bad.length) t += ' ' + _cap(bad[0]) + ' — common early on, but it becomes a real problem if it persists past the first 30 days.';
+      return t;
+    }
+    var t = name + ' is onboarding well.';
+    if (good.length) t += ' ' + _cap(good[0]) + ', which is a great early sign.';
+    t += ' Still early enough to lock in the right habits.';
+    return t;
   }
 
   if (lc === 'won') {
-    if ((status === 'critical' || status === 'risk') && mom === 'up')
-      return `<strong>${nba.action}.</strong> ${gainText ? 'Recovery driven by ' + gainText + '.' : 'Health is recovering.'} ${weaknesses.length ? 'Still weak: ' + weaknesses.slice(0,2).join(' and ') + '.' : ''} Post-expansion dips often happen when the new scope hasn't been fully adopted.`;
-    if (status === 'critical' || status === 'risk')
-      return `<strong>${nba.action}.</strong> Health deteriorated after expanding. ${weaknesses.length ? 'Driven by ' + weaknesses.slice(0,2).join(' and ') + '.' : ''} The new capabilities may not be landing as expected — if value isn't realized quickly, buyer's remorse sets in.`;
-    if (status === 'watch')
-      return `<strong>${nba.action}.</strong> ${weaknesses.length ? weaknesses.slice(0,2).join(' and ').charAt(0).toUpperCase() + weaknesses.slice(0,2).join(' and ').slice(1) + '.' : 'Some signals are soft.'} Adoption of the expanded scope likely needs reinforcement to prevent a slide.`;
-    return `<strong>${nba.action}.</strong> ${strengths.length ? strengths.slice(0,2).join(' and ').charAt(0).toUpperCase() + strengths.slice(0,2).join(' and ').slice(1) + '.' : 'Signals look strong.'} The expansion is landing well.`;
+    if ((status === 'critical' || status === 'risk') && mom === 'up') {
+      var t = name + ' had a dip after expanding, but things are trending back up.';
+      if (bad.length) t += ' Still seeing some issues — ' + _join(bad.slice(0,2)) + '.';
+      t += ' Post-expansion dips happen when the new scope hasn\'t fully landed yet.';
+      return t;
+    }
+    if (status === 'critical' || status === 'risk') {
+      var t = name + ' has gone downhill since the expansion.';
+      if (bad.length) t += ' ' + _cap(bad[0]) + '.';
+      t += ' The new capabilities might not be landing as expected — if they don\'t see value soon, buyer\'s remorse kicks in.';
+      return t;
+    }
+    if (status === 'watch') {
+      var t = name + ' expanded recently but the new scope needs reinforcement.';
+      if (bad.length) t += ' ' + _cap(bad[0]) + '.';
+      t += ' Not alarming yet, but worth a check-in within the next week or two to make sure the new scope is landing.';
+      return t;
+    }
+    var t = name + ' is doing great post-expansion.';
+    if (good.length) t += ' ' + _cap(good[0]) + '.';
+    t += ' The new scope is landing well.';
+    return t;
   }
 
   if (lc === 'churned') {
-    if (score >= 50)
-      return `<strong>${nba.action}.</strong> ${strengths.length ? strengths.slice(0,2).join(' and ').charAt(0).toUpperCase() + strengths.slice(0,2).join(' and ').slice(1) + ' suggest' : 'Decent engagement suggests'} there may be an opportunity to re-engage with a targeted offer.`;
-    return `<strong>${nba.action}.</strong> ${weaknesses.length ? weaknesses.slice(0,2).join(' and ').charAt(0).toUpperCase() + weaknesses.slice(0,2).join(' and ').slice(1) + ' were' : 'Weak signals were'} present at churn. Low likelihood of winback without significant changes.`;
+    if (score >= 50) {
+      var t = 'There might be a winback opportunity here.';
+      if (good.length) t += ' Before they left, ' + _join(good.slice(0,2)) + ' — so the relationship wasn\'t all bad.';
+      t += ' A targeted re-engagement could work.';
+      return t;
+    }
+    var t = 'Winback looks tough on this one.';
+    if (bad.length) t += ' Before they churned, ' + _join(bad.slice(0,2)) + '.';
+    t += ' Would need a significant reason for them to come back.';
+    return t;
   }
 
   // ── Standard health assessment ────────────────────────────
   if (status === 'critical') {
-    let text = `<strong>${nba.action}.</strong>`;
-    if (weaknesses.length) text += ` Driven by ${weaknesses.slice(0,3).join(', ')}.`;
-    if (strengths.length) text += ` Bright spot: ${strengths[0]}.`;
-    if (data.mrr) text += ` $${fmtNum(data.mrr)} MRR at churn risk.`;
-    if (mom === 'up') text += gainText ? ` Recovery driven by ${gainText} — but health is still well below safe levels.` : ' Recovery is underway but health is still well below safe levels.';
-    else if (mom === 'dn') text += ' The downward trajectory makes this more urgent — without intervention the account is heading toward churn.';
-    return text;
+    var t = name + ' is in serious trouble.';
+    if (bad.length) t += ' ' + _cap(bad[0]) + (bad.length > 1 ? ', and ' + bad[1] : '') + '.';
+    if (good.length) t += ' The one bright spot is ' + good[0] + '.';
+    if (data.mrr) t += ' That\'s $' + fmtNum(data.mrr) + ' MRR we could lose.';
+    if (momFlavor === 'freefall') t += ' The score is in freefall — this needs immediate intervention before it\'s too late.';
+    else if (momFlavor === 'recovering') t += ' There are early signs of recovery, but they\'re still deep in the danger zone.';
+    else if (mom === 'dn') t += ' And it\'s getting worse — without stepping in, this is heading toward churn.';
+    t += _kicker('critical');
+    return t;
   }
 
   if (status === 'risk') {
-    let text = `<strong>${nba.action}.</strong>`;
-    if (weaknesses.length) text += ` ${weaknesses.slice(0,3).join(', ').charAt(0).toUpperCase() + weaknesses.slice(0,3).join(', ').slice(1)} are the primary concerns.`;
-    if (strengths.length) text += ` On the positive side: ${strengths[0]}.`;
-    if (mom === 'up') text += gainText ? ` Improvement driven by ${gainText} — but still below safe levels.` : ' Health is improving but still below safe levels.';
-    else if (mom === 'dn') text += ' The continued decline makes action more urgent.';
-    return text;
+    var t = name + ' needs attention.';
+    if (bad.length === 1) t += ' The main concern is ' + bad[0] + '.';
+    else if (bad.length > 1) t += ' ' + _cap(bad[0]) + ', and ' + bad[1] + '.';
+    if (good.length) t += ' On the plus side, ' + good[0] + '.';
+    if (data.mrr && data.mrr >= 5000) t += ' At ' + mrrStr + ', this is worth prioritizing.';
+    if (mom === 'up') t += ' Things are trending up, which is encouraging, but they\'re not out of the woods yet.';
+    else if (mom === 'dn') t += ' And the trend is going the wrong direction, which makes this more pressing.';
+    t += _kicker('risk');
+    return t;
   }
 
   if (status === 'watch') {
-    let text = `<strong>${nba.action}.</strong>`;
-    if (weaknesses.length) text += ` ${weaknesses.slice(0,2).join(' and ').charAt(0).toUpperCase() + weaknesses.slice(0,2).join(' and ').slice(1)} are the soft spots.`;
-    if (strengths.length) text += ` Holding up on: ${strengths.slice(0,2).join(' and ')}.`;
-    if (mom === 'dn') text += ' If this trajectory continues, the account will slide into At Risk.';
-    else if (mom === 'up') text += gainText ? ` Improvement driven by ${gainText} — addressing the remaining gaps could push this back to Healthy.` : ' The upward movement is a good sign — addressing the remaining gaps now could push this back to Healthy.';
-    return text;
+    var t = name + ' is okay but not great — worth keeping an eye on.';
+    if (bad.length) t += ' ' + _cap(bad[0]) + ', which is the main thing I\'d flag.';
+    if (good.length) t += ' ' + _cap(good[0]) + ' though, which is a positive.';
+    if (isHighValue) t += ' As ' + tierLabel + ' account, even Watch status warrants closer attention.';
+    if (mom === 'dn') t += ' If this keeps slipping, they\'ll move into At Risk.';
+    else if (mom === 'up') t += ' The trend is positive — a little more attention could push them back to Healthy.';
+    t += _kicker('watch');
+    return t;
   }
 
   if (status === 'expand') {
-    let text = `<strong>${nba.action}.</strong>`;
-    if (strengths.length) text += ` ${strengths.slice(0,2).join(' and ').charAt(0).toUpperCase() + strengths.slice(0,2).join(' and ').slice(1)} make this the right time.`;
-    if (mom === 'dn') text += ' Worth monitoring the downward momentum before pushing growth conversations.';
-    return text;
+    var t = name + ' is thriving — this is one to get excited about.';
+    if (good.length) t += ' ' + _cap(good[0]) + (good.length > 1 ? ', and ' + good[1] : '') + '.';
+    if (mom === 'dn') { t += ' Score dipped ' + (Math.abs(delta) || 'a few') + ' points recently though — check the trend chart to see which signals are pulling back before pushing growth conversations.'; }
+    else if (data.mrr) t += ' At ' + mrrStr + ', a successful expansion here would be a big win.';
+    else t += ' Great candidate for an expansion conversation.';
+    t += _kicker('expand');
+    return t;
   }
 
   // Healthy
-  let text = `<strong>${nba.action}.</strong>`;
-  if (strengths.length) text += ` ${strengths.slice(0,2).join(' and ').charAt(0).toUpperCase() + strengths.slice(0,2).join(' and ').slice(1)}.`;
-  if (weaknesses.length) text += ` Minor area to watch: ${weaknesses[0]}.`;
-  if (mom === 'dn') text += ' Solid today but the declining trend means this could shift to Watch if it continues.';
-  if (data.renewal != null && data.renewal <= 2) text += ` Renewal approaching in ${data.renewal} month${data.renewal !== 1 ? 's' : ''}.`;
-  return text;
+  var t = name + ' is in good shape — no major concerns.';
+  if (good.length) t += ' ' + _cap(good[0]) + (good.length > 1 ? ', and ' + good[1] : '') + '.';
+  if (bad.length) t += ' The only thing I\'d keep an eye on is ' + bad[0] + ' — if that gets worse, it could drag the score down.';
+  if (momFlavor === 'slipping') t += ' Score has been dipping from a good position — down ' + (Math.abs(delta) || 'a few') + ' points recently. Check the signal breakdown to see what\'s changing before it becomes a trend.';
+  else if (mom === 'dn') t += ' Score has been dipping — down ' + (Math.abs(delta) || 'a few') + ' points recently. Check the signal breakdown to see what\'s changing.';
+  t += _kicker('healthy');
+  return t;
 }
 
 function buildPlaybook(score, data) {
@@ -413,6 +778,16 @@ function buildPlaybook(score, data) {
       plays.push({ type:'engage', text:`<strong>Check-in email:</strong> ${data.days} days since last contact. Reach out with something valuable — share a relevant case study, tip, or product update, then close with: <em>"Anything you'd like to cover on our next call?"</em>` });
   }
 
+  // ── Compound signal patterns ────────────────────────────
+  if (signalOn(data,'logins') && signalOn(data,'adoption') && data.logins != null && data.logins < 5 && data.adoption != null && data.adoption < 30)
+    plays.push({ type:'urgent', text:`<strong>Full disengagement:</strong> ${name} has both low logins (${data.logins}/mo) and low adoption (${data.adoption}%). This isn't one signal — they've checked out across the board. This needs a direct, honest conversation: <em>"I want to be straight with you — the data shows your team isn't getting value from us right now. Can we reset and figure out what needs to change?"</em>` });
+  if (signalOn(data,'days') && data.days > 30 && getMomentum(data) === 'dn')
+    plays.push({ type:'urgent', text:`<strong>Silent decline:</strong> Score is dropping and we haven't been in touch for ${data.days} days. The longer this goes unaddressed, the harder recovery gets. Break the silence today with a personal note — not a template.` });
+  if ((signalOn(data,'nps') && npsIsDetractor(data.nps)) && signalOn(data,'days') && data.days > 21)
+    plays.push({ type:'urgent', text:`<strong>Unhappy and unreachable:</strong> NPS detractor (${npsDisplay(data.nps)}) combined with ${data.days} days of no contact. They may already be evaluating alternatives. This needs an exec-level save call, not a standard check-in.` });
+  if (data.renewal != null && data.renewal <= 3 && (status === 'critical' || status === 'risk'))
+    plays.push({ type:'urgent', text:`<strong>Renewal at risk:</strong> ${name} renews in ${data.renewal} month${data.renewal !== 1 ? 's' : ''} while in ${status === 'critical' ? 'critical' : 'at-risk'} health. Lead with a recovery plan before any renewal discussion: <em>"I want to make sure we solve what's not working before we talk about next year."</em>` });
+
   // ── Renewal ──────────────────────────────────────────────
   if (data.renewal === 0)
     plays.push({ type:'renew', text:`<strong>Renewal NOW:</strong> Contract is at renewal — get this closed immediately. If health is strong, make it easy: <em>"Everything looks great on your account — I'd love to lock in your renewal and talk about what's coming next year."</em>` });
@@ -449,16 +824,22 @@ function buildPlaybook(score, data) {
 
   // ── Status-aware fallback ──
   if (!plays.length) {
-    if (status === 'critical' || status === 'risk')
-      plays.push({ type:'urgent', text:`<strong>Investigate:</strong> ${name} is ${status === 'critical' ? 'critical' : 'at risk'} — the composite score is low even though no single signal is in crisis. Review recent trends, reach out today, and dig into what may have changed: <em>"I've been keeping a close eye on your account — can we find time this week to check in?"</em>` });
+    if (status === 'critical' || status === 'risk') {
+      const drivers = _nbaScoreDrivers(data);
+      const driverHint = drivers.length ? ' The biggest movers: ' + drivers.map(d => d.label + ' ' + d.desc).join('; ') + '.' : ' No single signal is in crisis, but several are dragging the score down together — check the Signal Breakdown for the full picture.';
+      plays.push({ type:'urgent', text:`<strong>Dig into what changed:</strong> ${name} is ${status === 'critical' ? 'critical' : 'at risk'}.${driverHint} Reach out today: <em>"I've been keeping a close eye on your account — can we find time this week to check in?"</em>` });
+    }
     else if (status === 'watch')
       plays.push({ type:'engage', text:`<strong>Proactive check-in:</strong> ${name} is in the Watch zone — signals are borderline across the board. Increase your cadence and reach out: <em>"I wanted to check in and make sure everything is tracking well. Anything on your radar I should know about?"</em>` });
     else if (status === 'expand' && getMomentum(data) !== 'dn')
       plays.push({ type:'expand', text:`<strong>Capitalize on momentum:</strong> ${name} is in great shape with strong engagement. Explore expansion opportunities, ask for a referral, or propose a tier upgrade at your next touchpoint.` });
-    else if (status === 'expand')
-      plays.push({ type:'engage', text:`<strong>Investigate recent decline:</strong> ${name} scores well but momentum has turned negative. Focus on understanding what changed before pursuing growth conversations.` });
+    else if (status === 'expand') {
+      const drivers = _nbaScoreDrivers(data);
+      const driverHint = drivers.length ? drivers.map(d => d.label + ' ' + d.desc).join('; ') + '.' : 'Check the trend chart and signal breakdown to see which signals are pulling back.';
+      plays.push({ type:'engage', text:`<strong>Pause on expansion — score is dipping:</strong> ${name} scores well overall but momentum has turned negative. ${driverHint} Understand the drop before pushing growth conversations.` });
+    }
     else
-      plays.push({ type:'ok', text:`<strong>Stay the course:</strong> ${name} is healthy across all signals. Maintain your regular cadence, bring value on every call, and watch for any early warning signs.` });
+      plays.push({ type:'ok', text:`<strong>Stay the course:</strong> ${name} is healthy across all signals. Maintain your regular cadence and bring value on every call. If logins drop below 5/mo, adoption falls under 30%, or you go more than 30 days without contact — that's when to act.` });
   }
 
   // ── Lifecycle suppression: remove play types not appropriate for this stage ──
@@ -625,7 +1006,7 @@ function buildNextBestAction(c) {
   if (lc === 'churned') {
     if (c.score >= 50)
       return { level:'warn', action:'Assess winback potential', talk:`${c.name||'This account'} churned but had decent engagement. Consider a targeted re-engagement: "We've made some improvements since we last worked together — would you be open to a quick conversation about what's new?"` };
-    return { level:'ok', action:'Account churned — document lessons learned', talk:`This account has churned. Document what led to the loss and monitor for any future re-engagement opportunity.` };
+    return { level:'ok', action:'Account churned — document lessons learned', talk:`This account has churned. Document what led to the loss. If their signals ever start improving (new logins, support tickets closing), or you hear about leadership changes or new funding — that's your winback window.` };
   }
   const urgency = getRenewalUrgency(c);
 
@@ -811,31 +1192,38 @@ function buildCadenceAlerts() {
     if (c.next_touch) {
       const ntDays = Math.round((new Date() - new Date(c.next_touch)) / 86400000);
       if (ntDays > 0) {
+        var _ntCtx = ntDays > 14 ? 'Significantly overdue — reschedule immediately' : ntDays > 7 ? 'Over a week late' : 'Recently overdue';
+        var _ntHealth = (c.status === 'critical' || c.status === 'risk') ? ' · ⚠ ' + (c.status === 'critical' ? 'Critical' : 'At Risk') : '';
         alerts.push({
           id:  `${c.id}-ntouch`,
           cid: c.id,
           cat: 'cadence',
           type: ntDays > 7 ? 'red' : 'amber',
           msg: `<strong>${escHtml(c.name)}</strong> <span>— scheduled touch overdue by ${ntDays} day${ntDays !== 1 ? 's' : ''}</span>`,
-          sub: `Was due ${new Date(c.next_touch).toLocaleDateString('en-US', { month:'short', day:'numeric' })}`
+          sub: `${_ntCtx} · Was due ${new Date(c.next_touch).toLocaleDateString('en-US', { month:'short', day:'numeric' })}${_ntHealth}`
         });
       }
     }
     if (!signalOn(c,'days')) return; // cadence is a days-based signal — skip if weight is 0
     const cad = getCadenceStatus(c);
     if (cad.status === 'overdue') {
+      var _cadCtx = (c.status === 'critical' || c.status === 'risk') ? 'At-risk account going uncontacted' : c.tier === 'enterprise' ? 'Enterprise SLA breach' : 'Contact cadence exceeded';
+      var _cadMom = getMomentum(c) === 'dn' ? ' · Score declining ↘' : '';
       alerts.push({
         id: c.id+'-cadence',
         cid: c.id,
         type: 'red',
-        msg: `<strong>${c.name}</strong> <span>— check-in overdue! No contact in ${c.days} days (${(c.tier||'mid').toUpperCase()} SLA: ${getCadenceThresholds()[c.tier||'mid'].overdue}d)</span>`
+        msg: `<strong>${c.name}</strong> <span>— check-in overdue! No contact in ${c.days} days (${(c.tier||'mid').toUpperCase()} SLA: ${getCadenceThresholds()[c.tier||'mid'].overdue}d)</span>`,
+        sub: `${_cadCtx} · $${fmtNum(c.mrr||0)} MRR${_cadMom}`
       });
     } else if (cad.status === 'warn') {
+      var _cadWCtx = (c.status === 'critical' || c.status === 'risk') ? 'At-risk — don\'t let this go overdue' : 'Approaching cadence limit';
       alerts.push({
         id: c.id+'-cadence',
         cid: c.id,
         type: 'amber',
-        msg: `<strong>${c.name}</strong> <span>— check-in due soon (${c.days} days since contact)</span>`
+        msg: `<strong>${c.name}</strong> <span>— check-in due soon (${c.days} days since contact)</span>`,
+        sub: `${_cadWCtx} · $${fmtNum(c.mrr||0)} MRR`
       });
     }
   });

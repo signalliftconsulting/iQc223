@@ -262,7 +262,7 @@ function applyMapping() {
     <table>
       <thead><tr><th></th><th>Name</th><th>Score</th><th>MRR</th><th>NPS</th><th>CSAT</th><th>Tier</th></tr></thead>
       <tbody>${parsed.slice(0,8).map(r => {
-        const {score} = calcScore(r);
+        const {score} = scoreWithModel(r);
         const isUpdate = customers.some(c => c.name.toLowerCase() === r.name.toLowerCase());
         const tag = isUpdate
           ? '<span style="font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:8px;background:rgba(37,99,235,.12);color:#2563eb">UPDATE</span>'
@@ -318,7 +318,7 @@ async function importCSV() {
         // Fallback: all fields mapped (legacy behavior)
         Object.assign(dupe, r);
       }
-      const { score } = calcScore(dupe);
+      const { score } = scoreWithModel(dupe);
       const status = getStatus(score);
       dupe.score = score;
       dupe.status = status;
@@ -348,7 +348,7 @@ async function importCSV() {
       applyAutoStage(dupe);
       toUpdate.push(dupe);
     } else {
-      const { score } = calcScore(r);
+      const { score } = scoreWithModel(r);
       const status = getStatus(score);
       const notes = importNote ? [{ text: importNote, date: now }] : [];
       const sentiment = importSentiment ? [{ val: importSentiment, note: 'CSV import', date: now }] : [];

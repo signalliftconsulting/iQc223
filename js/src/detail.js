@@ -125,7 +125,10 @@ function submitForm(e) {
   const matchedProfile = data.profile ? profiles.find(p => p.name === data.profile) : null;
   const resolvedWeights = matchedProfile ? matchedProfile.weights : weights;
 
-  const { score, signals } = calcScore(data, resolvedWeights);
+  // Merge existing customer data for Signal Model factors
+  const existing = editId ? customers.find(x => x.id === editId) : customers.find(x => x.name && x.name.toLowerCase() === (data.name||'').toLowerCase());
+  const tempC = { ...data, history: existing?.history || [], lifecycle: existing?.lifecycle || data.lifecycle, tier: existing?.tier || data.tier, since: existing?.since || data.since, scoring_profile: data.profile || '', renewal_date: existing?.renewal_date || data.renewal_date, contact_name: existing?.contact_name || data.contact_name, next_touch: existing?.next_touch };
+  const { score, signals } = scoreWithModel(tempC, resolvedWeights);
   const status = getStatus(score);
   const rec    = makeRec(score, data);
   const plays  = buildPlaybook(score, data);
@@ -775,7 +778,7 @@ function renderDetailAlerts() {
 function renderDetailOverview() {
   const c = customers.find(x => x.id === detailId);
   if (!c) return;
-  const { signals } = calcScore(c, getActiveWeights(c));
+  const { signals } = scoreWithModel(c);
   const rec    = makeRec(c.score, c);
   const delta  = scoreDelta(c);
   const cad    = getCadenceStatus(c);
@@ -900,7 +903,36 @@ function renderDetailOverview() {
     </div>
     <div class="bd-title">Signal Breakdown</div>
     ${buildBreakdownHTML(signals, c)}
+    ${buildSignalModelInsightsHTML(c)}
   `;
+}
+
+function buildSignalModelInsightsHTML(c) {
+  if (!c._signalModel || !c._signalModel.enabled || !c._signalModel.factors.length) return '';
+  var sm = c._signalModel;
+  var adjColor = sm.totalAdj >= 0 ? 'var(--green)' : 'var(--red)';
+  var adjSign = sm.totalAdj >= 0 ? '+' : '';
+  var catIcons = { engagement: appIcon('chartBar',13), revenue: appIcon('trendUp',13), relationship: appIcon('users',13), support: appIcon('clipboard',13), lifecycle: appIcon('calendar',13), compound: appIcon('sparkle',13) };
+  var factorRows = sm.factors.sort(function(a,b){ return a.adj - b.adj; }).map(function(f) {
+    var c2 = f.adj >= 0 ? 'var(--green)' : 'var(--red)';
+    var sign = f.adj >= 0 ? '+' : '';
+    return '<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">' +
+      '<span style="color:#0f766e;flex-shrink:0;margin-top:2px">' + (catIcons[f.category] || '') + '</span>' +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="font-weight:600;font-size:var(--fs-base)">' + f.name +
+          ' <span style="font-weight:700;color:' + c2 + ';margin-left:4px">' + sign + f.adj + '</span></div>' +
+        '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:1px">' + f.reason + '</div>' +
+      '</div></div>';
+  }).join('');
+  return '<div style="margin-top:14px">' +
+    '<div class="bd-title" style="display:flex;align-items:center;gap:8px">' +
+      appIcon('sparkle',16) + ' Signal Model Insights' +
+      '<span style="margin-left:auto;font-size:var(--fs-sm);font-weight:700;color:' + adjColor + '">Net: ' + adjSign + sm.totalAdj + ' pts</span>' +
+    '</div>' +
+    '<div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:8px">' +
+      'Base: ' + sm.baseScore + ' \u2192 Adjusted: ' + sm.adjustedScore +
+      ' (' + sm.sensitivity + ', ' + sm.factors.length + ' factor' + (sm.factors.length !== 1 ? 's' : '') + ' fired)' +
+    '</div>' + factorRows + '</div>';
 }
 
 async function saveNextTouch() {
@@ -933,7 +965,7 @@ async function saveNextTouch() {
   c.next_touch_time = newNt ? newTime : '';
 
   /* Recalculate score — days may have changed from archival */
-  const { score: newSc } = calcScore(c);
+  const { score: newSc } = scoreWithModel(c);
   if (newSc !== c.score) {
     c.score = newSc;
     c.status = getStatus(newSc);
@@ -1351,7 +1383,8 @@ function editCustomer(id) {
     renewal: c.renewal, renewal_date: c.renewal_date || '', profile: c.scoring_profile || ''
   };
   const rw = c.scoring_profile ? (profiles.find(p => p.name === c.scoring_profile) || {}).weights || weights : weights;
-  const { score: curScore, signals: curSignals } = calcScore(curData, rw);
+  const tempCur = { ...c, ...curData, scoring_profile: curData.profile };
+  const { score: curScore, signals: curSignals } = scoreWithModel(tempCur, rw);
   const curStatus = getStatus(curScore);
   const curRec    = makeRec(curScore, curData);
   const curPlays  = buildPlaybook(curScore, curData);
@@ -1579,7 +1612,7 @@ function buildQBRHTML(c) {
   } else {
     summary = `${name} is in a <strong>${statusLabel}</strong> state with a health score of ${c.score}/100. `;
     if (mom === 'up') summary += 'The score is trending positively. ';
-    if (wins.length && risks.length) summary += `There are clear strengths alongside ${risks.length} area${risks.length > 1 ? 's' : ''} to monitor. `;
+    if (wins.length && risks.length) summary += `There are clear strengths, but ${risks.map(r => r.label).join(' and ')} need${risks.length === 1 ? 's' : ''} attention. `;
     else if (wins.length) summary += 'Multiple positive signals are present. ';
     summary += 'This meeting should reinforce value, address any concerns, and align on goals for the next quarter.';
   }

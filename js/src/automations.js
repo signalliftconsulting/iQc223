@@ -58,6 +58,46 @@ function migrateAutomationsCfg() {
   if (!automationsCfg.report_schedules) {
     automationsCfg.report_schedules = {};
   }
+  // Ensure custom_rules array exists
+  if (!automationsCfg.custom_rules) {
+    automationsCfg.custom_rules = [];
+  }
+  // Migrate inline URLs to saved_connections
+  if (!automationsCfg.saved_connections) {
+    automationsCfg.saved_connections = [];
+    if (automationsCfg.channels) {
+      ['slack', 'teams', 'email'].forEach(function(chKey) {
+        var ch = automationsCfg.channels[chKey];
+        if (!ch) return;
+        var isEmail = chKey === 'email';
+        var hasValue = isEmail ? !!ch.recipients : !!ch.url;
+        if (hasValue) {
+          var conn = {
+            id: generateConnectionId(),
+            type: chKey,
+            name: chKey === 'slack' ? 'Slack Channel' : chKey === 'teams' ? 'Teams Channel' : 'Email Recipients'
+          };
+          if (isEmail) {
+            conn.recipients = ch.recipients;
+            if (ch.subject_prefix) conn.subject_prefix = ch.subject_prefix;
+          } else {
+            conn.url = ch.url;
+          }
+          automationsCfg.saved_connections.push(conn);
+          ch.connection_id = conn.id;
+        }
+      });
+    }
+    // Convert custom rule channel booleans to connection IDs
+    (automationsCfg.custom_rules || []).forEach(function(rule) {
+      if (!rule.channels) return;
+      ['slack', 'teams', 'email'].forEach(function(chKey) {
+        if (rule.channels[chKey] === true && automationsCfg.channels && automationsCfg.channels[chKey] && automationsCfg.channels[chKey].connection_id) {
+          rule.channels[chKey] = automationsCfg.channels[chKey].connection_id;
+        }
+      });
+    });
+  }
 }
 
 // ── Help search ──
@@ -95,12 +135,24 @@ function helpTab(t) {
 
 // ── Tab switching ──
 function autoTab(which) {
-  ['active','create'].forEach(t => {
+  ['active','rules'].forEach(t => {
     el('auto-tab-'+t)?.classList.toggle('active', t === which);
     el('auto-pane-'+t)?.classList.toggle('active', t === which);
   });
   if (which === 'active') renderActiveAlerts();
-  if (which === 'create') { wizardGoToStep(_wizardStep); renderWizardNav(); }
+  if (which === 'rules') renderCustomRulesList();
+}
+
+function openCreateAlertModal() {
+  _wizardStep = 1;
+  openModal('create-alert-modal');
+  wizardGoToStep(1);
+  renderWizardNav();
+}
+
+function closeCreateAlertModal() {
+  closeModal('create-alert-modal');
+  _wizardStep = 1;
 }
 
 // ── Main render ──
@@ -212,11 +264,88 @@ const CHANNELS = [
   }
 ];
 
+// ── Saved Connections helpers ──
+
+function generateConnectionId() {
+  return 'sc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+}
+
+function getConnectionsForType(type) {
+  return (automationsCfg.saved_connections || []).filter(function(c) { return c.type === type; });
+}
+
+function resolveConnection(channelKey, connectionIdOverride) {
+  var conns = automationsCfg.saved_connections || [];
+  var chCfg = (automationsCfg.channels || {})[channelKey] || {};
+  var cid = connectionIdOverride || chCfg.connection_id;
+  if (cid) {
+    var found = conns.find(function(c) { return c.id === cid; });
+    if (found) return found;
+  }
+  // Legacy fallback: inline url/recipients
+  if (channelKey === 'email' && chCfg.recipients) {
+    return { id: null, type: 'email', name: '', recipients: chCfg.recipients, subject_prefix: chCfg.subject_prefix || '' };
+  }
+  if (chCfg.url) {
+    return { id: null, type: channelKey, name: '', url: chCfg.url };
+  }
+  return null;
+}
+
+function saveConnection(conn) {
+  if (!automationsCfg.saved_connections) automationsCfg.saved_connections = [];
+  var idx = automationsCfg.saved_connections.findIndex(function(c) { return c.id === conn.id; });
+  if (idx >= 0) automationsCfg.saved_connections[idx] = conn;
+  else automationsCfg.saved_connections.push(conn);
+  saveAutomationsCfg();
+}
+
+function deleteConnection(connId) {
+  automationsCfg.saved_connections = (automationsCfg.saved_connections || []).filter(function(c) { return c.id !== connId; });
+  ['slack','teams','email'].forEach(function(k) {
+    if (automationsCfg.channels && automationsCfg.channels[k] && automationsCfg.channels[k].connection_id === connId) {
+      delete automationsCfg.channels[k].connection_id;
+    }
+  });
+  (automationsCfg.custom_rules || []).forEach(function(rule) {
+    Object.keys(rule.channels || {}).forEach(function(k) {
+      if (rule.channels[k] === connId) rule.channels[k] = false;
+    });
+  });
+  saveAutomationsCfg();
+}
+
+// ── Custom Rule Field Definitions ──
+const RULE_FIELD_DEFS = [
+  { key: 'score',     label: 'Health Score',        type: 'number', ops: ['lt','gt','lte','gte','eq','neq'] },
+  { key: 'status',    label: 'Status',              type: 'enum',   ops: ['eq','neq'], options: ['critical','risk','watch','healthy','expand'] },
+  { key: 'tier',      label: 'Tier',                type: 'enum',   ops: ['eq','neq'], options: ['smb','mid','enterprise'] },
+  { key: 'lifecycle', label: 'Lifecycle',            type: 'enum',   ops: ['eq','neq'], options: ['onboarding','active','atrisk','churned','won'] },
+  { key: 'logins',    label: 'Logins',              type: 'number', ops: ['lt','gt','lte','gte','eq','neq'] },
+  { key: 'adoption',  label: 'Adoption %',          type: 'number', ops: ['lt','gt','lte','gte','eq','neq'] },
+  { key: 'tickets',   label: 'Open Tickets',        type: 'number', ops: ['lt','gt','lte','gte','eq','neq'] },
+  { key: 'nps',       label: 'NPS',                 type: 'number', ops: ['lt','gt','lte','gte','eq','neq'] },
+  { key: 'csat',      label: 'CSAT',                type: 'number', ops: ['lt','gt','lte','gte','eq','neq'] },
+  { key: 'mrr',       label: 'MRR ($)',             type: 'number', ops: ['lt','gt','lte','gte','eq','neq'] },
+  { key: 'days',      label: 'Days Since Contact',  type: 'number', ops: ['lt','gt','lte','gte','eq','neq'] },
+  { key: 'growth',    label: 'Growth Signal',        type: 'enum',   ops: ['eq','neq'], options: ['none','up','down','flat'] },
+  { key: 'momentum',  label: 'Momentum',            type: 'enum',   ops: ['eq','neq'], options: ['up','dn','flat','new'] },
+  { key: 'cadence_status', label: 'Cadence Status', type: 'enum',   ops: ['eq','neq'], options: ['ok','warn','overdue'] },
+  { key: 'renewal_within', label: 'Renewal Within (days)', type: 'number', ops: ['lte','gte'] },
+  { key: 'tags',      label: 'Tags',                type: 'text',   ops: ['contains','not_contains'] },
+  { key: 'manager',   label: 'CSM / Manager',       type: 'text',   ops: ['eq','neq','contains'] }
+];
+const RULE_OP_LABELS = { lt:'<', gt:'>', lte:'≤', gte:'≥', eq:'=', neq:'≠', contains:'contains', not_contains:'not contains' };
+const RULE_OP_LABELS_LONG = { lt:'is less than', gt:'is greater than', lte:'is at most', gte:'is at least', eq:'is', neq:'is not', contains:'contains', not_contains:'does not contain' };
+
 let _wizardStep = 1;
 let _inlineEditKey = null;
 let _alertSortKey = 'label';
 let _alertSortDir = 1;
 let _alertFilters = {};
+let _editingRule = null;
+let _ruleBuilderData = null;
+let _ruleWizardStep = 1;
 let _openAlertFilterKey = null;
 
 const ALERT_COL_DEFS = [
@@ -239,9 +368,15 @@ function sentToHtml(alertKey) {
   const ch = automationsCfg.channels || {};
   const parts = [];
   const subscribed = (chKey) => !alertKey || (ch[chKey]?.alerts || []).includes(alertKey);
-  if (ch.slack?.enabled && subscribed('slack')) parts.push('<span class="dest-tag" title="' + escHtml(ch.slack.url || 'No URL configured') + '">' + _aicoSm(AUTO_ICONS.slack) + ' Slack</span>');
-  if (ch.teams?.enabled && subscribed('teams')) parts.push('<span class="dest-tag" title="' + escHtml(ch.teams.url || 'No URL configured') + '">' + _aicoSm(AUTO_ICONS.teams) + ' Teams</span>');
-  if (ch.email?.enabled && subscribed('email')) parts.push('<span class="dest-tag" title="' + escHtml(ch.email.recipients || 'No recipients configured') + '">' + _aicoSm(AUTO_ICONS.email) + ' Email</span>');
+  ['slack','teams','email'].forEach(function(chKey) {
+    if (ch[chKey]?.enabled && subscribed(chKey)) {
+      var conn = resolveConnection(chKey);
+      var connName = conn && conn.name ? ' (' + escHtml(conn.name) + ')' : '';
+      var tooltip = conn ? escHtml(chKey === 'email' ? (conn.recipients || '') : (conn.url || '')) : 'Not configured';
+      var label = chKey === 'teams' ? 'Teams' : chKey.charAt(0).toUpperCase() + chKey.slice(1);
+      parts.push('<span class="dest-tag" title="' + tooltip + '">' + _aicoSm(AUTO_ICONS[chKey]) + ' ' + label + connName + '</span>');
+    }
+  });
   return parts.length
     ? parts.join(' ')
     : '<span style="color:var(--muted);font-size:var(--fs-base)">' + _aicoSm(AUTO_ICONS.warning) + ' None</span>';
@@ -273,7 +408,7 @@ function renderActiveAlerts() {
       '<div class="empty-icon">' + _aicoLg(AUTO_ICONS.bell) + '</div>' +
       '<h3 style="margin-bottom:6px">No alerts configured yet</h3>' +
       '<p style="font-size:var(--fs-md);margin-bottom:16px">Create your first alert to start monitoring customer health.</p>' +
-      '<button class="btn btn-sm btn-primary" onclick="autoTab(\'create\')">+ Create Alert</button>' +
+      '<button class="btn btn-sm btn-primary" onclick="openCreateAlertModal()">+ Create Alert</button>' +
     '</div>';
     return;
   }
@@ -393,7 +528,7 @@ function renderActiveAlerts() {
         const chCfg = channels[ch.key];
         const isConfigured = !!chCfg?.enabled;
         const isOn = isConfigured && (chCfg?.alerts || []).includes(at.key);
-        return '<label' + (!isConfigured ? ' style="opacity:.5" title="Enable ' + escHtml(ch.label) + ' in Create tab first"' : '') + '>' +
+        return '<label' + (!isConfigured ? ' style="opacity:.5" title="Enable ' + escHtml(ch.label) + ' in the alert wizard first"' : '') + '>' +
           '<input type="checkbox" ' + (isOn ? 'checked' : '') +
           (!isConfigured ? ' disabled' : '') +
           ' onchange="toggleChannelInline(\'' + ch.key + '\', \'' + at.key + '\', this.checked)"/>' +
@@ -688,9 +823,33 @@ function renderWizardNav() {
 }
 
 function wizardSaveAndFinish() {
+  // Validate: at least one channel enabled with a configured connection
+  var channels = automationsCfg.channels || {};
+  var hasConfigured = false;
+  var missingConn = [];
+  ['slack', 'teams', 'email'].forEach(function(k) {
+    if (channels[k] && channels[k].enabled) {
+      var conn = resolveConnection(k);
+      if (conn && (conn.url || conn.recipients)) {
+        hasConfigured = true;
+      } else {
+        var label = k === 'teams' ? 'Microsoft Teams' : k.charAt(0).toUpperCase() + k.slice(1);
+        missingConn.push(label);
+      }
+    }
+  });
+  if (!hasConfigured && missingConn.length === 0) {
+    toast('Enable at least one delivery channel and select a connection', 'error');
+    return;
+  }
+  if (missingConn.length > 0) {
+    toast(missingConn.join(', ') + ' enabled but no connection configured — please select or add one', 'error');
+    return;
+  }
   saveAutomationsCfg();
   _wizardStep = 1;
-  autoTab('active');
+  closeModal('create-alert-modal');
+  renderActiveAlerts();
   toast('Alerts saved!', 'success');
 }
 
@@ -870,36 +1029,10 @@ function renderWizardStep3() {
   // Build channel rows
   const channelRows = CHANNELS.map(ch => {
     const cfg = channels[ch.key] || { enabled: false };
-    const value = ch.key === 'email' ? (cfg.recipients || '') : (cfg.url || '');
-    const isEmail = ch.key === 'email';
 
     let configInputs = '';
     if (cfg.enabled) {
-      configInputs = '<div style="margin-top:10px">' +
-        '<div class="field" style="margin-bottom:8px">' +
-          '<label style="font-size:var(--fs-sm);font-weight:600;margin-bottom:3px;display:block">' + (isEmail ? 'Recipients' : 'Webhook URL') + '</label>' +
-          '<input type="' + ch.inputType + '" id="ch-val-' + ch.key + '"' +
-            ' placeholder="' + escHtml(ch.placeholder) + '"' +
-            ' value="' + escHtml(value) + '"' +
-            ' onchange="updateChannelValue(\'' + ch.key + '\', this.value)"' +
-            ' style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)"/>' +
-        '</div>' +
-        (isEmail ? '<div class="field" style="margin-bottom:8px;display:flex;align-items:center;gap:8px">' +
-          '<label style="font-size:var(--fs-sm);font-weight:600;white-space:nowrap">Subject Prefix</label>' +
-          '<input type="text" id="ch-subject-' + ch.key + '"' +
-            ' placeholder="[iQcadence Alert]"' +
-            ' value="' + escHtml(cfg.subject_prefix || '[iQcadence Alert]') + '"' +
-            ' onchange="updateChannelMeta(\'' + ch.key + '\', \'subject_prefix\', this.value)"' +
-            ' style="width:200px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)"/>' +
-        '</div>' : '') +
-        '<div style="display:flex;gap:8px;align-items:center">' +
-          '<button class="btn btn-xs btn-outline" onclick="testChannel(\'' + ch.key + '\')"' +
-            (!value ? ' disabled title="Enter a ' + (isEmail ? 'recipient' : 'URL') + ' first"' : '') + '>' +
-            _aicoSm(AUTO_ICONS.realtime) + ' Send Test</button>' +
-          '<span id="ch-test-status-' + ch.key + '" style="font-size:var(--fs-sm);color:var(--muted)"></span>' +
-        '</div>' +
-        '<details style="margin-top:8px"><summary style="cursor:pointer;color:var(--blue);font-size:var(--fs-sm);font-weight:600">Setup Instructions</summary>' + ch.setup + '</details>' +
-      '</div>';
+      configInputs = renderConnectionSelector(ch, cfg.connection_id, 'onWizardConnectionChange', 'wizard');
     }
 
     return '<div class="wizard-channel-row">' +
@@ -1025,6 +1158,11 @@ function toggleChannel(key, enabled) {
   if (enabled) {
     // Subscribe all currently selected alerts to this channel
     automationsCfg.channels[key].alerts = [...(automationsCfg.selected_alerts || ALERT_TYPES.map(a => a.key))];
+    // Default to first saved connection if none selected
+    if (!automationsCfg.channels[key].connection_id) {
+      var conns = getConnectionsForType(key);
+      if (conns.length > 0) automationsCfg.channels[key].connection_id = conns[0].id;
+    }
   } else {
     // Clear subscriptions when channel is disabled
     automationsCfg.channels[key].alerts = [];
@@ -1050,9 +1188,208 @@ function updateChannelMeta(key, prop, value) {
   saveAutomationsCfg();
 }
 
-async function testChannel(key) {
-  const channels = automationsCfg.channels || {};
-  const cfg = channels[key] || {};
+// ── Connection selector UI ──
+
+function renderConnectionSelector(ch, currentConnectionId, onChangeName, context) {
+  var conns = getConnectionsForType(ch.key);
+  var isEmail = ch.key === 'email';
+  var conn = currentConnectionId
+    ? (automationsCfg.saved_connections || []).find(function(c) { return c.id === currentConnectionId; })
+    : null;
+
+  var html = '<div style="margin-top:10px">';
+
+  // Dropdown
+  html += '<div class="field" style="margin-bottom:8px">' +
+    '<label style="font-size:var(--fs-sm);font-weight:600;margin-bottom:3px;display:block">Connection</label>' +
+    '<select id="conn-sel-' + context + '-' + ch.key + '"' +
+    ' onchange="' + onChangeName + '(\'' + ch.key + '\', this.value)"' +
+    ' style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)">';
+
+  html += '<option value="">— Select a connection —</option>';
+  conns.forEach(function(c) {
+    var label = c.name + (isEmail ? ' (' + (c.recipients || '') + ')' : '');
+    html += '<option value="' + c.id + '"' + (c.id === currentConnectionId ? ' selected' : '') + '>' + escHtml(label) + '</option>';
+  });
+  html += '<option value="__new__">+ Add new connection…</option>';
+  html += '</select></div>';
+
+  // Selected connection details
+  if (conn) {
+    var value = isEmail ? (conn.recipients || '') : (conn.url || '');
+    html += '<div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:6px;word-break:break-all">' +
+      (isEmail ? '📧 ' : '🔗 ') + escHtml(value) + '</div>';
+    if (isEmail && conn.subject_prefix) {
+      html += '<div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:6px">Subject: ' + escHtml(conn.subject_prefix) + '</div>';
+    }
+    html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+      '<button class="btn btn-xs btn-outline" onclick="testChannel(\'' + ch.key + '\', \'' + conn.id + '\')"' +
+        (!value ? ' disabled title="No ' + (isEmail ? 'recipients' : 'URL') + ' configured"' : '') + '>' +
+        _aicoSm(AUTO_ICONS.realtime) + ' Send Test</button>' +
+      '<button class="btn btn-xs btn-ghost" onclick="editSavedConnection(\'' + conn.id + '\', \'' + context + '\', \'' + ch.key + '\')" style="color:var(--blue)">✏️ Edit</button>' +
+      '<button class="btn btn-xs btn-ghost" onclick="deleteSavedConnectionUI(\'' + conn.id + '\', \'' + context + '\', \'' + ch.key + '\')" style="color:var(--red)">🗑 Remove</button>' +
+      '<span id="ch-test-status-' + ch.key + '" style="font-size:var(--fs-sm);color:var(--muted)"></span>' +
+    '</div>';
+  }
+
+  // Add new / edit form (initially hidden)
+  html += '<div id="conn-form-' + context + '-' + ch.key + '" style="display:none;margin-top:10px;padding:12px;border:1.5px dashed var(--border);border-radius:8px;background:var(--bg)">';
+  html += '<div class="field" style="margin-bottom:8px">' +
+    '<label style="font-size:var(--fs-sm);font-weight:600;margin-bottom:3px;display:block">Connection Name</label>' +
+    '<input type="text" id="conn-name-' + context + '-' + ch.key + '"' +
+    ' placeholder="e.g. #cs-alerts"' +
+    ' style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)"/></div>';
+
+  html += '<div class="field" style="margin-bottom:8px">' +
+    '<label style="font-size:var(--fs-sm);font-weight:600;margin-bottom:3px;display:block">' + (isEmail ? 'Recipients' : 'Webhook URL') + '</label>' +
+    '<input type="' + ch.inputType + '" id="conn-value-' + context + '-' + ch.key + '"' +
+    ' placeholder="' + escHtml(ch.placeholder) + '"' +
+    ' style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)"/></div>';
+
+  if (isEmail) {
+    html += '<div class="field" style="margin-bottom:8px;display:flex;align-items:center;gap:8px">' +
+      '<label style="font-size:var(--fs-sm);font-weight:600;white-space:nowrap">Subject Prefix</label>' +
+      '<input type="text" id="conn-subject-' + context + '-' + ch.key + '"' +
+      ' placeholder="[iQcadence Alert]" value="[iQcadence Alert]"' +
+      ' style="width:200px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)"/></div>';
+  }
+
+  html += '<div style="display:flex;gap:8px;margin-top:8px">' +
+    '<button class="btn btn-xs btn-primary" onclick="saveConnectionForm(\'' + ch.key + '\', \'' + context + '\')">Save Connection</button>' +
+    '<button class="btn btn-xs btn-ghost" onclick="cancelConnectionForm(\'' + ch.key + '\', \'' + context + '\')">Cancel</button>' +
+  '</div>';
+
+  html += '<details style="margin-top:8px"><summary style="cursor:pointer;color:var(--blue);font-size:var(--fs-sm);font-weight:600">Setup Instructions</summary>' + ch.setup + '</details>';
+  html += '</div>'; // close form
+  html += '</div>'; // close outer
+  return html;
+}
+
+// ── Connection selector event handlers ──
+
+function onWizardConnectionChange(chKey, value) {
+  if (value === '__new__') {
+    var form = el('conn-form-wizard-' + chKey);
+    if (form) { form.style.display = 'block'; form.dataset.editingId = ''; }
+    return;
+  }
+  if (!automationsCfg.channels) automationsCfg.channels = {};
+  if (!automationsCfg.channels[chKey]) automationsCfg.channels[chKey] = {};
+  automationsCfg.channels[chKey].connection_id = value || undefined;
+  saveAutomationsCfg();
+  renderWizardStep3();
+}
+
+function onRuleConnectionChange(chKey, value) {
+  if (value === '__new__') {
+    var form = el('conn-form-rule-' + chKey);
+    if (form) { form.style.display = 'block'; form.dataset.editingId = ''; }
+    return;
+  }
+  if (!_ruleBuilderData) return;
+  if (!_ruleBuilderData.channels) _ruleBuilderData.channels = {};
+  _ruleBuilderData.channels[chKey] = value || false;
+  renderRuleBuilderBody();
+}
+
+function saveConnectionForm(chKey, context) {
+  var form = el('conn-form-' + context + '-' + chKey);
+  var name = (el('conn-name-' + context + '-' + chKey) || {}).value || '';
+  var value = (el('conn-value-' + context + '-' + chKey) || {}).value || '';
+  var isEmail = chKey === 'email';
+  if (!name.trim()) { toast('Please enter a connection name', 'error'); return; }
+  if (!value.trim()) { toast('Please enter a ' + (isEmail ? 'recipient' : 'webhook URL'), 'error'); return; }
+
+  var editingId = form ? form.dataset.editingId : '';
+  var conn;
+  if (editingId) {
+    conn = (automationsCfg.saved_connections || []).find(function(c) { return c.id === editingId; });
+    if (!conn) return;
+    conn.name = name.trim();
+  } else {
+    conn = { id: generateConnectionId(), type: chKey, name: name.trim() };
+  }
+
+  if (isEmail) {
+    conn.recipients = value.trim();
+    var sp = (el('conn-subject-' + context + '-' + chKey) || {}).value;
+    if (sp) conn.subject_prefix = sp;
+  } else {
+    conn.url = value.trim();
+  }
+  saveConnection(conn);
+
+  // Select the connection
+  if (context === 'wizard') {
+    if (!automationsCfg.channels) automationsCfg.channels = {};
+    if (!automationsCfg.channels[chKey]) automationsCfg.channels[chKey] = {};
+    automationsCfg.channels[chKey].connection_id = conn.id;
+    saveAutomationsCfg();
+    renderWizardStep3();
+  } else {
+    if (_ruleBuilderData) {
+      if (!_ruleBuilderData.channels) _ruleBuilderData.channels = {};
+      _ruleBuilderData.channels[chKey] = conn.id;
+    }
+    renderRuleBuilderBody();
+  }
+  toast('Connection "' + conn.name + '" saved', 'success');
+}
+
+function cancelConnectionForm(chKey, context) {
+  var form = el('conn-form-' + context + '-' + chKey);
+  if (form) form.style.display = 'none';
+  var selectEl = el('conn-sel-' + context + '-' + chKey);
+  if (selectEl) {
+    var prevId = context === 'wizard'
+      ? ((automationsCfg.channels || {})[chKey] || {}).connection_id || ''
+      : ((_ruleBuilderData || {}).channels || {})[chKey] || '';
+    if (typeof prevId !== 'string') prevId = '';
+    selectEl.value = prevId;
+  }
+}
+
+function editSavedConnection(connId, context, chKey) {
+  var conn = (automationsCfg.saved_connections || []).find(function(c) { return c.id === connId; });
+  if (!conn) return;
+  var form = el('conn-form-' + context + '-' + chKey);
+  if (!form) return;
+  form.style.display = 'block';
+  form.dataset.editingId = connId;
+  var nameEl = el('conn-name-' + context + '-' + chKey);
+  var valueEl = el('conn-value-' + context + '-' + chKey);
+  if (nameEl) nameEl.value = conn.name || '';
+  if (valueEl) valueEl.value = chKey === 'email' ? (conn.recipients || '') : (conn.url || '');
+  if (chKey === 'email') {
+    var spEl = el('conn-subject-' + context + '-' + chKey);
+    if (spEl) spEl.value = conn.subject_prefix || '[iQcadence Alert]';
+  }
+}
+
+function deleteSavedConnectionUI(connId, context, chKey) {
+  var conn = (automationsCfg.saved_connections || []).find(function(c) { return c.id === connId; });
+  if (!conn) return;
+  deleteConnection(connId);
+  // Clear selection
+  if (context === 'wizard') {
+    if (automationsCfg.channels && automationsCfg.channels[chKey]) {
+      delete automationsCfg.channels[chKey].connection_id;
+    }
+    saveAutomationsCfg();
+    renderWizardStep3();
+  } else {
+    if (_ruleBuilderData && _ruleBuilderData.channels) {
+      _ruleBuilderData.channels[chKey] = false;
+    }
+    renderRuleBuilderBody();
+  }
+  toast('Connection "' + (conn.name || '') + '" removed', 'success');
+}
+
+async function testChannel(key, connectionIdOverride) {
+  var conn = connectionIdOverride
+    ? (automationsCfg.saved_connections || []).find(function(c) { return c.id === connectionIdOverride; })
+    : resolveConnection(key);
   const statusEl = el('ch-test-status-' + key);
 
   const testCustomer = {
@@ -1064,12 +1401,12 @@ async function testChannel(key) {
   const testExtra = { trigger: 'health_below_threshold', threshold: automationsCfg.alert_settings?.health_below_threshold?.threshold || 50, previous_score: 68, test: true };
 
   if (key === 'slack') {
-    if (!cfg.url) { toast('Enter a Slack webhook URL first', 'warn'); return; }
+    if (!conn || !conn.url) { toast('Enter a Slack webhook URL first', 'warn'); return; }
     if (statusEl) statusEl.textContent = 'Sending test…';
     try {
       const payload = buildSlackPayload('health_below_threshold', testCustomer, testExtra);
       const { data, error } = await sb.functions.invoke('send-webhook', {
-        body: { url: cfg.url, payload, event_type: 'test_slack', customer_name: 'Test Account', test: true }
+        body: { url: conn.url, payload, event_type: 'test_slack', customer_name: 'Test Account', test: true }
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -1081,12 +1418,12 @@ async function testChannel(key) {
     }
 
   } else if (key === 'teams') {
-    if (!cfg.url) { toast('Enter a Teams webhook URL first', 'warn'); return; }
+    if (!conn || !conn.url) { toast('Enter a Teams webhook URL first', 'warn'); return; }
     if (statusEl) statusEl.textContent = 'Sending test…';
     try {
       const payload = buildTeamsPayload('health_below_threshold', testCustomer, testExtra);
       const { data, error } = await sb.functions.invoke('send-webhook', {
-        body: { url: cfg.url, payload, event_type: 'test_teams', customer_name: 'Test Account', test: true }
+        body: { url: conn.url, payload, event_type: 'test_teams', customer_name: 'Test Account', test: true }
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -1098,10 +1435,10 @@ async function testChannel(key) {
     }
 
   } else if (key === 'email') {
-    if (!cfg.recipients) { toast('Enter email recipients first', 'warn'); return; }
+    if (!conn || !conn.recipients) { toast('Enter email recipients first', 'warn'); return; }
     if (statusEl) statusEl.textContent = 'Sending test…';
     try {
-      await fireEmailAlert('health_below_threshold', testCustomer, testExtra, cfg);
+      await fireEmailAlert('health_below_threshold', testCustomer, testExtra, conn);
       if (statusEl) statusEl.innerHTML = '<span style="color:var(--green)">' + appIcon('check',12) + ' Test email sent</span>';
       toast('Test email sent', 'success');
     } catch (err) {
@@ -1237,7 +1574,7 @@ async function recoverWipedSignals() {
     }
     if (changed) {
       c._baseDays = c.days != null ? c.days : null;
-      const { score } = calcScore(c);
+      const { score } = scoreWithModel(c);
       c.score = score;
       c.status = getStatus(score);
       c.history.push({ score, date: new Date().toISOString(), signals: buildHistorySnapshot(c) });
@@ -3053,6 +3390,9 @@ function checkWebhookTriggers(c) {
 
   try { localStorage.setItem('iqc_alert_cooldowns', JSON.stringify(_alertCooldowns)); } catch(e){}
 
+  // Evaluate custom rules
+  evaluateCustomRules(c);
+
   // Update snapshot & persist so we don't re-alert on next page load
   _prevCustomerStates.set(c.id, _snapFields(c));
   _saveSnapshots();
@@ -3101,7 +3441,8 @@ function _eventLabel(eventType) {
     no_contact: 'No Contact Alert',
     nps_detractor: 'NPS Detractor Alert',
     lifecycle_change: 'Lifecycle Change Alert',
-    rapid_score_drop: 'Rapid Score Drop Alert'
+    rapid_score_drop: 'Rapid Score Drop Alert',
+    custom_rule: 'Custom Rule Alert'
   };
   return labels[eventType] || eventType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 }
@@ -3336,26 +3677,35 @@ async function fireDirectChannels(eventType, customer, extra) {
   }
 
   // Slack
-  if (channels.slack?.enabled && channels.slack?.url && isSubscribed(channels.slack)) {
-    try {
-      const payload = buildSlackPayload(eventType, customer, extra);
-      await fireWebhook(eventType + '_slack', channels.slack.url, customer, extra, payload);
-    } catch (e) { console.warn('Slack channel fire error:', e.message); }
+  if (channels.slack?.enabled && isSubscribed(channels.slack)) {
+    var slackConn = resolveConnection('slack');
+    if (slackConn && slackConn.url) {
+      try {
+        const payload = buildSlackPayload(eventType, customer, extra);
+        await fireWebhook(eventType + '_slack', slackConn.url, customer, extra, payload);
+      } catch (e) { console.warn('Slack channel fire error:', e.message); }
+    }
   }
 
   // Teams
-  if (channels.teams?.enabled && channels.teams?.url && isSubscribed(channels.teams)) {
-    try {
-      const payload = buildTeamsPayload(eventType, customer, extra);
-      await fireWebhook(eventType + '_teams', channels.teams.url, customer, extra, payload);
-    } catch (e) { console.warn('Teams channel fire error:', e.message); }
+  if (channels.teams?.enabled && isSubscribed(channels.teams)) {
+    var teamsConn = resolveConnection('teams');
+    if (teamsConn && teamsConn.url) {
+      try {
+        const payload = buildTeamsPayload(eventType, customer, extra);
+        await fireWebhook(eventType + '_teams', teamsConn.url, customer, extra, payload);
+      } catch (e) { console.warn('Teams channel fire error:', e.message); }
+    }
   }
 
   // Email
-  if (channels.email?.enabled && channels.email?.recipients && isSubscribed(channels.email)) {
-    try {
-      await fireEmailAlert(eventType, customer, extra, channels.email);
-    } catch (e) { console.warn('Email channel fire error:', e.message); }
+  if (channels.email?.enabled && isSubscribed(channels.email)) {
+    var emailConn = resolveConnection('email');
+    if (emailConn && emailConn.recipients) {
+      try {
+        await fireEmailAlert(eventType, customer, extra, emailConn);
+      } catch (e) { console.warn('Email channel fire error:', e.message); }
+    }
   }
 }
 
@@ -3380,3 +3730,676 @@ async function fireEmailAlert(eventType, customer, extra, emailCfg) {
   if (data?.error) throw new Error(data.error);
 }
 
+// ═══════════════════════════════════════════════════════════════
+// CUSTOM RULES — Builder, CRUD, Evaluation, Delivery
+// ═══════════════════════════════════════════════════════════════
+
+// ── List rendering ──
+
+function renderCustomRulesList() {
+  var container = el('custom-rules-list');
+  if (!container) return;
+  var rules = automationsCfg.custom_rules || [];
+
+  if (!rules.length) {
+    container.innerHTML = '<div class="active-alerts-empty">' +
+      '<div class="empty-icon">' + _aicoLg(AUTO_ICONS.edit) + '</div>' +
+      '<h3 style="margin-bottom:6px">No custom rules yet</h3>' +
+      '<p style="font-size:var(--fs-md);margin-bottom:16px">Build multi-condition rules like &ldquo;Score &lt; 40 AND Tier = Enterprise AND Renewal within 60 days&rdquo;.</p>' +
+      '<button class="btn btn-sm btn-primary" onclick="openRuleBuilder()">+ Create Rule</button>' +
+    '</div>';
+    return;
+  }
+
+  container.innerHTML = rules.map(function(rule) {
+    var condSummary = ruleConditionSummary(rule);
+    var channelTags = ruleChannelTags(rule);
+    return '<div class="rule-card' + (rule.enabled ? '' : ' disabled') + '">' +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
+          '<span style="font-weight:600;font-size:var(--fs-md)">' + escHtml(rule.name) + '</span>' +
+          (!rule.enabled ? '<span style="font-size:var(--fs-xs);color:var(--subtle);font-weight:600;text-transform:uppercase">Paused</span>' : '') +
+        '</div>' +
+        '<div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:6px">' + condSummary + '</div>' +
+        '<div style="display:flex;gap:4px;flex-wrap:wrap">' + channelTags + '</div>' +
+      '</div>' +
+      '<div class="rule-card-actions">' +
+        '<label style="display:flex;align-items:center;cursor:pointer" title="' + (rule.enabled ? 'Disable' : 'Enable') + '">' +
+          '<input type="checkbox" ' + (rule.enabled ? 'checked' : '') +
+            ' onchange="toggleCustomRule(\'' + rule.id + '\', this.checked)" style="accent-color:#0f766e;width:16px;height:16px"/>' +
+        '</label>' +
+        '<button class="btn btn-xs btn-ghost" onclick="editCustomRule(\'' + rule.id + '\')" title="Edit">' + _aicoSm(AUTO_ICONS.edit) + '</button>' +
+        '<button class="btn btn-xs btn-ghost" onclick="deleteCustomRule(\'' + rule.id + '\')" title="Delete" style="color:var(--red)">' + _aicoSm(AUTO_ICONS.x) + '</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function ruleConditionSummary(rule) {
+  return (rule.groups || []).map(function(g) {
+    var parts = (g.conditions || []).map(function(cond) {
+      var fd = RULE_FIELD_DEFS.find(function(f) { return f.key === cond.field; });
+      var label = fd ? fd.label : cond.field;
+      var opLabel = RULE_OP_LABELS_LONG[cond.op] || cond.op;
+      return escHtml(label) + ' ' + escHtml(opLabel) + ' <strong>' + escHtml(String(cond.value)) + '</strong>';
+    });
+    return parts.join(' <span style="color:var(--blue);font-weight:600">AND</span> ');
+  }).join(' <span style="color:var(--purple,#7c3aed);font-weight:700;margin:0 4px">OR</span> ');
+}
+
+function ruleChannelTags(rule) {
+  var ch = rule.channels || {};
+  var conns = automationsCfg.saved_connections || [];
+  var parts = [];
+  ['slack','teams','email'].forEach(function(k) {
+    if (ch[k]) {
+      var connName = '';
+      if (typeof ch[k] === 'string') {
+        var conn = conns.find(function(c) { return c.id === ch[k]; });
+        if (conn && conn.name) connName = ' (' + escHtml(conn.name) + ')';
+      }
+      var label = k === 'teams' ? 'Teams' : k.charAt(0).toUpperCase() + k.slice(1);
+      parts.push('<span class="dest-tag">' + _aicoSm(AUTO_ICONS[k]) + ' ' + label + connName + '</span>');
+    }
+  });
+  return parts.join(' ') || '<span style="color:var(--muted);font-size:var(--fs-sm)">No channels</span>';
+}
+
+// ── Builder open/close ──
+
+function openRuleBuilder(existingRuleId) {
+  if (existingRuleId) {
+    var rule = (automationsCfg.custom_rules || []).find(function(r) { return r.id === existingRuleId; });
+    if (!rule) return;
+    _editingRule = existingRuleId;
+    _ruleBuilderData = JSON.parse(JSON.stringify(rule));
+    el('rule-builder-title').textContent = 'Edit Rule';
+  } else {
+    _editingRule = null;
+    _ruleBuilderData = {
+      id: 'cr-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
+      name: '',
+      enabled: true,
+      groups: [{ conditions: [{ field: 'score', op: 'lt', value: 50 }] }],
+      channels: { slack: false, teams: false, email: false },
+      created_at: new Date().toISOString(),
+      created_by: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.email : ''
+    };
+    el('rule-builder-title').textContent = 'New Custom Rule';
+  }
+
+  _ruleWizardStep = 1;
+  openModal('rule-builder-modal');
+  renderRuleBuilderBody();
+}
+
+function closeRuleBuilder() {
+  _editingRule = null;
+  _ruleBuilderData = null;
+  _ruleWizardStep = 1;
+  closeModal('rule-builder-modal');
+  var previewEl = el('rule-preview-results');
+  if (previewEl) { previewEl.style.display = 'none'; previewEl.innerHTML = ''; }
+}
+
+function editCustomRule(ruleId) {
+  openRuleBuilder(ruleId);
+}
+
+// ── Builder body rendering ──
+
+function renderRuleBuilderBody() {
+  var body = el('rule-builder-body');
+  var footer = el('rule-builder-footer');
+  if (!body || !_ruleBuilderData) return;
+
+  // Update stepper
+  var stepperEl = el('rule-builder-stepper');
+  if (stepperEl) {
+    stepperEl.querySelectorAll('.wizard-step').forEach(function(s) {
+      var sn = parseInt(s.dataset.step);
+      s.classList.toggle('active', sn === _ruleWizardStep);
+      s.classList.toggle('completed', sn < _ruleWizardStep);
+    });
+    stepperEl.querySelectorAll('.wizard-step__line').forEach(function(line, i) {
+      line.classList.toggle('completed', (i + 1) < _ruleWizardStep);
+    });
+  }
+
+  if (_ruleWizardStep === 1) {
+    renderRuleBuilderStep1(body, footer);
+  } else {
+    renderRuleBuilderStep2(body, footer);
+  }
+}
+
+function renderRuleBuilderStep1(body, footer) {
+  var html = '<div style="padding:18px 20px">';
+
+  // Rule name
+  html += '<div style="margin-bottom:18px">' +
+    '<label style="font-size:var(--fs-base);font-weight:700;margin-bottom:6px;display:block">Rule Name</label>' +
+    '<input type="text" class="rule-name-input" value="' + escHtml(_ruleBuilderData.name) + '"' +
+      ' placeholder="e.g. Enterprise Churn Risk"' +
+      ' oninput="_ruleBuilderData.name=this.value"/>' +
+  '</div>';
+
+  // Conditions
+  html += '<div style="margin-bottom:14px">' +
+    '<label style="font-size:var(--fs-base);font-weight:700;display:block;margin-bottom:4px">Conditions</label>' +
+    '<p style="font-size:var(--fs-sm);color:var(--muted);margin:0 0 12px">All conditions in a group must match (AND). If any group matches, the rule fires (OR).</p>';
+
+  _ruleBuilderData.groups.forEach(function(group, gi) {
+    if (gi > 0) {
+      html += '<div class="rule-or-divider">OR</div>';
+    }
+    html += '<div class="rule-group">' +
+      '<div class="rule-group-header">' +
+        '<span class="rule-group-label">Group ' + (gi + 1) + ' &mdash; all must match</span>' +
+        (_ruleBuilderData.groups.length > 1
+          ? '<button class="btn btn-xs btn-ghost" onclick="removeRuleGroup(' + gi + ')" style="color:var(--red);font-size:var(--fs-sm)">Remove</button>'
+          : '') +
+      '</div>';
+
+    group.conditions.forEach(function(cond, ci) {
+      html += renderConditionRow(gi, ci, cond);
+    });
+
+    html += '<button class="rule-add-condition" onclick="addRuleCondition(' + gi + ')">+ Add condition</button>' +
+    '</div>';
+  });
+
+  html += '<button class="rule-add-or-group" onclick="addRuleOrGroup()">+ Add OR group</button>' +
+  '</div></div>';
+
+  body.innerHTML = html;
+
+  // Preview results container — hide when body re-renders (conditions changed)
+  var previewEl = el('rule-preview-results');
+  if (previewEl) previewEl.style.display = 'none';
+
+  // Footer — Step 1: Preview + Next
+  footer.innerHTML = '<div style="display:flex;gap:8px">' +
+      '<button class="btn btn-sm btn-ghost" onclick="previewRuleMatches()" style="color:var(--blue);border:1.5px solid var(--blue);border-radius:8px">&#x1f50d; Preview Matches</button>' +
+    '</div>' +
+    '<div style="display:flex;gap:8px">' +
+      '<button class="btn btn-sm btn-ghost" onclick="closeRuleBuilder()">Cancel</button>' +
+      '<button class="btn btn-sm btn-primary" onclick="ruleWizardNext()">Next &rarr;</button>' +
+    '</div>';
+}
+
+function renderRuleBuilderStep2(body, footer) {
+  var channels = automationsCfg.channels || {};
+  var html = '<div style="padding:18px 20px">';
+
+  html += '<h3 style="margin:0 0 4px;font-size:1rem">Where should alerts be sent?</h3>' +
+    '<p style="font-size:var(--fs-base);color:var(--muted);margin:0 0 16px">Enable delivery channels and configure their connection details.</p>';
+
+  CHANNELS.forEach(function(ch) {
+    var isOn = !!(_ruleBuilderData.channels || {})[ch.key];
+
+    var configInputs = '';
+    if (isOn) {
+      var currentConnId = typeof (_ruleBuilderData.channels || {})[ch.key] === 'string'
+        ? _ruleBuilderData.channels[ch.key]
+        : ((automationsCfg.channels || {})[ch.key] || {}).connection_id || '';
+      configInputs = renderConnectionSelector(ch, currentConnId, 'onRuleConnectionChange', 'rule');
+    }
+
+    html += '<div class="wizard-channel-row">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between">' +
+        '<div style="display:flex;align-items:center;gap:10px">' +
+          '<span style="flex-shrink:0;display:flex;align-items:center;color:var(--blue)">' + ch.icon + '</span>' +
+          '<div>' +
+            '<div style="font-weight:600;font-size:var(--fs-md)">' + escHtml(ch.label) + '</div>' +
+            '<div style="font-size:var(--fs-sm);color:var(--muted)">' + escHtml(ch.desc) + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<label class="toggle-switch">' +
+          '<input type="checkbox" ' + (isOn ? 'checked' : '') +
+            ' onchange="toggleRuleChannel2(\'' + ch.key + '\', this.checked)"/>' +
+          '<span class="toggle-slider"></span>' +
+        '</label>' +
+      '</div>' +
+      configInputs +
+    '</div>';
+  });
+
+  html += '</div>';
+  body.innerHTML = html;
+
+  // Footer — Step 2: Back + Save
+  footer.innerHTML = '<div>' +
+      '<button class="btn btn-sm btn-ghost" onclick="ruleWizardBack()">&larr; Back</button>' +
+    '</div>' +
+    '<div style="display:flex;gap:8px">' +
+      '<button class="btn btn-sm btn-ghost" onclick="closeRuleBuilder()">Cancel</button>' +
+      '<button class="btn btn-sm btn-primary" onclick="saveCustomRule()">Save Rule</button>' +
+    '</div>';
+}
+
+function renderConditionRow(groupIdx, condIdx, cond) {
+  var fd = RULE_FIELD_DEFS.find(function(f) { return f.key === cond.field; }) || RULE_FIELD_DEFS[0];
+
+  // Field dropdown
+  var fieldSelect = '<select onchange="updateRuleCondField(' + groupIdx + ',' + condIdx + ',this.value)">' +
+    RULE_FIELD_DEFS.map(function(f) {
+      return '<option value="' + f.key + '"' + (f.key === cond.field ? ' selected' : '') + '>' + escHtml(f.label) + '</option>';
+    }).join('') + '</select>';
+
+  // Operator dropdown
+  var opSelect = '<select onchange="updateRuleCondOp(' + groupIdx + ',' + condIdx + ',this.value)">' +
+    fd.ops.map(function(op) {
+      return '<option value="' + op + '"' + (op === cond.op ? ' selected' : '') + '>' + escHtml(RULE_OP_LABELS[op]) + '</option>';
+    }).join('') + '</select>';
+
+  // Value input
+  var valueInput;
+  if (fd.type === 'enum') {
+    valueInput = '<select onchange="updateRuleCondValue(' + groupIdx + ',' + condIdx + ',this.value)">' +
+      fd.options.map(function(o) {
+        return '<option value="' + o + '"' + (String(cond.value) === o ? ' selected' : '') + '>' + escHtml(o) + '</option>';
+      }).join('') + '</select>';
+  } else if (fd.type === 'number') {
+    valueInput = '<input type="number" value="' + (cond.value != null ? cond.value : '') + '"' +
+      ' onchange="updateRuleCondValue(' + groupIdx + ',' + condIdx + ',+this.value)"/>';
+  } else {
+    valueInput = '<input type="text" value="' + escHtml(String(cond.value || '')) + '"' +
+      ' onchange="updateRuleCondValue(' + groupIdx + ',' + condIdx + ',this.value)"/>';
+  }
+
+  // Remove button
+  var canRemove = _ruleBuilderData.groups[groupIdx].conditions.length > 1;
+  var removeBtn = canRemove
+    ? '<button class="rule-remove-btn" onclick="removeRuleCondition(' + groupIdx + ',' + condIdx + ')" title="Remove">&times;</button>'
+    : '';
+
+  return '<div class="rule-condition-row">' +
+    (condIdx > 0 ? '<span style="font-size:var(--fs-sm);font-weight:700;color:var(--blue);min-width:36px;text-align:center">AND</span>' : '<span style="min-width:36px"></span>') +
+    fieldSelect + opSelect + valueInput + removeBtn +
+  '</div>';
+}
+
+// ── Builder mutations ──
+
+function updateRuleCondField(gi, ci, newField) {
+  var fd = RULE_FIELD_DEFS.find(function(f) { return f.key === newField; }) || RULE_FIELD_DEFS[0];
+  var cond = _ruleBuilderData.groups[gi].conditions[ci];
+  cond.field = newField;
+  cond.op = fd.ops[0];
+  if (fd.type === 'enum') cond.value = fd.options[0];
+  else if (fd.type === 'number') cond.value = 50;
+  else cond.value = '';
+  renderRuleBuilderBody();
+}
+
+function updateRuleCondOp(gi, ci, newOp) {
+  _ruleBuilderData.groups[gi].conditions[ci].op = newOp;
+}
+
+function updateRuleCondValue(gi, ci, newValue) {
+  _ruleBuilderData.groups[gi].conditions[ci].value = newValue;
+}
+
+function addRuleCondition(gi) {
+  _ruleBuilderData.groups[gi].conditions.push({ field: 'score', op: 'lt', value: 50 });
+  renderRuleBuilderBody();
+}
+
+function removeRuleCondition(gi, ci) {
+  _ruleBuilderData.groups[gi].conditions.splice(ci, 1);
+  renderRuleBuilderBody();
+}
+
+function addRuleOrGroup() {
+  _ruleBuilderData.groups.push({ conditions: [{ field: 'score', op: 'lt', value: 50 }] });
+  renderRuleBuilderBody();
+}
+
+function removeRuleGroup(gi) {
+  _ruleBuilderData.groups.splice(gi, 1);
+  renderRuleBuilderBody();
+}
+
+function toggleRuleChannel(chKey, checked) {
+  if (!_ruleBuilderData.channels) _ruleBuilderData.channels = {};
+  _ruleBuilderData.channels[chKey] = checked;
+}
+
+function toggleRuleChannel2(chKey, checked) {
+  if (!_ruleBuilderData) return;
+  if (!_ruleBuilderData.channels) _ruleBuilderData.channels = {};
+  if (checked) {
+    // Default to global connection if available, else true
+    var globalConnId = ((automationsCfg.channels || {})[chKey] || {}).connection_id;
+    _ruleBuilderData.channels[chKey] = globalConnId || true;
+  } else {
+    _ruleBuilderData.channels[chKey] = false;
+  }
+  // Also enable/disable the global channel config so URLs are available
+  if (!automationsCfg.channels) automationsCfg.channels = {};
+  if (!automationsCfg.channels[chKey]) automationsCfg.channels[chKey] = {};
+  automationsCfg.channels[chKey].enabled = checked;
+  if (checked && !automationsCfg.channels[chKey].alerts) {
+    automationsCfg.channels[chKey].alerts = ALERT_TYPES.map(function(a) { return a.key; });
+  }
+  saveAutomationsCfg();
+  renderRuleBuilderBody();
+}
+
+function updateRuleChannelValue(chKey, value) {
+  if (!automationsCfg.channels) automationsCfg.channels = {};
+  if (!automationsCfg.channels[chKey]) automationsCfg.channels[chKey] = {};
+  if (chKey === 'email') automationsCfg.channels[chKey].recipients = value.trim();
+  else automationsCfg.channels[chKey].url = value.trim();
+  saveAutomationsCfg();
+}
+
+function updateRuleChannelMeta(chKey, prop, value) {
+  if (!automationsCfg.channels) automationsCfg.channels = {};
+  if (!automationsCfg.channels[chKey]) automationsCfg.channels[chKey] = {};
+  automationsCfg.channels[chKey][prop] = value;
+  saveAutomationsCfg();
+}
+
+function ruleWizardNext() {
+  // Validate step 1
+  if (!_ruleBuilderData) return;
+  for (var gi = 0; gi < _ruleBuilderData.groups.length; gi++) {
+    for (var ci = 0; ci < _ruleBuilderData.groups[gi].conditions.length; ci++) {
+      var c = _ruleBuilderData.groups[gi].conditions[ci];
+      if (c.value === '' || c.value === null || c.value === undefined) {
+        toast('Please fill in all condition values', 'error'); return;
+      }
+    }
+  }
+  _ruleWizardStep = 2;
+  renderRuleBuilderBody();
+}
+
+function ruleWizardBack() {
+  _ruleWizardStep = 1;
+  renderRuleBuilderBody();
+}
+
+// ── CRUD ──
+
+function saveCustomRule() {
+  if (!_ruleBuilderData) return;
+  if (!_ruleBuilderData.name.trim()) { toast('Please give your rule a name', 'error'); return; }
+  var hasChannel = Object.values(_ruleBuilderData.channels || {}).some(function(v) { return v; });
+  if (!hasChannel) { toast('Select at least one notification channel', 'error'); return; }
+  // Validate each enabled channel has a configured connection
+  var missingConn = [];
+  ['slack', 'teams', 'email'].forEach(function(k) {
+    if (_ruleBuilderData.channels[k]) {
+      var connId = typeof _ruleBuilderData.channels[k] === 'string' ? _ruleBuilderData.channels[k] : null;
+      var conn = connId
+        ? (automationsCfg.saved_connections || []).find(function(c) { return c.id === connId; })
+        : resolveConnection(k);
+      if (!conn || (!conn.url && !conn.recipients)) {
+        var label = k === 'teams' ? 'Microsoft Teams' : k.charAt(0).toUpperCase() + k.slice(1);
+        missingConn.push(label);
+      }
+    }
+  });
+  if (missingConn.length > 0) { toast(missingConn.join(', ') + ' enabled but no connection configured — please select or add one', 'error'); return; }
+  for (var gi = 0; gi < _ruleBuilderData.groups.length; gi++) {
+    for (var ci = 0; ci < _ruleBuilderData.groups[gi].conditions.length; ci++) {
+      var c = _ruleBuilderData.groups[gi].conditions[ci];
+      if (c.value === '' || c.value === null || c.value === undefined) {
+        toast('Please fill in all condition values', 'error'); return;
+      }
+    }
+  }
+
+  if (!automationsCfg.custom_rules) automationsCfg.custom_rules = [];
+
+  if (_editingRule) {
+    var idx = automationsCfg.custom_rules.findIndex(function(r) { return r.id === _editingRule; });
+    if (idx >= 0) automationsCfg.custom_rules[idx] = _ruleBuilderData;
+    else automationsCfg.custom_rules.push(_ruleBuilderData);
+  } else {
+    automationsCfg.custom_rules.push(_ruleBuilderData);
+  }
+
+  var ruleName = _ruleBuilderData.name;
+  var wasEdit = !!_editingRule;
+  saveAutomationsCfg();
+  closeRuleBuilder();
+  renderCustomRulesList();
+  logAudit('custom_rule_saved', null, '', { summary: (wasEdit ? 'Updated' : 'Created') + ' custom rule: ' + ruleName });
+  toast('Custom rule saved!', 'success');
+}
+
+function toggleCustomRule(ruleId, enabled) {
+  var rule = (automationsCfg.custom_rules || []).find(function(r) { return r.id === ruleId; });
+  if (rule) {
+    rule.enabled = enabled;
+    saveAutomationsCfg();
+    renderCustomRulesList();
+  }
+}
+
+function deleteCustomRule(ruleId) {
+  if (!confirm('Delete this custom rule? This cannot be undone.')) return;
+  var name = '';
+  automationsCfg.custom_rules = (automationsCfg.custom_rules || []).filter(function(r) {
+    if (r.id === ruleId) { name = r.name; return false; }
+    return true;
+  });
+  saveAutomationsCfg();
+  closeRuleBuilder();
+  renderCustomRulesList();
+  logAudit('custom_rule_deleted', null, '', { summary: 'Deleted custom rule: ' + name });
+  toast('Rule deleted', 'success');
+}
+
+// ── Preview matches ──
+
+function previewRuleMatches() {
+  var previewEl = el('rule-preview-results');
+  if (!previewEl || !_ruleBuilderData) return;
+
+  // Validate conditions have values
+  for (var gi = 0; gi < _ruleBuilderData.groups.length; gi++) {
+    for (var ci = 0; ci < _ruleBuilderData.groups[gi].conditions.length; ci++) {
+      var c = _ruleBuilderData.groups[gi].conditions[ci];
+      if (c.value === '' || c.value === null || c.value === undefined) {
+        toast('Please fill in all condition values before previewing', 'error'); return;
+      }
+    }
+  }
+
+  // Evaluate against all customers
+  var matches = [];
+  (customers || []).forEach(function(cust) {
+    var hit = _ruleBuilderData.groups.some(function(group) {
+      return group.conditions.every(function(cond) {
+        return evaluateCondition(cust, cond);
+      });
+    });
+    if (hit) matches.push(cust);
+  });
+
+  // Sort matches by score ascending (worst first)
+  matches.sort(function(a, b) { return (a.score || 0) - (b.score || 0); });
+
+  var html = '<div class="rule-preview-wrap">';
+  html += '<div class="rule-preview-header">' +
+    '<h3>Preview: Matching Accounts</h3>' +
+    '<span class="rule-preview-count">' + matches.length + ' of ' + (customers || []).length + ' accounts match</span>' +
+  '</div>';
+
+  if (matches.length === 0) {
+    html += '<div class="rule-preview-empty">No accounts match the current conditions.</div>';
+  } else {
+    html += '<div class="rule-preview-scroll"><table class="rule-preview-table">' +
+      '<thead><tr><th>Account</th><th>Score</th><th>Status</th><th>Tier</th><th>MRR</th><th>Days Since Contact</th></tr></thead><tbody>';
+
+    var shown = matches.slice(0, 50);
+    shown.forEach(function(m) {
+      var sc = m.score != null ? m.score : '—';
+      var statusColor = m.status === 'critical' ? 'var(--red)' : m.status === 'risk' ? 'var(--orange)' : m.status === 'watch' ? '#eab308' : m.status === 'healthy' ? 'var(--green)' : 'var(--blue)';
+      var scoreColor = sc >= 80 ? 'var(--green)' : sc >= 60 ? '#eab308' : sc >= 40 ? 'var(--orange)' : 'var(--red)';
+      var days = typeof getEffectiveDays === 'function' ? getEffectiveDays(m) : m.days;
+      var mrr = m.mrr != null ? '$' + Number(m.mrr).toLocaleString() : '—';
+      html += '<tr>' +
+        '<td style="font-weight:600">' + escHtml(m.name) + '</td>' +
+        '<td><span class="score-cell" style="background:' + scoreColor + ';color:#fff">' + sc + '</span></td>' +
+        '<td><span style="color:' + statusColor + ';font-weight:600;text-transform:capitalize">' + escHtml(m.status || '—') + '</span></td>' +
+        '<td style="text-transform:capitalize">' + escHtml(m.tier || '—') + '</td>' +
+        '<td>' + mrr + '</td>' +
+        '<td>' + (days != null ? days + 'd' : '—') + '</td>' +
+      '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+    if (matches.length > 50) {
+      html += '<p style="font-size:var(--fs-sm);color:var(--muted);margin:8px 0 0;text-align:center">Showing first 50 of ' + matches.length + ' matches</p>';
+    }
+  }
+
+  html += '</div>';
+  previewEl.innerHTML = html;
+  previewEl.style.display = 'block';
+
+  // Scroll into view
+  previewEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ── Evaluation engine ──
+
+function evaluateCustomRules(c) {
+  var rules = automationsCfg.custom_rules || [];
+  if (!rules.length) return;
+
+  var now = Date.now();
+  var COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+  rules.forEach(function(rule) {
+    if (!rule.enabled) return;
+
+    // 24h cooldown per customer + rule
+    var cdKey = c.id + '|cr|' + rule.id;
+    if (_alertCooldowns[cdKey] && (now - _alertCooldowns[cdKey]) < COOLDOWN_MS) return;
+
+    // OR between groups, AND within each group
+    var matches = rule.groups.some(function(group) {
+      return group.conditions.every(function(cond) {
+        return evaluateCondition(c, cond);
+      });
+    });
+
+    if (matches) {
+      _alertCooldowns[cdKey] = now;
+      try { localStorage.setItem('iqc_alert_cooldowns', JSON.stringify(_alertCooldowns)); } catch(e) {}
+      fireCustomRuleAlert(rule, c);
+    }
+  });
+}
+
+function evaluateCondition(c, cond) {
+  var actual = getConditionFieldValue(c, cond.field);
+  var expected = cond.value;
+  if (actual == null) return false;
+
+  switch (cond.op) {
+    case 'lt':  return Number(actual) <  Number(expected);
+    case 'gt':  return Number(actual) >  Number(expected);
+    case 'lte': return Number(actual) <= Number(expected);
+    case 'gte': return Number(actual) >= Number(expected);
+    case 'eq':  return String(actual).toLowerCase() === String(expected).toLowerCase();
+    case 'neq': return String(actual).toLowerCase() !== String(expected).toLowerCase();
+    case 'contains': return String(actual).toLowerCase().includes(String(expected).toLowerCase());
+    case 'not_contains': return !String(actual).toLowerCase().includes(String(expected).toLowerCase());
+    default: return false;
+  }
+}
+
+function getConditionFieldValue(c, field) {
+  switch (field) {
+    case 'score':     return c.score;
+    case 'status':    return c.status;
+    case 'tier':      return c.tier;
+    case 'lifecycle': return c.lifecycle;
+    case 'logins':    return c.logins;
+    case 'adoption':  return c.adoption;
+    case 'tickets':   return c.tickets;
+    case 'nps':       return c.nps;
+    case 'csat':      return c.csat;
+    case 'mrr':       return c.mrr;
+    case 'days':      return typeof getEffectiveDays === 'function' ? getEffectiveDays(c) : c.days;
+    case 'growth':    return c.growth;
+    case 'momentum':  return typeof getMomentum === 'function' ? getMomentum(c) : 'flat';
+    case 'cadence_status': return typeof getCadenceStatus === 'function' ? getCadenceStatus(c).status : 'ok';
+    case 'renewal_within':
+      if (!c.renewal_date) return null;
+      return Math.round((new Date(c.renewal_date) - new Date()) / (1000 * 60 * 60 * 24));
+    case 'tags':
+      return Array.isArray(c.tags) ? c.tags.join(',') : (c.tags || '');
+    case 'manager':   return c.manager || '';
+    default:          return c[field];
+  }
+}
+
+// ── Custom rule delivery ──
+
+async function fireCustomRuleAlert(rule, customer) {
+  var globalChannels = automationsCfg.channels || {};
+  var ruleChannels = rule.channels || {};
+  var eventType = 'custom_rule';
+  var extra = {
+    trigger: 'custom_rule',
+    rule_name: rule.name,
+    rule_id: rule.id,
+    matched_conditions: ruleConditionSummaryPlain(rule)
+  };
+
+  if (ruleChannels.slack) {
+    var slackConnId = typeof ruleChannels.slack === 'string' ? ruleChannels.slack : null;
+    var slackConn = slackConnId
+      ? (automationsCfg.saved_connections || []).find(function(c) { return c.id === slackConnId; })
+      : resolveConnection('slack');
+    if (slackConn && slackConn.url) {
+      try {
+        var slackPayload = buildSlackPayload(eventType, customer, extra);
+        await fireWebhook(eventType + '_slack_' + rule.id, slackConn.url, customer, extra, slackPayload);
+      } catch (e) { console.warn('Custom rule Slack error:', e.message); }
+    }
+  }
+
+  if (ruleChannels.teams) {
+    var teamsConnId = typeof ruleChannels.teams === 'string' ? ruleChannels.teams : null;
+    var teamsConn = teamsConnId
+      ? (automationsCfg.saved_connections || []).find(function(c) { return c.id === teamsConnId; })
+      : resolveConnection('teams');
+    if (teamsConn && teamsConn.url) {
+      try {
+        var teamsPayload = buildTeamsPayload(eventType, customer, extra);
+        await fireWebhook(eventType + '_teams_' + rule.id, teamsConn.url, customer, extra, teamsPayload);
+      } catch (e) { console.warn('Custom rule Teams error:', e.message); }
+    }
+  }
+
+  if (ruleChannels.email) {
+    var emailConnId = typeof ruleChannels.email === 'string' ? ruleChannels.email : null;
+    var emailConn = emailConnId
+      ? (automationsCfg.saved_connections || []).find(function(c) { return c.id === emailConnId; })
+      : resolveConnection('email');
+    if (emailConn && emailConn.recipients) {
+      try {
+        await fireEmailAlert(eventType, customer, extra, emailConn);
+      } catch (e) { console.warn('Custom rule Email error:', e.message); }
+    }
+  }
+}
+
+function ruleConditionSummaryPlain(rule) {
+  return (rule.groups || []).map(function(g) {
+    return g.conditions.map(function(cond) {
+      var fd = RULE_FIELD_DEFS.find(function(f) { return f.key === cond.field; });
+      return (fd ? fd.label : cond.field) + ' ' + (RULE_OP_LABELS_LONG[cond.op] || cond.op) + ' ' + cond.value;
+    }).join(' AND ');
+  }).join(' OR ');
+}

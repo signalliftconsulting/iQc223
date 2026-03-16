@@ -344,9 +344,15 @@ function renderCSMFocus(mgrList) {
     const csmMRR = {};
     riskRenewals.forEach(c => { const k = c.manager ? c.manager.trim() : 'Unassigned'; csmMRR[k] = (csmMRR[k]||0) + (c.mrr||0); });
     const heaviestCSM = Object.entries(csmMRR).sort((a,b) => b[1] - a[1])[0];
-    const detail = `There ${riskRenewals.length === 1 ? 'is' : 'are'} <strong>${riskRenewals.length}</strong> account${riskRenewals.length>1?'s':''} coming up for renewal that ${riskRenewals.length === 1 ? 'is' : 'are'} currently at risk, representing <strong>$${fmtNum(renewMRR)}/mo</strong> in revenue that could churn. The largest is ${_cl(top)} at $${fmtNum(top.mrr||0)}/mo with a health score of ${top.score} and roughly ${topDays} days until renewal.${heaviestCSM ? ` <strong>${escHtml(heaviestCSM[0])}</strong> is carrying the heaviest load with $${fmtNum(heaviestCSM[1])}/mo of at-risk renewal MRR on their plate.` : ''} Without intervention, these accounts are likely to churn or downgrade at renewal.`;
-    items.push({ priority: 6, icon: icCal,
-      color: 'var(--red)', bg: 'var(--red-l)',
+    // Severity: high if any critical + renewal ≤30d OR MRR > $50k, medium if >1 account, low otherwise
+    var _rrSev = (riskRenewals.some(c => c.status === 'critical' && topDays <= 30) || renewMRR >= 50000) ? 'high' : riskRenewals.length >= 3 ? 'high' : riskRenewals.length >= 2 ? 'medium' : 'low';
+    var _rrColor = _rrSev === 'high' ? 'var(--red)' : _rrSev === 'medium' ? 'var(--amber)' : 'var(--amber)';
+    var _rrBg = _rrSev === 'high' ? 'var(--red-l)' : 'var(--amber-l)';
+    var _rrPri = _rrSev === 'high' ? 7 : _rrSev === 'medium' ? 5 : 3;
+    var _rrUrgency = _rrSev === 'high' ? ' Without immediate intervention, these accounts are very likely to churn at renewal.' : _rrSev === 'medium' ? ' These need attention before renewal conversations start.' : ' Worth monitoring as the renewal date approaches.';
+    const detail = `There ${riskRenewals.length === 1 ? 'is' : 'are'} <strong>${riskRenewals.length}</strong> account${riskRenewals.length>1?'s':''} coming up for renewal that ${riskRenewals.length === 1 ? 'is' : 'are'} currently at risk, representing <strong>$${fmtNum(renewMRR)}/mo</strong> in revenue that could churn. The largest is ${_cl(top)} at $${fmtNum(top.mrr||0)}/mo with a health score of ${top.score} and roughly ${topDays} days until renewal.${heaviestCSM ? ` <strong>${escHtml(heaviestCSM[0])}</strong> is carrying the heaviest load with $${fmtNum(heaviestCSM[1])}/mo of at-risk renewal MRR on their plate.` : ''}${_rrUrgency}`;
+    items.push({ priority: _rrPri, icon: icCal,
+      color: _rrColor, bg: _rrBg,
       title: `${riskRenewals.length} At-Risk Renewal${riskRenewals.length>1?'s':''} — $${fmtNum(renewMRR)}/mo`,
       text: `<strong>${riskRenewals.length}</strong> at-risk renewal${riskRenewals.length>1?'s':''} across ${csmNames.length} CSM${csmNames.length>1?'s':''} — <strong>$${fmtNum(renewMRR)}/mo</strong> MRR at stake`,
       detail,
@@ -366,9 +372,15 @@ function renderCSMFocus(mgrList) {
     const csmsAffected = [...new Set(neglected.map(c => c.manager ? c.manager.trim() : 'Unassigned'))];
     neglected.sort((a,b) => getDelta7d(a) - getDelta7d(b));
     const worst = neglected.slice(0, 3);
-    const detail = `These accounts are actively losing health points while no one is reaching out — a "silent bleed" that often leads to surprise churn. The worst right now: ` + worst.map(c => `${_cl(c)} is down ${Math.abs(getDelta7d(c))} pts this week with ${c.days} days since last contact ($${fmtNum(c.mrr||0)}/mo)`).join('; ') + `. Together they represent <strong>$${fmtNum(ndMRR)}/mo</strong> in MRR that\'s eroding without anyone noticing.`;
-    items.push({ priority: 5, icon: icPhone,
-      color: 'var(--red)', bg: 'var(--red-l)',
+    // Severity: high if ≥5 neglected or MRR > $30k, medium if ≥3, low otherwise
+    var _ndSev = (neglected.length >= 5 || ndMRR >= 30000) ? 'high' : neglected.length >= 3 ? 'medium' : 'low';
+    var _ndColor = _ndSev === 'high' ? 'var(--red)' : 'var(--amber)';
+    var _ndBg = _ndSev === 'high' ? 'var(--red-l)' : 'var(--amber-l)';
+    var _ndPri = _ndSev === 'high' ? 6 : _ndSev === 'medium' ? 4 : 3;
+    var _ndSuffix = _ndSev === 'high' ? ` This is a systemic issue — too many accounts are bleeding out unnoticed.` : _ndSev === 'medium' ? ` This pattern needs addressing before more accounts slip into critical.` : ` Worth flagging to prevent this from becoming a larger problem.`;
+    const detail = `These accounts are actively losing health points while no one is reaching out — a "silent bleed" that often leads to surprise churn. The worst right now: ` + worst.map(c => `${_cl(c)} is down ${Math.abs(getDelta7d(c))} pts this week with ${c.days} days since last contact ($${fmtNum(c.mrr||0)}/mo)`).join('; ') + `. Together they represent <strong>$${fmtNum(ndMRR)}/mo</strong> in MRR that\'s eroding without anyone noticing.${_ndSuffix}`;
+    items.push({ priority: _ndPri, icon: icPhone,
+      color: _ndColor, bg: _ndBg,
       title: `${neglected.length} Neglected & Declining Accounts`,
       text: `<strong>${neglected.length}</strong> accounts declining with no contact in 14+ days across ${csmsAffected.length} CSM${csmsAffected.length>1?'s':''} — $${fmtNum(ndMRR)}/mo exposed`,
       detail,
@@ -388,9 +400,15 @@ function renderCSMFocus(mgrList) {
     const worst = sorted[sorted.length - 1];
     const spread = Math.round((best.avgDelta - worst.avgDelta) * 10) / 10;
     if (spread < 3) return; // not significant
-    const detail = `There\'s a significant gap in how CSM portfolios are performing this week. <strong>${escHtml(best.name)}</strong> is trending at <strong>${best.avgDelta > 0 ? '+' : ''}${best.avgDelta} pts/wk</strong> with an avg score of ${best.avgScore}, while <strong>${escHtml(worst.name)}</strong> is at <strong>${worst.avgDelta > 0 ? '+' : ''}${worst.avgDelta} pts/wk</strong> with an avg score of ${worst.avgScore}. A ${spread}-point spread usually signals different engagement approaches, workload issues, or account mix problems worth digging into.`;
-    items.push({ priority: 3, icon: icShuffle,
-      color: 'var(--amber)', bg: 'var(--amber-l)',
+    // Severity: high if spread ≥8, medium if ≥5, low otherwise
+    var _psSev = spread >= 8 ? 'high' : spread >= 5 ? 'medium' : 'low';
+    var _psColor = _psSev === 'high' ? 'var(--red)' : 'var(--amber)';
+    var _psBg = _psSev === 'high' ? 'var(--red-l)' : 'var(--amber-l)';
+    var _psPri = _psSev === 'high' ? 5 : _psSev === 'medium' ? 3 : 2;
+    var _psSuffix = _psSev === 'high' ? ` A ${spread}-point gap is unusually wide and likely signals a structural issue — coaching, workload, or account complexity mismatch.` : ` A ${spread}-point spread usually signals different engagement approaches, workload issues, or account mix problems worth digging into.`;
+    const detail = `There\'s a significant gap in how CSM portfolios are performing this week. <strong>${escHtml(best.name)}</strong> is trending at <strong>${best.avgDelta > 0 ? '+' : ''}${best.avgDelta} pts/wk</strong> with an avg score of ${best.avgScore}, while <strong>${escHtml(worst.name)}</strong> is at <strong>${worst.avgDelta > 0 ? '+' : ''}${worst.avgDelta} pts/wk</strong> with an avg score of ${worst.avgScore}.${_psSuffix}`;
+    items.push({ priority: _psPri, icon: icShuffle,
+      color: _psColor, bg: _psBg,
       title: `${spread} pt Performance Gap Between CSMs`,
       text: `<strong>${spread} pt</strong> spread between fastest- and slowest-improving portfolios this week`,
       detail,
@@ -413,8 +431,12 @@ function renderCSMFocus(mgrList) {
     const pct = Math.round(combinedMRR / totalMRR * 100);
     const topAcct = highMRR[0];
     const topPct = Math.round((topAcct.mrr||0) / totalMRR * 100);
-    const detail = `A large share of portfolio revenue is concentrated in ${highMRR.length === 1 ? 'a single account that\'s' : highMRR.length + ' accounts that are'} currently at risk. ${_cl(topAcct)} alone accounts for <strong>${topPct}%</strong> of total MRR with a health score of ${topAcct.score} (${topAcct.status}), managed by ${escHtml(topAcct.manager||'Unassigned')}.${highMRR.length > 1 ? ' Plus ' + (highMRR.length - 1) + ' more high-value account' + (highMRR.length > 2 ? 's' : '') + ' also at risk.' : ''} Losing ${highMRR.length === 1 ? 'this account' : 'any of these'} would create a material impact on the overall book of business.`;
-    items.push({ priority: 4, icon: icAlert,
+    // Severity: high if pct ≥20 or any critical, medium if pct ≥12, low otherwise
+    var _mcSev = (pct >= 20 || highMRR.some(c => c.status === 'critical')) ? 'high' : pct >= 12 ? 'medium' : 'low';
+    var _mcPri = _mcSev === 'high' ? 6 : _mcSev === 'medium' ? 4 : 3;
+    var _mcSuffix = _mcSev === 'high' ? ` This is a top-of-house risk — losing ${highMRR.length === 1 ? 'this account' : 'any of these'} would materially damage the business.` : ` Losing ${highMRR.length === 1 ? 'this account' : 'any of these'} would create a noticeable impact on the overall book of business.`;
+    const detail = `A large share of portfolio revenue is concentrated in ${highMRR.length === 1 ? 'a single account that\'s' : highMRR.length + ' accounts that are'} currently at risk. ${_cl(topAcct)} alone accounts for <strong>${topPct}%</strong> of total MRR with a health score of ${topAcct.score} (${topAcct.status}), managed by ${escHtml(topAcct.manager||'Unassigned')}.${highMRR.length > 1 ? ' Plus ' + (highMRR.length - 1) + ' more high-value account' + (highMRR.length > 2 ? 's' : '') + ' also at risk.' : ''}${_mcSuffix}`;
+    items.push({ priority: _mcPri, icon: icAlert,
       color: 'var(--red)', bg: 'var(--red-l)',
       title: `${pct}% MRR at Risk in ${highMRR.length} Account${highMRR.length>1?'s':''}`,
       text: `<strong>${pct}%</strong> of total MRR ($${fmtNum(combinedMRR)}/mo) sits in ${highMRR.length} at-risk high-value account${highMRR.length>1?'s':''}`,
@@ -438,11 +460,17 @@ function renderCSMFocus(mgrList) {
     const csmsAffected = [...new Set(disconnected.map(c => c.manager ? c.manager.trim() : 'Unassigned'))];
     disconnected.sort((a,b) => a.adoption - b.adoption);
     const examples = disconnected.slice(0,3).map(c => `${_cl(c)} (score ${c.score}, ${c.adoption}% adoption)`).join(' · ');
-    items.push({ priority: 3, icon: icDown,
-      color: 'var(--amber)', bg: 'var(--amber-l)',
+    // Severity: high if ≥5 disconnected or MRR > $25k, medium if ≥3, low otherwise
+    var _dcSev = (disconnected.length >= 5 || dcMRR >= 25000) ? 'high' : disconnected.length >= 3 ? 'medium' : 'low';
+    var _dcColor = _dcSev === 'high' ? 'var(--red)' : 'var(--amber)';
+    var _dcBg = _dcSev === 'high' ? 'var(--red-l)' : 'var(--amber-l)';
+    var _dcPri = _dcSev === 'high' ? 5 : _dcSev === 'medium' ? 3 : 2;
+    var _dcSuffix = _dcSev === 'high' ? ` This is a widespread adoption gap — these accounts will likely drop scores in the next 1–2 cycles without enablement.` : ` This is a leading indicator of future churn — customers who aren\'t using the product tend to question its value at renewal.`;
+    items.push({ priority: _dcPri, icon: icDown,
+      color: _dcColor, bg: _dcBg,
       title: `${disconnected.length} Accounts with Low Adoption Risk`,
       text: `<strong>${disconnected.length}</strong> accounts look healthy but have adoption under 25% — potential lagging risk ($${fmtNum(dcMRR)}/mo)`,
-      detail: `These accounts look healthy on the surface — scores above 60 — but product adoption is under 25%. That\'s a leading indicator of future churn because customers who aren\'t using the product tend to question its value at renewal. The most at risk: ` + examples + `. Together they represent <strong>$${fmtNum(dcMRR)}/mo</strong> in MRR that could quietly slip away.`,
+      detail: `These accounts look healthy on the surface — scores above 60 — but product adoption is under 25%.${_dcSuffix} The most at risk: ` + examples + `. Together they represent <strong>$${fmtNum(dcMRR)}/mo</strong> in MRR that could quietly slip away.`,
       steps: [
         'Run adoption deep-dives on the lowest-adoption accounts — identify unused features',
         'Schedule product training or enablement sessions for these accounts',
@@ -459,9 +487,15 @@ function renderCSMFocus(mgrList) {
     if (!overloaded.length) return;
     overloaded.sort((a,b) => b.atRisk - a.atRisk);
     const csm = overloaded[0];
-    const detail = `<strong>${escHtml(csm.name)}</strong> is managing <strong>${csm.atRisk} at-risk accounts</strong> worth $${fmtNum(csm.riskMRR)}/mo, while the team average is only ${Math.round(avgRisk)}. When one CSM is stretched too thin across too many problem accounts, response times suffer and at-risk accounts don\'t get the attention they need.${overloaded.length > 1 ? ' <strong>' + escHtml(overloaded[1].name) + '</strong> is also elevated at ' + overloaded[1].atRisk + ' at-risk accounts.' : ''} Redistributing some of this load could prevent accounts from slipping through the cracks.`;
-    items.push({ priority: 3, icon: icAlert,
-      color: 'var(--amber)', bg: 'var(--amber-l)',
+    // Severity: high if ≥5 at-risk or riskMRR > $40k, medium if ≥4 or multiple overloaded CSMs, low otherwise
+    var _wlSev = (csm.atRisk >= 5 || csm.riskMRR >= 40000) ? 'high' : (csm.atRisk >= 4 || overloaded.length > 1) ? 'medium' : 'low';
+    var _wlColor = _wlSev === 'high' ? 'var(--red)' : 'var(--amber)';
+    var _wlBg = _wlSev === 'high' ? 'var(--red-l)' : 'var(--amber-l)';
+    var _wlPri = _wlSev === 'high' ? 5 : _wlSev === 'medium' ? 3 : 2;
+    var _wlSuffix = _wlSev === 'high' ? ` This CSM is critically overloaded — immediate redistribution is needed to prevent account losses.` : ` Redistributing some of this load could prevent accounts from slipping through the cracks.`;
+    const detail = `<strong>${escHtml(csm.name)}</strong> is managing <strong>${csm.atRisk} at-risk accounts</strong> worth $${fmtNum(csm.riskMRR)}/mo, while the team average is only ${Math.round(avgRisk)}. When one CSM is stretched too thin across too many problem accounts, response times suffer and at-risk accounts don\'t get the attention they need.${overloaded.length > 1 ? ' <strong>' + escHtml(overloaded[1].name) + '</strong> is also elevated at ' + overloaded[1].atRisk + ' at-risk accounts.' : ''}${_wlSuffix}`;
+    items.push({ priority: _wlPri, icon: icAlert,
+      color: _wlColor, bg: _wlBg,
       title: `${escHtml(csm.name)} Carrying ${csm.atRisk} At-Risk Accounts`,
       text: `Risk accounts are unevenly distributed — <strong>${escHtml(csm.name)}</strong> carries ${Math.round(csm.atRisk / Math.max(1, activeMgrs.reduce((s,m)=>s+m.atRisk,0)) * 100)}% of team's at-risk load`,
       detail,
@@ -564,7 +598,10 @@ function renderCSMFocus(mgrList) {
     if (top.renewal != null && top.renewal > 0 && top.renewal <= 3) signalBullets.push('renews within 90d');
     var signalStr = signalBullets.length ? signalBullets.join(', ') : 'multiple weak signals';
 
-    items.push({ priority: 4, icon: icTarget,
+    // Severity: high if critical + large MRR or declining, medium if risk, low if otherwise
+    var _tpSev = (top.status === 'critical' && (mrrPct >= 5 || (delta && delta < -3))) ? 'high' : top.status === 'critical' ? 'high' : (mrrPct >= 8 || (delta && delta < -5)) ? 'high' : 'medium';
+    var _tpPri = _tpSev === 'high' ? 6 : 4;
+    items.push({ priority: _tpPri, icon: icTarget,
       color: 'var(--red)', bg: 'var(--red-l)',
       title: `Top Priority: ${escHtml(top.name)} ($${fmtNum(topMRR)}/mo)`,
       text: `Highest-priority account across all CSMs: ${_cl(top)} ($${fmtNum(topMRR)}/mo, ${top.status})`,
@@ -676,7 +713,10 @@ function renderCSMMovement(mgrList) {
   // Sort: deteriorations first (more urgent), then improvements
   movements.sort((a, b) => a.improved - b.improved || b.mrr - a.mrr);
 
-  wrap.innerHTML = movements.slice(0, 10).map(mv => {
+  wrap.style.maxHeight = '420px';
+  wrap.style.overflowY = 'auto';
+
+  wrap.innerHTML = movements.map(mv => {
     const arrowCls = mv.improved ? 'up' : 'dn';
     const arrowIcon = mv.improved ? '▲' : '▼';
     return `<div class="csm-movement-item">
@@ -688,7 +728,7 @@ function renderCSMMovement(mgrList) {
       ${badgeHTML(mv.to)}
       <span style="color:var(--muted);font-size:var(--fs-sm);margin-left:auto">${escHtml(mv.csm)} · $${fmtNum(mv.mrr)} MRR</span>
     </div>`;
-  }).join('') + (movements.length > 10 ? `<div style="padding:8px 16px;font-size:var(--fs-sm);color:var(--subtle);text-align:center">+ ${movements.length - 10} more changes</div>` : '');
+  }).join('');
 }
 
 /* ─── CSM click-through helpers ────────────────────────────────── */

@@ -147,6 +147,7 @@ a{color:var(--blue);text-decoration:none}
 .btn-primary{background:var(--blue);color:#fff;box-shadow:0 1px 3px rgba(37,99,235,.3)}.btn-primary:hover{background:var(--blue-d);transform:translateY(-1px);box-shadow:0 4px 12px rgba(37,99,235,.4)}
 .btn-outline{background:transparent;color:var(--blue);border:1.5px solid var(--blue-m)}.btn-outline:hover{background:var(--blue-l);border-color:var(--blue)}
 .btn-ghost{background:transparent;color:var(--muted);border:1.5px solid var(--border)}.btn-ghost:hover{background:var(--bg);color:var(--text);border-color:var(--subtle)}
+.sm-sens-btn.active{background:var(--teal-l,#f0fdfa);color:#0f766e;border-color:#0f766e;font-weight:700}
 .btn-success{background:var(--green);color:#fff;box-shadow:0 1px 3px rgba(22,163,74,.3)}.btn-success:hover{background:#15803d}
 .btn-danger{background:transparent;color:var(--red);border:1.5px solid var(--red-m)}.btn-danger:hover{background:var(--red-l);border-color:var(--red)}
 .btn-amber{background:var(--amber);color:#fff}.btn-amber:hover{background:#b45309}
@@ -625,6 +626,7 @@ svg.sparkline{display:block}
 .field label{font-size:var(--fs-base);font-weight:600;color:var(--text);display:flex;align-items:center;gap:5px}
 .field .hint{font-size:var(--fs-sm);color:var(--subtle)}
 .field input,.field select,.field textarea{padding:8px 11px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-md);font-family:var(--font);color:var(--text);background:var(--surface);outline:none;transition:border-color .16s,box-shadow .16s}
+.field input::placeholder,.field textarea::placeholder,.di-input::placeholder{color:var(--subtle);opacity:.45;font-style:italic}
 .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--focus);box-shadow:0 0 0 3px rgba(59,130,246,.1)}
 .field input[type=range]{padding:4px 0;border:none;box-shadow:none;cursor:pointer;accent-color:var(--blue);height:20px}
 .range-row{display:flex;align-items:center;gap:10px}
@@ -871,6 +873,43 @@ svg.sparkline{display:block}
 /* Active Alerts tab */
 .active-alerts-empty{text-align:center;padding:40px 20px;color:var(--muted)}
 .active-alerts-empty .empty-icon{font-size:2.5rem;margin-bottom:12px;opacity:.4}
+/* Custom Rule Builder */
+.rule-group{border:1.5px solid var(--border);border-radius:var(--rlg);padding:16px 18px;margin-bottom:12px;background:var(--surface);transition:border-color .15s}
+.rule-group:hover{border-color:rgba(59,130,246,.25)}
+.rule-group-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.rule-group-label{font-size:var(--fs-sm);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle)}
+.rule-or-divider{display:flex;align-items:center;gap:10px;margin:8px 0;color:var(--purple);font-size:var(--fs-sm);font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+.rule-or-divider::before,.rule-or-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.rule-condition-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.rule-condition-row select,.rule-condition-row input{padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)}
+.rule-condition-row select{min-width:120px;max-width:180px}
+.rule-condition-row input[type="number"]{width:90px;text-align:center}
+.rule-condition-row input[type="text"]{width:140px}
+.rule-condition-row .rule-remove-btn{background:none;border:none;color:var(--subtle);cursor:pointer;padding:4px 6px;border-radius:4px;transition:color .12s,background .12s;font-size:16px;line-height:1}
+.rule-condition-row .rule-remove-btn:hover{color:var(--red);background:var(--red-l,#fef2f2)}
+.rule-add-condition{font-size:var(--fs-sm);color:var(--blue);font-weight:600;background:none;border:none;cursor:pointer;padding:4px 0;font-family:var(--font)}
+.rule-add-condition:hover{text-decoration:underline}
+.rule-add-or-group{margin-top:4px;font-size:var(--fs-sm);color:var(--purple);font-weight:600;background:none;border:1.5px dashed var(--purple,#7c3aed);border-radius:8px;cursor:pointer;padding:8px 16px;font-family:var(--font);transition:background .12s}
+.rule-add-or-group:hover{background:rgba(124,58,237,.06)}
+.rule-channel-toggles{display:flex;gap:16px;margin-top:8px;flex-wrap:wrap}
+.rule-channel-toggle{display:flex;align-items:center;gap:6px;font-size:var(--fs-base);cursor:pointer}
+.rule-channel-toggle input{accent-color:#0f766e;width:16px;height:16px}
+.rule-card{display:flex;align-items:flex-start;justify-content:space-between;padding:14px 18px;border:1.5px solid var(--border);border-radius:var(--rlg);margin-bottom:8px;background:var(--surface);transition:all .15s}
+.rule-card:hover{border-color:rgba(59,130,246,.25);box-shadow:var(--sh)}
+.rule-card.disabled{opacity:.55}
+.rule-card-actions{display:flex;gap:6px;align-items:center;flex-shrink:0;margin-left:12px}
+.rule-name-input{padding:7px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-md);font-family:var(--font);color:var(--text);background:var(--surface);width:100%;max-width:400px}
+.rule-preview-wrap{margin-top:14px;border-top:1.5px solid var(--border);padding-top:14px}
+.rule-preview-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.rule-preview-header h3{font-size:var(--fs-base);font-weight:700;margin:0}
+.rule-preview-count{font-size:var(--fs-sm);color:var(--muted);font-weight:600}
+.rule-preview-table{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}
+.rule-preview-table th{text-align:left;padding:6px 10px;font-weight:700;color:var(--subtle);text-transform:uppercase;letter-spacing:.05em;font-size:11px;border-bottom:1.5px solid var(--border)}
+.rule-preview-table td{padding:7px 10px;border-bottom:1px solid var(--border)}
+.rule-preview-table tr:hover td{background:rgba(59,130,246,.03)}
+.rule-preview-table .score-cell{font-weight:700;min-width:42px;text-align:center;border-radius:6px;padding:2px 8px}
+.rule-preview-empty{text-align:center;padding:18px 10px;color:var(--muted);font-size:var(--fs-sm)}
+.rule-preview-scroll{max-height:280px;overflow-y:auto;border:1.5px solid var(--border);border-radius:var(--rlg);background:var(--bg)}
 .dest-url{font-size:var(--fs-sm);color:var(--muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle}
 .dest-tag{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:99px;font-size:var(--fs-sm);font-weight:600;background:rgba(59,130,246,.08);color:var(--blue);white-space:nowrap}
 .dest-tag svg{vertical-align:middle}
@@ -2352,6 +2391,40 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <!-- Config tab -->
   <div class="dtab-pane active" id="cfg-pane-config">
 
+    <!-- SECTION 0: iQcadence Signal Model -->
+    <div class="cfg-section" id="cfg-sm-section">
+      <div class="cfg-section-hd">
+        <svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.4L19.2 10l-5.4 1.6L12 17l-1.8-5.4L4.8 10l5.4-1.6z"/></svg>
+        iQcadence Signal Model
+        <span style="margin-left:auto;font-size:10px;font-weight:500;text-transform:none;letter-spacing:0;color:#0f766e;opacity:.7">Proprietary</span>
+      </div>
+      <div class="cfg-columns" style="grid-template-columns:1fr 1fr">
+        <div class="card">
+          <div class="card-hd"><h2>Signal Model <span class="info-tip" data-tip="The iQcadence Signal Model applies 26 proprietary factors on top of your base score to detect hidden risks and opportunities. Factors run automatically.">&#9432;</span></h2></div>
+          <p style="font-size:var(--fs-base);margin-bottom:14px">Proprietary scoring layer that analyzes engagement depth, silent churn patterns, renewal gravity, sentiment trajectory, and 22 more factors to refine health scores beyond simple weighted averages.</p>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="cfg-sm-enabled" onchange="toggleSignalModel(this.checked)" style="width:18px;height:18px;accent-color:#0f766e"/>
+              <span style="font-weight:700;font-size:var(--fs-base)">Enable Signal Model</span>
+            </label>
+          </div>
+          <div id="cfg-sm-sensitivity-wrap" style="display:none">
+            <div style="font-size:var(--fs-sm);font-weight:600;margin-bottom:6px;color:var(--subtle)">Sensitivity</div>
+            <div style="display:flex;gap:6px;margin-bottom:8px">
+              <button class="btn btn-sm btn-ghost sm-sens-btn" data-sens="conservative" onclick="setSmSensitivity('conservative')">Conservative</button>
+              <button class="btn btn-sm btn-ghost sm-sens-btn" data-sens="balanced" onclick="setSmSensitivity('balanced')">Balanced</button>
+              <button class="btn btn-sm btn-ghost sm-sens-btn" data-sens="aggressive" onclick="setSmSensitivity('aggressive')">Aggressive</button>
+            </div>
+            <div style="font-size:var(--fs-xs);color:var(--muted)" id="cfg-sm-sens-desc">Max adjustment: &plusmn;15 pts</div>
+          </div>
+        </div>
+        <div class="card" id="cfg-sm-preview">
+          <div class="card-hd"><h2>Factor Categories</h2></div>
+          <div id="cfg-sm-cats"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- SECTION 1: Scoring Engine -->
     <div class="cfg-section">
       <div class="cfg-section-hd">
@@ -2429,7 +2502,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
           <table style="width:100%;font-size:var(--fs-base);border-collapse:collapse">
             <thead><tr>
               <th style="text-align:left;padding:4px 6px;font-weight:700;border-bottom:1px solid var(--border)">Tier</th>
-              <th style="text-align:center;padding:4px 6px;font-weight:700;border-bottom:1px solid var(--border)">Soon</th>
+              <th style="text-align:center;padding:4px 6px;font-weight:700;border-bottom:1px solid var(--border)">Due Soon</th>
               <th style="text-align:center;padding:4px 6px;font-weight:700;border-bottom:1px solid var(--border)">Overdue</th>
             </tr></thead>
             <tbody>
@@ -2745,8 +2818,8 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 
   <!-- Tab bar -->
   <div class="dtab-row" style="margin-bottom:18px">
-    <button class="dtab active" id="auto-tab-active" onclick="autoTab('active')">Active Alerts</button>
-    <button class="dtab" id="auto-tab-create" onclick="autoTab('create')">Create Alert</button>
+    <button class="dtab active" id="auto-tab-active" onclick="autoTab('active')">Alerts</button>
+    <button class="dtab" id="auto-tab-rules" onclick="autoTab('rules')">Custom Rules</button>
   </div>
 
   <!-- ── Tab 1: Active Alerts ── -->
@@ -2754,43 +2827,88 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
     <div class="card" style="max-width:100%">
       <div class="card-hd">
         <h2>Active Alerts</h2>
-        <button class="btn btn-sm btn-primary" onclick="autoTab('create')">+ New Alert</button>
+        <button class="btn btn-sm btn-primary" onclick="openCreateAlertModal()">+ New Alert</button>
       </div>
       <div id="active-alerts-container"></div>
     </div>
   </div>
 
-  <!-- ── Tab 2: Create Alert (Wizard) ── -->
-  <div class="dtab-pane" id="auto-pane-create">
-    <div id="alert-wizard" class="wizard-container card" style="max-width:860px">
-      <!-- Clickable Stepper -->
-      <div class="wizard-stepper">
-        <div class="wizard-step active" data-step="1" onclick="wizardGoToStep(1)">
-          <div class="wizard-step__circle">1</div>
-          <div class="wizard-step__label">Alerts & Scope</div>
-        </div>
-        <div class="wizard-step__line"></div>
-        <div class="wizard-step" data-step="2" onclick="wizardGoToStep(2)">
-          <div class="wizard-step__circle">2</div>
-          <div class="wizard-step__label">Thresholds</div>
-        </div>
-        <div class="wizard-step__line"></div>
-        <div class="wizard-step" data-step="3" onclick="wizardGoToStep(3)">
-          <div class="wizard-step__circle">3</div>
-          <div class="wizard-step__label">Delivery & Schedule</div>
-        </div>
+  <!-- ── Tab 2: Custom Rules ── -->
+  <div class="dtab-pane" id="auto-pane-rules">
+    <div class="card" style="max-width:100%">
+      <div class="card-hd">
+        <h2>Custom Rules</h2>
+        <button class="btn btn-sm btn-primary" onclick="openRuleBuilder()">+ New Rule</button>
       </div>
-      <!-- Wizard Panes -->
-      <div id="wizard-pane-1" class="wizard-pane active"></div>
-      <div id="wizard-pane-2" class="wizard-pane"></div>
-      <div id="wizard-pane-3" class="wizard-pane"></div>
-      <!-- Back / Next / Save & Finish -->
-      <div id="wizard-nav-bar" class="wizard-nav"></div>
+      <div id="custom-rules-list"></div>
     </div>
   </div>
 
-
 </div><!-- /automations -->
+
+<!-- RULE BUILDER MODAL -->
+<div class="modal-bg" id="rule-builder-modal" onclick="if(event.target===this)closeRuleBuilder()">
+  <div class="modal" style="max-width:860px;padding:0;display:flex;flex-direction:column">
+    <div class="modal-hd" style="padding:20px 28px 0;margin-bottom:0">
+      <h2 id="rule-builder-title">New Custom Rule</h2>
+      <button class="modal-close" onclick="closeRuleBuilder()"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div id="rule-builder-stepper" class="wizard-stepper" style="padding:16px 28px 0">
+      <div class="wizard-step active" data-step="1" onclick="_ruleWizardStep=1;renderRuleBuilderBody()">
+        <div class="wizard-step__circle">1</div>
+        <div class="wizard-step__label">Conditions</div>
+      </div>
+      <div class="wizard-step__line"></div>
+      <div class="wizard-step" data-step="2" onclick="ruleWizardNext()">
+        <div class="wizard-step__circle">2</div>
+        <div class="wizard-step__label">Delivery</div>
+      </div>
+    </div>
+    <div class="modal-bd" style="padding:0;flex:1;overflow-y:auto">
+      <div id="rule-builder-body"></div>
+      <div id="rule-preview-results" style="display:none;padding:0 20px 14px"></div>
+    </div>
+    <div class="modal-ft" style="padding:12px 28px;margin-top:0">
+      <div id="rule-builder-footer" class="wizard-nav" style="width:100%;border-top:none;margin-top:0;padding-top:0"></div>
+    </div>
+  </div>
+</div>
+
+<!-- CREATE ALERT MODAL -->
+<div class="modal-bg" id="create-alert-modal" onclick="if(event.target===this)closeCreateAlertModal()">
+  <div class="modal" style="max-width:860px;padding:0;display:flex;flex-direction:column">
+    <div class="modal-hd" style="padding:20px 28px 0;margin-bottom:0">
+      <h2>Create Alert</h2>
+      <button class="modal-close" onclick="closeCreateAlertModal()"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-bd" style="padding:0;flex:1;overflow-y:auto">
+      <div id="alert-wizard" class="wizard-container" style="padding:24px 28px">
+        <div class="wizard-stepper">
+          <div class="wizard-step active" data-step="1" onclick="wizardGoToStep(1)">
+            <div class="wizard-step__circle">1</div>
+            <div class="wizard-step__label">Alerts & Scope</div>
+          </div>
+          <div class="wizard-step__line"></div>
+          <div class="wizard-step" data-step="2" onclick="wizardGoToStep(2)">
+            <div class="wizard-step__circle">2</div>
+            <div class="wizard-step__label">Thresholds</div>
+          </div>
+          <div class="wizard-step__line"></div>
+          <div class="wizard-step" data-step="3" onclick="wizardGoToStep(3)">
+            <div class="wizard-step__circle">3</div>
+            <div class="wizard-step__label">Delivery & Schedule</div>
+          </div>
+        </div>
+        <div id="wizard-pane-1" class="wizard-pane active"></div>
+        <div id="wizard-pane-2" class="wizard-pane"></div>
+        <div id="wizard-pane-3" class="wizard-pane"></div>
+      </div>
+    </div>
+    <div class="modal-ft" style="padding:12px 28px;margin-top:0">
+      <div id="wizard-nav-bar" class="wizard-nav" style="width:100%;border-top:none;margin-top:0;padding-top:0"></div>
+    </div>
+  </div>
+</div>
 
 <!-- CREATE CLIENT MODAL -->
 <div class="modal-bg" id="create-client-modal" onclick="if(event.target===this)closeModal('create-client-modal')">
@@ -3836,6 +3954,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=417"></script>
+<script src="js/app.js?v=433"></script>
 </body>
 </html>

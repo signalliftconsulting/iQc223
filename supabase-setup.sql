@@ -299,6 +299,12 @@ DO $$ BEGIN
   ) THEN
     ALTER TABLE settings ADD COLUMN automations TEXT DEFAULT '{}';
   END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name='settings' AND column_name='signal_model'
+  ) THEN
+    ALTER TABLE settings ADD COLUMN signal_model TEXT DEFAULT '{}';
+  END IF;
 END $$;
 
 

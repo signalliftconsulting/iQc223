@@ -86,6 +86,7 @@ function renderSettings() {
   renderCSMList();
   renderScoreDistribution();
   renderDataHealth();
+  renderSignalModelSettings();
 }
 
 // Populate the per-customer profile dropdown in the score form
@@ -213,9 +214,7 @@ function rescoreAll() {
   let n = 0;
   const changed = [];
   customers.forEach(c => {
-    const profileMatch = c.scoring_profile ? profiles.find(p => p.name === c.scoring_profile) : null;
-    const resolvedWeights = profileMatch ? profileMatch.weights : weights;
-    const { score } = calcScore(c, resolvedWeights);
+    const { score } = scoreWithModel(c);
     if (c.score !== score) {
       c.history = c.history || [];
       c.history.push({ score, date: new Date().toISOString(), signals: buildHistorySnapshot(c) });
@@ -512,7 +511,7 @@ function renderScoreDistribution(previewWeights) {
   const bands = { critical: 0, risk: 0, watch: 0, healthy: 0, expand: 0 };
   customers.forEach(c => {
     const w = previewWeights || getActiveWeights(c);
-    const { score } = calcScore(c, w);
+    const { score } = scoreWithModel(c, w);
     bands[getStatus(score)]++;
   });
   const total = customers.length;
@@ -885,7 +884,7 @@ function rescoreByProfile(profileName) {
       ? (!c.scoring_profile || c.scoring_profile === 'Global Weights')
       : c.scoring_profile === profileName;
     if (!usesThisProfile) return;
-    const { score } = calcScore(c, prof.weights);
+    const { score } = scoreWithModel(c, prof.weights);
     if (c.score !== score) {
       c.history = c.history || [];
       c.history.push({ score, date: new Date().toISOString(), signals: buildHistorySnapshot(c) });
@@ -1033,4 +1032,97 @@ async function changePassword() {
 
   logAudit('password_changed', null, '', { summary: 'Password changed' });
   toast('Password updated successfully!', 'success');
+}
+
+// ─── iQcadence SIGNAL MODEL SETTINGS ───────────────────────
+function toggleSignalModel(enabled) {
+  signalModelCfg.enabled = enabled;
+  var wrap = el('cfg-sm-sensitivity-wrap');
+  if (wrap) wrap.style.display = enabled ? '' : 'none';
+  saveSettings();
+  renderSignalModelPreview();
+  logAudit('signal_model_toggled', null, '', { summary: 'Signal Model ' + (enabled ? 'enabled' : 'disabled') });
+  rescoreAllWithModel();
+  renderScoreDistribution();
+}
+
+function setSmSensitivity(level) {
+  signalModelCfg.sensitivity = level;
+  document.querySelectorAll('.sm-sens-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.sens === level);
+  });
+  var desc = { conservative: 'Max adjustment: \u00b18 pts', balanced: 'Max adjustment: \u00b115 pts', aggressive: 'Max adjustment: \u00b125 pts' };
+  var descEl = el('cfg-sm-sens-desc');
+  if (descEl) descEl.textContent = desc[level] || desc.balanced;
+  saveSettings();
+  logAudit('signal_model_sensitivity', null, '', { summary: 'Signal Model sensitivity: ' + level });
+  rescoreAllWithModel();
+  renderScoreDistribution();
+}
+
+function renderSignalModelSettings() {
+  // Plan tier gating
+  var section = el('cfg-sm-section');
+  if (section && !hasFeature('signal_model')) {
+    section.style.position = 'relative';
+    if (!section.querySelector('.upgrade-overlay')) {
+      var ov = document.createElement('div');
+      ov.className = 'upgrade-overlay';
+      ov.style.cssText = 'position:absolute;inset:0;background:rgba(255,255,255,.85);z-index:5;display:flex;align-items:center;justify-content:center;border-radius:14px';
+      ov.innerHTML = upgradeHTML('signal_model');
+      section.appendChild(ov);
+    }
+  }
+  var cb = el('cfg-sm-enabled');
+  if (cb) cb.checked = signalModelCfg.enabled;
+  var wrap = el('cfg-sm-sensitivity-wrap');
+  if (wrap) wrap.style.display = signalModelCfg.enabled ? '' : 'none';
+  document.querySelectorAll('.sm-sens-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.sens === signalModelCfg.sensitivity);
+  });
+  var desc = { conservative: 'Max adjustment: \u00b18 pts', balanced: 'Max adjustment: \u00b115 pts', aggressive: 'Max adjustment: \u00b125 pts' };
+  var descEl = el('cfg-sm-sens-desc');
+  if (descEl) descEl.textContent = desc[signalModelCfg.sensitivity] || desc.balanced;
+  renderSignalModelPreview();
+}
+
+function renderSignalModelPreview() {
+  var wrap = el('cfg-sm-cats');
+  if (!wrap) return;
+  var cats = [
+    { label: 'Engagement & Usage',         count: 5, icon: appIcon('chartBar', 14) },
+    { label: 'Revenue & Growth',            count: 4, icon: appIcon('trendUp', 14) },
+    { label: 'Relationship & Stakeholder',  count: 4, icon: appIcon('users', 14) },
+    { label: 'Support & Sentiment',         count: 4, icon: appIcon('clipboard', 14) },
+    { label: 'Lifecycle & Timing',          count: 5, icon: appIcon('calendar', 14) },
+    { label: 'Compound / Interaction',      count: 4, icon: appIcon('sparkle', 14) },
+  ];
+  wrap.innerHTML = cats.map(function(cat) {
+    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">' +
+      '<span style="color:#0f766e">' + cat.icon + '</span>' +
+      '<span style="flex:1;font-size:var(--fs-base)">' + cat.label + '</span>' +
+      '<span style="font-size:var(--fs-xs);color:var(--muted)">' + cat.count + ' factors</span></div>';
+  }).join('');
+}
+
+function rescoreAllWithModel() {
+  var changed = [];
+  customers.forEach(function(c) {
+    if (c.lifecycle === 'churned') return;
+    var result = scoreWithModel(c);
+    if (c.score !== result.score) {
+      c.history = c.history || [];
+      c.history.push({ score: result.score, date: new Date().toISOString(), signals: buildHistorySnapshot(c) });
+      c.score = result.score;
+      c.status = getStatus(result.score);
+      applyAutoStage(c);
+      changed.push(c);
+    }
+  });
+  if (changed.length) {
+    renderHomeBase(); renderCustomers(); renderAlerts(); renderScoreDistribution();
+    toast('Re-scored ' + changed.length + ' customer' + (changed.length !== 1 ? 's' : '') + ' with Signal Model', 'success');
+    setLoading(true);
+    Promise.all(changed.map(function(c) { return atUpdate(c).catch(function(){}); })).finally(function() { setLoading(false); });
+  }
 }

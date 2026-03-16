@@ -918,9 +918,7 @@ function bulkRescore() {
     const changed = [];
     customers.forEach(c => {
       if (!selectedIds.has(c.id)) return;
-      const profileMatch = c.scoring_profile ? profiles.find(p => p.name === c.scoring_profile) : null;
-      const resolvedWeights = profileMatch ? profileMatch.weights : weights;
-      const { score } = calcScore(c, resolvedWeights);
+      const { score } = scoreWithModel(c);
       if (c.score !== score) {
         c.history = c.history || [];
         c.history.push({ score, date: new Date().toISOString(), signals: buildHistorySnapshot(c) });
@@ -1133,9 +1131,7 @@ function rescoreAllFromToolbar() {
     let n = 0;
     const changed = [];
     customers.forEach(c => {
-      const profileMatch = c.scoring_profile ? profiles.find(p => p.name === c.scoring_profile) : null;
-      const resolvedWeights = profileMatch ? profileMatch.weights : weights;
-      const { score } = calcScore(c, resolvedWeights);
+      const { score } = scoreWithModel(c);
       if (c.score !== score) {
         c.history = c.history || [];
         c.history.push({ score, date: new Date().toISOString(), signals: buildHistorySnapshot(c) });

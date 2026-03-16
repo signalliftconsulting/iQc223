@@ -1251,7 +1251,7 @@ function _taMetricCorrelation(data1, data2, m1, m2, rangeDays) {
     } else {
       const m2Improved = d2 > 0;
       title = l1 + (m1Good ? ' improved' : ' declined') + ' while ' + l2 + (m2Improved ? ' improved' : ' worsened');
-      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> while <strong>${l2} ${f2(rawD2)}${m2Hint}</strong>. ` + (m1Good ? 'Mixed signals — ' + l2 + ' may be a drag on future ' + l1 + ' performance.' : l2 + ' is improving but hasn\'t yet lifted ' + l1 + ' — watch for a lagging recovery.');
+      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> while <strong>${l2} ${f2(rawD2)}${m2Hint}</strong>. ` + (m1Good ? 'Mixed signals — ' + l2 + ' may be pulling down ' + l1 + ' gains. Open the customer detail to see which accounts have both signals moving in different directions.' : l2 + ' is improving but hasn\'t lifted ' + l1 + ' yet. This is common — give it another 1–2 scoring cycles. If ' + l1 + ' doesn\'t follow, the ' + l2 + ' improvement may not be translating to real engagement.');
       accent = 'amber';
     }
   } else {

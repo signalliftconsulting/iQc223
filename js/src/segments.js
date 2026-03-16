@@ -1243,6 +1243,51 @@ function _buildSegInsights(segments, active) {
     }
   });
 
+  // ── 11. Synthesis — combine related insights on same segment ──
+  // Look for compound patterns: MRR concentration + poor health in same segment
+  var _synthTags = {};
+  insights.forEach(function(ins) {
+    (ins.tags || []).forEach(function(t) {
+      if (!_synthTags[t]) _synthTags[t] = [];
+      _synthTags[t].push(ins.label);
+    });
+  });
+  Object.keys(_synthTags).forEach(function(tag) {
+    var labels = _synthTags[tag];
+    if (labels.length < 2) return;
+    var seg = segments.find(function(s) { return s.tag === tag; });
+    if (!seg) return;
+    var segName = escHtml(segDisplayLabel(tag));
+
+    // MRR Concentration + Risk Clustering in same segment
+    if (labels.indexOf('MRR Concentration') >= 0 && labels.indexOf('Risk Clustering') >= 0) {
+      insights.push({ score: 20, icon: icAlert, color: 'var(--red)', bg: 'var(--red-l)',
+        label: 'Compounding Risk', tags: [tag],
+        text: `<strong>${segName}</strong> concentrates both high MRR and high risk — ${seg.riskPct}% at-risk accounts holding $${fmtNum(seg.totalMRR)} MRR. This segment is your single biggest exposure point.` });
+    }
+
+    // MRR Concentration + Revenue-Health Inversion
+    if (labels.indexOf('MRR Concentration') >= 0 && labels.indexOf('Revenue-Health Inversion') >= 0) {
+      insights.push({ score: 18, icon: icDollar, color: 'var(--red)', bg: 'var(--red-l)',
+        label: 'Revenue at Risk', tags: [tag],
+        text: `<strong>${segName}</strong> holds your largest MRR concentration but scores below portfolio average — revenue and health are misaligned in the segment that matters most.` });
+    }
+
+    // Contact Gap + Health Disparity (worst health + no contact)
+    if (labels.indexOf('Contact Gap') >= 0 && labels.indexOf('Health Disparity') >= 0) {
+      insights.push({ score: 15, icon: icPhone, color: 'var(--amber)', bg: 'var(--amber-l)',
+        label: 'Neglect Pattern', tags: [tag],
+        text: `<strong>${segName}</strong> has both the widest contact gap and a notable health disparity — infrequent touch may be driving the health difference.` });
+    }
+
+    // Renewal Exposure + Risk Clustering
+    if (labels.indexOf('Renewal Exposure') >= 0 && labels.indexOf('Risk Clustering') >= 0) {
+      insights.push({ score: 17, icon: icCal, color: 'var(--red)', bg: 'var(--red-l)',
+        label: 'Renewal Pipeline Risk', tags: [tag],
+        text: `<strong>${segName}</strong> has concentrated renewal exposure combined with high at-risk clustering — upcoming renewals in this segment are especially vulnerable.` });
+    }
+  });
+
   // ── Sort, cap at 4, render ──
   insights.sort((a, b) => b.score - a.score);
   const top = insights.slice(0, 4);

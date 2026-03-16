@@ -166,6 +166,7 @@ const PLAN_FEATURES = {
   momentum:          'pro',
   automations:       'pro',
   api_webhooks:      'pro',
+  signal_model:      'pro',
 };
 
 const PLAN_LIMITS = {
@@ -255,6 +256,11 @@ function applyTierGating() {
     if (btn) btn.style.display = hasFeature(featureKey) ? '' : 'none';
   });
 }
+
+// ─── iQcadence SIGNAL MODEL ──────────────────────────────────
+const DEFAULT_SIGNAL_MODEL = { enabled: false, sensitivity: 'balanced' };
+let signalModelCfg = { ...DEFAULT_SIGNAL_MODEL };
+const SM_SENSITIVITY = { conservative: 8, balanced: 15, aggressive: 25 };
 
 // Column definitions — drives header rendering + filter logic
 const COL_DEFS = [

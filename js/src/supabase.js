@@ -14,14 +14,16 @@ function saveSettings() {
   localStorage.setItem('iqc_renewal_windows', JSON.stringify(renewalWindows));
   localStorage.setItem('iqc_quiet_days', String(quietDays));
   localStorage.setItem('iqc_momentum_pts', String(momentumPts));
+  localStorage.setItem('iqc_signal_model', JSON.stringify(signalModelCfg));
   // Sync to Supabase (fire and forget)
   if (currentUser) {
     sb.from('settings').upsert({
       user_id:    currentUser.id,
       weights:    JSON.stringify(weights),
       thresholds: JSON.stringify(thresholds),
-      profiles:   JSON.stringify(profiles),
-      updated_at: new Date().toISOString()
+      profiles:     JSON.stringify(profiles),
+      signal_model: JSON.stringify(signalModelCfg),
+      updated_at:   new Date().toISOString()
     }, { onConflict: 'user_id' }).then(({error}) => {
       if (error) console.warn('Settings sync failed:', error.message);
     });
@@ -109,6 +111,10 @@ function loadSettings() {
     const mp = localStorage.getItem('iqc_momentum_pts');
     if (mp) momentumPts = parseInt(mp) || DEFAULT_MOMENTUM_PTS;
   } catch(e) {}
+  try {
+    const sm = localStorage.getItem('iqc_signal_model');
+    if (sm) signalModelCfg = { ...DEFAULT_SIGNAL_MODEL, ...JSON.parse(sm) };
+  } catch(e) {}
 }
 
 // Ensure the built-in "Global Weights" profile always exists and stays in sync with weights
@@ -130,6 +136,7 @@ async function loadSettingsFromSupabase() {
   try { if (data.thresholds) thresholds = { ...DEFAULT_THRESHOLDS, ...JSON.parse(data.thresholds) }; } catch(e){}
   try { if (data.profiles)   profiles   = JSON.parse(data.profiles); }  catch(e){}
   try { if (data.automations) { automationsCfg = JSON.parse(data.automations); migrateAutomationsCfg(); } } catch(e){}
+  try { if (data.signal_model) signalModelCfg = { ...DEFAULT_SIGNAL_MODEL, ...JSON.parse(data.signal_model) }; } catch(e){}
   ensureGlobalWeightsProfile(true); // persist=true → writes clean version back if duplicates found
   // Also update localStorage cache
   localStorage.setItem('iqc_weights',    JSON.stringify(weights));
