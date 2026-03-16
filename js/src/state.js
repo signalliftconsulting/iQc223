@@ -132,7 +132,7 @@ function _pagHTML(total, key, renderFnName) {
 }
 
 // ─── PLAN TIER GATING ──────────────────────────────────────
-let clientPlanTier = 'enterprise'; // default to enterprise (full access) until resolved
+let clientPlanTier = 'pro'; // default to pro until resolved — admin gets enterprise via isAdmin()
 
 const PLAN_TIERS = ['starter', 'team', 'pro', 'enterprise'];
 const PLAN_TIER_LABELS = { starter: 'Starter', team: 'Team', pro: 'Pro', enterprise: 'Enterprise' };
@@ -225,9 +225,9 @@ async function resolveClientPlanTier() {
         .eq('id', _userClientId)
         .limit(1);
       const client = clientRows && clientRows.length ? clientRows[0] : null;
-      clientPlanTier = client?.plan_tier || 'starter';
+      clientPlanTier = client?.plan_tier || 'pro';
     } else {
-      clientPlanTier = 'starter'; // no client assigned = starter
+      clientPlanTier = 'pro'; // no client assigned = pro
     }
     // Migrate legacy tier names (solo→starter, growth→pro)
     if (TIER_MIGRATION[clientPlanTier]) clientPlanTier = TIER_MIGRATION[clientPlanTier];
@@ -235,7 +235,7 @@ async function resolveClientPlanTier() {
   } catch(e) {
     console.warn('Could not resolve plan tier:', e.message);
     // Keep cached value if available, otherwise fall to starter
-    if (!PLAN_TIERS.includes(clientPlanTier)) clientPlanTier = 'starter';
+    if (!PLAN_TIERS.includes(clientPlanTier)) clientPlanTier = 'pro';
   }
   applyTierGating();
 }
