@@ -720,9 +720,9 @@ svg.sparkline{display:block}
 .hist-reason:last-child{border-bottom:none;padding-bottom:0}
 
 /* SETTINGS */
-.weight-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:8px 10px;border-radius:8px;transition:background .12s}
+.weight-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;padding:5px 8px;border-radius:6px;transition:background .12s}
 .weight-row:hover{background:var(--bg)}
-.weight-label{min-width:170px;font-size:var(--fs-md);font-weight:600;color:var(--text)}
+.weight-label{min-width:140px;font-size:var(--fs-sm);font-weight:600;color:var(--text)}
 .weight-pct{display:flex;align-items:center;gap:0;color:var(--blue)}
 .weight-pct input[type=number]{-moz-appearance:textfield}
 .weight-pct input[type=number]::-webkit-outer-spin-button,.weight-pct input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
@@ -737,25 +737,31 @@ svg.sparkline{display:block}
 .threshold-label{min-width:155px;font-size:var(--fs-md);font-weight:600;flex-shrink:0}
 .threshold-input{width:72px;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:var(--fs-md);font-family:var(--font);text-align:center;outline:none}
 .threshold-input:focus{border-color:var(--focus)}
-.cfg-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.cfg-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
 .cfg-grid>.card{margin-bottom:0}
 @media(max-width:900px){.cfg-grid{grid-template-columns:1fr}}
-.cfg-columns{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-items:start}
-.cfg-columns>.card,.cfg-stack .card{margin-bottom:0;padding:10px 14px}
-.cfg-columns>.card>.card-hd,.cfg-stack .card>.card-hd{margin:-10px -14px 8px;padding:7px 12px;background:#f0fdfa;border-bottom:1px solid #ccfbf1}
-.cfg-stack{display:flex;flex-direction:column;gap:10px}
-@media(max-width:1100px){.cfg-columns{grid-template-columns:1fr 1fr}}
+.cfg-columns{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;align-items:start}
+.cfg-columns>.card,.cfg-stack .card{margin-bottom:0;padding:8px 12px}
+.cfg-columns>.card>.card-hd,.cfg-stack .card>.card-hd{margin:-8px -12px 6px;padding:5px 10px;background:#f0fdfa;border-bottom:1px solid #ccfbf1}
+.cfg-stack{display:flex;flex-direction:column;gap:8px}
+@media(max-width:1200px){.cfg-columns{grid-template-columns:1fr 1fr}}
 @media(max-width:700px){.cfg-columns{grid-template-columns:1fr}}
 #cfg-pane-config{}
-.cfg-section{margin-bottom:20px}
+.cfg-section{margin-bottom:14px}
 .cfg-section:last-child{margin-bottom:0}
-.cfg-section-hd{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#0f766e;margin:0 0 10px;padding:7px 12px;background:#ccfbf1;border-left:3px solid #0f766e;border-radius:4px;display:flex;align-items:center;gap:10px}
-.cfg-section-hd svg{width:16px;height:16px;stroke:#0f766e;stroke-width:2;fill:none;flex-shrink:0}
-.cfg-columns .card p,.cfg-stack .card p{font-size:12px;margin-bottom:6px}
-#cfg-pane-config .threshold-row{margin-bottom:2px!important;gap:8px!important;padding:0!important}
-#cfg-pane-config .threshold-label{min-width:155px}
-#cfg-pane-config .card p{margin-bottom:4px!important}
-#cfg-pane-config .total-bar{height:4px!important;margin:4px 0!important}
+.cfg-section-hd{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#0f766e;margin:0 0 8px;padding:5px 10px;background:#ccfbf1;border-left:3px solid #0f766e;border-radius:4px;display:flex;align-items:center;gap:8px}
+.cfg-section-hd svg{width:14px;height:14px;stroke:#0f766e;stroke-width:2;fill:none;flex-shrink:0}
+.cfg-columns .card p,.cfg-stack .card p{font-size:11px;margin-bottom:4px}
+#cfg-pane-config .threshold-row{margin-bottom:2px!important;gap:6px!important;padding:0!important}
+#cfg-pane-config .threshold-label{min-width:140px;font-size:var(--fs-sm)}
+#cfg-pane-config .card p{margin-bottom:3px!important}
+#cfg-pane-config .total-bar{height:3px!important;margin:3px 0!important}
+#view-settings .card-hd{padding:8px 12px;font-size:var(--fs-sm)}
+#view-settings .card-hd h2{font-size:var(--fs-sm)}
+#view-settings .card-hd~*{padding:10px 12px}
+#view-settings .cfg-columns .card-hd~*{padding:8px 12px}
+#view-settings .page-hd{margin-bottom:10px}
+#view-settings .dtab-row{margin-bottom:12px}
 /* Score distribution bar */
 .score-dist-bar{display:flex;height:28px;border-radius:6px;overflow:hidden;margin-bottom:12px}.score-dist-bar>div{display:flex;align-items:center;justify-content:center;font-size:var(--fs-xs);font-weight:700;color:#fff;min-width:2px;transition:width .3s}
 .score-dist-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:2px}.score-dist-legend span{display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);color:var(--text)}.score-dist-legend .dl{width:8px;height:8px;border-radius:50%;flex-shrink:0}
@@ -2441,7 +2447,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       <div class="cfg-columns" style="grid-template-columns:1fr 1fr">
         <div class="card">
           <div class="card-hd"><h2>Signal Model <span class="info-tip" data-tip="The iQcadence Signal Model applies 26 proprietary factors on top of your base score to detect hidden risks and opportunities. Factors run automatically.">&#9432;</span></h2></div>
-          <p style="font-size:var(--fs-base);margin-bottom:14px">Proprietary scoring layer that analyzes engagement depth, silent churn patterns, renewal gravity, sentiment trajectory, and 22 more factors to refine health scores beyond simple weighted averages.</p>
+          <p>Proprietary scoring layer that analyzes engagement depth, silent churn patterns, renewal gravity, sentiment trajectory, and 22 more factors to refine health scores beyond simple weighted averages.</p>
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
               <input type="checkbox" id="cfg-sm-enabled" onchange="toggleSignalModel(this.checked)" style="width:18px;height:18px;accent-color:#0f766e"/>
@@ -2476,7 +2482,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
         <div class="card">
           <div class="card-hd"><h2>Signal Weights <span class="info-tip" data-tip="Control how much each signal contributes to the health score. Click a profile on the right to load its weights here.">ⓘ</span></h2></div>
           <div id="editing-profile-label" style="display:none;font-size:var(--fs-base);font-weight:600;color:var(--blue);margin-bottom:10px;padding:6px 10px;background:rgba(59,130,246,.06);border-radius:6px"></div>
-          <p style="font-size:var(--fs-base);margin-bottom:14px">Adjust how much each signal contributes to the health score. Weights must total 100%.</p>
+          <p>Adjust how much each signal contributes to the health score. Weights must total 100%.</p>
           <div id="weight-rows"></div>
           <div class="total-bar" style="height:4px;margin:4px 0"><div class="total-fill" id="total-fill" style="width:100%"></div></div>
           <div style="margin-bottom:6px"><span id="total-label" style="font-size:var(--fs-sm);font-weight:700">Total: 100%</span></div>
@@ -2491,12 +2497,12 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
         <div class="cfg-stack">
           <div class="card">
             <div class="card-hd"><h2>Score Distribution <span class="info-tip" data-tip="Live breakdown of accounts across health bands based on current threshold settings. Updates when you save thresholds or weights.">ⓘ</span></h2></div>
-            <p style="font-size:var(--fs-base);margin-bottom:14px">Current spread of accounts across health bands.</p>
+            <p>Current spread of accounts across health bands.</p>
             <div id="cfg-score-dist"></div>
           </div>
           <div class="card">
             <div class="card-hd"><h2>Scoring Profiles <span class="info-tip" data-tip="Click a profile to load its weights into the editor. Edit, update, or create new profiles from the sliders.">ⓘ</span></h2></div>
-            <p style="font-size:var(--fs-base);margin-bottom:14px">Click a profile to load its weights into the editor.</p>
+            <p>Click a profile to load its weights into the editor.</p>
             <div id="profiles-list"></div>
           </div>
         </div>
@@ -2504,7 +2510,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
         <div class="cfg-stack">
           <div class="card">
             <div class="card-hd"><h2>Score Thresholds <span class="info-tip" data-tip="Define score cutoffs for each health band. Changes apply to all accounts on next re-score.">ⓘ</span></h2></div>
-            <p style="font-size:var(--fs-base);margin-bottom:4px">Define what score ranges map to each health band.</p>
+            <p>Define what score ranges map to each health band.</p>
             <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#dc2626"></span>Critical — below</span><input class="threshold-input" type="number" id="th-critical" min="1" max="99" value="25" oninput="updateThresholdLabels()"/><span style="font-size:var(--fs-base);color:var(--muted)">0–<span id="th-critical-max">24</span></span></div>
             <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#ea580c"></span>At Risk — below</span><input class="threshold-input" type="number" id="th-risk" min="1" max="99" value="50" oninput="updateThresholdLabels()"/><span style="font-size:var(--fs-base);color:var(--muted)"><span id="th-risk-range">25–49</span></span></div>
             <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:var(--amber)"></span>Watch — below</span><input class="threshold-input" type="number" id="th-watch" min="1" max="99" value="65" oninput="updateThresholdLabels()"/><span style="font-size:var(--fs-base);color:var(--muted)"><span id="th-watch-range">50–64</span></span></div>
@@ -2517,7 +2523,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
           </div>
           <div class="card">
             <div class="card-hd"><h2>Signal Thresholds <span class="info-tip" data-tip="Fine-tune sensitivity for quiet account detection and momentum classification.">ⓘ</span></h2></div>
-            <p style="font-size:var(--fs-base);margin-bottom:4px">Adjust detection sensitivity for account signals.</p>
+            <p>Adjust detection sensitivity for account signals.</p>
             <div class="threshold-row"><span class="threshold-label">Quiet after</span><input class="threshold-input" type="number" id="cfg-quiet-days" min="1" max="90" value="14"/><span style="font-size:var(--fs-base);color:var(--muted)">days</span></div>
             <div class="threshold-row"><span class="threshold-label">Momentum ±</span><input class="threshold-input" type="number" id="cfg-momentum-pts" min="1" max="20" value="3"/><span style="font-size:var(--fs-base);color:var(--muted)">pts / 7d</span></div>
             <div style="margin-top:6px;display:flex;gap:8px">
@@ -2538,7 +2544,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       <div class="cfg-columns">
         <div class="card">
           <div class="card-hd"><h2>Contact Cadence <span class="info-tip" data-tip="Set how many days without contact triggers a 'Due Soon' warning or 'Overdue' alert, per tier. These drive cadence alerts and the contact status indicator.">ⓘ</span></h2></div>
-          <p style="font-size:var(--fs-base);margin-bottom:14px">Days since last contact before follow-up is flagged.</p>
+          <p>Days since last contact before follow-up is flagged.</p>
           <table style="width:100%;font-size:var(--fs-base);border-collapse:collapse">
             <thead><tr>
               <th style="text-align:left;padding:4px 6px;font-weight:700;border-bottom:1px solid var(--border)">Tier</th>
@@ -2570,7 +2576,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
         </div>
         <div class="card">
           <div class="card-hd"><h2>Renewal Windows <span class="info-tip" data-tip="How far out from a renewal date should alerts appear, and at what urgency level.">ⓘ</span></h2></div>
-          <p style="font-size:var(--fs-base);margin-bottom:14px">Days before renewal to trigger each alert level.</p>
+          <p>Days before renewal to trigger each alert level.</p>
           <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#dc2626"></span>Critical</span><input class="threshold-input" type="number" id="rw-critical" min="1" max="365" value="14"/><span style="font-size:var(--fs-base);color:var(--muted)">days</span></div>
           <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#f59e0b"></span>Warning</span><input class="threshold-input" type="number" id="rw-warning" min="1" max="365" value="30"/><span style="font-size:var(--fs-base);color:var(--muted)">days</span></div>
           <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#3b82f6"></span>Upcoming</span><input class="threshold-input" type="number" id="rw-upcoming" min="1" max="365" value="60"/><span style="font-size:var(--fs-base);color:var(--muted)">days</span></div>
@@ -2581,7 +2587,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
         </div>
         <div class="card">
           <div class="card-hd"><h2>Expansion Estimate <span class="info-tip" data-tip="Configure how upsell potential is calculated on the Home Base KPI card. Choose a percentage of MRR or a flat dollar amount per account.">ⓘ</span></h2></div>
-          <p style="font-size:var(--fs-base);margin-bottom:14px">How to estimate upsell potential for expansion-ready accounts.</p>
+          <p>How to estimate upsell potential for expansion-ready accounts.</p>
           <div class="threshold-row"><span class="threshold-label">Method</span>
             <select id="exp-mode" class="threshold-input" style="width:auto;min-width:120px" onchange="toggleExpMode(this.value)">
               <option value="pct">% of MRR</option>
@@ -2609,7 +2615,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       </div>
       <div class="card" id="cfg-quick-actions">
         <div class="card-hd"><h2>Quick Actions <span class="info-tip" data-tip="Common config tasks — recalculate scores, back up or restore settings, or reset everything to factory defaults.">ⓘ</span></h2></div>
-        <p style="font-size:var(--fs-base);margin-bottom:14px">Manage your scoring configuration.</p>
+        <p style="font-size:var(--fs-sm);margin-bottom:6px">Manage your scoring configuration.</p>
         <div class="qa-grid">
           <button class="qa-btn" onclick="rescoreAll()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Recalculate Scores</button>
           <button class="qa-btn" onclick="backupExport()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export Backup</button>
@@ -2623,12 +2629,12 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
     <div class="cfg-columns" style="margin-top:18px">
       <div class="card" id="cfg-csm-list-card">
         <div class="card-hd"><h2>Manage CSMs <span class="info-tip" data-tip="View all CSMs and remove ones no longer needed. Removing a CSM unassigns them from all their customers.">ⓘ</span></h2></div>
-        <p style="font-size:var(--fs-base);margin-bottom:14px">CSMs currently assigned to customers.</p>
+        <p style="font-size:var(--fs-sm);margin-bottom:6px">CSMs currently assigned to customers.</p>
         <div id="cfg-csm-list"></div>
       </div>
       <div class="card">
         <div class="card-hd"><h2>Account</h2></div>
-        <p style="font-size:var(--fs-base);margin-bottom:14px">Signed in as <strong id="settings-email">—</strong></p>
+        <p style="font-size:var(--fs-sm);margin-bottom:6px">Signed in as <strong id="settings-email">—</strong></p>
         <div style="display:flex;flex-direction:column;gap:10px;max-width:320px">
           <div class="field"><label>New Password <span style="font-weight:400;color:var(--subtle)">(leave blank to keep current)</span></label><input type="password" id="pw-new" placeholder="New password (min 6 chars)"/></div>
           <div class="field"><label>Confirm New Password</label><input type="password" id="pw-confirm" placeholder="Repeat new password"/></div>
@@ -4063,6 +4069,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=529"></script>
+<script src="js/app.js?v=530"></script>
 </body>
 </html>
