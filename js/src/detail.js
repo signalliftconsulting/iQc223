@@ -670,6 +670,7 @@ function openDetail(id) {
   if (!c) return;
   detailId = id;
   if (typeof _wtCompleteIfActive === 'function') _wtCompleteIfActive('customer-deepdive');
+  if (typeof _wtHighlightQBRButton === 'function') _wtHighlightQBRButton();
   _pagState.sentLog = 0;
   _pagState.scoreHist = 0;
 
@@ -1515,7 +1516,6 @@ function closeQBR() {
 
 /* ── Rich HTML version (displayed in modal) ── */
 function buildQBRHTML(c) {
-  const mom   = getMomentum(c);
   const cad   = getCadenceStatus(c);
   const sent  = latestSentiment(c);
   const u     = getRenewalUrgency(c);
@@ -1530,9 +1530,17 @@ function buildQBRHTML(c) {
   const sentLabels = { positive:'Positive', neutral:'Neutral', negative:'Negative' };
 
   const hist = c.history || [];
-  const histLine = hist.length >= 2
-    ? `${hist[hist.length-2].score} → ${hist[hist.length-1].score} <span style="color:${hist[hist.length-1].score >= hist[hist.length-2].score ? '#16a34a' : '#dc2626'}">(${hist[hist.length-1].score > hist[hist.length-2].score ? '+' : ''}${hist[hist.length-1].score - hist[hist.length-2].score})</span>`
-    : '';
+  // Derive momentum from the last two history entries so label always matches the displayed score change
+  var mom, histLine;
+  if (hist.length >= 2) {
+    var prevScore = hist[hist.length-2].score, curScore = hist[hist.length-1].score;
+    var histDiff = curScore - prevScore;
+    histLine = prevScore + ' → ' + curScore + ' <span style="color:' + (histDiff >= 0 ? '#16a34a' : '#dc2626') + '">(' + (histDiff > 0 ? '+' : '') + histDiff + ')</span>';
+    mom = histDiff >= momentumPts ? 'up' : histDiff <= -momentumPts ? 'dn' : 'flat';
+  } else {
+    histLine = '';
+    mom = hist.length < 2 ? 'new' : 'flat';
+  }
 
   const tierMap = { smb:'SMB', mid:'Mid-Market', enterprise:'Enterprise' };
   const tierDisp = tierMap[c.tier] || c.tier || '';
@@ -1583,7 +1591,7 @@ function buildQBRHTML(c) {
   if (c.growth === 'declining') risks.push({ sev:'med', text:'Growth signal is declining' });
   if (sent && sent.val === 'negative') risks.push({ sev:'high', text:`Negative sentiment logged on ${fmtDate(sent.date)}` });
   if (mom === 'dn') risks.push({ sev:'med', text:'Health score trending downward' });
-  if (c.renewal != null && c.renewal <= 2) risks.push({ sev: c.renewal <= 1 ? 'high' : 'med', text:`Renewal in ${c.renewal} month${c.renewal === 1 ? '' : 's'} \u2014 needs proactive attention` });
+  if (c.renewal != null && c.renewal <= 2) risks.push({ sev: c.renewal <= 1 ? 'high' : 'med', text:`Renewal in ${fmtRenewalTime(c)} \u2014 needs proactive attention` });
 
   /* ── Executive Summary ── */
   let summary = '';
@@ -1600,7 +1608,7 @@ function buildQBRHTML(c) {
     if (mom === 'dn') summary += 'The score has been declining, which warrants immediate attention. ';
     else if (mom === 'up') summary += 'However, the score is trending upward, indicating recent recovery efforts may be working. ';
     if (risks.length) summary += `There ${risks.length === 1 ? 'is 1 key concern' : 'are ' + risks.length + ' concerns'} to address. `;
-    if (c.renewal != null && c.renewal <= 3) summary += `With renewal ${c.renewal <= 1 ? 'imminent' : 'approaching in ' + c.renewal + ' months'}, this QBR is critical for retention. `;
+    if (c.renewal != null && c.renewal <= 3) summary += `With renewal ${c.renewal <= 0 ? 'imminent' : 'approaching in ' + fmtRenewalTime(c)}, this QBR is critical for retention. `;
     summary += 'The focus for this meeting should be understanding root causes and building a joint recovery plan.';
   } else if (c.status === 'watch') {
     summary = `${name} is in <strong>Watch</strong> status (${c.score}/100). `;
@@ -1641,7 +1649,7 @@ function buildQBRHTML(c) {
     agenda.push({ time:'10 min', topic:'Product Adoption & Enablement', detail:`Current adoption is at ${c.adoption}%. Walk through underutilized features and their business impact.` });
   agenda.push({ time:'10 min', topic:'Goals for Next Quarter', detail:'Align on what success looks like for Q+1. Document concrete objectives together.' });
   if (lc !== 'churned' && c.renewal != null && c.renewal <= 6)
-    agenda.push({ time:'5 min', topic:'Renewal & Partnership Discussion', detail:`Renewal is ${c.renewal} month${c.renewal === 1 ? '' : 's'} out. Address timeline, scope, and any expansion interest.` });
+    agenda.push({ time:'5 min', topic:'Renewal & Partnership Discussion', detail:`Renewal is ${fmtRenewalTime(c)} out. Address timeline, scope, and any expansion interest.` });
   if (lc !== 'onboarding' && lc !== 'won' && lc !== 'churned' && (c.growth === 'strong' || c.growth === 'mild' || c.status === 'expand'))
     agenda.push({ time:'5 min', topic:'Expansion Opportunities', detail:'Explore where additional value could be unlocked \u2014 new users, features, or tiers.' });
   agenda.push({ time:'5 min', topic:'Action Items & Next Steps', detail:'Summarize agreed-upon action items with owners and timelines.' });
@@ -1768,7 +1776,6 @@ function buildQBRHTML(c) {
 
 /* ── Plain-text version (clipboard copy) ── */
 function buildQBRText(c) {
-  const mom   = getMomentum(c);
   const cad   = getCadenceStatus(c);
   const sent  = latestSentiment(c);
   const u     = getRenewalUrgency(c);
@@ -1776,9 +1783,17 @@ function buildQBRText(c) {
   const sentLabels = { positive:'Positive', neutral:'Neutral', negative:'Negative' };
   const date  = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
   const hist = c.history || [];
-  const histLine = hist.length >= 2
-    ? `${hist[hist.length-2].score} → ${hist[hist.length-1].score} (${hist[hist.length-1].score > hist[hist.length-2].score ? '+' : ''}${hist[hist.length-1].score - hist[hist.length-2].score} pts)`
-    : `${c.score} (first score)`;
+  // Derive momentum from the last two history entries for consistency
+  var mom, histLine;
+  if (hist.length >= 2) {
+    var prevScore = hist[hist.length-2].score, curScore = hist[hist.length-1].score;
+    var histDiff = curScore - prevScore;
+    histLine = prevScore + ' → ' + curScore + ' (' + (histDiff > 0 ? '+' : '') + histDiff + ' pts)';
+    mom = histDiff >= momentumPts ? 'up' : histDiff <= -momentumPts ? 'dn' : 'flat';
+  } else {
+    histLine = c.score + ' (first score)';
+    mom = 'new';
+  }
   const tierMap = { smb:'SMB', mid:'Mid-Market', enterprise:'Enterprise' };
   const name = c.name || 'This account';
   const lc   = c.lifecycle || 'active';
@@ -1813,7 +1828,7 @@ function buildQBRText(c) {
   if (c.growth === 'declining') risks.push('[MED] Growth signal is declining');
   if (sent && sent.val === 'negative') risks.push(`[HIGH] Negative sentiment logged on ${fmtDate(sent.date)}`);
   if (mom === 'dn') risks.push('[MED] Health score trending downward');
-  if (c.renewal != null && c.renewal <= 2) risks.push(`[${c.renewal <= 1 ? 'HIGH' : 'MED'}] Renewal in ${c.renewal} month${c.renewal === 1 ? '' : 's'} — needs proactive attention`);
+  if (c.renewal != null && c.renewal <= 2) risks.push(`[${c.renewal <= 1 ? 'HIGH' : 'MED'}] Renewal in ${fmtRenewalTime(c)} — needs proactive attention`);
 
   // Summary
   let summary = '';
@@ -1829,7 +1844,7 @@ function buildQBRText(c) {
     summary += `${name} is currently in a ${sl} state with a health score of ${c.score}/100. `;
     if (mom === 'dn') summary += 'The score has been declining. ';
     if (risks.length) summary += `There are ${risks.length} concern(s) to address. `;
-    if (c.renewal != null && c.renewal <= 3) summary += `Renewal is ${c.renewal <= 1 ? 'imminent' : 'in ' + c.renewal + ' months'}. `;
+    if (c.renewal != null && c.renewal <= 3) summary += `Renewal is ${c.renewal <= 0 ? 'imminent' : 'in ' + fmtRenewalTime(c)}. `;
     summary += 'Focus this meeting on understanding root causes and building a joint recovery plan.';
   } else if (c.status === 'expand') {
     summary += `${name} is performing strongly at ${c.score}/100 (${sl}). `;

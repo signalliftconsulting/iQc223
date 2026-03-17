@@ -367,6 +367,23 @@ function fmtNum(n) {
   return n.toLocaleString();
 }
 
+// ─── RENEWAL DISPLAY ────────────────────────────────────────
+// Shows days when < 1 month, otherwise months. Pass customer object or months number.
+function fmtRenewalTime(c) {
+  if (c && c.renewal_date) {
+    var days = Math.max(0, Math.round((new Date(c.renewal_date) - new Date()) / 86400000));
+    if (days === 0) return 'today';
+    if (days < 30) return days + ' day' + (days !== 1 ? 's' : '');
+    var mo = Math.round(days / 30.44);
+    return mo + ' month' + (mo !== 1 ? 's' : '');
+  }
+  // Fallback: months-based
+  var months = (typeof c === 'number') ? c : (c && c.renewal != null ? c.renewal : null);
+  if (months == null) return '—';
+  if (months <= 0) return 'today';
+  return months + ' month' + (months !== 1 ? 's' : '');
+}
+
 // ─── TIME FORMATTING ────────────────────────────────────────
 function fmtTime12(hhmm) {
   if (!hhmm) return '';
@@ -831,288 +848,878 @@ function renderAutomationsGuide() {
 }
 
 
-// ─── GUIDED ONBOARDING WALKTHROUGH ──────────────────────────────────
-// Floating checklist panel that guides users through key features after
-// demo data is loaded. Persists progress in localStorage.
+// -- PER-PAGE SPOTLIGHT TOURS -------------------------------------------------
+// Each major page has its own guided tour. A "Tour" button in each page header
+// starts that page's tour. The spotlight engine is shared across all pages.
 
 var _WT_KEY = 'iqc_walkthrough';
-var _WT_SEEN = 'iqc_walkthrough_seen';
 
-var _WT_STEPS = [
-  { id: 'demo-loaded',       title: 'Demo data loaded',              desc: '75 accounts are ready to explore', auto: true },
-  { id: 'portfolio-health',  title: 'See your portfolio health',     desc: 'Review KPIs, at-risk MRR, and renewal pipeline', view: 'homebase' },
-  { id: 'check-alert',       title: 'Check your highest-risk alert', desc: 'See the alert that fired for your most critical account' },
-  { id: 'customer-deepdive', title: 'Open a customer deep-dive',     desc: 'Explore health signals, score history, and playbook' },
-  { id: 'qbr-prep',          title: 'Generate a QBR prep',           desc: 'See an auto-generated quarterly business review' },
-  { id: 'connect-data',      title: 'Connect your own data',         desc: 'Import via CSV or connect an integration' }
-];
+// -- Per-page tour definitions ------------------------------------------------
+var _WT_TOURS = {
+  homebase: {
+    label: 'Home Base',
+    steps: [
+      {
+        target: '.hb-welcome',
+        title: 'Your Daily Briefing',
+        body: 'This is your starting point every morning. The health ring gives you an instant read on your portfolio, the quick stats show how many accounts are trending up or down, and the overview on the right calls out the single most important pattern to watch today.'
+      },
+      {
+        target: '.dash-kpi-row',
+        title: 'Portfolio KPIs',
+        body: 'Four numbers that matter most: at-risk MRR, critical accounts, upcoming renewals, and expansion opportunities. Click any card to jump straight to the matching accounts on the Customers page.'
+      },
+      {
+        target: '.hb-insights-wrap',
+        title: 'Smart Insights',
+        body: 'iQcadence analyzes your portfolio and surfaces the most urgent actions - declining accounts, overdue renewals, quiet customers, and more. Each insight links directly to the corresponding page or accounts so you can act immediately.'
+      },
+      {
+        target: '#heatmap-wrap',
+        title: 'Signal Heatmap',
+        body: 'A bird\'s-eye view of every signal across all customers. Red cells flag weak spots, green cells show strength. Click any column header to sort and spot patterns fast - like which accounts have the worst NPS or lowest adoption.'
+      }
+    ]
+  },
+  alerts: {
+    label: 'Alerts',
+    steps: [
+      {
+        target: '#alert-kpi-row',
+        title: 'Alert Overview',
+        body: 'A real-time count of active alerts grouped by severity. Alerts fire automatically when accounts cross risk thresholds - score drops, engagement declines, renewals approaching with poor health, and 20+ other trigger types.'
+      },
+      {
+        target: '#alert-insights-row',
+        title: 'Pulse Studio',
+        body: 'Pulse Studio surfaces the most actionable patterns across your portfolio - highest MRR at risk, accounts with multiple red flags, engagement drops, and more. Click any card to see the affected accounts and take action.'
+      },
+      {
+        target: '.aw-detail-row',
+        title: 'MRR Exposure and Stages',
+        body: 'This section breaks down your total MRR at risk by alert category and shows how alerts distribute across lifecycle stages (onboarding, active, renewal, etc.). Use it to understand where your revenue is most exposed.'
+      },
+      {
+        target: '#alert-sticky-bar',
+        title: 'Alert Feed',
+        body: 'Browse alerts in five different views - Briefing, Category, Priority, Customer, and Table - depending on how you like to work. Use the search bar to find specific accounts, and select multiple alerts to snooze or dismiss in bulk.'
+      }
+    ]
+  },
+  customers: {
+    label: 'Customers',
+    steps: [
+      {
+        target: '.list-toolbar',
+        title: 'Search and Filter',
+        body: 'Use the search bar to find customers by name, or click the status chips to filter by Critical, At Risk, Watch, Healthy, Expansion, or Churned. The Trash chip shows soft-deleted customers you can restore.'
+      },
+      {
+        target: '#cust-table',
+        title: 'Customer Table',
+        body: 'Your full customer list showing health scores, momentum trends, MRR, renewal timelines, signals, and more. Click any column header to sort. Click any row to open a deep-dive with the full signal breakdown, notes, and history.'
+      },
+      {
+        target: '#filter-pill-bar',
+        title: 'Active Filters',
+        body: 'When you click values in the table to filter (like a specific lifecycle stage or risk tier), filter pills appear here. Remove individual filters or clear them all. Stack multiple filters to build targeted customer segments.',
+        fallback: '.list-toolbar'
+      },
+      {
+        target: '.page-hd',
+        title: 'Toolbar and Actions',
+        body: 'Export your data as CSV or Bulksheet, save filter presets for quick access, re-score all accounts, or add a new customer. Select multiple rows in the table below for bulk tagging, lifecycle changes, or deletion.',
+        container: '#view-customers'
+      }
+    ]
+  },
+  settings: {
+    label: 'Settings',
+    steps: [
+      {
+        target: '#cfg-sm-section',
+        title: 'iQcadence Signal Model',
+        body: 'The Signal Model layers 26 proprietary factors on top of your base scores to detect hidden risks and expansion signals that raw numbers miss. Toggle it on and choose a sensitivity level to control how aggressively it flags accounts.',
+        tab: "cfgTab('config')"
+      },
+      {
+        target: '#weight-rows',
+        title: 'Scoring Weights',
+        body: 'Control how much each signal contributes to the health score - logins, adoption, tickets, NPS, CSAT, and contact recency. Drag the sliders to match what matters most for your business. Changes recalculate every account score automatically.',
+        tab: "cfgTab('config')"
+      },
+      {
+        target: '#cfg-score-dist',
+        title: 'Score Distribution and Thresholds',
+        body: 'See how your accounts spread across health bands and adjust the boundaries that define Critical, At Risk, Watch, Healthy, and Expansion tiers. These thresholds drive alerts, color coding, and KPI cards across every page in iQcadence.',
+        tab: "cfgTab('config')"
+      },
+      {
+        target: '#cfg-acct-ops',
+        title: 'Account Operations',
+        body: 'Configure how iQcadence manages customer accounts day-to-day. Set contact cadence thresholds per tier (when follow-ups become overdue), renewal alert windows, and how expansion revenue is estimated across your book of business.',
+        tab: "cfgTab('config')"
+      },
+      {
+        target: '#cfg-tab-account',
+        title: 'Account Tab',
+        body: 'The Account tab holds your data health overview, bulk actions, CSM management, and account settings. Let\'s take a look inside.',
+        tab: "cfgTab('account')"
+      },
+      {
+        target: '#cfg-data-health-card',
+        title: 'Data Health',
+        body: 'A real-time quality check on your customer data - how many accounts have complete signal coverage, which ones are stale or missing key fields, and an overall data health score. Poor data quality directly impacts scoring accuracy.',
+        tab: "cfgTab('account')"
+      },
+      {
+        target: '#cfg-quick-actions',
+        title: 'Quick Actions',
+        body: 'One-click tools for common admin tasks: recalculate all health scores, export a full backup of your settings and weights, import a previously saved backup, or reset everything to factory defaults.',
+        tab: "cfgTab('account')"
+      },
+      {
+        target: '#cfg-csm-list-card',
+        title: 'Manage CSMs',
+        body: 'View all Customer Success Managers currently assigned to accounts. Remove a CSM to unassign them from their entire portfolio, or use this list to audit workload distribution before making changes on the CSM Performance page.',
+        tab: "cfgTab('account')"
+      },
+      {
+        target: '#cfg-tab-api',
+        title: 'Integrations Tab',
+        body: 'The Integrations tab connects iQcadence to your existing tools. Let\'s walk through what\'s available.',
+        tab: "cfgTab('api')"
+      },
+      {
+        target: '#integrations-section',
+        title: 'Native Integrations',
+        body: 'Connect to popular platforms like Salesforce, HubSpot, Intercom, Zendesk, Stripe, and more with one-click setup. Each integration syncs customer data automatically to keep your health scores up to date.',
+        tab: "cfgTab('api');apiSubTab('integrations')"
+      },
+      {
+        target: '#api-tab-devtools',
+        title: 'API and Webhooks',
+        body: 'In the API & Webhooks sub-tab, set up custom webhook URLs for Zapier or other automation platforms, manage your API key for inbound requests, browse available REST endpoints, and monitor the event log.',
+        tab: "cfgTab('api');apiSubTab('devtools')"
+      }
+    ]
+  },
+  segments: {
+    label: 'Segments',
+    steps: [
+      {
+        target: '#seg-kpi-row',
+        title: 'Segment Summary',
+        body: 'Top-level KPIs for your segmented portfolio. See how health scores, MRR, and account counts break down across your business segments at a glance.'
+      },
+      {
+        target: '#seg-view-toggle',
+        title: 'View Modes',
+        body: 'Switch between Segments (custom tags), Tiers (SMB, Mid-Market, Enterprise), and Lifecycle Stages to analyze your portfolio from different angles. Each view recalculates the chart and table below.',
+        fallback: '.page-hd'
+      },
+      {
+        target: '#seg-chart-card',
+        title: 'Segment Trend Chart',
+        body: 'Track how each segment\'s health changes over time. Toggle segment pills on or off to compare specific groups. Use the date range buttons above to zoom in or out.',
+        fallback: '.page-hd'
+      },
+      {
+        target: '#seg-insights-wrap',
+        title: 'Cross-Segment Analysis',
+        body: 'AI-generated insights that compare segments against each other - which segment is improving fastest, where MRR concentration risk is highest, and momentum shifts that span multiple segments.',
+        fallback: '#seg-chart-card'
+      },
+      {
+        target: '#seg-table-wrap',
+        title: 'Segment Breakdown Table',
+        body: 'A detailed comparison of every segment showing account count, average score, MRR, and trend direction. Click any row to drill into that segment\'s accounts.',
+        fallback: '.page-hd'
+      }
+    ]
+  },
+  trends: {
+    label: 'Trends',
+    steps: [
+      {
+        target: '#trend-kpi-row',
+        title: 'Trend Summary',
+        body: 'Key metrics showing how your portfolio has changed over the selected time window - average health score, total MRR at risk, and the number of accounts moving up or down.'
+      },
+      {
+        target: '#trend-metric-1',
+        title: 'Metric Comparison',
+        body: 'Pick a primary metric to chart (health score, MRR, NPS, adoption, etc.), and optionally overlay a second metric to spot correlations. Add a CSM or client filter to narrow the view.',
+        fallback: '.page-hd'
+      },
+      {
+        target: '#trend-chart-wrap',
+        title: 'Portfolio Trend Chart',
+        body: 'Your portfolio health plotted over time. Hover over any point to see the exact value. When two metrics are selected, both lines appear so you can compare movement side by side.',
+        fallback: '.page-hd'
+      },
+      {
+        target: '#trend-analysis-wrap',
+        title: 'Trend Analysis',
+        body: 'AI-powered analysis of your portfolio trends - detecting acceleration or deceleration patterns, correlations between metrics, seasonal effects, and early warning signals that might not be obvious from the chart alone.',
+        fallback: '#trend-chart-wrap'
+      },
+      {
+        target: '#trend-movers-wrap',
+        title: 'Score Movers',
+        body: 'A ranked list of which accounts changed the most during the selected period. Sort by biggest gains or biggest drops to quickly find accounts that need attention or recognition.',
+        fallback: '.page-hd'
+      }
+    ]
+  },
+  csmperf: {
+    label: 'CSM Performance',
+    steps: [
+      {
+        target: '#csmperf-stats',
+        title: 'Team Overview',
+        body: 'High-level metrics for your entire CS team - total accounts, average health score, combined MRR, and overall trend. Use this to gauge team-wide performance at a glance.'
+      },
+      {
+        target: '#csmperf-wrap',
+        title: 'CSM Leaderboard',
+        body: 'Each CSM ranked by a composite index that factors in portfolio health, account count, MRR coverage, and recent trends. Click any CSM to expand their detailed stats.'
+      },
+      {
+        target: '#csm-workload-wrap',
+        title: 'Workload Balance',
+        body: 'A visual breakdown of how accounts and MRR are distributed across CSMs. Red highlights flag CSMs carrying more than 140% of the average load - a signal to rebalance assignments.',
+        fallback: '#csmperf-wrap'
+      },
+      {
+        target: '#csm-focus-wrap',
+        title: 'Suggested Focus Areas',
+        body: 'AI-generated action items that highlight which CSMs have at-risk accounts needing immediate attention, overdue contacts, or upcoming renewals that require prep.',
+        fallback: '#csmperf-wrap'
+      },
+      {
+        target: '#csm-movement-wrap',
+        title: 'Portfolio Movement',
+        body: 'Track health score changes across your entire portfolio over the past 7 days - how many accounts upgraded, downgraded, or were newly added. Spot team-wide momentum at a glance.',
+        fallback: '#csmperf-wrap'
+      },
+      {
+        target: '#csm-activity-wrap',
+        title: 'CSM Activity Feed',
+        body: 'A live feed of recent scoring events and customer touchpoints logged by each CSM. Use it to verify that your team is actively engaging their accounts and keeping data fresh.',
+        fallback: '#csmperf-wrap'
+      }
+    ]
+  },
+  reports: {
+    label: 'Reports',
+    steps: [
+      {
+        target: '#rpt-pane-templates',
+        title: 'Report Templates',
+        body: 'Browse ready-made report templates - portfolio summary, executive review, renewal forecast, and more. Click any template to generate a printable report with your latest data.',
+        tab: "reportsTab('templates')"
+      },
+      {
+        target: '#rpt-tab-schedules',
+        title: 'Scheduled Reports Tab',
+        body: 'The Scheduled Reports tab lets you set up recurring reports that auto-generate and send to your inbox.',
+        tab: "reportsTab('schedules')"
+      },
+      {
+        target: '#scheduled-reports-container',
+        title: 'Scheduled Report List',
+        body: 'View and manage all your scheduled reports here. Each entry shows the report type, delivery cadence (daily, weekly, monthly), recipients, and next run time. Pause, edit, or delete any schedule with one click.',
+        tab: "reportsTab('schedules')",
+        fallback: '#rpt-tab-schedules'
+      }
+    ]
+  },
+  score: {
+    label: 'Score a Customer',
+    steps: [
+      {
+        target: '#score-form',
+        title: 'Customer Scoring Form',
+        body: 'This is where you score individual customers. The form is split into three sections: account details at the top, health signals in the middle, and an optional note at the bottom. Let\'s walk through each.',
+        scroll: 'top'
+      },
+      {
+        target: '#f-name',
+        title: 'Account Details',
+        body: 'Start with the basics - company name, contact info, assigned CSM, MRR, tier, and lifecycle stage. These fields set the context for how the health score is calculated and where the account shows up in filters and segments.',
+        scroll: 'top'
+      },
+      {
+        target: '#score-signals-grid',
+        title: 'Health Signals',
+        body: 'The core inputs that drive the health score. Use sliders for login frequency, feature adoption, NPS, and CSAT. Enter discrete values for support tickets and growth signals. Toggle N/A for any signal you don\'t track - it will be excluded from the calculation.',
+        scroll: 'bottom'
+      },
+      {
+        target: '#result-placeholder',
+        title: 'Score Preview',
+        body: 'After you click "Calculate Health Score", the result appears here with a color-coded ring, status badge, signal-by-signal breakdown, and AI-generated playbook recommendations. Let me show you an example...',
+        fallback: '#result-card',
+        action: '_wtDemoScore',
+        scroll: 'bottom'
+      },
+      {
+        target: '#result-card',
+        title: 'Score Result',
+        body: 'Here\'s what a scored customer looks like - the health ring shows the overall score, the badge indicates the status tier, and below you\'ll see exactly how each signal contributed. The playbook section gives tailored recommendations based on the score profile.',
+        fallback: '#result-placeholder',
+        scroll: 'bottom'
+      }
+    ]
+  },
+  csv: {
+    label: 'Import / Export',
+    steps: [
+      {
+        target: '#drop-zone',
+        title: 'Upload CSV',
+        body: 'Drag and drop a CSV file here, or click to browse. iQcadence will auto-detect your columns and let you map them to the right fields before importing.'
+      },
+      {
+        target: '#col-map-rows',
+        title: 'Column Mapping',
+        body: 'After uploading, map each column in your CSV to the matching iQcadence field (name, MRR, score, etc.). Unmapped columns are skipped. The preview table below shows exactly what will be imported.',
+        fallback: '#drop-zone'
+      }
+    ]
+  },
+  automations: {
+    label: 'Automations',
+    steps: [
+      {
+        target: '#active-alerts-container',
+        title: 'Alert Rules',
+        body: 'View and manage your active alert rules. Each rule defines a trigger condition (score drop, renewal approaching, engagement decline) and where notifications are sent - Slack, Teams, email, or in-app.',
+        tab: "autoTab('active')",
+        fallback: '.page-hd'
+      },
+      {
+        target: '#auto-tab-rules',
+        title: 'Custom Rules Tab',
+        body: 'The Custom Rules tab lets you build advanced automation rules with multiple conditions and actions.',
+        tab: "autoTab('rules')"
+      },
+      {
+        target: '#custom-rules-list',
+        title: 'Rule Builder',
+        body: 'Create rules that combine multiple triggers - for example: "If score drops below 40 AND renewal is within 60 days, send a Slack alert to the assigned CSM and tag the account as critical." Click + New Rule to open the visual rule builder.',
+        tab: "autoTab('rules')",
+        fallback: '#auto-tab-rules'
+      }
+    ]
+  },
+  auditlog: {
+    label: 'Audit Log',
+    steps: [
+      {
+        target: '#audit-table',
+        title: 'Activity Log',
+        body: 'A chronological record of every change made in iQcadence - customer edits, score recalculations, setting changes, imports, and more. Filter by action type or search for specific entries.',
+        tab: "auditTab('activity')",
+        fallback: '.page-hd'
+      },
+      {
+        target: '#audit-tab-config',
+        title: 'Config History Tab',
+        body: 'The Config History tab shows a timeline of all configuration changes.',
+        tab: "auditTab('config')"
+      },
+      {
+        target: '#cfg-change-history',
+        title: 'Configuration Timeline',
+        body: 'Every scoring weight change, threshold adjustment, and profile update is logged here with timestamps and before/after values. Use this to understand when and why scoring behavior changed, and to troubleshoot unexpected score shifts across your portfolio.',
+        tab: "auditTab('config')",
+        fallback: '#audit-tab-config'
+      }
+    ]
+  },
+  calendar: {
+    label: 'Calendar',
+    steps: [
+      {
+        target: '#calendar-wrap',
+        title: 'Renewal Calendar',
+        body: 'A visual calendar showing upcoming renewals, scheduled customer touches, and overdue contacts. Click any event to open the customer detail. Use the refresh button to sync the latest data.'
+      }
+    ]
+  }
+};
 
-// ── State helpers ───────────────────────────────────────────────────
-function _wtGetState() {
+// -- State management ---------------------------------------------------------
+function _wtGetPageState(page) {
   try {
     var raw = localStorage.getItem(_WT_KEY);
-    if (raw) { var s = JSON.parse(raw); return { completed: s.completed || [], dismissed: !!s.dismissed, collapsed: !!s.collapsed }; }
+    if (raw) {
+      var all = JSON.parse(raw);
+      return all[page] || null;
+    }
   } catch(e) {}
-  return { completed: [], dismissed: false, collapsed: false };
+  return null;
 }
 
-function _wtSaveState(s) {
-  try { localStorage.setItem(_WT_KEY, JSON.stringify(s)); } catch(e) {}
+function _wtSavePageState(page, state) {
+  try {
+    var raw = localStorage.getItem(_WT_KEY);
+    var all = raw ? JSON.parse(raw) : {};
+    all[page] = state;
+    localStorage.setItem(_WT_KEY, JSON.stringify(all));
+  } catch(e) {}
 }
 
-function _wtIsActive() {
-  try { return localStorage.getItem(_WT_SEEN) === '1'; } catch(e) { return false; }
+function _wtClearPage(page) {
+  try {
+    var raw = localStorage.getItem(_WT_KEY);
+    if (raw) {
+      var all = JSON.parse(raw);
+      delete all[page];
+      localStorage.setItem(_WT_KEY, JSON.stringify(all));
+    }
+  } catch(e) {}
 }
 
-// ── Init — called after demo data loads ─────────────────────────────
-function _wtInit() {
-  try { localStorage.setItem(_WT_SEEN, '1'); } catch(e) {}
-  var s = _wtGetState();
-  if (s.dismissed) return;
-  // Auto-complete steps 0 and 1 (demo loaded + they're on homebase)
-  if (s.completed.indexOf(0) === -1) s.completed.push(0);
-  if (s.completed.indexOf(1) === -1) s.completed.push(1);
-  _wtSaveState(s);
-  _wtInjectPanel();
-  _wtRender();
+// -- CSS injection ------------------------------------------------------------
+var _wtStylesInjected = false;
+function _wtInjectStyles() {
+  if (_wtStylesInjected) return;
+  _wtStylesInjected = true;
+  var s = document.createElement('style');
+  s.textContent =
+    '#wt-overlay{position:fixed;inset:0;z-index:10000;pointer-events:auto;transition:opacity .3s}' +
+    '#wt-overlay-bg{position:fixed;transition:all .3s ease;border-radius:12px;z-index:10000}' +
+    '@keyframes wtPulseRing{0%{border-color:#2563eb}50%{border-color:#4f7ff7;box-shadow:0 0 0 9999px rgba(0,0,0,.55),0 0 30px 4px rgba(37,99,235,.3)}100%{border-color:#2563eb}}' +
+    '#wt-overlay-bg{animation:wtPulseRing 2s ease-in-out infinite}' +
+    '.wt-spotlight{position:relative;z-index:10001!important}' + /* kept for cleanup compat */
+    '#wt-tooltip{position:fixed;z-index:10002;width:380px;background:var(--surface,#fff);border:1px solid var(--border,#e2e8f0);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.18);font-family:var(--font,Inter,sans-serif);overflow:hidden;transition:opacity .25s,transform .25s;opacity:0;transform:translateY(8px)}' +
+    '#wt-tooltip.wt-visible{opacity:1;transform:translateY(0)}' +
+    '#wt-tooltip .wt-header{padding:16px 20px 0;display:flex;align-items:center;justify-content:space-between}' +
+    '#wt-tooltip .wt-step-count{font-size:12px;font-weight:600;color:var(--muted,#64748b);background:var(--bg,#f1f5f9);padding:3px 10px;border-radius:20px}' +
+    '#wt-tooltip .wt-title{font-size:17px;font-weight:700;color:var(--text,#0f172a);padding:10px 20px 0;line-height:1.3}' +
+    '#wt-tooltip .wt-body{font-size:13.5px;color:var(--muted,#64748b);padding:8px 20px 0;line-height:1.55}' +
+    '#wt-tooltip .wt-dots{display:flex;gap:5px;justify-content:center;padding:14px 20px 0}' +
+    '#wt-tooltip .wt-dot{width:8px;height:8px;border-radius:50%;background:var(--border,#e2e8f0);transition:background .2s}' +
+    '#wt-tooltip .wt-dot.active{background:#2563eb}' +
+    '#wt-tooltip .wt-dot.done{background:#16a34a}' +
+    '#wt-tooltip .wt-actions{display:flex;align-items:center;justify-content:space-between;padding:14px 20px 16px}' +
+    '#wt-tooltip .wt-skip{background:none;border:none;color:var(--muted,#64748b);font-size:13px;cursor:pointer;padding:6px 0;font-family:inherit}' +
+    '#wt-tooltip .wt-skip:hover{color:var(--text,#0f172a)}' +
+    '#wt-tooltip .wt-next{background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;border:none;padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:opacity .15s}' +
+    '#wt-tooltip .wt-next:hover{opacity:.9}' +
+    '.wt-tour-btn{display:inline-flex;align-items:center;gap:5px;background:linear-gradient(135deg,#ede9fe,#e0e7ff);border:1px solid #c4b5fd;color:#6d28d9;padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font,Inter,sans-serif);transition:all .15s}' +
+    '.wt-tour-btn:hover{background:linear-gradient(135deg,#ddd6fe,#c7d2fe);border-color:#8b5cf6;color:#5b21b6;box-shadow:0 2px 8px rgba(109,40,217,.15)}' +
+    '.wt-tour-btn svg{width:14px;height:14px;flex-shrink:0}';
+  document.head.appendChild(s);
 }
 
-// ── Resume — called on page reload if walkthrough was active ────────
-function _wtResume() {
-  if (!_wtIsActive()) return;
-  var s = _wtGetState();
-  if (s.dismissed) return;
-  if (!customers || !customers.length) return; // no data, don't show
-  _wtInjectPanel();
-  _wtRender();
+// -- Tour button creation -----------------------------------------------------
+function _wtMakeTourButton(page) {
+  var btn = document.createElement('button');
+  btn.className = 'wt-tour-btn';
+  btn.innerHTML =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+    '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>' +
+    '</svg>Tour';
+  btn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    _wtStartPageTour(page);
+  });
+  return btn;
 }
 
-// ── Inject panel DOM ────────────────────────────────────────────────
-function _wtInjectPanel() {
-  if (document.getElementById('iqc-wt')) return;
+// -- Inject tour buttons into page headers ------------------------------------
+function _wtInjectTourButtons() {
+  _wtInjectStyles();
 
-  // Inject pulse animation
-  var style = document.createElement('style');
-  style.textContent = '@keyframes iqcWtPulse{0%,100%{box-shadow:0 2px 12px rgba(37,99,235,.25)}50%{box-shadow:0 2px 24px rgba(37,99,235,.55)}}@keyframes iqcWtHighlight{0%{background:color-mix(in srgb,var(--teal) 20%,var(--surface))}100%{background:transparent}}';
-  document.head.appendChild(style);
-
-  var div = document.createElement('div');
-  div.id = 'iqc-wt';
-  div.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9999;font-family:var(--font)';
-  document.body.appendChild(div);
-}
-
-// ── Render ──────────────────────────────────────────────────────────
-function _wtRender() {
-  var wrap = document.getElementById('iqc-wt');
-  if (!wrap) return;
-  var s = _wtGetState();
-  var done = s.completed.length;
-  var total = _WT_STEPS.length;
-  var allDone = done >= total;
-  var pct = Math.round(done / total * 100);
-
-  // Find next incomplete step
-  var nextIdx = -1;
-  for (var i = 0; i < _WT_STEPS.length; i++) {
-    if (s.completed.indexOf(i) === -1) { nextIdx = i; break; }
+  // Alerts has a special header class
+  var alertsHd = document.querySelector('#view-alerts .aw-page-hd');
+  if (alertsHd && !alertsHd.querySelector('.wt-tour-btn')) {
+    alertsHd.style.display = 'flex';
+    alertsHd.style.alignItems = 'center';
+    alertsHd.style.justifyContent = 'space-between';
+    alertsHd.appendChild(_wtMakeTourButton('alerts'));
   }
 
-  if (s.collapsed) {
-    // FAB only
-    var remaining = total - done;
-    wrap.innerHTML = '<button onclick="_wtToggle()" style="width:52px;height:52px;border-radius:50%;border:none;background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;animation:iqcWtPulse 2s ease-in-out infinite" title="Explore IQcadence">' +
-      '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 00-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 012-3.95A12.88 12.88 0 0122 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 01-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 3 0 3 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-3 0-3"/></svg>' +
-      (remaining > 0 ? '<span style="position:absolute;top:-2px;right:-2px;background:#ef4444;color:#fff;border-radius:50%;width:20px;height:20px;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">' + remaining + '</span>' : '') +
-      '</button>';
+  // Customers has a right-side button group
+  var custHd = document.querySelector('#view-customers > .page-hd');
+  if (custHd && !custHd.querySelector('.wt-tour-btn')) {
+    var custRight = custHd.querySelector('div:last-child');
+    if (custRight) {
+      custRight.insertBefore(_wtMakeTourButton('customers'), custRight.firstChild);
+    }
+  }
+
+  // All other pages with standard .page-hd headers
+  var standardPages = ['settings', 'segments', 'trends', 'csmperf', 'reports', 'score', 'csv', 'automations', 'auditlog', 'calendar'];
+  standardPages.forEach(function(page) {
+    if (!_WT_TOURS[page]) return;
+    var hd = document.querySelector('#view-' + page + ' > .page-hd');
+    if (!hd || hd.querySelector('.wt-tour-btn')) return;
+    // Check if header already has a right-side div with buttons
+    var rightDiv = hd.querySelector('div:last-child');
+    if (rightDiv && rightDiv !== hd.querySelector('div:first-child') && rightDiv.querySelector('button, .dropdown')) {
+      // Insert tour button at the start of existing button group
+      rightDiv.insertBefore(_wtMakeTourButton(page), rightDiv.firstChild);
+    } else {
+      // Make header flex and append tour button
+      hd.style.display = 'flex';
+      hd.style.alignItems = 'center';
+      hd.style.justifyContent = 'space-between';
+      hd.appendChild(_wtMakeTourButton(page));
+    }
+  });
+}
+
+// Homebase tour button injected via renderHomeBase hook
+function _wtInjectHomebaseTourButton() {
+  var wrap = document.getElementById('homebase-wrap');
+  if (!wrap) return;
+  // Find the welcome section and inject before it
+  var welcome = wrap.querySelector('.hb-welcome');
+  if (!welcome) return;
+  // Check if already injected
+  if (wrap.querySelector('.wt-tour-btn')) return;
+  // Create a small bar above the welcome
+  var bar = document.createElement('div');
+  bar.style.cssText = 'display:flex;justify-content:flex-end;margin-bottom:8px';
+  bar.appendChild(_wtMakeTourButton('homebase'));
+  welcome.parentNode.insertBefore(bar, welcome);
+}
+
+// -- Start tour for a specific page -------------------------------------------
+var _wtActiveTour = null;
+var _wtActiveStep = 0;
+var _wtGen = 0; // generation counter to cancel stale timeouts
+
+function _wtStartPageTour(page) {
+  var tour = _WT_TOURS[page];
+  if (!tour) return;
+  _wtInjectStyles();
+  _wtCleanup();
+  _wtActiveTour = page;
+  _wtActiveStep = 0;
+  _wtShowPageStep(page, 0);
+}
+
+function _wtStartCurrentPageTour() {
+  var view = _wtGetCurrentView();
+  if (_WT_TOURS[view]) {
+    _wtStartPageTour(view);
+  }
+}
+
+// -- Show a step within a page tour -------------------------------------------
+function _wtShowPageStep(page, idx) {
+  var tour = _WT_TOURS[page];
+  if (!tour || idx < 0 || idx >= tour.steps.length) return;
+
+  _wtActiveTour = page;
+  _wtActiveStep = idx;
+  _wtCleanup();
+  _wtGen++;
+
+  var gen = _wtGen;
+  setTimeout(function() {
+    if (_wtGen !== gen) return; // stale - a new tour/step started
+    _wtSpotlightPage(page, idx, gen);
+  }, 100);
+}
+
+// Walk up from target to the nearest card/section wrapper so the whole widget is highlighted
+function _wtFindCard(el) {
+  // If the element itself is already a card or large container, return it
+  var cardSelectors = ['.card', '.cfg-section', '.chart-card', '.aw-card', '.dash-kpi-row', '.aw-kpi-row', '.aw-insights-row', '.aw-detail-row', '.hb-welcome', '.hb-insights-wrap', '.dtab-pane', '.list-toolbar'];
+  for (var i = 0; i < cardSelectors.length; i++) {
+    if (el.matches(cardSelectors[i])) return el;
+  }
+  // Walk up to find nearest card parent (max 5 levels, stop at view boundary)
+  var p = el.parentElement;
+  var depth = 0;
+  while (p && depth < 5) {
+    if (p.id && p.id.indexOf('view-') === 0) break; // stop at page view
+    if (p.classList.contains('dtab-pane')) break; // stop at tab pane
+    for (var j = 0; j < cardSelectors.length; j++) {
+      if (p.matches(cardSelectors[j])) return p;
+    }
+    p = p.parentElement;
+    depth++;
+  }
+  return el; // no card found, use original
+}
+
+function _wtSpotlightPage(page, idx, gen) {
+  if (gen !== undefined && _wtGen !== gen) return;
+  var tour = _WT_TOURS[page];
+  var step = tour.steps[idx];
+
+  // Switch to the correct tab if this step specifies one
+  if (step.tab) {
+    try { eval(step.tab); } catch(e) {}
+  }
+
+  // Run a custom action if this step specifies one (e.g. triggering a demo score)
+  if (step.action) {
+    try { eval(step.action + '()'); } catch(e) {}
+  }
+
+  var target = document.querySelector(step.target);
+
+  // If target not found, try fallback selector
+  if (!target && step.fallback) {
+    target = document.querySelector(step.fallback);
+  }
+
+  // If still not found, skip this step
+  if (!target) {
+    if (idx + 1 < tour.steps.length) {
+      _wtShowPageStep(page, idx + 1);
+    } else {
+      _wtFinishPageTour(page);
+    }
     return;
   }
 
-  // Full panel
-  var stepsHTML = '';
-  for (var i = 0; i < _WT_STEPS.length; i++) {
-    var step = _WT_STEPS[i];
-    var isDone = s.completed.indexOf(i) !== -1;
-    var isNext = i === nextIdx;
-    var circleStyle, circleContent;
+  // For steps with a container scope, only match within that container
+  if (step.container) {
+    var scoped = document.querySelector(step.container + ' ' + step.target);
+    if (scoped) target = scoped;
+  }
 
-    if (isDone) {
-      circleStyle = 'background:#16a34a;color:#fff';
-      circleContent = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-    } else if (isNext) {
-      circleStyle = 'background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff';
-      circleContent = '<span style="font-size:12px;font-weight:700">' + (i + 1) + '</span>';
-    } else {
-      circleStyle = 'background:var(--border);color:var(--muted)';
-      circleContent = '<span style="font-size:12px;font-weight:700">' + (i + 1) + '</span>';
+  // Walk up to nearest card/section container so we highlight the whole widget
+  target = _wtFindCard(target);
+
+  // Scroll into view — use instant so rect measurement is accurate
+  // step.scroll: 'top' scrolls to top of page, 'bottom' scrolls target into view
+  var mainScroll = document.querySelector('.main');
+  if (step.scroll === 'top') {
+    if (mainScroll) mainScroll.scrollTop = 0;
+    window.scrollTo(0, 0);
+  } else {
+    target.scrollIntoView({ behavior: 'instant', block: 'center' });
+  }
+
+  setTimeout(function() {
+    if (gen !== undefined && _wtGen !== gen) return; // stale
+
+    // Measure target after scroll is complete
+    var r = target.getBoundingClientRect();
+
+    // Create overlay with cutout hole around target
+    var overlay = document.createElement('div');
+    overlay.id = 'wt-overlay';
+
+    // Hole exactly matches the card rect; border-box keeps border inside the dimensions
+    var hole = document.createElement('div');
+    hole.id = 'wt-overlay-bg';
+    var br = getComputedStyle(target).borderRadius || '12px';
+    hole.style.cssText =
+      'position:fixed;box-sizing:border-box;' +
+      'border-radius:' + br + ';' +
+      'top:' + r.top + 'px;' +
+      'left:' + r.left + 'px;' +
+      'width:' + r.width + 'px;' +
+      'height:' + r.height + 'px;' +
+      'border:3px solid #2563eb;' +
+      'box-shadow:0 0 0 9999px rgba(0,0,0,.55);' +
+      'pointer-events:none';
+
+    overlay.appendChild(hole);
+    overlay.addEventListener('click', function(e) {
+      // Click on dim area - do nothing (user must use buttons)
+    });
+    document.body.appendChild(overlay);
+
+    // Create tooltip
+    var tooltip = document.createElement('div');
+    tooltip.id = 'wt-tooltip';
+
+    var total = tour.steps.length;
+    var dotsHTML = '';
+    for (var i = 0; i < total; i++) {
+      var cls = i < idx ? 'wt-dot done' : i === idx ? 'wt-dot active' : 'wt-dot';
+      dotsHTML += '<div class="' + cls + '"></div>';
     }
 
-    var titleColor = isDone ? 'var(--muted)' : 'var(--text)';
-    var titleDeco = isDone ? 'line-through' : 'none';
-    var clickable = !isDone && !step.auto;
-    var cursor = clickable ? 'pointer' : 'default';
-    var hoverBg = clickable ? 'onmouseenter="this.style.background=\'color-mix(in srgb, var(--teal) 6%, var(--surface))\'" onmouseleave="this.style.background=\'none\'"' : '';
-    var onclick = clickable ? 'onclick="_wtStepClick(' + i + ')"' : '';
+    var isLast = idx === total - 1;
 
-    stepsHTML += '<div ' + onclick + ' ' + hoverBg + ' style="display:flex;align-items:flex-start;gap:10px;padding:10px 16px;cursor:' + cursor + ';transition:background .15s;border-radius:6px;margin:0 4px">' +
-      '<div style="width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;' + circleStyle + '">' + circleContent + '</div>' +
-      '<div style="flex:1;min-width:0">' +
-        '<div style="font-weight:600;font-size:var(--fs-sm);color:' + titleColor + ';text-decoration:' + titleDeco + '">' + step.title + '</div>' +
-        '<div style="font-size:var(--fs-xs);color:var(--muted);margin-top:1px;line-height:1.3">' + step.desc + '</div>' +
+    tooltip.innerHTML =
+      '<div class="wt-header">' +
+        '<span class="wt-step-count">' + (idx + 1) + ' of ' + total + '</span>' +
       '</div>' +
-    '</div>';
+      '<div class="wt-title">' + step.title + '</div>' +
+      '<div class="wt-body">' + step.body + '</div>' +
+      '<div class="wt-dots">' + dotsHTML + '</div>' +
+      '<div class="wt-actions">' +
+        '<button class="wt-skip" onclick="_wtEndPageTour()">End tour</button>' +
+        (idx > 0 ? '<button class="wt-skip" onclick="_wtPrevPageStep()" style="margin-right:auto">&larr; Back</button>' : '') +
+        '<button class="wt-next" onclick="_wtNextPageStep()">' + (isLast ? 'Done' : 'Next') + ' &rarr;</button>' +
+      '</div>';
+    document.body.appendChild(tooltip);
+
+    // Position tooltip
+    _wtPositionTooltip(target, tooltip);
+
+    // Animate in
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        tooltip.classList.add('wt-visible');
+      });
+    });
+  }, 250);
+}
+
+// -- Navigation ---------------------------------------------------------------
+function _wtNextPageStep() {
+  if (!_wtActiveTour) return;
+  var tour = _WT_TOURS[_wtActiveTour];
+  if (!tour) return;
+  var next = _wtActiveStep + 1;
+  if (next >= tour.steps.length) {
+    _wtFinishPageTour(_wtActiveTour);
+    return;
+  }
+  _wtShowPageStep(_wtActiveTour, next);
+}
+
+function _wtPrevPageStep() {
+  if (!_wtActiveTour) return;
+  var prev = _wtActiveStep - 1;
+  if (prev < 0) prev = 0;
+  _wtShowPageStep(_wtActiveTour, prev);
+}
+
+function _wtEndPageTour() {
+  _wtGen++;
+  _wtCleanup();
+  _wtActiveTour = null;
+  _wtActiveStep = 0;
+}
+
+function _wtFinishPageTour(page) {
+  _wtCleanup();
+  _wtActiveTour = null;
+  _wtActiveStep = 0;
+}
+
+// -- Position tooltip near target ---------------------------------------------
+function _wtPositionTooltip(target, tooltip) {
+  var rect = target.getBoundingClientRect();
+  var tw = 380;
+  var gap = 16;
+
+  var top = rect.bottom + gap;
+  var left = rect.left + (rect.width / 2) - (tw / 2);
+
+  var th = tooltip.offsetHeight || 280;
+  if (top + th > window.innerHeight - 20) {
+    top = rect.top - th - gap;
   }
 
-  // Footer
-  var footerHTML = '';
-  if (allDone) {
-    footerHTML = '<div style="padding:14px 16px;border-top:1px solid var(--border);text-align:center">' +
-      '<div style="font-weight:700;font-size:var(--fs-sm);color:#16a34a;margin-bottom:8px">Ready to see this for your real accounts?</div>' +
-      '<div style="display:flex;gap:8px;justify-content:center">' +
-        '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();_wtDismiss();nav(\'csv\')">Import CSV →</button>' +
-        '<button class="btn btn-outline btn-sm" onclick="event.stopPropagation();_wtDismiss();nav(\'settings\')">Connect Integration →</button>' +
-      '</div>' +
-    '</div>';
+  if (left < 16) left = 16;
+  if (left + tw > window.innerWidth - 16) left = window.innerWidth - tw - 16;
+
+  // If target is very tall (like a table), place to the right
+  if (rect.height > window.innerHeight * 0.6) {
+    top = Math.max(80, rect.top);
+    left = Math.min(rect.right + gap, window.innerWidth - tw - 16);
+    if (left + tw > window.innerWidth - 16) {
+      left = rect.left - tw - gap;
+    }
   }
 
-  wrap.innerHTML = '<div style="width:340px;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.12);overflow:hidden;display:flex;flex-direction:column">' +
-    // Header
-    '<div style="padding:14px 16px;background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff">' +
-      '<div style="display:flex;align-items:center;justify-content:space-between">' +
-        '<div>' +
-          '<div style="font-weight:700;font-size:var(--fs-md)">Explore IQcadence</div>' +
-          '<div style="font-size:var(--fs-xs);opacity:.75;margin-top:2px">' + done + ' of ' + total + ' complete</div>' +
-        '</div>' +
-        '<div style="display:flex;gap:4px">' +
-          '<button onclick="_wtToggle()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center" title="Minimize">−</button>' +
-          '<button onclick="_wtDismiss()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center" title="Close">×</button>' +
-        '</div>' +
-      '</div>' +
-      '<div style="height:3px;background:rgba(255,255,255,.2);border-radius:2px;margin-top:10px"><div style="height:100%;background:#fff;border-radius:2px;width:' + pct + '%;transition:width .3s ease"></div></div>' +
-    '</div>' +
-    // Steps
-    '<div style="padding:6px 0;max-height:340px;overflow-y:auto">' + stepsHTML + '</div>' +
-    // Footer
-    footerHTML +
-  '</div>';
+  if (top < 16) top = 16;
+
+  tooltip.style.top = top + 'px';
+  tooltip.style.left = left + 'px';
 }
 
-// ── Toggle collapse ─────────────────────────────────────────────────
-function _wtToggle() {
-  var s = _wtGetState();
-  s.collapsed = !s.collapsed;
-  _wtSaveState(s);
-  _wtRender();
-}
-
-// ── Dismiss ─────────────────────────────────────────────────────────
-function _wtDismiss() {
-  var s = _wtGetState();
-  s.dismissed = true;
-  _wtSaveState(s);
-  var w = document.getElementById('iqc-wt');
-  if (w) w.style.display = 'none';
-}
-
-// ── Reset (for "Restart walkthrough" link) ──────────────────────────
-function _wtReset() {
-  try {
-    localStorage.removeItem(_WT_KEY);
-    localStorage.setItem(_WT_SEEN, '1');
-  } catch(e) {}
-  var w = document.getElementById('iqc-wt');
-  if (w) w.style.display = '';
-  _wtInit();
-}
-
-// ── Step click ──────────────────────────────────────────────────────
-function _wtStepClick(idx) {
-  var step = _WT_STEPS[idx];
-  if (!step) return;
-
-  // Execute action
-  if (step.id === 'portfolio-health') {
-    nav('homebase');
-  } else if (step.id === 'check-alert') {
-    nav('alerts');
-    setTimeout(_wtHighlightTopAlert, 400);
-  } else if (step.id === 'customer-deepdive') {
-    _wtOpenHighestRiskCustomer();
-  } else if (step.id === 'qbr-prep') {
-    _wtOpenQBRForRiskiest();
-  } else if (step.id === 'connect-data') {
-    // Don't dismiss — let them see the final CTA
-    nav('homebase');
-    setTimeout(function() { showGettingStarted(); }, 200);
-  }
-
-  // Mark complete
-  _wtCompleteStep(idx);
-}
-
-// ── Complete a step by index ────────────────────────────────────────
-function _wtCompleteStep(idx) {
-  var s = _wtGetState();
-  if (s.completed.indexOf(idx) === -1) {
-    s.completed.push(idx);
-    _wtSaveState(s);
-    _wtRender();
-  }
-}
-
-// ── Complete by step ID (for hooks in other files) ──────────────────
-function _wtCompleteIfActive(stepId) {
-  if (!_wtIsActive()) return;
-  for (var i = 0; i < _WT_STEPS.length; i++) {
-    if (_WT_STEPS[i].id === stepId) { _wtCompleteStep(i); return; }
+// -- Cleanup ------------------------------------------------------------------
+function _wtCleanup() {
+  var overlay = document.getElementById('wt-overlay');
+  if (overlay) overlay.remove();
+  var tooltip = document.getElementById('wt-tooltip');
+  if (tooltip) tooltip.remove();
+  var spots = document.querySelectorAll('.wt-spotlight');
+  for (var i = 0; i < spots.length; i++) {
+    spots[i].classList.remove('wt-spotlight');
   }
 }
 
-// ── Nav hook — auto-complete view-based steps ───────────────────────
+// -- Get current view ---------------------------------------------------------
+function _wtGetCurrentView() {
+  if (typeof _navHistory !== 'undefined' && typeof _navIdx !== 'undefined') {
+    return _navHistory[_navIdx] || '';
+  }
+  return '';
+}
+
+// -- Init (called after demo data loads) --------------------------------------
+// Auto-starts the homebase tour for first-time users
+function _wtInit() {
+  _wtInjectStyles();
+  setTimeout(function() {
+    _wtInjectTourButtons();
+    _wtInjectHomebaseTourButton();
+    _wtStartPageTour('homebase');
+  }, 800);
+}
+
+// -- Resume (called on page reload) -------------------------------------------
+function _wtResume() {
+  _wtInjectStyles();
+  setTimeout(function() {
+    _wtInjectTourButtons();
+    _wtInjectHomebaseTourButton();
+  }, 600);
+}
+
+// -- Nav hook (called from nav.js) - inject tour buttons after view switch -----
 function _wtCheckNav(view) {
-  if (!_wtIsActive()) return;
-  for (var i = 0; i < _WT_STEPS.length; i++) {
-    if (_WT_STEPS[i].view === view) _wtCompleteStep(i);
-  }
-  // Also: visiting alerts completes step 2
-  if (view === 'alerts') _wtCompleteStep(2);
+  setTimeout(function() {
+    _wtInjectTourButtons();
+    if (view === 'homebase') _wtInjectHomebaseTourButton();
+  }, 300);
 }
 
-// ── Helper: highlight the top alert ─────────────────────────────────
-function _wtHighlightTopAlert() {
-  var list = document.getElementById('alerts-list');
-  if (!list) return;
-  // Find the first alert card
-  var firstCard = list.querySelector('.card, [onclick*="openDetail"]');
-  if (!firstCard) return;
-  firstCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  firstCard.style.animation = 'iqcWtHighlight 1.5s ease';
-  setTimeout(function() { firstCard.style.animation = ''; }, 1600);
+// -- Demo score for tour: fill in sample data and submit ----------------------
+function _wtDemoScore() {
+  try {
+    // Only fill if the form is empty (don't overwrite user data)
+    var nameField = document.getElementById('f-name');
+    if (nameField && !nameField.value) {
+      nameField.value = 'Acme Corp (Demo)';
+      var mrr = document.getElementById('f-mrr');
+      if (mrr) mrr.value = '8500';
+      var logins = document.getElementById('f-logins');
+      if (logins) { logins.value = '18'; if (typeof rv === 'function') rv('logins', '18 days'); }
+      var adoption = document.getElementById('f-adoption');
+      if (adoption) { adoption.value = '65'; if (typeof rv === 'function') rv('adoption', '65%'); }
+      var nps = document.getElementById('f-nps');
+      if (nps) { nps.value = '7'; if (typeof rv === 'function') rv('nps-label', typeof npsDisplay === 'function' ? npsDisplay(7) : '7'); }
+      var tickets = document.getElementById('f-tickets');
+      if (tickets) tickets.value = '2';
+      var growth = document.getElementById('f-growth');
+      if (growth) growth.value = 'mild';
+    }
+    // Submit the form to generate a result
+    if (typeof submitForm === 'function') {
+      var form = document.getElementById('score-form');
+      if (form) submitForm({ preventDefault: function(){}, target: form });
+    }
+  } catch(e) {}
 }
 
-// ── Helper: open highest-risk customer ──────────────────────────────
-function _wtOpenHighestRiskCustomer() {
-  var active = customers.filter(function(c) { return c.lifecycle !== 'churned'; });
-  if (!active.length) return;
-  // Sort by score ascending (worst first)
-  active.sort(function(a, b) { return a.score - b.score; });
-  var target = active[0];
-  if (typeof openDetail === 'function') openDetail(target.id);
-}
-
-// ── Helper: open QBR for riskiest customer ──────────────────────────
-function _wtOpenQBRForRiskiest() {
-  var active = customers.filter(function(c) { return c.lifecycle !== 'churned'; });
-  if (!active.length) return;
-  active.sort(function(a, b) { return a.score - b.score; });
-  var target = active[0];
-  if (typeof openDetail === 'function') {
-    openDetail(target.id);
-    // Wait for detail modal to open, then trigger QBR
-    setTimeout(function() {
-      if (typeof openQBR === 'function') openQBR();
-    }, 500);
-  }
+// -- Compatibility stubs for old hooks ----------------------------------------
+function _wtCompleteIfActive(stepId) {}
+function _wtHighlightQBRButton() {}
+function _wtDismiss() { _wtEndPageTour(); }
+function _wtReset() {
+  try { localStorage.removeItem(_WT_KEY); } catch(e) {}
+  _wtInit();
 }
 
 
@@ -1593,7 +2200,7 @@ async function restoreCustomer(id) {
 async function hardDeleteCustomer(id) {
   const c = trash.find(x => x.id === id);
   if (!c) return;
-  confirmAction(`Permanently delete "${c.name}"? This cannot be undone.`, async () => {
+  confirmAction(`Permanently delete "${c.name}"? This account and all its data will be gone forever and cannot be recovered.`, async () => {
     const cName = c.name;
     trash = trash.filter(x => x.id !== id);
     renderTrash();
@@ -1607,16 +2214,51 @@ async function hardDeleteCustomer(id) {
 // emptyTrash() — hard delete all soft-deleted records
 async function emptyTrash() {
   if (!trash.length) return;
-  confirmAction(`Permanently delete all ${trash.length} items in trash? This cannot be undone.`, async () => {
+  confirmAction(`Permanently delete all ${trash.length} items in trash? These accounts and all their data will be gone forever and cannot be recovered.`, async () => {
     const toNuke = [...trash];
     const ids = toNuke.map(c => c.id);
     logAudit('customer_hard_deleted', null, '', { summary: `Emptied trash: ${toNuke.length} record${toNuke.length!==1?'s':''} permanently deleted` });
     trash = [];
     toast('Trash emptied', 'warn');
-    if (!customers.length) { nav('homebase'); } else { renderTrash(); }
+    if (!customers.length) { if (typeof _wtDismiss === 'function') _wtDismiss(); nav('homebase'); } else { renderTrash(); }
     // Delete by id list — RLS handles ownership check
     const { error } = await sb.from('customers').delete().in('id', ids);
     if (error) console.warn('Trash empty DB error:', error.message);
+  });
+}
+
+// ── Trash selection state ──
+var _trashSelected = new Set();
+
+function _trashToggle(id) {
+  if (_trashSelected.has(id)) _trashSelected.delete(id); else _trashSelected.add(id);
+  renderTrash();
+}
+function _trashToggleAll() {
+  if (_trashSelected.size === trash.length) _trashSelected.clear();
+  else trash.forEach(c => _trashSelected.add(c.id));
+  renderTrash();
+}
+function _trashBulkRestore() {
+  const ids = [..._trashSelected];
+  if (!ids.length) return;
+  confirmAction(`Restore ${ids.length} item${ids.length!==1?'s':''}?`, () => {
+    ids.forEach(id => restoreCustomer(id));
+    _trashSelected.clear();
+  });
+}
+function _trashBulkDelete() {
+  const ids = [..._trashSelected];
+  if (!ids.length) return;
+  confirmAction(`Permanently delete ${ids.length} item${ids.length!==1?'s':''}? These accounts and all their data will be gone forever and cannot be recovered.`, async () => {
+    const toNuke = trash.filter(c => ids.includes(c.id));
+    logAudit('customer_hard_deleted', null, '', { summary: `Bulk deleted ${toNuke.length} record${toNuke.length!==1?'s':''} from trash` });
+    trash = trash.filter(c => !ids.includes(c.id));
+    _trashSelected.clear();
+    toNuke.forEach(c => toast(`${c.name} permanently deleted`, 'warn'));
+    if (!customers.length && !trash.length) { if (typeof _wtDismiss === 'function') _wtDismiss(); nav('homebase'); } else { renderTrash(); }
+    const { error } = await sb.from('customers').delete().in('id', ids);
+    if (error) console.warn('Bulk trash delete DB error:', error.message);
   });
 }
 
@@ -1625,16 +2267,33 @@ function renderTrash() {
   const wrap = document.getElementById('trash-wrap');
   if (!wrap) return;
 
+  // Clean up stale selections
+  _trashSelected = new Set([..._trashSelected].filter(id => trash.some(c => c.id === id)));
+
   const backBtn = `<button class="btn btn-sm btn-ghost" onclick="setFilter('all')" style="margin-bottom:12px">← Back to Customers</button>`;
 
   if (!trash.length) {
-    wrap.innerHTML = backBtn + `<div class="empty-st"><div class="ei"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--subtle)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></div><h3>Trash is empty</h3><p>Deleted customers appear here. You can restore or permanently delete them.</p></div>`;
+    _trashSelected.clear();
+    wrap.innerHTML = `<div style="padding:16px">${backBtn}<div class="empty-st"><div class="ei"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--subtle)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></div><h3>Trash is empty</h3><p>Deleted customers appear here. You can restore or permanently delete them.</p></div></div>`;
     return;
   }
 
+  const selCount = _trashSelected.size;
+  const allChecked = selCount === trash.length;
+
+  const bulkBar = selCount > 0 ? `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:color-mix(in srgb, var(--teal) 8%, var(--surface));border:1px solid color-mix(in srgb, var(--teal) 25%, var(--border));border-radius:var(--r);margin-bottom:10px">
+      <span style="font-size:var(--fs-sm);font-weight:600;color:var(--text)">${selCount} selected</span>
+      <button class="btn btn-sm btn-ghost" onclick="_trashBulkRestore()">Restore Selected</button>
+      <button class="btn btn-sm btn-danger" onclick="_trashBulkDelete()">Delete Selected Forever</button>
+      <button class="btn btn-sm btn-ghost" onclick="_trashSelected.clear();renderTrash()" style="margin-left:auto">Clear Selection</button>
+    </div>` : '';
+
   const rows = trash.map(c => {
     const deletedStr = c.deleted_at ? new Date(c.deleted_at).toLocaleDateString() : '—';
-    return `<tr>
+    const checked = _trashSelected.has(c.id) ? 'checked' : '';
+    return `<tr style="${checked ? 'background:color-mix(in srgb, var(--teal) 5%, var(--surface))' : ''}">
+      <td style="width:36px;text-align:center"><input type="checkbox" ${checked} onchange="_trashToggle('${escHtml(c.id)}')" style="cursor:pointer"></td>
       <td><strong>${escHtml(c.name)}</strong></td>
       <td>${deletedStr}</td>
       <td>${badgeHTML(c.status)}</td>
@@ -1646,7 +2305,7 @@ function renderTrash() {
     </tr>`;
   }).join('');
 
-  wrap.innerHTML = `
+  wrap.innerHTML = `<div style="padding:16px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <div style="display:flex;align-items:center;gap:10px">
         <button class="btn btn-sm btn-ghost" onclick="setFilter('all')">← Back to Customers</button>
@@ -1654,12 +2313,15 @@ function renderTrash() {
       </div>
       <button class="btn btn-sm btn-danger" onclick="emptyTrash()">Empty Trash</button>
     </div>
+    ${bulkBar}
     <table class="ct">
       <thead><tr>
+        <th style="width:36px;text-align:center"><input type="checkbox" ${allChecked ? 'checked' : ''} onchange="_trashToggleAll()" style="cursor:pointer" title="Select all"></th>
         <th>Name</th><th>Deleted</th><th>Status</th><th>MRR</th><th>Actions</th>
       </tr></thead>
       <tbody>${rows}</tbody>
-    </table>`;
+    </table>
+  </div>`;
 }
 
 // atUpdate(c) — alias for save
@@ -1823,7 +2485,7 @@ const _DEMO_SENTIMENTS = [
 // Wide signal ranges ensure visible metric changes as trend value shifts.
 const _DEMO_TRAJECTORIES = {
   'stable-healthy': {
-    logins:[14,30], adoption:[60,98], tickets:[0,3], days:[1,12],
+    logins:[14,30], adoption:[60,98], tickets:[0,1], days:[1,12],
     npsOpts:[8,9,9,10,10], csatOpts:[4,4,5,5,5],
     growthOpts:['strong','strong','mild'],
     lifecycle:'active', noise:0.12,
@@ -1831,7 +2493,7 @@ const _DEMO_TRAJECTORIES = {
     trend: (d,t) => 0.78 + 0.18 * Math.sin(d/t * Math.PI * 8) + 0.06 * Math.cos(d/t * Math.PI * 3)
   },
   'stable-mid': {
-    logins:[4,20], adoption:[28,72], tickets:[1,5], days:[8,40],
+    logins:[4,20], adoption:[28,72], tickets:[0,2], days:[8,40],
     npsOpts:[5,6,7,7,8], csatOpts:[3,3,3,4,4],
     growthOpts:['none','mild','mild'],
     lifecycle:'active', noise:0.10,
@@ -1839,7 +2501,7 @@ const _DEMO_TRAJECTORIES = {
     trend: (d,t) => 0.48 + 0.18 * Math.sin(d/t * Math.PI * 5) + 0.06 * Math.cos(d/t * Math.PI * 13)
   },
   'stable-low': {
-    logins:[1,12], adoption:[10,45], tickets:[2,7], days:[20,70],
+    logins:[1,12], adoption:[10,45], tickets:[1,5], days:[20,70],
     npsOpts:[3,4,4,5,5,6], csatOpts:[1,2,2,3,3],
     growthOpts:['none','none','mild'],
     lifecycle:'atrisk', noise:0.10,
@@ -1847,7 +2509,7 @@ const _DEMO_TRAJECTORIES = {
     trend: (d,t) => 0.25 + 0.12 * Math.sin(d/t * Math.PI * 4) + 0.08 * Math.max(0, Math.sin(d/t * Math.PI * 9))
   },
   'improving': {
-    logins:[3,28], adoption:[15,92], tickets:[0,6], days:[3,50],
+    logins:[3,28], adoption:[15,92], tickets:[0,2], days:[3,50],
     npsOpts:[4,5,6,7,8,9], csatOpts:[2,3,3,4,4,5],
     growthOpts:['none','mild','mild','strong'],
     lifecycle:'active', noise:0.10,
@@ -1862,7 +2524,7 @@ const _DEMO_TRAJECTORIES = {
     }
   },
   'declining': {
-    logins:[2,26], adoption:[12,85], tickets:[0,8], days:[3,65],
+    logins:[2,26], adoption:[12,85], tickets:[0,4], days:[3,65],
     npsOpts:[9,8,7,6,5,4,4], csatOpts:[5,4,4,3,2,2,1],
     growthOpts:['strong','mild','none','none'],
     lifecycle:'atrisk', noise:0.08,
@@ -1876,7 +2538,7 @@ const _DEMO_TRAJECTORIES = {
     }
   },
   'slow-decline': {
-    logins:[3,22], adoption:[15,68], tickets:[1,6], days:[8,55],
+    logins:[3,22], adoption:[15,68], tickets:[0,3], days:[8,55],
     npsOpts:[7,7,6,6,5,5,4], csatOpts:[4,4,3,3,3,2,2],
     growthOpts:['mild','none','none'],
     lifecycle:'active', noise:0.07,
@@ -1884,7 +2546,7 @@ const _DEMO_TRAJECTORIES = {
     trend: (d,t) => 0.88 - 0.50 * (d/t) + 0.06 * Math.sin(d/t * Math.PI * 7)
   },
   'volatile': {
-    logins:[2,30], adoption:[15,95], tickets:[0,7], days:[2,55],
+    logins:[2,30], adoption:[15,95], tickets:[0,2], days:[2,55],
     npsOpts:[4,6,7,9,10,7,4], csatOpts:[2,3,4,5,4,3,2],
     growthOpts:['none','mild','strong','none','mild'],
     lifecycle:'active', noise:0.14,
@@ -1895,7 +2557,7 @@ const _DEMO_TRAJECTORIES = {
     }
   },
   'onboarding': {
-    logins:[0,24], adoption:[0,65], tickets:[0,4], days:[2,20],
+    logins:[0,24], adoption:[0,65], tickets:[0,2], days:[2,20],
     npsOpts:[null,null,6,7,7,8], csatOpts:[null,null,3,3,4,4],
     growthOpts:['none','mild'],
     lifecycle:'onboarding', noise:0.12,
@@ -1910,7 +2572,7 @@ const _DEMO_TRAJECTORIES = {
     historyDays: 90
   },
   'churned': {
-    logins:[0,26], adoption:[0,88], tickets:[0,10], days:[2,120],
+    logins:[0,26], adoption:[0,88], tickets:[0,6], days:[2,120],
     npsOpts:[9,8,7,5,4,3,2], csatOpts:[5,4,3,2,2,1,1],
     growthOpts:['mild','none','none','none'],
     lifecycle:'churned', noise:0.06,
@@ -1924,7 +2586,7 @@ const _DEMO_TRAJECTORIES = {
     }
   },
   'recovered': {
-    logins:[2,28], adoption:[10,90], tickets:[0,7], days:[3,55],
+    logins:[2,28], adoption:[10,90], tickets:[0,2], days:[3,55],
     npsOpts:[8,6,4,4,5,7,8,9], csatOpts:[4,3,2,2,3,4,4,5],
     growthOpts:['mild','none','none','mild','strong'],
     lifecycle:'active', noise:0.10,
@@ -3412,8 +4074,8 @@ function makeRec(score, data) {
     if (unhappyAndQuiet) return ' They\'re unhappy and we\'re not in touch — that\'s a dangerous combination.';
     if (silentAndSlipping && st !== 'healthy') return ' Score is dropping and we haven\'t been in contact — that silence is the risk.';
     if (renewUrgent && (st === 'critical' || st === 'risk')) return ' Renewal is imminent, which puts real timeline pressure on this.';
-    if (renewSoon && (st === 'critical' || st === 'risk' || st === 'watch')) return ' Renewal is in ' + data.renewal + ' month' + (data.renewal !== 1 ? 's' : '') + ' — we need to be in a better position by then.';
-    if (renewSoon && (st === 'healthy' || st === 'expand')) return ' Renewal is in ' + data.renewal + ' month' + (data.renewal !== 1 ? 's' : '') + ' — should be smooth given current health.';
+    if (renewSoon && (st === 'critical' || st === 'risk' || st === 'watch')) return ' Renewal is in ' + fmtRenewalTime(data) + ' — we need to be in a better position by then.';
+    if (renewSoon && (st === 'healthy' || st === 'expand')) return ' Renewal is in ' + fmtRenewalTime(data) + ' — should be smooth given current health.';
     if (isHighValue && mrrStr && st !== 'expand' && st !== 'healthy') return ' As ' + tierLabel + ' account at ' + mrrStr + ', this should be a top priority.';
     return '';
   };
@@ -3619,15 +4281,15 @@ function buildPlaybook(score, data) {
   if ((signalOn(data,'nps') && npsIsDetractor(data.nps)) && signalOn(data,'days') && data.days > 21)
     plays.push({ type:'urgent', text:`<strong>Unhappy and unreachable:</strong> NPS detractor (${npsDisplay(data.nps)}) combined with ${data.days} days of no contact. They may already be evaluating alternatives. This needs an exec-level save call, not a standard check-in.` });
   if (data.renewal != null && data.renewal <= 3 && (status === 'critical' || status === 'risk'))
-    plays.push({ type:'urgent', text:`<strong>Renewal at risk:</strong> ${name} renews in ${data.renewal} month${data.renewal !== 1 ? 's' : ''} while in ${status === 'critical' ? 'critical' : 'at-risk'} health. Lead with a recovery plan before any renewal discussion: <em>"I want to make sure we solve what's not working before we talk about next year."</em>` });
+    plays.push({ type:'urgent', text:`<strong>Renewal at risk:</strong> ${name} renews in ${fmtRenewalTime(data)} while in ${status === 'critical' ? 'critical' : 'at-risk'} health. Lead with a recovery plan before any renewal discussion: <em>"I want to make sure we solve what's not working before we talk about next year."</em>` });
 
   // ── Renewal ──────────────────────────────────────────────
   if (data.renewal === 0)
     plays.push({ type:'renew', text:`<strong>Renewal NOW:</strong> Contract is at renewal — get this closed immediately. If health is strong, make it easy: <em>"Everything looks great on your account — I'd love to lock in your renewal and talk about what's coming next year."</em>` });
   else if (data.renewal != null && data.renewal <= 1)
-    plays.push({ type:'renew', text:`<strong>Renewal urgency:</strong> ${data.renewal} month to renewal. Schedule the contract review call this week — lead with value: <em>"Before we talk paperwork, I want to make sure you've seen the ROI you were expecting. Let's walk through your results together."</em>` });
+    plays.push({ type:'renew', text:`<strong>Renewal urgency:</strong> ${fmtRenewalTime(data)} to renewal. Schedule the contract review call this week — lead with value: <em>"Before we talk paperwork, I want to make sure you've seen the ROI you were expecting. Let's walk through your results together."</em>` });
   else if (data.renewal != null && data.renewal <= 3 && status !== 'risk' && status !== 'critical')
-    plays.push({ type:'renew', text:`<strong>Renewal prep:</strong> ${data.renewal} months to renewal. Start the conversation now while sentiment is positive: <em>"Renewal is coming up — I'd love to get ahead of it and make sure everything is lined up on your end."</em>` });
+    plays.push({ type:'renew', text:`<strong>Renewal prep:</strong> ${fmtRenewalTime(data)} to renewal. Start the conversation now while sentiment is positive: <em>"Renewal is coming up — I'd love to get ahead of it and make sure everything is lined up on your end."</em>` });
 
   // ── Growth signal ────────────────────────────────────────
   if (signalOn(data,'growth')) {
@@ -5117,6 +5779,8 @@ function _renderHomeBase() {
   if (typeof renderWins === 'function') renderWins(active);
   if (typeof renderDrops === 'function') renderDrops(active);
   if (typeof renderHeatmap === 'function') renderHeatmap(active);
+  // Inject tour button for homebase
+  if (typeof _wtInjectHomebaseTourButton === 'function') _wtInjectHomebaseTourButton();
 }
 
 // ── Pulse KPI Card (gradient) ──
@@ -6081,7 +6745,7 @@ function buildAlerts() {
     } else if (c.renewal != null && c.renewal >= 0 && c.renewal <= 2) {
       var _rHealth2 = (c.status === 'critical' || c.status === 'risk') ? ' · ⚠ Health: ' + (c.status === 'critical' ? 'Critical' : 'At Risk') : '';
       alerts.push({ id:c.id+'-renew', cid:c.id, cat:'renewal', type:'blue',
-        msg:`<strong>${escHtml(c.name)}</strong> <span>renews in ${c.renewal} month${c.renewal===1?'':'s'}</span>`,
+        msg:`<strong>${escHtml(c.name)}</strong> <span>renews in ${fmtRenewalTime(c)}</span>`,
         sub:`$${fmtNum(c.mrr||0)} MRR${_rHealth2}`, ...snap(c) });
     }
 
@@ -7005,8 +7669,11 @@ function renderAlertPanel(all, active, snz) {
       }
     }
 
-    // Sort by score desc, show top 3
+    // Sort by score desc, show top 3 — pin "Highest MRR at Risk" first
     insights.sort((a, b) => b.score - a.score);
+    // Move "Highest MRR at Risk" to position 0 if present
+    const mrrIdx = insights.findIndex(x => x.label === 'Highest MRR at Risk');
+    if (mrrIdx > 0) { const [mrr] = insights.splice(mrrIdx, 1); insights.unshift(mrr); }
     const topIns = insights.slice(0, 3);
 
     if (topIns.length) {
@@ -9604,6 +10271,7 @@ function openDetail(id) {
   if (!c) return;
   detailId = id;
   if (typeof _wtCompleteIfActive === 'function') _wtCompleteIfActive('customer-deepdive');
+  if (typeof _wtHighlightQBRButton === 'function') _wtHighlightQBRButton();
   _pagState.sentLog = 0;
   _pagState.scoreHist = 0;
 
@@ -10449,7 +11117,6 @@ function closeQBR() {
 
 /* ── Rich HTML version (displayed in modal) ── */
 function buildQBRHTML(c) {
-  const mom   = getMomentum(c);
   const cad   = getCadenceStatus(c);
   const sent  = latestSentiment(c);
   const u     = getRenewalUrgency(c);
@@ -10464,9 +11131,17 @@ function buildQBRHTML(c) {
   const sentLabels = { positive:'Positive', neutral:'Neutral', negative:'Negative' };
 
   const hist = c.history || [];
-  const histLine = hist.length >= 2
-    ? `${hist[hist.length-2].score} → ${hist[hist.length-1].score} <span style="color:${hist[hist.length-1].score >= hist[hist.length-2].score ? '#16a34a' : '#dc2626'}">(${hist[hist.length-1].score > hist[hist.length-2].score ? '+' : ''}${hist[hist.length-1].score - hist[hist.length-2].score})</span>`
-    : '';
+  // Derive momentum from the last two history entries so label always matches the displayed score change
+  var mom, histLine;
+  if (hist.length >= 2) {
+    var prevScore = hist[hist.length-2].score, curScore = hist[hist.length-1].score;
+    var histDiff = curScore - prevScore;
+    histLine = prevScore + ' → ' + curScore + ' <span style="color:' + (histDiff >= 0 ? '#16a34a' : '#dc2626') + '">(' + (histDiff > 0 ? '+' : '') + histDiff + ')</span>';
+    mom = histDiff >= momentumPts ? 'up' : histDiff <= -momentumPts ? 'dn' : 'flat';
+  } else {
+    histLine = '';
+    mom = hist.length < 2 ? 'new' : 'flat';
+  }
 
   const tierMap = { smb:'SMB', mid:'Mid-Market', enterprise:'Enterprise' };
   const tierDisp = tierMap[c.tier] || c.tier || '';
@@ -10517,7 +11192,7 @@ function buildQBRHTML(c) {
   if (c.growth === 'declining') risks.push({ sev:'med', text:'Growth signal is declining' });
   if (sent && sent.val === 'negative') risks.push({ sev:'high', text:`Negative sentiment logged on ${fmtDate(sent.date)}` });
   if (mom === 'dn') risks.push({ sev:'med', text:'Health score trending downward' });
-  if (c.renewal != null && c.renewal <= 2) risks.push({ sev: c.renewal <= 1 ? 'high' : 'med', text:`Renewal in ${c.renewal} month${c.renewal === 1 ? '' : 's'} \u2014 needs proactive attention` });
+  if (c.renewal != null && c.renewal <= 2) risks.push({ sev: c.renewal <= 1 ? 'high' : 'med', text:`Renewal in ${fmtRenewalTime(c)} \u2014 needs proactive attention` });
 
   /* ── Executive Summary ── */
   let summary = '';
@@ -10534,7 +11209,7 @@ function buildQBRHTML(c) {
     if (mom === 'dn') summary += 'The score has been declining, which warrants immediate attention. ';
     else if (mom === 'up') summary += 'However, the score is trending upward, indicating recent recovery efforts may be working. ';
     if (risks.length) summary += `There ${risks.length === 1 ? 'is 1 key concern' : 'are ' + risks.length + ' concerns'} to address. `;
-    if (c.renewal != null && c.renewal <= 3) summary += `With renewal ${c.renewal <= 1 ? 'imminent' : 'approaching in ' + c.renewal + ' months'}, this QBR is critical for retention. `;
+    if (c.renewal != null && c.renewal <= 3) summary += `With renewal ${c.renewal <= 0 ? 'imminent' : 'approaching in ' + fmtRenewalTime(c)}, this QBR is critical for retention. `;
     summary += 'The focus for this meeting should be understanding root causes and building a joint recovery plan.';
   } else if (c.status === 'watch') {
     summary = `${name} is in <strong>Watch</strong> status (${c.score}/100). `;
@@ -10575,7 +11250,7 @@ function buildQBRHTML(c) {
     agenda.push({ time:'10 min', topic:'Product Adoption & Enablement', detail:`Current adoption is at ${c.adoption}%. Walk through underutilized features and their business impact.` });
   agenda.push({ time:'10 min', topic:'Goals for Next Quarter', detail:'Align on what success looks like for Q+1. Document concrete objectives together.' });
   if (lc !== 'churned' && c.renewal != null && c.renewal <= 6)
-    agenda.push({ time:'5 min', topic:'Renewal & Partnership Discussion', detail:`Renewal is ${c.renewal} month${c.renewal === 1 ? '' : 's'} out. Address timeline, scope, and any expansion interest.` });
+    agenda.push({ time:'5 min', topic:'Renewal & Partnership Discussion', detail:`Renewal is ${fmtRenewalTime(c)} out. Address timeline, scope, and any expansion interest.` });
   if (lc !== 'onboarding' && lc !== 'won' && lc !== 'churned' && (c.growth === 'strong' || c.growth === 'mild' || c.status === 'expand'))
     agenda.push({ time:'5 min', topic:'Expansion Opportunities', detail:'Explore where additional value could be unlocked \u2014 new users, features, or tiers.' });
   agenda.push({ time:'5 min', topic:'Action Items & Next Steps', detail:'Summarize agreed-upon action items with owners and timelines.' });
@@ -10702,7 +11377,6 @@ function buildQBRHTML(c) {
 
 /* ── Plain-text version (clipboard copy) ── */
 function buildQBRText(c) {
-  const mom   = getMomentum(c);
   const cad   = getCadenceStatus(c);
   const sent  = latestSentiment(c);
   const u     = getRenewalUrgency(c);
@@ -10710,9 +11384,17 @@ function buildQBRText(c) {
   const sentLabels = { positive:'Positive', neutral:'Neutral', negative:'Negative' };
   const date  = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
   const hist = c.history || [];
-  const histLine = hist.length >= 2
-    ? `${hist[hist.length-2].score} → ${hist[hist.length-1].score} (${hist[hist.length-1].score > hist[hist.length-2].score ? '+' : ''}${hist[hist.length-1].score - hist[hist.length-2].score} pts)`
-    : `${c.score} (first score)`;
+  // Derive momentum from the last two history entries for consistency
+  var mom, histLine;
+  if (hist.length >= 2) {
+    var prevScore = hist[hist.length-2].score, curScore = hist[hist.length-1].score;
+    var histDiff = curScore - prevScore;
+    histLine = prevScore + ' → ' + curScore + ' (' + (histDiff > 0 ? '+' : '') + histDiff + ' pts)';
+    mom = histDiff >= momentumPts ? 'up' : histDiff <= -momentumPts ? 'dn' : 'flat';
+  } else {
+    histLine = c.score + ' (first score)';
+    mom = 'new';
+  }
   const tierMap = { smb:'SMB', mid:'Mid-Market', enterprise:'Enterprise' };
   const name = c.name || 'This account';
   const lc   = c.lifecycle || 'active';
@@ -10747,7 +11429,7 @@ function buildQBRText(c) {
   if (c.growth === 'declining') risks.push('[MED] Growth signal is declining');
   if (sent && sent.val === 'negative') risks.push(`[HIGH] Negative sentiment logged on ${fmtDate(sent.date)}`);
   if (mom === 'dn') risks.push('[MED] Health score trending downward');
-  if (c.renewal != null && c.renewal <= 2) risks.push(`[${c.renewal <= 1 ? 'HIGH' : 'MED'}] Renewal in ${c.renewal} month${c.renewal === 1 ? '' : 's'} — needs proactive attention`);
+  if (c.renewal != null && c.renewal <= 2) risks.push(`[${c.renewal <= 1 ? 'HIGH' : 'MED'}] Renewal in ${fmtRenewalTime(c)} — needs proactive attention`);
 
   // Summary
   let summary = '';
@@ -10763,7 +11445,7 @@ function buildQBRText(c) {
     summary += `${name} is currently in a ${sl} state with a health score of ${c.score}/100. `;
     if (mom === 'dn') summary += 'The score has been declining. ';
     if (risks.length) summary += `There are ${risks.length} concern(s) to address. `;
-    if (c.renewal != null && c.renewal <= 3) summary += `Renewal is ${c.renewal <= 1 ? 'imminent' : 'in ' + c.renewal + ' months'}. `;
+    if (c.renewal != null && c.renewal <= 3) summary += `Renewal is ${c.renewal <= 0 ? 'imminent' : 'in ' + fmtRenewalTime(c)}. `;
     summary += 'Focus this meeting on understanding root causes and building a joint recovery plan.';
   } else if (c.status === 'expand') {
     summary += `${name} is performing strongly at ${c.score}/100 (${sl}). `;

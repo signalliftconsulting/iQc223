@@ -833,6 +833,8 @@ function _renderHomeBase() {
   if (typeof renderWins === 'function') renderWins(active);
   if (typeof renderDrops === 'function') renderDrops(active);
   if (typeof renderHeatmap === 'function') renderHeatmap(active);
+  // Inject tour button for homebase
+  if (typeof _wtInjectHomebaseTourButton === 'function') _wtInjectHomebaseTourButton();
 }
 
 // ── Pulse KPI Card (gradient) ──

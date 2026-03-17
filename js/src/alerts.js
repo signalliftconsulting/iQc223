@@ -115,7 +115,7 @@ function buildAlerts() {
     } else if (c.renewal != null && c.renewal >= 0 && c.renewal <= 2) {
       var _rHealth2 = (c.status === 'critical' || c.status === 'risk') ? ' · ⚠ Health: ' + (c.status === 'critical' ? 'Critical' : 'At Risk') : '';
       alerts.push({ id:c.id+'-renew', cid:c.id, cat:'renewal', type:'blue',
-        msg:`<strong>${escHtml(c.name)}</strong> <span>renews in ${c.renewal} month${c.renewal===1?'':'s'}</span>`,
+        msg:`<strong>${escHtml(c.name)}</strong> <span>renews in ${fmtRenewalTime(c)}</span>`,
         sub:`$${fmtNum(c.mrr||0)} MRR${_rHealth2}`, ...snap(c) });
     }
 
@@ -1039,8 +1039,11 @@ function renderAlertPanel(all, active, snz) {
       }
     }
 
-    // Sort by score desc, show top 3
+    // Sort by score desc, show top 3 — pin "Highest MRR at Risk" first
     insights.sort((a, b) => b.score - a.score);
+    // Move "Highest MRR at Risk" to position 0 if present
+    const mrrIdx = insights.findIndex(x => x.label === 'Highest MRR at Risk');
+    if (mrrIdx > 0) { const [mrr] = insights.splice(mrrIdx, 1); insights.unshift(mrr); }
     const topIns = insights.slice(0, 3);
 
     if (topIns.length) {

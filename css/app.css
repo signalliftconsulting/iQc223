@@ -291,7 +291,9 @@ svg.sparkline{display:block}
 .fchip.fw{background:var(--amber-l);color:var(--amber);border-color:var(--amber-m)}
 .fchip.fh{background:var(--green-l);color:var(--green);border-color:var(--green-m)}
 .fchip.fe{background:var(--teal-l);color:var(--teal);border-color:var(--teal-m)}
-.fchip.ft{background:#f3f0ef;color:#7a5c58;border-color:#c9b8b5}
+.fchip.ft{background:#fef2f2;color:#b91c1c;border-color:#fca5a5}
+#fc-trash{color:#dc2626;opacity:.7}
+#fc-trash:hover{opacity:1}
 
 .ct{width:100%;min-width:1100px;border-collapse:collapse;font-size:.82rem}
 #table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}

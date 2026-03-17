@@ -6,6 +6,23 @@ function fmtNum(n) {
   return n.toLocaleString();
 }
 
+// ─── RENEWAL DISPLAY ────────────────────────────────────────
+// Shows days when < 1 month, otherwise months. Pass customer object or months number.
+function fmtRenewalTime(c) {
+  if (c && c.renewal_date) {
+    var days = Math.max(0, Math.round((new Date(c.renewal_date) - new Date()) / 86400000));
+    if (days === 0) return 'today';
+    if (days < 30) return days + ' day' + (days !== 1 ? 's' : '');
+    var mo = Math.round(days / 30.44);
+    return mo + ' month' + (mo !== 1 ? 's' : '');
+  }
+  // Fallback: months-based
+  var months = (typeof c === 'number') ? c : (c && c.renewal != null ? c.renewal : null);
+  if (months == null) return '—';
+  if (months <= 0) return 'today';
+  return months + ' month' + (months !== 1 ? 's' : '');
+}
+
 // ─── TIME FORMATTING ────────────────────────────────────────
 function fmtTime12(hhmm) {
   if (!hhmm) return '';

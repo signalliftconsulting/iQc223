@@ -544,7 +544,9 @@ svg.sparkline{display:block}
 .fchip.fw{background:var(--amber-l);color:var(--amber);border-color:var(--amber-m)}
 .fchip.fh{background:var(--green-l);color:var(--green);border-color:var(--green-m)}
 .fchip.fe{background:var(--teal-l);color:var(--teal);border-color:var(--teal-m)}
-.fchip.ft{background:#f3f0ef;color:#7a5c58;border-color:#c9b8b5}
+.fchip.ft{background:#fef2f2;color:#b91c1c;border-color:#fca5a5}
+#fc-trash{color:#dc2626;opacity:.7}
+#fc-trash:hover{opacity:1}
 
 .ct{width:100%;min-width:1800px;border-collapse:separate;border-spacing:0;font-size:var(--fs-sm)}
 #table-wrap{overflow-x:hidden;-webkit-overflow-scrolling:touch}
@@ -1861,7 +1863,8 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <!-- KPI Summary Cards -->
   <div class="aw-kpi-row" id="alert-kpi-row"></div>
 
-  <!-- Insights row -->
+  <!-- Pulse Studio — actionable insight cards -->
+  <div style="font-size:var(--fs-sm);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:12px 0 6px" id="pulse-studio-label">Pulse Studio</div>
   <div class="aw-insights-row" id="alert-insights-row"></div>
 
   <!-- Detail cards row: MRR, Category, Stage -->
@@ -1949,7 +1952,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       <button class="fchip"    id="fc-healthy"  onclick="setFilter('healthy')">Healthy</button>
       <button class="fchip"    id="fc-expand"   onclick="setFilter('expand')">Expansion</button>
       <button class="fchip"    id="fc-churned"  onclick="setFilter('churned')">Churned</button>
-      <button class="fchip"    id="fc-trash"   onclick="setFilter('trash')" style="margin-left:auto">Trash</button>
+      <button class="fchip"    id="fc-trash"   onclick="setFilter('trash')" style="margin-left:auto">🗑 Trash</button>
     </div>
     <!-- Active column filter pills -->
     <div id="filter-pill-bar" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:10px;align-items:center"></div>
@@ -2239,7 +2242,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <div class="score-panel">
     <div class="card">
       <form id="score-form" onsubmit="submitForm(event)">
-        <div class="fg">
+        <div class="fg" id="score-fields-wrap">
           <!-- Section: Account -->
           <div class="field full"><label>Company / Customer Name *</label><input type="text" id="f-name" placeholder="Acme Corp" required/></div>
           <div class="field"><label>Contact Name <span style="font-weight:400;color:var(--subtle);font-size:.7rem">optional</span></label><input type="text" id="f-contact-name" placeholder="Jane Smith"/></div>
@@ -2256,7 +2259,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
           <div id="save-details-wrap" style="display:none;justify-content:flex-end;align-items:end"><button type="button" class="btn btn-success" id="save-details-btn" style="padding:10px 18px;font-size:.87rem;white-space:nowrap" onclick="saveDetailsOnly()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Details</button></div>
           <!-- Section: Signals -->
           <div class="form-section full"><div class="form-section-label">Health Signals</div></div>
-          <div class="full signals-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px 24px;align-items:start">
+          <div class="full signals-grid" id="score-signals-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px 24px;align-items:start">
             <!-- LEFT: Sliders -->
             <div style="display:flex;flex-direction:column;gap:14px">
               <div class="field"><label>Login Frequency <span style="font-weight:400;color:var(--subtle);font-size:.7rem">0=never, 30=daily</span></label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-logins-na" onchange="toggleSignalNA('logins')" style="accent-color:var(--blue)"/> N/A</label><input type="range" id="f-logins" min="0" max="30" value="10" oninput="rv('logins',this.value+' days')" style="flex:1"/><span class="rv" id="rv-logins" style="min-width:52px">10 days</span></div></div>
@@ -2491,7 +2494,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
     </div>
 
     <!-- SECTION 2: Account Operations -->
-    <div class="cfg-section">
+    <div class="cfg-section" id="cfg-acct-ops">
       <div class="cfg-section-hd">
         <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         Account Operations
@@ -2564,11 +2567,11 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <div class="dtab-pane" id="cfg-pane-account">
     <!-- Row 1: Data Health + Quick Actions -->
     <div class="cfg-columns">
-      <div class="card">
+      <div class="card" id="cfg-data-health-card">
         <div class="card-hd"><h2>Data Health <span class="info-tip" data-tip="Overview of customer data quality — completeness, freshness, and accounts needing attention.">ⓘ</span></h2></div>
         <div id="cfg-data-health"></div>
       </div>
-      <div class="card">
+      <div class="card" id="cfg-quick-actions">
         <div class="card-hd"><h2>Quick Actions <span class="info-tip" data-tip="Common config tasks — recalculate scores, back up or restore settings, or reset everything to factory defaults.">ⓘ</span></h2></div>
         <p style="font-size:var(--fs-base);margin-bottom:14px">Manage your scoring configuration.</p>
         <div class="qa-grid">
@@ -2582,7 +2585,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
     </div>
     <!-- Row 2: Manage CSMs + Password -->
     <div class="cfg-columns" style="margin-top:18px">
-      <div class="card">
+      <div class="card" id="cfg-csm-list-card">
         <div class="card-hd"><h2>Manage CSMs <span class="info-tip" data-tip="View all CSMs and remove ones no longer needed. Removing a CSM unassigns them from all their customers.">ⓘ</span></h2></div>
         <p style="font-size:var(--fs-base);margin-bottom:14px">CSMs currently assigned to customers.</p>
         <div id="cfg-csm-list"></div>
@@ -2612,7 +2615,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 
     <!-- Sub-tab 1: Native Integrations -->
     <div class="dtab-pane active" id="api-pane-integrations">
-      <div id="integrations-section"></div>
+      <div id="integrations-section" class="card"></div>
     </div>
 
     <!-- Sub-tab 2: API & Webhooks -->
@@ -2734,8 +2737,8 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <div id="auditlog-guide"></div>
   <!-- Audit Log tabs -->
   <div class="dtab-row" style="margin-bottom:16px">
-    <button class="dtab active" onclick="auditTab('activity')">Activity Log</button>
-    <button class="dtab" onclick="auditTab('config')">Config History</button>
+    <button class="dtab active" id="audit-tab-activity" onclick="auditTab('activity')">Activity Log</button>
+    <button class="dtab" id="audit-tab-config" onclick="auditTab('config')">Config History</button>
   </div>
   <!-- Activity Log pane -->
   <div class="dtab-pane active" id="audit-pane-activity">
@@ -4024,6 +4027,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=489"></script>
+<script src="js/app.js?v=516"></script>
 </body>
 </html>

@@ -579,8 +579,8 @@ function makeRec(score, data) {
     if (unhappyAndQuiet) return ' They\'re unhappy and we\'re not in touch — that\'s a dangerous combination.';
     if (silentAndSlipping && st !== 'healthy') return ' Score is dropping and we haven\'t been in contact — that silence is the risk.';
     if (renewUrgent && (st === 'critical' || st === 'risk')) return ' Renewal is imminent, which puts real timeline pressure on this.';
-    if (renewSoon && (st === 'critical' || st === 'risk' || st === 'watch')) return ' Renewal is in ' + data.renewal + ' month' + (data.renewal !== 1 ? 's' : '') + ' — we need to be in a better position by then.';
-    if (renewSoon && (st === 'healthy' || st === 'expand')) return ' Renewal is in ' + data.renewal + ' month' + (data.renewal !== 1 ? 's' : '') + ' — should be smooth given current health.';
+    if (renewSoon && (st === 'critical' || st === 'risk' || st === 'watch')) return ' Renewal is in ' + fmtRenewalTime(data) + ' — we need to be in a better position by then.';
+    if (renewSoon && (st === 'healthy' || st === 'expand')) return ' Renewal is in ' + fmtRenewalTime(data) + ' — should be smooth given current health.';
     if (isHighValue && mrrStr && st !== 'expand' && st !== 'healthy') return ' As ' + tierLabel + ' account at ' + mrrStr + ', this should be a top priority.';
     return '';
   };
@@ -786,15 +786,15 @@ function buildPlaybook(score, data) {
   if ((signalOn(data,'nps') && npsIsDetractor(data.nps)) && signalOn(data,'days') && data.days > 21)
     plays.push({ type:'urgent', text:`<strong>Unhappy and unreachable:</strong> NPS detractor (${npsDisplay(data.nps)}) combined with ${data.days} days of no contact. They may already be evaluating alternatives. This needs an exec-level save call, not a standard check-in.` });
   if (data.renewal != null && data.renewal <= 3 && (status === 'critical' || status === 'risk'))
-    plays.push({ type:'urgent', text:`<strong>Renewal at risk:</strong> ${name} renews in ${data.renewal} month${data.renewal !== 1 ? 's' : ''} while in ${status === 'critical' ? 'critical' : 'at-risk'} health. Lead with a recovery plan before any renewal discussion: <em>"I want to make sure we solve what's not working before we talk about next year."</em>` });
+    plays.push({ type:'urgent', text:`<strong>Renewal at risk:</strong> ${name} renews in ${fmtRenewalTime(data)} while in ${status === 'critical' ? 'critical' : 'at-risk'} health. Lead with a recovery plan before any renewal discussion: <em>"I want to make sure we solve what's not working before we talk about next year."</em>` });
 
   // ── Renewal ──────────────────────────────────────────────
   if (data.renewal === 0)
     plays.push({ type:'renew', text:`<strong>Renewal NOW:</strong> Contract is at renewal — get this closed immediately. If health is strong, make it easy: <em>"Everything looks great on your account — I'd love to lock in your renewal and talk about what's coming next year."</em>` });
   else if (data.renewal != null && data.renewal <= 1)
-    plays.push({ type:'renew', text:`<strong>Renewal urgency:</strong> ${data.renewal} month to renewal. Schedule the contract review call this week — lead with value: <em>"Before we talk paperwork, I want to make sure you've seen the ROI you were expecting. Let's walk through your results together."</em>` });
+    plays.push({ type:'renew', text:`<strong>Renewal urgency:</strong> ${fmtRenewalTime(data)} to renewal. Schedule the contract review call this week — lead with value: <em>"Before we talk paperwork, I want to make sure you've seen the ROI you were expecting. Let's walk through your results together."</em>` });
   else if (data.renewal != null && data.renewal <= 3 && status !== 'risk' && status !== 'critical')
-    plays.push({ type:'renew', text:`<strong>Renewal prep:</strong> ${data.renewal} months to renewal. Start the conversation now while sentiment is positive: <em>"Renewal is coming up — I'd love to get ahead of it and make sure everything is lined up on your end."</em>` });
+    plays.push({ type:'renew', text:`<strong>Renewal prep:</strong> ${fmtRenewalTime(data)} to renewal. Start the conversation now while sentiment is positive: <em>"Renewal is coming up — I'd love to get ahead of it and make sure everything is lined up on your end."</em>` });
 
   // ── Growth signal ────────────────────────────────────────
   if (signalOn(data,'growth')) {

@@ -475,7 +475,7 @@ async function restoreCustomer(id) {
 async function hardDeleteCustomer(id) {
   const c = trash.find(x => x.id === id);
   if (!c) return;
-  confirmAction(`Permanently delete "${c.name}"? This cannot be undone.`, async () => {
+  confirmAction(`Permanently delete "${c.name}"? This account and all its data will be gone forever and cannot be recovered.`, async () => {
     const cName = c.name;
     trash = trash.filter(x => x.id !== id);
     renderTrash();
@@ -489,16 +489,51 @@ async function hardDeleteCustomer(id) {
 // emptyTrash() — hard delete all soft-deleted records
 async function emptyTrash() {
   if (!trash.length) return;
-  confirmAction(`Permanently delete all ${trash.length} items in trash? This cannot be undone.`, async () => {
+  confirmAction(`Permanently delete all ${trash.length} items in trash? These accounts and all their data will be gone forever and cannot be recovered.`, async () => {
     const toNuke = [...trash];
     const ids = toNuke.map(c => c.id);
     logAudit('customer_hard_deleted', null, '', { summary: `Emptied trash: ${toNuke.length} record${toNuke.length!==1?'s':''} permanently deleted` });
     trash = [];
     toast('Trash emptied', 'warn');
-    if (!customers.length) { nav('homebase'); } else { renderTrash(); }
+    if (!customers.length) { if (typeof _wtDismiss === 'function') _wtDismiss(); nav('homebase'); } else { renderTrash(); }
     // Delete by id list — RLS handles ownership check
     const { error } = await sb.from('customers').delete().in('id', ids);
     if (error) console.warn('Trash empty DB error:', error.message);
+  });
+}
+
+// ── Trash selection state ──
+var _trashSelected = new Set();
+
+function _trashToggle(id) {
+  if (_trashSelected.has(id)) _trashSelected.delete(id); else _trashSelected.add(id);
+  renderTrash();
+}
+function _trashToggleAll() {
+  if (_trashSelected.size === trash.length) _trashSelected.clear();
+  else trash.forEach(c => _trashSelected.add(c.id));
+  renderTrash();
+}
+function _trashBulkRestore() {
+  const ids = [..._trashSelected];
+  if (!ids.length) return;
+  confirmAction(`Restore ${ids.length} item${ids.length!==1?'s':''}?`, () => {
+    ids.forEach(id => restoreCustomer(id));
+    _trashSelected.clear();
+  });
+}
+function _trashBulkDelete() {
+  const ids = [..._trashSelected];
+  if (!ids.length) return;
+  confirmAction(`Permanently delete ${ids.length} item${ids.length!==1?'s':''}? These accounts and all their data will be gone forever and cannot be recovered.`, async () => {
+    const toNuke = trash.filter(c => ids.includes(c.id));
+    logAudit('customer_hard_deleted', null, '', { summary: `Bulk deleted ${toNuke.length} record${toNuke.length!==1?'s':''} from trash` });
+    trash = trash.filter(c => !ids.includes(c.id));
+    _trashSelected.clear();
+    toNuke.forEach(c => toast(`${c.name} permanently deleted`, 'warn'));
+    if (!customers.length && !trash.length) { if (typeof _wtDismiss === 'function') _wtDismiss(); nav('homebase'); } else { renderTrash(); }
+    const { error } = await sb.from('customers').delete().in('id', ids);
+    if (error) console.warn('Bulk trash delete DB error:', error.message);
   });
 }
 
@@ -507,16 +542,33 @@ function renderTrash() {
   const wrap = document.getElementById('trash-wrap');
   if (!wrap) return;
 
+  // Clean up stale selections
+  _trashSelected = new Set([..._trashSelected].filter(id => trash.some(c => c.id === id)));
+
   const backBtn = `<button class="btn btn-sm btn-ghost" onclick="setFilter('all')" style="margin-bottom:12px">← Back to Customers</button>`;
 
   if (!trash.length) {
-    wrap.innerHTML = backBtn + `<div class="empty-st"><div class="ei"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--subtle)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></div><h3>Trash is empty</h3><p>Deleted customers appear here. You can restore or permanently delete them.</p></div>`;
+    _trashSelected.clear();
+    wrap.innerHTML = `<div style="padding:16px">${backBtn}<div class="empty-st"><div class="ei"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--subtle)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></div><h3>Trash is empty</h3><p>Deleted customers appear here. You can restore or permanently delete them.</p></div></div>`;
     return;
   }
 
+  const selCount = _trashSelected.size;
+  const allChecked = selCount === trash.length;
+
+  const bulkBar = selCount > 0 ? `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:color-mix(in srgb, var(--teal) 8%, var(--surface));border:1px solid color-mix(in srgb, var(--teal) 25%, var(--border));border-radius:var(--r);margin-bottom:10px">
+      <span style="font-size:var(--fs-sm);font-weight:600;color:var(--text)">${selCount} selected</span>
+      <button class="btn btn-sm btn-ghost" onclick="_trashBulkRestore()">Restore Selected</button>
+      <button class="btn btn-sm btn-danger" onclick="_trashBulkDelete()">Delete Selected Forever</button>
+      <button class="btn btn-sm btn-ghost" onclick="_trashSelected.clear();renderTrash()" style="margin-left:auto">Clear Selection</button>
+    </div>` : '';
+
   const rows = trash.map(c => {
     const deletedStr = c.deleted_at ? new Date(c.deleted_at).toLocaleDateString() : '—';
-    return `<tr>
+    const checked = _trashSelected.has(c.id) ? 'checked' : '';
+    return `<tr style="${checked ? 'background:color-mix(in srgb, var(--teal) 5%, var(--surface))' : ''}">
+      <td style="width:36px;text-align:center"><input type="checkbox" ${checked} onchange="_trashToggle('${escHtml(c.id)}')" style="cursor:pointer"></td>
       <td><strong>${escHtml(c.name)}</strong></td>
       <td>${deletedStr}</td>
       <td>${badgeHTML(c.status)}</td>
@@ -528,7 +580,7 @@ function renderTrash() {
     </tr>`;
   }).join('');
 
-  wrap.innerHTML = `
+  wrap.innerHTML = `<div style="padding:16px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <div style="display:flex;align-items:center;gap:10px">
         <button class="btn btn-sm btn-ghost" onclick="setFilter('all')">← Back to Customers</button>
@@ -536,12 +588,15 @@ function renderTrash() {
       </div>
       <button class="btn btn-sm btn-danger" onclick="emptyTrash()">Empty Trash</button>
     </div>
+    ${bulkBar}
     <table class="ct">
       <thead><tr>
+        <th style="width:36px;text-align:center"><input type="checkbox" ${allChecked ? 'checked' : ''} onchange="_trashToggleAll()" style="cursor:pointer" title="Select all"></th>
         <th>Name</th><th>Deleted</th><th>Status</th><th>MRR</th><th>Actions</th>
       </tr></thead>
       <tbody>${rows}</tbody>
-    </table>`;
+    </table>
+  </div>`;
 }
 
 // atUpdate(c) — alias for save
@@ -705,7 +760,7 @@ const _DEMO_SENTIMENTS = [
 // Wide signal ranges ensure visible metric changes as trend value shifts.
 const _DEMO_TRAJECTORIES = {
   'stable-healthy': {
-    logins:[14,30], adoption:[60,98], tickets:[0,3], days:[1,12],
+    logins:[14,30], adoption:[60,98], tickets:[0,1], days:[1,12],
     npsOpts:[8,9,9,10,10], csatOpts:[4,4,5,5,5],
     growthOpts:['strong','strong','mild'],
     lifecycle:'active', noise:0.12,
@@ -713,7 +768,7 @@ const _DEMO_TRAJECTORIES = {
     trend: (d,t) => 0.78 + 0.18 * Math.sin(d/t * Math.PI * 8) + 0.06 * Math.cos(d/t * Math.PI * 3)
   },
   'stable-mid': {
-    logins:[4,20], adoption:[28,72], tickets:[1,5], days:[8,40],
+    logins:[4,20], adoption:[28,72], tickets:[0,2], days:[8,40],
     npsOpts:[5,6,7,7,8], csatOpts:[3,3,3,4,4],
     growthOpts:['none','mild','mild'],
     lifecycle:'active', noise:0.10,
@@ -721,7 +776,7 @@ const _DEMO_TRAJECTORIES = {
     trend: (d,t) => 0.48 + 0.18 * Math.sin(d/t * Math.PI * 5) + 0.06 * Math.cos(d/t * Math.PI * 13)
   },
   'stable-low': {
-    logins:[1,12], adoption:[10,45], tickets:[2,7], days:[20,70],
+    logins:[1,12], adoption:[10,45], tickets:[1,5], days:[20,70],
     npsOpts:[3,4,4,5,5,6], csatOpts:[1,2,2,3,3],
     growthOpts:['none','none','mild'],
     lifecycle:'atrisk', noise:0.10,
@@ -729,7 +784,7 @@ const _DEMO_TRAJECTORIES = {
     trend: (d,t) => 0.25 + 0.12 * Math.sin(d/t * Math.PI * 4) + 0.08 * Math.max(0, Math.sin(d/t * Math.PI * 9))
   },
   'improving': {
-    logins:[3,28], adoption:[15,92], tickets:[0,6], days:[3,50],
+    logins:[3,28], adoption:[15,92], tickets:[0,2], days:[3,50],
     npsOpts:[4,5,6,7,8,9], csatOpts:[2,3,3,4,4,5],
     growthOpts:['none','mild','mild','strong'],
     lifecycle:'active', noise:0.10,
@@ -744,7 +799,7 @@ const _DEMO_TRAJECTORIES = {
     }
   },
   'declining': {
-    logins:[2,26], adoption:[12,85], tickets:[0,8], days:[3,65],
+    logins:[2,26], adoption:[12,85], tickets:[0,4], days:[3,65],
     npsOpts:[9,8,7,6,5,4,4], csatOpts:[5,4,4,3,2,2,1],
     growthOpts:['strong','mild','none','none'],
     lifecycle:'atrisk', noise:0.08,
@@ -758,7 +813,7 @@ const _DEMO_TRAJECTORIES = {
     }
   },
   'slow-decline': {
-    logins:[3,22], adoption:[15,68], tickets:[1,6], days:[8,55],
+    logins:[3,22], adoption:[15,68], tickets:[0,3], days:[8,55],
     npsOpts:[7,7,6,6,5,5,4], csatOpts:[4,4,3,3,3,2,2],
     growthOpts:['mild','none','none'],
     lifecycle:'active', noise:0.07,
@@ -766,7 +821,7 @@ const _DEMO_TRAJECTORIES = {
     trend: (d,t) => 0.88 - 0.50 * (d/t) + 0.06 * Math.sin(d/t * Math.PI * 7)
   },
   'volatile': {
-    logins:[2,30], adoption:[15,95], tickets:[0,7], days:[2,55],
+    logins:[2,30], adoption:[15,95], tickets:[0,2], days:[2,55],
     npsOpts:[4,6,7,9,10,7,4], csatOpts:[2,3,4,5,4,3,2],
     growthOpts:['none','mild','strong','none','mild'],
     lifecycle:'active', noise:0.14,
@@ -777,7 +832,7 @@ const _DEMO_TRAJECTORIES = {
     }
   },
   'onboarding': {
-    logins:[0,24], adoption:[0,65], tickets:[0,4], days:[2,20],
+    logins:[0,24], adoption:[0,65], tickets:[0,2], days:[2,20],
     npsOpts:[null,null,6,7,7,8], csatOpts:[null,null,3,3,4,4],
     growthOpts:['none','mild'],
     lifecycle:'onboarding', noise:0.12,
@@ -792,7 +847,7 @@ const _DEMO_TRAJECTORIES = {
     historyDays: 90
   },
   'churned': {
-    logins:[0,26], adoption:[0,88], tickets:[0,10], days:[2,120],
+    logins:[0,26], adoption:[0,88], tickets:[0,6], days:[2,120],
     npsOpts:[9,8,7,5,4,3,2], csatOpts:[5,4,3,2,2,1,1],
     growthOpts:['mild','none','none','none'],
     lifecycle:'churned', noise:0.06,
@@ -806,7 +861,7 @@ const _DEMO_TRAJECTORIES = {
     }
   },
   'recovered': {
-    logins:[2,28], adoption:[10,90], tickets:[0,7], days:[3,55],
+    logins:[2,28], adoption:[10,90], tickets:[0,2], days:[3,55],
     npsOpts:[8,6,4,4,5,7,8,9], csatOpts:[4,3,2,2,3,4,4,5],
     growthOpts:['mild','none','none','mild','strong'],
     lifecycle:'active', noise:0.10,
