@@ -3656,7 +3656,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
         </tbody>
       </table>
       <div class="help-sub">Historical Data via CSV</div>
-      <p>Add a <strong>date</strong> column to import historical snapshots. Rows with a past date become history entries on that customer's Trends chart — rows without a date (or with today's date) update the customer's current signals as usual. This is ideal for backfilling data from internal systems or other platforms.</p>
+      <p>The CSV includes a <strong>date</strong> column — put a date in it to import that row as a historical snapshot on the customer's Trends chart. Leave it blank to update the customer's current signals as usual. This is ideal for backfilling data from internal systems, exported data, or other platforms.</p>
       <p><strong>Note:</strong> If a snapshot already exists for the same date, it will be overwritten if the new data has more signal fields filled. Historical rows for customers that don't exist in iQcadence are skipped.</p>
       <div class="help-sub">Duplicate Handling</div>
       <p>If a customer with the same name already exists, the import <strong>updates their data</strong> rather than creating a duplicate record.</p>
@@ -4384,6 +4384,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=544"></script>
+<script src="js/app.js?v=545"></script>
 </body>
 </html>
