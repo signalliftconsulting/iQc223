@@ -108,6 +108,7 @@ async function _loadDemoFromCard() {
       await loadCustomersFromSupabase();
     }
     rescoreAll();
+    if (typeof refreshMgrDropdown === 'function') refreshMgrDropdown();
     renderHomeBase();
     nav('homebase');
     toast('Demo data loaded — ' + COUNT + ' customers ready to explore!', 'success');
