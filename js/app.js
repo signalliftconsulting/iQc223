@@ -4967,6 +4967,27 @@ function nav(v) {
   if (v === 'clients')   renderClients();
 }
 
+/* ─── Mobile Nav (hamburger menu at ≤900px) ─── */
+function toggleMobileNav() {
+  const dd = document.getElementById('mobile-nav-dd');
+  if (dd) dd.classList.toggle('open');
+}
+
+function mobileNav(page) {
+  const dd = document.getElementById('mobile-nav-dd');
+  if (dd) dd.classList.remove('open');
+  nav(page);
+}
+
+// Close mobile nav when clicking outside
+document.addEventListener('click', function(e) {
+  const dd = document.getElementById('mobile-nav-dd');
+  const btn = document.getElementById('mobile-nav-btn');
+  if (dd && dd.classList.contains('open') && !dd.contains(e.target) && !btn.contains(e.target)) {
+    dd.classList.remove('open');
+  }
+});
+
 /* Refresh the currently active page (used after saving from detail modal) */
 function refreshCurrentPage() {
   const v = document.querySelector('.view.active');
