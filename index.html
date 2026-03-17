@@ -720,9 +720,10 @@ svg.sparkline{display:block}
 .hist-reason:last-child{border-bottom:none;padding-bottom:0}
 
 /* SETTINGS */
-.weight-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;padding:5px 8px;border-radius:6px;transition:background .12s}
+.weight-row{display:flex;align-items:center;gap:6px;margin-bottom:3px;padding:4px 6px;border-radius:6px;transition:background .12s}
 .weight-row:hover{background:var(--bg)}
-.weight-label{min-width:140px;font-size:var(--fs-sm);font-weight:600;color:var(--text)}
+.weight-label{min-width:0;flex:0 0 auto;white-space:nowrap;font-size:var(--fs-xs);font-weight:600;color:var(--text)}
+.weight-row input[type=range]{flex:1;min-width:60px}
 .weight-pct{display:flex;align-items:center;gap:0;color:var(--blue)}
 .weight-pct input[type=number]{-moz-appearance:textfield}
 .weight-pct input[type=number]::-webkit-outer-spin-button,.weight-pct input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
@@ -4069,6 +4070,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=530"></script>
+<script src="js/app.js?v=531"></script>
 </body>
 </html>
