@@ -107,6 +107,8 @@ function _checkUserSwitch(userId) {
         setTimeout(autoSyncSalesforce, 11000); // 11s delay (after HubSpot)
         setInterval(autoSyncSalesforce, 60 * 60 * 1000);
       }
+      // Resume walkthrough panel if it was active
+      if (typeof _wtResume === 'function') _wtResume();
     }
 
   } else {

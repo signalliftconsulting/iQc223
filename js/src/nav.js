@@ -116,6 +116,9 @@ function nav(v) {
   // Auto-expand the group containing this view
   _autoExpandGroupFor(v);
 
+  // Walkthrough auto-completion
+  if (typeof _wtCheckNav === 'function') _wtCheckNav(v);
+
   VIEWS.forEach(id => {
     const view = document.getElementById('view-' + id);
     if (view) view.classList.remove('active');

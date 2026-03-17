@@ -111,6 +111,7 @@ async function _loadDemoFromCard() {
     renderHomeBase();
     nav('homebase');
     toast('Demo data loaded — ' + COUNT + ' customers ready to explore!', 'success');
+    if (typeof _wtInit === 'function') _wtInit();
   } catch(e) {
     console.error('Demo seed error:', e);
     toast('Failed to load demo data: ' + e.message, 'error');

@@ -15,6 +15,7 @@ FILES=(
   state.js
   utils.js
   guides.js
+  walkthrough.js
   supabase.js
   auth.js
   scoring.js

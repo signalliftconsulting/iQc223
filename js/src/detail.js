@@ -669,6 +669,7 @@ function openDetail(id) {
   const c = customers.find(x => x.id === id);
   if (!c) return;
   detailId = id;
+  if (typeof _wtCompleteIfActive === 'function') _wtCompleteIfActive('customer-deepdive');
   _pagState.sentLog = 0;
   _pagState.scoreHist = 0;
 
@@ -1501,6 +1502,7 @@ function confirmAction(msg, onOk) {
 function openQBR() {
   const c = customers.find(x => x.id === detailId);
   if (!c) return;
+  if (typeof _wtCompleteIfActive === 'function') _wtCompleteIfActive('qbr-prep');
   logAudit('qbr_opened', c.id, c.name, { summary: 'QBR Prep opened' });
   el('qbr-content').innerHTML = buildQBRHTML(c);
   closeModal('detail-modal');
