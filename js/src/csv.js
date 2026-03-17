@@ -32,7 +32,7 @@ async function crmImportPull() {
 
   if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Pull Data'; }
   if (result) {
-    if (status) status.innerHTML = `<span style="color:var(--green)">✓ ${result.matched} customers matched, ${result.totalAdded} history snapshots imported</span>`;
+    if (status) status.innerHTML = typeof buildHistoryResultHTML === 'function' ? buildHistoryResultHTML(result) : `<span style="color:var(--green)">✓ ${result.matched} customers, ${result.totalAdded} snapshots</span>`;
   } else {
     if (status) status.innerHTML = '<span style="color:var(--red)">Pull failed — check console for details</span>';
   }

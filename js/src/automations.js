@@ -2987,10 +2987,31 @@ async function pullHistoryUI(platform) {
 
   if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Pull History'; }
   if (result) {
-    if (status) status.innerHTML = `<span style="color:var(--green)">✓ ${result.matched} customers, ${result.totalAdded} snapshots imported</span>`;
+    if (status) status.innerHTML = buildHistoryResultHTML(result);
   } else {
     if (status) status.innerHTML = '<span style="color:var(--red)">Pull failed — check console</span>';
   }
+}
+
+function buildHistoryResultHTML(result) {
+  const s = result.stats || {};
+  const from = s.dateRange?.from || '?';
+  const to = s.dateRange?.to || '?';
+  const fmtD = d => { try { const p = new Date(d + 'T00:00:00'); return p.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }); } catch(_) { return d; } };
+  return `
+    <div style="margin-top:6px;padding:10px 12px;border-radius:8px;background:var(--surface);border:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        <strong style="font-size:var(--fs-sm);color:var(--green)">History Pull Complete</strong>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:var(--fs-sm)">
+        <div><span style="color:var(--muted)">Date Range:</span> <strong>${fmtD(from)} → ${fmtD(to)}</strong></div>
+        <div><span style="color:var(--muted)">Customers Matched:</span> <strong>${result.matched}</strong></div>
+        <div><span style="color:var(--muted)">Snapshots Added:</span> <strong>${result.totalAdded}</strong></div>
+        ${s.customers != null ? `<div><span style="color:var(--muted)">Returned from CRM:</span> <strong>${s.customers}</strong></div>` : ''}
+        ${s.snapshots != null ? `<div><span style="color:var(--muted)">Total Snapshots:</span> <strong>${s.snapshots}</strong></div>` : ''}
+      </div>
+    </div>`;
 }
 
 // ── Topbar Customer Search ──
