@@ -440,6 +440,78 @@ async function save(c) {
   checkWebhookTriggers(c);
 }
 
+// ── Historical data merge ────────────────────────────────────
+// Merges new history entries into a customer, deduplicates by date, and saves.
+// newEntries: [{date, score, signals}]
+// Returns count of entries actually added.
+function mergeHistory(c, newEntries) {
+  if (!newEntries || !newEntries.length) return 0;
+  c.history = c.history || [];
+  const existing = new Set(c.history.map(h => (h.date || '').split('T')[0]));
+  let added = 0;
+  for (const entry of newEntries) {
+    const day = (entry.date || '').split('T')[0];
+    if (!day) continue;
+    if (existing.has(day)) {
+      // Replace if new entry has more filled signals
+      const idx = c.history.findIndex(h => (h.date || '').split('T')[0] === day);
+      if (idx >= 0) {
+        const oldFilled = Object.values(c.history[idx].signals || {}).filter(v => v != null).length;
+        const newFilled = Object.values(entry.signals || {}).filter(v => v != null).length;
+        if (newFilled > oldFilled) { c.history[idx] = entry; added++; }
+      }
+    } else {
+      c.history.push(entry);
+      existing.add(day);
+      added++;
+    }
+  }
+  c.history.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  return added;
+}
+
+// Pull historical data from a connected integration
+// platform: 'salesforce' | 'hubspot' | 'stripe'
+// lookback: '30d' | '90d' | '6mo' | '1yr'
+async function pullHistoricalData(platform, lookback) {
+  if (!sb || !currentUser) { toast('Not signed in', 'error'); return null; }
+  const fnName = platform + '-history';
+  toast('Pulling ' + lookback + ' of history from ' + platform + '…', 'info');
+  try {
+    const { data, error } = await sb.functions.invoke(fnName, {
+      body: { lookback }
+    });
+    if (error) throw error;
+    if (!data) throw new Error('No data returned');
+    if (data.error) throw new Error(data.error);
+    if (!data.customers) throw new Error('No customer data returned');
+
+    let totalAdded = 0, matched = 0;
+    for (const entry of data.customers) {
+      // Match by external_id or name
+      const c = customers.find(x =>
+        (entry.external_id && (x.external_id === entry.external_id || x.salesforce_account_id === entry.external_id || x.hubspot_company_id === entry.external_id || x.stripe_customer_id === entry.external_id)) ||
+        (entry.name && x.name && x.name.toLowerCase() === entry.name.toLowerCase())
+      );
+      if (!c) continue;
+      matched++;
+      const added = mergeHistory(c, entry.history || []);
+      totalAdded += added;
+      if (added > 0) await save(c);
+    }
+
+    const stats = data.stats || {};
+    toast(`History imported: ${matched} customers, ${totalAdded} snapshots added (${stats.dateRange?.from || '?'} → ${stats.dateRange?.to || '?'})`, 'success');
+    // Refresh UI
+    if (typeof renderAll === 'function') renderAll();
+    return { matched, totalAdded, stats };
+  } catch (err) {
+    console.error('[pullHistoricalData]', err);
+    toast('History pull failed: ' + (err.message || err), 'error');
+    return null;
+  }
+}
+
 // Ownership filter helper — uses client_id if DB supports it, else user_id
 function _ownerEq(query) {
   if (_dbHasClientId && _userClientId) return query.eq('client_id', _userClientId);

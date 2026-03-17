@@ -2213,7 +2213,9 @@ async function pullHistoricalData(platform, lookback) {
       body: { lookback }
     });
     if (error) throw error;
-    if (!data || !data.customers) throw new Error('No data returned');
+    if (!data) throw new Error('No data returned');
+    if (data.error) throw new Error(data.error);
+    if (!data.customers) throw new Error('No customer data returned');
 
     let totalAdded = 0, matched = 0;
     for (const entry of data.customers) {
