@@ -8499,8 +8499,16 @@ function refreshMgrDropdown() {
   const wrap = document.getElementById('mgr-filter-wrap');
   if (!wrap) return;
 
-  // Always visible and always enabled
-  if (managers.length === 0) return;
+  // If no managers at all, clear the dropdown and hide the filter list
+  if (managers.length === 0) {
+    const dl = document.getElementById('manager-datalist');
+    if (dl) dl.innerHTML = '';
+    const list = document.getElementById('mgr-filter-list');
+    if (list) list.innerHTML = '';
+    const fmSelect = document.getElementById('f-manager');
+    if (fmSelect && fmSelect.tagName === 'SELECT') fmSelect.innerHTML = '<option value="">— none —</option>';
+    return;
+  }
 
   // Populate datalist for form autocomplete (named managers only)
   const dl = document.getElementById('manager-datalist');
@@ -26679,11 +26687,11 @@ async function ensureUserProfile(user) {
 // ─── WELCOME MODAL (first-time users) ────────────────────────
 function showWelcome() {
   const m = document.getElementById('welcome-modal');
-  if (m) m.style.display = 'flex';
+  if (m) { m.style.display = 'flex'; m.classList.add('open'); }
 }
 function closeWelcome() {
   const m = document.getElementById('welcome-modal');
-  if (m) m.style.display = 'none';
+  if (m) { m.classList.remove('open'); setTimeout(() => m.style.display = 'none', 250); }
   localStorage.setItem('iqc_welcome_v2', '1');
 }
 function _maybeShowWelcome() {

@@ -26,8 +26,16 @@ function refreshMgrDropdown() {
   const wrap = document.getElementById('mgr-filter-wrap');
   if (!wrap) return;
 
-  // Always visible and always enabled
-  if (managers.length === 0) return;
+  // If no managers at all, clear the dropdown and hide the filter list
+  if (managers.length === 0) {
+    const dl = document.getElementById('manager-datalist');
+    if (dl) dl.innerHTML = '';
+    const list = document.getElementById('mgr-filter-list');
+    if (list) list.innerHTML = '';
+    const fmSelect = document.getElementById('f-manager');
+    if (fmSelect && fmSelect.tagName === 'SELECT') fmSelect.innerHTML = '<option value="">— none —</option>';
+    return;
+  }
 
   // Populate datalist for form autocomplete (named managers only)
   const dl = document.getElementById('manager-datalist');

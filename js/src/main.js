@@ -1,11 +1,11 @@
 // ─── WELCOME MODAL (first-time users) ────────────────────────
 function showWelcome() {
   const m = document.getElementById('welcome-modal');
-  if (m) m.style.display = 'flex';
+  if (m) { m.style.display = 'flex'; m.classList.add('open'); }
 }
 function closeWelcome() {
   const m = document.getElementById('welcome-modal');
-  if (m) m.style.display = 'none';
+  if (m) { m.classList.remove('open'); setTimeout(() => m.style.display = 'none', 250); }
   localStorage.setItem('iqc_welcome_v2', '1');
 }
 function _maybeShowWelcome() {
