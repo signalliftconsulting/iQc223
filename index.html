@@ -3180,7 +3180,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       </table>
       <div class="help-callout tip">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-        <span>Use the <strong>Manager Filter</strong> at the top of any page to narrow every view to a single CSM's portfolio.</span>
+        <span>On narrow screens the sidebar collapses behind a <strong>hamburger menu</strong> (☰) in the top-left corner. Use the <strong>Manager Filter</strong> at the top of any page to narrow every view to a single CSM's portfolio.</span>
       </div>
     </div>
 
@@ -3209,7 +3209,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
         <div class="help-hd-icon" style="background:#eff6ff;color:#3b82f6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
         <div><h3>How Scores Work</h3><p>Weighted composite of customer signals</p></div>
       </div>
-      <p>Each customer's health score is calculated from up to seven signals. Each signal is converted to a 0–100 scale, then combined into a single weighted score.</p>
+      <p>Each customer's health score is calculated from six slider-based signals plus a growth dropdown. Each signal is converted to a 0–100 scale, then combined into a single weighted score.</p>
       <table class="help-table">
         <thead><tr><th>Signal</th><th>What It Measures</th><th>How It's Scored</th></tr></thead>
         <tbody>
@@ -3219,7 +3219,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
           <tr><td><strong>NPS</strong></td><td>Net Promoter Score (0–10)</td><td>Promoter (9–10) = best, Passive = moderate, Detractor = worst</td></tr>
           <tr><td><strong>CSAT</strong></td><td>Customer satisfaction (1–5)</td><td>5 = max, 1 = zero. Optionally enabled in Settings</td></tr>
           <tr><td><strong>Days Since Contact</strong></td><td>Days since last touch</td><td>Recent = higher. Degrades over time, zero at 180 days</td></tr>
-          <tr><td><strong>Growth</strong></td><td>Expansion signal</td><td>Strong = best, Mild = moderate, None = low</td></tr>
+          <tr><td><strong>Growth</strong></td><td>Expansion signal</td><td>Dropdown: Strong = best, Mild = moderate, None = low, N/A = excluded from scoring</td></tr>
         </tbody>
       </table>
     </div>
@@ -3286,15 +3286,17 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       <p>Manage profiles in <strong>Weights & Config → Scoring Profiles</strong>.</p>
     </div>
 
-    <div class="help-card" data-accent="green" data-keywords="scoring customer how to add score form signals enter save bulk rescore manual">
+    <div class="help-card" data-accent="green" data-keywords="scoring customer how to add score form signals enter save bulk rescore manual compact two column duplicate prevention mrr arr">
       <div class="help-hd">
         <div class="help-hd-icon" style="background:#ecfdf5;color:#10b981"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div>
         <div><h3>Scoring a Customer</h3><p>Step-by-step guide</p></div>
       </div>
+      <p>The Score a Customer form uses a compact <strong>2-column layout</strong> for efficient data entry.</p>
       <ol class="help-steps">
-        <li>Navigate to <strong>Score Customer</strong> in the sidebar.</li>
-        <li>Enter the customer name, tier (SMB / Mid-Market / Enterprise), MRR, and ARR.</li>
-        <li>Fill in signal values — logins, adoption %, open tickets, NPS, CSAT, days since contact, and growth indicator.</li>
+        <li>Navigate to <strong>Score a Customer</strong> in the sidebar.</li>
+        <li>Enter the customer name (duplicate names are detected and prevented).</li>
+        <li>Set tier (SMB / Mid-Market / Enterprise) and enter MRR or ARR — the other auto-calculates bidirectionally (MRR × 12 = ARR).</li>
+        <li>Use the <strong>signal sliders</strong> for Logins, Adoption %, Tickets, NPS, CSAT, and Days Since Contact. Select a Growth level from the dropdown (Strong / Mild / None / N/A).</li>
         <li>Optionally set a renewal date, lifecycle stage, manager, tags, and sentiment.</li>
         <li>Click <strong>Save Score</strong>. The system calculates the health score and status automatically.</li>
       </ol>
@@ -3309,261 +3311,211 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <!-- ── PAGES TAB ── -->
   <div class="dtab-pane" id="help-pane-pages">
 
-    <!-- HOME BASE -->
-    <div class="help-card" data-accent="blue" data-keywords="homebase home base dashboard getting started guide onboarding action items insights kpi portfolio ring welcome briefing">
+    <!-- 1. HOME BASE -->
+    <div class="help-card" data-accent="blue" data-keywords="homebase home base dashboard kpi portfolio ring welcome briefing action items widgets">
       <div class="help-hd">
         <div class="help-hd-icon" style="background:#eff6ff;color:#3b82f6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
         <div><h3>Home Base</h3><p>Your daily command center and landing page</p></div>
       </div>
-      <p>Home Base is the first screen you see when you log in. It provides a personalized briefing with at-a-glance KPIs and quick-action items.</p>
-      <div class="help-sub">Getting Started Guide</div>
-      <p>When you have no customers yet, Home Base shows a <strong>Getting Started Guide</strong> with three onboarding paths:</p>
+      <p>The first screen you see after login. Provides a personalized briefing with at-a-glance KPIs and quick-action items.</p>
       <ul>
-        <li><strong>Integration-first</strong> — Connect a CRM (Stripe, HubSpot, Salesforce) and sync customers automatically</li>
-        <li><strong>Manual + Integration</strong> — Add a customer list via CSV first, then connect an integration for ongoing sync</li>
-        <li><strong>CSV-only</strong> — Import everything via CSV or use the manual scoring form</li>
-      </ul>
-      <p>The guide is also accessible as a collapsible banner once you have customers. Dismiss it permanently with the checkbox.</p>
-      <div class="help-sub">Welcome Banner &amp; Action Items</div>
-      <p>Displays a personalized greeting with the current date, a portfolio health ring showing your average score, and quick stats (Healthy %, At Risk count, Improving, Declining). Below the stats, <strong>action items</strong> highlight the most urgent tasks — renewals, overdue contacts, and declining accounts — each clickable to navigate directly to the relevant customer or view.</p>
-      <div class="help-sub">KPI Cards</div>
-      <table class="help-table">
-        <thead><tr><th>Card</th><th>What It Shows</th></tr></thead>
-        <tbody>
-          <tr><td><strong>Portfolio Health</strong></td><td>Active account count with a 5-segment health bar showing status distribution and counts. Click to navigate to Customers filtered by status.</td></tr>
-          <tr><td><strong>Revenue at Risk</strong></td><td>Combined MRR from Critical + At Risk accounts. Click to jump to Alerts.</td></tr>
-          <tr><td><strong>Upcoming Renewals</strong></td><td>Accounts renewing within the next month with total MRR. Click to view the renewal pipeline.</td></tr>
-          <tr><td><strong>Expansion Opportunity</strong></td><td>Expansion-band accounts with estimated upsell revenue (20% of their MRR).</td></tr>
-          <tr><td><strong>Total MRR</strong></td><td>Sum of monthly recurring revenue across all active accounts.</td></tr>
-        </tbody>
-      </table>
-      <div class="help-sub">Additional Widgets</div>
-      <ul>
-        <li><strong>Renewal Pipeline</strong> — Three time-horizon buckets (0–30d, 31–60d, 61–90d) showing count, MRR, and at-risk count per bucket.</li>
-        <li><strong>Priority Accounts</strong> — Top accounts ranked by urgency (renewal proximity × health risk). Click any row to open the detail modal.</li>
-        <li><strong>Biggest Drops</strong> — Accounts with the largest recent score declines. Click to open and take action.</li>
-        <li><strong>Health Heatmap</strong> — Visual heatmap of all customers color-coded by score.</li>
-        <li><strong>Tier Cards</strong> — SMB, Mid-Market, and Enterprise summary cards with count, MRR, average score, and at-risk count.</li>
+        <li><strong>Getting Started Guide</strong> — Three onboarding paths (Integration-first, Manual + Integration, CSV-only) shown when no customers exist; collapsible banner afterward</li>
+        <li><strong>Welcome Banner</strong> — Greeting, portfolio health ring, quick stats (Healthy %, At Risk, Improving, Declining), and clickable action items</li>
+        <li><strong>KPI Cards</strong> — Portfolio Health, Revenue at Risk, Upcoming Renewals, Expansion Opportunity, Total MRR</li>
+        <li><strong>Widgets</strong> — Renewal Pipeline (0–30d / 31–60d / 61–90d), Priority Accounts, Biggest Drops, Health Heatmap, Tier Cards</li>
       </ul>
     </div>
 
-    <!-- ALERTS -->
-    <div class="help-card" data-accent="red" data-keywords="alerts notifications severity critical warning attention opportunity snooze dismiss bulk actions categories health tickets engagement renewal momentum sentiment expansion mrr exposure">
-      <div class="help-hd">
-        <div class="help-hd-icon" style="background:#fef2f2;color:#ef4444"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
-        <div><h3>Alerts</h3><p>Accounts that need your attention, auto-surfaced</p></div>
-      </div>
-      <p>Alerts are automatically generated from customer signal values. The sidebar badge shows the active count.</p>
-      <div class="help-sub">Alert Severities</div>
-      <table class="help-table">
-        <thead><tr><th>Severity</th><th>Meaning</th></tr></thead>
-        <tbody>
-          <tr><td><span class="help-badge" style="background:#fee2e2;color:#dc2626">Red / Critical</span></td><td>Health crisis, high-ticket load, or imminent renewal at risk</td></tr>
-          <tr><td><span class="help-badge" style="background:#fef3c7;color:#d97706">Amber / Warning</span></td><td>Declining trends, overdue contact, negative sentiment, momentum drop</td></tr>
-          <tr><td><span class="help-badge" style="background:#dbeafe;color:#2563eb">Blue / Attention</span></td><td>Upcoming renewals not yet urgent</td></tr>
-          <tr><td><span class="help-badge" style="background:#dcfce7;color:#16a34a">Green / Opportunity</span></td><td>Expansion or upsell opportunity detected</td></tr>
-        </tbody>
-      </table>
-      <div class="help-sub">Alert Categories</div>
-      <table class="help-table">
-        <thead><tr><th>Category</th><th>Triggers</th></tr></thead>
-        <tbody>
-          <tr><td><strong>Health</strong></td><td>Critical or At Risk status (red), Watch status (amber)</td></tr>
-          <tr><td><strong>Tickets</strong></td><td>3+ open support tickets</td></tr>
-          <tr><td><strong>Engagement</strong></td><td>Low logins or adoption below thresholds</td></tr>
-          <tr><td><strong>Renewal</strong></td><td>Renewal within 60 days. Escalates: blue → amber → red by proximity</td></tr>
-          <tr><td><strong>Quiet Accounts</strong></td><td>No activity signals detected — gone silent</td></tr>
-          <tr><td><strong>Momentum</strong></td><td>Score trending downward over recent updates</td></tr>
-          <tr><td><strong>Sentiment</strong></td><td>Negative sentiment logged, NPS detractor, or low CSAT</td></tr>
-          <tr><td><strong>Expansion</strong></td><td>Healthy account with MRR over $3K and 30+ days since touch</td></tr>
-        </tbody>
-      </table>
-      <div class="help-sub">View Modes</div>
-      <ul>
-        <li><strong>Category</strong> — Grouped by alert category with collapsible sections</li>
-        <li><strong>Priority</strong> — Ranked by severity (Critical → Warning → Attention → Opportunity)</li>
-        <li><strong>Customer</strong> — All alerts grouped by account</li>
-        <li><strong>Table</strong> — Compact sortable table view</li>
-      </ul>
-      <div class="help-sub">Side Panel Widgets</div>
-      <ul>
-        <li><strong>MRR Exposure</strong> — Revenue at risk broken down by risk category (Critical/Risk, Watch, Renewal, No Contact, etc.) with horizontal bars. Click any row to filter the Customers table.</li>
-        <li><strong>By Category</strong> — Alert count per category with bar chart. Click to filter.</li>
-        <li><strong>Insights</strong> — AI-generated actionable patterns: renewals at risk, engagement clusters, cadence gaps, and more.</li>
-      </ul>
-      <div class="help-sub">Actions</div>
-      <ul>
-        <li><strong>Snooze</strong> — Hide for 1 day, 7 days, or 30 days. Auto-returns when expired.</li>
-        <li><strong>Dismiss</strong> — Permanently remove from the active view.</li>
-        <li><strong>Wake</strong> — Un-snooze a snoozed alert immediately.</li>
-        <li><strong>Bulk Actions</strong> — Select multiple alerts to snooze or dismiss in batch.</li>
-      </ul>
-    </div>
-
-    <!-- CUSTOMERS -->
-    <div class="help-card" data-accent="green" data-keywords="customers table sort filter shift select multi-select frozen column scroll date tenure renewal days bulk actions inline edit export presets">
+    <!-- 2. CUSTOMERS -->
+    <div class="help-card" data-accent="green" data-keywords="customers table sort filter bulk actions detail modal qbr playbook notes history contacts">
       <div class="help-hd">
         <div class="help-hd-icon" style="background:#ecfdf5;color:#10b981"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
         <div><h3>Customers</h3><p>Full account list with advanced filtering and bulk actions</p></div>
       </div>
+      <p>Sortable, filterable table of every customer account with status tabs, column filters, Shift-click multi-select, and frozen name column.</p>
       <ul>
-        <li><strong>Search</strong> — Filter by customer name or tag in real time</li>
-        <li><strong>Status Tabs</strong> — Quick filter: All, Healthy, Watch, At Risk, Critical, Expansion, Churned, Trash</li>
-        <li><strong>Column Filters</strong> — Click the funnel icon on any column header for per-column filtering (number ranges, date pickers, enums, tenure yr/mo, or text search). Active filters show as removable pills above the table</li>
-        <li><strong>Sort</strong> — Click column headers to sort ascending or descending. Arrow indicator shows current sort direction</li>
-        <li><strong>Frozen Name Column</strong> — The Customer name column stays pinned to the left as you scroll horizontally</li>
-        <li><strong>Shift-Click Multi-Select</strong> — Click a row, then Shift-click another row to select (or deselect) all rows in between</li>
-        <li><strong>Bulk Actions</strong> — Select multiple customers to re-score, assign tags, change lifecycle stage, or delete</li>
-        <li><strong>Renewal Column</strong> — Shows days remaining until renewal (e.g., "45d"). Filter by days left</li>
-        <li><strong>Date Added Filter</strong> — Uses calendar date pickers (After, Before, Exactly, Between)</li>
-        <li><strong>Tenure Filter</strong> — Uses year and month inputs matching the column format</li>
-        <li><strong>Export</strong> — Export Data (CSV) or Export Bulksheet for round-trip editing</li>
-        <li><strong>Detail Modal</strong> — Click any customer name to open the full detail view</li>
+        <li><strong>Status Tabs</strong> — All, Healthy, Watch, At Risk, Critical, Expansion, Churned, Trash</li>
+        <li><strong>Bulk Actions</strong> — Re-score, assign tags, change lifecycle, or delete selected rows</li>
+        <li><strong>Export</strong> — CSV data export or Bulksheet for round-trip editing</li>
+        <li><strong>Detail Modal</strong> — Click any name to open Overview, Alerts, Playbook, Notes, Sentiment, History, and Contacts tabs. Includes QBR Prep document generator</li>
       </ul>
-      <div class="help-sub">Customer Detail Modal</div>
-      <p>The detail modal contains seven tabbed sections:</p>
-      <table class="help-table">
-        <thead><tr><th>Tab</th><th>What It Shows</th></tr></thead>
-        <tbody>
-          <tr><td><strong>Overview</strong></td><td>Score ring, signal breakdown bars, account info (tier, MRR, ARR, renewal, lifecycle, manager, tags), cadence status, and quick action buttons (Edit, QBR Prep, Print, Delete)</td></tr>
-          <tr><td><strong>Alerts</strong></td><td>All active alerts for this customer with snooze/dismiss actions</td></tr>
-          <tr><td><strong>Playbook</strong></td><td>Auto-generated action plans based on signal values. Each play has a priority badge, talking points, and checkable action items with tracked progress</td></tr>
-          <tr><td><strong>Notes</strong></td><td>Timestamped notes for interactions, decisions, and context. Reverse chronological order</td></tr>
-          <tr><td><strong>Sentiment</strong></td><td>Log Positive/Neutral/Negative sentiment with context notes. Negative entries trigger alerts</td></tr>
-          <tr><td><strong>History</strong></td><td>Score timeline showing all changes with signal snapshots per entry — compare what changed between updates</td></tr>
-          <tr><td><strong>Contacts</strong></td><td>Manage customer contacts and stakeholders with roles and contact info</td></tr>
-        </tbody>
-      </table>
-      <div class="help-sub">QBR Prep</div>
-      <p>Generate a complete meeting preparation document with: Executive Summary (auto-generated narrative based on status and signals), Wins & Highlights, Risks & Concerns (severity-tagged), a Suggested Agenda with time estimates, contextual Questions to Ask, and Meeting Context notes. Available as print-ready or copy-to-clipboard.</p>
     </div>
 
-    <!-- SEGMENTS -->
-    <div class="help-card" data-accent="purple" data-keywords="segments tags tiers stage lifecycle group comparison chart trend kpi smb enterprise mid-market">
+    <!-- 3. ALERTS -->
+    <div class="help-card" data-accent="red" data-keywords="alerts notifications severity critical warning snooze dismiss bulk categories mrr exposure">
+      <div class="help-hd">
+        <div class="help-hd-icon" style="background:#fef2f2;color:#ef4444"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
+        <div><h3>Alerts</h3><p>Accounts that need attention, auto-surfaced by signals</p></div>
+      </div>
+      <p>Automatically generated alerts from customer signal values. Sidebar badge shows active count.</p>
+      <ul>
+        <li><strong>Severities</strong> — Critical (red), Warning (amber), Attention (blue), Opportunity (green)</li>
+        <li><strong>Categories</strong> — Health, Tickets, Engagement, Renewal, Quiet Accounts, Momentum, Sentiment, Expansion</li>
+        <li><strong>View Modes</strong> — Category, Priority, Customer, or Table</li>
+        <li><strong>Side Panel</strong> — MRR Exposure breakdown, category bar chart, AI-generated insights</li>
+        <li><strong>Actions</strong> — Snooze (1d/7d/30d), Dismiss, Wake, and Bulk actions</li>
+      </ul>
+    </div>
+
+    <!-- 4. SEGMENTS -->
+    <div class="help-card" data-accent="purple" data-keywords="segments tags tiers stage lifecycle group comparison chart kpi">
       <div class="help-hd">
         <div class="help-hd-icon" style="background:#f5f3ff;color:#8b5cf6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>
         <div><h3>Segments</h3><p>Group customers by tag, tier, or lifecycle stage</p></div>
       </div>
-      <p>The Segments page provides portfolio-level analytics. KPI cards at the top show total segments, accounts, MRR, at-risk count, and average health.</p>
-      <div class="help-sub">Three View Modes</div>
-      <table class="help-table">
-        <thead><tr><th>View</th><th>Groups By</th><th>Details</th></tr></thead>
-        <tbody>
-          <tr><td><strong>Segments</strong></td><td>Customer tags</td><td>Each tag creates a segment. Untagged customers are grouped separately (can be hidden). Shows count, avg score, MRR, at-risk %, trend, renewals</td></tr>
-          <tr><td><strong>Tiers</strong></td><td>SMB / Mid-Market / Enterprise</td><td>Same metrics per tier. Expand any row to see all accounts in that tier with urgency-sorted drill-down</td></tr>
-          <tr><td><strong>Stage</strong></td><td>Lifecycle stage</td><td>Onboarding, Active, At Risk, Won/Upsold, Churned. Expand for drill-down. "View in Customers" button filters by stage</td></tr>
-        </tbody>
-      </table>
-      <div class="help-sub">Comparison Chart</div>
-      <p>Below the table, a multi-line trend chart compares segments over time. Use the metric dropdown to switch between Health Score, Logins, Adoption, MRR, and more. Filter pills let you focus on specific segments. Includes an auto-generated trend analysis with momentum, convergence/divergence, and risk insights.</p>
+      <p>Portfolio-level analytics with KPI cards (total segments, accounts, MRR, at-risk count, average health).</p>
+      <ul>
+        <li><strong>Segments view</strong> — Group by tags with count, avg score, MRR, at-risk %, trend</li>
+        <li><strong>Tiers view</strong> — SMB / Mid-Market / Enterprise with expandable drill-down</li>
+        <li><strong>Stage view</strong> — Onboarding, Active, At Risk, Won/Upsold, Churned</li>
+        <li><strong>Comparison Chart</strong> — Multi-line trend chart with metric dropdown and auto-generated analysis</li>
+      </ul>
     </div>
 
-    <!-- TRENDS -->
-    <div class="help-card" data-accent="cyan" data-keywords="trends chart metrics time range overlay csm client analysis movers momentum portfolio performance graph">
+    <!-- 5. TRENDS -->
+    <div class="help-card" data-accent="cyan" data-keywords="trends chart metrics time range overlay csm client analysis movers momentum">
       <div class="help-hd">
         <div class="help-hd-icon" style="background:#ecfeff;color:#06b6d4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
         <div><h3>Trends</h3><p>Portfolio metrics over time with overlays and analysis</p></div>
       </div>
-      <div class="help-sub">Main Chart</div>
-      <p>A configurable time-series chart showing your portfolio's performance. Controls include:</p>
+      <p>Configurable time-series chart for tracking portfolio performance across multiple metrics.</p>
       <ul>
-        <li><strong>Primary Metric</strong> — Health Score, Logins, Adoption %, Tickets, NPS, CSAT, Days Since Contact, MRR, ARR, or Customer Count</li>
-        <li><strong>Secondary Metric</strong> — Overlay a second metric on a right-axis for correlation analysis</li>
-        <li><strong>Time Range</strong> — 7d, 30d, 90d, 6 months, 1 year, 2 years, or year-to-date</li>
-        <li><strong>CSM Overlay</strong> — Overlay a specific manager's portfolio line on top of the portfolio average</li>
-        <li><strong>Client Overlays</strong> — Add individual customer lines to compare against the portfolio</li>
+        <li><strong>Primary &amp; Secondary Metrics</strong> — Health Score, Logins, Adoption %, Tickets, NPS, CSAT, MRR, ARR, and more</li>
+        <li><strong>Time Range</strong> — 7d, 30d, 90d, 6mo, 1yr, 2yr, or year-to-date</li>
+        <li><strong>Overlays</strong> — Add a CSM portfolio line or individual client lines for comparison</li>
+        <li><strong>Trend Analysis</strong> — Auto-generated momentum, divergence, and acceleration insights</li>
+        <li><strong>Top Movers</strong> — Sortable table of customers with the biggest score changes</li>
       </ul>
-      <div class="help-sub">Trend Analysis</div>
-      <p>Auto-generated insights below the chart detect momentum shifts, divergence patterns, and acceleration/deceleration in your metrics.</p>
-      <div class="help-sub">Top Movers</div>
-      <p>A sortable table of customers with the biggest score changes in the selected time range. Columns: name, current score, delta, status, MRR, manager, tickets, logins, and adoption. Click any row to open the customer detail.</p>
     </div>
 
-    <!-- CSM PERFORMANCE -->
-    <div class="help-card" data-accent="indigo" data-keywords="csm performance manager leaderboard team portfolio drill-down focus areas insights ranking">
+    <!-- 6. CSM PERFORMANCE -->
+    <div class="help-card" data-accent="indigo" data-keywords="csm performance manager leaderboard team portfolio drill-down focus areas">
       <div class="help-hd">
         <div class="help-hd-icon" style="background:#eef2ff;color:#6366f1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg></div>
         <div><h3>CSM Performance</h3><p>Team-level portfolio health and manager leaderboard</p></div>
       </div>
+      <p>Compare CSM portfolios side-by-side with health rankings and actionable insights.</p>
       <ul>
-        <li><strong>Manager Leaderboard</strong> — Ranked by average portfolio health score with status distribution bars, account count, and total MRR</li>
-        <li><strong>Drill-Down</strong> — Expand any manager row to see their individual accounts sorted by urgency, with summary stats</li>
-        <li><strong>Focus Areas</strong> — Auto-generated insights highlighting managers with high at-risk percentages, overdue contacts, or declining portfolios</li>
+        <li><strong>Manager Leaderboard</strong> — Ranked by avg health score with status distribution bars, account count, and MRR</li>
+        <li><strong>Drill-Down</strong> — Expand any manager to see their individual accounts sorted by urgency</li>
+        <li><strong>Focus Areas</strong> — Auto-generated insights on high at-risk %, overdue contacts, or declining portfolios</li>
       </ul>
     </div>
 
-    <!-- CALENDAR -->
-    <div class="help-card" data-accent="amber" data-keywords="calendar month renewals touch dates overdue contacts schedule events">
+    <!-- 7. REPORTS -->
+    <div class="help-card" data-accent="amber" data-keywords="reports pdf csv print portfolio risk renewal churn csm segment trend weekly digest email">
       <div class="help-hd">
-        <div class="help-hd-icon" style="background:#fffbeb;color:#f59e0b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
-        <div><h3>Calendar</h3><p>Renewals, touch dates, and cadence events on a calendar</p></div>
+        <div class="help-hd-icon" style="background:#fffbeb;color:#f59e0b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+        <div><h3>Reports</h3><p>10 pre-built reports with PDF, CSV, and email delivery</p></div>
       </div>
-      <p>A month-view calendar showing all time-sensitive customer events:</p>
+      <p>Generate and schedule professional reports across three tiers (Starter, Growth, Enterprise).</p>
       <ul>
-        <li><strong>Renewals</strong> — Shown as blue dots on renewal dates. Hover for customer name and MRR.</li>
-        <li><strong>Next Touch Dates</strong> — Scheduled follow-ups shown as green dots.</li>
-        <li><strong>Overdue Contacts</strong> — Customers past their cadence threshold flagged in red.</li>
+        <li><strong>Report Types</strong> — Portfolio Summary, At-Risk Accounts, Renewal Forecast, CSM Performance, Segment Analysis, Trend (90d), Churn Risk, Customer Health, Score History, Weekly Digest</li>
+        <li><strong>Output</strong> — Print as branded PDF with SVG charts, export CSV, or email directly with scheduled recurring delivery</li>
       </ul>
-      <p>Navigate between months with arrow buttons. Click any day with events to see the full list.</p>
     </div>
 
-    <!-- LIFECYCLE & CADENCE -->
-    <div class="help-card" data-accent="green" data-keywords="lifecycle cadence stages onboarding active risk won churned tier enterprise mid-market smb warning overdue priority score">
+    <!-- 8. CALENDAR -->
+    <div class="help-card" data-accent="rose" data-keywords="calendar month renewals touch dates overdue contacts schedule events">
       <div class="help-hd">
-        <div class="help-hd-icon" style="background:#ecfdf5;color:#10b981"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></div>
-        <div><h3>Lifecycle & Cadence</h3><p>Customer journey stages and contact cadence rules</p></div>
+        <div class="help-hd-icon" style="background:#fff1f2;color:#f43f5e"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+        <div><h3>Calendar</h3><p>Renewals, touch dates, and cadence events on a monthly view</p></div>
       </div>
-      <div class="help-sub">Lifecycle Stages</div>
-      <table class="help-table">
-        <thead><tr><th>Stage</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td><strong>Onboarding</strong></td><td>New customer being set up and trained</td></tr>
-          <tr><td><strong>Active</strong></td><td>Fully onboarded, engaged customer (default)</td></tr>
-          <tr><td><strong>At Risk</strong></td><td>Customer showing signs of disengagement or dissatisfaction</td></tr>
-          <tr><td><strong>Won / Upsold</strong></td><td>Recently renewed or expansion completed</td></tr>
-          <tr><td><strong>Churned</strong></td><td>Customer has left. Excluded from dashboards, alerts, and scoring</td></tr>
-        </tbody>
-      </table>
-      <div class="help-sub">Cadence Thresholds</div>
-      <table class="help-table">
-        <thead><tr><th>Tier</th><th>Warning</th><th>Overdue</th></tr></thead>
-        <tbody>
-          <tr><td>Enterprise</td><td>14 days</td><td>30 days</td></tr>
-          <tr><td>Mid-Market</td><td>21 days</td><td>45 days</td></tr>
-          <tr><td>SMB</td><td>30 days</td><td>60 days</td></tr>
-        </tbody>
-      </table>
-      <div class="help-sub">Priority Score</div>
-      <p>Ranks accounts by urgency: <strong>Renewal Factor</strong> (60%) × proximity + <strong>Risk Factor</strong> (40%) × inverse health. Levels: Critical (70+), High (45–69), Medium (20–44), Low (&lt;20).</p>
+      <p>Month-view calendar showing all time-sensitive customer events at a glance.</p>
+      <ul>
+        <li><strong>Renewals</strong> — Blue dots on renewal dates; hover for customer name and MRR</li>
+        <li><strong>Next Touch Dates</strong> — Green dots for scheduled follow-ups</li>
+        <li><strong>Overdue Contacts</strong> — Red flags for customers past their cadence threshold</li>
+      </ul>
     </div>
 
-    <!-- SETTINGS -->
-    <div class="help-card" data-accent="indigo" data-keywords="settings config weights thresholds data health csm manager signal model profiles cadence expansion integrations api stripe hubspot salesforce password account">
+    <!-- 9. SCORE A CUSTOMER -->
+    <div class="help-card" data-accent="green" data-keywords="score customer form signals enter save manual add new compact layout">
+      <div class="help-hd">
+        <div class="help-hd-icon" style="background:#ecfdf5;color:#10b981"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div>
+        <div><h3>Score a Customer</h3><p>Manually add or update a customer with signal values</p></div>
+      </div>
+      <p>Compact two-column form for entering customer data and calculating health scores in real time.</p>
+      <ul>
+        <li><strong>Signals</strong> — Sliders for Logins, Adoption, Tickets, NPS, CSAT, Days Since Contact, plus a Growth dropdown with N/A option</li>
+        <li><strong>Revenue</strong> — MRR and ARR fields with bidirectional auto-calculation</li>
+        <li><strong>Metadata</strong> — Tier, renewal date, lifecycle stage, manager, tags, and sentiment</li>
+        <li><strong>Duplicate Prevention</strong> — Warns if a customer with the same name already exists</li>
+      </ul>
+    </div>
+
+    <!-- 10. CSV IMPORT -->
+    <div class="help-card" data-accent="blue" data-keywords="csv import upload spreadsheet bulk load customers columns mapping drag drop">
+      <div class="help-hd">
+        <div class="help-hd-icon" style="background:#eff6ff;color:#3b82f6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg></div>
+        <div><h3>CSV Import</h3><p>Bulk-load customers from a spreadsheet file</p></div>
+      </div>
+      <p>Drag-and-drop or file-picker import with automatic column mapping and preview step.</p>
+      <ul>
+        <li><strong>Required</strong> — Customer Name (recognized as name, company, customer, account)</li>
+        <li><strong>Optional Fields</strong> — Manager, MRR/ARR, Logins, Adoption, Tickets, NPS, CSAT, Days Since Contact, Growth, Tier, Tags, Renewal Date, Lifecycle, Sentiment</li>
+        <li><strong>Duplicate Handling</strong> — Existing customers are updated rather than duplicated</li>
+        <li><strong>Import from CRM</strong> — Also available here: pull historical signal snapshots from Salesforce, HubSpot, or Stripe</li>
+      </ul>
+    </div>
+
+    <!-- 11. AUTOMATIONS -->
+    <div class="help-card" data-accent="purple" data-keywords="automations alert rules custom rules scheduling scope connections channels slack teams email">
+      <div class="help-hd">
+        <div class="help-hd-icon" style="background:#f5f3ff;color:#8b5cf6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+        <div><h3>Automations</h3><p>Alert rules, custom rules, and notification channels</p></div>
+      </div>
+      <p>Build and manage automated notification rules with delivery to Slack, Teams, or email.</p>
+      <ul>
+        <li><strong>Alert Rules</strong> — 3-step wizard to select alert types, channels, and schedule (real-time / daily / weekly)</li>
+        <li><strong>Custom Rules</strong> — Multi-condition rules with AND/OR logic across any customer field</li>
+        <li><strong>Saved Connections</strong> — Reusable channel configs for Slack webhooks, Teams webhooks, and email</li>
+        <li><strong>REST API</strong> — Push/pull customer data via API with auto-rescoring; Zapier-compatible</li>
+      </ul>
+    </div>
+
+    <!-- 12. SETTINGS -->
+    <div class="help-card" data-accent="indigo" data-keywords="settings config weights thresholds profiles cadence integrations account password csm manager">
       <div class="help-hd">
         <div class="help-hd-icon" style="background:#eef2ff;color:#6366f1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
         <div><h3>Settings</h3><p>Configure scoring, team, integrations, and account</p></div>
       </div>
-      <div class="help-sub">Config Tab</div>
+      <p>Central configuration hub with three tabs: Config, Account, and Integrations.</p>
       <ul>
-        <li><strong>Signal Weights</strong> — Adjust how much each of the 7 signals contributes to the health score. Weights must total 100%</li>
-        <li><strong>Score Thresholds</strong> — Set boundaries for Critical, At Risk, Watch, and Healthy status bands</li>
-        <li><strong>Scoring Profiles</strong> — Create custom weight presets for different customer types (e.g., Enterprise vs SMB)</li>
-        <li><strong>Contact Cadence</strong> — Per-tier warning and overdue day thresholds</li>
-        <li><strong>Renewal Windows</strong> — Configure when renewals are flagged as critical, warning, or upcoming</li>
+        <li><strong>Config</strong> — Signal weights, score thresholds, scoring profiles, contact cadence, renewal windows</li>
+        <li><strong>Account</strong> — Data health dashboard, quick actions (recalc/backup/restore), manage CSMs, change password</li>
+        <li><strong>Integrations</strong> — Connect Stripe, HubSpot, or Salesforce with sync toggles, field mapping, and Import from CRM for historical backfill. API &amp; Webhooks sub-tab for developer tools</li>
       </ul>
-      <div class="help-sub">Account Tab</div>
-      <ul>
-        <li><strong>Data Health</strong> — Shows total customers, last refresh time, stale accounts (30+ days), and incomplete signal data. Click counts to drill into specific accounts</li>
-        <li><strong>Quick Actions</strong> — Recalculate all scores, export/import JSON backups, reset defaults</li>
-        <li><strong>Manage CSMs</strong> — View all CSMs with account counts. Add new CSMs directly from the input field, or remove to unassign from all customers</li>
-        <li><strong>Password</strong> — Change your account password</li>
-      </ul>
-      <div class="help-sub">Integrations Tab</div>
-      <p>Connect Stripe, HubSpot, or Salesforce to automatically sync customer data. Each integration has its own sync toggles, field mapping, and create/update settings. The API & Webhooks sub-tab provides developer tools for custom integrations.</p>
-      <div class="help-callout tip">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-        <span>First-time users will see a <strong>Settings Guide</strong> banner and a "1" badge on the nav item explaining each tab. Dismiss it once you're familiar.</span>
+    </div>
+
+    <!-- 13. AUDIT LOG -->
+    <div class="help-card" data-accent="amber" data-keywords="audit log history actions config changes compliance tracking timeline">
+      <div class="help-hd">
+        <div class="help-hd-icon" style="background:#fffbeb;color:#f59e0b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+        <div><h3>Audit Log</h3><p>Full history of every action and configuration change</p></div>
       </div>
+      <p>Timestamped record of all significant actions for compliance and troubleshooting.</p>
+      <ul>
+        <li><strong>Action Log</strong> — Customer scored, settings changed, alerts snoozed, CSV imports, API calls, and more</li>
+        <li><strong>Config History</strong> — Timeline of weights, thresholds, and profile changes</li>
+        <li><strong>Each Entry</strong> — Action type, associated customer, user email, timestamp, and details summary</li>
+      </ul>
+    </div>
+
+    <!-- 14. HELP & GUIDE -->
+    <div class="help-card" data-accent="cyan" data-keywords="help guide documentation search tabs getting started pages scoring data reports automation">
+      <div class="help-hd">
+        <div class="help-hd-icon" style="background:#ecfeff;color:#06b6d4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+        <div><h3>Help &amp; Guide</h3><p>This page — searchable documentation for every feature</p></div>
+      </div>
+      <p>Searchable reference organized into five tabs covering the entire platform.</p>
+      <ul>
+        <li><strong>Getting Started</strong> — Quick start steps, sidebar navigation overview, key concepts</li>
+        <li><strong>Pages</strong> — One card per sidebar page with description and key features</li>
+        <li><strong>Scoring</strong> — Signal definitions, weights, status bands, decay, and profiles</li>
+        <li><strong>Data &amp; Reports</strong> — CSV import/export, CRM import, reports, backup/restore, audit log</li>
+        <li><strong>Automation</strong> — Alert rules, custom rules, scheduling, integrations, and REST API</li>
+      </ul>
     </div>
 
   </div>
@@ -3596,6 +3548,25 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       <div class="help-callout tip">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
         <span><strong>Duplicate handling:</strong> If a customer with the same name already exists, the import updates their data rather than creating a duplicate.</span>
+      </div>
+    </div>
+
+    <div class="help-card" data-accent="cyan" data-keywords="import crm salesforce hubspot stripe historical signal snapshots lookback backfill pull history integration">
+      <div class="help-hd">
+        <div class="help-hd-icon" style="background:#ecfeff;color:#06b6d4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 4h16v16H4z"/><path d="M9 9h6v6H9z"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></svg></div>
+        <div><h3>Import from CRM</h3><p>Pull historical signal snapshots from connected integrations</p></div>
+      </div>
+      <p>Import historical customer data from <strong>Salesforce</strong>, <strong>HubSpot</strong>, or <strong>Stripe</strong> to backfill signal history. This creates score history entries so you can see trends from before you started using iQcadence.</p>
+      <div class="help-sub">Lookback Periods</div>
+      <p>Choose how far back to pull data: <strong>30 days</strong>, <strong>90 days</strong>, <strong>6 months</strong>, or <strong>1 year</strong>. The system creates periodic signal snapshots across the selected range.</p>
+      <div class="help-sub">Access Points</div>
+      <ul>
+        <li><strong>Settings → Integrations</strong> — Each integration card has an "Import from CRM" option</li>
+        <li><strong>CSV Import page</strong> — The Import from CRM section is also available alongside standard CSV import</li>
+      </ul>
+      <div class="help-callout tip">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <span>The integration must be connected and authenticated before you can pull historical data. Use the <strong>Pull History</strong> button on integration cards for a quick one-click backfill.</span>
       </div>
     </div>
 
@@ -3753,6 +3724,8 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       <p>HubSpot can sync NPS and CSAT scores from <strong>Service Hub feedback surveys</strong>. NPS scores (0-10) are mapped to Promoter/Passive/Detractor. CSAT scores (1-5) are mapped to Positive/Neutral/Negative. Requires Service Hub with the feedback submissions scope enabled.</p>
       <div class="help-sub">Create vs Update</div>
       <p>HubSpot and Salesforce can create new customer accounts during sync. Toggle "Create new accounts" off if you only want to update existing accounts. Stripe is update-only and never creates new accounts.</p>
+      <div class="help-sub">Pull History</div>
+      <p>Each integration card includes a <strong>Pull History</strong> button for one-click historical data backfill. This imports past signal snapshots from the CRM with configurable lookback periods (30d, 90d, 6 months, 1 year), creating score history entries for trend analysis. Also accessible from the CSV Import page under "Import from CRM".</p>
     </div>
 
     <div class="help-card" data-accent="indigo" data-keywords="rest api webhook zapier endpoint json post get upsert update delete score customer fields authentication key inbound">
@@ -4112,6 +4085,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=534"></script>
+<script src="js/app.js?v=535"></script>
 </body>
 </html>
