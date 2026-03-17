@@ -26684,10 +26684,10 @@ function showWelcome() {
 function closeWelcome() {
   const m = document.getElementById('welcome-modal');
   if (m) m.style.display = 'none';
-  localStorage.setItem('iqc_welcome_seen', '1');
+  localStorage.setItem('iqc_welcome_v2', '1');
 }
 function _maybeShowWelcome() {
-  if (!localStorage.getItem('iqc_welcome_seen')) {
+  if (!localStorage.getItem('iqc_welcome_v2')) {
     setTimeout(showWelcome, 600); // slight delay so app loads first
   }
 }
