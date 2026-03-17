@@ -2514,8 +2514,9 @@ function _assignCSMs(trajList, count) {
   while (slots.length < count) slots.push(_DEMO_CSMS[0]);
 
   // Sort trajectories by health: good trajectories first, tough last
-  const healthOrder = { 'stable-healthy':0,'seasonal':1,'recovered':2,'improving':3,
-    'stable-mid':4,'volatile':5,'onboarding':6,'slow-decline':7,'declining':8,'stable-low':9,'churned':10 };
+  const healthOrder = { 'stable-healthy':0,'good-not-great':1,'seasonal':2,'recovered':3,'improving':4,'slow-improve':5,
+    'stable-mid':6,'volatile':7,'onboarding-fast':8,'partial-recovery':9,'seasonal-declining':10,
+    'onboarding-slow':11,'slow-decline':12,'declining':13,'stable-low':14,'churned-early':15,'churned-late':16 };
   const indices = trajList.map((t,i) => i);
   indices.sort((a,b) => healthOrder[trajList[a]] - healthOrder[trajList[b]]);
 
@@ -2567,52 +2568,68 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[8,9,9,10,10], csatOpts:[4,4,5,5,5],
     growthOpts:['strong','strong','mild'],
     lifecycle:'active', noise:0.12,
-    // Healthy but with real wobble — dips into 70s occasionally
-    trend: (d,t) => 0.78 + 0.18 * Math.sin(d/t * Math.PI * 8) + 0.06 * Math.cos(d/t * Math.PI * 3)
+    // Solid performer — cruises 72-88 with natural wobble, occasional dip to high 60s
+    trend: (d,t) => 0.76 + 0.14 * Math.sin(d/t * Math.PI * 8) + 0.05 * Math.cos(d/t * Math.PI * 3)
+  },
+  'good-not-great': {
+    logins:[10,24], adoption:[48,82], tickets:[0,2], days:[3,18],
+    npsOpts:[7,7,8,8,9], csatOpts:[3,4,4,4,5],
+    growthOpts:['mild','mild','none'],
+    lifecycle:'active', noise:0.09,
+    // Reliably mid-range 60-75 — not a concern but not a star
+    trend: (d,t) => 0.66 + 0.08 * Math.sin(d/t * Math.PI * 6) + 0.04 * Math.cos(d/t * Math.PI * 11)
   },
   'stable-mid': {
-    logins:[4,20], adoption:[28,72], tickets:[0,2], days:[8,40],
+    logins:[4,20], adoption:[28,72], tickets:[0,3], days:[8,40],
     npsOpts:[5,6,7,7,8], csatOpts:[3,3,3,4,4],
     growthOpts:['none','mild','mild'],
     lifecycle:'active', noise:0.10,
-    // Watch zone with noticeable wobble between 40-65
-    trend: (d,t) => 0.48 + 0.18 * Math.sin(d/t * Math.PI * 5) + 0.06 * Math.cos(d/t * Math.PI * 13)
+    // Watch zone 42-62 — enough wobble to sometimes trigger alerts, sometimes look ok
+    trend: (d,t) => 0.48 + 0.14 * Math.sin(d/t * Math.PI * 5) + 0.06 * Math.cos(d/t * Math.PI * 13)
   },
   'stable-low': {
     logins:[1,12], adoption:[10,45], tickets:[1,5], days:[20,70],
     npsOpts:[3,4,4,5,5,6], csatOpts:[1,2,2,3,3],
     growthOpts:['none','none','mild'],
     lifecycle:'atrisk', noise:0.10,
-    // Risk zone — brief upticks that never sustain
-    trend: (d,t) => 0.25 + 0.12 * Math.sin(d/t * Math.PI * 4) + 0.08 * Math.max(0, Math.sin(d/t * Math.PI * 9))
+    // Risk zone 22-38 — brief upticks that never sustain
+    trend: (d,t) => 0.25 + 0.10 * Math.sin(d/t * Math.PI * 4) + 0.06 * Math.max(0, Math.sin(d/t * Math.PI * 9))
   },
   'improving': {
     logins:[3,28], adoption:[15,92], tickets:[0,2], days:[3,50],
     npsOpts:[4,5,6,7,8,9], csatOpts:[2,3,3,4,4,5],
     growthOpts:['none','mild','mild','strong'],
     lifecycle:'active', noise:0.10,
-    // Clear upward ramp — starts low ~25, ends high ~90, with steps/plateaus
+    // Clear upward ramp — starts ~30, ends ~82, with steps/plateaus
     trend: (d,t) => {
       const p = d/t;
-      if (p < 0.15) return 0.18 + 0.10 * p / 0.15;                         // slow start
-      if (p < 0.35) return 0.28 + 0.20 * (p - 0.15) / 0.20;               // first push
-      if (p < 0.45) return 0.48 + 0.04 * Math.sin((p - 0.35) * Math.PI * 8); // plateau
-      if (p < 0.70) return 0.48 + 0.30 * (p - 0.45) / 0.25;               // second push
-      return 0.78 + 0.17 * (p - 0.70) / 0.30;                              // strong finish
+      if (p < 0.15) return 0.22 + 0.08 * p / 0.15;                         // slow start
+      if (p < 0.35) return 0.30 + 0.18 * (p - 0.15) / 0.20;               // first push
+      if (p < 0.50) return 0.48 + 0.04 * Math.sin((p - 0.35) * Math.PI * 6); // plateau wobble
+      if (p < 0.75) return 0.48 + 0.24 * (p - 0.50) / 0.25;               // second push
+      return 0.72 + 0.13 * (p - 0.75) / 0.25;                              // settling near 82
     }
+  },
+  'slow-improve': {
+    logins:[5,22], adoption:[20,70], tickets:[0,2], days:[5,35],
+    npsOpts:[5,5,6,6,7,7,8], csatOpts:[3,3,3,4,4,4],
+    growthOpts:['none','none','mild','mild'],
+    lifecycle:'active', noise:0.08,
+    // Gradual grind upward 40→68 over the full period — not dramatic
+    trend: (d,t) => 0.38 + 0.30 * (d/t) + 0.05 * Math.sin(d/t * Math.PI * 9)
   },
   'declining': {
     logins:[2,26], adoption:[12,85], tickets:[0,4], days:[3,65],
     npsOpts:[9,8,7,6,5,4,4], csatOpts:[5,4,4,3,2,2,1],
     growthOpts:['strong','mild','none','none'],
     lifecycle:'atrisk', noise:0.08,
-    // Starts healthy ~90, clear decline to ~25 with a false recovery mid-way
+    // Starts healthy ~85, slides to ~30 with a false recovery mid-way
     trend: (d,t) => {
       const p = d/t;
-      if (p < 0.25) return 0.92 - 0.18 * p / 0.25;                         // initial slide
-      if (p < 0.40) return 0.74 - 0.20 * (p - 0.25) / 0.15;               // accelerating
-      if (p < 0.55) return 0.54 + 0.12 * Math.sin((p - 0.40) / 0.15 * Math.PI); // false rally
-      return 0.54 - 0.35 * (p - 0.55) / 0.45;                              // final decline
+      if (p < 0.25) return 0.85 - 0.15 * p / 0.25;                         // initial slide
+      if (p < 0.40) return 0.70 - 0.18 * (p - 0.25) / 0.15;               // accelerating
+      if (p < 0.55) return 0.52 + 0.10 * Math.sin((p - 0.40) / 0.15 * Math.PI); // false rally
+      return 0.52 - 0.28 * (p - 0.55) / 0.45;                              // final decline
     }
   },
   'slow-decline': {
@@ -2620,47 +2637,77 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[7,7,6,6,5,5,4], csatOpts:[4,4,3,3,3,2,2],
     growthOpts:['mild','none','none'],
     lifecycle:'active', noise:0.07,
-    // Gradual slide from 88 → 38 with small wobbles
-    trend: (d,t) => 0.88 - 0.50 * (d/t) + 0.06 * Math.sin(d/t * Math.PI * 7)
+    // Gradual slide from 80 → 42 with small wobbles
+    trend: (d,t) => 0.80 - 0.38 * (d/t) + 0.06 * Math.sin(d/t * Math.PI * 7)
   },
   'volatile': {
-    logins:[2,30], adoption:[15,95], tickets:[0,2], days:[2,55],
+    logins:[2,30], adoption:[15,95], tickets:[0,3], days:[2,55],
     npsOpts:[4,6,7,9,10,7,4], csatOpts:[2,3,4,5,4,3,2],
     growthOpts:['none','mild','strong','none','mild'],
     lifecycle:'active', noise:0.14,
-    // Wild swings — big peaks and valleys, 3 full cycles
+    // Wild swings — 3 full cycles between ~30 and ~85
     trend: (d,t) => {
       const p = d/t;
-      return 0.52 + 0.38 * Math.sin(p * Math.PI * 6) * (0.7 + 0.3 * Math.cos(p * Math.PI * 2.3));
+      return 0.52 + 0.32 * Math.sin(p * Math.PI * 6) * (0.7 + 0.3 * Math.cos(p * Math.PI * 2.3));
     }
   },
-  'onboarding': {
-    logins:[0,24], adoption:[0,65], tickets:[0,2], days:[2,20],
-    npsOpts:[null,null,6,7,7,8], csatOpts:[null,null,3,3,4,4],
+  'onboarding-fast': {
+    logins:[0,24], adoption:[0,70], tickets:[0,2], days:[2,20],
+    npsOpts:[null,null,6,7,8,8], csatOpts:[null,null,3,4,4,5],
     growthOpts:['none','mild'],
     lifecycle:'onboarding', noise:0.12,
-    // Near-zero start, steep ramp to ~80 with some stutter
+    // Quick ramp to ~75 in 2-3 months
     trend: (d,t) => {
       const p = d/t;
       if (p < 0.10) return 0.02 + 0.08 * p / 0.10;
       if (p < 0.30) return 0.10 + 0.35 * (p - 0.10) / 0.20;
-      if (p < 0.40) return 0.45 + 0.05 * Math.sin((p - 0.30) / 0.10 * Math.PI); // stall
-      return 0.45 + 0.45 * (p - 0.40) / 0.60;
+      if (p < 0.40) return 0.45 + 0.05 * Math.sin((p - 0.30) / 0.10 * Math.PI);
+      return 0.45 + 0.35 * (p - 0.40) / 0.60;
     },
     historyDays: 90
   },
-  'churned': {
+  'onboarding-slow': {
+    logins:[0,16], adoption:[0,50], tickets:[0,3], days:[5,35],
+    npsOpts:[null,null,5,6,6,7], csatOpts:[null,null,3,3,3,4],
+    growthOpts:['none','none','mild'],
+    lifecycle:'onboarding', noise:0.10,
+    // Sluggish ramp — 6 months in and only at ~55
+    trend: (d,t) => {
+      const p = d/t;
+      if (p < 0.15) return 0.02 + 0.05 * p / 0.15;
+      if (p < 0.40) return 0.07 + 0.18 * (p - 0.15) / 0.25;
+      if (p < 0.60) return 0.25 + 0.08 * (p - 0.40) / 0.20;
+      return 0.33 + 0.25 * (p - 0.60) / 0.40;
+    },
+    historyDays: 180
+  },
+  'churned-early': {
+    logins:[0,22], adoption:[0,55], tickets:[0,4], days:[5,90],
+    npsOpts:[6,5,4,3,3,2], csatOpts:[3,3,2,2,1,1],
+    growthOpts:['none','none'],
+    lifecycle:'churned', noise:0.08,
+    // Never really got going — ramped to ~50 then fell off within 6 months
+    trend: (d,t) => {
+      const p = d/t;
+      if (p < 0.35) return 0.10 + 0.45 * p / 0.35;                         // ramp attempt
+      if (p < 0.50) return 0.55 - 0.05 * (p - 0.35) / 0.15;               // plateau
+      if (p < 0.70) return 0.50 - 0.25 * (p - 0.50) / 0.20;               // decline
+      return 0.25 - 0.22 * (p - 0.70) / 0.30;                              // gone
+    },
+    historyDays: 270
+  },
+  'churned-late': {
     logins:[0,26], adoption:[0,88], tickets:[0,6], days:[2,120],
     npsOpts:[9,8,7,5,4,3,2], csatOpts:[5,4,3,2,2,1,1],
     growthOpts:['mild','none','none','none'],
     lifecycle:'churned', noise:0.06,
-    // Was healthy ~92, held steady, then steep collapse to near-zero
+    // Long-time customer — healthy for 60% of history, then steep collapse
     trend: (d,t) => {
       const p = d/t;
-      if (p < 0.35) return 0.92 - 0.08 * p / 0.35;                         // stable era
-      if (p < 0.50) return 0.84 - 0.24 * (p - 0.35) / 0.15;               // warning signs
-      if (p < 0.70) return 0.60 - 0.35 * (p - 0.50) / 0.20;               // rapid decline
-      return 0.25 - 0.22 * (p - 0.70) / 0.30;                              // flatline near zero
+      if (p < 0.55) return 0.82 + 0.08 * Math.sin(p * Math.PI * 5);        // long healthy era
+      if (p < 0.65) return 0.80 - 0.20 * (p - 0.55) / 0.10;               // warning signs
+      if (p < 0.80) return 0.60 - 0.32 * (p - 0.65) / 0.15;               // rapid decline
+      return 0.28 - 0.25 * (p - 0.80) / 0.20;                              // flatline near zero
     }
   },
   'recovered': {
@@ -2668,44 +2715,73 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[8,6,4,4,5,7,8,9], csatOpts:[4,3,2,2,3,4,4,5],
     growthOpts:['mild','none','none','mild','strong'],
     lifecycle:'active', noise:0.10,
-    // V-shape: healthy 90 → crash to 20 → strong recovery to 85
+    // V-shape: healthy 82 → dip to 28 → recovery to 75
     trend: (d,t) => {
       const p = d/t;
-      if (p < 0.30) return 0.90 - 0.65 * p / 0.30;                         // sharp drop
-      if (p < 0.45) return 0.25 - 0.08 * Math.sin((p - 0.30) / 0.15 * Math.PI); // bottom
-      return 0.25 + 0.63 * (p - 0.45) / 0.55;                              // strong recovery
+      if (p < 0.30) return 0.82 - 0.52 * p / 0.30;                         // drop
+      if (p < 0.45) return 0.30 - 0.05 * Math.sin((p - 0.30) / 0.15 * Math.PI); // trough
+      return 0.30 + 0.48 * (p - 0.45) / 0.55;                              // recovery
+    }
+  },
+  'partial-recovery': {
+    logins:[3,22], adoption:[12,72], tickets:[0,3], days:[5,50],
+    npsOpts:[7,5,4,4,5,6,6], csatOpts:[4,3,2,2,3,3,3],
+    growthOpts:['mild','none','none','mild'],
+    lifecycle:'active', noise:0.09,
+    // Dropped from 78 to 30, recovered to 58 but stalled — not fully back
+    trend: (d,t) => {
+      const p = d/t;
+      if (p < 0.25) return 0.78 - 0.46 * p / 0.25;                         // drop
+      if (p < 0.40) return 0.32 + 0.02 * Math.sin((p - 0.25) / 0.15 * Math.PI * 2); // trough
+      if (p < 0.70) return 0.32 + 0.26 * (p - 0.40) / 0.30;               // partial recovery
+      return 0.58 + 0.04 * Math.sin((p - 0.70) * Math.PI * 8);             // stalled
     }
   },
   'seasonal': {
-    logins:[6,30], adoption:[35,95], tickets:[0,4], days:[2,30],
+    logins:[6,30], adoption:[35,95], tickets:[0,3], days:[2,30],
     npsOpts:[6,7,8,8,9,10], csatOpts:[3,4,4,5,5],
     growthOpts:['mild','strong','mild'],
     lifecycle:'active', noise:0.08,
-    // 3-4 pronounced seasonal cycles — deep dips into 40s, peaks at 90+
+    // 3-4 pronounced seasonal cycles — 45-88 range
     trend: (d,t) => {
       const p = d/t;
-      const base = 0.65;
-      const wave = 0.30 * Math.sin(p * Math.PI * 7);
-      const micro = 0.08 * Math.sin(p * Math.PI * 19);
-      return base + wave + micro;
+      return 0.62 + 0.26 * Math.sin(p * Math.PI * 7) + 0.06 * Math.sin(p * Math.PI * 19);
+    }
+  },
+  'seasonal-declining': {
+    logins:[4,26], adoption:[20,80], tickets:[0,3], days:[3,40],
+    npsOpts:[8,7,7,6,6,5,5], csatOpts:[4,4,3,3,3,2],
+    growthOpts:['mild','none','none'],
+    lifecycle:'active', noise:0.09,
+    // Seasonal cycles but each peak is lower — envelope shrinks from 85 to 55
+    trend: (d,t) => {
+      const p = d/t;
+      const envelope = 0.75 - 0.25 * p;
+      return envelope + 0.18 * Math.sin(p * Math.PI * 7);
     }
   }
 };
 
-// Trajectory percentages — realistic SaaS portfolio
-// ~65% healthy, ~15% watch, ~12% at-risk, ~8% churned
+// Trajectory percentages — realistic SaaS portfolio with spread across score ranges
+// More mid-range customers, fewer at extremes, varied stories
 const _DEMO_TRAJ_PCTS = [
-  ['stable-healthy', 0.27],  // solid core
-  ['stable-mid',     0.08],  // watch zone
-  ['stable-low',     0.04],  // genuinely struggling
-  ['improving',      0.13],  // on the upswing
-  ['declining',      0.05],  // sliding
-  ['slow-decline',   0.03],  // gradual decline
-  ['volatile',       0.07],  // unpredictable
-  ['onboarding',     0.07],  // new clients ramping
-  ['churned',        0.08],  // lost
-  ['recovered',      0.10],  // bounced back
-  ['seasonal',       0.08],  // generally healthy with dips
+  ['stable-healthy',      0.16],  // top performers (75-88)
+  ['good-not-great',      0.12],  // solid middle (60-75)
+  ['stable-mid',          0.08],  // watch zone (42-62)
+  ['stable-low',          0.03],  // struggling (22-38)
+  ['improving',           0.08],  // clear upswing
+  ['slow-improve',        0.06],  // grinding upward
+  ['declining',           0.04],  // sliding down
+  ['slow-decline',        0.04],  // gradual erosion
+  ['volatile',            0.05],  // unpredictable swings
+  ['onboarding-fast',     0.05],  // new — ramping quickly
+  ['onboarding-slow',     0.04],  // new — struggling to ramp
+  ['churned-early',       0.04],  // lost early on
+  ['churned-late',        0.04],  // lost after long tenure
+  ['recovered',           0.06],  // bounced back strong
+  ['partial-recovery',    0.05],  // came back but stalled
+  ['seasonal',            0.04],  // healthy with cycles
+  ['seasonal-declining',  0.02],  // cycles trending down
 ];
 function _buildTrajDist(count) {
   const dist = [];
@@ -2806,10 +2882,22 @@ function _generateDemoCustomer(name, index, now, trajList, csmAssignments) {
             : tier === 'mid' ? Math.round(_dRand(2500,22000,rng)/100)*100
             : Math.round(_dRand(12000,65000,rng)/500)*500;
 
-  // History depth — vary more: 540-1000 days (onboarding stays short)
-  const histDays = trajKey === 'onboarding'
-    ? 60 + Math.floor(rng() * 120)
-    : 540 + Math.floor(rng() * 460);
+  // History depth — stagger tenure: some founding clients, some recent additions
+  // Creates natural cohorts: founding (18-24mo), early (12-18mo), mid (6-12mo), recent (2-6mo)
+  let histDays;
+  if (traj.historyDays) {
+    histDays = traj.historyDays + Math.floor(rng() * 60);
+  } else if (trajKey.startsWith('churned')) {
+    // Churned customers: varied tenure before they left
+    histDays = 180 + Math.floor(rng() * 540); // 6-24 months
+  } else {
+    // Spread across cohorts using per-customer RNG
+    const cohortRoll = rng();
+    if (cohortRoll < 0.20)      histDays = 600 + Math.floor(rng() * 130);  // founding: 20-24 months
+    else if (cohortRoll < 0.45) histDays = 365 + Math.floor(rng() * 235);  // early: 12-20 months
+    else if (cohortRoll < 0.72) histDays = 180 + Math.floor(rng() * 185);  // mid: 6-12 months
+    else                        histDays = 60 + Math.floor(rng() * 120);   // recent: 2-6 months
+  }
   const history = _generateDemoHistory(trajKey, now, histDays, rng, phaseOff);
   const last = history[history.length - 1];
   const lastSig = last.signals;
@@ -2818,20 +2906,22 @@ function _generateDemoCustomer(name, index, now, trajList, csmAssignments) {
   let lifecycle = traj.lifecycle;
   if (trajKey === 'stable-healthy') {
     const r = rng();
-    if (r < 0.15) lifecycle = 'won';
-    else if (r < 0.25) lifecycle = 'onboarding';
-  } else if (trajKey === 'improving') {
-    if (rng() < 0.30) lifecycle = 'onboarding';
+    if (r < 0.12) lifecycle = 'won';
+  } else if (trajKey === 'good-not-great') {
+    // Stays active
+  } else if (trajKey === 'improving' || trajKey === 'slow-improve') {
+    if (rng() < 0.20) lifecycle = 'onboarding';
   } else if (trajKey === 'recovered') {
     if (rng() < 0.20) lifecycle = 'won';
-  } else if (trajKey === 'declining' || trajKey === 'slow-decline') {
+  } else if (trajKey === 'partial-recovery') {
+    if (rng() < 0.40) lifecycle = 'atrisk';
+  } else if (trajKey === 'declining' || trajKey === 'slow-decline' || trajKey === 'seasonal-declining') {
     if (rng() < 0.35) lifecycle = 'atrisk';
   } else if (trajKey === 'volatile') {
     const r = rng();
     if (r < 0.15) lifecycle = 'atrisk';
-    else if (r < 0.25) lifecycle = 'onboarding';
   } else if (trajKey === 'seasonal') {
-    if (rng() < 0.15) lifecycle = 'won';
+    if (rng() < 0.12) lifecycle = 'won';
   }
 
   // Renewal date
@@ -2880,10 +2970,10 @@ function _generateDemoCustomer(name, index, now, trajList, csmAssignments) {
     for (let s = 0; s < sCount; s++) {
       const si = (index + s * 3) % _DEMO_SENTIMENTS.length;
       let pick = _DEMO_SENTIMENTS[si];
-      if (['declining','churned','slow-decline','stable-low'].includes(trajKey) && pick.val === 'positive' && rng() < 0.7) {
+      if (['declining','churned-early','churned-late','slow-decline','stable-low','seasonal-declining'].includes(trajKey) && pick.val === 'positive' && rng() < 0.7) {
         pick = _DEMO_SENTIMENTS[si % 3];
       }
-      if (['stable-healthy','improving','recovered'].includes(trajKey) && pick.val === 'negative' && rng() < 0.6) {
+      if (['stable-healthy','good-not-great','improving','recovered'].includes(trajKey) && pick.val === 'negative' && rng() < 0.6) {
         pick = _DEMO_SENTIMENTS[3 + (si % 2)];
       }
       const sentDate = new Date(now - Math.floor((s * 30 + rng()*25)*86400000)).toISOString();
