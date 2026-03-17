@@ -56,6 +56,7 @@ function _renderCsvGuide() {
     '<strong>How to use CSV Import</strong><br>' +
     '<strong>No integration?</strong> Upload a full bulksheet with all your customer data — names, MRR, signals, etc. You can also add customers one at a time via <a href="#" onclick="event.stopPropagation();nav(\'score\')" style="color:var(--teal);font-weight:600">Score a Customer</a>.<br>' +
     '<strong>Using an integration?</strong> You only need to import customer names here. Keep the other columns blank — once your integration is connected, run a sync and it will fill in MRR, tickets, NPS, and other metrics automatically for matching customers.<br>' +
+    '<strong>Historical data:</strong> Add a <strong>date</strong> column (e.g. <code style="font-size:.8em">2025-12-01</code>) to import historical snapshots. Rows with a past date become history entries; rows without a date update the customer\'s current state. Great for backfilling trends from other systems.<br>' +
     '<strong>Tip:</strong> Download the <strong>Template CSV</strong> above to see all supported columns and the expected format.<br>' +
     '<strong>Note:</strong> You can also pull in customers directly from your integration by enabling the <strong>Import new accounts</strong> toggle in <a href="#" onclick="event.stopPropagation();nav(\'settings\');setTimeout(()=>cfgTab(\'api\'),100)" style="color:var(--teal);font-weight:600">Settings → Integrations</a>.');
 }
@@ -92,6 +93,7 @@ function parseCSVLine(line) {
 }
 
 const APP_FIELDS = {
+  snapshot_date:   { label:'Date (for history)', required:false },
   name:            { label:'Customer Name', required:true },
   manager:         { label:'Assigned Manager', required:false },
   mrr:             { label:'MRR ($)',       required:false },
@@ -122,6 +124,7 @@ const APP_FIELDS = {
 };
 
 const FIELD_ALIASES = {
+  snapshot_date:   ['date','snapshot_date','snapshot date','history date','record date'],
   name:            ['name','company','customer','account','customer name','company name'],
   manager:         ['manager','assigned manager','csm','cs manager','owner','account owner','rep'],
   mrr:             ['mrr','monthly recurring revenue','revenue'],
@@ -275,11 +278,15 @@ function applyMapping() {
     const sentVal = ['positive','neutral','negative'].includes(sentRaw) ? sentRaw : '';
 
     // Track which fields are actually mapped in the CSV (for partial updates)
-    const _mapped = Object.keys(mapping).filter(f => mapping[f] >= 0 && f !== 'name');
+    const _mapped = Object.keys(mapping).filter(f => mapping[f] >= 0 && f !== 'name' && f !== 'snapshot_date');
+
+    // Snapshot date: if mapped and filled, this row is a historical entry
+    const _snapshot_date = normalizeDate(get('snapshot_date',''));
 
     return {
       _row: ri+2,
       _mapped,
+      _snapshot_date,
       name:            get('name'),
       manager:         isClr('manager') ? '' : get('manager',''),
       mrr:             isClr('mrr') ? 0 : (parseFloat(get('mrr')) || 0),
@@ -306,29 +313,41 @@ function applyMapping() {
     };
   }).filter(r => r.name);
 
-  // Show preview — count new vs updates
-  const _updateCount = parsed.filter(r => customers.some(c => c.name.toLowerCase() === r.name.toLowerCase())).length;
-  const _newCount = parsed.length - _updateCount;
+  // Show preview — count new vs updates vs history
+  const today = new Date().toISOString().slice(0,10);
+  const _historyCount = parsed.filter(r => r._snapshot_date && r._snapshot_date < today).length;
+  const currentRows = parsed.filter(r => !r._snapshot_date || r._snapshot_date >= today);
+  const _updateCount = currentRows.filter(r => customers.some(c => c.name.toLowerCase() === r.name.toLowerCase())).length;
+  const _newCount = currentRows.length - _updateCount;
 
   el('csv-map-wrap').style.display  = 'none';
   el('csv-prev-wrap').style.display = 'block';
   el('csv-count').textContent       = `${parsed.length} rows ready to import`;
-  el('csv-import-breakdown').innerHTML = `<span style="color:var(--green);font-weight:600">${_newCount} new</span> · <span style="color:var(--blue,#2563eb);font-weight:600">${_updateCount} update${_updateCount!==1?'s':''}</span>`;
+  const breakdownParts = [];
+  if (_newCount) breakdownParts.push(`<span style="color:var(--green);font-weight:600">${_newCount} new</span>`);
+  if (_updateCount) breakdownParts.push(`<span style="color:var(--blue,#2563eb);font-weight:600">${_updateCount} update${_updateCount!==1?'s':''}</span>`);
+  if (_historyCount) breakdownParts.push(`<span style="color:var(--purple,#7c3aed);font-weight:600">${_historyCount} history</span>`);
+  el('csv-import-breakdown').innerHTML = breakdownParts.join(' · ');
   el('csv-err').textContent         = csvRows.length - parsed.length > 0
     ? `${csvRows.length - parsed.length} rows skipped (missing name)`
     : '';
 
+  const hasDateCol = parsed.some(r => r._snapshot_date);
   el('csv-prev').innerHTML = `
     <table>
-      <thead><tr><th></th><th>Name</th><th>Score</th><th>MRR</th><th>NPS</th><th>CSAT</th><th>Tier</th></tr></thead>
-      <tbody>${parsed.slice(0,8).map(r => {
+      <thead><tr><th></th>${hasDateCol?'<th>Date</th>':''}<th>Name</th><th>Score</th><th>MRR</th><th>NPS</th><th>CSAT</th><th>Tier</th></tr></thead>
+      <tbody>${parsed.slice(0,10).map(r => {
         const {score} = scoreWithModel(r);
-        const isUpdate = customers.some(c => c.name.toLowerCase() === r.name.toLowerCase());
-        const tag = isUpdate
+        const isHistory = r._snapshot_date && r._snapshot_date < today;
+        const isUpdate = !isHistory && customers.some(c => c.name.toLowerCase() === r.name.toLowerCase());
+        const tag = isHistory
+          ? '<span style="font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:8px;background:rgba(124,58,237,.12);color:#7c3aed">HISTORY</span>'
+          : isUpdate
           ? '<span style="font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:8px;background:rgba(37,99,235,.12);color:#2563eb">UPDATE</span>'
           : '<span style="font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:8px;background:rgba(22,163,74,.12);color:#16a34a">NEW</span>';
         return `<tr>
           <td>${tag}</td>
+          ${hasDateCol?`<td style="font-size:var(--fs-sm);color:var(--muted)">${r._snapshot_date||'—'}</td>`:''}
           <td>${escHtml(r.name)}</td>
           <td><strong>${score}</strong></td>
           <td>${r.mrr?'$'+fmtNum(r.mrr):'—'}</td>
@@ -337,9 +356,16 @@ function applyMapping() {
           <td>${r.tier}</td>
         </tr>`;
       }).join('')}
-      ${parsed.length>8?`<tr><td colspan="7" style="color:var(--muted);font-style:italic">…and ${parsed.length-8} more</td></tr>`:''}
+      ${parsed.length>10?`<tr><td colspan="${hasDateCol?8:7}" style="color:var(--muted);font-style:italic">…and ${parsed.length-10} more</td></tr>`:''}
       </tbody>
     </table>`;
+  if (_historyCount) {
+    el('csv-prev').insertAdjacentHTML('afterend',
+      `<p id="csv-history-note" style="font-size:var(--fs-sm);color:var(--muted);margin-top:8px">` +
+      `<strong>Note:</strong> ${_historyCount} row${_historyCount!==1?'s':''} with past dates will be added as historical snapshots. ` +
+      `If a snapshot already exists for the same date, it will be overwritten if the new data has more signals filled.` +
+      `</p>`);
+  }
 
   // Stash for import
   el('csv-prev').dataset.json = JSON.stringify(parsed);
@@ -351,13 +377,70 @@ async function importCSV() {
   const rows = JSON.parse(raw);
   const toCreate = [], toUpdate = [];
   const now = new Date().toISOString();
-  rows.forEach((r, i) => {
+  const today = now.slice(0,10);
+
+  // Separate rows: historical (past date) vs current (no date or today+)
+  const historyRows = [];
+  const currentRows = [];
+  rows.forEach(r => {
+    if (r._snapshot_date && r._snapshot_date < today) {
+      historyRows.push(r);
+    } else {
+      currentRows.push(r);
+    }
+  });
+
+  // ── Process historical rows: add as history entries to existing customers ──
+  let historyAdded = 0;
+  const historyCustomers = new Set();
+  if (historyRows.length) {
+    // Group by customer name (case-insensitive)
+    const grouped = {};
+    historyRows.forEach(r => {
+      const key = r.name.toLowerCase();
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(r);
+    });
+
+    for (const [nameKey, entries] of Object.entries(grouped)) {
+      const cust = customers.find(c => c.name.toLowerCase() === nameKey);
+      if (!cust) continue; // Skip history for non-existent customers
+
+      const newEntries = entries.map(r => {
+        // Clean transient fields for scoring
+        const clean = { ...r };
+        delete clean._note; delete clean._sentiment; delete clean._history;
+        delete clean._row; delete clean._mapped; delete clean._snapshot_date;
+        const { score } = scoreWithModel(clean);
+        return {
+          date: r._snapshot_date + 'T00:00:00.000Z',
+          score,
+          signals: {
+            logins: r.logins, adoption: r.adoption, tickets: r.tickets,
+            nps: r.nps, csat: r.csat, days: r.days, growth: r.growth,
+            lifecycle: r.lifecycle, mrr: r.mrr, arr: r.arr,
+            billing_interval: null
+          }
+        };
+      });
+
+      const added = mergeHistory(cust, newEntries);
+      if (added > 0) {
+        historyAdded += added;
+        historyCustomers.add(cust.name);
+        if (!toUpdate.includes(cust)) toUpdate.push(cust);
+      }
+    }
+  }
+
+  // ── Process current rows: existing create/update logic ──
+  currentRows.forEach((r, i) => {
     // Extract transient import fields (prefixed with _)
     const importNote = r._note || '';
     const importSentiment = r._sentiment || '';
     const importHistory = r._history || '';
     const mappedFields = r._mapped || [];
-    delete r._note; delete r._sentiment; delete r._history; delete r._row; delete r._mapped;
+    delete r._note; delete r._sentiment; delete r._history; delete r._row; delete r._mapped; delete r._snapshot_date;
 
     // If renewal_date provided, recalculate renewal months
     if (r.renewal_date) {
@@ -370,7 +453,7 @@ async function importCSV() {
       // Unmapped fields keep their existing values
       if (mappedFields.length) {
         for (const f of mappedFields) {
-          if (f in r) dupe[f] = r[f];
+          if (f in r && f !== 'snapshot_date') dupe[f] = r[f];
         }
         // ARR follows MRR
         if (mappedFields.includes('mrr') && !mappedFields.includes('arr')) dupe.arr = (dupe.mrr || 0) * 12;
@@ -389,7 +472,6 @@ async function importCSV() {
         try {
           const parsed = JSON.parse(importHistory);
           if (Array.isArray(parsed)) {
-            // Prepend imported entries before the current snapshot
             dupe.history = [...parsed, ...dupe.history];
           }
         } catch(_) { console.warn('Invalid history JSON for', r.name); }
@@ -406,7 +488,7 @@ async function importCSV() {
         dupe.sentiment.push({ val: importSentiment, note: 'CSV import', date: now });
       }
       applyAutoStage(dupe);
-      toUpdate.push(dupe);
+      if (!toUpdate.includes(dupe)) toUpdate.push(dupe);
     } else {
       const { score } = scoreWithModel(r);
       const status = getStatus(score);
@@ -426,20 +508,24 @@ async function importCSV() {
         history: [...importedHistory, { score, date: now }],
         created: now
       };
+      delete newCust._snapshot_date;
+      delete newCust.snapshot_date;
       newCust.history[newCust.history.length - 1].signals = buildHistorySnapshot(newCust);
       applyAutoStage(newCust);
       customers.unshift(newCust);
       toCreate.push(newCust);
     }
   });
+
   clearCSV();
   const createdNames = toCreate.slice(0, 5).map(c => c.name).join(', ') + (toCreate.length > 5 ? ` +${toCreate.length - 5} more` : '');
   const updatedNames = toUpdate.slice(0, 5).map(c => c.name).join(', ') + (toUpdate.length > 5 ? ` +${toUpdate.length - 5} more` : '');
   const importParts = [];
   if (toCreate.length) importParts.push(`Created ${toCreate.length}: ${createdNames}`);
   if (toUpdate.length) importParts.push(`Updated ${toUpdate.length}: ${updatedNames}`);
+  if (historyAdded) importParts.push(`${historyAdded} history snapshots for ${historyCustomers.size} customer${historyCustomers.size!==1?'s':''}`);
   logAudit('csv_import', null, '', { summary: importParts.join(' · ') || 'No records imported' });
-  toast(`Importing ${toCreate.length} new + ${toUpdate.length} updates…`, 'default');
+  toast(`Importing ${toCreate.length} new + ${toUpdate.length - historyCustomers.size >= 0 ? toUpdate.length : 0} updates${historyAdded ? ' + ' + historyAdded + ' history snapshots' : ''}…`, 'default');
   nav('customers');
   setLoading(true);
   try {
@@ -447,7 +533,11 @@ async function importCSV() {
       ...toCreate.map(c => atCreate(c).catch(()=>{})),
       ...toUpdate.map(c => atUpdate(c).catch(()=>{}))
     ]);
-    toast(`Done: ${toCreate.length} added, ${toUpdate.length} updated`, 'success');
+    const parts = [];
+    if (toCreate.length) parts.push(`${toCreate.length} added`);
+    if (toUpdate.length) parts.push(`${toUpdate.length} updated`);
+    if (historyAdded) parts.push(`${historyAdded} history snapshots`);
+    toast(`Done: ${parts.join(', ')}`, 'success');
   } catch(e) {
     toast('Import finished — some records may not have synced', 'warn');
   } finally {
@@ -462,27 +552,32 @@ function clearCSV() {
   el('csv-map-wrap').style.display  = 'none';
   el('csv-prev-wrap').style.display = 'none';
   el('csv-input').value = '';
+  const hn = document.getElementById('csv-history-note');
+  if (hn) hn.remove();
 }
 
 function dlTemplate() {
-  const hdr = 'name,manager,mrr,arr,logins_30d,feature_adoption_pct,open_tickets,nps,csat,days_since_contact,renewal_date,months_to_renewal,growth_signal,tier,tags,lifecycle,customer_since,next_touch,last_contact_date,scoring_profile,note,sentiment';
+  const hdr = 'date,name,manager,mrr,arr,logins_30d,feature_adoption_pct,open_tickets,nps,csat,days_since_contact,renewal_date,months_to_renewal,growth_signal,tier,tags,lifecycle,customer_since,next_touch,last_contact_date,scoring_profile,note,sentiment';
   const sample = [
-    'Acme Corp,Jane Smith,5000,60000,22,75,1,9,4,7,2026-09-15,8,strong,mid,"power-user,renewal-soon",active,2024-01-10,2026-03-01,2026-03-09,Global Weights,Great engagement,positive',
-    'Beta Inc,Marcus Lee,1200,14400,8,40,3,5,,25,2026-05-01,3,none,smb,,onboarding,2025-11-01,,2026-02-19,Global Weights,Needs onboarding help,neutral',
-    'Gamma LLC,Jane Smith,12000,144000,28,90,0,10,5,3,2027-01-20,11,strong,enterprise,enterprise-plan,active,2023-06-15,2026-03-10,2026-03-13,Global Weights,,positive'
+    '2026-01-15,Acme Corp,Jane Smith,4500,54000,18,65,2,8,4,10,2026-09-15,8,mild,mid,"power-user,renewal-soon",active,2024-01-10,,,,,',
+    '2026-02-15,Acme Corp,Jane Smith,4800,57600,20,70,1,9,4,8,2026-09-15,7,strong,mid,"power-user,renewal-soon",active,2024-01-10,,,,,',
+    ',Acme Corp,Jane Smith,5000,60000,22,75,1,9,4,7,2026-09-15,6,strong,mid,"power-user,renewal-soon",active,2024-01-10,2026-03-01,2026-03-09,Global Weights,Great engagement,positive',
+    ',Beta Inc,Marcus Lee,1200,14400,8,40,3,5,,25,2026-05-01,3,none,smb,,onboarding,2025-11-01,,2026-02-19,Global Weights,Needs onboarding help,neutral',
+    ',Gamma LLC,Jane Smith,12000,144000,28,90,0,10,5,3,2027-01-20,11,strong,enterprise,enterprise-plan,active,2023-06-15,2026-03-10,2026-03-13,Global Weights,,positive'
   ].join('\n');
   dlText(hdr + '\n' + sample, 'cs-health-template.csv', 'text/csv');
 }
 
 function exportCSV() {
   const filtered = customers.filter(c => passesManagerFilter(c));
-  const hdr = 'name,manager,score,status,mrr,arr,tier,lifecycle,logins,adoption,tickets,nps,csat,days,renewal_date,renewal,growth,tags,since,next_touch,last_contact_date,scoring_profile,note,sentiment,created';
+  const today = new Date().toISOString().slice(0,10);
+  const hdr = 'date,name,manager,score,status,mrr,arr,tier,lifecycle,logins,adoption,tickets,nps,csat,days,renewal_date,renewal,growth,tags,since,next_touch,last_contact_date,scoring_profile,note,sentiment,created';
   const rows = filtered.map(c => {
     const latestNote = (c.notes||[]).length ? c.notes[c.notes.length-1].text : '';
     const ls = latestSentiment(c);
     const latestSent = ls ? ls.val : '';
     return [
-      c.name, c.manager||'', c.score, c.status,
+      today, c.name, c.manager||'', c.score, c.status,
       c.mrr||0, c.arr||0, c.tier||'mid', c.lifecycle||'active',
       c.logins != null ? c.logins : '', c.adoption != null ? c.adoption : '', c.tickets != null ? c.tickets : '', c.nps != null ? c.nps : '', c.csat != null ? c.csat : '', c.days != null ? c.days : '',
       c.renewal_date||'', c.renewal||0, c.growth||'none',
