@@ -90,7 +90,7 @@ function getFormData() {
       return Math.max(0, Math.round(ms / (1000 * 60 * 60 * 24 * 30.44)));
     })(),
     growth:   document.getElementById('f-growth').value,
-    note:     document.getElementById('f-note').value.trim(),
+    note:     (document.getElementById('f-note')?.value || '').trim(),
     profile:  (document.getElementById('f-profile')?.value || '')
   };
 }
@@ -1378,7 +1378,7 @@ function editCustomer(id) {
   if (el('f-next-touch'))  el('f-next-touch').value  = c.next_touch   || '';
   if (el('f-next-touch-time')) el('f-next-touch-time').value = c.next_touch_time || '';
   el('f-growth').value   = c.growth || 'none';
-  el('f-note').value     = '';
+  if (el('f-note')) el('f-note').value = '';
   applyProfileSignalState();
 
   // Override saveScore to update in-place

@@ -653,7 +653,7 @@ svg.sparkline{display:block}
 .score-panel .fg{grid-template-columns:1fr 1fr 1fr;gap:8px 10px}
 .score-panel .field{gap:2px}
 .score-panel .field label{font-size:var(--fs-sm)}
-.score-panel .field input,.score-panel .field select,.score-panel .field textarea{padding:5px 8px;font-size:var(--fs-base);border-radius:6px}
+.score-panel .field input:not([type=range]):not([type=checkbox]):not([type=hidden]),.score-panel .field select,.score-panel .field textarea{padding:5px 8px;font-size:var(--fs-base);border-radius:6px}
 .score-panel .field textarea{min-height:36px}
 .score-panel .form-section{padding-top:4px;margin-top:2px}
 .score-panel .form-section-label{font-size:var(--fs-2xs);margin-bottom:4px}
@@ -2289,9 +2289,6 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
               <div class="field"><label>Next Scheduled Touch</label><div style="display:flex;gap:6px"><input type="date" id="f-next-touch" style="flex:1"/><input type="time" id="f-next-touch-time" style="width:100px"/></div></div>
             </div>
           </div>
-          <!-- Section: Note -->
-          <div class="form-section full"><div class="form-section-label">Notes</div></div>
-          <div class="field full"><label>Note <span style="font-weight:400;color:var(--subtle);font-size:.7rem">optional</span></label><textarea id="f-note" placeholder="Quick context note…"></textarea></div>
         </div>
         <div class="score-submit-bar" style="display:flex;gap:8px">
           <button type="submit" class="btn btn-primary" style="flex:1;justify-content:center;padding:8px;font-size:var(--fs-md)">Calculate Health Score →</button>
@@ -4040,6 +4037,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=520"></script>
+<script src="js/app.js?v=521"></script>
 </body>
 </html>
