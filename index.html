@@ -3852,6 +3852,43 @@ Header: Content-Type: application/json
 </main>
 </div><!-- /shell -->
 
+<!-- WELCOME MODAL (first-time users) -->
+<div class="modal-bg" id="welcome-modal" style="display:none;z-index:9999" onclick="if(event.target===this)closeWelcome()">
+  <div class="modal" style="max-width:520px;text-align:center;padding:36px 32px 28px;border-radius:16px">
+    <div style="margin-bottom:18px">
+      <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#06b6d4,#3b82f6);margin-bottom:10px">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      </div>
+      <h2 style="font-size:1.35rem;margin:0 0 4px;color:var(--fg)">Welcome to iQcadence</h2>
+      <p style="color:var(--muted);font-size:var(--fs-base);margin:0">Customer Success Health Scoring</p>
+    </div>
+    <p style="color:var(--text);font-size:var(--fs-base);line-height:1.7;margin:0 0 18px;text-align:left">
+      iQcadence helps CS teams <strong>monitor, score, and act on customer health</strong> — all in one place.
+    </p>
+    <div style="text-align:left;margin-bottom:20px">
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
+        <div style="flex:0 0 28px;height:28px;border-radius:7px;background:#eff6ff;display:flex;align-items:center;justify-content:center;margin-top:1px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round"><path d="M4 4h16v16H4z"/><path d="M9 9h6v6H9z"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></svg>
+        </div>
+        <div><strong style="font-size:var(--fs-base)">Connect your tools</strong><br><span style="color:var(--muted);font-size:var(--fs-sm)">Sync data from Salesforce, HubSpot, and Stripe — or import via CSV</span></div>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
+        <div style="flex:0 0 28px;height:28px;border-radius:7px;background:#ecfdf5;display:flex;align-items:center;justify-content:center;margin-top:1px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div><strong style="font-size:var(--fs-base)">Score & monitor</strong><br><span style="color:var(--muted);font-size:var(--fs-sm)">Weighted health scores from 7 signals with automatic decay and trend tracking</span></div>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <div style="flex:0 0 28px;height:28px;border-radius:7px;background:#fef3c7;display:flex;align-items:center;justify-content:center;margin-top:1px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2.5" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        </div>
+        <div><strong style="font-size:var(--fs-base)">Alerts & insights</strong><br><span style="color:var(--muted);font-size:var(--fs-sm)">Automated alerts, playbooks, reports, and renewal forecasting to stay ahead of churn</span></div>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="closeWelcome()" style="width:100%;padding:10px 0;font-size:var(--fs-base);border-radius:8px">Get Started →</button>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast-wrap" id="tw"></div>
 
@@ -4085,6 +4122,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=535"></script>
+<script src="js/app.js?v=536"></script>
 </body>
 </html>

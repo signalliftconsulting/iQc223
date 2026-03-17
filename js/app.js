@@ -26676,6 +26676,22 @@ async function ensureUserProfile(user) {
   } catch(e) { /* silent — non-critical */ }
 }
 
+// ─── WELCOME MODAL (first-time users) ────────────────────────
+function showWelcome() {
+  const m = document.getElementById('welcome-modal');
+  if (m) m.style.display = 'flex';
+}
+function closeWelcome() {
+  const m = document.getElementById('welcome-modal');
+  if (m) m.style.display = 'none';
+  localStorage.setItem('iqc_welcome_seen', '1');
+}
+function _maybeShowWelcome() {
+  if (!localStorage.getItem('iqc_welcome_seen')) {
+    setTimeout(showWelcome, 600); // slight delay so app loads first
+  }
+}
+
 // ─── USER-SWITCH GUARD ──────────────────────────────────────
 // Detects when a different user signs in on the same browser and
 // purges stale localStorage + in-memory state from the previous user.
@@ -26787,6 +26803,8 @@ function _checkUserSwitch(userId) {
       }
       // Resume walkthrough panel if it was active
       if (typeof _wtResume === 'function') _wtResume();
+      // Show welcome modal for first-time users
+      _maybeShowWelcome();
     }
 
   } else {
@@ -26888,6 +26906,8 @@ function _checkUserSwitch(userId) {
         nav('homebase');
         renderSettings();
       }
+      // Show welcome modal for first-time users
+      _maybeShowWelcome();
     }
   });
 })();
