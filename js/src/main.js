@@ -1,16 +1,18 @@
 // ─── WELCOME MODAL (first-time users) ────────────────────────
 function showWelcome() {
   const m = document.getElementById('welcome-modal');
-  if (m) { m.style.display = 'flex'; m.classList.add('open'); }
+  if (!m) return;
+  // Force visibility with inline styles to override all CSS rules
+  m.style.cssText = 'display:flex;position:fixed;inset:0;z-index:10000;align-items:center;justify-content:center;background:rgba(15,23,42,.5);backdrop-filter:blur(3px);opacity:1;pointer-events:auto;padding:16px';
 }
 function closeWelcome() {
   const m = document.getElementById('welcome-modal');
-  if (m) { m.classList.remove('open'); setTimeout(() => m.style.display = 'none', 250); }
+  if (m) { m.style.cssText = 'display:none'; }
   localStorage.setItem('iqc_welcome_v2', '1');
 }
 function _maybeShowWelcome() {
   if (!localStorage.getItem('iqc_welcome_v2')) {
-    setTimeout(showWelcome, 600); // slight delay so app loads first
+    setTimeout(showWelcome, 1200);
   }
 }
 
