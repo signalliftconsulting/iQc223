@@ -9716,6 +9716,15 @@ function submitForm(e) {
     }
   }
 
+  // ── Duplicate name check ────────────────────────────────────
+  if (!editId && data.name) {
+    const dupe = customers.find(c => c.name.trim().toLowerCase() === data.name.trim().toLowerCase());
+    if (dupe) {
+      toast(`"${data.name}" already exists. Open their profile to re-score.`, 'error');
+      return;
+    }
+  }
+
   // ── Validation ──────────────────────────────────────────────
   if (!data.name) { toast('Customer name is required', 'error'); return; }
   if (data.mrr < 0)       { toast('MRR cannot be negative', 'error'); return; }
