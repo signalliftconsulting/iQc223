@@ -9759,7 +9759,7 @@ function showResult({ data, score, signals, status, rec, plays }) {
 
   // Score ring — animate via transition + rAF
   document.getElementById('score-num').textContent = score;
-  const circ = 2 * Math.PI * 58;
+  const circ = 2 * Math.PI * 50;
   const fill = document.getElementById('ring-fill');
   fill.style.stroke          = STATUS_COLOR[status] || '#16a34a';
   fill.style.strokeDasharray = String(circ);

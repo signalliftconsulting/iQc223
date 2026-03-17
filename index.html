@@ -648,15 +648,27 @@ svg.sparkline{display:block}
 .nba-banner__talk{font-size:var(--fs-base);color:var(--muted);line-height:1.6}
 
 /* SCORE DISPLAY */
-.score-panel{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
-.score-submit-bar{position:sticky;bottom:0;background:var(--surface);padding:14px 0 2px;margin-top:8px;z-index:2;border-top:1px solid var(--border)}
-.score-hero{display:flex;flex-direction:column;align-items:center;gap:12px;padding:24px 14px;text-align:center}
-.score-ring{position:relative;width:140px;height:140px}
+.score-panel{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+.score-panel>.card{padding:14px 16px}
+.score-panel .fg{grid-template-columns:1fr 1fr 1fr;gap:8px 10px}
+.score-panel .field{gap:2px}
+.score-panel .field label{font-size:var(--fs-sm)}
+.score-panel .field input,.score-panel .field select,.score-panel .field textarea{padding:5px 8px;font-size:var(--fs-base);border-radius:6px}
+.score-panel .field textarea{min-height:36px}
+.score-panel .form-section{padding-top:4px;margin-top:2px}
+.score-panel .form-section-label{font-size:var(--fs-2xs);margin-bottom:4px}
+.score-panel .signals-grid{gap:8px 14px!important}
+.score-panel .signals-grid .field{gap:1px}
+.score-panel .signals-grid .field label{font-size:var(--fs-sm)}
+.score-panel .rv{font-size:var(--fs-sm);padding:2px 6px}
+.score-submit-bar{position:sticky;bottom:0;background:var(--surface);padding:8px 0 2px;margin-top:4px;z-index:2;border-top:1px solid var(--border)}
+.score-hero{display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 10px;text-align:center}
+.score-ring{position:relative;width:120px;height:120px}
 .score-ring svg{transform:rotate(-90deg)}
 .sr-track{fill:none;stroke:var(--border);stroke-width:11}
 .sr-fill{fill:none;stroke-width:11;stroke-linecap:round;transition:stroke-dashoffset .9s cubic-bezier(.4,0,.2,1),stroke .3s}
 .sr-label{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.sr-num{font-size:2rem;font-weight:800;line-height:1;color:var(--text)}
+.sr-num{font-size:1.6rem;font-weight:800;line-height:1;color:var(--text)}
 .sr-word{font-size:var(--fs-xs);font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:2px}
 .badge{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:100px;font-size:var(--fs-base);font-weight:700}
 .badge-critical{background:#fef2f2;color:#dc2626;border:1.5px solid #fecaca}
@@ -2237,7 +2249,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 
 <!-- ═══════════════ SCORE CUSTOMER ═══════════════ -->
 <div class="view" id="view-score">
-  <div class="page-hd"><div><h1 id="form-title"><span>Score a Customer</span></h1><p>Fill in the signals below to calculate a health score.</p></div></div>
+  <div class="page-hd" style="padding-bottom:8px"><div><h1 id="form-title" style="font-size:1.1rem"><span>Score a Customer</span></h1><p style="font-size:var(--fs-sm);margin-top:2px">Fill in the signals below to calculate a health score.</p></div></div>
   <div id="score-guide"></div>
   <div class="score-panel">
     <div class="card">
@@ -2281,24 +2293,24 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
           <div class="field full"><label>Note <span style="font-weight:400;color:var(--subtle);font-size:.7rem">optional</span></label><textarea id="f-note" placeholder="Quick context note…"></textarea></div>
         </div>
         <div class="score-submit-bar" style="display:flex;gap:8px">
-          <button type="submit" class="btn btn-primary" style="flex:1;justify-content:center;padding:12px;font-size:.9rem">Calculate Health Score →</button>
+          <button type="submit" class="btn btn-primary" style="flex:1;justify-content:center;padding:8px;font-size:var(--fs-md)">Calculate Health Score →</button>
         </div>
       </form>
     </div>
     <div>
-      <div class="card" id="result-placeholder" style="text-align:center;padding:56px 18px;color:var(--muted)">
-        <div style="width:56px;height:56px;background:var(--blue-l);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <div class="card" id="result-placeholder" style="text-align:center;padding:32px 14px;color:var(--muted)">
+        <div style="width:44px;height:44px;background:var(--blue-l);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 10px">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         </div>
-        <h3 style="color:var(--text);margin-bottom:7px">Score Preview</h3>
-        <p style="font-size:var(--fs-md);max-width:220px;margin:0 auto">Fill in the form and click Calculate to see results here.</p>
+        <h3 style="color:var(--text);margin-bottom:5px;font-size:var(--fs-md)">Score Preview</h3>
+        <p style="font-size:var(--fs-base);max-width:200px;margin:0 auto">Fill in the form and click Calculate to see results here.</p>
       </div>
       <div class="card" id="result-card" style="display:none">
         <div class="score-hero">
           <div class="score-ring">
-            <svg viewBox="0 0 140 140" width="140" height="140">
-              <circle class="sr-track" cx="70" cy="70" r="58"/>
-              <circle class="sr-fill" id="ring-fill" cx="70" cy="70" r="58" stroke-dasharray="364.42" stroke-dashoffset="364.42"/>
+            <svg viewBox="0 0 120 120" width="120" height="120">
+              <circle class="sr-track" cx="60" cy="60" r="50"/>
+              <circle class="sr-fill" id="ring-fill" cx="60" cy="60" r="50" stroke-dasharray="314.16" stroke-dashoffset="314.16"/>
             </svg>
             <div class="sr-label"><span class="sr-num" id="score-num">—</span><span class="sr-word">/ 100</span></div>
           </div>
@@ -4027,6 +4039,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=519"></script>
+<script src="js/app.js?v=520"></script>
 </body>
 </html>
