@@ -9610,6 +9610,22 @@ function rescoreAllFromToolbar() {
 function rv(key, val) {
   document.getElementById('rv-' + key).textContent = val;
 }
+// Live MRR ↔ ARR sync — only auto-fills the OTHER field
+let _revSyncing = false;
+function syncRevenue(source) {
+  if (_revSyncing) return;
+  _revSyncing = true;
+  const mrrEl = document.getElementById('f-mrr');
+  const arrEl = document.getElementById('f-arr');
+  if (source === 'mrr') {
+    const v = parseFloat(mrrEl.value);
+    arrEl.value = v ? Math.round(v * 12) : '';
+  } else {
+    const v = parseFloat(arrEl.value);
+    mrrEl.value = v ? Math.round(v / 12) : '';
+  }
+  _revSyncing = false;
+}
 // Generic N/A toggle for logins, adoption, tickets, days
 function toggleSignalNA(key) {
   const na = el('f-' + key + '-na').checked;
