@@ -571,6 +571,11 @@ svg.sparkline{display:block}
 .ct th.col-frozen{z-index:6}
 .ct tr:hover td.cb-col,.ct tr:hover td.col-frozen{background:var(--row-hover,#f1f5f9)}
 .ct tr.selected td.cb-col,.ct tr.selected td.col-frozen{background:var(--row-sel,#eff6ff)}
+/* Frozen name column for tables without checkbox (trends, alerts) */
+.ct .col-pin{position:sticky;left:0;z-index:4;background:#f8fafc;min-width:150px;border-right:2px solid #e2e8f0}
+.ct td.col-pin{background:var(--surface);border-right:2px solid #e2e8f0}
+.ct th.col-pin{z-index:6}
+.ct tr:hover td.col-pin{background:var(--row-hover,#f1f5f9)}
 .ct td{padding:5px 8px;border-bottom:1px solid #f1f5f9;vertical-align:middle;line-height:1.3}
 .ct tr:last-child td{border-bottom:none}
 .ct tbody tr{transition:background .1s}
@@ -4022,6 +4027,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=517"></script>
+<script src="js/app.js?v=518"></script>
 </body>
 </html>

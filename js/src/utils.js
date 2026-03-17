@@ -267,7 +267,8 @@ function cfBuildTh(prefix, col, sortKey, sortDir) {
   const filterBtn = col.ftype
     ? `<button class="col-filter-btn${filterActive ? ' active' : ''}" onclick="event.stopPropagation();cf_open_${prefix}('${col.key}',this)" title="Filter ${col.label}">${funnelSVG}</button>`
     : '';
-  return `<th><div class="col-th-inner"><button class="col-sort-label" onclick="${col.sortFn || ''}">${col.label}</button>${arrow}${filterBtn}</div></th>`;
+  const cls = col.cls ? ` class="${col.cls}"` : '';
+  return `<th${cls}><div class="col-th-inner"><button class="col-sort-label" onclick="${col.sortFn || ''}">${col.label}</button>${arrow}${filterBtn}</div></th>`;
 }
 
 // Apply column filters to a list

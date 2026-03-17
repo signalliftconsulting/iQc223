@@ -45,7 +45,7 @@ let _trendSortKey = 'absDelta'; // default sort by absolute change
 let _trendSortDir = -1;         // -1 = descending
 let _trendSearch = '';
 const TREND_COLS = [
-  { key:'name',     label:'Customer', ftype:'text',   sortFn:"sortTrendMovers('name')" },
+  { key:'name',     label:'Customer', ftype:'text',   sortFn:"sortTrendMovers('name')", cls:'col-pin' },
   { key:'score',    label:'Score',    ftype:'number', sortFn:"sortTrendMovers('score')" },
   { key:'delta',    label:'Change',   ftype:'number', sortFn:"sortTrendMovers('delta')" },
   { key:'status',   label:'Status',   ftype:'enum',   sortFn:"sortTrendMovers('status')", enumVals:['critical','risk','watch','healthy','expand'] },
@@ -705,15 +705,15 @@ function renderTrendMovers() {
 
   wrap.innerHTML = `<div style="margin-bottom:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><input type="text" placeholder="Search customers..." value="${escHtml(_trendSearch)}" oninput="_trendSearch=this.value.toLowerCase();renderTrendMovers()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-base);width:220px"/><span style="font-size:var(--fs-sm);color:var(--muted)">${trendFinal.length} customer${trendFinal.length!==1?'s':''}</span></div>
     ${cfRenderPills('trend')}
-    <div style="max-height:480px;overflow-y:auto">
-    <table class="ct">
+    <div style="max-height:480px;overflow-y:auto;overflow-x:auto">
+    <table class="ct" style="min-width:900px">
     <thead><tr>${trCols}</tr></thead>
     <tbody>${trendFinal.map(m => {
       const dColor = m.delta === null ? 'var(--muted)' : m.delta > 0 ? '#16a34a' : m.delta < 0 ? '#dc2626' : 'var(--subtle)';
       const dText = m.delta === null ? 'N/A' : (m.delta > 0 ? '+' : '') + m.delta;
       const _onChart = _trendClientOverlays.includes(m.id);
       return `<tr style="cursor:pointer${_onChart ? ';background:color-mix(in srgb, var(--blue) 8%, transparent)' : ''}" onclick="toggleTrendOverlay('${escHtml(m.id)}')">
-        <td style="font-weight:600;color:var(--text)"><a href="#" onclick="event.stopPropagation();openDetail('${escHtml(m.id)}');return false" style="color:inherit;text-decoration:none;border-bottom:1px dashed var(--border)">${escHtml(m.name)}</a>${_onChart ? ' <span style="font-size:9px;color:var(--blue);font-weight:700">ON CHART</span>' : ''}</td>
+        <td class="col-pin" style="font-weight:600;color:var(--text)"><a href="#" onclick="event.stopPropagation();openDetail('${escHtml(m.id)}');return false" style="color:inherit;text-decoration:none;border-bottom:1px dashed var(--border)">${escHtml(m.name)}</a>${_onChart ? ' <span style="font-size:9px;color:var(--blue);font-weight:700">ON CHART</span>' : ''}</td>
         <td>${m.score}</td>
         <td style="color:${dColor};font-weight:700">${dText}</td>
         <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${statusColors[m.status]||'#888'};margin-right:4px"></span>${m.status}</td>

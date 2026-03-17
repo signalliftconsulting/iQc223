@@ -643,11 +643,12 @@ function _renderAlerts() {
       const filterBtn = col.ftype
         ? `<button class="col-filter-btn${filterActive ? ' active' : ''}" onclick="event.stopPropagation();openATFilter('${col.key}',this)" title="Filter ${col.label}">${_funnelSVG}</button>`
         : '';
-      return `<th><div class="col-th-inner"><button class="col-sort-label" onclick="_alertTblSortBy('${col.key}')">${col.label}</button>${arrow}${filterBtn}</div></th>`;
+      const pinCls = col.key === 'name' ? ' class="col-pin"' : '';
+      return `<th${pinCls}><div class="col-th-inner"><button class="col-sort-label" onclick="_alertTblSortBy('${col.key}')">${col.label}</button>${arrow}${filterBtn}</div></th>`;
     }).join('');
 
     if (tblList.length) {
-      html += `<div style="overflow-x:auto"><table class="ct" style="display:table;width:100%">
+      html += `<div style="overflow-x:auto"><table class="ct" style="display:table;min-width:900px;width:100%">
         <thead><tr>${_thCols}</tr></thead><tbody>` +
         tblList.map(c => {
           const cad = getCadenceStatus(c);
@@ -663,7 +664,7 @@ function _renderAlerts() {
               : `<span style="color:var(--muted)">${days}d</span>`;
           })() : '—';
           return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
-            <td style="padding:8px 12px"><strong>${escHtml(c.name)}</strong></td>
+            <td class="col-pin" style="padding:8px 12px"><strong>${escHtml(c.name)}</strong></td>
             <td style="padding:8px 12px">${scoreHTML(c)}</td>
             <td style="padding:8px 12px;font-size:var(--fs-base);font-weight:700;color:${d7Color}">${d7Str}</td>
             <td style="padding:8px 12px">${badgeHTML(c.status)}</td>
