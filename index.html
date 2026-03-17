@@ -2262,7 +2262,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
           <div class="field"><label>Contact Email <span style="font-weight:400;color:var(--subtle);font-size:.7rem">optional</span></label><input type="email" id="f-contact-email" placeholder="jane@acme.com"/></div>
           <div class="field"><label>Assigned Manager</label><select id="f-manager" onchange="if(this.value==='__add_new__'){this.style.display='none';document.getElementById('f-manager-new').style.display='';document.getElementById('f-manager-new').focus()}"><option value="">— Select —</option></select><input type="text" id="f-manager-new" placeholder="Type new manager name..." style="display:none;width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-base);margin-top:4px" onblur="if(!this.value){this.style.display='none';document.getElementById('f-manager').style.display='';document.getElementById('f-manager').value=''}" /><datalist id="manager-datalist"></datalist></div>
           <div class="field"><label>Scoring Profile <span style="font-weight:400;color:var(--subtle);font-size:.7rem">optional</span></label><select id="f-profile" onchange="applyProfileSignalState()"><option value="">Global Weights (default)</option></select></div>
-          <div class="field"><label>MRR <span style="font-weight:400;color:var(--subtle);font-size:.7rem">$/mo</span></label><input type="number" id="f-mrr" min="0" placeholder="5000"/></div>
+          <div class="field"><label>MRR <span style="font-weight:400;color:var(--subtle);font-size:.7rem">auto from ARR</span></label><input type="number" id="f-mrr" min="0" placeholder="5000"/></div>
           <div class="field"><label>ARR <span style="font-weight:400;color:var(--subtle);font-size:.7rem">auto from MRR</span></label><input type="number" id="f-arr" min="0" placeholder="60000"/></div>
           <div class="field"><label>Customer Since</label><input type="date" id="f-since"/></div>
           <div class="field"><label>Tier</label><select id="f-tier"><option value="smb">SMB</option><option value="mid" selected>Mid-Market</option><option value="enterprise">Enterprise</option></select></div>
@@ -4037,6 +4037,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=523"></script>
+<script src="js/app.js?v=524"></script>
 </body>
 </html>
