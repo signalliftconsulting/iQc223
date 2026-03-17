@@ -722,7 +722,9 @@ svg.sparkline{display:block}
 /* SETTINGS */
 .weight-row{display:flex;align-items:center;gap:6px;margin-bottom:3px;padding:4px 6px;border-radius:6px;transition:background .12s}
 .weight-row:hover{background:var(--bg)}
-.weight-label{min-width:0;flex:0 0 auto;white-space:nowrap;font-size:var(--fs-xs);font-weight:600;color:var(--text)}
+.weight-label{width:150px;flex:0 0 150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--fs-xs);font-weight:600;color:var(--text)}
+@media(max-width:1200px){.weight-label{width:120px;flex:0 0 120px}}
+@media(max-width:900px){.weight-label{width:auto;flex:0 0 auto;overflow:visible}}
 .weight-row input[type=range]{flex:1;min-width:60px}
 .weight-pct{display:flex;align-items:center;gap:0;color:var(--blue)}
 .weight-pct input[type=number]{-moz-appearance:textfield}
@@ -4110,6 +4112,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=533"></script>
+<script src="js/app.js?v=534"></script>
 </body>
 </html>
