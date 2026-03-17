@@ -2171,6 +2171,76 @@ async function save(c) {
   checkWebhookTriggers(c);
 }
 
+// ── Historical data merge ────────────────────────────────────
+// Merges new history entries into a customer, deduplicates by date, and saves.
+// newEntries: [{date, score, signals}]
+// Returns count of entries actually added.
+function mergeHistory(c, newEntries) {
+  if (!newEntries || !newEntries.length) return 0;
+  c.history = c.history || [];
+  const existing = new Set(c.history.map(h => (h.date || '').split('T')[0]));
+  let added = 0;
+  for (const entry of newEntries) {
+    const day = (entry.date || '').split('T')[0];
+    if (!day) continue;
+    if (existing.has(day)) {
+      // Replace if new entry has more filled signals
+      const idx = c.history.findIndex(h => (h.date || '').split('T')[0] === day);
+      if (idx >= 0) {
+        const oldFilled = Object.values(c.history[idx].signals || {}).filter(v => v != null).length;
+        const newFilled = Object.values(entry.signals || {}).filter(v => v != null).length;
+        if (newFilled > oldFilled) { c.history[idx] = entry; added++; }
+      }
+    } else {
+      c.history.push(entry);
+      existing.add(day);
+      added++;
+    }
+  }
+  c.history.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  return added;
+}
+
+// Pull historical data from a connected integration
+// platform: 'salesforce' | 'hubspot' | 'stripe'
+// lookback: '30d' | '90d' | '6mo' | '1yr'
+async function pullHistoricalData(platform, lookback) {
+  if (!sb || !currentUser) { toast('Not signed in', 'error'); return null; }
+  const fnName = platform + '-history';
+  toast('Pulling ' + lookback + ' of history from ' + platform + '…', 'info');
+  try {
+    const { data, error } = await sb.functions.invoke(fnName, {
+      body: { lookback }
+    });
+    if (error) throw error;
+    if (!data || !data.customers) throw new Error('No data returned');
+
+    let totalAdded = 0, matched = 0;
+    for (const entry of data.customers) {
+      // Match by external_id or name
+      const c = customers.find(x =>
+        (entry.external_id && (x.external_id === entry.external_id || x.salesforce_account_id === entry.external_id || x.hubspot_company_id === entry.external_id || x.stripe_customer_id === entry.external_id)) ||
+        (entry.name && x.name && x.name.toLowerCase() === entry.name.toLowerCase())
+      );
+      if (!c) continue;
+      matched++;
+      const added = mergeHistory(c, entry.history || []);
+      totalAdded += added;
+      if (added > 0) await save(c);
+    }
+
+    const stats = data.stats || {};
+    toast(`History imported: ${matched} customers, ${totalAdded} snapshots added (${stats.dateRange?.from || '?'} → ${stats.dateRange?.to || '?'})`, 'success');
+    // Refresh UI
+    if (typeof renderAll === 'function') renderAll();
+    return { matched, totalAdded, stats };
+  } catch (err) {
+    console.error('[pullHistoricalData]', err);
+    toast('History pull failed: ' + (err.message || err), 'error');
+    return null;
+  }
+}
+
 // Ownership filter helper — uses client_id if DB supports it, else user_id
 function _ownerEq(query) {
   if (_dbHasClientId && _userClientId) return query.eq('client_id', _userClientId);
@@ -4887,7 +4957,7 @@ function nav(v) {
   if (v === 'calendar')  { renderCalendarGuide(); renderCalendar(); }
   if (v === 'settings')  renderSettings();
   if (v === 'auditlog')  { renderAuditlogGuide(); if (!hasFeature('audit_log')) { el('audit-loading').style.display='none'; document.getElementById('audit-table').style.display='none'; document.getElementById('audit-empty').innerHTML = upgradeHTML('audit_log'); document.getElementById('audit-empty').style.display='block'; } else { loadAuditLog(); renderConfigHistory(); } }
-  if (v === 'csv')         _renderCsvGuide();
+  if (v === 'csv')         { _renderCsvGuide(); if (typeof initCrmImportCard === 'function') initCrmImportCard(); }
   if (v === 'reports')     { renderReportsGuide(); renderReporting(); }
   if (v === 'automations') { renderAutomationsGuide(); renderAutomations(); }
   if (v === 'users')     { renderUsersGuide(); renderUsers(); }
@@ -16628,6 +16698,7 @@ function renderStripeCard(integration) {
         <button class="btn btn-sm btn-danger" onclick="disconnectStripeUI()">Disconnect</button>
       </div>
       <div id="stripe-sync-status" style="margin-top:8px;font-size:var(--fs-sm)"></div>
+      ${buildHistoryPullHTML('stripe')}
       <div class="metric-toggles">
         <h3>Sync Settings</h3>
         ${buildMetricTogglesHTML('stripe', integration)}
@@ -17197,6 +17268,7 @@ function renderHubSpotCard(integration) {
         <button class="btn btn-sm btn-danger" onclick="disconnectHubSpotUI()">Disconnect</button>
       </div>
       <div id="hubspot-sync-status" style="margin-top:8px;font-size:var(--fs-sm)"></div>
+      ${buildHistoryPullHTML('hubspot')}
       <div class="metric-toggles">
         <h3>Sync Settings</h3>
         <div class="mt-row">
@@ -17457,6 +17529,7 @@ function renderSalesforceCard(integration) {
         <button class="btn btn-sm btn-danger" onclick="disconnectSalesforceUI()">Disconnect</button>
       </div>
       <div id="salesforce-sync-status" style="margin-top:8px;font-size:var(--fs-sm)"></div>
+      ${buildHistoryPullHTML('salesforce')}
       <div class="metric-toggles">
         <h3>Sync Settings</h3>
         <div class="mt-row">
@@ -17608,6 +17681,46 @@ async function autoSyncSalesforce() {
     console.warn('[Auto-sync] Salesforce error:', e.message);
   } finally {
     _salesforceSyncInProgress = false;
+  }
+}
+
+// ── Pull History UI ──
+function buildHistoryPullHTML(platform) {
+  const id = platform + '-history';
+  return `
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="font-size:var(--fs-sm);font-weight:600;color:var(--text)">Pull History</span>
+        <select id="${id}-lookback" style="font-size:var(--fs-sm);padding:4px 8px;border-radius:6px;border:1px solid var(--border)">
+          <option value="30d">30 days</option>
+          <option value="90d" selected>90 days</option>
+          <option value="6mo">6 months</option>
+          <option value="1yr">1 year</option>
+        </select>
+        <button class="btn btn-sm" id="${id}-btn" onclick="pullHistoryUI('${platform}')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Pull History
+        </button>
+      </div>
+      <div id="${id}-status" style="margin-top:6px;font-size:var(--fs-sm)"></div>
+    </div>`;
+}
+
+async function pullHistoryUI(platform) {
+  const sel = el(platform + '-history-lookback');
+  const btn = el(platform + '-history-btn');
+  const status = el(platform + '-history-status');
+  const lookback = sel ? sel.value : '90d';
+
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-sm"></span> Pulling…'; }
+  if (status) status.innerHTML = '<span style="color:var(--muted)">Pulling historical data…</span>';
+
+  const result = await pullHistoricalData(platform, lookback);
+
+  if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Pull History'; }
+  if (result) {
+    if (status) status.innerHTML = `<span style="color:var(--green)">✓ ${result.matched} customers, ${result.totalAdded} snapshots imported</span>`;
+  } else {
+    if (status) status.innerHTML = '<span style="color:var(--red)">Pull failed — check console</span>';
   }
 }
 
@@ -25419,6 +25532,46 @@ function exportAuditLog() {
 }
 
 
+
+// ─── CRM HISTORY IMPORT (on CSV page) ───────────────────────
+
+function initCrmImportCard() {
+  const sel = el('crm-import-platform');
+  if (!sel) return;
+  // Disable platforms that aren't connected
+  ['salesforce', 'hubspot', 'stripe'].forEach(p => {
+    const opt = sel.querySelector(`option[value="${p}"]`);
+    if (!opt) return;
+    const connected = _integrationCache[p]?.status === 'connected';
+    opt.disabled = !connected;
+    opt.textContent = opt.textContent.replace(/ \(not connected\)$/, '');
+    if (!connected) opt.textContent += ' (not connected)';
+  });
+}
+
+async function crmImportPull() {
+  const platform = el('crm-import-platform')?.value;
+  const lookback = el('crm-import-lookback')?.value || '90d';
+  const btn = el('crm-import-btn');
+  const status = el('crm-import-status');
+
+  if (!platform) { toast('Select a platform first', 'error'); return; }
+
+  const connected = _integrationCache[platform]?.status === 'connected';
+  if (!connected) { toast(platform + ' is not connected — go to Settings → Integrations', 'error'); return; }
+
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-sm"></span> Pulling…'; }
+  if (status) status.innerHTML = '<span style="color:var(--muted)">Pulling historical data from ' + platform + '…</span>';
+
+  const result = await pullHistoricalData(platform, lookback);
+
+  if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Pull Data'; }
+  if (result) {
+    if (status) status.innerHTML = `<span style="color:var(--green)">✓ ${result.matched} customers matched, ${result.totalAdded} history snapshots imported</span>`;
+  } else {
+    if (status) status.innerHTML = '<span style="color:var(--red)">Pull failed — check console for details</span>';
+  }
+}
 
 // ─── CSV IMPORT ─────────────────────────────────────────────
 

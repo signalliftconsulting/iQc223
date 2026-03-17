@@ -2352,6 +2352,32 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
     </div>
   </div>
   <div id="csv-guide"></div>
+  <!-- Import from CRM -->
+  <div class="card" id="crm-import-card">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      <h3 style="margin:0;font-weight:700">Import from CRM</h3>
+    </div>
+    <p style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:14px">Pull historical signal snapshots from a connected integration. Only connected platforms are available.</p>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <select id="crm-import-platform" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base)">
+        <option value="">Select platform…</option>
+        <option value="salesforce">Salesforce</option>
+        <option value="hubspot">HubSpot</option>
+        <option value="stripe">Stripe</option>
+      </select>
+      <select id="crm-import-lookback" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base)">
+        <option value="30d">30 days</option>
+        <option value="90d" selected>90 days</option>
+        <option value="6mo">6 months</option>
+        <option value="1yr">1 year</option>
+      </select>
+      <button class="btn btn-sm btn-primary" id="crm-import-btn" onclick="crmImportPull()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Pull Data
+      </button>
+    </div>
+    <div id="crm-import-status" style="margin-top:8px;font-size:var(--fs-sm)"></div>
+  </div>
   <div class="card">
     <div class="tmpl-box">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
@@ -4037,6 +4063,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=526"></script>
+<script src="js/app.js?v=527"></script>
 </body>
 </html>

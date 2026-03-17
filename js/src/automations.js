@@ -1967,6 +1967,7 @@ function renderStripeCard(integration) {
         <button class="btn btn-sm btn-danger" onclick="disconnectStripeUI()">Disconnect</button>
       </div>
       <div id="stripe-sync-status" style="margin-top:8px;font-size:var(--fs-sm)"></div>
+      ${buildHistoryPullHTML('stripe')}
       <div class="metric-toggles">
         <h3>Sync Settings</h3>
         ${buildMetricTogglesHTML('stripe', integration)}
@@ -2536,6 +2537,7 @@ function renderHubSpotCard(integration) {
         <button class="btn btn-sm btn-danger" onclick="disconnectHubSpotUI()">Disconnect</button>
       </div>
       <div id="hubspot-sync-status" style="margin-top:8px;font-size:var(--fs-sm)"></div>
+      ${buildHistoryPullHTML('hubspot')}
       <div class="metric-toggles">
         <h3>Sync Settings</h3>
         <div class="mt-row">
@@ -2796,6 +2798,7 @@ function renderSalesforceCard(integration) {
         <button class="btn btn-sm btn-danger" onclick="disconnectSalesforceUI()">Disconnect</button>
       </div>
       <div id="salesforce-sync-status" style="margin-top:8px;font-size:var(--fs-sm)"></div>
+      ${buildHistoryPullHTML('salesforce')}
       <div class="metric-toggles">
         <h3>Sync Settings</h3>
         <div class="mt-row">
@@ -2947,6 +2950,46 @@ async function autoSyncSalesforce() {
     console.warn('[Auto-sync] Salesforce error:', e.message);
   } finally {
     _salesforceSyncInProgress = false;
+  }
+}
+
+// ── Pull History UI ──
+function buildHistoryPullHTML(platform) {
+  const id = platform + '-history';
+  return `
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="font-size:var(--fs-sm);font-weight:600;color:var(--text)">Pull History</span>
+        <select id="${id}-lookback" style="font-size:var(--fs-sm);padding:4px 8px;border-radius:6px;border:1px solid var(--border)">
+          <option value="30d">30 days</option>
+          <option value="90d" selected>90 days</option>
+          <option value="6mo">6 months</option>
+          <option value="1yr">1 year</option>
+        </select>
+        <button class="btn btn-sm" id="${id}-btn" onclick="pullHistoryUI('${platform}')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Pull History
+        </button>
+      </div>
+      <div id="${id}-status" style="margin-top:6px;font-size:var(--fs-sm)"></div>
+    </div>`;
+}
+
+async function pullHistoryUI(platform) {
+  const sel = el(platform + '-history-lookback');
+  const btn = el(platform + '-history-btn');
+  const status = el(platform + '-history-status');
+  const lookback = sel ? sel.value : '90d';
+
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-sm"></span> Pulling…'; }
+  if (status) status.innerHTML = '<span style="color:var(--muted)">Pulling historical data…</span>';
+
+  const result = await pullHistoricalData(platform, lookback);
+
+  if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Pull History'; }
+  if (result) {
+    if (status) status.innerHTML = `<span style="color:var(--green)">✓ ${result.matched} customers, ${result.totalAdded} snapshots imported</span>`;
+  } else {
+    if (status) status.innerHTML = '<span style="color:var(--red)">Pull failed — check console</span>';
   }
 }
 
