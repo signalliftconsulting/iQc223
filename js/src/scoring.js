@@ -54,7 +54,7 @@ function calcScore(data, w) {
   const nps_n      = npsNormalized(data.nps);
   const csat_n     = csatNormalized(data.csat);
   const days_n     = data.days     != null ? Math.max(0, 100 - (data.days / 180) * 100) : 50;
-  const growth_n   = { none:25, mild:65, strong:100 }[data.growth] || 25;
+  const growth_n   = data.growth === 'na' ? 50 : ({ none:25, mild:65, strong:100 }[data.growth] || 25);
 
   const total = (w.logins + w.adoption + w.tickets + (w.nps||0) + (w.csat||0) + w.days + w.growth) || 100;
   const score = (

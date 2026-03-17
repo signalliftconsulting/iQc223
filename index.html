@@ -2286,7 +2286,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
             <div style="display:flex;flex-direction:column;gap:10px">
               <div class="field"><label>Days Since Last Contact <span style="font-weight:400;color:var(--subtle);font-size:.7rem">0–90 days</span></label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-days-na" onchange="toggleSignalNA('days')" style="accent-color:var(--blue)"/> N/A</label><input type="range" id="f-days" min="0" max="90" value="7" oninput="rv('days',this.value+'d')" style="flex:1"/><span class="rv" id="rv-days" style="min-width:36px">7d</span></div></div>
               <div class="field"><label>Open Support Tickets <span style="font-weight:400;color:var(--subtle);font-size:.7rem">0–20</span></label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-tickets-na" onchange="toggleSignalNA('tickets')" style="accent-color:var(--blue)"/> N/A</label><input type="range" id="f-tickets" min="0" max="20" value="1" oninput="rv('tickets',this.value)" style="flex:1"/><span class="rv" id="rv-tickets" style="min-width:28px">1</span></div></div>
-              <div class="field"><label>Growth Signal <span style="font-weight:400;color:var(--subtle);font-size:.7rem">none → strong</span></label><div style="display:flex;gap:8px;align-items:center"><input type="range" id="f-growth" min="0" max="2" value="0" oninput="rv('growth',['None','Mild','Strong'][this.value])" style="flex:1"/><span class="rv" id="rv-growth" style="min-width:48px">None</span></div></div>
+              <div class="field"><label>Growth Signal</label><select id="f-growth"><option value="na">N/A</option><option value="none">None / Flat</option><option value="mild">Mild (seats/features added)</option><option value="strong">Strong (upgrade conversations)</option></select></div>
             </div>
           </div>
         </div>
@@ -4037,6 +4037,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=522"></script>
+<script src="js/app.js?v=523"></script>
 </body>
 </html>

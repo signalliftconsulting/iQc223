@@ -89,7 +89,7 @@ function getFormData() {
       const ms = new Date(d) - new Date();
       return Math.max(0, Math.round(ms / (1000 * 60 * 60 * 24 * 30.44)));
     })(),
-    growth:   ['none','mild','strong'][parseInt(document.getElementById('f-growth').value)] || 'none',
+    growth:   document.getElementById('f-growth').value,
     note:     (document.getElementById('f-note')?.value || '').trim(),
     profile:  (document.getElementById('f-profile')?.value || '')
   };
@@ -509,7 +509,7 @@ function resetForm() {
   el('f-csat-na').checked = true; el('f-csat').value = 3; el('f-csat').disabled = true; el('f-csat').style.opacity = '.4';
   el('rv-csat-label').textContent = 'N/A'; el('rv-csat-label').style.color = 'var(--subtle)';
   // Reset growth slider
-  el('f-growth').value = 0; if (el('rv-growth')) el('rv-growth').textContent = 'None';
+  el('f-growth').value = 'none';
   document.getElementById('result-card').style.display        = 'none';
   document.getElementById('result-placeholder').style.display = 'block';
   document.getElementById('form-title').textContent = 'Score a Customer';
@@ -1363,7 +1363,7 @@ function editCustomer(id) {
   if (el('f-renewal-date')) el('f-renewal-date').value = c.renewal_date || '';
   if (el('f-next-touch'))  el('f-next-touch').value  = c.next_touch   || '';
   if (el('f-next-touch-time')) el('f-next-touch-time').value = c.next_touch_time || '';
-  const _gIdx = { none:0, mild:1, strong:2 }; el('f-growth').value = _gIdx[c.growth] || 0; if (el('rv-growth')) el('rv-growth').textContent = ['None','Mild','Strong'][_gIdx[c.growth] || 0];
+  el('f-growth').value = c.growth || 'none';
   if (el('f-note')) el('f-note').value = '';
   applyProfileSignalState();
 
