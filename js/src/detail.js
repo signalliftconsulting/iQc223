@@ -81,7 +81,7 @@ function getFormData() {
     tickets:  el('f-tickets-na').checked ? null : (parseInt(document.getElementById('f-tickets').value) || 0),
     nps:      el('f-nps-na').checked ? null : parseInt(el('f-nps').value),
     csat:     el('f-csat-na').checked ? null : parseInt(el('f-csat').value),
-    days:     el('f-days').value !== '' ? parseInt(el('f-days').value) : null,
+    days:     el('f-days-na').checked ? null : (parseInt(el('f-days').value) || 0),
     renewal_date: document.getElementById('f-renewal-date')?.value || '',
     renewal:      (function() {
       const d = document.getElementById('f-renewal-date')?.value;
@@ -89,7 +89,7 @@ function getFormData() {
       const ms = new Date(d) - new Date();
       return Math.max(0, Math.round(ms / (1000 * 60 * 60 * 24 * 30.44)));
     })(),
-    growth:   document.getElementById('f-growth').value,
+    growth:   ['none','mild','strong'][parseInt(document.getElementById('f-growth').value)] || 'none',
     note:     (document.getElementById('f-note')?.value || '').trim(),
     profile:  (document.getElementById('f-profile')?.value || '')
   };
@@ -496,18 +496,20 @@ function resetForm() {
   // Reset adoption (active by default)
   el('f-adoption-na').checked = false; el('f-adoption').value = 50; el('f-adoption').disabled = false; el('f-adoption').style.opacity = '1';
   el('rv-adoption').textContent = '50%'; el('rv-adoption').style.color = '';
-  // Reset tickets (active by default)
+  // Reset tickets slider (active by default)
   el('f-tickets-na').checked = false; el('f-tickets').value = 1; el('f-tickets').disabled = false; el('f-tickets').style.opacity = '1';
-  // Reset days (read-only, auto-tracked)
-  el('f-days').value = '';
-  const daysDisp = el('rv-days-display');
-  if (daysDisp) { daysDisp.textContent = 'Will track from first scheduled call'; daysDisp.style.color = 'var(--subtle)'; }
+  if (el('rv-tickets')) el('rv-tickets').textContent = '1';
+  // Reset days slider (active by default)
+  el('f-days-na').checked = false; el('f-days').value = 7; el('f-days').disabled = false; el('f-days').style.opacity = '1';
+  if (el('rv-days')) el('rv-days').textContent = '7d';
   // Reset NPS slider (default: 8, not N/A)
   el('f-nps-na').checked = false; el('f-nps').value = 8; el('f-nps').disabled = false; el('f-nps').style.opacity = '1';
   el('rv-nps-label').textContent = npsDisplay(8); el('rv-nps-label').style.color = '';
   // Reset CSAT slider (default: N/A)
   el('f-csat-na').checked = true; el('f-csat').value = 3; el('f-csat').disabled = true; el('f-csat').style.opacity = '.4';
   el('rv-csat-label').textContent = 'N/A'; el('rv-csat-label').style.color = 'var(--subtle)';
+  // Reset growth slider
+  el('f-growth').value = 0; if (el('rv-growth')) el('rv-growth').textContent = 'None';
   document.getElementById('result-card').style.display        = 'none';
   document.getElementById('result-placeholder').style.display = 'block';
   document.getElementById('form-title').textContent = 'Score a Customer';
@@ -1346,8 +1348,8 @@ function editCustomer(id) {
   // Feature Adoption
   if (c.adoption != null) { el('f-adoption-na').checked = false; el('f-adoption').value = c.adoption; el('f-adoption').disabled = false; el('f-adoption').style.opacity = '1'; rv('adoption', c.adoption + '%'); el('rv-adoption').style.color = ''; }
   else { el('f-adoption-na').checked = true; toggleSignalNA('adoption'); }
-  // Open Support Tickets
-  if (c.tickets != null) { el('f-tickets-na').checked = false; el('f-tickets').value = c.tickets; el('f-tickets').disabled = false; el('f-tickets').style.opacity = '1'; }
+  // Open Support Tickets slider
+  if (c.tickets != null) { el('f-tickets-na').checked = false; el('f-tickets').value = Math.min(c.tickets, 20); el('f-tickets').disabled = false; el('f-tickets').style.opacity = '1'; if (el('rv-tickets')) el('rv-tickets').textContent = String(c.tickets); }
   else { el('f-tickets-na').checked = true; toggleSignalNA('tickets'); }
   // NPS slider
   if (c.nps != null) { el('f-nps-na').checked = false; el('f-nps').value = c.nps; el('f-nps').disabled = false; el('f-nps').style.opacity = '1'; rv('nps-label', npsDisplay(c.nps)); el('rv-nps-label').style.color = ''; }
@@ -1355,29 +1357,13 @@ function editCustomer(id) {
   // CSAT slider
   if (c.csat != null) { el('f-csat-na').checked = false; el('f-csat').value = c.csat; el('f-csat').disabled = false; el('f-csat').style.opacity = '1'; rv('csat-label', csatDisplay(c.csat)); el('rv-csat-label').style.color = ''; }
   else { el('f-csat-na').checked = true; toggleCsatNA(); }
-  // Days Since Last Contact (read-only, auto-tracked)
-  const daysDisp = el('rv-days-display');
-  if (daysDisp) {
-    if (c.last_contact_date) {
-      const [_y,_m,_d] = c.last_contact_date.split('-').map(Number);
-      const lcd = new Date(_y, _m-1, _d);
-      const daysAgo = Math.max(0, Math.floor((Date.now() - lcd.getTime()) / 86400000));
-      const dateStr = lcd.toLocaleDateString('en-US', { month:'short', day:'numeric' });
-      daysDisp.innerHTML = `<span>${daysAgo} days</span> <span style="font-weight:400;font-size:var(--fs-sm);color:var(--muted)">since ${dateStr}</span>`;
-      daysDisp.style.color = daysAgo > 30 ? 'var(--red)' : daysAgo > 14 ? 'var(--amber)' : 'var(--green)';
-    } else if (c.days != null) {
-      daysDisp.innerHTML = `<span>${c.days} days</span> <span style="font-weight:400;font-size:var(--fs-sm);color:var(--muted)">(no contact date tracked)</span>`;
-      daysDisp.style.color = c.days > 30 ? 'var(--red)' : c.days > 14 ? 'var(--amber)' : '';
-    } else {
-      daysDisp.textContent = 'N/A';
-      daysDisp.style.color = 'var(--subtle)';
-    }
-  }
-  if (el('f-days')) el('f-days').value = c.days != null ? c.days : '';
+  // Days Since Last Contact slider
+  if (c.days != null) { el('f-days-na').checked = false; el('f-days').value = Math.min(c.days, 90); el('f-days').disabled = false; el('f-days').style.opacity = '1'; if (el('rv-days')) el('rv-days').textContent = c.days + 'd'; }
+  else { el('f-days-na').checked = true; toggleSignalNA('days'); }
   if (el('f-renewal-date')) el('f-renewal-date').value = c.renewal_date || '';
   if (el('f-next-touch'))  el('f-next-touch').value  = c.next_touch   || '';
   if (el('f-next-touch-time')) el('f-next-touch-time').value = c.next_touch_time || '';
-  el('f-growth').value   = c.growth || 'none';
+  const _gIdx = { none:0, mild:1, strong:2 }; el('f-growth').value = _gIdx[c.growth] || 0; if (el('rv-growth')) el('rv-growth').textContent = ['None','Mild','Strong'][_gIdx[c.growth] || 0];
   if (el('f-note')) el('f-note').value = '';
   applyProfileSignalState();
 
