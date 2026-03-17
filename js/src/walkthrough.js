@@ -10,6 +10,11 @@ var _WT_TOURS = {
     label: 'Home Base',
     steps: [
       {
+        target: '#mgr-filter-wrap',
+        title: 'Manager Filter',
+        body: 'Filter the entire dashboard by CSM. Select one or more managers to see only their accounts across every page — KPIs, alerts, trends, and more all update instantly.'
+      },
+      {
         target: '.hb-welcome',
         title: 'Your Daily Briefing',
         body: 'This is your starting point every morning. The health ring gives you an instant read on your portfolio, the quick stats show how many accounts are trending up or down, and the overview on the right calls out the single most important pattern to watch today.'
