@@ -650,18 +650,22 @@ svg.sparkline{display:block}
 
 /* SCORE DISPLAY */
 .score-panel{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
-.score-panel>.card{padding:14px 16px}
-.score-panel .fg{grid-template-columns:1fr 1fr 1fr;gap:8px 10px}
-.score-panel .field{gap:2px}
+.score-panel>.card{padding:18px 20px}
+.score-panel .fg{grid-template-columns:1fr 1fr;gap:10px 16px}
+.score-panel .fg .field:not(.full){flex-direction:row;align-items:center;gap:8px}
+.score-panel .fg .field:not(.full) label{min-width:120px;flex-shrink:0;font-size:var(--fs-sm)}
+.score-panel .fg .field:not(.full) input:not([type=range]):not([type=checkbox]):not([type=hidden]),
+.score-panel .fg .field:not(.full) select{flex:1;min-width:0}
+.score-panel .field{gap:3px}
 .score-panel .field label{font-size:var(--fs-sm)}
-.score-panel .field input:not([type=range]):not([type=checkbox]):not([type=hidden]),.score-panel .field select,.score-panel .field textarea{padding:5px 8px;font-size:var(--fs-base);border-radius:6px}
+.score-panel .field input:not([type=range]):not([type=checkbox]):not([type=hidden]),.score-panel .field select,.score-panel .field textarea{padding:6px 9px;font-size:var(--fs-base);border-radius:6px}
 .score-panel .field textarea{min-height:36px}
 .score-panel .form-section{padding-top:4px;margin-top:2px}
 .score-panel .form-section-label{font-size:var(--fs-2xs);margin-bottom:4px}
-.score-panel .signals-grid{gap:8px 14px!important}
-.score-panel .signals-grid .field{gap:1px}
-.score-panel .signals-grid .field label{font-size:var(--fs-sm)}
-.score-panel .rv{font-size:var(--fs-sm);padding:2px 6px}
+.score-panel .signals-grid{gap:14px 20px!important}
+.score-panel .signals-grid .field{gap:4px;flex-direction:column!important;padding:8px 10px;background:var(--bg);border-radius:8px;border:1px solid var(--border)}
+.score-panel .signals-grid .field label{font-size:var(--fs-sm);min-width:0!important;white-space:normal!important}
+.score-panel .rv{font-size:var(--fs-sm);padding:3px 8px}
 .score-submit-bar{position:sticky;bottom:0;background:var(--surface);padding:8px 0 2px;margin-top:4px;z-index:2;border-top:1px solid var(--border)}
 .score-hero{display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 10px;text-align:center}
 .score-ring{position:relative;width:120px;height:120px}
@@ -1184,7 +1188,7 @@ svg.sparkline{display:block}
 /* RESPONSIVE */
 @media(max-width:1300px){.dash-kpi-row{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:1100px){.dash-kpi-row{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:900px){.sidebar{display:none}.charts-grid{grid-template-columns:1fr}.charts-left{grid-template-columns:1fr;grid-template-rows:auto}.charts-right{grid-template-rows:auto}.score-panel{grid-template-columns:1fr}.signals-grid{grid-template-columns:1fr!important}#mobile-nav-btn{display:flex!important}}
+@media(max-width:900px){.sidebar{display:none}.charts-grid{grid-template-columns:1fr}.charts-left{grid-template-columns:1fr;grid-template-rows:auto}.charts-right{grid-template-rows:auto}.score-panel{grid-template-columns:1fr}.score-panel .fg{grid-template-columns:1fr}.score-panel .fg .field:not(.full){flex-direction:column;align-items:stretch}.score-panel .fg .field:not(.full) label{min-width:0}.signals-grid{grid-template-columns:1fr!important}#mobile-nav-btn{display:flex!important}}
 #mobile-nav-btn{display:none;background:none;border:none;cursor:pointer;padding:6px;border-radius:6px;color:#fff;margin-right:8px;align-items:center;justify-content:center}
 #mobile-nav-btn:hover{background:rgba(255,255,255,.15)}
 #mobile-nav-dd{display:none;position:fixed;top:48px;left:0;right:0;background:#115e59;z-index:49;padding:8px 12px 12px;box-shadow:0 4px 16px rgba(0,0,0,.25);max-height:calc(100vh - 48px);overflow-y:auto}
@@ -2324,16 +2328,16 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
           <div id="save-details-wrap" style="display:none;justify-content:flex-end;align-items:end"><button type="button" class="btn btn-success" id="save-details-btn" style="padding:10px 18px;font-size:.87rem;white-space:nowrap" onclick="saveDetailsOnly()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Details</button></div>
           <!-- Section: Signals -->
           <div class="form-section full"><div class="form-section-label">Health Signals</div></div>
-          <div class="full signals-grid" id="score-signals-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;align-items:start">
+          <div class="full signals-grid" id="score-signals-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px 20px;align-items:start">
             <!-- LEFT -->
-            <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;flex-direction:column;gap:12px">
               <div class="field"><label>Login Frequency <span style="font-weight:400;color:var(--subtle);font-size:.7rem">0=never, 30=daily</span></label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-logins-na" onchange="toggleSignalNA('logins')" style="accent-color:var(--blue)"/> N/A</label><input type="range" id="f-logins" min="0" max="30" value="10" oninput="rv('logins',this.value+' days')" style="flex:1"/><span class="rv" id="rv-logins" style="min-width:52px">10 days</span></div></div>
               <div class="field"><label>Feature Adoption <span style="font-weight:400;color:var(--subtle);font-size:.7rem">0–100%</span></label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-adoption-na" onchange="toggleSignalNA('adoption')" style="accent-color:var(--blue)"/> N/A</label><input type="range" id="f-adoption" min="0" max="100" value="50" oninput="rv('adoption',this.value+'%')" style="flex:1"/><span class="rv" id="rv-adoption" style="min-width:36px">50%</span></div></div>
               <div class="field"><label>NPS <span style="font-weight:400;color:var(--subtle);font-size:.7rem">0–10 scale</span></label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-nps-na" onchange="toggleNpsNA()" style="accent-color:var(--blue)"/> N/A</label><input type="range" id="f-nps" min="0" max="10" value="8" oninput="rv('nps-label',npsDisplay(Number(this.value)))" style="flex:1"/><span class="rv" id="rv-nps-label" style="min-width:90px">8 — Passive</span></div></div>
               <div class="field"><label>CSAT <span style="font-weight:400;color:var(--subtle);font-size:.7rem">1–5 scale</span></label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-csat-na" checked onchange="toggleCsatNA()" style="accent-color:var(--blue)"/> N/A</label><input type="range" id="f-csat" min="1" max="5" value="3" disabled oninput="rv('csat-label',csatDisplay(Number(this.value)))" style="flex:1;opacity:.4"/><span class="rv" id="rv-csat-label" style="min-width:90px;color:var(--subtle)">N/A</span></div></div>
             </div>
             <!-- RIGHT -->
-            <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;flex-direction:column;gap:12px">
               <div class="field"><label>Days Since Last Contact <span style="font-weight:400;color:var(--subtle);font-size:.7rem">0–90 days</span></label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-days-na" onchange="toggleSignalNA('days')" style="accent-color:var(--blue)"/> N/A</label><input type="range" id="f-days" min="0" max="90" value="7" oninput="rv('days',this.value+'d')" style="flex:1"/><span class="rv" id="rv-days" style="min-width:36px">7d</span></div></div>
               <div class="field"><label>Open Support Tickets <span style="font-weight:400;color:var(--subtle);font-size:.7rem">0–20</span></label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-tickets-na" onchange="toggleSignalNA('tickets')" style="accent-color:var(--blue)"/> N/A</label><input type="range" id="f-tickets" min="0" max="20" value="1" oninput="rv('tickets',this.value)" style="flex:1"/><span class="rv" id="rv-tickets" style="min-width:28px">1</span></div></div>
               <div class="field"><label>Growth Signal</label><select id="f-growth"><option value="na">N/A</option><option value="none">None / Flat</option><option value="mild">Mild (seats/features added)</option><option value="strong">Strong (upgrade conversations)</option></select></div>
@@ -4384,6 +4388,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=545"></script>
+<script src="js/app.js?v=546"></script>
 </body>
 </html>
