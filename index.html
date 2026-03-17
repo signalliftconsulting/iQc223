@@ -3160,7 +3160,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
         <li><strong>Add customers</strong> — Use the <strong>Score Customer</strong> form or <strong>CSV Import</strong> to load your customer data.</li>
         <li><strong>Score them</strong> — Enter signal values (Logins, Adoption, Tickets, NPS, CSAT, Days Since Contact, Growth) and the system calculates a weighted health score automatically.</li>
         <li><strong>Monitor your portfolio</strong> — Home Base shows KPI cards, briefing items, and a portfolio health ring. The Alerts page surfaces accounts that need attention.</li>
-        <li><strong>Analyze & segment</strong> — Use Segments (by tag or lifecycle stage), Trends (metric charts over time), and CSM Performance to find patterns.</li>
+        <li><strong>Analyze & segment</strong> — Use Segments (by tag, tier, or lifecycle stage), Trends (metric charts over time), and CSM Performance to find patterns.</li>
         <li><strong>Act & report</strong> — Open customer details for Playbooks and QBR Prep, generate PDF/CSV reports, and set up automated alert rules for Slack, Teams, or email.</li>
       </ol>
     </div>
@@ -3185,7 +3185,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       </div>
     </div>
 
-    <div class="help-card" data-accent="green" data-keywords="key concepts health score status bands decay lifecycle stages profiles scoring weights thresholds">
+    <div class="help-card" data-accent="green" data-keywords="key concepts health score status bands decay lifecycle stages tiers profiles scoring weights thresholds">
       <div class="help-hd">
         <div class="help-hd-icon" style="background:#ecfdf5;color:#10b981"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
         <div><h3>Key Concepts</h3><p>Core ideas that power the platform</p></div>
@@ -3195,7 +3195,8 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
         <li><strong>Status Bands</strong> — Customers are automatically categorized: Critical, At Risk, Watch, Healthy, or Expansion based on score thresholds.</li>
         <li><strong>Dynamic Decay</strong> — Scores gradually decrease as days since last contact increases — no manual update needed.</li>
         <li><strong>Lifecycle Stages</strong> — Track each customer's journey: Onboarding → Active → At Risk → Won/Upsold or Churned.</li>
-        <li><strong>Scoring Profiles</strong> — Create custom weight presets (e.g., heavier adoption weight for certain customer groups) assignable per customer.</li>
+        <li><strong>Tiers</strong> — Classify customers as SMB, Mid-Market, or Enterprise for segmented views and cadence thresholds.</li>
+        <li><strong>Scoring Profiles</strong> — Create custom weight presets (e.g., heavier adoption weight for Enterprise) assignable per customer.</li>
       </ul>
     </div>
 
@@ -3280,9 +3281,9 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
     <div class="help-card" data-accent="indigo" data-keywords="scoring profiles custom weight presets segment override per-customer groups">
       <div class="help-hd">
         <div class="help-hd-icon" style="background:#eef2ff;color:#6366f1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg></div>
-        <div><h3>Scoring Profiles</h3><p>Custom weight presets for different customer groups</p></div>
+        <div><h3>Scoring Profiles</h3><p>Custom weight presets per segment</p></div>
       </div>
-      <p>Create custom weight presets for different customer groups. For example, high-touch accounts might weigh Adoption more heavily, while smaller accounts might prioritize NPS. Profiles are assigned per-customer and override the global weights during score calculation.</p>
+      <p>Create custom weight presets for different customer types. For example, Enterprise accounts might weigh Adoption more heavily, while SMB accounts might prioritize NPS. Profiles are assigned per-customer and override the global weights during score calculation.</p>
       <p>Manage profiles in <strong>Weights & Config → Scoring Profiles</strong>.</p>
     </div>
 
@@ -3295,7 +3296,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       <ol class="help-steps">
         <li>Navigate to <strong>Score a Customer</strong> in the sidebar.</li>
         <li>Enter the customer name (duplicate names are detected and prevented).</li>
-        <li>Enter MRR or ARR — the other auto-calculates bidirectionally (MRR × 12 = ARR).</li>
+        <li>Set tier (SMB / Mid-Market / Enterprise) and enter MRR or ARR — the other auto-calculates bidirectionally (MRR × 12 = ARR).</li>
         <li>Use the <strong>signal sliders</strong> for Logins, Adoption %, Tickets, NPS, CSAT, and Days Since Contact. Select a Growth level from the dropdown (Strong / Mild / None / N/A).</li>
         <li>Optionally set a renewal date, lifecycle stage, manager, tags, and sentiment.</li>
         <li>Click <strong>Save Score</strong>. The system calculates the health score and status automatically.</li>
@@ -3463,20 +3464,21 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
     <div class="help-card" id="hp-segments" data-accent="purple" data-keywords="segments tags stage lifecycle group comparison chart kpi drill-down expandable metrics analysis auto-analysis">
       <div class="help-hd">
         <div class="help-hd-icon" style="background:#f5f3ff;color:#8b5cf6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>
-        <div><h3>Segments</h3><p>Group customers by tag or lifecycle stage for portfolio-level analytics</p></div>
+        <div><h3>Segments</h3><p>Group customers by tag, tier, or lifecycle stage for portfolio-level analytics</p></div>
       </div>
       <p><strong>What it is:</strong> Portfolio-level analytics that let you compare groups of customers across key metrics.</p>
       <p><strong>Why it exists:</strong> Understanding how different customer segments perform helps you allocate resources, identify at-risk groups, and spot patterns that individual customer views miss.</p>
       <div class="help-sub">How to Use It</div>
       <ol class="help-steps">
         <li><strong>Review KPI cards</strong> at the top — total segments, total accounts, total MRR, at-risk count, and average health score.</li>
-        <li><strong>Switch view modes</strong> using the tabs to see data grouped by tags or lifecycle stages.</li>
+        <li><strong>Switch view modes</strong> using the tabs to see data grouped by tags, tiers, or lifecycle stages.</li>
         <li><strong>Expand any segment</strong> by clicking on it to drill down into the individual accounts within that group.</li>
         <li><strong>Use the Comparison Chart</strong> to visualize trends across segments over time. Select a metric from the dropdown and the chart auto-generates analysis text.</li>
       </ol>
       <div class="help-sub">3 View Modes</div>
       <ul>
         <li><strong>Segments by Tags</strong> — Groups customers by their assigned tags, showing count, average score, total MRR, at-risk percentage, and trend direction for each tag</li>
+        <li><strong>Tiers</strong> — Groups by SMB / Mid-Market / Enterprise with expandable drill-down into individual accounts</li>
         <li><strong>Lifecycle Stages</strong> — Groups by stage: Onboarding, Active, At Risk, Won/Upsold, Churned — with the same metrics per stage</li>
         <li><strong>Expandable Drill-Down</strong> — Click any segment row to expand and see every customer in that group, sorted by health score</li>
       </ul>
@@ -3545,7 +3547,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       <table class="help-table">
         <thead><tr><th>Report</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td><strong>Portfolio Summary</strong></td><td>Overall book health with KPIs, status distribution, and segment breakdown</td></tr>
+          <tr><td><strong>Portfolio Summary</strong></td><td>Overall book health with KPIs, status distribution, and tier breakdown</td></tr>
           <tr><td><strong>At-Risk Accounts</strong></td><td>Customers scoring below 50, sorted by urgency with contributing factors</td></tr>
           <tr><td><strong>Renewal Forecast</strong></td><td>Upcoming renewals grouped by month with risk flags and MRR totals</td></tr>
           <tr><td><strong>CSM Performance</strong></td><td>Manager portfolio comparison with average scores, account counts, and status distribution</td></tr>
@@ -3611,7 +3613,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
           </ul>
         </li>
         <li><strong>Select Growth</strong> — Dropdown with Strong, Mild, None, or N/A (excluded from scoring when N/A).</li>
-        <li><strong>Set optional fields</strong> — Renewal date, billing interval, lifecycle stage, manager, tags, and next scheduled touch date.</li>
+        <li><strong>Set optional fields</strong> — Tier, renewal date, billing interval, lifecycle stage, manager, tags, and next scheduled touch date.</li>
         <li><strong>Watch the score ring</strong> — The health score ring updates live as you adjust signals, showing the calculated result before saving.</li>
         <li><strong>Click Save Score</strong> — The system saves the customer, calculates the final health score, assigns a status band, and logs the event.</li>
       </ol>
@@ -3648,7 +3650,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
           <tr><td>NPS / CSAT</td><td>No</td><td>nps, nps_category, csat</td></tr>
           <tr><td>Days Since Contact</td><td>No</td><td>days, days_since_contact</td></tr>
           <tr><td>Renewal Date</td><td>No</td><td>renewal_date, renews on</td></tr>
-          <tr><td>Growth / Tags</td><td>No</td><td>growth, tags (pipe-separated)</td></tr>
+          <tr><td>Growth / Tier / Tags</td><td>No</td><td>growth, tier, tags (pipe-separated)</td></tr>
           <tr><td>Lifecycle / Sentiment</td><td>No</td><td>lifecycle, stage, sentiment</td></tr>
         </tbody>
       </table>
@@ -3779,7 +3781,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
           <tr><td>NPS / CSAT</td><td>No</td><td>nps, nps_category, csat</td></tr>
           <tr><td>Days Since Contact</td><td>No</td><td>days, days_since_contact</td></tr>
           <tr><td>Renewal Date</td><td>No</td><td>renewal_date, renews on</td></tr>
-          <tr><td>Growth / Tags</td><td>No</td><td>growth, tags (pipe-separated)</td></tr>
+          <tr><td>Growth / Tier / Tags</td><td>No</td><td>growth, tier, tags (pipe-separated)</td></tr>
           <tr><td>Lifecycle / Sentiment</td><td>No</td><td>lifecycle, stage, sentiment</td></tr>
         </tbody>
       </table>
@@ -3824,11 +3826,11 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       <table class="help-table">
         <thead><tr><th>Report</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td>Portfolio Summary</td><td>Overall book health with KPIs, status distribution, and segment breakdown</td></tr>
+          <tr><td>Portfolio Summary</td><td>Overall book health with KPIs, status distribution, and tier breakdown</td></tr>
           <tr><td>At-Risk Accounts</td><td>Customers scoring below 50, sorted by urgency</td></tr>
           <tr><td>Renewal Forecast</td><td>Upcoming renewals grouped by month with risk flags</td></tr>
           <tr><td>CSM Performance</td><td>Manager portfolio comparison with scores</td></tr>
-          <tr><td>Segment Analysis</td><td>Health breakdown by lifecycle stage and tags</td></tr>
+          <tr><td>Segment Analysis</td><td>Health breakdown by tier and lifecycle stage</td></tr>
           <tr><td>Trend (90 Days)</td><td>Score trend lines and movement analysis</td></tr>
           <tr><td>Churn Risk</td><td>Churn probability with contributing factors</td></tr>
           <tr><td>Customer Health</td><td>Individual customer deep-dive</td></tr>
@@ -3927,7 +3929,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
         <li><strong>Save</strong> — The rule appears in the Custom Rules table.</li>
       </ol>
       <div class="help-sub">Available Fields</div>
-      <p>Health Score, Status, Lifecycle, Logins, Adoption %, Tickets, NPS, CSAT, MRR, Days Since Contact, Growth, Momentum, Cadence Status, Renewal Within (days), Tags, and Manager.</p>
+      <p>Health Score, Status, Tier, Lifecycle, Logins, Adoption %, Tickets, NPS, CSAT, MRR, Days Since Contact, Growth, Momentum, Cadence Status, Renewal Within (days), Tags, and Manager.</p>
       <div class="help-sub">Table Features</div>
       <p>The custom rules table supports the same <strong>sort and filter</strong> capabilities as alert rules — click column headers to sort, use the funnel icon to filter. Enable/disable, edit, or delete rules from the table.</p>
     </div>
@@ -3954,6 +3956,8 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       </div>
       <div class="help-sub">How it Works</div>
       <p>Each integration pulls data from the external platform and maps it to customer fields in iQcadence. You control which metrics each integration owns via the <strong>Sync Overview</strong> toggles. Only one integration can own each metric at a time.</p>
+      <div class="help-sub">Tier Defaults</div>
+      <p>When an integration creates a new account and no tier data is available, default tiers differ: <strong>HubSpot</strong> defaults to SMB, <strong>Salesforce</strong> defaults to Mid-Market, and <strong>Stripe</strong> detects tier from product/plan names. You can always override the tier manually or via CSV import.</p>
       <div class="help-sub">Deal Amount Frequency</div>
       <p>HubSpot and Salesforce assume deal/opportunity amounts are <strong>annual</strong> by default and divide by 12 to calculate MRR. If your deals are already in monthly amounts, change the "Deal amounts are" setting on each integration card to "Already Monthly".</p>
       <div class="help-sub">NPS & CSAT (HubSpot)</div>
@@ -4003,6 +4007,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
           <tr><td><code>growth</code></td><td>String</td><td><code>none</code>, <code>mild</code>, or <code>strong</code> — <em>signal, triggers rescore</em></td></tr>
           <tr><td><code>mrr</code></td><td>Number (0+)</td><td>Monthly recurring revenue</td></tr>
           <tr><td><code>arr</code></td><td>Number (0+)</td><td>Annual recurring revenue</td></tr>
+          <tr><td><code>tier</code></td><td>String</td><td>Customer tier: <code>enterprise</code>, <code>mid</code>, or <code>smb</code></td></tr>
           <tr><td><code>lifecycle</code></td><td>String</td><td><code>onboarding</code>, <code>active</code>, <code>atrisk</code>, <code>won</code>, <code>churned</code></td></tr>
           <tr><td><code>manager</code></td><td>String</td><td>Assigned CSM name</td></tr>
           <tr><td><code>tags</code></td><td>Array / CSV</td><td>Tags array or comma-separated string</td></tr>
@@ -4027,6 +4032,7 @@ Header: Content-Type: application/json
     "logins": 22,
     "adoption": 75,
     "tickets": 1,
+    "tier": "mid",
     "manager": "Sarah"
   }
 }</code></pre>
@@ -4053,6 +4059,7 @@ Header: Content-Type: application/json
         <tbody>
           <tr><td><code>status</code></td><td><code>critical</code></td><td>Filter by status band</td></tr>
           <tr><td><code>lifecycle</code></td><td><code>active</code></td><td>Filter by lifecycle stage</td></tr>
+          <tr><td><code>tier</code></td><td><code>enterprise</code></td><td>Filter by customer tier</td></tr>
           <tr><td><code>manager</code></td><td><code>Sarah</code></td><td>Filter by assigned CSM</td></tr>
           <tr><td><code>tag</code></td><td><code>vip</code></td><td>Filter by tag</td></tr>
           <tr><td><code>updated_since</code></td><td><code>2026-03-01T00:00:00Z</code></td><td>Only customers changed after this date</td></tr>
@@ -4355,6 +4362,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=539"></script>
+<script src="js/app.js?v=540"></script>
 </body>
 </html>
