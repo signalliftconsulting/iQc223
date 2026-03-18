@@ -266,7 +266,7 @@ function applyTierGating() {
 // ─── iQcadence SIGNAL MODEL ──────────────────────────────────
 const DEFAULT_SIGNAL_MODEL = { enabled: false, sensitivity: 'balanced' };
 let signalModelCfg = { ...DEFAULT_SIGNAL_MODEL };
-const SM_SENSITIVITY = { conservative: 8, balanced: 15, aggressive: 25 };
+const SM_SENSITIVITY = { conservative: 5, balanced: 10, aggressive: 15 };
 
 // Column definitions — drives header rendering + filter logic
 const COL_DEFS = [
