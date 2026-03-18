@@ -1296,15 +1296,44 @@ function _buildSegInsights(segments, active, view) {
     }
   });
 
-  // ── Sort, cap at 4, render ──
+  // ── Sort, store all, paginate 3 at a time ──
   insights.sort((a, b) => b.score - a.score);
-  const top = insights.slice(0, 4);
-  window._segCrossInsights = top;
+  window._segCrossInsights = insights;
+  window._segInsightPage = 0;
+  window._segInsightView = view;
+  _renderSegInsightPage(wrap, viewTitle);
+}
 
-  if (!top.length) { wrap.innerHTML = ''; return; }
+function _renderSegInsightPage(wrap, viewTitle) {
+  if (!wrap) wrap = el('seg-insights-wrap');
+  if (!wrap) return;
+  const insights = window._segCrossInsights || [];
+  const page = window._segInsightPage || 0;
+  const view = window._segInsightView || 'segments';
+  const perPage = 3;
+  const start = page * perPage;
+  const slice = insights.slice(start, start + perPage);
+  const totalPages = Math.ceil(insights.length / perPage);
 
-  wrap.innerHTML = '<div style="font-size:var(--fs-base);font-weight:700;color:var(--text);margin-bottom:8px">' + viewTitle + ' Insights</div>' +
-    top.map((ins, idx) => {
+  if (!slice.length) { wrap.innerHTML = ''; return; }
+
+  // If no viewTitle passed, reconstruct it
+  if (!viewTitle) {
+    viewTitle = view === 'tiers' ? 'Cross-Tier' : view === 'stage' ? 'Cross-Stage' : 'Cross-Segment';
+  }
+
+  const hasMore = page < totalPages - 1;
+  const hasPrev = page > 0;
+  const pageLabel = totalPages > 1 ? ` <span style="font-size:var(--fs-xs);color:var(--muted);font-weight:400;margin-left:6px">${page + 1} of ${totalPages}</span>` : '';
+
+  const navBtns = totalPages > 1 ? `<div style="display:flex;gap:6px;align-items:center;margin-left:auto">` +
+    (hasPrev ? `<button class="btn btn-ghost btn-sm" onclick="_segInsightPrev()" style="font-size:var(--fs-xs);padding:2px 8px">&larr; Prev</button>` : '') +
+    (hasMore ? `<button class="btn btn-ghost btn-sm" onclick="_segInsightNext()" style="font-size:var(--fs-xs);padding:2px 8px;background:var(--blue);color:#fff;border-color:var(--blue)">More &rarr;</button>` : '') +
+    `</div>` : '';
+
+  wrap.innerHTML = `<div style="display:flex;align-items:center;margin-bottom:8px"><div style="font-size:var(--fs-base);font-weight:700;color:var(--text)">${viewTitle} Insights${pageLabel}</div>${navBtns}</div>` +
+    slice.map((ins, i) => {
+      const idx = start + i;
       const accentCls = ins.color === 'var(--green)' ? ' ta-card-green' : ins.color === 'var(--red)' ? ' ta-card-red' : ins.color === 'var(--amber)' ? ' ta-card-amber' : '';
       const clickable = view !== 'stage' && ins.tags && ins.tags.length > 0;
       return `<div class="ta-card${accentCls}${clickable ? ' ta-card-clickable' : ''}" style="border-left-color:${ins.color}${clickable ? '' : ';cursor:default'}" ${clickable ? `onclick="_segInsightFocus(${idx})"` : ''}>
@@ -1315,6 +1344,19 @@ function _buildSegInsights(segments, active, view) {
       </div>
     </div>`;
     }).join('');
+}
+
+function _segInsightNext() {
+  const insights = window._segCrossInsights || [];
+  const perPage = 3;
+  const totalPages = Math.ceil(insights.length / perPage);
+  window._segInsightPage = Math.min((window._segInsightPage || 0) + 1, totalPages - 1);
+  _renderSegInsightPage();
+}
+
+function _segInsightPrev() {
+  window._segInsightPage = Math.max((window._segInsightPage || 0) - 1, 0);
+  _renderSegInsightPage();
 }
 
 function _segInsightFocus(idx) {
