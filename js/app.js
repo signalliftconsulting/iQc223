@@ -1178,10 +1178,10 @@ var _WT_TOURS = {
         scroll: 'bottom'
       },
       {
-        target: '#result-placeholder',
+        target: '#calc-score-btn',
         title: 'Score Preview',
-        body: 'After you click "Calculate Health Score", the result appears here with a color-coded ring, status badge, signal-by-signal breakdown, and AI-generated playbook recommendations. Let me show you an example...',
-        fallback: '#result-card',
+        body: 'Click this button to calculate the health score. The result appears below with a color-coded ring, status badge, signal-by-signal breakdown, and playbook recommendations. Let me show you an example...',
+        fallback: '#result-placeholder',
         action: '_wtDemoScore',
         scroll: 'bottom'
       },
