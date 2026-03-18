@@ -2163,27 +2163,61 @@ function _buildSegChartAnalysis(data) {
     }
   }
 
-  // Sort by score desc, show top 3
+  // Sort by score desc, paginate
   insights.sort((a, b) => b.score - a.score);
-  const top = insights.slice(0, 3);
-  window._segChartInsights = top;
+  window._segChartInsightsAll = insights;
+  window._segChartInsightPage = 0;
+  _renderSegChartInsightPage(wrap);
+}
 
-  if (!top.length) {
-    wrap.innerHTML = '';
-    return;
-  }
+function _renderSegChartInsightPage(wrap) {
+  if (!wrap) wrap = el('seg-chart-analysis');
+  if (!wrap) return;
+  const insights = window._segChartInsightsAll || [];
+  const page = window._segChartInsightPage || 0;
+  const perPage = 3;
+  const start = page * perPage;
+  const slice = insights.slice(start, start + perPage);
+  const totalPages = Math.ceil(insights.length / perPage);
 
-  wrap.innerHTML = top.map((ins, idx) => {
-    const clickable = ins.tags && ins.tags.length > 0;
-    const accentCls = ins.color === 'var(--green)' ? ' ta-card-green' : ins.color === 'var(--red)' ? ' ta-card-red' : ins.color === 'var(--amber)' ? ' ta-card-amber' : '';
-    return `<div class="ta-card${accentCls}${clickable ? ' ta-card-clickable' : ''}" style="border-left-color:${ins.color}" ${clickable ? `onclick="segAnalysisFocus(${idx})"` : ''}>
-    <div class="ta-icon" style="background:${ins.bg};color:${ins.color}">${ins.icon}</div>
-    <div>
-      <div class="ta-label">${ins.label}</div>
-      <div class="ta-detail">${ins.text}</div>
-    </div>
-  </div>`;
-  }).join('');
+  if (!slice.length) { wrap.innerHTML = ''; return; }
+
+  const hasMore = page < totalPages - 1;
+  const hasPrev = page > 0;
+  const pageLabel = totalPages > 1 ? ` <span style="font-size:var(--fs-xs);color:var(--muted);font-weight:400;margin-left:6px">${page + 1} of ${totalPages}</span>` : '';
+  const navBtns = totalPages > 1 ? `<div style="display:flex;gap:6px;align-items:center;margin-left:auto">` +
+    (hasPrev ? `<button class="btn btn-ghost btn-sm" onclick="_segChartInsightPrev()" style="font-size:var(--fs-xs);padding:2px 8px">&larr; Prev</button>` : '') +
+    (hasMore ? `<button class="btn btn-ghost btn-sm" onclick="_segChartInsightNext()" style="font-size:var(--fs-xs);padding:2px 8px;background:var(--blue);color:#fff;border-color:var(--blue)">More &rarr;</button>` : '') +
+    `</div>` : '';
+
+  // Keep window._segChartInsights pointing to current page for click handlers
+  window._segChartInsights = slice;
+
+  wrap.innerHTML = `<div style="display:flex;align-items:center;margin-bottom:8px"><div style="font-size:var(--fs-base);font-weight:700;color:var(--text)">Analysis${pageLabel}</div>${navBtns}</div>` +
+    slice.map((ins, i) => {
+      const idx = i;
+      const clickable = ins.tags && ins.tags.length > 0;
+      const accentCls = ins.color === 'var(--green)' ? ' ta-card-green' : ins.color === 'var(--red)' ? ' ta-card-red' : ins.color === 'var(--amber)' ? ' ta-card-amber' : '';
+      return `<div class="ta-card${accentCls}${clickable ? ' ta-card-clickable' : ''}" style="border-left-color:${ins.color}" ${clickable ? `onclick="segAnalysisFocus(${idx})"` : ''}>
+      <div class="ta-icon" style="background:${ins.bg};color:${ins.color}">${ins.icon}</div>
+      <div>
+        <div class="ta-label">${ins.label}</div>
+        <div class="ta-detail">${ins.text}</div>
+      </div>
+    </div>`;
+    }).join('');
+}
+
+function _segChartInsightNext() {
+  var all = window._segChartInsightsAll || [];
+  var totalPages = Math.ceil(all.length / 3);
+  window._segChartInsightPage = Math.min((window._segChartInsightPage || 0) + 1, totalPages - 1);
+  _renderSegChartInsightPage();
+}
+
+function _segChartInsightPrev() {
+  window._segChartInsightPage = Math.max((window._segChartInsightPage || 0) - 1, 0);
+  _renderSegChartInsightPage();
 }
 
 function segAnalysisFocus(idx) {
