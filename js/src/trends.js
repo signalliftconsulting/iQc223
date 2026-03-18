@@ -1380,46 +1380,59 @@ function _taCrossSignal(active, cutoff, metricKey) {
   if (active.length < 6) return null;
   const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
   const label = cfg.label || metricKey;
+  const isScore = !metricKey || metricKey === 'score';
+  const rangeDays = Math.round((Date.now() - cutoff.getTime()) / 86400000);
 
-  // Compare signal CHANGES (not snapshots) between improving and declining accounts
-  const signals = [
+  // All possible signals we can compare
+  const allSignals = [
     { key: 'logins', label: 'Logins' },
     { key: 'adoption', label: 'Adoption' },
     { key: 'tickets', label: 'Tickets' },
     { key: 'nps', label: 'NPS' },
     { key: 'csat', label: 'CSAT' },
     { key: 'days', label: 'Days Since Contact' }
-  ].filter(s => s.key !== metricKey);
+  ];
 
-  // For each account, compute score delta and signal deltas over the period
+  // Determine improving/declining based on the SELECTED metric, not always score
   const acctData = [];
   active.forEach(c => {
     if (c.lifecycle === 'churned') return;
-    const scoreDelta = _getDeltaNd(c, Math.round((Date.now() - cutoff.getTime()) / 86400000));
-    if (scoreDelta === null) return;
+    let metricDelta;
+    if (isScore) {
+      metricDelta = _getDeltaNd(c, rangeDays);
+    } else {
+      const sh = _sigHist(c, metricKey, cutoff);
+      metricDelta = sh.delta;
+      // For inverted metrics (tickets, days), flip so positive = improving
+      if (metricDelta != null && _invertedMetrics.has(metricKey)) metricDelta = -metricDelta;
+    }
+    if (metricDelta === null || metricDelta === undefined) return;
+    // Compute other signal deltas (exclude the primary metric itself)
     const sigDeltas = {};
-    signals.forEach(sig => {
+    allSignals.filter(s => s.key !== metricKey).forEach(sig => {
       const sh = _sigHist(c, sig.key, cutoff);
       if (sh.delta != null) sigDeltas[sig.key] = sh.delta;
     });
-    acctData.push({ c, scoreDelta, sigDeltas });
+    acctData.push({ c, metricDelta, sigDeltas });
   });
   if (acctData.length < 6) return null;
 
-  const improving = acctData.filter(a => a.scoreDelta > 2);
-  const declining = acctData.filter(a => a.scoreDelta < -2);
+  // Split into improving/declining on the selected metric
+  const threshold = isScore ? 2 : 0.5;
+  const improving = acctData.filter(a => a.metricDelta > threshold);
+  const declining = acctData.filter(a => a.metricDelta < -threshold);
   if (improving.length < 2 || declining.length < 2) return null;
 
-  // Find which signal's CHANGE differs most between improving and declining groups
+  // Find which OTHER signal differs most between the two groups
+  const compareSignals = allSignals.filter(s => s.key !== metricKey);
   let bestSig = null, bestDiff = 0;
-  signals.forEach(sig => {
+  compareSignals.forEach(sig => {
     const impDeltas = improving.map(a => a.sigDeltas[sig.key]).filter(v => v != null);
     const decDeltas = declining.map(a => a.sigDeltas[sig.key]).filter(v => v != null);
     if (impDeltas.length < 2 || decDeltas.length < 2) return;
     const impAvg = impDeltas.reduce((s,v) => s+v, 0) / impDeltas.length;
     const decAvg = decDeltas.reduce((s,v) => s+v, 0) / decDeltas.length;
     const diff = Math.abs(impAvg - decAvg);
-    // Use stddev of all values as normalizer (not range - avoids outlier distortion)
     const allVals = [...impDeltas, ...decDeltas];
     const mean = allVals.reduce((s,v) => s+v, 0) / allVals.length;
     const stddev = Math.sqrt(allVals.reduce((s,v) => s + (v - mean) ** 2, 0) / allVals.length) || 1;
@@ -1432,22 +1445,20 @@ function _taCrossSignal(active, cutoff, metricKey) {
   if (!bestSig || bestDiff < 0.5) return null;
 
   const fv = v => (v >= 0 ? '+' : '') + (Math.round(v * 10) / 10);
-  const inverted = _invertedMetrics.has(bestSig.key);
 
-  // Find top 2 declining accounts where this signal changed the most in the bad direction
+  // Find top 2 declining accounts with sharpest signal shift
+  const inverted = _invertedMetrics.has(bestSig.key);
   const worstAccts = declining
     .filter(a => a.sigDeltas[bestSig.key] != null)
     .sort((a,b) => inverted ? b.sigDeltas[bestSig.key] - a.sigDeltas[bestSig.key] : a.sigDeltas[bestSig.key] - b.sigDeltas[bestSig.key])
     .slice(0, 2);
 
-  const impDir = inverted ? (bestSig.impAvgDelta < 0 ? 'dropped' : 'rose') : (bestSig.impAvgDelta > 0 ? 'rose' : 'dropped');
-  const decDir = inverted ? (bestSig.decAvgDelta > 0 ? 'rose' : 'dropped') : (bestSig.decAvgDelta < 0 ? 'dropped' : 'rose');
-
-  const title = bestSig.label + ' change is the biggest differentiator between improving and declining accounts';
-  let detail = `Improving accounts saw ${bestSig.label} move <strong>${fv(bestSig.impAvgDelta)}</strong> on avg, while declining accounts moved <strong>${fv(bestSig.decAvgDelta)}</strong>. `;
+  const title = `Accounts with ${isScore ? 'declining scores' : 'falling ' + label} also saw sharper ${bestSig.label} changes`;
+  let detail = `Among ${improving.length} accounts where ${label} improved, ${bestSig.label} averaged <strong>${fv(bestSig.impAvgDelta)}</strong>. `;
+  detail += `Among ${declining.length} where ${label} declined, ${bestSig.label} averaged <strong>${fv(bestSig.decAvgDelta)}</strong>. `;
   if (worstAccts.length) {
     detail += worstAccts.map(a => `${_taCustLink(a.c.name, a.c.id)} (${bestSig.label} ${fv(a.sigDeltas[bestSig.key])})`).join(' and ');
-    detail += ` had the sharpest ${bestSig.label} shifts among declining accounts. Address ${bestSig.label} to move their scores.`;
+    detail += ` had the biggest ${bestSig.label} shifts. Address ${bestSig.label} to improve ${label}.`;
   }
   return { priority: 3, icon: _taSvg.signal, iconBg: 'var(--amber-l)', iconColor: 'var(--amber)', accent: 'amber', title, detail };
 }
@@ -2123,10 +2134,12 @@ function _buildTrendAnalysis(active, data1, data2, cutoff, rangeDays, m1, m2, pr
   }
 
   // === GENERAL insights: portfolio-wide analysis ===
+  // Score-specific insights only show when viewing health score
+  const isScoreMetric = !m1 || m1 === 'score';
   const general = [
     _taScoreDrivers(active, data1, m1, cutoff, rangeDays),
-    _taLeadingIndicator(active, cutoff, rangeDays),
-    _taChurnPatternMatch(active, rangeDays),
+    isScoreMetric ? _taLeadingIndicator(active, cutoff, rangeDays) : null,
+    isScoreMetric ? _taChurnPatternMatch(active, rangeDays) : null,
     _taChurnImpact(cutoff, rangeDays),
     _taContactGapImpact(active, cutoff, rangeDays),
     _taInflection(data1, m1, rangeDays, active),
