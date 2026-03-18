@@ -486,14 +486,36 @@ async function pullHistoricalData(platform, lookback) {
     if (data.error) throw new Error(data.error);
     if (!data.customers) throw new Error('No customer data returned');
 
+    // Normalize helper: strip common suffixes, lowercase, remove extra spaces/punctuation
+    const _norm = s => (s || '').toLowerCase().replace(/[.,\-_]/g, ' ')
+      .replace(/\b(inc|llc|ltd|corp|corporation|co|company|group|the)\b/gi, '')
+      .replace(/\s+/g, ' ').trim();
+
     let totalAdded = 0, matched = 0;
+    const unmatched = [];
     for (const entry of data.customers) {
-      // Match by external_id or name
-      const c = customers.find(x =>
-        (entry.external_id && (x.external_id === entry.external_id || x.salesforce_account_id === entry.external_id || x.hubspot_company_id === entry.external_id || x.stripe_customer_id === entry.external_id)) ||
-        (entry.name && x.name && x.name.toLowerCase() === entry.name.toLowerCase())
+      // 1. Exact match by external_id
+      let c = customers.find(x =>
+        entry.external_id && (x.external_id === entry.external_id || x.salesforce_account_id === entry.external_id || x.hubspot_company_id === entry.external_id || x.stripe_customer_id === entry.external_id)
       );
-      if (!c) continue;
+      // 2. Exact name match
+      if (!c && entry.name) {
+        c = customers.find(x => x.name && x.name.toLowerCase() === entry.name.toLowerCase());
+      }
+      // 3. Fuzzy name match: strip suffixes like Inc, LLC, Corp, extra punctuation
+      if (!c && entry.name) {
+        const normEntry = _norm(entry.name);
+        if (normEntry.length >= 3) {
+          c = customers.find(x => {
+            const normX = _norm(x.name);
+            return normX === normEntry || normX.startsWith(normEntry) || normEntry.startsWith(normX);
+          });
+        }
+      }
+      if (!c) {
+        unmatched.push(entry.name || entry.external_id || 'unknown');
+        continue;
+      }
       matched++;
       const added = mergeHistory(c, entry.history || []);
       totalAdded += added;
@@ -504,7 +526,7 @@ async function pullHistoricalData(platform, lookback) {
     toast(`History imported: ${matched} customers, ${totalAdded} snapshots added (${stats.dateRange?.from || '?'} → ${stats.dateRange?.to || '?'})`, 'success');
     // Refresh UI
     if (typeof renderAll === 'function') renderAll();
-    return { matched, totalAdded, stats };
+    return { matched, totalAdded, stats, unmatched };
   } catch (err) {
     console.error('[pullHistoricalData]', err);
     toast('History pull failed: ' + (err.message || err), 'error');
