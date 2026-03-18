@@ -1829,64 +1829,92 @@ function _taLeadingIndicator(active, cutoff, rangeDays) {
   let detail = top.map(x =>
     `${_taCustLink(x.c.name, x.c.id)} (score ${x.score}, looks OK) but ${x.signalDetails.join(', ')}`
   ).join('. ') + '.';
-  detail += ` Scores typically lag signals by 1-2 weeks - these are likely to drop soon.`;
+  detail += ` Because scores lag signals by 1-2 weeks, reach out now before the drop shows up. Focus on the declining signals first.`;
   return { priority: 1, icon: _taSvg.zap, iconBg: 'var(--amber-l)', iconColor: 'var(--amber)', accent: 'amber', title, detail };
 }
-  if (active.length < 3) return null;
-  const now = Date.now();
-  const atRisk = [];
+
+/* ── 2. Churn Pattern Match: current accounts matching churned account patterns ── */
+function _taChurnPatternMatch(active, rangeDays) {
+  const churned = customers.filter(c => c.lifecycle === 'churned');
+  if (churned.length < 2 || active.length < 5) return null;
+
+  // Compute avg signals of churned accounts pre-collapse
+  let churnLogins = [], churnAdopt = [], churnDays = [];
+  churned.forEach(c => {
+    const hist = (c.history || []).filter(h => h.date).sort((a,b) => a.date.localeCompare(b.date));
+    if (hist.length < 5) return;
+    const preIdx = Math.floor(hist.length * 0.65);
+    const s = hist[preIdx]?.signals;
+    if (!s) return;
+    if (s.logins != null) churnLogins.push(s.logins);
+    if (s.adoption != null) churnAdopt.push(s.adoption);
+    if (s.days != null) churnDays.push(s.days);
+  });
+  if (churnLogins.length < 2) return null;
+  const avgCL = churnLogins.reduce((s,v) => s+v, 0) / churnLogins.length;
+  const avgCA = churnAdopt.length ? churnAdopt.reduce((s,v) => s+v, 0) / churnAdopt.length : null;
+  const avgCD = churnDays.length ? churnDays.reduce((s,v) => s+v, 0) / churnDays.length : null;
+
+  const matches = [];
+  active.forEach(c => {
+    if (c.lifecycle === 'churned') return;
+    let matchScore = 0, details = [];
+    if (c.logins != null && c.logins <= avgCL * 1.2) { matchScore++; details.push('logins ' + Math.round(c.logins)); }
+    if (c.adoption != null && avgCA != null && c.adoption <= avgCA * 1.2) { matchScore++; details.push('adoption ' + Math.round(c.adoption) + '%'); }
+    if (c.days != null && avgCD != null && c.days >= avgCD * 0.8) { matchScore++; details.push(Math.round(c.days) + 'd since contact'); }
+    if (matchScore >= 2 && (c.score || 100) < 70) {
+      matches.push({ c, matchScore, details, mrr: c.mrr || 0 });
+    }
+  });
+  if (matches.length < 1) return null;
+  matches.sort((a,b) => b.matchScore - a.matchScore || b.mrr - a.mrr);
+  const top = matches.slice(0, 2);
+
+  const title = matches.length + ' active account' + (matches.length > 1 ? 's show' : ' shows') + ' the same signal pattern as accounts that churned';
+  let detail = top.map(x =>
+    `${_taCustLink(x.c.name, x.c.id)} ($${fmtNum(x.mrr)}/mo) - ${x.details.slice(0, 2).join(', ')}`
+  ).join('. ') + '.';
+  detail += ` These signals match what churned accounts looked like before they left. Schedule a check-in call and focus on the weakest signal first.`;
+  return { priority: 1, icon: _taSvg.drop, iconBg: 'var(--red-l)', iconColor: 'var(--red)', accent: 'red', title, detail };
+}
+
+/* ── 3. Contact Gap Impact: proving that silence hurts scores ── */
+function _taContactGapImpact(active, cutoff, rangeDays) {
+  if (active.length < 5) return null;
+  const gapAccounts = [];
+  active.forEach(c => {
+    if (c.lifecycle === 'churned') return;
+    const dh = _sigHist(c, 'days', cutoff);
+    const scoreDelta = _getDeltaNd(c, rangeDays);
+    if (dh.delta == null || scoreDelta == null) return;
+    if (dh.delta > 10 && scoreDelta < -3) {
+      gapAccounts.push({ c, daysDelta: dh.delta, daysNow: dh.ev, scoreDelta, mrr: c.mrr || 0 });
+    }
+  });
+  if (gapAccounts.length < 2) return null;
+  gapAccounts.sort((a,b) => a.scoreDelta - b.scoreDelta);
+
+  // Compare contacted vs not-contacted score changes
+  let contactedDeltas = [], gappedDeltas = [];
   active.forEach(c => {
     if (c.lifecycle === 'churned') return;
     const d = _getDeltaNd(c, rangeDays);
-    if (d === null || d >= -3) return;
-    let renewalDays = Infinity;
-    if (c.renewal_date) {
-      const rd = new Date(c.renewal_date);
-      renewalDays = Math.round((rd.getTime() - now) / 86400000);
-    }
-    const urgency = Math.abs(d) * (renewalDays <= 120 ? (150 - renewalDays) / 30 : 0.5);
-    atRisk.push({ c, delta: d, renewalDays, mrr: c.mrr || 0, urgency });
+    if (d === null) return;
+    if ((c.days || 0) <= 14) contactedDeltas.push(d);
+    else if ((c.days || 0) > 30) gappedDeltas.push(d);
   });
-  if (atRisk.length < 1) return null;
-  atRisk.sort((a,b) => b.urgency - a.urgency);
-  const top = atRisk.slice(0, 3);
-  const totalMrr = atRisk.reduce((s,x) => s + x.mrr, 0);
-  const renewalRisk = atRisk.filter(x => x.renewalDays > 0 && x.renewalDays <= 90);
-  const fd = v => (v >= 0 ? '+' : '') + Math.round(v);
-  const fmtRen = d => d <= 0 ? 'overdue' : d <= 30 ? 'this month' : d <= 60 ? 'within 60d' : d <= 90 ? 'within 90d' : '';
+  const contactedAvg = contactedDeltas.length >= 2 ? Math.round(contactedDeltas.reduce((s,v) => s+v, 0) / contactedDeltas.length * 10) / 10 : null;
+  const gappedAvg = gappedDeltas.length >= 2 ? Math.round(gappedDeltas.reduce((s,v) => s+v, 0) / gappedDeltas.length * 10) / 10 : null;
 
-  // Figure out what's driving the decline - check signals for the top 3
-  let commonIssue = '';
-  if (top.length >= 2) {
-    const sigChecks = [
-      { key: 'days', label: 'contact gap', test: c => (c.days || 0) > 30 },
-      { key: 'tickets', label: 'open tickets', test: c => (c.tickets || 0) >= 3 },
-      { key: 'adoption', label: 'low adoption', test: c => (c.adoption || 100) < 40 },
-      { key: 'nps', label: 'low NPS', test: c => c.nps != null && c.nps <= 6 }
-    ];
-    for (const sc of sigChecks) {
-      const matching = top.filter(x => sc.test(x.c));
-      if (matching.length >= 2) {
-        commonIssue = ` Common factor: <strong>${sc.label}</strong> across ${matching.length} of these accounts.`;
-        break;
-      }
-    }
+  const top = gapAccounts.slice(0, 2);
+  const title = 'Accounts going silent are dropping - contact gap is costing points';
+  let detail = `${gapAccounts.length} accounts lost contact and their scores fell. ` +
+    top.map(x => `${_taCustLink(x.c.name, x.c.id)} (${Math.round(x.daysNow)}d gap, score ${Math.round(x.scoreDelta)})`).join(', ') + '.';
+  if (contactedAvg != null && gappedAvg != null && contactedAvg - gappedAvg > 2) {
+    detail += ` Contacted accounts averaged <strong>${contactedAvg > 0 ? '+' : ''}${contactedAvg}</strong> pts vs <strong>${gappedAvg > 0 ? '+' : ''}${gappedAvg}</strong> for 30+ day gaps - regular touchpoints make a measurable difference.`;
   }
-
-  const title = '$' + fmtNum(totalMrr) + '/mo at risk across ' + atRisk.length + ' declining account' + (atRisk.length > 1 ? 's' : '');
-  let detail = top.map(x => {
-    let info = `${_taCustLink(x.c.name, x.c.id)} (${fd(x.delta)} pts, $${fmtNum(x.mrr)}/mo`;
-    const ren = fmtRen(x.renewalDays);
-    if (ren) info += `, renewal ${ren}`;
-    return info + ')';
-  }).join(', ');
-  if (atRisk.length > 3) detail += ` and ${atRisk.length - 3} more`;
-  detail += '.';
-  if (renewalRisk.length) {
-    detail += ` <strong>${renewalRisk.length}</strong> renew within 90 days.`;
-  }
-  detail += commonIssue;
-  return { priority: 0, icon: _taSvg.drop, iconBg: 'var(--red-l)', iconColor: 'var(--red)', accent: 'red', title, detail };
+  detail += ` Re-engage the silent accounts with a check-in or value touchpoint.`;
+  return { priority: 2, icon: _taSvg.users, iconBg: 'var(--amber-l)', iconColor: 'var(--amber)', accent: 'amber', title, detail };
 }
 
 /* ── Seasonal Pattern Detection ── */
@@ -1937,7 +1965,7 @@ function _taSeasonalPattern(data, metricKey, rangeDays, priorData) {
     const title = 'Seasonal pattern detected in ' + label;
     let detail;
     if (Math.abs(levelDiff) <= 3) {
-      detail = `${label} is following a similar pattern to the same period last year (correlation: ${Math.round(corr * 100)}%). This suggests <strong>seasonal movement</strong>, not a structural change  - likely to follow the same trajectory.`;
+      detail = `${label} is following the same shape as the same period last year. This is seasonal, not structural - it followed the same path last time. No action needed unless it deviates from the prior year pattern.`;
     } else if (levelDiff > 3) {
       detail = `${label} is following a similar pattern to last year but running <strong>${levelDiff} pts higher</strong>. The seasonal shape is repeating but the overall level has improved.`;
     } else {
@@ -1949,7 +1977,7 @@ function _taSeasonalPattern(data, metricKey, rangeDays, priorData) {
     // Different pattern AND different level  - this isn't seasonal
     const direction = levelDiff > 0 ? 'higher' : 'lower';
     const title = label + ' diverging from last year\'s pattern';
-    const detail = `${label} is <strong>${Math.abs(levelDiff)} pts ${direction}</strong> than the same period last year and not following the previous seasonal pattern. This appears to be a <strong>structural shift</strong>, not a seasonal cycle.`;
+    const detail = `${label} is <strong>${Math.abs(levelDiff)} pts ${direction}</strong> than the same period last year and the pattern doesn't match. This isn't seasonal - something changed. ` + (levelDiff < 0 ? 'Look at what shifted in the portfolio around the time the divergence started.' : 'Whatever changed is working - identify it and double down.');
     const accent = levelDiff > 0 ? 'green' : 'red';
     return { priority: 1, icon: _taSvg.zap, iconBg: accent === 'green' ? 'var(--green-l)' : 'var(--red-l)', iconColor: accent === 'green' ? 'var(--green)' : 'var(--red)', accent, title, detail };
   }
