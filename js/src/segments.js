@@ -1902,7 +1902,9 @@ function _buildSegChartAnalysis(data) {
         });
       }
       // Flag: small MRR segment outperforming  - possible expansion opportunity
-      const smallest = segMRR.filter(s => s.pct < 20 && s.delta > 2);
+      // Skip won/upsold stages - they're already expanded by definition
+      const wonTags = ['won', 'upsold', 'won / upsold', 'won/upsold'];
+      const smallest = segMRR.filter(s => s.pct < 20 && s.delta > 2 && !wonTags.includes((s.tag || '').toLowerCase()));
       if (smallest.length > 0) {
         const opp = smallest.reduce((a, b) => b.delta > a.delta ? b : a);
         insights.push({
