@@ -321,7 +321,7 @@ const WEIGHT_LABELS = {
 };
 
 // 5-band thresholds: critical < T1, risk < T2, watch < T3, healthy < T4, expand >= T4
-const DEFAULT_THRESHOLDS = { critical: 25, risk: 50, watch: 65, healthy: 80 };
+const DEFAULT_THRESHOLDS = { critical: 25, risk: 50, watch: 65, healthy: 90 };
 
 let weights    = { ...DEFAULT_WEIGHTS };
 let thresholds = { ...DEFAULT_THRESHOLDS };
