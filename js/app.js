@@ -23904,7 +23904,7 @@ function _buildTrendAnalysis(active, data1, data2, cutoff, rangeDays, m1, m2, pr
     isScoreMetric ? _taLeadingIndicator(active, cutoff, rangeDays) : null,
     isScoreMetric ? _taChurnPatternMatch(active, rangeDays) : null,
     _taChurnImpact(cutoff, rangeDays),
-    _taContactGapImpact(active, cutoff, rangeDays),
+    isScoreMetric ? _taContactGapImpact(active, cutoff, rangeDays) : null,
     _taInflection(data1, m1, rangeDays, active),
     _taSeasonalPattern(data1, m1, rangeDays, priorData),
     _taCrossSignal(active, cutoff, m1),
