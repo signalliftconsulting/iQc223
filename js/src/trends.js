@@ -1380,71 +1380,76 @@ function _taCrossSignal(active, cutoff, metricKey) {
   if (active.length < 6) return null;
   const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
   const label = cfg.label || metricKey;
-  // Split accounts by whether their primary metric improved or declined
-  const improving = [], declining = [];
-  active.forEach(c => {
-    const hist = (c.history || []).filter(h => h.date).sort((a,b) => a.date.localeCompare(b.date));
-    const inRange = hist.filter(h => new Date(h.date) >= cutoff);
-    const before = hist.filter(h => new Date(h.date) < cutoff);
-    if (!inRange.length) return;
-    const startVal = before.length ? cfg.val(before[before.length - 1], c) : cfg.val(inRange[0], c);
-    const endVal = cfg.val(inRange[inRange.length - 1], c);
-    if (startVal == null || endVal == null) return;
-    const delta = endVal - startVal;
-    if (delta > 0.5) improving.push(c);
-    else if (delta < -0.5) declining.push(c);
-  });
-  if (improving.length < 2 || declining.length < 2) return null;
-  // Check which other signal differs most between the two groups
+
+  // Compare signal CHANGES (not snapshots) between improving and declining accounts
   const signals = [
-    { key: 'logins', getter: c => c.logins, label: 'Logins' },
-    { key: 'adoption', getter: c => c.adoption, label: 'Adoption %' },
-    { key: 'tickets', getter: c => c.tickets, label: 'Open Tickets' },
-    { key: 'nps', getter: c => c.nps, label: 'NPS' },
-    { key: 'csat', getter: c => c.csat, label: 'CSAT' },
-    { key: 'days', getter: c => c.days, label: 'Days Since Contact' }
-  ].filter(s => s.key !== metricKey); // Don't compare metric to itself
-  let bestSignal = null, bestGap = 0;
+    { key: 'logins', label: 'Logins' },
+    { key: 'adoption', label: 'Adoption' },
+    { key: 'tickets', label: 'Tickets' },
+    { key: 'nps', label: 'NPS' },
+    { key: 'csat', label: 'CSAT' },
+    { key: 'days', label: 'Days Since Contact' }
+  ].filter(s => s.key !== metricKey);
+
+  // For each account, compute score delta and signal deltas over the period
+  const acctData = [];
+  active.forEach(c => {
+    if (c.lifecycle === 'churned') return;
+    const scoreDelta = _getDeltaNd(c, Math.round((Date.now() - cutoff.getTime()) / 86400000));
+    if (scoreDelta === null) return;
+    const sigDeltas = {};
+    signals.forEach(sig => {
+      const sh = _sigHist(c, sig.key, cutoff);
+      if (sh.delta != null) sigDeltas[sig.key] = sh.delta;
+    });
+    acctData.push({ c, scoreDelta, sigDeltas });
+  });
+  if (acctData.length < 6) return null;
+
+  const improving = acctData.filter(a => a.scoreDelta > 2);
+  const declining = acctData.filter(a => a.scoreDelta < -2);
+  if (improving.length < 2 || declining.length < 2) return null;
+
+  // Find which signal's CHANGE differs most between improving and declining groups
+  let bestSig = null, bestDiff = 0;
   signals.forEach(sig => {
-    const impVals = improving.map(c => sig.getter(c)).filter(v => v != null);
-    const decVals = declining.map(c => sig.getter(c)).filter(v => v != null);
-    if (impVals.length < 2 || decVals.length < 2) return;
-    const impAvg = impVals.reduce((s,v) => s+v, 0) / impVals.length;
-    const decAvg = decVals.reduce((s,v) => s+v, 0) / decVals.length;
-    const gap = Math.abs(impAvg - decAvg);
-    // Normalize by the signal's range to compare fairly
-    const maxVal = Math.max(...impVals, ...decVals);
-    const minVal = Math.min(...impVals, ...decVals);
-    const range = maxVal - minVal || 1;
-    const normalizedGap = gap / range;
-    if (normalizedGap > bestGap) {
-      bestGap = normalizedGap;
-      bestSignal = { ...sig, impAvg, decAvg, gap: impAvg - decAvg };
+    const impDeltas = improving.map(a => a.sigDeltas[sig.key]).filter(v => v != null);
+    const decDeltas = declining.map(a => a.sigDeltas[sig.key]).filter(v => v != null);
+    if (impDeltas.length < 2 || decDeltas.length < 2) return;
+    const impAvg = impDeltas.reduce((s,v) => s+v, 0) / impDeltas.length;
+    const decAvg = decDeltas.reduce((s,v) => s+v, 0) / decDeltas.length;
+    const diff = Math.abs(impAvg - decAvg);
+    // Use stddev of all values as normalizer (not range - avoids outlier distortion)
+    const allVals = [...impDeltas, ...decDeltas];
+    const mean = allVals.reduce((s,v) => s+v, 0) / allVals.length;
+    const stddev = Math.sqrt(allVals.reduce((s,v) => s + (v - mean) ** 2, 0) / allVals.length) || 1;
+    const normalized = diff / stddev;
+    if (normalized > bestDiff) {
+      bestDiff = normalized;
+      bestSig = { ...sig, impAvgDelta: impAvg, decAvgDelta: decAvg };
     }
   });
-  if (!bestSignal || bestGap < 0.15) return null;
-  const fv = v => Math.round(v * 10) / 10;
-  const inverted = _invertedMetrics.has(bestSignal.key); // Lower = better
-  // For inverted metrics: improving accounts having LOWER values = expected positive pattern
-  // gap = impAvg - decAvg; for inverted: negative gap means improving accounts have lower (better) values
-  const isHealthyPattern = inverted ? bestSignal.gap < 0 : bestSignal.gap > 0;
+  if (!bestSig || bestDiff < 0.5) return null;
 
-  // Name the 2 worst accounts for this signal
-  const actionAccounts = declining.filter(c => {
-    const v = bestSignal.getter(c);
-    return v != null;
-  }).sort((a,b) => {
-    const va = bestSignal.getter(a), vb = bestSignal.getter(b);
-    return inverted ? vb - va : va - vb; // worst first
-  }).slice(0, 2);
+  const fv = v => (v >= 0 ? '+' : '') + (Math.round(v * 10) / 10);
+  const inverted = _invertedMetrics.has(bestSig.key);
 
-  const title = bestSignal.label + ' is the biggest gap between healthy and declining accounts';
-  let detail = `Declining accounts average <strong>${fv(bestSignal.decAvg)}</strong> ${bestSignal.label} vs <strong>${fv(bestSignal.impAvg)}</strong> for improving ones. `;
-  if (actionAccounts.length) {
-    detail += 'Worst: ' + actionAccounts.map(c => `${_taCustLink(c.name, c.id)} (${fv(bestSignal.getter(c))})`).join(', ') + '.';
+  // Find top 2 declining accounts where this signal changed the most in the bad direction
+  const worstAccts = declining
+    .filter(a => a.sigDeltas[bestSig.key] != null)
+    .sort((a,b) => inverted ? b.sigDeltas[bestSig.key] - a.sigDeltas[bestSig.key] : a.sigDeltas[bestSig.key] - b.sigDeltas[bestSig.key])
+    .slice(0, 2);
+
+  const impDir = inverted ? (bestSig.impAvgDelta < 0 ? 'dropped' : 'rose') : (bestSig.impAvgDelta > 0 ? 'rose' : 'dropped');
+  const decDir = inverted ? (bestSig.decAvgDelta > 0 ? 'rose' : 'dropped') : (bestSig.decAvgDelta < 0 ? 'dropped' : 'rose');
+
+  const title = bestSig.label + ' change is the biggest differentiator between improving and declining accounts';
+  let detail = `Improving accounts saw ${bestSig.label} move <strong>${fv(bestSig.impAvgDelta)}</strong> on avg, while declining accounts moved <strong>${fv(bestSig.decAvgDelta)}</strong>. `;
+  if (worstAccts.length) {
+    detail += worstAccts.map(a => `${_taCustLink(a.c.name, a.c.id)} (${bestSig.label} ${fv(a.sigDeltas[bestSig.key])})`).join(' and ');
+    detail += ` had the sharpest ${bestSig.label} shifts among declining accounts. Address ${bestSig.label} to move their scores.`;
   }
-  const accent = isHealthyPattern ? 'green' : 'amber';
-  return { priority: 3, icon: _taSvg.signal, iconBg: isHealthyPattern ? 'var(--green-l)' : 'var(--amber-l)', iconColor: isHealthyPattern ? 'var(--green)' : 'var(--amber)', accent, title, detail };
+  return { priority: 3, icon: _taSvg.signal, iconBg: 'var(--amber-l)', iconColor: 'var(--amber)', accent: 'amber', title, detail };
 }
 
 /* ── Drop Attribution  - decompose score drops into signal contributions ── */
@@ -2028,23 +2033,45 @@ function _buildTrendAnalysis(active, data1, data2, cutoff, rangeDays, m1, m2, pr
     ? customers.filter(c => passesManagerFilter(c))
     : active;
 
+  // When user selects a dual metric or CSM overlay, those insights should appear first
+  // because the user is actively asking about that relationship
+  const hasDualMetric = m2 && data2 && data2.length;
+  const hasCsmOverlay = !!_trendCsmOverlay;
+
   const results = [
-    // Priority 1: pattern-based predictions and root causes
+    // Pattern-based predictions
     _taLeadingIndicator(active, cutoff, rangeDays),
     _taChurnPatternMatch(active, rangeDays),
     _taChurnImpact(cutoff, rangeDays),
-    // Priority 2: cross-signal analysis and correlations
+    // Cross-signal analysis
     _taContactGapImpact(active, cutoff, rangeDays),
     _taInflection(data1, m1, rangeDays, active),
     _taDropAttribution(active, data1, m1, cutoff, rangeDays),
     _taSeasonalPattern(data1, m1, rangeDays, priorData),
-    // Priority 3: signal relationships
+    // Signal relationships
     _taCrossSignal(active, cutoff, m1),
     _taMetricCorrelation(data1, data2, m1, m2, rangeDays),
     _taCsmDivergence(data1, active, cutoff, rangeDays, m1),
-    // Priority 5: always-available fallback
+    // Fallback
     _taPortfolioSummary(active, data1, rangeDays)
   ].filter(Boolean);
+
+  // Boost priority of contextual insights when user has selected overlays
+  // These should always be in the top 3 since the user explicitly asked about them
+  results.forEach(r => {
+    if (hasDualMetric && r === results.find(x => x && x.detail && x.detail.includes(METRIC_CFG[m2]?.label))) {
+      r.priority = 0;
+    }
+  });
+  // Simpler: boost CSM divergence and metric correlation directly
+  if (hasCsmOverlay) {
+    const csm = results.find(r => r.title && r.title.includes(_trendCsmOverlay));
+    if (csm) csm.priority = 0;
+  }
+  if (hasDualMetric) {
+    const corr = results.find(r => r.title && (r.title.includes('both') || r.title.includes('recovering') || r.title.includes('while')));
+    if (corr) corr.priority = 0;
+  }
 
   results.sort((a, b) => a.priority - b.priority);
   // Always show exactly 3 insights (or fewer if not enough data)
