@@ -1839,18 +1839,39 @@ function _taChurnImpact(cutoff, rangeDays) {
   const recentChurns = [];
   churned.forEach(c => {
     const hist = (c.history || []).filter(h => h.date).sort((a,b) => a.date.localeCompare(b.date));
-    // Find churn point: first entry where _mrr drops to 0
+    // Find churn point: first entry where _mrr drops to 0, capture pre-churn MRR from history
     let churnDate = null;
+    let preMrr = 0;
     for (let i = 1; i < hist.length; i++) {
-      if (hist[i].signals?._mrr === 0 && hist[i-1].signals?._mrr > 0) {
+      const curMrr = hist[i].signals?._mrr;
+      const prevMrr = hist[i-1].signals?._mrr;
+      if (curMrr === 0 && prevMrr > 0) {
         churnDate = new Date(hist[i].date);
+        preMrr = prevMrr;
         break;
       }
     }
+    // Fallback: scan history for highest _mrr if no clean transition found
+    if (!preMrr) {
+      for (const h of hist) {
+        if (h.signals?._mrr > preMrr) preMrr = h.signals._mrr;
+      }
+    }
+    if (!churnDate) {
+      // Approximate: find last non-zero _mrr entry
+      for (let i = hist.length - 1; i >= 0; i--) {
+        if (hist[i].signals?._mrr > 0) {
+          churnDate = new Date(hist[Math.min(i + 1, hist.length - 1)].date);
+          break;
+        }
+      }
+    }
     if (!churnDate) return;
+    // Last resort fallback for MRR
+    if (!preMrr) preMrr = c._prechurnMrr || 0;
     const ct = churnDate.getTime();
     if (ct >= rangeStart && ct <= rangeEnd) {
-      recentChurns.push({ c, churnDate, mrr: c._prechurnMrr || 0 });
+      recentChurns.push({ c, churnDate, mrr: preMrr });
     }
   });
   if (!recentChurns.length) return null;
