@@ -2185,8 +2185,13 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       <div class="trend-client-tags" id="trend-client-tags"></div>
     </div>
     <div class="trend-ctrl-sep"></div>
-    <label class="trend-ctrl-group" style="cursor:pointer;gap:6px;font-size:var(--fs-base);color:var(--muted);user-select:none;white-space:nowrap" title="Include churned accounts in charts and metrics. Their data stops counting from their churn date.">
-      <input type="checkbox" id="trend-show-churned" onchange="toggleTrendChurned(this.checked)" style="accent-color:var(--blue);cursor:pointer"> Include Churned
+    <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none;white-space:nowrap;padding:4px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);font-size:var(--fs-sm);color:var(--muted);transition:all .15s" title="Include churned accounts in charts and metrics. Their data stops counting from their churn date." id="trend-churned-label">
+      <span style="position:relative;width:32px;height:18px;flex-shrink:0">
+        <input type="checkbox" id="trend-show-churned" onchange="toggleTrendChurned(this.checked)" style="position:absolute;opacity:0;width:0;height:0">
+        <span style="position:absolute;inset:0;border-radius:9px;background:#cbd5e1;transition:background .2s" id="trend-churned-track"></span>
+        <span style="position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .2s" id="trend-churned-thumb"></span>
+      </span>
+      <span>Include Churned</span>
     </label>
   </div>
 
@@ -4392,6 +4397,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=553"></script>
+<script src="js/app.js?v=554"></script>
 </body>
 </html>

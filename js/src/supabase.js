@@ -1034,19 +1034,19 @@ const _DEMO_TRAJECTORIES = {
 // Trajectory percentages — realistic SaaS portfolio with spread across score ranges
 // More mid-range customers, fewer at extremes, varied stories
 const _DEMO_TRAJ_PCTS = [
-  ['stable-healthy',      0.16],  // top performers (75-88)
-  ['good-not-great',      0.12],  // solid middle (60-75)
-  ['stable-mid',          0.08],  // watch zone (42-62)
+  ['stable-healthy',      0.14],  // top performers (75-88)
+  ['good-not-great',      0.10],  // solid middle (60-75)
+  ['stable-mid',          0.07],  // watch zone (42-62)
   ['stable-low',          0.03],  // struggling (22-38)
-  ['improving',           0.08],  // clear upswing
-  ['slow-improve',        0.06],  // grinding upward
+  ['improving',           0.07],  // clear upswing
+  ['slow-improve',        0.05],  // grinding upward
   ['declining',           0.04],  // sliding down
   ['slow-decline',        0.04],  // gradual erosion
-  ['volatile',            0.05],  // unpredictable swings
-  ['onboarding-fast',     0.05],  // new — ramping quickly
-  ['onboarding-slow',     0.04],  // new — struggling to ramp
-  ['churned-early',       0.04],  // lost early on
-  ['churned-late',        0.04],  // lost after long tenure
+  ['volatile',            0.04],  // unpredictable swings
+  ['onboarding-fast',     0.04],  // new — ramping quickly
+  ['onboarding-slow',     0.03],  // new — struggling to ramp
+  ['churned-early',       0.07],  // lost early on (~5-6 accounts)
+  ['churned-late',        0.07],  // lost after long tenure (~5-6 accounts)
   ['recovered',           0.06],  // bounced back strong
   ['partial-recovery',    0.05],  // came back but stalled
   ['seasonal',            0.04],  // healthy with cycles
@@ -1116,9 +1116,11 @@ function _generateDemoHistory(trajKey, now, overrideDays, rng, phaseOff, mrr) {
   const r = rng || Math.random;
   const totalDays = overrideDays || traj.historyDays || 730;
   const entries = [];
-  // For churned trajectories, determine the churn point (~70-80% through history)
+  // For churned trajectories, determine the churn point
+  // Spread churns across the timeline: 40-85% through history
+  // so some churned a year ago, others recently
   const isChurned = trajKey.startsWith('churned');
-  const churnDay = isChurned ? Math.round(totalDays * (0.70 + (r() * 0.15))) : null;
+  const churnDay = isChurned ? Math.round(totalDays * (0.40 + (r() * 0.45))) : null;
   for (let d = totalDays; d >= 0; d--) {
     // Variable frequency: weekly for old data, denser for recent
     if (d > 0 && d < totalDays) {
@@ -1156,8 +1158,12 @@ function _generateDemoCustomer(name, index, now, trajList, csmAssignments) {
   const phaseOff = Math.round((rng() - 0.5) * 180);
 
   // Tier & MRR — deterministic per customer, decoupled from trajectory
+  // Churned accounts skew toward mid/enterprise so churn impact is visible
   const tierRoll = rng();
-  const tier = tierRoll < 0.55 ? 'smb' : tierRoll < 0.85 ? 'mid' : 'enterprise';
+  const isChurnedTraj = trajKey.startsWith('churned');
+  const tier = isChurnedTraj
+    ? (tierRoll < 0.30 ? 'smb' : tierRoll < 0.70 ? 'mid' : 'enterprise')
+    : (tierRoll < 0.55 ? 'smb' : tierRoll < 0.85 ? 'mid' : 'enterprise');
   // Per-customer MRR spread — wider ranges so customers differ meaningfully
   const mrr = tier === 'smb' ? Math.round(_dRand(400,4000,rng)/50)*50
             : tier === 'mid' ? Math.round(_dRand(2500,22000,rng)/100)*100

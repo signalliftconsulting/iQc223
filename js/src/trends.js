@@ -108,7 +108,20 @@ function setTrendCsmOverlay(mgr) {
 
 function toggleTrendChurned(on) {
   _trendShowChurned = !!on;
+  _syncChurnedToggle();
   renderTrends();
+}
+function _syncChurnedToggle() {
+  const track = el('trend-churned-track');
+  const thumb = el('trend-churned-thumb');
+  const label = el('trend-churned-label');
+  if (track) track.style.background = _trendShowChurned ? '#3b82f6' : '#cbd5e1';
+  if (thumb) thumb.style.transform = _trendShowChurned ? 'translateX(14px)' : 'translateX(0)';
+  if (label) {
+    label.style.borderColor = _trendShowChurned ? '#3b82f6' : '';
+    label.style.background = _trendShowChurned ? 'rgba(59,130,246,.06)' : '';
+    label.style.color = _trendShowChurned ? 'var(--text)' : '';
+  }
 }
 
 function addTrendClient(id) {
@@ -289,9 +302,10 @@ document.addEventListener('click', function(e) {
 });
 
 function renderTrends() {
-  // Sync churned toggle checkbox
+  // Sync churned toggle
   const _churnCb = el('trend-show-churned');
   if (_churnCb) _churnCb.checked = _trendShowChurned;
+  _syncChurnedToggle();
 
   const range = _trendRange || '30d';
   const m1 = _trendMetric1 || 'score';
