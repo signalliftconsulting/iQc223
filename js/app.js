@@ -21770,6 +21770,19 @@ let _trendShowChurned = false;   // include churned accounts in charts
 let _trendTipData = [];          // tooltip data per date column
 let _trendFirstRender = true;    // fade-in only on first render
 
+// Range-aware delta: compare current score to score N days ago
+// Returns null if no data exists near the range start (no fake baseline)
+// Module-level so KPIs and analysis functions share the same calculation
+function _getDeltaNd(c, n) {
+  const ago = new Date(); ago.setDate(ago.getDate() - n);
+  const hist = (c.history || []).slice().sort((a,b) => new Date(b.date) - new Date(a.date));
+  const recent = hist.filter(h => new Date(h.date) >= ago);
+  if (!recent.length) return null;
+  const before = hist.filter(h => new Date(h.date) < ago);
+  if (!before.length) return null;
+  return recent[0].score - before[0].score;
+}
+
 const METRIC_CFG = {
   score:    { label:'Health Score',        agg:'avg', fixed:[0,100], val: (h,c) => h.score,                            fmt: v => String(Math.round(v)),            axFmt: v => String(Math.round(v)) },
   logins:   { label:'Logins',             agg:'avg', fixed:null,     val: (h,c) => h.signals?.logins,                  fmt: v => String(Math.round(v*10)/10),     axFmt: v => String(Math.round(v*10)/10) },
@@ -22137,18 +22150,6 @@ function renderTrends() {
 
   // ── KPIs (range-aware, based on health score) ──
   const currentAvg = active.length ? Math.round(active.reduce((s,c) => s + (c.score||0), 0) / active.length) : 0;
-
-  // Range-aware delta: compare current score to score N days ago
-  // Returns null if no data exists near the range start (no fake baseline)
-  function _getDeltaNd(c, n) {
-    const ago = new Date(); ago.setDate(ago.getDate() - n);
-    const hist = (c.history || []).slice().sort((a,b) => new Date(b.date) - new Date(a.date));
-    const recent = hist.filter(h => new Date(h.date) >= ago);
-    if (!recent.length) return null;
-    const before = hist.filter(h => new Date(h.date) < ago);
-    if (!before.length) return null; // no data before range start → N/A
-    return recent[0].score - before[0].score;
-  }
 
   let improving = 0, declining = 0;
   let deltaSum = 0, deltaCount = 0;
@@ -23082,6 +23083,10 @@ function _taVolatility(data, metricKey) {
   const baseExpected = isCurrency ? 500 : Math.max(0.1, dataRange * 0.05);
   const ratio = stddev / baseExpected;
   if (ratio > 0.5 && ratio < 2.0) return null; // Normal range
+  // Don't flag volatility if the actual stddev is trivially small
+  // For scores (0-100): ±1 is noise. For others: ±0.5 is noise.
+  const minStddev = isCurrency ? 1000 : (metricKey === 'score' || metricKey === 'adoption' ? 1.5 : 0.5);
+  if (stddev < minStddev && !isStable) return null;
   const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
   const _lib = cfg.lowerIsBetter;
   const isStable = ratio <= 0.5;
@@ -23109,17 +23114,25 @@ function _taPeriodComparison(data, metricKey, cutoff, rangeDays, active) {
   const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
   if (data.length < 2 || active.length < 3) return null;
 
-  // Compute per-customer delta in the current period
+  // Use getDelta7d for health score (matches KPI cards exactly),
+  // otherwise compute from metric val function
+  const isScore = metricKey === 'score';
   const movers = [];
   active.forEach(c => {
-    const hist = (c.history || []).filter(h => h.date).sort((a,b) => a.date.localeCompare(b.date));
-    const inRange = hist.filter(h => new Date(h.date) >= cutoff);
-    const before = hist.filter(h => new Date(h.date) < cutoff);
-    if (!inRange.length) return;
-    const startVal = before.length ? cfg.val(before[before.length - 1], c) : cfg.val(inRange[0], c);
-    const endVal = cfg.val(inRange[inRange.length - 1], c);
-    if (startVal == null || endVal == null) return;
-    movers.push({ name: c.name, id: c.id, delta: endVal - startVal, start: startVal, end: endVal });
+    if (isScore) {
+      const d = _getDeltaNd(c, rangeDays);
+      if (d === null) return;
+      movers.push({ name: c.name, id: c.id, delta: d, start: c.score - d, end: c.score });
+    } else {
+      const hist = (c.history || []).filter(h => h.date).sort((a,b) => a.date.localeCompare(b.date));
+      const inRange = hist.filter(h => new Date(h.date) >= cutoff);
+      const before = hist.filter(h => new Date(h.date) < cutoff);
+      if (!inRange.length) return;
+      const startVal = before.length ? cfg.val(before[before.length - 1], c) : cfg.val(inRange[0], c);
+      const endVal = cfg.val(inRange[inRange.length - 1], c);
+      if (startVal == null || endVal == null) return;
+      movers.push({ name: c.name, id: c.id, delta: endVal - startVal, start: startVal, end: endVal });
+    }
   });
   if (movers.length < 3) return null;
   movers.sort((a, b) => a.delta - b.delta);
@@ -23562,9 +23575,20 @@ function _taChurnImpact(cutoff, rangeDays) {
         }
       }
     }
+    if (!churnDate) {
+      // Last resort: use renewal_date as approximate churn date
+      if (c.renewal_date) {
+        const rd = new Date(c.renewal_date);
+        if (rd <= new Date()) churnDate = rd;
+      }
+    }
     if (!churnDate) return;
-    // Last resort fallback for MRR
+    // Last resort fallback for MRR — estimate from tier if no _mrr in history
     if (!preMrr) preMrr = c._prechurnMrr || 0;
+    if (!preMrr) {
+      // Estimate based on tier midpoints
+      preMrr = c.tier === 'enterprise' ? 25000 : c.tier === 'mid' ? 8000 : 1500;
+    }
     const ct = churnDate.getTime();
     if (ct >= rangeStart && ct <= rangeEnd) {
       recentChurns.push({ c, churnDate, mrr: preMrr });
