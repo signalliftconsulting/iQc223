@@ -1454,7 +1454,9 @@ function _taCrossSignal(active, cutoff, metricKey) {
 
 /* ── Drop Attribution  - decompose score drops into signal contributions ── */
 
-function _attributeScoreDrop(custs, peakDate, troughDate) {
+// REMOVED: old _attributeScoreDrop - was diluting per-signal impact to near zero
+// by averaging across all customers. Replaced with _taScoreDrivers below.
+function _DISABLED_attributeScoreDrop(custs, peakDate, troughDate) {
   const SIGNALS = [
     { key: 'logins',   label: 'Logins',   unit: '',  norm: v => v != null ? Math.min(v / 30, 1) * 100 : 50 },
     { key: 'adoption', label: 'Adoption', unit: '%', norm: v => v != null ? Math.min(v, 100) : 50 },
@@ -1512,203 +1514,81 @@ function _attributeScoreDrop(custs, peakDate, troughDate) {
   }).filter(Boolean).sort((a, b) => a.contribution - b.contribution);
 }
 
-function _taDropAttribution(active, data1, metricKey, cutoff, rangeDays) {
-  if (!data1 || data1.length < 5) return null;
-  const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
+/* ── Score Drivers: which signals actually moved the portfolio score ── */
+function _taScoreDrivers(active, data1, metricKey, cutoff, rangeDays) {
+  if (metricKey !== 'score' || !data1 || data1.length < 5 || active.length < 5) return null;
 
-  // Find largest peak-to-trough drawdown
-  let peakVal = data1[0].avg, peakIdx = 0;
-  let bestDrop = 0, bestPeakIdx = 0, bestTroughIdx = 0;
-  for (let i = 1; i < data1.length; i++) {
-    if (data1[i].avg > peakVal) { peakVal = data1[i].avg; peakIdx = i; }
-    const drawdown = peakVal - data1[i].avg;
-    if (drawdown > bestDrop) { bestDrop = drawdown; bestPeakIdx = peakIdx; bestTroughIdx = i; }
-  }
-  if (bestDrop < 0.5) return null;
+  // Use actual chart start and end values - not peak/trough math
+  const startAvg = Math.round(data1[0].avg);
+  const endAvg = Math.round(data1[data1.length - 1].avg);
+  const scoreDelta = endAvg - startAvg;
+  if (Math.abs(scoreDelta) < 2) return null; // Not enough movement to analyze
 
-  const peakPt = data1[bestPeakIdx];
-  const troughPt = data1[bestTroughIdx];
-  const dropAbs = peakPt.avg - troughPt.avg;
-  const dropPct = peakPt.avg !== 0 ? (dropAbs / peakPt.avg) * 100 : 0;
+  const rl = _taRangeLabel(rangeDays);
+  const nonChurned = active.filter(c => c.lifecycle !== 'churned');
 
-  // Recovery check: if the metric recovered >50% of the drop after the trough, skip
-  // For lowerIsBetter metrics a drop is good, so "recovery" (going back up) means the gain was lost
-  const finalPt = data1[data1.length - 1];
-  const recovery = finalPt.avg - troughPt.avg;
-  if (!cfg.lowerIsBetter && dropAbs > 0 && recovery / dropAbs > 0.5) return null; // recovered  - not a current concern
-  if (cfg.lowerIsBetter && dropAbs > 0 && recovery / dropAbs > 0.5) return null; // bounced back up  - gain was temporary
+  // For each signal, compute the average CHANGE across the portfolio over the period
+  const SIGS = [
+    { key: 'logins', label: 'Logins', unit: '', bad: 'down', good: 'up' },
+    { key: 'adoption', label: 'Adoption', unit: '%', bad: 'down', good: 'up' },
+    { key: 'tickets', label: 'Tickets', unit: '', bad: 'up', good: 'down' },
+    { key: 'nps', label: 'NPS', unit: '', bad: 'down', good: 'up' },
+    { key: 'csat', label: 'CSAT', unit: '', bad: 'down', good: 'up' },
+    { key: 'days', label: 'Days Since Contact', unit: 'd', bad: 'up', good: 'down' }
+  ];
 
-  // Significance check: compute std dev of daily changes
-  const deltas = [];
-  for (let i = 1; i < data1.length; i++) deltas.push(data1[i].avg - data1[i - 1].avg);
-  const meanDelta = deltas.reduce((s, v) => s + v, 0) / (deltas.length || 1);
-  const stdDev = Math.sqrt(deltas.reduce((s, v) => s + Math.pow(v - meanDelta, 2), 0) / (deltas.length || 1));
-
-  // Must be significant: > 5 pts (score) or > 10% (other), AND > 1.5× std dev
-  const isScore = metricKey === 'score';
-  if (isScore && dropAbs < 5) return null;
-  if (!isScore && dropPct < 10) return null;
-  if (stdDev > 0 && dropAbs < stdDev * 1.5) return null;
-
-  // Format dates
-  const fmtDate = d => { const dt = new Date(d); return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
-  const peakDateStr = fmtDate(peakPt.date);
-  const troughDateStr = fmtDate(troughPt.date);
-
-  // ── Per-customer concentration analysis ──
-  const peakT = new Date(peakPt.date).getTime();
-  const troughT = new Date(troughPt.date).getTime();
-  const custDeltas = [];
-  active.forEach(c => {
-    const hist = (c.history || []).filter(h => h.date).sort((a, b) => a.date.localeCompare(b.date));
-    if (!hist.length) return;
-    const findClosest = (tgt) => hist.reduce((best, h) =>
-      Math.abs(new Date(h.date).getTime() - tgt) < Math.abs(new Date(best.date).getTime() - tgt) ? h : best
-    );
-    const pe = findClosest(peakT);
-    const te = findClosest(troughT);
-    const sv = cfg.val(pe, c), ev = cfg.val(te, c);
-    if (sv != null && ev != null) custDeltas.push({ name: c.name, id: c.id, delta: ev - sv });
+  const sigChanges = [];
+  SIGS.forEach(sig => {
+    const deltas = [];
+    nonChurned.forEach(c => {
+      const sh = _sigHist(c, sig.key, cutoff);
+      if (sh.delta != null) deltas.push(sh.delta);
+    });
+    if (deltas.length < 3) return;
+    const avgDelta = deltas.reduce((s,v) => s+v, 0) / deltas.length;
+    // Is this signal moving in a bad direction?
+    const isWorsening = (sig.bad === 'up' && avgDelta > 0.3) || (sig.bad === 'down' && avgDelta < -0.3);
+    const isImproving = (sig.good === 'up' && avgDelta > 0.3) || (sig.good === 'down' && avgDelta < -0.3);
+    sigChanges.push({ ...sig, avgDelta, isWorsening, isImproving, count: deltas.length });
   });
 
-  let concentrationNote = '';
-  const _lib = cfg.lowerIsBetter; // drop = good for this metric
-  if (custDeltas.length >= 2) {
-    const declined = custDeltas.filter(d => d.delta < -0.5);
-    const improved = custDeltas.filter(d => d.delta > 0.5);
-    const pctDeclined = Math.round((declined.length / custDeltas.length) * 100);
-    const dropWord = _lib ? 'improvement' : 'decline';
-    const droppedWord = _lib ? 'improved' : 'dropped';
+  const fd = v => (v >= 0 ? '+' : '') + (Math.round(v * 10) / 10);
+  const declining = scoreDelta < 0;
 
-    if (declined.length <= 2 && declined.length > 0 && custDeltas.length > 3) {
-      // Concentrated: 1-2 accounts drove it
-      declined.sort((a, b) => a.delta - b.delta);
-      const fv = v => _fmtTaVal(Math.abs(v), metricKey);
-      if (declined.length === 1) {
-        concentrationNote = ` This was driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv(declined[0].delta)})  - the remaining ${custDeltas.length - 1} accounts were relatively flat.`;
-      } else {
-        concentrationNote = ` Driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv(declined[0].delta)}) and ${_taCustLink(declined[1].name, declined[1].id)} (down ${fv(declined[1].delta)})  - most of the other ${custDeltas.length - 2} accounts were relatively flat.`;
-      }
-    } else if (pctDeclined >= 60) {
-      if (custDeltas.length <= 5) {
-        concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts ${droppedWord} during this period.`;
-      } else {
-        concentrationNote = ` This was a broad-based ${dropWord} across the portfolio  - <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) ${droppedWord} during this period.`;
-      }
-    } else if (pctDeclined >= 30) {
-      concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) ${droppedWord} while ${improved.length} ${_lib ? 'worsened' : 'improved'} - a mixed portfolio with accounts moving in different directions.`;
-    }
-  }
-
-  // ── Day-over-day spikes (changes of ±7% or more) ──
-  const dropSlice = data1.slice(bestPeakIdx, bestTroughIdx + 1);
-  const dodSpikes = [];
-  for (let i = 1; i < dropSlice.length; i++) {
-    const prev = dropSlice[i - 1].avg;
-    const curr = dropSlice[i].avg;
-    if (prev === 0) continue;
-    const changePct = ((curr - prev) / Math.abs(prev)) * 100;
-    if (Math.abs(changePct) >= 7) {
-      dodSpikes.push({ date: dropSlice[i].date, changePct, prev, curr });
-    }
-  }
-  let spikeNote = '';
-  if (dodSpikes.length > 0) {
-    dodSpikes.sort((a, b) => a.changePct - b.changePct); // most negative first
-    const worst = dodSpikes[0];
-    const fv = v => _fmtTaVal(v, metricKey);
-    const sharpWord = _lib ? 'Sharpest single-day improvement' : 'Sharpest single-day drop';
-    spikeNote = ` ${sharpWord} was <strong>${Math.abs(Math.round(worst.changePct))}%</strong> on ${fmtDate(worst.date)} (${fv(worst.prev)} → ${fv(worst.curr)}).`;
-    if (dodSpikes.length > 1) {
-      spikeNote += ` There were <strong>${dodSpikes.length} days</strong> during this window with day-over-day changes exceeding 7%.`;
-    }
-  }
-
-  let title, detail;
-
-  if (isScore) {
-    // Decompose into signal contributions
-    const attribs = _attributeScoreDrop(active, peakPt.date, troughPt.date);
-    const negatives = attribs.filter(a => a.contribution < -0.3);
-    if (!negatives.length) return null;
-
-    title = 'Decline Drivers';
-    const topN = negatives.slice(0, 3);
-    const drivers = topN.map(a => {
-      const fRaw = v => {
-        if (a.unit === '%') return Math.round(v) + '%';
-        if (a.unit === 'd') return Math.round(v) + ' days';
-        return Math.round(v * 10) / 10;
-      };
-      const impact = Math.abs(Math.round(a.contribution * 10) / 10);
-      if (a.signal === 'growth') {
-        const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : 'None';
-        if (a.rawStart === a.rawEnd) return null; // no change in mode  - skip
-        return `<strong>${a.label}</strong> shifted from ${cap(a.rawStart)} to ${cap(a.rawEnd)}, costing ~${impact} pts`;
-      }
-      if (a.signal === 'tickets') {
-        return `<strong>${a.label}</strong> increased from ${fRaw(a.rawStart)} to ${fRaw(a.rawEnd)}, costing ~${impact} pts on the score`;
-      }
-      if (a.signal === 'days') {
-        return `<strong>${a.label}</strong> increased from ${fRaw(a.rawStart)} to ${fRaw(a.rawEnd)}, costing ~${impact} pts`;
-      }
-      if (a.rawEnd < a.rawStart) {
-        return `<strong>${a.label}</strong> dropped from ${fRaw(a.rawStart)} to ${fRaw(a.rawEnd)}, costing ~${impact} pts`;
-      }
-      return `<strong>${a.label}</strong> moved from ${fRaw(a.rawStart)} to ${fRaw(a.rawEnd)}, costing ~${impact} pts`;
-    }).filter(Boolean);
-
+  if (declining) {
+    // Score went down - find the signals that worsened
+    const drivers = sigChanges.filter(s => s.isWorsening).sort((a,b) => Math.abs(b.avgDelta) - Math.abs(a.avgDelta));
     if (!drivers.length) return null;
-    detail = `Health Score fell <strong>${Math.round(dropAbs)} points</strong> (${Math.round(peakPt.avg)} → ${Math.round(troughPt.avg)}) between ${peakDateStr} and ${troughDateStr}. `;
-    if (drivers.length === 1) {
-      detail += `The primary driver was ${drivers[0]}.`;
-    } else {
-      detail += `The biggest factors: ${drivers.join('; ')}.`;
+    const top2 = drivers.slice(0, 2);
+
+    const title = 'Portfolio score dropped ' + Math.abs(scoreDelta) + ' pts - driven by ' + top2.map(d => d.label).join(' and ');
+    let detail = `Score went from <strong>${startAvg}</strong> to <strong>${endAvg}</strong> over ${rl}. `;
+    detail += top2.map(d => `<strong>${d.label}</strong> moved ${fd(d.avgDelta)}${d.unit} on average`).join(', ') + '. ';
+    // Is anything offsetting it?
+    const bright = sigChanges.filter(s => s.isImproving);
+    if (bright.length) {
+      detail += `${bright[0].label} improved (${fd(bright[0].avgDelta)}${bright[0].unit}) but wasn't enough to offset the decline. `;
     }
-    detail += concentrationNote + spikeNote;
+    detail += `Focus CSM efforts on the top declining signal (${top2[0].label}) to reverse the trend.`;
+    return { priority: 1, icon: _taSvg.drop, iconBg: 'var(--red-l)', iconColor: 'var(--red)', accent: 'red', title, detail };
   } else {
-    // Non-score metric: report the drop and cross-reference with health score
-    const _isGoodDrop = cfg.lowerIsBetter;
-    title = _isGoodDrop ? 'Significant Improvement' : 'Significant Decline';
-    const label = cfg.label;
-    const fv = v => _fmtTaVal(v, metricKey);
-    const fellWord = _isGoodDrop ? 'dropped' : 'fell';
-    detail = `${label} ${fellWord} <strong>${fv(dropAbs)}</strong> (${fv(peakPt.avg)} → ${fv(troughPt.avg)}) between ${peakDateStr} and ${troughDateStr}, which is larger than typical day-to-day variation for this metric.`;
-    detail += concentrationNote + spikeNote;
+    // Score went up - find what's driving it
+    const drivers = sigChanges.filter(s => s.isImproving).sort((a,b) => Math.abs(b.avgDelta) - Math.abs(a.avgDelta));
+    if (!drivers.length) return null;
+    const top2 = drivers.slice(0, 2);
 
-    // Cross-reference with health score
-    try {
-      const scoreData = aggregateByDay(active, 'score', cutoff);
-      if (scoreData.length >= 2) {
-        const findNearest = (arr, date) => arr.reduce((best, p) =>
-          Math.abs(new Date(p.date).getTime() - new Date(date).getTime()) < Math.abs(new Date(best.date).getTime() - new Date(date).getTime()) ? p : best
-        );
-        const sPeak = findNearest(scoreData, peakPt.date);
-        const sTrough = findNearest(scoreData, troughPt.date);
-        const sDelta = Math.round(sTrough.avg - sPeak.avg);
-        if (_isGoodDrop) {
-          if (sDelta > 2) {
-            detail += ` During the same window, Health Score improved <strong>${sDelta} points</strong>.`;
-          } else if (Math.abs(sDelta) <= 2) {
-            detail += ` Health Score stayed stable during this window despite the improvement.`;
-          }
-        } else {
-          if (sDelta < -2) {
-            detail += ` During the same window, Health Score also dropped <strong>${Math.abs(sDelta)} points</strong>.`;
-          } else if (Math.abs(sDelta) <= 2) {
-            detail += ` Health Score stayed stable during this window  - other signals offset the impact.`;
-          }
-        }
-      }
-    } catch (e) { /* aggregateByDay may fail for non-standard metrics */ }
+    const title = 'Portfolio score up ' + scoreDelta + ' pts - ' + top2.map(d => d.label).join(' and ') + ' leading';
+    let detail = `Score went from <strong>${startAvg}</strong> to <strong>${endAvg}</strong> over ${rl}. `;
+    detail += top2.map(d => `<strong>${d.label}</strong> improved ${fd(d.avgDelta)}${d.unit} on average`).join(', ') + '. ';
+    // Any drags?
+    const drags = sigChanges.filter(s => s.isWorsening);
+    if (drags.length) {
+      detail += `${drags[0].label} is still moving the wrong direction (${fd(drags[0].avgDelta)}${drags[0].unit}) - addressing it could accelerate gains.`;
+    } else {
+      detail += `All signals are trending positive - keep doing what's working.`;
+    }
+    return { priority: 2, icon: _taSvg.rise || _taSvg.trend, iconBg: 'var(--green-l)', iconColor: 'var(--green)', accent: 'green', title, detail };
   }
-
-  const _dropIsGood = cfg.lowerIsBetter;
-  const _accent = isScore ? 'red' : (_dropIsGood ? 'green' : 'red');
-  const _iconBg = _accent === 'green' ? 'var(--green-l)' : 'var(--red-l)';
-  const _iconClr = _accent === 'green' ? 'var(--green)' : 'var(--red)';
-  const _icon = _dropIsGood ? (_taSvg.rise || _taSvg.drop) : _taSvg.drop;
-  return { priority: 1, icon: _icon, iconBg: _iconBg, iconColor: _iconClr, accent: _accent, title, detail };
 }
 
 /* 9. Churn Impact  - call out churned accounts and their revenue impact */
@@ -2046,7 +1926,7 @@ function _buildTrendAnalysis(active, data1, data2, cutoff, rangeDays, m1, m2, pr
     // Cross-signal analysis
     _taContactGapImpact(active, cutoff, rangeDays),
     _taInflection(data1, m1, rangeDays, active),
-    _taDropAttribution(active, data1, m1, cutoff, rangeDays),
+    _taScoreDrivers(active, data1, m1, cutoff, rangeDays),
     _taSeasonalPattern(data1, m1, rangeDays, priorData),
     // Signal relationships
     _taCrossSignal(active, cutoff, m1),
