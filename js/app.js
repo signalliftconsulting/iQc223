@@ -960,7 +960,7 @@ var _WT_TOURS = {
       {
         target: '#cfg-sm-section',
         title: 'iQcadence Signal Model',
-        body: 'The Signal Model layers 26 proprietary factors on top of your base scores to detect hidden risks and expansion signals that raw numbers miss. Toggle it on and choose a sensitivity level to control how aggressively it flags accounts.',
+        body: 'The Signal Model layers 26 factors on top of your base scores to detect hidden risks and expansion signals that raw numbers miss. Toggle it on and choose a sensitivity level to control how aggressively it flags accounts.',
         tab: "cfgTab('config')"
       },
       {
@@ -5307,6 +5307,10 @@ async function _loadDemoFromCard() {
     }
     rescoreAll();
     if (typeof refreshMgrDropdown === 'function') refreshMgrDropdown();
+
+    // 5. Seed demo alert rules and custom rules
+    _seedDemoAutomations();
+
     renderHomeBase();
     nav('homebase');
     toast('Demo data loaded  - ' + COUNT + ' customers ready to explore!', 'success');
@@ -5315,6 +5319,78 @@ async function _loadDemoFromCard() {
     console.error('Demo seed error:', e);
     toast('Failed to load demo data: ' + e.message, 'error');
   }
+}
+
+function _seedDemoAutomations() {
+  // Seed sample alert rules and custom rules so the Automations page isn't empty
+  if (!automationsCfg) automationsCfg = {};
+
+  // Alert rules (pre-built alerts)
+  automationsCfg.alert_rules = [
+    {
+      id: 'demo-ar-1', name: 'Critical Account Alert', enabled: true,
+      alert_types: ['score_drop', 'status_change'],
+      settings: { score_drop: { points: 10 }, status_change: { from: 'watch', to: 'critical' } },
+      channels: { slack: false, teams: false, email: false },
+      schedule: { mode: 'realtime' },
+      manager_scope: { mode: 'all', managers: [] },
+      created_at: new Date(Date.now() - 30 * 86400000).toISOString()
+    },
+    {
+      id: 'demo-ar-2', name: 'Renewal Risk Watch', enabled: true,
+      alert_types: ['renewal_risk'],
+      settings: { renewal_risk: { days: 60, maxScore: 50 } },
+      channels: { slack: false, teams: false, email: false },
+      schedule: { mode: 'realtime' },
+      manager_scope: { mode: 'all', managers: [] },
+      created_at: new Date(Date.now() - 14 * 86400000).toISOString()
+    },
+    {
+      id: 'demo-ar-3', name: 'Expansion Opportunity', enabled: true,
+      alert_types: ['expansion'],
+      settings: {},
+      channels: { slack: false, teams: false, email: false },
+      schedule: { mode: 'realtime' },
+      manager_scope: { mode: 'all', managers: [] },
+      created_at: new Date(Date.now() - 7 * 86400000).toISOString()
+    }
+  ];
+
+  // Custom rules (condition-based)
+  automationsCfg.custom_rules = [
+    {
+      id: 'demo-cr-1', name: 'Enterprise accounts going silent',
+      enabled: true,
+      groups: [{ conditions: [
+        { field: 'tier', op: 'eq', value: 'enterprise' },
+        { field: 'days', op: 'gt', value: 21 }
+      ]}],
+      channels: { slack: false, teams: false, email: false },
+      created_at: new Date(Date.now() - 20 * 86400000).toISOString()
+    },
+    {
+      id: 'demo-cr-2', name: 'Low adoption with upcoming renewal',
+      enabled: true,
+      groups: [{ conditions: [
+        { field: 'adoption', op: 'lt', value: 25 },
+        { field: 'renewal', op: 'lte', value: 3 }
+      ]}],
+      channels: { slack: false, teams: false, email: false },
+      created_at: new Date(Date.now() - 10 * 86400000).toISOString()
+    },
+    {
+      id: 'demo-cr-3', name: 'High-value accounts dropping fast',
+      enabled: true,
+      groups: [{ conditions: [
+        { field: 'mrr', op: 'gte', value: 5000 },
+        { field: 'score', op: 'lt', value: 40 }
+      ]}],
+      channels: { slack: false, teams: false, email: false },
+      created_at: new Date(Date.now() - 5 * 86400000).toISOString()
+    }
+  ];
+
+  if (typeof saveAutomationsCfg === 'function') saveAutomationsCfg();
 }
 
 function _gsStepIcon(n) { return `<div style="width:22px;height:22px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs-xs);flex-shrink:0">${n}</div>`; }

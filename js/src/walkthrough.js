@@ -94,7 +94,7 @@ var _WT_TOURS = {
       {
         target: '#cfg-sm-section',
         title: 'iQcadence Signal Model',
-        body: 'The Signal Model layers 26 proprietary factors on top of your base scores to detect hidden risks and expansion signals that raw numbers miss. Toggle it on and choose a sensitivity level to control how aggressively it flags accounts.',
+        body: 'The Signal Model layers 26 factors on top of your base scores to detect hidden risks and expansion signals that raw numbers miss. Toggle it on and choose a sensitivity level to control how aggressively it flags accounts.',
         tab: "cfgTab('config')"
       },
       {
