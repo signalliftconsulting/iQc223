@@ -1559,9 +1559,9 @@ function _wtSpotlightPage(page, idx, gen) {
       '<div class="wt-title">' + step.title + '</div>' +
       '<div class="wt-body">' + step.body + '</div>' +
       '<div class="wt-dots">' + dotsHTML + '</div>' +
-      '<div class="wt-actions">' +
+      '<div class="wt-actions" style="display:flex;align-items:center;justify-content:space-between;gap:8px">' +
+        (idx > 0 ? '<button class="wt-skip" onclick="_wtPrevPageStep()">&larr; Back</button>' : '<div style="width:60px"></div>') +
         '<button class="wt-skip" onclick="_wtEndPageTour()">End tour</button>' +
-        (idx > 0 ? '<button class="wt-skip" onclick="_wtPrevPageStep()" style="margin-right:auto">&larr; Back</button>' : '') +
         '<button class="wt-next" onclick="_wtNextPageStep()">' + (isLast ? 'Done' : 'Next') + ' &rarr;</button>' +
       '</div>';
     document.body.appendChild(tooltip);
