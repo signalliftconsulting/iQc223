@@ -1306,8 +1306,8 @@ function _buildSegInsights(segments, active, view) {
   wrap.innerHTML = '<div style="font-size:var(--fs-base);font-weight:700;color:var(--text);margin-bottom:8px">' + viewTitle + ' Insights</div>' +
     top.map((ins, idx) => {
       const accentCls = ins.color === 'var(--green)' ? ' ta-card-green' : ins.color === 'var(--red)' ? ' ta-card-red' : ins.color === 'var(--amber)' ? ' ta-card-amber' : '';
-      const clickable = ins.tags && ins.tags.length > 0;
-      return `<div class="ta-card${accentCls}${clickable ? ' ta-card-clickable' : ''}" style="border-left-color:${ins.color}" ${clickable ? `onclick="_segInsightFocus(${idx})"` : ''}>
+      const clickable = view !== 'stage' && ins.tags && ins.tags.length > 0;
+      return `<div class="ta-card${accentCls}${clickable ? ' ta-card-clickable' : ''}" style="border-left-color:${ins.color}${clickable ? '' : ';cursor:default'}" ${clickable ? `onclick="_segInsightFocus(${idx})"` : ''}>
       <div class="ta-icon" style="background:${ins.bg};color:${ins.color}">${ins.icon}</div>
       <div>
         <div class="ta-label">${ins.label}</div>
