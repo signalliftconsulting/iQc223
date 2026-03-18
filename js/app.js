@@ -5,13 +5,13 @@
 
 
 /* ============================================================
-   IQcadence — CS Health Score — app.js
+   IQcadence  - CS Health Score  - app.js
    ============================================================ */
 const APP_VERSION = 'v93';
 console.log('%c IQcadence ' + APP_VERSION + ' loaded ', 'background:#6366f1;color:#fff;font-weight:bold;padding:2px 8px;border-radius:4px');
 
 // ─── UNIFIED ICON SYSTEM ─────────────────────────────────────
-// Feather-style SVG paths — 24×24 viewBox, stroke-based.
+// Feather-style SVG paths  - 24×24 viewBox, stroke-based.
 // Usage: appIcon('check', 16) → <svg ...>
 const APP_ICONS = {
   /* Sentiment */
@@ -65,7 +65,7 @@ function statusDotSVG(status) {
 }
 
 // ─── SUPABASE CLIENT ─────────────────────────────────────────
-// NOTE: The anon key is intentionally public — Supabase security comes from
+// NOTE: The anon key is intentionally public  - Supabase security comes from
 // Row Level Security (RLS) policies, not from hiding this key.
 // Admin emails are loaded from js/config.js (gitignored) if available.
 const _cfg = window.__IQCADENCE_CONFIG__ || {};
@@ -87,26 +87,26 @@ let mgrFilterAll   = true; // true = show all managers, false = use activeManage
 const SEG_UNTAGGED = '__untagged__';
 const SEG_UNTAGGED_LABEL = 'Untagged';
 function segDisplayLabel(tag) { return tag === SEG_UNTAGGED ? SEG_UNTAGGED_LABEL : tag; }
-let _userRole      = null;      // 'admin' | 'user' — fetched from user_profiles on login
-let _userClientId  = null;      // user's client_id — resolved from user_profiles on login
-let adminClients   = [];        // list of {id, name, notes} — admin only
+let _userRole      = null;      // 'admin' | 'user'  - fetched from user_profiles on login
+let _userClientId  = null;      // user's client_id  - resolved from user_profiles on login
+let adminClients   = [];        // list of {id, name, notes}  - admin only
 let activeClientId = '__own__'; // '__own__' = admin's own data, else client UUID
 let trash          = [];        // soft-deleted customers
 let columnFilters  = {};        // per-column filter state (see COL_DEFS)
 let _openColFilterKey = null;   // key of currently open column filter dropdown
 let filterPresets  = [];        // saved filter presets [{ name, filterMode, columnFilters, sortKey, sortDir }]
-let mrrExposureFilter = null;   // { label: string, ids: Set<string> } — set by clicking MRR Exposure rows
+let mrrExposureFilter = null;   // { label: string, ids: Set<string> }  - set by clicking MRR Exposure rows
 let _filterTier       = null;   // tier filter for customers table (set by segment click-through)
 let _filterStage      = null;   // lifecycle stage filter for customers table (set by stage click-through)
 let _filterManager    = null;   // CSM name filter for customers table (set by workload click-through)
-let insightFilter     = null;   // { label: string, ids: Set<string> } — set by insight card click-through
+let insightFilter     = null;   // { label: string, ids: Set<string> }  - set by insight card click-through
 
 // ─── AUTOMATIONS STATE ──────────────────────────────────────
 let automationsCfg    = {};        // { api_key_prefix, webhooks: { type: { url, enabled, threshold? } } }
 let webhookEvents     = [];        // loaded from webhook_events table
 let webhookLogOffset  = 0;
 let _prevCustomerStates = new Map(); // id → { score, status } for trigger detection
-let _alertCooldowns     = {};       // "custId|eventKey" → timestamp — dedup same alert within 24h
+let _alertCooldowns     = {};       // "custId|eventKey" → timestamp  - dedup same alert within 24h
 
 // ─── SHARED PAGINATION ──────────────────────────────────────
 const PAGE_SIZE = 50;
@@ -115,7 +115,7 @@ const _pagState = {}; // key → current page (0-indexed)
 function _pagGet(key) { return _pagState[key] || 0; }
 function _pagSet(key, pg, renderFn) { _pagState[key] = pg; if (renderFn) renderFn(); }
 
-// Build page controls HTML — place at top and/or bottom of a list
+// Build page controls HTML  - place at top and/or bottom of a list
 // total = total item count, key = state key, renderFnName = global function name to call on page change
 function _pagHTML(total, key, renderFnName) {
   const pages = Math.ceil(total / PAGE_SIZE);
@@ -138,7 +138,7 @@ function _pagHTML(total, key, renderFnName) {
 }
 
 // ─── PLAN TIER GATING ──────────────────────────────────────
-let clientPlanTier = 'pro'; // default to pro until resolved — admin gets enterprise via isAdmin()
+let clientPlanTier = 'pro'; // default to pro until resolved  - admin gets enterprise via isAdmin()
 
 const PLAN_TIERS = ['starter', 'team', 'pro', 'enterprise'];
 const PLAN_TIER_LABELS = { starter: 'Starter', team: 'Team', pro: 'Pro', enterprise: 'Enterprise' };
@@ -268,7 +268,7 @@ const DEFAULT_SIGNAL_MODEL = { enabled: false, sensitivity: 'balanced' };
 let signalModelCfg = { ...DEFAULT_SIGNAL_MODEL };
 const SM_SENSITIVITY = { conservative: 5, balanced: 10, aggressive: 15 };
 
-// Column definitions — drives header rendering + filter logic
+// Column definitions  - drives header rendering + filter logic
 const COL_DEFS = [
   { key:'name',      label:'Customer',      ftype:'text',   sortKey:'name' },
   { key:'manager',   label:'Manager',       ftype:'text',   sortKey:'manager' },
@@ -379,7 +379,7 @@ function fmtRenewalTime(c) {
   }
   // Fallback: months-based
   var months = (typeof c === 'number') ? c : (c && c.renewal != null ? c.renewal : null);
-  if (months == null) return '—';
+  if (months == null) return ' -';
   if (months <= 0) return 'today';
   return months + ' month' + (months !== 1 ? 's' : '');
 }
@@ -438,7 +438,7 @@ document.addEventListener('click', e => {
 
 // ─── KEYBOARD SHORTCUTS ──────────────────────────────────────
 document.addEventListener('keydown', e => {
-  // Esc — close open column filter dropdown or modal
+  // Esc  - close open column filter dropdown or modal
   if (e.key === 'Escape') {
     closeColFilter();
     closeAlertFilter();
@@ -448,14 +448,14 @@ document.addEventListener('keydown', e => {
   // Ignore shortcuts when typing in inputs
   if (['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
 
-  // Cmd/Ctrl + K — jump to customer search
+  // Cmd/Ctrl + K  - jump to customer search
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
     e.preventDefault();
     nav('customers');
     setTimeout(() => el('search-input')?.focus(), 50);
     return;
   }
-  // Cmd/Ctrl + Enter — submit score form if on score view
+  // Cmd/Ctrl + Enter  - submit score form if on score view
   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
     const scoreView = document.getElementById('view-score');
     if (scoreView?.classList.contains('active')) {
@@ -463,7 +463,7 @@ document.addEventListener('keydown', e => {
     }
     return;
   }
-  // Number shortcuts for nav (1-7) — matches sidebar order
+  // Number shortcuts for nav (1-7)  - matches sidebar order
   const navMap = { '1':'homebase','2':'alerts','3':'customers','4':'segments','5':'trends','6':'csmperf','7':'calendar' };
   if (!e.metaKey && !e.ctrlKey && !e.altKey && navMap[e.key]) {
     nav(navMap[e.key]);
@@ -762,7 +762,7 @@ function _dismissGuide(id, storageKey) {
 
 function renderAlertsGuide() {
   _renderGuide('alerts-guide', 'iqc_alerts_guide_dismissed',
-    '<strong>What you can do here</strong> — Your early-warning system. Alerts auto-detect health drops, renewal windows, support spikes, engagement dips, sentiment changes, expansion signals, and more — 20+ alert types in total.<br>' +
+    '<strong>What you can do here</strong>  - Your early-warning system. Alerts auto-detect health drops, renewal windows, support spikes, engagement dips, sentiment changes, expansion signals, and more  - 20+ alert types in total.<br>' +
     '<strong>Switch views:</strong> Use the <strong>Briefing</strong> view for a prioritized summary by severity, or switch to <strong>Category</strong>, <strong>Priority</strong>, <strong>Customer</strong>, or <strong>Table</strong> view to slice alerts the way you need.<br>' +
     '<strong>Take action:</strong> Click any alert to open the customer detail. Select multiple alerts with <strong>Shift-click</strong> to bulk snooze, dismiss, tag, or change lifecycle stage.<br>' +
     '<strong>Tip:</strong> Control which alerts fire and where they\'re routed (Slack, Teams, email) in <a href="#" onclick="event.stopPropagation();nav(\'automations\')" style="color:var(--teal);font-weight:600">Automations</a>.');
@@ -770,31 +770,31 @@ function renderAlertsGuide() {
 
 function renderCustomersGuide() {
   _renderGuide('customers-guide', 'iqc_customers_guide_dismissed',
-    '<strong>What you can do here</strong> — Your full customer portfolio with health scores, MRR, signals, and lifecycle stage. Click any row to open the detail view where you can edit signals, view score history, manage touches, and add notes.<br>' +
+    '<strong>What you can do here</strong>  - Your full customer portfolio with health scores, MRR, signals, and lifecycle stage. Click any row to open the detail view where you can edit signals, view score history, manage touches, and add notes.<br>' +
     '<strong>Sort &amp; filter:</strong> Click any column header to sort. Use the <strong>Manager</strong> and <strong>Lifecycle</strong> dropdowns to narrow by CSM or stage. Use the search bar to find customers by name.<br>' +
     '<strong>Bulk actions:</strong> <strong>Shift-click</strong> to select multiple rows, then apply bulk tag, lifecycle change, or delete.<br>' +
-    '<strong>Tip:</strong> Every column — score, MRR, delta, renewal, tickets, NPS — is sortable, so you can quickly find your most at-risk or highest-value accounts.');
+    '<strong>Tip:</strong> Every column  - score, MRR, delta, renewal, tickets, NPS  - is sortable, so you can quickly find your most at-risk or highest-value accounts.');
 }
 
 function renderSegmentsGuide() {
   _renderGuide('segments-guide', 'iqc_segments_guide_dismissed',
-    '<strong>What you can do here</strong> — Compare customer groups side-by-side. Switch between <strong>Segments</strong> (by tag), <strong>Tiers</strong> (SMB / Mid / Enterprise), and <strong>Lifecycle</strong> views to analyze health, MRR, risk, and trends across cohorts.<br>' +
+    '<strong>What you can do here</strong>  - Compare customer groups side-by-side. Switch between <strong>Segments</strong> (by tag), <strong>Tiers</strong> (SMB / Mid / Enterprise), and <strong>Lifecycle</strong> views to analyze health, MRR, risk, and trends across cohorts.<br>' +
     '<strong>KPI cards</strong> at the top show total segments, accounts, MRR, your highest-risk segment, and your fastest-growing segment at a glance.<br>' +
-    '<strong>Trend chart:</strong> Select segments to overlay on the health trend chart — toggle 7d, 30d, 90d, 6m, 1y, 2y, or YTD ranges. Click any row to drill into that segment\'s customers.<br>' +
-    '<strong>Tip:</strong> Segments are built from tags — add tags in the Score form or detail view and they\'ll automatically appear here. Great for QBRs and board decks.');
+    '<strong>Trend chart:</strong> Select segments to overlay on the health trend chart  - toggle 7d, 30d, 90d, 6m, 1y, 2y, or YTD ranges. Click any row to drill into that segment\'s customers.<br>' +
+    '<strong>Tip:</strong> Segments are built from tags  - add tags in the Score form or detail view and they\'ll automatically appear here. Great for QBRs and board decks.');
 }
 
 function renderTrendsGuide() {
   _renderGuide('trends-guide', 'iqc_trends_guide_dismissed',
-    '<strong>What you can do here</strong> — Track how your portfolio is changing over time. The chart shows your overall trend line, and you can overlay a <strong>CSM\'s book</strong> or <strong>individual customers</strong> for comparison.<br>' +
+    '<strong>What you can do here</strong>  - Track how your portfolio is changing over time. The chart shows your overall trend line, and you can overlay a <strong>CSM\'s book</strong> or <strong>individual customers</strong> for comparison.<br>' +
     '<strong>Metrics:</strong> Switch between Health Score, Logins, Adoption, Tickets, NPS, CSAT, MRR, ARR, and more. Add a second metric for dual-axis analysis.<br>' +
-    '<strong>Score Movers table</strong> below the chart lists every customer with their current score, 7-day change, status, and signals — fully sortable and filterable so you can spot who\'s moving and why.<br>' +
+    '<strong>Score Movers table</strong> below the chart lists every customer with their current score, 7-day change, status, and signals  - fully sortable and filterable so you can spot who\'s moving and why.<br>' +
     '<strong>Tip:</strong> Use the range bar (3d → 2y / YTD) to zoom in on recent changes or see the long-term picture. The prior-period comparison line shows whether things are improving.');
 }
 
 function renderCsmperfGuide() {
   _renderGuide('csmperf-guide', 'iqc_csmperf_guide_dismissed',
-    '<strong>What you can do here</strong> — Evaluate each CSM\'s book of business. The leaderboard ranks managers by performance index, health score, MRR managed, at-risk exposure, contact cadence, and upcoming renewals.<br>' +
+    '<strong>What you can do here</strong>  - Evaluate each CSM\'s book of business. The leaderboard ranks managers by performance index, health score, MRR managed, at-risk exposure, contact cadence, and upcoming renewals.<br>' +
     '<strong>Click a CSM name</strong> to jump to Customers filtered to their accounts. Click <strong>Expand</strong> to see their per-account breakdown inline.<br>' +
     '<strong>Below the leaderboard:</strong> <strong>Workload Balance</strong> shows account and MRR distribution by tier. <strong>Focus Areas</strong> flags who needs attention. <strong>Score Movement</strong> tracks which CSMs are improving or declining. <strong>Activity</strong> shows contact recency.<br>' +
     '<strong>Tip:</strong> Use this for 1:1s, resource rebalancing, and identifying coaching opportunities. Everything is sortable by clicking column headers.');
@@ -802,7 +802,7 @@ function renderCsmperfGuide() {
 
 function renderCalendarGuide() {
   _renderGuide('calendar-guide', 'iqc_calendar_guide_dismissed',
-    '<strong>What you can do here</strong> — See all upcoming renewals, scheduled touches, completed calls, and overdue contacts on one calendar. The <strong>Today\'s Schedule</strong> banner shows what needs attention right now.<br>' +
+    '<strong>What you can do here</strong>  - See all upcoming renewals, scheduled touches, completed calls, and overdue contacts on one calendar. The <strong>Today\'s Schedule</strong> banner shows what needs attention right now.<br>' +
     '<strong>Click any day</strong> to see its events, log a sentiment (positive / neutral / negative), mark a call completed or missed, or schedule a new touch directly.<br>' +
     '<strong>Filter by customer</strong> using the dropdown to focus on one account\'s timeline. The context bar shows their last call, next scheduled touch, and renewal date.<br>' +
     '<strong>Tip:</strong> Set the <strong>Next Scheduled Touch</strong> date in any customer\'s score form and it appears here automatically. Renewal dates are pulled from the customer record.');
@@ -810,40 +810,40 @@ function renderCalendarGuide() {
 
 function renderReportsGuide() {
   _renderGuide('reports-guide', 'iqc_reports_guide_dismissed',
-    '<strong>What you can do here</strong> — Generate ready-to-share reports for leadership, board meetings, and your own analysis. Choose a template, then print, save as PDF, export CSV, or email directly.<br>' +
+    '<strong>What you can do here</strong>  - Generate ready-to-share reports for leadership, board meetings, and your own analysis. Choose a template, then print, save as PDF, export CSV, or email directly.<br>' +
     '<strong>Templates:</strong> Portfolio Health Summary, Weekly Review, Trend Report, At-Risk Report, Churn Risk, Renewal Forecast, Segment Analysis, CSM Performance, and full Customer Health Export.<br>' +
-    '<strong>Email delivery:</strong> Send any report to stakeholders as a one-time email — great for weekly updates or ad-hoc reviews.<br>' +
+    '<strong>Email delivery:</strong> Send any report to stakeholders as a one-time email  - great for weekly updates or ad-hoc reviews.<br>' +
     '<strong>Tip:</strong> The Weekly Review includes charts and narrative, making it ideal for recurring leadership updates. Score History Export gives you the raw data for your own analysis.');
 }
 
 function renderScoreGuide() {
   _renderGuide('score-guide', 'iqc_score_guide_dismissed',
-    '<strong>What you can do here</strong> — Add a new customer or re-score an existing one. Fill in account details and health signals, then click <strong>Calculate Health Score</strong> to see the result with a full signal breakdown and recommended playbook.<br>' +
-    '<strong>Signals:</strong> Enter logins, adoption %, open tickets, NPS, CSAT, days since contact, and growth signal. Check <strong>N/A</strong> next to any signal you don\'t track — its weight redistributes automatically.<br>' +
+    '<strong>What you can do here</strong>  - Add a new customer or re-score an existing one. Fill in account details and health signals, then click <strong>Calculate Health Score</strong> to see the result with a full signal breakdown and recommended playbook.<br>' +
+    '<strong>Signals:</strong> Enter logins, adoption %, open tickets, NPS, CSAT, days since contact, and growth signal. Check <strong>N/A</strong> next to any signal you don\'t track  - its weight redistributes automatically.<br>' +
     '<strong>After scoring:</strong> You\'ll see a health assessment, color-coded signal bars, and an action playbook (Urgent, Engage, Coach, Adopt, Support, Expand, Renew) tailored to that customer\'s signals.<br>' +
     '<strong>Tip:</strong> Assign a <strong>Scoring Profile</strong> to apply custom weights per customer or segment. Bulk-import via <a href="#" onclick="event.stopPropagation();nav(\'csv\')" style="color:var(--teal);font-weight:600">CSV Import</a> if you have many accounts to add.');
 }
 
 function renderUsersGuide() {
   _renderGuide('users-guide', 'iqc_users_guide_dismissed',
-    '<strong>What you can do here</strong> — Manage who has access to your IQcadence account. Add team members so they can view customers, track health scores, and take action on alerts.<br>' +
+    '<strong>What you can do here</strong>  - Manage who has access to your IQcadence account. Add team members so they can view customers, track health scores, and take action on alerts.<br>' +
     '<strong>Create a user:</strong> Click <strong>+ Create User</strong> above. They\'ll receive a login and share the same customer data, settings, and scoring profiles as your organization.<br>' +
-    '<strong>Remove a user:</strong> Click the delete button on their row. Their data stays — only their login access is revoked.<br>' +
+    '<strong>Remove a user:</strong> Click the delete button on their row. Their data stays  - only their login access is revoked.<br>' +
     '<strong>Tip:</strong> Each user sees the same portfolio, so changes made by one team member (scoring, notes, stage changes) are visible to everyone.');
 }
 
 function renderAuditlogGuide() {
   _renderGuide('auditlog-guide', 'iqc_auditlog_guide_dismissed',
-    '<strong>What you can do here</strong> — The Audit Log gives you a complete record of everything that\'s happened in your account. Use it for accountability, debugging, and compliance.<br>' +
-    '<strong>Activity Log:</strong> Every customer-facing change — score updates, stage transitions, edits, and bulk re-scores — is logged here with who made the change and when.<br>' +
-    '<strong>Config History:</strong> All settings changes — weight adjustments, threshold edits, profile updates, CSM changes — so you can see exactly what was configured and when.<br>' +
+    '<strong>What you can do here</strong>  - The Audit Log gives you a complete record of everything that\'s happened in your account. Use it for accountability, debugging, and compliance.<br>' +
+    '<strong>Activity Log:</strong> Every customer-facing change  - score updates, stage transitions, edits, and bulk re-scores  - is logged here with who made the change and when.<br>' +
+    '<strong>Config History:</strong> All settings changes  - weight adjustments, threshold edits, profile updates, CSM changes  - so you can see exactly what was configured and when.<br>' +
     '<strong>Tip:</strong> Use the search bar and action filter to quickly find specific changes. You can also export the full log as CSV.');
 }
 
 function renderAutomationsGuide() {
   _renderGuide('automations-guide', 'iqc_automations_guide_dismissed',
-    '<strong>What you can do here</strong> — Route alerts to <strong>Slack</strong>, <strong>Microsoft Teams</strong>, or <strong>email</strong> so your team never misses a critical change. Toggle built-in rules on/off, or create custom rules with flexible if/then logic.<br>' +
-    '<strong>Built-in triggers:</strong> Health drops, churn risk, renewal approaching, NPS change, support spikes, rapid score decline, and more — each configurable with its own threshold and delivery channel.<br>' +
+    '<strong>What you can do here</strong>  - Route alerts to <strong>Slack</strong>, <strong>Microsoft Teams</strong>, or <strong>email</strong> so your team never misses a critical change. Toggle built-in rules on/off, or create custom rules with flexible if/then logic.<br>' +
+    '<strong>Built-in triggers:</strong> Health drops, churn risk, renewal approaching, NPS change, support spikes, rapid score decline, and more  - each configurable with its own threshold and delivery channel.<br>' +
     '<strong>Custom rules:</strong> Define any condition combination and route notifications to the right channel. Use the 3-step wizard: choose trigger → set conditions → pick delivery.<br>' +
     '<strong>Tip:</strong> Connect your channels in the <strong>Advanced</strong> tab first (Slack webhook, Teams workflow, or email via Resend), then build rules that reference them.');
 }
@@ -863,7 +863,7 @@ var _WT_TOURS = {
       {
         target: '#mgr-filter-wrap',
         title: 'Manager Filter',
-        body: 'Filter the entire dashboard by CSM. Select one or more managers to see only their accounts across every page — KPIs, alerts, trends, and more all update instantly.'
+        body: 'Filter the entire dashboard by CSM. Select one or more managers to see only their accounts across every page  - KPIs, alerts, trends, and more all update instantly.'
       },
       {
         target: '.hb-welcome',
@@ -1498,7 +1498,7 @@ function _wtSpotlightPage(page, idx, gen) {
   // Walk up to nearest card/section container so we highlight the whole widget
   target = _wtFindCard(target);
 
-  // Scroll into view — use instant so rect measurement is accurate
+  // Scroll into view  - use instant so rect measurement is accurate
   // step.scroll: 'top' scrolls to top of page, 'bottom' scrolls target into view
   var mainScroll = document.querySelector('.main');
   if (step.scroll === 'top') {
@@ -1757,7 +1757,7 @@ function saveSettings() {
   localStorage.setItem('iqc_quiet_days', String(quietDays));
   localStorage.setItem('iqc_momentum_pts', String(momentumPts));
   localStorage.setItem('iqc_signal_model', JSON.stringify(signalModelCfg));
-  // Sync to Supabase (fire and forget) — keyed by client_id
+  // Sync to Supabase (fire and forget)  - keyed by client_id
   const cid = getEffectiveClientId();
   if (currentUser && cid) {
     sb.from('settings').upsert({
@@ -1785,7 +1785,7 @@ function loadSettings() {
       const stored = JSON.parse(t);
       // Migrate old 2-key format to 4-key format
       if (stored.expand !== undefined && stored.critical === undefined) {
-        // Old format had { risk, expand } — discard and use new defaults
+        // Old format had { risk, expand }  - discard and use new defaults
         thresholds = { ...DEFAULT_THRESHOLDS };
       } else {
         thresholds = { ...DEFAULT_THRESHOLDS, ...stored };
@@ -1874,10 +1874,10 @@ function ensureGlobalWeightsProfile(persist = false) {
 async function loadSettingsFromSupabase() {
   if (!currentUser) return;
   const cid = getEffectiveClientId();
-  if (!cid) return; // no client assigned yet — use defaults
+  if (!cid) return; // no client assigned yet  - use defaults
   const { data: settingsRows, error } = await sb.from('settings').select('*').eq('client_id', cid).limit(1);
   const data = settingsRows && settingsRows.length ? settingsRows[0] : null;
-  if (error || !data) return; // no settings row yet — use defaults
+  if (error || !data) return; // no settings row yet  - use defaults
   try { if (data.weights)    weights    = { ...DEFAULT_WEIGHTS,    ...JSON.parse(data.weights) }; }    catch(e){}
   try { if (data.thresholds) thresholds = { ...DEFAULT_THRESHOLDS, ...JSON.parse(data.thresholds) }; } catch(e){}
   try { if (data.profiles)   profiles   = JSON.parse(data.profiles); }  catch(e){}
@@ -2052,7 +2052,7 @@ function toRow(c) {
 }
 
 // Load all customers for current user's client from Supabase
-// Uses client_id for ownership — all users in the same client see the same customers
+// Uses client_id for ownership  - all users in the same client see the same customers
 // Active rows (deleted_at IS NULL) → customers[]
 // Soft-deleted rows (deleted_at IS NOT NULL) → trash[]
 async function loadCustomersFromSupabase() {
@@ -2116,7 +2116,7 @@ async function loadCustomersFromSupabase() {
   snapshotCustomerStates();
 }
 
-// Loading overlay — reference counted so nested calls don't hide prematurely
+// Loading overlay  - reference counted so nested calls don't hide prematurely
 let _loadingCount = 0;
 let _loadingTimeout = null;
 function setLoading(on) {
@@ -2157,7 +2157,7 @@ function _showOverlay(on) {
   }
 }
 
-// save(c) — upsert a single customer
+// save(c)  - upsert a single customer
 async function save(c) {
   if (!currentUser) return;
   // Always update localStorage cache immediately so UI stays intact
@@ -2243,13 +2243,13 @@ async function pullHistoricalData(platform, lookback) {
   }
 }
 
-// Ownership filter helper — uses client_id if DB supports it, else user_id
+// Ownership filter helper  - uses client_id if DB supports it, else user_id
 function _ownerEq(query) {
   if (_dbHasClientId && _userClientId) return query.eq('client_id', _userClientId);
   return query.eq('user_id', currentUser.id);
 }
 
-// atDelete(c) — SOFT delete: sets deleted_at, never removes the row
+// atDelete(c)  - SOFT delete: sets deleted_at, never removes the row
 async function atDelete(c) {
   if (!currentUser) return;
   const deletedAt = new Date().toISOString();
@@ -2257,7 +2257,7 @@ async function atDelete(c) {
   if (error) console.warn('atDelete DB error:', error.message);
 }
 
-// restoreCustomer(id) — clears deleted_at, brings customer back
+// restoreCustomer(id)  - clears deleted_at, brings customer back
 async function restoreCustomer(id) {
   if (!currentUser) return;
   const c = trash.find(x => x.id === id);
@@ -2268,13 +2268,13 @@ async function restoreCustomer(id) {
   try { localStorage.setItem('iqc_customers_cache', JSON.stringify(customers)); } catch(e) {}
   renderTrash();
   renderCustomers();
-  logAudit('customer_restored', c.id, c.name, { summary: `Restored from trash — Score: ${c.score}/100, MRR: $${c.mrr||0}` });
+  logAudit('customer_restored', c.id, c.name, { summary: `Restored from trash  - Score: ${c.score}/100, MRR: $${c.mrr||0}` });
   toast(`${c.name} restored`, 'success');
   const { error } = await sb.from('customers').update({ deleted_at: null }).eq('id', id);
   if (error) toast('Restore sync failed', 'warn');
 }
 
-// hardDeleteCustomer(id) — permanently removes a row (from trash only)
+// hardDeleteCustomer(id)  - permanently removes a row (from trash only)
 async function hardDeleteCustomer(id) {
   const c = trash.find(x => x.id === id);
   if (!c) return;
@@ -2289,7 +2289,7 @@ async function hardDeleteCustomer(id) {
   });
 }
 
-// emptyTrash() — hard delete all soft-deleted records
+// emptyTrash()  - hard delete all soft-deleted records
 async function emptyTrash() {
   if (!trash.length) return;
   confirmAction(`Permanently delete all ${trash.length} items in trash? These accounts and all their data will be gone forever and cannot be recovered.`, async () => {
@@ -2299,7 +2299,7 @@ async function emptyTrash() {
     trash = [];
     toast('Trash emptied', 'warn');
     if (!customers.length) { if (typeof _wtDismiss === 'function') _wtDismiss(); nav('homebase'); } else { renderTrash(); }
-    // Delete by id list — RLS handles ownership check
+    // Delete by id list  - RLS handles ownership check
     const { error } = await sb.from('customers').delete().in('id', ids);
     if (error) console.warn('Trash empty DB error:', error.message);
   });
@@ -2340,7 +2340,7 @@ function _trashBulkDelete() {
   });
 }
 
-// renderTrash() — shows soft-deleted customers inside the customers view
+// renderTrash()  - shows soft-deleted customers inside the customers view
 function renderTrash() {
   const wrap = document.getElementById('trash-wrap');
   if (!wrap) return;
@@ -2368,7 +2368,7 @@ function renderTrash() {
     </div>` : '';
 
   const rows = trash.map(c => {
-    const deletedStr = c.deleted_at ? new Date(c.deleted_at).toLocaleDateString() : '—';
+    const deletedStr = c.deleted_at ? new Date(c.deleted_at).toLocaleDateString() : ' -';
     const checked = _trashSelected.has(c.id) ? 'checked' : '';
     return `<tr style="${checked ? 'background:color-mix(in srgb, var(--teal) 5%, var(--surface))' : ''}">
       <td style="width:36px;text-align:center"><input type="checkbox" ${checked} onchange="_trashToggle('${escHtml(c.id)}')" style="cursor:pointer"></td>
@@ -2402,7 +2402,7 @@ function renderTrash() {
   </div>`;
 }
 
-// atUpdate(c) — alias for save
+// atUpdate(c)  - alias for save
 async function atUpdate(c) { return save(c); }
 async function atCreate(c) { return save(c); }
 
@@ -2480,19 +2480,19 @@ const _DEMO_SUFFIXES = [
   'Media','Metrics','Networks','Ops','Partners','Platform','Point','Pulse','Shift','Soft',
   'Solutions','Stack','Studio','Systems','Tech','Ventures','Ware','Works'
 ];
-// Weighted CSM list — senior reps get more accounts, junior fewer
+// Weighted CSM list  - senior reps get more accounts, junior fewer
 // Duplicates control weight: more entries = more accounts assigned
 // CSM definitions with target account share and health bias
 // bias: 'good' = mostly healthy accounts, 'mixed' = realistic spread, 'tough' = more at-risk
 const _DEMO_CSMS = [
-  { name: 'Sarah Mitchell',   pct: 0.19, bias: 'good'  },  // Sr — largest book, mostly healthy
-  { name: 'James Chen',       pct: 0.17, bias: 'mixed' },  // Sr — big book, realistic mix
-  { name: 'Maria Rodriguez',  pct: 0.15, bias: 'mixed' },  // Mid — solid portfolio
-  { name: 'David Kim',        pct: 0.13, bias: 'tough' },  // Mid — inherited some tough accounts
-  { name: 'Rachel Foster',    pct: 0.12, bias: 'good'  },  // Mid — strong performer
-  { name: 'Anil Patel',       pct: 0.10, bias: 'tough' },  // Jr — newer, got at-risk book
-  { name: 'Emily Nakamura',   pct: 0.08, bias: 'mixed' },  // Jr — small book, still ramping
-  { name: 'Tom Brennan',      pct: 0.06, bias: 'mixed' },  // Jr — smallest book
+  { name: 'Sarah Mitchell',   pct: 0.19, bias: 'good'  },  // Sr  - largest book, mostly healthy
+  { name: 'James Chen',       pct: 0.17, bias: 'mixed' },  // Sr  - big book, realistic mix
+  { name: 'Maria Rodriguez',  pct: 0.15, bias: 'mixed' },  // Mid  - solid portfolio
+  { name: 'David Kim',        pct: 0.13, bias: 'tough' },  // Mid  - inherited some tough accounts
+  { name: 'Rachel Foster',    pct: 0.12, bias: 'good'  },  // Mid  - strong performer
+  { name: 'Anil Patel',       pct: 0.10, bias: 'tough' },  // Jr  - newer, got at-risk book
+  { name: 'Emily Nakamura',   pct: 0.08, bias: 'mixed' },  // Jr  - small book, still ramping
+  { name: 'Tom Brennan',      pct: 0.06, bias: 'mixed' },  // Jr  - smallest book
 ];
 
 // Build weighted CSM list for round-robin (legacy compat for 250-count)
@@ -2533,25 +2533,25 @@ function _assignCSMs(trajList, count) {
 }
 const _DEMO_NOTES = [
   'QBR went well. Champion is engaged and open to upsell convo.',
-  'Escalated to VP of Support — tickets still climbing.',
+  'Escalated to VP of Support  - tickets still climbing.',
   'Onboarding kickoff completed. Primary contact trained.',
   'NPS follow-up done. Main concern is reporting gaps.',
   'Renewed early with 10% uplift. Very happy with recent features.',
-  'Exec sponsor changed — need to rebuild relationship.',
+  'Exec sponsor changed  - need to rebuild relationship.',
   'Product usage dropped after key team member left.',
   'Expansion convo scheduled for next week.',
-  'Flagged integration issues — eng team is investigating.',
+  'Flagged integration issues  - eng team is investigating.',
   'Great case-study candidate. Asked about speaking at conference.',
-  'User training session completed — team showing strong adoption.',
+  'User training session completed  - team showing strong adoption.',
   'Billing dispute resolved. Customer satisfied with outcome.',
-  'Competitor eval in progress — need to demonstrate value ASAP.',
+  'Competitor eval in progress  - need to demonstrate value ASAP.',
   'New decision-maker introduced. Scheduling intro call.',
-  'Feature request logged for API enhancements — product team reviewing.'
+  'Feature request logged for API enhancements  - product team reviewing.'
 ];
 const _DEMO_SENTIMENTS = [
   { val:'negative', note:'Customer expressed frustration with onboarding delays.' },
   { val:'negative', note:'Unhappy with recent product changes. Wants old workflow back.' },
-  { val:'negative', note:'Support response time too slow — escalated internally.' },
+  { val:'negative', note:'Support response time too slow  - escalated internally.' },
   { val:'positive', note:'Very happy with latest release. Praised the team.' },
   { val:'positive', note:'Referred a colleague. Strong advocate.' },
   { val:'neutral',  note:'Routine check-in. No strong feelings either way.' },
@@ -2568,7 +2568,7 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[8,9,9,10,10], csatOpts:[4,4,5,5,5],
     growthOpts:['strong','strong','mild'],
     lifecycle:'active', noise:0.12,
-    // Solid performer — cruises 72-88 with natural wobble, occasional dip to high 60s
+    // Solid performer  - cruises 72-88 with natural wobble, occasional dip to high 60s
     trend: (d,t) => 0.76 + 0.14 * Math.sin(d/t * Math.PI * 8) + 0.05 * Math.cos(d/t * Math.PI * 3)
   },
   'good-not-great': {
@@ -2576,7 +2576,7 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[7,7,8,8,9], csatOpts:[3,4,4,4,5],
     growthOpts:['mild','mild','none'],
     lifecycle:'active', noise:0.09,
-    // Reliably mid-range 60-75 — not a concern but not a star
+    // Reliably mid-range 60-75  - not a concern but not a star
     trend: (d,t) => 0.66 + 0.08 * Math.sin(d/t * Math.PI * 6) + 0.04 * Math.cos(d/t * Math.PI * 11)
   },
   'stable-mid': {
@@ -2584,7 +2584,7 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[5,6,7,7,8], csatOpts:[3,3,3,4,4],
     growthOpts:['none','mild','mild'],
     lifecycle:'active', noise:0.10,
-    // Watch zone 42-62 — enough wobble to sometimes trigger alerts, sometimes look ok
+    // Watch zone 42-62  - enough wobble to sometimes trigger alerts, sometimes look ok
     trend: (d,t) => 0.48 + 0.14 * Math.sin(d/t * Math.PI * 5) + 0.06 * Math.cos(d/t * Math.PI * 13)
   },
   'stable-low': {
@@ -2592,7 +2592,7 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[3,4,4,5,5,6], csatOpts:[1,2,2,3,3],
     growthOpts:['none','none','mild'],
     lifecycle:'atrisk', noise:0.10,
-    // Risk zone 22-38 — brief upticks that never sustain
+    // Risk zone 22-38  - brief upticks that never sustain
     trend: (d,t) => 0.25 + 0.10 * Math.sin(d/t * Math.PI * 4) + 0.06 * Math.max(0, Math.sin(d/t * Math.PI * 9))
   },
   'improving': {
@@ -2600,7 +2600,7 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[4,5,6,7,8,9], csatOpts:[2,3,3,4,4,5],
     growthOpts:['none','mild','mild','strong'],
     lifecycle:'active', noise:0.10,
-    // Clear upward ramp — starts ~30, ends ~82, with steps/plateaus
+    // Clear upward ramp  - starts ~30, ends ~82, with steps/plateaus
     trend: (d,t) => {
       const p = d/t;
       if (p < 0.15) return 0.22 + 0.08 * p / 0.15;                         // slow start
@@ -2615,7 +2615,7 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[5,5,6,6,7,7,8], csatOpts:[3,3,3,4,4,4],
     growthOpts:['none','none','mild','mild'],
     lifecycle:'active', noise:0.08,
-    // Gradual grind upward 40→68 over the full period — not dramatic
+    // Gradual grind upward 40→68 over the full period  - not dramatic
     trend: (d,t) => 0.38 + 0.30 * (d/t) + 0.05 * Math.sin(d/t * Math.PI * 9)
   },
   'declining': {
@@ -2645,7 +2645,7 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[4,6,7,9,10,7,4], csatOpts:[2,3,4,5,4,3,2],
     growthOpts:['none','mild','strong','none','mild'],
     lifecycle:'active', noise:0.14,
-    // Wild swings — 3 full cycles between ~30 and ~85
+    // Wild swings  - 3 full cycles between ~30 and ~85
     trend: (d,t) => {
       const p = d/t;
       return 0.52 + 0.32 * Math.sin(p * Math.PI * 6) * (0.7 + 0.3 * Math.cos(p * Math.PI * 2.3));
@@ -2671,7 +2671,7 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[null,null,5,6,6,7], csatOpts:[null,null,3,3,3,4],
     growthOpts:['none','none','mild'],
     lifecycle:'onboarding', noise:0.10,
-    // Sluggish ramp — 6 months in and only at ~55
+    // Sluggish ramp  - 6 months in and only at ~55
     trend: (d,t) => {
       const p = d/t;
       if (p < 0.15) return 0.02 + 0.05 * p / 0.15;
@@ -2686,7 +2686,7 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[6,5,4,3,3,2], csatOpts:[3,3,2,2,1,1],
     growthOpts:['none','none'],
     lifecycle:'churned', noise:0.08,
-    // Never really got going — ramped to ~50 then fell off within 6 months
+    // Never really got going  - ramped to ~50 then fell off within 6 months
     trend: (d,t) => {
       const p = d/t;
       if (p < 0.35) return 0.10 + 0.45 * p / 0.35;                         // ramp attempt
@@ -2701,7 +2701,7 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[9,8,7,5,4,3,2], csatOpts:[5,4,3,2,2,1,1],
     growthOpts:['mild','none','none','none'],
     lifecycle:'churned', noise:0.06,
-    // Long-time customer — healthy for 60% of history, then steep collapse
+    // Long-time customer  - healthy for 60% of history, then steep collapse
     trend: (d,t) => {
       const p = d/t;
       if (p < 0.55) return 0.82 + 0.08 * Math.sin(p * Math.PI * 5);        // long healthy era
@@ -2728,7 +2728,7 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[7,5,4,4,5,6,6], csatOpts:[4,3,2,2,3,3,3],
     growthOpts:['mild','none','none','mild'],
     lifecycle:'active', noise:0.09,
-    // Dropped from 78 to 30, recovered to 58 but stalled — not fully back
+    // Dropped from 78 to 30, recovered to 58 but stalled  - not fully back
     trend: (d,t) => {
       const p = d/t;
       if (p < 0.25) return 0.78 - 0.46 * p / 0.25;                         // drop
@@ -2742,7 +2742,7 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[6,7,8,8,9,10], csatOpts:[3,4,4,5,5],
     growthOpts:['mild','strong','mild'],
     lifecycle:'active', noise:0.08,
-    // 3-4 pronounced seasonal cycles — 45-88 range
+    // 3-4 pronounced seasonal cycles  - 45-88 range
     trend: (d,t) => {
       const p = d/t;
       return 0.62 + 0.26 * Math.sin(p * Math.PI * 7) + 0.06 * Math.sin(p * Math.PI * 19);
@@ -2753,7 +2753,7 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[8,7,7,6,6,5,5], csatOpts:[4,4,3,3,3,2],
     growthOpts:['mild','none','none'],
     lifecycle:'active', noise:0.09,
-    // Seasonal cycles but each peak is lower — envelope shrinks from 85 to 55
+    // Seasonal cycles but each peak is lower  - envelope shrinks from 85 to 55
     trend: (d,t) => {
       const p = d/t;
       const envelope = 0.75 - 0.25 * p;
@@ -2762,7 +2762,7 @@ const _DEMO_TRAJECTORIES = {
   }
 };
 
-// Trajectory percentages — realistic SaaS portfolio with spread across score ranges
+// Trajectory percentages  - realistic SaaS portfolio with spread across score ranges
 // More mid-range customers, fewer at extremes, varied stories
 const _DEMO_TRAJ_PCTS = [
   ['stable-healthy',      0.14],  // top performers (75-88)
@@ -2774,8 +2774,8 @@ const _DEMO_TRAJ_PCTS = [
   ['declining',           0.04],  // sliding down
   ['slow-decline',        0.04],  // gradual erosion
   ['volatile',            0.04],  // unpredictable swings
-  ['onboarding-fast',     0.04],  // new — ramping quickly
-  ['onboarding-slow',     0.03],  // new — struggling to ramp
+  ['onboarding-fast',     0.04],  // new  - ramping quickly
+  ['onboarding-slow',     0.03],  // new  - struggling to ramp
   ['churned-early',       0.07],  // lost early on (~5-6 accounts)
   ['churned-late',        0.07],  // lost after long tenure (~5-6 accounts)
   ['recovered',           0.06],  // bounced back strong
@@ -2805,7 +2805,7 @@ function _dPick(arr,t,rng){
   const jitter = Math.floor((rng||Math.random)() * 2) - 1;
   return arr[_dClamp(idx+jitter, 0, arr.length-1)];
 }
-// Mulberry32 seeded PRNG — deterministic per customer
+// Mulberry32 seeded PRNG  - deterministic per customer
 function _makeRng(seed) {
   let s = seed | 0;
   return () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -2815,7 +2815,7 @@ function _generateDemoNames(count) {
   // Build all possible combinations, shuffle deterministically, and pick the first `count`
   const combos = [];
   for (const p of _DEMO_PREFIXES) for (const s of _DEMO_SUFFIXES) combos.push(p + ' ' + s);
-  // Seeded PRNG (mulberry32) for deterministic shuffle — same names every time
+  // Seeded PRNG (mulberry32) for deterministic shuffle  - same names every time
   let _s = 42;
   const rng = () => { _s = (_s + 0x6D2B79F5) | 0; let t = Math.imul(_s ^ (_s >>> 15), 1 | _s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   // Fisher-Yates shuffle with seeded RNG
@@ -2861,7 +2861,7 @@ function _generateDemoHistory(trajKey, now, overrideDays, rng, phaseOff, mrr) {
     }
     const dayIdx = totalDays - d;
     const signals = _generateDemoSignals(traj, dayIdx, totalDays, rng, phaseOff);
-    // Embed MRR in signals — drops to 0 after churn point
+    // Embed MRR in signals  - drops to 0 after churn point
     if (mrr != null) {
       const daysFromEnd = d;
       if (isChurned && daysFromEnd < (totalDays - churnDay)) {
@@ -2881,26 +2881,26 @@ function _generateDemoCustomer(name, index, now, trajList, csmAssignments) {
   const trajKey = dist[index % dist.length];
   const traj = _DEMO_TRAJECTORIES[trajKey];
 
-  // Per-customer seeded RNG — deterministic but unique per customer
+  // Per-customer seeded RNG  - deterministic but unique per customer
   const rng = _makeRng(1000 + index * 137);
 
-  // Per-customer phase offset (±10-25% of history) — same trajectory type
+  // Per-customer phase offset (±10-25% of history)  - same trajectory type
   // produces visibly different curves for each customer
   const phaseOff = Math.round((rng() - 0.5) * 180);
 
-  // Tier & MRR — deterministic per customer, decoupled from trajectory
+  // Tier & MRR  - deterministic per customer, decoupled from trajectory
   // Churned accounts skew toward mid/enterprise so churn impact is visible
   const tierRoll = rng();
   const isChurnedTraj = trajKey.startsWith('churned');
   const tier = isChurnedTraj
     ? (tierRoll < 0.30 ? 'smb' : tierRoll < 0.70 ? 'mid' : 'enterprise')
     : (tierRoll < 0.55 ? 'smb' : tierRoll < 0.85 ? 'mid' : 'enterprise');
-  // Per-customer MRR spread — wider ranges so customers differ meaningfully
+  // Per-customer MRR spread  - wider ranges so customers differ meaningfully
   const mrr = tier === 'smb' ? Math.round(_dRand(400,4000,rng)/50)*50
             : tier === 'mid' ? Math.round(_dRand(2500,22000,rng)/100)*100
             : Math.round(_dRand(12000,65000,rng)/500)*500;
 
-  // History depth — stagger tenure: some founding clients, some recent additions
+  // History depth  - stagger tenure: some founding clients, some recent additions
   // Creates natural cohorts: founding (18-24mo), early (12-18mo), mid (6-12mo), recent (2-6mo)
   let histDays;
   if (traj.historyDays) {
@@ -2923,7 +2923,7 @@ function _generateDemoCustomer(name, index, now, trajList, csmAssignments) {
   const isChurned = trajKey.startsWith('churned');
   const currentMrr = isChurned ? 0 : mrr;
 
-  // Lifecycle — spread across all stages for realistic mix
+  // Lifecycle  - spread across all stages for realistic mix
   let lifecycle = traj.lifecycle;
   if (trajKey === 'stable-healthy') {
     const r = rng();
@@ -2956,7 +2956,7 @@ function _generateDemoCustomer(name, index, now, trajList, csmAssignments) {
   const renewal_date = renDate.toISOString().slice(0,10);
   const renewal = Math.max(0, Math.round((renDate - new Date(now)) / (1000*60*60*24*30.44)));
 
-  // Customer-since date — match history depth
+  // Customer-since date  - match history depth
   const sinceDate = new Date(now);
   sinceDate.setDate(sinceDate.getDate() - histDays - Math.floor(rng() * 60));
   const since = sinceDate.toISOString().slice(0,10);
@@ -2966,7 +2966,7 @@ function _generateDemoCustomer(name, index, now, trajList, csmAssignments) {
   createdDate.setDate(createdDate.getDate() - Math.floor(rng()*14));
   const created = createdDate.toISOString();
 
-  // Industry segment tag — 6 verticals, keeps segments page clean
+  // Industry segment tag  - 6 verticals, keeps segments page clean
   const _DEMO_INDUSTRIES = [
     'technology','healthcare','financial-services',
     'retail','professional-services','manufacturing'
@@ -3080,10 +3080,10 @@ function initDemo(count) {
 // Run from browser console while logged in as admin: seedDemoData()
 async function seedDemoData(emailOrClientId, count) {
   // Seeds demo customers into an EXISTING client.
-  // Usage: seedDemoData()                           — seeds the currently selected client (admin dropdown)
-  //        seedDemoData('some-email@x.com')         — 75 accounts via email lookup
-  //        seedDemoData('some-uuid-client-id')      — 75 accounts via client_id
-  //        seedDemoData('client-uuid', 100)         — custom count
+  // Usage: seedDemoData()                            - seeds the currently selected client (admin dropdown)
+  //        seedDemoData('some-email@x.com')          - 75 accounts via email lookup
+  //        seedDemoData('some-uuid-client-id')       - 75 accounts via client_id
+  //        seedDemoData('client-uuid', 100)          - custom count
   count = count || 75;
   if (!isAdmin()) { console.error('Must be logged in as admin'); return; }
 
@@ -3092,10 +3092,10 @@ async function seedDemoData(emailOrClientId, count) {
   if (!arg) {
     if (typeof activeClientId !== 'undefined' && activeClientId && activeClientId !== '__own__') {
       arg = activeClientId;
-      console.log('No arg supplied — using active client from dropdown: ' + arg);
+      console.log('No arg supplied  - using active client from dropdown: ' + arg);
     } else {
       arg = 'demo@iqcadence.com';
-      console.log('No arg supplied and no client selected — defaulting to demo@iqcadence.com');
+      console.log('No arg supplied and no client selected  - defaulting to demo@iqcadence.com');
     }
   }
   const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(arg);
@@ -3103,8 +3103,8 @@ async function seedDemoData(emailOrClientId, count) {
   let targetClientId, targetUserId;
 
   if (isUUID) {
-    // Direct client_id passed — verify it exists
-    console.log('1/4 — Verifying client ' + arg + '…');
+    // Direct client_id passed  - verify it exists
+    console.log('1/4  - Verifying client ' + arg + '…');
     const { data: cl, error: clErr } = await sb.from('clients').select('id, name').eq('id', arg).limit(1);
     if (clErr) { console.error('Client query error:', clErr.message); return; }
     if (!cl || !cl.length) { console.error('No client found with ID ' + arg); return; }
@@ -3112,9 +3112,9 @@ async function seedDemoData(emailOrClientId, count) {
     targetUserId = (await sb.auth.getUser()).data.user.id; // audit: current admin
     console.log('   Client:', cl[0].name, '(' + targetClientId + ')');
   } else {
-    // Email passed — resolve to client_id
+    // Email passed  - resolve to client_id
     const targetEmail = arg;
-    console.log('1/4 — Finding user profile for ' + targetEmail + '…');
+    console.log('1/4  - Finding user profile for ' + targetEmail + '…');
     let prof;
     try {
       const { data, error: profErr } = await sb.from('user_profiles')
@@ -3143,17 +3143,17 @@ async function seedDemoData(emailOrClientId, count) {
   }
 
   // 2. Delete existing customers for this client
-  console.log('2/4 — Deleting existing customers for client ' + targetClientId + '…');
+  console.log('2/4  - Deleting existing customers for client ' + targetClientId + '…');
   const { error: delErr } = await sb.from('customers').delete().eq('client_id', targetClientId);
   if (delErr) { console.error('Delete error:', delErr.message); return; }
   console.log('   Old data cleared.');
 
   // 3. Generate demo customers in memory
-  console.log('3/4 — Generating ' + count + ' demo customers (2+ years history each)…');
+  console.log('3/4  - Generating ' + count + ' demo customers (2+ years history each)…');
   initDemo(count); // populates customers[]
 
   // 4. Push to Supabase under that user's ID
-  console.log('4/4 — Pushing to Supabase (' + count + ' rows)…');
+  console.log('4/4  - Pushing to Supabase (' + count + ' rows)…');
   const rows = customers.map(c => {
     const row = toRow(c);
     row.user_id = targetUserId;       // audit: who seeded
@@ -3196,7 +3196,7 @@ async function seedDemoData(emailOrClientId, count) {
   const { count: verifyCount } = await sb.from('customers').select('*', { count: 'exact', head: true }).eq('client_id', targetClientId);
   console.log('✓ Verification: ' + (verifyCount ?? 'unknown') + ' rows in Supabase for client ' + targetClientId);
   console.log('✓ Done! Refresh the page to load them.');
-  toast('Demo data seeded — ' + (verifyCount ?? count) + ' customers', 'success');
+  toast('Demo data seeded  - ' + (verifyCount ?? count) + ' customers', 'success');
 }
 
 // Helper: list all clients (logs to console, no await needed)
@@ -3214,7 +3214,7 @@ async function seedExampleData() {
   if (!isAdmin()) { console.error('Must be logged in as admin'); return; }
 
   // 1. Find 'Demo Account' client
-  console.log('1/4 — Finding Demo Account client…');
+  console.log('1/4  - Finding Demo Account client…');
   const { data: clients } = await sb.from('clients').select('id, name');
   const exClient = (clients || []).find(c => c.name.toLowerCase() === 'demo account');
   if (!exClient) { console.error("No client named 'Demo Account'. Create it in Settings → Clients first."); return; }
@@ -3227,7 +3227,7 @@ async function seedExampleData() {
   console.log('   Target user:', targetUser.email);
 
   // 3. Delete existing customers for this client
-  console.log('2/4 — Clearing existing data…');
+  console.log('2/4  - Clearing existing data…');
   await sb.from('customers').delete().eq('client_id', exClient.id);
   console.log('   Old data cleared.');
 
@@ -3236,10 +3236,10 @@ async function seedExampleData() {
   const CSMS = ['Alex Thompson', 'Jordan Lee', 'Sam Patel'];
 
   // Company definitions: [name, tier, mrr, trajKey, csmIndex, tenureMonths, renewalMonths, extraTags]
-  // Spread across 2 years to show portfolio growth — started with ~8 clients, now 42
+  // Spread across 2 years to show portfolio growth  - started with ~8 clients, now 42
   // Earlier clients have more volatile histories (growing pains), newer ones healthier (product matured)
   const COMPANIES = [
-    // ── Wave 1: Founding clients (22-24 months ago) — 8 accounts ──
+    // ── Wave 1: Founding clients (22-24 months ago)  - 8 accounts ──
     ['Meridian Health Systems',  'enterprise', 42000, 'recovered',       0, 24, 4, ['healthcare']],
     ['Atlas Robotics',           'enterprise', 48000, 'stable-healthy',  1, 23, 6, ['manufacturing']],
     ['Granite Peak Energy',      'enterprise', 52000, 'seasonal',        2, 24, 5, ['energy']],
@@ -3249,7 +3249,7 @@ async function seedExampleData() {
     ['Lantern Group',            'smb',        1200,  'churned',         0, 22, -3, ['media']],
     ['CloudNine Ventures',       'mid',        5500,  'volatile',        0, 23, 5, ['financial-services']],
 
-    // ── Wave 2: Early growth (17-21 months ago) — 8 accounts ──
+    // ── Wave 2: Early growth (17-21 months ago)  - 8 accounts ──
     ['Northpoint Logistics',     'enterprise', 35000, 'improving',       0, 21, 3, ['logistics']],
     ['Pacific Coast Insurance',  'enterprise', 31000, 'recovered',       1, 19, 3, ['insurance']],
     ['Zenith Pharma',            'mid',        11000, 'seasonal',        1, 20, 5, ['healthcare']],
@@ -3259,7 +3259,7 @@ async function seedExampleData() {
     ['Terraverde Foods',         'smb',        1600,  'churned',         1, 17, -2, ['food-beverage']],
     ['Ironclad Security',        'mid',        6500,  'improving',       2, 20, 7, ['technology']],
 
-    // ── Wave 3: Acceleration (12-16 months ago) — 10 accounts ──
+    // ── Wave 3: Acceleration (12-16 months ago)  - 10 accounts ──
     ['TrueVista Analytics',      'mid',        12000, 'volatile',        0, 16, 6, ['technology']],
     ['Bridgewell Partners',      'mid',        9500,  'improving',       0, 14, 10, ['financial-services']],
     ['Horizon Biotech',          'mid',        6800,  'stable-healthy',  0, 15, 7, ['healthcare']],
@@ -3271,7 +3271,7 @@ async function seedExampleData() {
     ['Lakeshore Realty',         'smb',        3100,  'seasonal',        2, 14, 6, ['real-estate']],
     ['Summit Trail Co',          'smb',        1500,  'improving',       0, 13, 6, ['retail']],
 
-    // ── Wave 4: Growth phase (7-11 months ago) — 8 accounts ──
+    // ── Wave 4: Growth phase (7-11 months ago)  - 8 accounts ──
     ['Crestline Manufacturing',  'smb',        3200,  'declining',       0, 10, 1, ['manufacturing']],
     ['Oakridge Consulting',      'smb',        2800,  'stable-healthy',  0, 9, 9, ['professional-services']],
     ['RapidEdge Tech',           'smb',        2600,  'volatile',        0, 8, 8, ['technology']],
@@ -3281,20 +3281,20 @@ async function seedExampleData() {
     ['Timberline Outdoors',      'smb',        2500,  'stable-healthy',  2, 8, 9, ['retail']],
     ['Greystone Partners',       'mid',        8800,  'improving',       0, 7, 2, ['financial-services']],
 
-    // ── Wave 5: Recent additions (3-6 months ago) — 5 accounts ──
+    // ── Wave 5: Recent additions (3-6 months ago)  - 5 accounts ──
     ['Pinecrest Digital',        'smb',        2400,  'improving',       0, 5, 11, ['technology']],
     ['Wrenfield Analytics',      'smb',        1900,  'stable-healthy',  0, 4, 9, ['technology']],
     ['Frostbyte Gaming',         'smb',        2900,  'stable-healthy',  1, 6, 12, ['media']],
     ['Nightfall Studios',        'smb',        1400,  'improving',       2, 5, 3, ['media']],
     ['Sagebrush Marketing',      'smb',        2000,  'stable-healthy',  2, 3, 10, ['professional-services']],
 
-    // ── Wave 6: Newest onboarding (0-2 months) — 3 accounts ──
+    // ── Wave 6: Newest onboarding (0-2 months)  - 3 accounts ──
     ['Evergreen Solutions',      'smb',        2100,  'onboarding',      0, 2, 12, ['professional-services']],
     ['Driftwood Creative',       'smb',        2200,  'onboarding',      1, 1, 13, ['media']],
     ['Helix Genomics',           'mid',        8500,  'onboarding',      2, 1, 14, ['healthcare']]
   ];
 
-  console.log('3/4 — Generating ' + COMPANIES.length + ' curated customers…');
+  console.log('3/4  - Generating ' + COMPANIES.length + ' curated customers…');
   const exCustomers = COMPANIES.map(([name, tier, mrr, trajKey, csmIdx, tenureMo, renewMo, extraTags], i) => {
     // Generate history scoped to tenure (so newer clients have shorter history)
     const tenureDays = Math.max(30, tenureMo * 30);
@@ -3326,24 +3326,24 @@ async function seedExampleData() {
     // Tags (industry-based)
     const tags = [...extraTags];
 
-    // Notes — ~50% get notes, weighted toward troubled/important accounts
+    // Notes  - ~50% get notes, weighted toward troubled/important accounts
     const notes = [];
     const notePool = [
-      'QBR went well — champion engaged, discussing expansion next quarter.',
+      'QBR went well  - champion engaged, discussing expansion next quarter.',
       'Escalation raised around ticket response times. Eng team investigating.',
       'Onboarding progressing well. Primary users trained on core workflows.',
       'NPS follow-up complete. Concern around missing analytics features.',
       'Renewed early with 8% uplift. Very satisfied with recent improvements.',
-      'Exec sponsor left the company — identifying new stakeholder.',
+      'Exec sponsor left the company  - identifying new stakeholder.',
       'Usage dipped after team restructuring. Scheduled re-enablement session.',
       'Expansion discussion planned for next month. Multi-seat opportunity.',
-      'Integration issues flagged — coordinating with product team.',
-      'Strong advocate — asked about case study and referral program.',
+      'Integration issues flagged  - coordinating with product team.',
+      'Strong advocate  - asked about case study and referral program.',
       'Training session delivered to 12 new users. Adoption climbing.',
-      'Competitor mentioned in renewal convo — need to reinforce value.',
-      'Budget review coming up — prepared ROI deck for champion.',
+      'Competitor mentioned in renewal convo  - need to reinforce value.',
+      'Budget review coming up  - prepared ROI deck for champion.',
       'New VP of Ops introduced. Scheduling exec alignment call.',
-      'Feature request submitted for API webhooks — product reviewing.'
+      'Feature request submitted for API webhooks  - product reviewing.'
     ];
     if (Math.random() < 0.50 || ['declining','slow-decline','churned','recovered'].includes(trajKey)) {
       notes.push({ text: notePool[i % notePool.length], date: new Date(now - Math.floor(Math.random()*20)*86400000).toISOString() });
@@ -3352,12 +3352,12 @@ async function seedExampleData() {
       }
     }
 
-    // Sentiment — ~45% get entries
+    // Sentiment  - ~45% get entries
     const sentiment = [];
     const sentPool = [
       { val:'negative', note:'Expressed frustration with slow support response.' },
       { val:'negative', note:'Unhappy with recent UX changes. Wants rollback option.' },
-      { val:'negative', note:'Budget pressure — may reduce seats at renewal.' },
+      { val:'negative', note:'Budget pressure  - may reduce seats at renewal.' },
       { val:'positive', note:'Very happy with Q4 release. Praised the team publicly.' },
       { val:'positive', note:'Referred two new prospects. Strong internal advocate.' },
       { val:'neutral',  note:'Routine check-in. Stable, no major concerns.' },
@@ -3375,7 +3375,7 @@ async function seedExampleData() {
       }
     }
 
-    // Next touch — 50% of active
+    // Next touch  - 50% of active
     let next_touch = '';
     let next_touch_time = '';
     if (lifecycle !== 'churned' && Math.random() < 0.50) {
@@ -3389,7 +3389,7 @@ async function seedExampleData() {
       }
     }
 
-    // Last contact date — 70% of active
+    // Last contact date  - 70% of active
     let last_contact_date = '';
     if (lifecycle !== 'churned' && lastSig.days != null && lastSig.days > 0 && Math.random() < 0.70) {
       const lcd = new Date(now);
@@ -3397,7 +3397,7 @@ async function seedExampleData() {
       last_contact_date = lcd.toISOString().slice(0,10);
     }
 
-    // Touch history — past calls for accounts with tenure > 3 months
+    // Touch history  - past calls for accounts with tenure > 3 months
     const touch_history = [];
     if (lifecycle !== 'churned' && tenureMo > 3) {
       const numPast = 2 + Math.floor(Math.random() * Math.min(4, Math.floor(tenureMo / 3)));
@@ -3449,7 +3449,7 @@ async function seedExampleData() {
   });
 
   // 5. Push to Supabase
-  console.log('4/4 — Pushing ' + exCustomers.length + ' customers to Supabase…');
+  console.log('4/4  - Pushing ' + exCustomers.length + ' customers to Supabase…');
   const rows = exCustomers.map(c => {
     const row = toRow(c);
     row.user_id = targetUser.user_id;   // audit: who seeded
@@ -3468,7 +3468,7 @@ async function seedExampleData() {
 
   console.log('✓ Done! 42 customers seeded under Demo Account (' + exClient.id + ')');
   console.log('CSM distribution: Alex Thompson (18), Jordan Lee (14), Sam Patel (10)');
-  toast('Demo data seeded — 42 customers across 3 CSMs', 'success');
+  toast('Demo data seeded  - 42 customers across 3 CSMs', 'success');
 }
 
 // ─── AUTO-REFRESH ────────────────────────────────────────────
@@ -3481,7 +3481,7 @@ let _syncInProgress = false;
 // while Supabase writes are still in flight
 function pauseSync(ms) { _syncPauseUntil = Date.now() + (ms || 120000); }
 
-// Silent background sync — never shows the loading overlay
+// Silent background sync  - never shows the loading overlay
 async function silentSync() {
   if (!currentUser) return;
   if (Date.now() < _syncPauseUntil) return; // skip while bulk saves are in flight
@@ -3493,7 +3493,7 @@ async function silentSync() {
     // Snapshot current state to detect if data actually changed
     const prevHash = customers.length + '|' + customers.reduce((s,c) => s + c.score, 0);
 
-    // Respect the active client context — if admin switched to a specific client,
+    // Respect the active client context  - if admin switched to a specific client,
     // reload that client's data instead of the admin's own
     if (isAdmin() && activeClientId !== '__own__') {
       await loadClientCustomers(activeClientId, true);
@@ -3626,7 +3626,7 @@ async function authSignOut() {
   trash       = [];
   // Clear all cached data to prevent leakage to next user
   Object.keys(localStorage).filter(k => k.startsWith('iqc_')).forEach(k => localStorage.removeItem(k));
-  // Show login immediately — don't wait for Supabase
+  // Show login immediately  - don't wait for Supabase
   showAuthGate();
   authTab('login');
   toast('Signed out', 'default');
@@ -3661,7 +3661,7 @@ function updateUserUI(user) {
     if (sbName) sbName.textContent = user.email.split('@')[0].replace(/[._]/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
     if (sbPlan) sbPlan.textContent = user.email;
 
-    // Show admin nav items — uses isAdmin() which checks server-fetched role first
+    // Show admin nav items  - uses isAdmin() which checks server-fetched role first
     const admin = isAdmin();
     ['ni-admin-sep','ni-admin-label','ni-clients','ni-users'].forEach(id => {
       const el2 = document.getElementById(id);
@@ -3696,8 +3696,8 @@ function csatCategory(score) {
   if (score == null) return 'N/A';
   return score >= 4 ? 'Good' : score === 3 ? 'Neutral' : 'Poor';
 }
-function npsDisplay(score)  { if (score == null) return 'N/A'; return score + ' — ' + npsCategory(score); }
-function csatDisplay(score) { if (score == null) return 'N/A'; return score + '/5 — ' + csatCategory(score); }
+function npsDisplay(score)  { if (score == null) return 'N/A'; return score + '  - ' + npsCategory(score); }
+function csatDisplay(score) { if (score == null) return 'N/A'; return score + '/5  - ' + csatCategory(score); }
 function npsIsDetractor(score) { return score != null && score <= 6; }
 function npsIsPromoter(score)  { return score != null && score >= 9; }
 function csatIsPoor(score)     { return score != null && score <= 2; }
@@ -3758,7 +3758,7 @@ function calcScore(data, w) {
   };
 }
 
-// ─── iQcadence SIGNAL MODEL — 26-Factor Proprietary Engine ──
+// ─── iQcadence SIGNAL MODEL  - 26-Factor Proprietary Engine ──
 const SIGNAL_FACTORS = [
   // ── Engagement & Usage ──
   { id:'recency_decay', name:'Recency Decay', category:'engagement',
@@ -4081,7 +4081,7 @@ function getStatus(score) {
 function applyAutoStage(c) {
   if (!c) return false;
   const lc = c.lifecycle || 'active';
-  // Don't touch onboarding, won, or churned — those are business decisions
+  // Don't touch onboarding, won, or churned  - those are business decisions
   if (lc === 'onboarding' || lc === 'won' || lc === 'churned') return false;
   const st = c.status || getStatus(c.score || 50);
   // Score fell to risk/critical → auto-set At Risk
@@ -4212,7 +4212,7 @@ function makeRec(score, data) {
     else if (data.tickets != null && data.tickets >= 3) bad.push('they\'ve got ' + data.tickets + ' open support tickets');
   }
   if (signalOn(data,'nps')) {
-    if (npsIsPromoter(data.nps)) good.push('they gave us a ' + data.nps + ' on NPS — a promoter');
+    if (npsIsPromoter(data.nps)) good.push('they gave us a ' + data.nps + ' on NPS  - a promoter');
     else if (npsIsDetractor(data.nps)) bad.push('they scored us a ' + data.nps + ' on NPS, which is detractor territory');
   }
   if (signalOn(data,'csat')) {
@@ -4262,14 +4262,14 @@ function makeRec(score, data) {
 
   // Kicker: most relevant extra context (only one fires)
   var _kicker = function(st) {
-    if (disengaged && st !== 'expand' && st !== 'healthy') return ' This looks like full disengagement — not just one signal, they\'ve pulled back across the board.';
-    if (unhappyAndQuiet) return ' They\'re unhappy and we\'re not in touch — that\'s a dangerous combination.';
-    if (silentAndSlipping && st !== 'healthy') return ' Score is dropping and we haven\'t been in contact — that silence is the risk.';
-    if (renewNow && (st === 'critical' || st === 'risk' || st === 'watch')) return ' Renewal is today — this needs immediate attention to prevent churn.';
-    if (renewNow && (st === 'healthy' || st === 'expand')) return ' Renewal is today — health looks good, so this should close smoothly.';
+    if (disengaged && st !== 'expand' && st !== 'healthy') return ' This looks like full disengagement  - not just one signal, they\'ve pulled back across the board.';
+    if (unhappyAndQuiet) return ' They\'re unhappy and we\'re not in touch  - that\'s a dangerous combination.';
+    if (silentAndSlipping && st !== 'healthy') return ' Score is dropping and we haven\'t been in contact  - that silence is the risk.';
+    if (renewNow && (st === 'critical' || st === 'risk' || st === 'watch')) return ' Renewal is today  - this needs immediate attention to prevent churn.';
+    if (renewNow && (st === 'healthy' || st === 'expand')) return ' Renewal is today  - health looks good, so this should close smoothly.';
     if (renewUrgent && (st === 'critical' || st === 'risk')) return ' Renewal is imminent, which puts real timeline pressure on this.';
-    if (renewSoon && (st === 'critical' || st === 'risk' || st === 'watch')) return ' Renewal is in ' + fmtRenewalTime(data) + ' — we need to be in a better position by then.';
-    if (renewSoon && (st === 'healthy' || st === 'expand')) return ' Renewal is in ' + fmtRenewalTime(data) + ' — should be smooth given current health.';
+    if (renewSoon && (st === 'critical' || st === 'risk' || st === 'watch')) return ' Renewal is in ' + fmtRenewalTime(data) + '  - we need to be in a better position by then.';
+    if (renewSoon && (st === 'healthy' || st === 'expand')) return ' Renewal is in ' + fmtRenewalTime(data) + '  - should be smooth given current health.';
     if (isHighValue && mrrStr && st !== 'expand' && st !== 'healthy') return ' As ' + tierLabel + ' account at ' + mrrStr + ', this should be a top priority.';
     return '';
   };
@@ -4279,18 +4279,18 @@ function makeRec(score, data) {
     if ((status === 'critical' || status === 'risk') && mom === 'up') {
       var t = name + ' is still ramping up, but things are starting to turn around.';
       if (bad.length) t += ' The concern is that ' + _join(bad.slice(0,2)) + '.';
-      t += ' Onboarding recoveries are fragile though — these gains can reverse before they\'ve seen real value from the product.';
+      t += ' Onboarding recoveries are fragile though  - these gains can reverse before they\'ve seen real value from the product.';
       return t;
     }
     if (status === 'critical' || status === 'risk') {
       var t = name + ' is struggling during onboarding, which is the worst time for it.';
       if (bad.length) t += ' ' + _cap(bad[0]) + (bad.length > 1 ? ', and ' + bad[1] : '') + '.';
-      t += ' Issues this early compound fast — they lose confidence before they\'ve gotten any real value.';
+      t += ' Issues this early compound fast  - they lose confidence before they\'ve gotten any real value.';
       return t;
     }
     if (status === 'watch') {
       var t = name + ' is onboarding and mostly on track, but not quite where we\'d want them.';
-      if (bad.length) t += ' ' + _cap(bad[0]) + ' — common early on, but it becomes a real problem if it persists past the first 30 days.';
+      if (bad.length) t += ' ' + _cap(bad[0]) + '  - common early on, but it becomes a real problem if it persists past the first 30 days.';
       return t;
     }
     var t = name + ' is onboarding well.';
@@ -4302,14 +4302,14 @@ function makeRec(score, data) {
   if (lc === 'won') {
     if ((status === 'critical' || status === 'risk') && mom === 'up') {
       var t = name + ' had a dip after expanding, but things are trending back up.';
-      if (bad.length) t += ' Still seeing some issues — ' + _join(bad.slice(0,2)) + '.';
+      if (bad.length) t += ' Still seeing some issues  - ' + _join(bad.slice(0,2)) + '.';
       t += ' Post-expansion dips happen when the new scope hasn\'t fully landed yet.';
       return t;
     }
     if (status === 'critical' || status === 'risk') {
       var t = name + ' has gone downhill since the expansion.';
       if (bad.length) t += ' ' + _cap(bad[0]) + '.';
-      t += ' The new capabilities might not be landing as expected — if they don\'t see value soon, buyer\'s remorse kicks in.';
+      t += ' The new capabilities might not be landing as expected  - if they don\'t see value soon, buyer\'s remorse kicks in.';
       return t;
     }
     if (status === 'watch') {
@@ -4327,7 +4327,7 @@ function makeRec(score, data) {
   if (lc === 'churned') {
     if (score >= 50) {
       var t = 'There might be a winback opportunity here.';
-      if (good.length) t += ' Before they left, ' + _join(good.slice(0,2)) + ' — so the relationship wasn\'t all bad.';
+      if (good.length) t += ' Before they left, ' + _join(good.slice(0,2)) + '  - so the relationship wasn\'t all bad.';
       t += ' A targeted re-engagement could work.';
       return t;
     }
@@ -4343,9 +4343,9 @@ function makeRec(score, data) {
     if (bad.length) t += ' ' + _cap(bad[0]) + (bad.length > 1 ? ', and ' + bad[1] : '') + '.';
     if (good.length) t += ' The one bright spot is ' + good[0] + '.';
     if (data.mrr) t += ' That\'s $' + fmtNum(data.mrr) + ' MRR we could lose.';
-    if (momFlavor === 'freefall') t += ' The score is in freefall — this needs immediate intervention before it\'s too late.';
+    if (momFlavor === 'freefall') t += ' The score is in freefall  - this needs immediate intervention before it\'s too late.';
     else if (momFlavor === 'recovering') t += ' There are early signs of recovery, but they\'re still deep in the danger zone.';
-    else if (mom === 'dn') t += ' And it\'s getting worse — without stepping in, this is heading toward churn.';
+    else if (mom === 'dn') t += ' And it\'s getting worse  - without stepping in, this is heading toward churn.';
     t += _kicker('critical');
     return t;
   }
@@ -4363,20 +4363,20 @@ function makeRec(score, data) {
   }
 
   if (status === 'watch') {
-    var t = name + ' is okay but not great — worth keeping an eye on.';
+    var t = name + ' is okay but not great  - worth keeping an eye on.';
     if (bad.length) t += ' ' + _cap(bad[0]) + ', which is the main thing I\'d flag.';
     if (good.length) t += ' ' + _cap(good[0]) + ' though, which is a positive.';
     if (isHighValue) t += ' As ' + tierLabel + ' account, even Watch status warrants closer attention.';
     if (mom === 'dn') t += ' If this keeps slipping, they\'ll move into At Risk.';
-    else if (mom === 'up') t += ' The trend is positive — a little more attention could push them back to Healthy.';
+    else if (mom === 'up') t += ' The trend is positive  - a little more attention could push them back to Healthy.';
     t += _kicker('watch');
     return t;
   }
 
   if (status === 'expand') {
-    var t = name + ' is thriving — this is one to get excited about.';
+    var t = name + ' is thriving  - this is one to get excited about.';
     if (good.length) t += ' ' + _cap(good[0]) + (good.length > 1 ? ', and ' + good[1] : '') + '.';
-    if (mom === 'dn') { t += ' Score dipped ' + (Math.abs(delta) || 'a few') + ' points recently though — check the trend chart to see which signals are pulling back before pushing growth conversations.'; }
+    if (mom === 'dn') { t += ' Score dipped ' + (Math.abs(delta) || 'a few') + ' points recently though  - check the trend chart to see which signals are pulling back before pushing growth conversations.'; }
     else if (data.mrr) t += ' At ' + mrrStr + ', a successful expansion here would be a big win.';
     else t += ' Great candidate for an expansion conversation.';
     t += _kicker('expand');
@@ -4384,11 +4384,11 @@ function makeRec(score, data) {
   }
 
   // Healthy
-  var t = name + ' is in good shape — no major concerns.';
+  var t = name + ' is in good shape  - no major concerns.';
   if (good.length) t += ' ' + _cap(good[0]) + (good.length > 1 ? ', and ' + good[1] : '') + '.';
-  if (bad.length) t += ' The only thing I\'d keep an eye on is ' + bad[0] + ' — if that gets worse, it could drag the score down.';
-  if (momFlavor === 'slipping') t += ' Score has been dipping from a good position — down ' + (Math.abs(delta) || 'a few') + ' points recently. Check the signal breakdown to see what\'s changing before it becomes a trend.';
-  else if (mom === 'dn') t += ' Score has been dipping — down ' + (Math.abs(delta) || 'a few') + ' points recently. Check the signal breakdown to see what\'s changing.';
+  if (bad.length) t += ' The only thing I\'d keep an eye on is ' + bad[0] + '  - if that gets worse, it could drag the score down.';
+  if (momFlavor === 'slipping') t += ' Score has been dipping from a good position  - down ' + (Math.abs(delta) || 'a few') + ' points recently. Check the signal breakdown to see what\'s changing before it becomes a trend.';
+  else if (mom === 'dn') t += ' Score has been dipping  - down ' + (Math.abs(delta) || 'a few') + ' points recently. Check the signal breakdown to see what\'s changing.';
   t += _kicker('healthy');
   return t;
 }
@@ -4402,15 +4402,15 @@ function buildPlaybook(score, data) {
 
   // ── Lifecycle-specific plays (prepended) ─────────────────
   if (lc === 'onboarding') {
-    plays.push({ type:'adopt', text:`<strong>Kickoff check-in:</strong> ${name} is onboarding — confirm the onboarding plan is on track. Ask: <em>"Are you getting the value you expected so far? Any blockers we should remove right away?"</em>` });
+    plays.push({ type:'adopt', text:`<strong>Kickoff check-in:</strong> ${name} is onboarding  - confirm the onboarding plan is on track. Ask: <em>"Are you getting the value you expected so far? Any blockers we should remove right away?"</em>` });
     plays.push({ type:'coach', text:`<strong>Stakeholder mapping:</strong> Identify the champion, executive sponsor, and day-to-day users at ${name}. Build relationships across the org early to reduce single-point-of-failure risk.` });
     if (signalOn(data,'adoption') && data.adoption != null && data.adoption < 50)
-      plays.push({ type:'adopt', text:`<strong>Hands-on enablement:</strong> Adoption is at ${data.adoption}% — expected to be ramping but needs a push. Schedule a dedicated training session: <em>"Let me walk your team through the key workflows — teams that adopt these early see results 2x faster."</em>` });
-    plays.push({ type:'coach', text:`<strong>Success plan review:</strong> Revisit the success criteria defined at kickoff. Make sure ${name} is tracking toward their first measurable win — this is critical for long-term retention.` });
+      plays.push({ type:'adopt', text:`<strong>Hands-on enablement:</strong> Adoption is at ${data.adoption}%  - expected to be ramping but needs a push. Schedule a dedicated training session: <em>"Let me walk your team through the key workflows  - teams that adopt these early see results 2x faster."</em>` });
+    plays.push({ type:'coach', text:`<strong>Success plan review:</strong> Revisit the success criteria defined at kickoff. Make sure ${name} is tracking toward their first measurable win  - this is critical for long-term retention.` });
   }
   if (lc === 'won') {
-    plays.push({ type:'coach', text:`<strong>Value realization check:</strong> ${name} recently expanded — confirm the new capabilities are being used. Ask: <em>"How is [new feature/tier] working for your team? Is it meeting the expectations we discussed?"</em>` });
-    plays.push({ type:'adopt', text:`<strong>Transition support:</strong> Ensure the expanded scope is fully onboarded and users are trained. Don't assume the new purchase auto-deploys — schedule a walkthrough if needed.` });
+    plays.push({ type:'coach', text:`<strong>Value realization check:</strong> ${name} recently expanded  - confirm the new capabilities are being used. Ask: <em>"How is [new feature/tier] working for your team? Is it meeting the expectations we discussed?"</em>` });
+    plays.push({ type:'adopt', text:`<strong>Transition support:</strong> Ensure the expanded scope is fully onboarded and users are trained. Don't assume the new purchase auto-deploys  - schedule a walkthrough if needed.` });
   }
   if (lc === 'churned') {
     plays.push({ type:'engage', text:`<strong>Winback assessment:</strong> Review what led to ${name}'s churn. If the relationship was positive and conditions have changed, draft a targeted win-back offer with a clear "what's new" message.` });
@@ -4420,9 +4420,9 @@ function buildPlaybook(score, data) {
   // ── Login frequency ──────────────────────────────────────
   if (signalOn(data,'logins')) {
     if (data.logins === 0)
-      plays.push({ type:'urgent', text:`<strong>Immediate re-engagement:</strong> ${name} hasn't logged in at all this month. Open with: <em>"Hey [name], I noticed you haven't had a chance to log in recently — is there something getting in the way? I'd love to set up a quick session to make sure you're getting value."</em>` });
+      plays.push({ type:'urgent', text:`<strong>Immediate re-engagement:</strong> ${name} hasn't logged in at all this month. Open with: <em>"Hey [name], I noticed you haven't had a chance to log in recently  - is there something getting in the way? I'd love to set up a quick session to make sure you're getting value."</em>` });
     else if (data.logins < 5)
-      plays.push({ type:'engage', text:`<strong>Re-engagement call:</strong> Only ${data.logins} logins this month — well below healthy levels. Ask: <em>"What does your typical week look like — are there blockers to using the platform more regularly? Let's remove them together."</em>` });
+      plays.push({ type:'engage', text:`<strong>Re-engagement call:</strong> Only ${data.logins} logins this month  - well below healthy levels. Ask: <em>"What does your typical week look like  - are there blockers to using the platform more regularly? Let's remove them together."</em>` });
     else if (data.logins < 12)
       plays.push({ type:'coach', text:`<strong>Usage coaching:</strong> Login frequency is moderate at ${data.logins} days. Share a "tip of the month" and ask: <em>"Are there features you haven't had a chance to explore yet? I can walk you through what's working for similar teams."</em>` });
   }
@@ -4430,7 +4430,7 @@ function buildPlaybook(score, data) {
   // ── Feature adoption ─────────────────────────────────────
   if (signalOn(data,'adoption')) {
     if (data.adoption < 25)
-      plays.push({ type:'adopt', text:`<strong>Adoption rescue:</strong> Feature adoption is critically low at ${data.adoption}%. Book a hands-on session and say: <em>"A lot of value is sitting unused — let me show you exactly what [top feature] can do for your workflow. Teams like yours typically see [outcome] within 30 days."</em>` });
+      plays.push({ type:'adopt', text:`<strong>Adoption rescue:</strong> Feature adoption is critically low at ${data.adoption}%. Book a hands-on session and say: <em>"A lot of value is sitting unused  - let me show you exactly what [top feature] can do for your workflow. Teams like yours typically see [outcome] within 30 days."</em>` });
     else if (data.adoption < 50)
       plays.push({ type:'adopt', text:`<strong>Adoption workshop:</strong> ${data.adoption}% adoption leaves significant value on the table. Run a feature discovery session and ask: <em>"Which parts of the product does your team use daily? I want to make sure you're getting full value from everything available to you."</em>` });
   }
@@ -4438,40 +4438,40 @@ function buildPlaybook(score, data) {
   // ── Support tickets ──────────────────────────────────────
   if (signalOn(data,'tickets')) {
     if (data.tickets >= 5)
-      plays.push({ type:'urgent', text:`<strong>Escalation review:</strong> ${data.tickets} open tickets is a red flag. Loop in your support lead immediately and open with: <em>"I've been keeping a close eye on your open tickets — I want to make sure these are getting resolved fast enough. Can we get 20 minutes this week to walk through each one together?"</em>` });
+      plays.push({ type:'urgent', text:`<strong>Escalation review:</strong> ${data.tickets} open tickets is a red flag. Loop in your support lead immediately and open with: <em>"I've been keeping a close eye on your open tickets  - I want to make sure these are getting resolved fast enough. Can we get 20 minutes this week to walk through each one together?"</em>` });
     else if (data.tickets >= 3)
-      plays.push({ type:'support', text:`<strong>Support sync:</strong> ${data.tickets} open tickets suggests friction. Ask: <em>"I saw you have a few open support requests — are these blocking anything important? I want to make sure nothing is slipping through the cracks on our end."</em>` });
+      plays.push({ type:'support', text:`<strong>Support sync:</strong> ${data.tickets} open tickets suggests friction. Ask: <em>"I saw you have a few open support requests  - are these blocking anything important? I want to make sure nothing is slipping through the cracks on our end."</em>` });
   }
 
   // ── NPS ─────────────────────────────────────────────────
   if (signalOn(data,'nps')) {
     if (npsIsDetractor(data.nps))
-      plays.push({ type:'urgent', text:`<strong>Executive recovery call:</strong> NPS detractor (${npsDisplay(data.nps)}) — don't wait. Escalate to leadership and reach out personally: <em>"I wanted to call you directly because your feedback matters a lot to us. Can you help me understand what's fallen short? I want to make this right."</em>` });
+      plays.push({ type:'urgent', text:`<strong>Executive recovery call:</strong> NPS detractor (${npsDisplay(data.nps)})  - don't wait. Escalate to leadership and reach out personally: <em>"I wanted to call you directly because your feedback matters a lot to us. Can you help me understand what's fallen short? I want to make this right."</em>` });
     else if (npsIsPromoter(data.nps) && status === 'expand')
-      plays.push({ type:'expand', text:`<strong>Leverage the promoter:</strong> NPS ${npsDisplay(data.nps)} + strong health = referral opportunity. Ask: <em>"We love having you as a customer — would you be open to a quick case study or intro to a peer who might benefit from [product]? I'll make it easy for you."</em>` });
+      plays.push({ type:'expand', text:`<strong>Leverage the promoter:</strong> NPS ${npsDisplay(data.nps)} + strong health = referral opportunity. Ask: <em>"We love having you as a customer  - would you be open to a quick case study or intro to a peer who might benefit from [product]? I'll make it easy for you."</em>` });
   }
 
   // ── CSAT ────────────────────────────────────────────────
   if (signalOn(data,'csat')) {
     if (csatIsPoor(data.csat))
-      plays.push({ type:'urgent', text:`<strong>CSAT recovery needed:</strong> CSAT is ${csatDisplay(data.csat)} — satisfaction is critically low. Reach out today: <em>"I saw your recent feedback and I want to personally make sure we address what's not working. Can we get 20 minutes this week?"</em>` });
+      plays.push({ type:'urgent', text:`<strong>CSAT recovery needed:</strong> CSAT is ${csatDisplay(data.csat)}  - satisfaction is critically low. Reach out today: <em>"I saw your recent feedback and I want to personally make sure we address what's not working. Can we get 20 minutes this week?"</em>` });
     else if (csatIsGood(data.csat) && status === 'expand')
-      plays.push({ type:'expand', text:`<strong>High CSAT — referral ready:</strong> CSAT ${csatDisplay(data.csat)} indicates strong satisfaction. Ask: <em>"You've had such a great experience — would you be open to sharing your story or introducing a peer?"</em>` });
+      plays.push({ type:'expand', text:`<strong>High CSAT  - referral ready:</strong> CSAT ${csatDisplay(data.csat)} indicates strong satisfaction. Ask: <em>"You've had such a great experience  - would you be open to sharing your story or introducing a peer?"</em>` });
   }
 
   // ── Days since contact ───────────────────────────────────
   if (signalOn(data,'days')) {
     if (data.days > 45)
-      plays.push({ type:'urgent', text:`<strong>Urgent re-connect:</strong> No contact in ${data.days} days — this account has gone dark. Send a personal note today: <em>"Hey [name], it's been a while and I wanted to check in. How's everything going with [product]? Anything on your radar I should know about?"</em>` });
+      plays.push({ type:'urgent', text:`<strong>Urgent re-connect:</strong> No contact in ${data.days} days  - this account has gone dark. Send a personal note today: <em>"Hey [name], it's been a while and I wanted to check in. How's everything going with [product]? Anything on your radar I should know about?"</em>` });
     else if (data.days > 21)
-      plays.push({ type:'engage', text:`<strong>Check-in email:</strong> ${data.days} days since last contact. Reach out with something valuable — share a relevant case study, tip, or product update, then close with: <em>"Anything you'd like to cover on our next call?"</em>` });
+      plays.push({ type:'engage', text:`<strong>Check-in email:</strong> ${data.days} days since last contact. Reach out with something valuable  - share a relevant case study, tip, or product update, then close with: <em>"Anything you'd like to cover on our next call?"</em>` });
   }
 
   // ── Compound signal patterns ────────────────────────────
   if (signalOn(data,'logins') && signalOn(data,'adoption') && data.logins != null && data.logins < 5 && data.adoption != null && data.adoption < 30)
-    plays.push({ type:'urgent', text:`<strong>Full disengagement:</strong> ${name} has both low logins (${data.logins}/mo) and low adoption (${data.adoption}%). This isn't one signal — they've checked out across the board. This needs a direct, honest conversation: <em>"I want to be straight with you — the data shows your team isn't getting value from us right now. Can we reset and figure out what needs to change?"</em>` });
+    plays.push({ type:'urgent', text:`<strong>Full disengagement:</strong> ${name} has both low logins (${data.logins}/mo) and low adoption (${data.adoption}%). This isn't one signal  - they've checked out across the board. This needs a direct, honest conversation: <em>"I want to be straight with you  - the data shows your team isn't getting value from us right now. Can we reset and figure out what needs to change?"</em>` });
   if (signalOn(data,'days') && data.days > 30 && getMomentum(data) === 'dn')
-    plays.push({ type:'urgent', text:`<strong>Silent decline:</strong> Score is dropping and we haven't been in touch for ${data.days} days. The longer this goes unaddressed, the harder recovery gets. Break the silence today with a personal note — not a template.` });
+    plays.push({ type:'urgent', text:`<strong>Silent decline:</strong> Score is dropping and we haven't been in touch for ${data.days} days. The longer this goes unaddressed, the harder recovery gets. Break the silence today with a personal note  - not a template.` });
   if ((signalOn(data,'nps') && npsIsDetractor(data.nps)) && signalOn(data,'days') && data.days > 21)
     plays.push({ type:'urgent', text:`<strong>Unhappy and unreachable:</strong> NPS detractor (${npsDisplay(data.nps)}) combined with ${data.days} days of no contact. They may already be evaluating alternatives. This needs an exec-level save call, not a standard check-in.` });
   if (data.renewal != null && data.renewal <= 3 && (status === 'critical' || status === 'risk'))
@@ -4479,34 +4479,34 @@ function buildPlaybook(score, data) {
 
   // ── Renewal ──────────────────────────────────────────────
   if (data.renewal === 0)
-    plays.push({ type:'renew', text:`<strong>Renewal NOW:</strong> Contract is at renewal — get this closed immediately. If health is strong, make it easy: <em>"Everything looks great on your account — I'd love to lock in your renewal and talk about what's coming next year."</em>` });
+    plays.push({ type:'renew', text:`<strong>Renewal NOW:</strong> Contract is at renewal  - get this closed immediately. If health is strong, make it easy: <em>"Everything looks great on your account  - I'd love to lock in your renewal and talk about what's coming next year."</em>` });
   else if (data.renewal != null && data.renewal <= 1)
-    plays.push({ type:'renew', text:`<strong>Renewal urgency:</strong> ${fmtRenewalTime(data)} to renewal. Schedule the contract review call this week — lead with value: <em>"Before we talk paperwork, I want to make sure you've seen the ROI you were expecting. Let's walk through your results together."</em>` });
+    plays.push({ type:'renew', text:`<strong>Renewal urgency:</strong> ${fmtRenewalTime(data)} to renewal. Schedule the contract review call this week  - lead with value: <em>"Before we talk paperwork, I want to make sure you've seen the ROI you were expecting. Let's walk through your results together."</em>` });
   else if (data.renewal != null && data.renewal <= 3 && status !== 'risk' && status !== 'critical')
-    plays.push({ type:'renew', text:`<strong>Renewal prep:</strong> ${fmtRenewalTime(data)} to renewal. Start the conversation now while sentiment is positive: <em>"Renewal is coming up — I'd love to get ahead of it and make sure everything is lined up on your end."</em>` });
+    plays.push({ type:'renew', text:`<strong>Renewal prep:</strong> ${fmtRenewalTime(data)} to renewal. Start the conversation now while sentiment is positive: <em>"Renewal is coming up  - I'd love to get ahead of it and make sure everything is lined up on your end."</em>` });
 
   // ── Growth signal ────────────────────────────────────────
   if (signalOn(data,'growth')) {
     if (data.growth === 'strong')
-      plays.push({ type:'expand', text:`<strong>Upsell now:</strong> Strong growth signal detected — this is the right moment. Say: <em>"I noticed your team has been expanding usage significantly — have you thought about [next tier / additional seats / premium feature]? A lot of teams at your stage find it unlocks [specific outcome]."</em>` });
+      plays.push({ type:'expand', text:`<strong>Upsell now:</strong> Strong growth signal detected  - this is the right moment. Say: <em>"I noticed your team has been expanding usage significantly  - have you thought about [next tier / additional seats / premium feature]? A lot of teams at your stage find it unlocks [specific outcome]."</em>` });
     else if (data.growth === 'mild' && status !== 'risk' && status !== 'critical')
-      plays.push({ type:'expand', text:`<strong>Growth conversation:</strong> Mild growth signal — explore expansion potential. Ask: <em>"You've been growing steadily — where is the team headed over the next 6 months? I want to make sure [product] scales with you."</em>` });
+      plays.push({ type:'expand', text:`<strong>Growth conversation:</strong> Mild growth signal  - explore expansion potential. Ask: <em>"You've been growing steadily  - where is the team headed over the next 6 months? I want to make sure [product] scales with you."</em>` });
   }
 
   // ── Case study ───────────────────────────────────────────
   if (status === 'expand' && ((signalOn(data,'nps') && npsIsPromoter(data.nps)) || (signalOn(data,'csat') && csatIsGood(data.csat))))
-    plays.push({ type:'expand', text:`<strong>Case study / referral:</strong> Happy, expanding customer — perfect for advocacy. Ask: <em>"You've had such a strong experience — would you be open to sharing your story? Even a quick quote or intro to a peer would mean a lot to us."</em>` });
+    plays.push({ type:'expand', text:`<strong>Case study / referral:</strong> Happy, expanding customer  - perfect for advocacy. Ask: <em>"You've had such a strong experience  - would you be open to sharing your story? Even a quick quote or intro to a peer would mean a lot to us."</em>` });
 
   // ── Borderline signal checks (catch mediocre signals that contribute to a Watch/Risk score) ──
   if (status === 'watch' || status === 'risk' || status === 'critical') {
     if (signalOn(data,'logins') && data.logins >= 5 && data.logins < 12 && !plays.some(p => p.type === 'coach' || p.type === 'engage'))
-      plays.push({ type:'coach', text:`<strong>Boost engagement:</strong> ${name} is logging in ${data.logins} days/month — moderate but below ideal. Ask: <em>"Are there features your team hasn't explored yet? I'd love to walk you through what's working for similar teams."</em>` });
+      plays.push({ type:'coach', text:`<strong>Boost engagement:</strong> ${name} is logging in ${data.logins} days/month  - moderate but below ideal. Ask: <em>"Are there features your team hasn't explored yet? I'd love to walk you through what's working for similar teams."</em>` });
     if (signalOn(data,'adoption') && data.adoption >= 25 && data.adoption < 50 && !plays.some(p => p.type === 'adopt'))
-      plays.push({ type:'adopt', text:`<strong>Improve adoption:</strong> Feature adoption is at ${data.adoption}% — there's value being left on the table. Run a feature discovery session: <em>"I'd love to show you a few capabilities that could save your team time."</em>` });
+      plays.push({ type:'adopt', text:`<strong>Improve adoption:</strong> Feature adoption is at ${data.adoption}%  - there's value being left on the table. Run a feature discovery session: <em>"I'd love to show you a few capabilities that could save your team time."</em>` });
     if (signalOn(data,'days') && data.days > 14 && data.days <= 21 && !plays.some(p => p.type === 'engage' || p.type === 'urgent'))
-      plays.push({ type:'engage', text:`<strong>Close the gap:</strong> It's been ${data.days} days since last contact — get ahead of this before it becomes a bigger issue. Send a check-in: <em>"Hey [name], just wanted to touch base — anything on your radar?"</em>` });
+      plays.push({ type:'engage', text:`<strong>Close the gap:</strong> It's been ${data.days} days since last contact  - get ahead of this before it becomes a bigger issue. Send a check-in: <em>"Hey [name], just wanted to touch base  - anything on your radar?"</em>` });
     if (signalOn(data,'nps') && !npsIsDetractor(data.nps) && !npsIsPromoter(data.nps) && data.nps != null && !plays.some(p => p.type === 'urgent'))
-      plays.push({ type:'coach', text:`<strong>Move the needle on NPS:</strong> ${name} is in the passive range (${npsDisplay(data.nps)}) — not unhappy, but not an advocate either. Ask: <em>"What would it take for us to go from good to great for your team?"</em>` });
+      plays.push({ type:'coach', text:`<strong>Move the needle on NPS:</strong> ${name} is in the passive range (${npsDisplay(data.nps)})  - not unhappy, but not an advocate either. Ask: <em>"What would it take for us to go from good to great for your team?"</em>` });
     if (signalOn(data,'csat') && !csatIsPoor(data.csat) && !csatIsGood(data.csat) && data.csat != null && !plays.some(p => p.type === 'urgent'))
       plays.push({ type:'coach', text:`<strong>Improve CSAT:</strong> ${name} has a neutral CSAT rating (${csatDisplay(data.csat)}). Ask: <em>"What's one thing we could improve to make your experience better?"</em>` });
   }
@@ -4515,20 +4515,20 @@ function buildPlaybook(score, data) {
   if (!plays.length) {
     if (status === 'critical' || status === 'risk') {
       const drivers = _nbaScoreDrivers(data);
-      const driverHint = drivers.length ? ' The biggest movers: ' + drivers.map(d => d.label + ' ' + d.desc).join('; ') + '.' : ' No single signal is in crisis, but several are dragging the score down together — check the Signal Breakdown for the full picture.';
-      plays.push({ type:'urgent', text:`<strong>Dig into what changed:</strong> ${name} is ${status === 'critical' ? 'critical' : 'at risk'}.${driverHint} Reach out today: <em>"I've been keeping a close eye on your account — can we find time this week to check in?"</em>` });
+      const driverHint = drivers.length ? ' The biggest movers: ' + drivers.map(d => d.label + ' ' + d.desc).join('; ') + '.' : ' No single signal is in crisis, but several are dragging the score down together  - check the Signal Breakdown for the full picture.';
+      plays.push({ type:'urgent', text:`<strong>Dig into what changed:</strong> ${name} is ${status === 'critical' ? 'critical' : 'at risk'}.${driverHint} Reach out today: <em>"I've been keeping a close eye on your account  - can we find time this week to check in?"</em>` });
     }
     else if (status === 'watch')
-      plays.push({ type:'engage', text:`<strong>Proactive check-in:</strong> ${name} is in the Watch zone — signals are borderline across the board. Increase your cadence and reach out: <em>"I wanted to check in and make sure everything is tracking well. Anything on your radar I should know about?"</em>` });
+      plays.push({ type:'engage', text:`<strong>Proactive check-in:</strong> ${name} is in the Watch zone  - signals are borderline across the board. Increase your cadence and reach out: <em>"I wanted to check in and make sure everything is tracking well. Anything on your radar I should know about?"</em>` });
     else if (status === 'expand' && getMomentum(data) !== 'dn')
       plays.push({ type:'expand', text:`<strong>Capitalize on momentum:</strong> ${name} is in great shape with strong engagement. Explore expansion opportunities, ask for a referral, or propose a tier upgrade at your next touchpoint.` });
     else if (status === 'expand') {
       const drivers = _nbaScoreDrivers(data);
       const driverHint = drivers.length ? drivers.map(d => d.label + ' ' + d.desc).join('; ') + '.' : 'Check the trend chart and signal breakdown to see which signals are pulling back.';
-      plays.push({ type:'engage', text:`<strong>Pause on expansion — score is dipping:</strong> ${name} scores well overall but momentum has turned negative. ${driverHint} Understand the drop before pushing growth conversations.` });
+      plays.push({ type:'engage', text:`<strong>Pause on expansion  - score is dipping:</strong> ${name} scores well overall but momentum has turned negative. ${driverHint} Understand the drop before pushing growth conversations.` });
     }
     else
-      plays.push({ type:'ok', text:`<strong>Stay the course:</strong> ${name} is healthy across all signals. Maintain your regular cadence and bring value on every call. If logins drop below 5/mo, adoption falls under 30%, or you go more than 30 days without contact — that's when to act.` });
+      plays.push({ type:'ok', text:`<strong>Stay the course:</strong> ${name} is healthy across all signals. Maintain your regular cadence and bring value on every call. If logins drop below 5/mo, adoption falls under 30%, or you go more than 30 days without contact  - that's when to act.` });
   }
 
   // ── Lifecycle suppression: remove play types not appropriate for this stage ──
@@ -4600,7 +4600,7 @@ function _nbaScoreDrivers(c) {
 }
 
 // ─── SCORE IMPROVEMENT DRIVERS (per-customer) ────────────────
-// Like _nbaScoreDrivers but for positive changes — what improved?
+// Like _nbaScoreDrivers but for positive changes  - what improved?
 function _nbaScoreGains(c) {
   const hist = (c.history || []).filter(h => h.date).sort((a, b) => a.date.localeCompare(b.date));
   if (hist.length < 2) return [];
@@ -4676,72 +4676,72 @@ function buildNextBestAction(c) {
   // ── Lifecycle-first overrides ──────────────────────────────
   if (lc === 'onboarding') {
     if ((status === 'critical' || status === 'risk') && bigImprove)
-      return { level:'warn', action:'Reinforce onboarding momentum', talk:`${c.name||'This customer'} started rough but is recovering fast. Whatever changed is working — find out what and double down: "Things are heading in the right direction — what clicked for your team recently? Let's make sure we keep that going."` };
+      return { level:'warn', action:'Reinforce onboarding momentum', talk:`${c.name||'This customer'} started rough but is recovering fast. Whatever changed is working  - find out what and double down: "Things are heading in the right direction  - what clicked for your team recently? Let's make sure we keep that going."` };
     if (status === 'critical' || status === 'risk')
-      return { level:'urgent', action:'Onboarding at risk — remove blockers now', talk:`${c.name||'This customer'} is a new customer showing risk signals with no recovery trend yet. Schedule a hands-on enablement session immediately: "I want to make sure we get you off to a strong start. Can we get 30 minutes to walk through any blockers together?"` };
+      return { level:'urgent', action:'Onboarding at risk  - remove blockers now', talk:`${c.name||'This customer'} is a new customer showing risk signals with no recovery trend yet. Schedule a hands-on enablement session immediately: "I want to make sure we get you off to a strong start. Can we get 30 minutes to walk through any blockers together?"` };
     if (signalOn(c,'adoption') && c.adoption != null && c.adoption < 40)
-      return { level:'warn', action:`Drive adoption — only ${c.adoption}% utilized`, talk:`New customer at ${c.adoption}% adoption — this is the critical window for time-to-value. Schedule a training session: "Let me walk your team through the key features — teams that adopt these early see results much faster."` };
+      return { level:'warn', action:`Drive adoption  - only ${c.adoption}% utilized`, talk:`New customer at ${c.adoption}% adoption  - this is the critical window for time-to-value. Schedule a training session: "Let me walk your team through the key features  - teams that adopt these early see results much faster."` };
     if (signalOn(c,'logins') && c.logins != null && c.logins < 5)
-      return { level:'warn', action:'Boost early engagement — low logins', talk:`New customer with only ${c.logins} logins this month. Reach out: "I wanted to check in on how things are going — are you finding it easy to get started? I'd love to walk you through a few things."` };
-    return { level:'ok', action:'Continue onboarding — confirm time-to-value', talk:`Onboarding is on track. Keep the momentum going — focus on adoption milestones and building champion relationships. Ask: "What's working well so far? Anything we can do to help you get more value faster?"` };
+      return { level:'warn', action:'Boost early engagement  - low logins', talk:`New customer with only ${c.logins} logins this month. Reach out: "I wanted to check in on how things are going  - are you finding it easy to get started? I'd love to walk you through a few things."` };
+    return { level:'ok', action:'Continue onboarding  - confirm time-to-value', talk:`Onboarding is on track. Keep the momentum going  - focus on adoption milestones and building champion relationships. Ask: "What's working well so far? Anything we can do to help you get more value faster?"` };
   }
   if (lc === 'won') {
     if ((status === 'critical' || status === 'risk') && bigImprove)
-      return { level:'warn', action:'Post-expansion recovering — stay close', talk:`${c.name||'This customer'} struggled after expanding but is now trending in the right direction. Stay close to ensure the recovery continues: "Glad to see things picking up — what's been the biggest adjustment for your team with the new capabilities?"` };
+      return { level:'warn', action:'Post-expansion recovering  - stay close', talk:`${c.name||'This customer'} struggled after expanding but is now trending in the right direction. Stay close to ensure the recovery continues: "Glad to see things picking up  - what's been the biggest adjustment for your team with the new capabilities?"` };
     if (status === 'critical' || status === 'risk')
-      return { level:'warn', action:'Expansion at risk — ensure value realization', talk:`${c.name||'This customer'} recently expanded but signals are dropping. Focus on ensuring the new capabilities are delivering value: "I want to make sure you're getting what you expected from the expansion. Can we review how things are going?"` };
-    return { level:'ok', action:'Value realization — check new capabilities adoption', talk:`Recently expanded — make sure the new scope is fully adopted and delivering ROI. Ask: "How is [the new capability] working for your team? Is it meeting the expectations we discussed?"` };
+      return { level:'warn', action:'Expansion at risk  - ensure value realization', talk:`${c.name||'This customer'} recently expanded but signals are dropping. Focus on ensuring the new capabilities are delivering value: "I want to make sure you're getting what you expected from the expansion. Can we review how things are going?"` };
+    return { level:'ok', action:'Value realization  - check new capabilities adoption', talk:`Recently expanded  - make sure the new scope is fully adopted and delivering ROI. Ask: "How is [the new capability] working for your team? Is it meeting the expectations we discussed?"` };
   }
   if (lc === 'churned') {
     if (c.score >= 50)
-      return { level:'warn', action:'Assess winback potential', talk:`${c.name||'This account'} churned but had decent engagement. Consider a targeted re-engagement: "We've made some improvements since we last worked together — would you be open to a quick conversation about what's new?"` };
-    return { level:'ok', action:'Account churned — document lessons learned', talk:`This account has churned. Document what led to the loss. If their signals ever start improving (new logins, support tickets closing), or you hear about leadership changes or new funding — that's your winback window.` };
+      return { level:'warn', action:'Assess winback potential', talk:`${c.name||'This account'} churned but had decent engagement. Consider a targeted re-engagement: "We've made some improvements since we last worked together  - would you be open to a quick conversation about what's new?"` };
+    return { level:'ok', action:'Account churned  - document lessons learned', talk:`This account has churned. Document what led to the loss. If their signals ever start improving (new logins, support tickets closing), or you hear about leadership changes or new funding  - that's your winback window.` };
   }
   const urgency = getRenewalUrgency(c);
 
   // Priority order: most urgent condition wins
   // Each check is also gated on whether that signal dimension is active (weight > 0)
   if (signalOn(c,'nps') && npsIsDetractor(c.nps))
-    return { level:'urgent', action:'Call them today', talk:`NPS detractor (${npsDisplay(c.nps)}) — this needs a personal call, not an email. Open with: "I wanted to reach out directly. Can you help me understand what's fallen short? I want to make this right."` };
+    return { level:'urgent', action:'Call them today', talk:`NPS detractor (${npsDisplay(c.nps)})  - this needs a personal call, not an email. Open with: "I wanted to reach out directly. Can you help me understand what's fallen short? I want to make this right."` };
 
   if (signalOn(c,'csat') && csatIsPoor(c.csat))
-    return { level:'urgent', action:'Follow up on CSAT', talk:`Poor CSAT (${csatDisplay(c.csat)}) — satisfaction is critically low. Reach out today: "I saw your recent feedback and want to personally address what's not working."` };
+    return { level:'urgent', action:'Follow up on CSAT', talk:`Poor CSAT (${csatDisplay(c.csat)})  - satisfaction is critically low. Reach out today: "I saw your recent feedback and want to personally address what's not working."` };
 
   if (signalOn(c,'tickets') && c.tickets >= 5)
-    return { level:'urgent', action:'Escalate support now', talk:`${c.tickets} open tickets is critical. Loop in your support lead and contact the customer today: "I've been watching your open tickets closely — can we get 20 minutes to walk through each one together?"` };
+    return { level:'urgent', action:'Escalate support now', talk:`${c.tickets} open tickets is critical. Loop in your support lead and contact the customer today: "I've been watching your open tickets closely  - can we get 20 minutes to walk through each one together?"` };
 
   if (c.renewal != null && c.renewal <= 1 && c.renewal >= 0)
-    return { level:'urgent', action:'Close the renewal this week', talk:`Renewal is ${c.renewal === 0 ? 'NOW' : 'in 1 month'} — get this on the calendar immediately. Lead with value before paperwork: "Before we talk renewal, let's walk through your results together."` };
+    return { level:'urgent', action:'Close the renewal this week', talk:`Renewal is ${c.renewal === 0 ? 'NOW' : 'in 1 month'}  - get this on the calendar immediately. Lead with value before paperwork: "Before we talk renewal, let's walk through your results together."` };
 
   if (sent?.val === 'negative')
-    return { level:'warn', action:'Follow up on last call', talk:`Last call logged as negative — follow up within 24 hours. Ask: "I wanted to check in after our last conversation. Is there anything I can do to help get things back on track?"` };
+    return { level:'warn', action:'Follow up on last call', talk:`Last call logged as negative  - follow up within 24 hours. Ask: "I wanted to check in after our last conversation. Is there anything I can do to help get things back on track?"` };
 
   if (signalOn(c,'days') && cad.status === 'overdue')
-    return { level:'warn', action:`Reach out now — ${c.days} days no contact`, talk:`This account has gone silent. Send a personal note today: "Hey [name], it's been a while — how's everything going? Anything on your radar I should know about?"` };
+    return { level:'warn', action:`Reach out now  - ${c.days} days no contact`, talk:`This account has gone silent. Send a personal note today: "Hey [name], it's been a while  - how's everything going? Anything on your radar I should know about?"` };
 
   if (status === 'critical' && bigImprove)
-    return { level:'warn', action:'Recovery underway — stay close', talk:`Critical score but recovering fast. Something is working — find out what and reinforce it: "I can see things are moving in the right direction. What's been the biggest change recently? Let's make sure we keep this going."` };
+    return { level:'warn', action:'Recovery underway  - stay close', talk:`Critical score but recovering fast. Something is working  - find out what and reinforce it: "I can see things are moving in the right direction. What's been the biggest change recently? Let's make sure we keep this going."` };
 
   if (status === 'critical')
-    return { level:'urgent', action:'Escalate — critical health score', talk:`Critical score with no recovery trend — act immediately. Book an executive call this week: "I've been keeping a very close eye on your account and want to personally make sure we get things back on track."` };
+    return { level:'urgent', action:'Escalate  - critical health score', talk:`Critical score with no recovery trend  - act immediately. Book an executive call this week: "I've been keeping a very close eye on your account and want to personally make sure we get things back on track."` };
 
   if (status === 'risk' && declining)
-    return { level:'urgent', action:'Schedule emergency health check', talk:`At Risk AND still declining — don't wait. Book a call this week: "I've been keeping a close eye on your account and want to make sure we're getting ahead of anything before it becomes a bigger issue."` };
+    return { level:'urgent', action:'Schedule emergency health check', talk:`At Risk AND still declining  - don't wait. Book a call this week: "I've been keeping a close eye on your account and want to make sure we're getting ahead of anything before it becomes a bigger issue."` };
 
   if (status === 'risk' && bigImprove)
-    return { level:'warn', action:'Keep the recovery going', talk:`At Risk but on an upward trajectory. Don't change what's working — check in to understand what's driving the improvement: "Things are trending better — what shifted? I want to make sure we keep building on this."` };
+    return { level:'warn', action:'Keep the recovery going', talk:`At Risk but on an upward trajectory. Don't change what's working  - check in to understand what's driving the improvement: "Things are trending better  - what shifted? I want to make sure we keep building on this."` };
 
   if (status === 'risk')
-    return { level:'warn', action:'Schedule a health check call', talk:`At Risk account — reach out this week: "I wanted to check in and make sure you're getting the value you expected. Can we find 30 minutes to review where things stand?"` };
+    return { level:'warn', action:'Schedule a health check call', talk:`At Risk account  - reach out this week: "I wanted to check in and make sure you're getting the value you expected. Can we find 30 minutes to review where things stand?"` };
 
   if (signalOn(c,'logins') && c.logins != null && c.logins < 5 && signalOn(c,'adoption') && c.adoption != null && c.adoption < 30)
-    return { level:'warn', action:'Address low engagement — logins & adoption down', talk:`Both login frequency (${c.logins}/mo) and adoption (${c.adoption}%) are low. Schedule a hands-on session: "I'd love to walk you through a few features your team might not be using yet — can we find 30 minutes?"` };
+    return { level:'warn', action:'Address low engagement  - logins & adoption down', talk:`Both login frequency (${c.logins}/mo) and adoption (${c.adoption}%) are low. Schedule a hands-on session: "I'd love to walk you through a few features your team might not be using yet  - can we find 30 minutes?"` };
 
   if (signalOn(c,'adoption') && c.adoption != null && c.adoption < 30)
-    return { level:'warn', action:`Drive adoption — only ${c.adoption}% utilized`, talk:`Adoption is at ${c.adoption}% — they're not getting full value. Offer a guided session: "I noticed your team is only using a fraction of what's available. Can I show you a few quick wins that other teams at your stage love?"` };
+    return { level:'warn', action:`Drive adoption  - only ${c.adoption}% utilized`, talk:`Adoption is at ${c.adoption}%  - they're not getting full value. Offer a guided session: "I noticed your team is only using a fraction of what's available. Can I show you a few quick wins that other teams at your stage love?"` };
 
   if (signalOn(c,'logins') && c.logins != null && c.logins < 5)
-    return { level:'warn', action:`Investigate low logins (${c.logins}/mo)`, talk:`Only ${c.logins} logins this month is a red flag. Reach out: "I noticed your team's activity has dipped recently — is everything okay? Anything I can help unblock?"` };
+    return { level:'warn', action:`Investigate low logins (${c.logins}/mo)`, talk:`Only ${c.logins} logins this month is a red flag. Reach out: "I noticed your team's activity has dipped recently  - is everything okay? Anything I can help unblock?"` };
 
   if (status === 'watch') {
     // Build a specific action based on which signals are actually weak
@@ -4754,15 +4754,15 @@ function buildNextBestAction(c) {
     if (signalOn(c,'csat') && c.csat != null && c.csat <= 3) watchSigns.push('CSAT ' + csatDisplay(c.csat));
     const signSummary = watchSigns.length ? watchSigns.slice(0, 2).join(', ') : 'mixed signals';
     if (improving)
-      return { level:'warn', action:'Trending up — address remaining gaps', talk:`Heading in the right direction but still in Watch territory (${signSummary}). Keep the momentum: "Things are looking better — I want to make sure we close the remaining gaps. Can we review where you're still seeing friction?"` };
-    return { level:'warn', action:'Check in — ' + signSummary, talk:`In the Watch zone with ${signSummary}. Proactively reach out: "I wanted to check in and make sure everything is going well. Anything on your radar I should know about?"` };
+      return { level:'warn', action:'Trending up  - address remaining gaps', talk:`Heading in the right direction but still in Watch territory (${signSummary}). Keep the momentum: "Things are looking better  - I want to make sure we close the remaining gaps. Can we review where you're still seeing friction?"` };
+    return { level:'warn', action:'Check in  - ' + signSummary, talk:`In the Watch zone with ${signSummary}. Proactively reach out: "I wanted to check in and make sure everything is going well. Anything on your radar I should know about?"` };
   }
 
   if (signalOn(c,'growth') && status === 'expand' && c.growth === 'strong' && !declining)
-    return { level:'expand', action:'Open the upsell conversation', talk:`Perfect timing for expansion. Say: "Your team's engagement has been really strong — have you thought about [next tier / additional seats]? Teams at your stage typically see [outcome] when they expand."` };
+    return { level:'expand', action:'Open the upsell conversation', talk:`Perfect timing for expansion. Say: "Your team's engagement has been really strong  - have you thought about [next tier / additional seats]? Teams at your stage typically see [outcome] when they expand."` };
 
   if (c.renewal != null && c.renewal <= 3)
-    return { level:'renew', action:'Start renewal conversation', talk:`Get ahead of the renewal while sentiment is positive: "Renewal is coming up — I'd love to get ahead of it and make sure everything is lined up on your end."` };
+    return { level:'renew', action:'Start renewal conversation', talk:`Get ahead of the renewal while sentiment is positive: "Renewal is coming up  - I'd love to get ahead of it and make sure everything is lined up on your end."` };
 
   if (declining) {
     const drop = Math.abs(delta);
@@ -4772,20 +4772,20 @@ function buildNextBestAction(c) {
     let actionSuffix = '';
     if (drivers.length > 0) {
       const top = drivers[0];
-      actionSuffix = ` — driven by ${top.label}`;
+      actionSuffix = `  - driven by ${top.label}`;
       if (drivers.length === 1) {
         driverText = `The main factor: <strong>${top.label}</strong> ${top.desc}. `;
       } else {
         driverText = `The main factors: <strong>${top.label}</strong> ${top.desc} and <strong>${drivers[1].label}</strong> ${drivers[1].desc}. `;
       }
     }
-    return { level:'warn', action:`Score decline (−${drop} pts)${actionSuffix}`, talk:`Score dropped ${drop} points this week. ${driverText}Ask: "I noticed some changes in your usage patterns recently — is there anything going on that I should know about?"` };
+    return { level:'warn', action:`Score decline (−${drop} pts)${actionSuffix}`, talk:`Score dropped ${drop} points this week. ${driverText}Ask: "I noticed some changes in your usage patterns recently  - is there anything going on that I should know about?"` };
   }
 
   if (status === 'expand')
-    return { level:'expand', action:'Ask for a referral or case study', talk:`Happy, healthy customer — great time to ask: "You've had such a great experience — would you be open to a quick intro to a peer who might benefit? I'll make it easy for you."` };
+    return { level:'expand', action:'Ask for a referral or case study', talk:`Happy, healthy customer  - great time to ask: "You've had such a great experience  - would you be open to a quick intro to a peer who might benefit? I'll make it easy for you."` };
 
-  return { level:'ok', action:'Send a value-add touchpoint', talk:`Account is healthy — maintain momentum. Send something useful: a relevant tip, case study, or product update. Close with: "Anything you'd like to cover on our next call?"` };
+  return { level:'ok', action:'Send a value-add touchpoint', talk:`Account is healthy  - maintain momentum. Send something useful: a relevant tip, case study, or product update. Close with: "Anything you'd like to cover on our next call?"` };
 }
 
 // ─── MOMENTUM ────────────────────────────────────────────────
@@ -4836,7 +4836,7 @@ function getRenewalUrgency(c) {
 
 function urgencyHTML(c) {
   const u = getRenewalUrgency(c);
-  if (!u) return '—';
+  if (!u) return ' -';
   return `<span class="urgency ${u.cls}" title="Urgency score: ${u.score}/100">${u.label}</span>`;
 }
 
@@ -4881,19 +4881,19 @@ function buildCadenceAlerts() {
     if (c.next_touch) {
       const ntDays = Math.round((new Date() - new Date(c.next_touch)) / 86400000);
       if (ntDays > 0) {
-        var _ntCtx = ntDays > 14 ? 'Significantly overdue — reschedule immediately' : ntDays > 7 ? 'Over a week late' : 'Recently overdue';
+        var _ntCtx = ntDays > 14 ? 'Significantly overdue  - reschedule immediately' : ntDays > 7 ? 'Over a week late' : 'Recently overdue';
         var _ntHealth = (c.status === 'critical' || c.status === 'risk') ? ' · ⚠ ' + (c.status === 'critical' ? 'Critical' : 'At Risk') : '';
         alerts.push({
           id:  `${c.id}-ntouch`,
           cid: c.id,
           cat: 'cadence',
           type: ntDays > 7 ? 'red' : 'amber',
-          msg: `<strong>${escHtml(c.name)}</strong> <span>— scheduled touch overdue by ${ntDays} day${ntDays !== 1 ? 's' : ''}</span>`,
+          msg: `<strong>${escHtml(c.name)}</strong> <span> - scheduled touch overdue by ${ntDays} day${ntDays !== 1 ? 's' : ''}</span>`,
           sub: `${_ntCtx} · Was due ${new Date(c.next_touch).toLocaleDateString('en-US', { month:'short', day:'numeric' })}${_ntHealth}`
         });
       }
     }
-    if (!signalOn(c,'days')) return; // cadence is a days-based signal — skip if weight is 0
+    if (!signalOn(c,'days')) return; // cadence is a days-based signal  - skip if weight is 0
     const cad = getCadenceStatus(c);
     if (cad.status === 'overdue') {
       var _cadCtx = (c.status === 'critical' || c.status === 'risk') ? 'At-risk account going uncontacted' : c.tier === 'enterprise' ? 'Enterprise SLA breach' : 'Contact cadence exceeded';
@@ -4902,16 +4902,16 @@ function buildCadenceAlerts() {
         id: c.id+'-cadence',
         cid: c.id,
         type: 'red',
-        msg: `<strong>${c.name}</strong> <span>— check-in overdue! No contact in ${c.days} days (${(c.tier||'mid').toUpperCase()} SLA: ${getCadenceThresholds()[c.tier||'mid'].overdue}d)</span>`,
+        msg: `<strong>${c.name}</strong> <span> - check-in overdue! No contact in ${c.days} days (${(c.tier||'mid').toUpperCase()} SLA: ${getCadenceThresholds()[c.tier||'mid'].overdue}d)</span>`,
         sub: `${_cadCtx} · $${fmtNum(c.mrr||0)} MRR${_cadMom}`
       });
     } else if (cad.status === 'warn') {
-      var _cadWCtx = (c.status === 'critical' || c.status === 'risk') ? 'At-risk — don\'t let this go overdue' : 'Approaching cadence limit';
+      var _cadWCtx = (c.status === 'critical' || c.status === 'risk') ? 'At-risk  - don\'t let this go overdue' : 'Approaching cadence limit';
       alerts.push({
         id: c.id+'-cadence',
         cid: c.id,
         type: 'amber',
-        msg: `<strong>${c.name}</strong> <span>— check-in due soon (${c.days} days since contact)</span>`,
+        msg: `<strong>${c.name}</strong> <span> - check-in due soon (${c.days} days since contact)</span>`,
         sub: `${_cadWCtx} · $${fmtNum(c.mrr||0)} MRR`
       });
     }
@@ -5135,7 +5135,7 @@ function renderBellDd() {
   const all = buildAlerts();
   const active = all.filter(a => !isSnoozed(a.id) && !isDismissed(a.id));
   if (!active.length) {
-    m.innerHTML = `<div style="padding:14px 16px;font-size:var(--fs-base);color:var(--muted);text-align:center">${appIcon('check',13)} All clear — no active alerts</div>`;
+    m.innerHTML = `<div style="padding:14px 16px;font-size:var(--fs-base);color:var(--muted);text-align:center">${appIcon('check',13)} All clear  - no active alerts</div>`;
     return;
   }
   const top5 = active.slice(0, 5);
@@ -5219,7 +5219,7 @@ function renderHomeBase() { try { _renderHomeBase(); } catch(e) { console.error(
 async function _loadDemoFromCard() {
   if (!currentUser) { toast('Please sign in first', 'warn'); return; }
   const cid = getEffectiveClientId();
-  if (!cid) { toast('No client found — contact support', 'error'); return; }
+  if (!cid) { toast('No client found  - contact support', 'error'); return; }
   if (!confirm('This will load 75 demo customers into your account. Any existing customers will be replaced. Continue?')) return;
   toast('Loading demo data…', 'default');
   try {
@@ -5272,7 +5272,7 @@ async function _loadDemoFromCard() {
     if (typeof refreshMgrDropdown === 'function') refreshMgrDropdown();
     renderHomeBase();
     nav('homebase');
-    toast('Demo data loaded — ' + COUNT + ' customers ready to explore!', 'success');
+    toast('Demo data loaded  - ' + COUNT + ' customers ready to explore!', 'success');
     if (typeof _wtInit === 'function') _wtInit();
   } catch(e) {
     console.error('Demo seed error:', e);
@@ -5295,7 +5295,7 @@ function _gettingStartedHTML() {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
       </div>
       <div class="gs-detail" style="display:none;padding:0 14px 12px;border-top:1px solid var(--border);padding-top:10px">
-        ${steps.map((s, i) => `<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px">${si(i+1)}<div style="font-size:var(--fs-sm);line-height:1.4"><strong>${s.title}</strong> — <span style="color:var(--muted)">${s.desc}</span></div></div>`).join('')}
+        ${steps.map((s, i) => `<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px">${si(i+1)}<div style="font-size:var(--fs-sm);line-height:1.4"><strong>${s.title}</strong>  - <span style="color:var(--muted)">${s.desc}</span></div></div>`).join('')}
         <div style="display:flex;gap:6px;margin-top:2px">${buttons}</div>
       </div>
     </div>`;
@@ -5315,10 +5315,10 @@ function _gettingStartedHTML() {
     '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();nav(\'settings\')">Go to Settings →</button>'
   ) + card(pplIco, 'linear-gradient(135deg,#6366f1,#4f46e5)',
     'I want to add a selected customer list first, then connect an integration',
-    'Only the accounts you add in IQc will be tracked — the integration won\'t pull in everything, just enrich your selected customers',
+    'Only the accounts you add in IQc will be tracked  - the integration won\'t pull in everything, just enrich your selected customers',
     [
       { title:'Add your selected customers', desc:'Go to <a href="#" onclick="event.stopPropagation();nav(\'customers\')" style="color:var(--teal);font-weight:600">Customers</a> and add them one at a time, or use <a href="#" onclick="event.stopPropagation();nav(\'csv\')" style="color:var(--teal);font-weight:600">CSV Import</a> to bulk upload just the accounts you want to track.' },
-      { title:'Connect your integration', desc:'Go to <a href="#" onclick="event.stopPropagation();nav(\'settings\')" style="color:var(--teal);font-weight:600">Settings → Integrations</a> and connect your tool. Make sure "Import new accounts" is turned off — the integration will only update the customers you already added, not create new ones from your CRM.' },
+      { title:'Connect your integration', desc:'Go to <a href="#" onclick="event.stopPropagation();nav(\'settings\')" style="color:var(--teal);font-weight:600">Settings → Integrations</a> and connect your tool. Make sure "Import new accounts" is turned off  - the integration will only update the customers you already added, not create new ones from your CRM.' },
       { title:'Sync to enrich data', desc:'Run a sync to pull in metrics like MRR, tickets, NPS, and more for your existing customers. Their scores will update automatically.' }
     ],
     '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();nav(\'csv\')">Import Customers →</button>'
@@ -5461,13 +5461,13 @@ function _renderHomeBase() {
 
   // ── Delta formatters for gradient cards (white text) ──
   const deltaArrow = (val, invert) => {
-    if (val === 0) return '<span style="opacity:.5">—</span>';
+    if (val === 0) return '<span style="opacity:.5"> -</span>';
     const good = invert ? val < 0 : val > 0;
     const arrow = val > 0 ? '▲' : '▼';
     return `<span class="${good ? 'up' : 'down'}">${arrow} ${Math.abs(val)}</span>`;
   };
   const deltaArrowMRR = (val) => {
-    if (val === 0) return '<span style="opacity:.5">—</span>';
+    if (val === 0) return '<span style="opacity:.5"> -</span>';
     const good = val < 0;
     const arrow = val > 0 ? '▲' : '▼';
     return `<span class="${good ? 'up' : 'down'}">${arrow} $${fmtNum(Math.abs(val))}</span>`;
@@ -5561,7 +5561,7 @@ function _renderHomeBase() {
   // ── Portfolio overview blurb + deduplicated action items ──
   const _ids = arr => JSON.stringify(arr.map(c => c.id));
 
-  // Build portfolio overview — insight-driven briefing (not widget restatement)
+  // Build portfolio overview  - insight-driven briefing (not widget restatement)
   const _overviewCandidates = [];
 
   // 1. Weakest signal across at-risk accounts
@@ -5629,7 +5629,7 @@ function _renderHomeBase() {
     }
   }
 
-  // 4. Contact impact — are contacted accounts trending differently?
+  // 4. Contact impact  - are contacted accounts trending differently?
   {
     const withDays = active.filter(c => c.days != null && (c.history || []).length >= 1);
     const contacted   = withDays.filter(c => c.days <= 14);
@@ -5819,7 +5819,7 @@ function _renderHomeBase() {
     <div class="hb-pulse-center">
       <div class="hb-pulse-num">${_portfolioScore}</div>
       <div class="hb-pulse-lbl">Portfolio</div>
-      <div class="hb-pulse-delta" style="color:${avgDelta > 0 ? 'var(--green)' : avgDelta < 0 ? 'var(--red)' : 'var(--muted)'}">${avgDelta > 0 ? '\u25B2 ' + Math.abs(avgDelta) : avgDelta < 0 ? '\u25BC ' + Math.abs(avgDelta) : '— Flat'}</div>
+      <div class="hb-pulse-delta" style="color:${avgDelta > 0 ? 'var(--green)' : avgDelta < 0 ? 'var(--red)' : 'var(--muted)'}">${avgDelta > 0 ? '\u25B2 ' + Math.abs(avgDelta) : avgDelta < 0 ? '\u25BC ' + Math.abs(avgDelta) : ' - Flat'}</div>
     </div>
   </div>`;
   html += '<div class="hb-quick-stats">';
@@ -5963,7 +5963,7 @@ function _renderHomeBase() {
   html += '</div></div>';
 
   if (!insights.length) {
-    html += `<div class="hb-empty">${_hbSvg.chartEmpty}<p>Portfolio data is building — insights will appear as you score more customers and history accumulates.</p></div>`;
+    html += `<div class="hb-empty">${_hbSvg.chartEmpty}<p>Portfolio data is building  - insights will appear as you score more customers and history accumulates.</p></div>`;
   } else {
     html += '<div class="hb-insights-wrap">';
     insights.forEach(ins => {
@@ -6020,7 +6020,7 @@ function _statusColor(status) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// INSIGHT ENGINE — ~15 generators producing strategic observations
+// INSIGHT ENGINE  - ~15 generators producing strategic observations
 // ═══════════════════════════════════════════════════════════════
 
 function _generateInsights(active, now, cutoff) {
@@ -6102,7 +6102,7 @@ function _insightTierDivergence(active) {
     category: 'Risk',
     priority: 2,
     title: `${worst.label} tier underperforming at ${worst.riskPct}% at-risk`,
-    detail: `${worst.label} has ${worst.riskPct}% at-risk accounts vs ${best.riskPct}% for ${best.label} — a ${gap}pt gap. Consider a tier-specific engagement strategy.`,
+    detail: `${worst.label} has ${worst.riskPct}% at-risk accounts vs ${best.riskPct}% for ${best.label}  - a ${gap}pt gap. Consider a tier-specific engagement strategy.`,
     action: { label: 'View Segments', fn: "nav('segments')" }
   };
 }
@@ -6196,7 +6196,7 @@ function _insightMrrAtRiskDelta(active, now, cutoff) {
       ? `At-risk MRR increased $${fmtNum(Math.abs(delta))} this period`
       : `At-risk MRR decreased $${fmtNum(Math.abs(delta))} this period`,
     detail: increased
-      ? `Revenue exposure grew from $${fmtNum(prevMRR)} to $${fmtNum(currentMRR)}. New accounts entered the risk zone — review before they escalate.`
+      ? `Revenue exposure grew from $${fmtNum(prevMRR)} to $${fmtNum(currentMRR)}. New accounts entered the risk zone  - review before they escalate.`
       : `Revenue exposure shrank from $${fmtNum(prevMRR)} to $${fmtNum(currentMRR)}. Recovery efforts are paying off.`,
     action: { label: 'View Customers', fn: `setInsightFilter('${atRisk.length} at-risk accounts',${arIds})` }
   };
@@ -6261,7 +6261,7 @@ function _insightRenewalVelocity(active, now, cutoff) {
     category: 'Renewal',
     priority: gap > 8 ? 1 : 2,
     title: `Renewal cohort declining ${Math.abs(renewAvgDelta)} pts vs portfolio ${portfolioAvgDelta > 0 ? '+' : ''}${portfolioAvgDelta}`,
-    detail: `${next60.length} accounts renewing in the next 60 days are losing health ${gap} pts faster than your portfolio average. ${decliningRenewals.length} are actively declining — $${fmtNum(renewMRR)} MRR at stake. Set up alerts to catch further drops early.`,
+    detail: `${next60.length} accounts renewing in the next 60 days are losing health ${gap} pts faster than your portfolio average. ${decliningRenewals.length} are actively declining  - $${fmtNum(renewMRR)} MRR at stake. Set up alerts to catch further drops early.`,
     action: { label: 'Review Alerts', fn: "nav('alerts')" }
   };
 }
@@ -6284,7 +6284,7 @@ function _insightContactImpact(active, now, cutoff) {
 
   const outreachHelps = gap > 0;
 
-  // Find uncontacted accounts that are declining — prime outreach candidates
+  // Find uncontacted accounts that are declining  - prime outreach candidates
   const neglectedDecliners = uncontacted
     .filter(c => _getDeltaPeriod(c, cutoff) < -2)
     .sort((a,b) => (b.mrr || 0) - (a.mrr || 0));
@@ -6295,13 +6295,13 @@ function _insightContactImpact(active, now, cutoff) {
       category: 'Engagement',
       priority: neglectedDecliners.length >= 3 ? 2 : 3,
       title: `Contacted accounts trending ${contactedDelta > 0 ? '+' : ''}${contactedDelta} pts vs ${uncontactedDelta > 0 ? '+' : ''}${uncontactedDelta} for uncontacted`,
-      detail: `Accounts with recent CSM contact (≤14 days) are outperforming uncontacted ones by ${gap} pts this period. ${neglectedDecliners.length} uncontacted account${neglectedDecliners.length !== 1 ? 's are' : ' is'} actively declining — outreach could reverse the trend.`,
+      detail: `Accounts with recent CSM contact (≤14 days) are outperforming uncontacted ones by ${gap} pts this period. ${neglectedDecliners.length} uncontacted account${neglectedDecliners.length !== 1 ? 's are' : ' is'} actively declining  - outreach could reverse the trend.`,
       action: neglectedDecliners.length
         ? { label: 'View Declining Uncontacted', fn: `setInsightFilter('${neglectedDecliners.length} declining uncontacted',${ndIds})` }
         : { label: 'View Customers', fn: "nav('customers')" }
     };
   } else {
-    // Unusual: uncontacted are doing better — maybe over-contact or wrong accounts contacted
+    // Unusual: uncontacted are doing better  - maybe over-contact or wrong accounts contacted
     return {
       category: 'Engagement',
       priority: 3,
@@ -6352,7 +6352,7 @@ function _insightSignalDivergence(active) {
     detail = `These accounts are actively using the product but showing frustration signals (low NPS, high tickets, or low CSAT). $${fmtNum(frustratedMRR)} MRR. When usage is high but sentiment is low, churn often follows once an alternative appears.`;
   } else if (disengaging.length >= 2) {
     title = `${disengaging.length} accounts show positive sentiment but low engagement`;
-    detail = `These accounts report satisfaction but have low login/adoption numbers. Positive sentiment without active usage often precedes quiet churn — they like the idea but aren't embedded in it.`;
+    detail = `These accounts report satisfaction but have low login/adoption numbers. Positive sentiment without active usage often precedes quiet churn  - they like the idea but aren't embedded in it.`;
   } else {
     title = `${divergent.length} accounts have usage-sentiment divergence`;
     detail = `${frustrated.length} show high usage with negative sentiment (frustration risk), ${disengaging.length} show low usage with positive sentiment (disengagement risk). Both patterns warrant investigation.`;
@@ -6397,7 +6397,7 @@ function _insightAdoptionCorrelation(active) {
 // ── INSIGHT: Renewal Clustering (are renewals bunched, creating workload risk?) ──
 function _insightRenewalClustering(active, now) {
   // Analyze renewal date distribution over next 90 days
-  // Detect if renewals cluster in narrow windows — creating attention-dilution risk
+  // Detect if renewals cluster in narrow windows  - creating attention-dilution risk
   const withRenewal = active.filter(c => {
     if (c.renewal_date) {
       const diff = (new Date(c.renewal_date) - now) / 86400000;
@@ -6456,7 +6456,7 @@ function _insightRenewalClustering(active, now) {
     category: 'Renewal',
     priority: peakPct >= 50 ? 2 : 3,
     title: `${peakPct}% of renewals clustered in ${windowLabel}`,
-    detail: `${peakCount} of ${withRenewal.length} upcoming renewals ($${fmtNum(peakMRR)} MRR) fall in a single 2-week window. ${clusterPct > peakPct ? `Including the adjacent window, ${clusterPct}% ($${fmtNum(clusterMRR)} MRR) land in a 4-week span. ` : ''}Clustering creates attention-dilution risk — plan outreach cadence now.`,
+    detail: `${peakCount} of ${withRenewal.length} upcoming renewals ($${fmtNum(peakMRR)} MRR) fall in a single 2-week window. ${clusterPct > peakPct ? `Including the adjacent window, ${clusterPct}% ($${fmtNum(clusterMRR)} MRR) land in a 4-week span. ` : ''}Clustering creates attention-dilution risk  - plan outreach cadence now.`,
     action: { label: 'View Calendar', fn: "nav('calendar')" }
   };
 }
@@ -6572,7 +6572,7 @@ function _renderInsightCard(ins) {
 }
 
 // ─── HOME BASE WIDGETS ──────────────────────────────────────
-// Signal heatmap, wins/drops, renewal pipeline — all called by renderHomeBase()
+// Signal heatmap, wins/drops, renewal pipeline  - all called by renderHomeBase()
 
 // ─── SIGNAL HEATMAP ─────────────────────────────────────────
 let _heatSearch = '';
@@ -6623,7 +6623,7 @@ function renderHeatmap(active) {
   // Filter by search
   const heatFiltered = _heatSearch ? active.filter(c => c.name.toLowerCase().includes(_heatSearch) || (c.manager||'').toLowerCase().includes(_heatSearch)) : active;
 
-  // Sort — NPS/CSAT sort uses normalized 0-100
+  // Sort  - NPS/CSAT sort uses normalized 0-100
   const growOrder = { strong:2, mild:1, none:0 };
   const sorted = [...heatFiltered].sort((a, b) => {
     let av, bv;
@@ -6813,12 +6813,12 @@ function renderRenewalPipeline(active) {
   wrap.innerHTML = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
     ${rows.map(r => {
       const riskBadge = r.atRisk ? `<span style="color:${r.color};font-size:var(--fs-xs);font-weight:700">${appIcon('warning',11)} ${r.atRisk} at risk</span>` : '';
-      const countText = r.count ? `${r.count} acct${r.count!==1?'s':''}` : `<span style="color:var(--subtle)">—</span>`;
+      const countText = r.count ? `${r.count} acct${r.count!==1?'s':''}` : `<span style="color:var(--subtle)"> -</span>`;
       const clickable = r.count > 0;
       const _rIds = JSON.stringify(r.ids).replace(/"/g,'&quot;');
       return `<div style="border-left:3px solid ${r.color};background:${r.bg};border-radius:6px;padding:9px 12px;${clickable?'cursor:pointer;transition:transform .15s,box-shadow .15s':''}" ${clickable?`onclick="filterRenewalBucket('Renewal ${r.label}',${_rIds})" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,.1)'" onmouseout="this.style.transform='';this.style.boxShadow=''"`:''}>
         <div style="font-size:var(--fs-xs);font-weight:700;color:${r.color};text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${r.label}</div>
-        <div style="font-size:1.05rem;font-weight:800;color:#1e293b;margin-bottom:2px">${r.mrr ? '$'+fmtNum(r.mrr) : '—'}</div>
+        <div style="font-size:1.05rem;font-weight:800;color:#1e293b;margin-bottom:2px">${r.mrr ? '$'+fmtNum(r.mrr) : ' -'}</div>
         <div style="font-size:var(--fs-sm);color:var(--muted);display:flex;gap:5px;align-items:center;flex-wrap:wrap">${countText}${r.atRisk?' · ':''}${riskBadge}</div>
       </div>`;
     }).join('')}
@@ -6846,7 +6846,7 @@ function showAllDelta(direction) {
 
 // ─── ALERTS ─────────────────────────────────────────────────
 
-// Category definitions — SVG icons, no emoji
+// Category definitions  - SVG icons, no emoji
 const _ico = (path) => `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
 const ALERT_ICONS = {
   health:    _ico('<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'),
@@ -6896,7 +6896,7 @@ let _cachedSnzIds = new Set();
 function buildAlerts() {
   const alerts = [];
   const now = new Date();
-  // Customer display snapshot — embedded in every alert for rich rendering
+  // Customer display snapshot  - embedded in every alert for rich rendering
   const snap = c => ({ _score:c.score, _status:c.status, _tier:c.tier, _manager:c.manager||'', _days:c.days != null ? c.days : 0, _mrr:c.mrr||0 });
 
   customers.forEach(c => {
@@ -6910,20 +6910,20 @@ function buildAlerts() {
     var _hTier = c.tier === 'enterprise' ? ' · Enterprise' : c.tier === 'smb' ? ' · SMB' : '';
     if (c.status === 'critical')
       alerts.push({ id:c.id+'-crit',  cid:c.id, cat:'health', type:'red',
-        msg:`<strong>${escHtml(c.name)}</strong> <span>is Critical — score ${c.score}</span>`,
+        msg:`<strong>${escHtml(c.name)}</strong> <span>is Critical  - score ${c.score}</span>`,
         sub:`$${fmtNum(c.mrr||0)} MRR at risk${_hTrend}${_hTier}`, ...snap(c) });
     else if (c.status === 'risk')
       alerts.push({ id:c.id+'-risk',  cid:c.id, cat:'health', type:'red',
-        msg:`<strong>${escHtml(c.name)}</strong> <span>is At Risk — score ${c.score}</span>`,
+        msg:`<strong>${escHtml(c.name)}</strong> <span>is At Risk  - score ${c.score}</span>`,
         sub:`$${fmtNum(c.mrr||0)} MRR${_hTrend}${_hTier}`, ...snap(c) });
     else if (c.status === 'watch')
       alerts.push({ id:c.id+'-watch', cid:c.id, cat:'health', type:'amber',
-        msg:`<strong>${escHtml(c.name)}</strong> <span>in Watch zone — score ${c.score}</span>`,
+        msg:`<strong>${escHtml(c.name)}</strong> <span>in Watch zone  - score ${c.score}</span>`,
         sub:`$${fmtNum(c.mrr||0)} MRR${_hTrend}${_hTier}`, ...snap(c) });
 
     // ── Support tickets (only if tickets signal is active) ──
     if (signalOn(c,'tickets') && c.tickets >= 3) {
-      var _tixCtx = c.tickets >= 5 ? 'Heavy support load — likely frustrated' : 'Multiple open issues — may signal product friction';
+      var _tixCtx = c.tickets >= 5 ? 'Heavy support load  - likely frustrated' : 'Multiple open issues  - may signal product friction';
       var _tixSent = (signalOn(c,'nps') && npsIsDetractor(c.nps)) ? ' · NPS Detractor' : (signalOn(c,'csat') && csatIsPoor(c.csat)) ? ' · Low CSAT' : '';
       alerts.push({ id:c.id+'-tix', cid:c.id, cat:'tickets', type:'red',
         msg:`<strong>${escHtml(c.name)}</strong> <span>has ${c.tickets} open support tickets</span>`,
@@ -6932,7 +6932,7 @@ function buildAlerts() {
 
     // ── Low Logins (only if logins signal is active) ──
     if (signalOn(c,'logins') && c.logins != null && c.logins < 5) {
-      var _loginCtx = c.logins === 0 ? 'Zero logins this month' : c.logins + ' logins/mo — well below healthy (15+)';
+      var _loginCtx = c.logins === 0 ? 'Zero logins this month' : c.logins + ' logins/mo  - well below healthy (15+)';
       alerts.push({ id:c.id+'-logins', cid:c.id, cat:'engagement', type:'amber',
         msg:`<strong>${escHtml(c.name)}</strong> <span>has low login frequency (${c.logins}/mo)</span>`,
         sub:`${_loginCtx} · Score ${c.score} · $${fmtNum(c.mrr||0)} MRR`, ...snap(c) });
@@ -6979,7 +6979,7 @@ function buildAlerts() {
     if (hasFeature('sentiment')) {
       const sent = latestSentiment(c);
       if (sent?.val === 'negative') {
-        var _sentCtx = (c.status === 'critical' || c.status === 'risk') ? 'Negative call on an at-risk account — escalate' : 'Follow up to address concerns raised';
+        var _sentCtx = (c.status === 'critical' || c.status === 'risk') ? 'Negative call on an at-risk account  - escalate' : 'Follow up to address concerns raised';
         var _sentMom = getMomentum(c) === 'dn' ? ' · Score declining ↘' : '';
         alerts.push({ id:c.id+'-sent', cid:c.id, cat:'sentiment', type:'amber',
           msg:`<strong>${escHtml(c.name)}</strong> <span>last call logged as negative</span>`,
@@ -6989,7 +6989,7 @@ function buildAlerts() {
 
     // ── NPS Detractor (only if NPS signal is active) ──
     if (signalOn(c,'nps') && npsIsDetractor(c.nps)) {
-      var _npsCtx = c.nps <= 4 ? 'Strongly negative — likely telling others' : 'Detractor range — at risk of spreading negative word';
+      var _npsCtx = c.nps <= 4 ? 'Strongly negative  - likely telling others' : 'Detractor range  - at risk of spreading negative word';
       alerts.push({ id:c.id+'-nps', cid:c.id, cat:'sentiment', type:'red',
         msg:`<strong>${escHtml(c.name)}</strong> <span>is an NPS Detractor (${npsDisplay(c.nps)})</span>`,
         sub:`${_npsCtx} · Score ${c.score} · $${fmtNum(c.mrr||0)} MRR`, ...snap(c) });
@@ -6997,7 +6997,7 @@ function buildAlerts() {
 
     // ── CSAT Poor (only if CSAT signal is active) ──
     if (signalOn(c,'csat') && csatIsPoor(c.csat)) {
-      var _csatCtx = c.csat <= 2 ? 'Very dissatisfied — needs immediate outreach' : 'Below acceptable — follow up on what\'s not working';
+      var _csatCtx = c.csat <= 2 ? 'Very dissatisfied  - needs immediate outreach' : 'Below acceptable  - follow up on what\'s not working';
       alerts.push({ id:c.id+'-csat', cid:c.id, cat:'sentiment', type:'red',
         msg:`<strong>${escHtml(c.name)}</strong> <span>has a poor CSAT rating (${csatDisplay(c.csat)})</span>`,
         sub:`${_csatCtx} · Score ${c.score} · $${fmtNum(c.mrr||0)} MRR`, ...snap(c) });
@@ -7010,7 +7010,7 @@ function buildAlerts() {
         var _expTier = c.tier === 'enterprise' ? 'High-value Enterprise account' : c.tier === 'smb' ? 'Growing SMB account' : 'Mid-Market account';
         var _expAdopt = (c.adoption != null && c.adoption >= 70) ? ' · High adoption (' + c.adoption + '%)' : '';
         alerts.push({ id:c.id+'-exp', cid:c.id, cat:'expansion', type:'green',
-          msg:`<strong>${escHtml(c.name)}</strong> <span>expansion opportunity — ${daysSince}d since last touch</span>`,
+          msg:`<strong>${escHtml(c.name)}</strong> <span>expansion opportunity  - ${daysSince}d since last touch</span>`,
           sub:`${_expTier} · $${fmtNum(c.mrr||0)} MRR · Score ${c.score}${_expAdopt}`, ...snap(c) });
       }
     }
@@ -7020,51 +7020,51 @@ function buildAlerts() {
     if (_quietFired) {
       const qDays = getQuietDays(c);
       const qType = qDays >= 30 ? 'red' : 'amber';
-      var _qLife = c.lifecycle === 'onboarding' ? 'Gone silent during onboarding' : c.lifecycle === 'active' ? (qDays >= 45 ? 'Extended silence — possible ghost churn' : 'Complete disengagement') : 'No activity detected';
+      var _qLife = c.lifecycle === 'onboarding' ? 'Gone silent during onboarding' : c.lifecycle === 'active' ? (qDays >= 45 ? 'Extended silence  - possible ghost churn' : 'Complete disengagement') : 'No activity detected';
       var _qRenew = (c.renewal != null && c.renewal <= 3) ? ' · Renewal in ' + c.renewal + ' mo' : '';
       alerts.push({ id:c.id+'-quiet', cid:c.id, cat:'quiet', type:qType,
-        msg:`<strong>${escHtml(c.name)}</strong> <span>has gone completely quiet — ${qDays} days, zero activity</span>`,
+        msg:`<strong>${escHtml(c.name)}</strong> <span>has gone completely quiet  - ${qDays} days, zero activity</span>`,
         sub:`${_qLife} · $${fmtNum(c.mrr||0)} MRR${_qRenew}`, ...snap(c) });
     }
 
-    // ── Key Contact Gone Quiet — named contact, no activity 21+ days ──
+    // ── Key Contact Gone Quiet  - named contact, no activity 21+ days ──
     if (!_quietFired && c.contact_name) {
       const kcDays = getEffectiveDays(c);
       if (kcDays != null && kcDays >= 21) {
         const kcType = kcDays >= 30 ? 'red' : 'amber';
-        var _kcCtx = kcDays >= 45 ? 'May have left the company — verify contact is still active' : kcDays >= 30 ? 'Significant gap — risk of losing champion relationship' : 'Approaching disengagement threshold';
+        var _kcCtx = kcDays >= 45 ? 'May have left the company  - verify contact is still active' : kcDays >= 30 ? 'Significant gap  - risk of losing champion relationship' : 'Approaching disengagement threshold';
         var _kcMom = getMomentum(c) === 'dn' ? ' · Score declining ↘' : '';
         alerts.push({ id:c.id+'-kcQuiet', cid:c.id, cat:'quiet', type:kcType,
-          msg:`<strong>${escHtml(c.name)}</strong> <span>key contact ${escHtml(c.contact_name)} — no activity in ${kcDays}d</span>`,
+          msg:`<strong>${escHtml(c.name)}</strong> <span>key contact ${escHtml(c.contact_name)}  - no activity in ${kcDays}d</span>`,
           sub:`${_kcCtx} · $${fmtNum(c.mrr||0)} MRR${_kcMom}`, ...snap(c) });
       }
     }
 
-    // ── Pre-Renewal Risk — engagement drop within 60 days of renewal ──
+    // ── Pre-Renewal Risk  - engagement drop within 60 days of renewal ──
     if (c.renewal_date) {
       const prDays = Math.round((new Date(c.renewal_date) - now) / 86400000);
       if (prDays >= 0 && prDays <= 60 && (getMomentum(c) === 'dn' || getDelta7d(c) <= -5)) {
         const delta = getDelta7d(c);
         var _prDrivers = _nbaScoreDrivers(c);
         var _prDetail = _prDrivers.length ? _prDrivers.map(function(d){return d.label;}).join(', ') : 'multiple signals weakening';
-        var _prUrgency = prDays <= 14 ? 'Immediate save plan needed' : prDays <= 30 ? 'Urgent — limited time before renewal' : 'Act now while there\'s still time';
+        var _prUrgency = prDays <= 14 ? 'Immediate save plan needed' : prDays <= 30 ? 'Urgent  - limited time before renewal' : 'Act now while there\'s still time';
         alerts.push({ id:c.id+'-preRenew', cid:c.id, cat:'renewal', type:'red',
           msg:`<strong>${escHtml(c.name)}</strong> <span>renews in ${prDays}d with declining health (${delta >= 0 ? '+' : ''}${delta} pts)</span>`,
           sub:`${_prUrgency} · ${_prDetail} · $${fmtNum(c.mrr||0)} MRR`, ...snap(c) });
       }
     }
 
-    // ── Expansion Signal Enhanced — multi-signal strength ──
+    // ── Expansion Signal Enhanced  - multi-signal strength ──
     const _expFired = signalOn(c,'growth') && (c.status === 'expand' || c.status === 'healthy') && (c.mrr||0) >= 3000;
     if (!_expFired && c.score >= 75 && (c.adoption != null && c.adoption >= 70) && c.growth && c.growth !== 'none' && (c.logins != null && c.logins >= 10)) {
       var _esTier = c.tier === 'enterprise' ? 'Enterprise upsell opportunity' : c.tier === 'smb' ? 'SMB growth candidate' : 'Strong expansion candidate';
       var _esMom = getMomentum(c) === 'up' ? ' · Momentum ↗' : '';
       alerts.push({ id:c.id+'-expSig', cid:c.id, cat:'expansion', type:'green',
-        msg:`<strong>${escHtml(c.name)}</strong> <span>expansion signals — ${c.adoption}% adoption, strong engagement, growth detected</span>`,
+        msg:`<strong>${escHtml(c.name)}</strong> <span>expansion signals  - ${c.adoption}% adoption, strong engagement, growth detected</span>`,
         sub:`${_esTier} · $${fmtNum(c.mrr||0)} MRR · Score ${c.score}${_esMom}`, ...snap(c) });
     }
 
-    // ── Support Spike — tickets above historical baseline ──
+    // ── Support Spike  - tickets above historical baseline ──
     if (signalOn(c,'tickets') && c.tickets >= 3) {
       const hist = c.history || [];
       const d30 = new Date(now - 30*86400000), d90 = new Date(now - 90*86400000);
@@ -7072,27 +7072,27 @@ function buildAlerts() {
       const baseline = older.length ? older.reduce((s,h) => s + h.signals.tickets, 0) / older.length : null;
       if (baseline != null && c.tickets >= baseline * 2) {
         var _spikeRatio = Math.round(c.tickets / baseline);
-        var _spikeCtx = _spikeRatio >= 4 ? 'Major escalation risk — investigate root cause immediately' : 'Significant increase — may indicate product issue or unmet need';
+        var _spikeCtx = _spikeRatio >= 4 ? 'Major escalation risk  - investigate root cause immediately' : 'Significant increase  - may indicate product issue or unmet need';
         var _spikeMom = getMomentum(c) === 'dn' ? ' · Score declining ↘' : '';
         alerts.push({ id:c.id+'-tixSpike', cid:c.id, cat:'tickets', type:'red',
-          msg:`<strong>${escHtml(c.name)}</strong> <span>support spike — ${c.tickets} tickets vs ${Math.round(baseline)} avg baseline</span>`,
+          msg:`<strong>${escHtml(c.name)}</strong> <span>support spike  - ${c.tickets} tickets vs ${Math.round(baseline)} avg baseline</span>`,
           sub:`${_spikeRatio}x above normal · ${_spikeCtx} · $${fmtNum(c.mrr||0)} MRR${_spikeMom}`, ...snap(c) });
       }
     }
 
-    // ── Ghosted After Onboarding — login drop-off 30-90 days post-start ──
+    // ── Ghosted After Onboarding  - login drop-off 30-90 days post-start ──
     if (c.since && c.lifecycle !== 'churned' && c.lifecycle !== 'won') {
       const sinceDays = Math.round((now - new Date(c.since)) / 86400000);
       if (sinceDays >= 30 && sinceDays <= 90 && (c.logins == null || c.logins < 3)) {
-        var _goAdopt = (c.adoption != null && c.adoption < 20) ? 'Near-zero adoption — onboarding may not have stuck' : 'Low engagement post-onboarding';
+        var _goAdopt = (c.adoption != null && c.adoption < 20) ? 'Near-zero adoption  - onboarding may not have stuck' : 'Low engagement post-onboarding';
         var _goMrr = (c.mrr||0) >= 5000 ? ' · High-value account ($' + fmtNum(c.mrr||0) + '/mo)' : ' · $' + fmtNum(c.mrr||0) + ' MRR';
         alerts.push({ id:c.id+'-ghostOb', cid:c.id, cat:'onboarding', type:'red',
-          msg:`<strong>${escHtml(c.name)}</strong> <span>going dark ${sinceDays}d after onboarding — ${c.logins != null ? c.logins + ' logins/mo' : 'no login data'}</span>`,
+          msg:`<strong>${escHtml(c.name)}</strong> <span>going dark ${sinceDays}d after onboarding  - ${c.logins != null ? c.logins + ' logins/mo' : 'no login data'}</span>`,
           sub:`${_goAdopt}${_goMrr} · Score ${c.score}`, ...snap(c) });
       }
     }
 
-    // ── NPS Drop + Silence — NPS decreased with no engagement ──
+    // ── NPS Drop + Silence  - NPS decreased with no engagement ──
     if (signalOn(c,'nps') && c.nps != null) {
       const npsHist = (c.history || []).filter(h => h.signals?.nps != null).sort((a,b) => new Date(b.date) - new Date(a.date));
       const prevNps = npsHist.length >= 2 ? npsHist[1].signals.nps : null;
@@ -7113,10 +7113,10 @@ function buildAlerts() {
         // Skip if pre-renewal risk already fired (more specific)
         const preRenewFired = c.renewal_date && Math.round((new Date(c.renewal_date) - now) / 86400000) <= 60 && (getMomentum(c) === 'dn' || getDelta7d(c) <= -5);
         if (!preRenewFired) {
-          var _r70Ctx = c.score < 50 ? 'Critical health going into renewal — save plan needed' : 'Below-threshold health — address concerns before renewal conversation';
+          var _r70Ctx = c.score < 50 ? 'Critical health going into renewal  - save plan needed' : 'Below-threshold health  - address concerns before renewal conversation';
           var _r70Tier = c.tier === 'enterprise' ? ' · Enterprise' : '';
           alerts.push({ id:c.id+'-renew70', cid:c.id, cat:'renewal', type:'red',
-            msg:`<strong>${escHtml(c.name)}</strong> <span>renews in ${r30Days}d with health score ${c.score} — below 70</span>`,
+            msg:`<strong>${escHtml(c.name)}</strong> <span>renews in ${r30Days}d with health score ${c.score}  - below 70</span>`,
             sub:`${_r70Ctx} · $${fmtNum(c.mrr||0)} MRR${_r70Tier}`, ...snap(c) });
         }
       }
@@ -7147,7 +7147,7 @@ function buildAlerts() {
 let _selectedAlerts = new Set();
 let _lastClickedAlert = null;
 let _alertViewMode = 'briefing'; // 'briefing' | 'category' | 'priority' | 'customer' | 'table'
-let _alertTableFilter = null;    // { label: string, ids: Set<string> } — null = all alerted customers
+let _alertTableFilter = null;    // { label: string, ids: Set<string> }  - null = all alerted customers
 let _alertTblSort = { key: 'score', dir: 1 }; // 1=asc (worst first), -1=desc
 let _alertTblFilters = {};  // column key → { type, val/vals/q/min/max }
 let _openATF = null;        // currently open alert-table filter key
@@ -7307,7 +7307,7 @@ function bulkDismiss() {
   toast(`${n} alert${n===1?'':'s'} dismissed`, 'default');
 }
 
-// Standalone badge update — call after any data refresh to keep badge in sync
+// Standalone badge update  - call after any data refresh to keep badge in sync
 function updateAlertBadge() {
   try {
     const all    = buildAlerts();
@@ -7341,7 +7341,7 @@ function _renderAlerts() {
   if (viewBar) viewBar.style.display = (active.length || snz.length || _alertTableFilter) ? 'flex' : 'none';
 
   if (!active.length && !snz.length && !(_alertViewMode === 'table' && _alertTableFilter)) {
-    list.innerHTML = '<div class="empty-st"><div class="ei"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><h3>All clear!</h3><p>No alerts right now — all accounts are in good shape.</p></div>';
+    list.innerHTML = '<div class="empty-st"><div class="ei"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><h3>All clear!</h3><p>No alerts right now  - all accounts are in good shape.</p></div>';
     renderAlertPanel(all, active, snz);
     return;
   }
@@ -7501,32 +7501,32 @@ function _renderAlerts() {
           const cnt = alertCountMap[c.id] || 0;
           const d7 = getDelta7d(c);
           const d7Color = d7 > 0 ? '#16a34a' : d7 < 0 ? '#dc2626' : 'var(--muted)';
-          const d7Str = d7 > 0 ? '+'+d7 : d7 === 0 ? '—' : String(d7);
+          const d7Str = d7 > 0 ? '+'+d7 : d7 === 0 ? ' -' : String(d7);
           const renewalStr = c.renewal_date ? (() => {
             const d = new Date(c.renewal_date);
             const days = Math.round((d - new Date()) / 86400000);
             return days <= 0 ? '<span style="color:#dc2626;font-weight:700">Overdue</span>'
               : days <= 30 ? `<span style="color:#ea580c;font-weight:700">${days}d</span>`
               : `<span style="color:var(--muted)">${days}d</span>`;
-          })() : '—';
+          })() : ' -';
           return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
             <td class="col-pin" style="padding:8px 12px"><strong>${escHtml(c.name)}</strong></td>
             <td style="padding:8px 12px">${scoreHTML(c)}</td>
             <td style="padding:8px 12px;font-size:var(--fs-base);font-weight:700;color:${d7Color}">${d7Str}</td>
             <td style="padding:8px 12px">${badgeHTML(c.status)}</td>
-            <td style="padding:8px 12px">${c.mrr ? '$'+fmtNum(c.mrr) : '—'}</td>
+            <td style="padding:8px 12px">${c.mrr ? '$'+fmtNum(c.mrr) : ' -'}</td>
             <td style="padding:8px 12px"><span class="${cad.cls}">${cad.label.replace(/\\s*\\(\\d+d\\)/,'')}</span> <span style="font-size:var(--fs-sm);color:var(--muted)">${c.days != null ? c.days + 'd' : 'N/A'}</span></td>
             <td style="padding:8px 12px">${renewalStr}</td>
             <td style="padding:8px 12px"><span style="background:var(--red-l);color:var(--red);padding:2px 8px;border-radius:10px;font-size:var(--fs-sm);font-weight:700">${cnt}</span></td>
             <td style="padding:8px 12px;color:${c.tickets != null && c.tickets > 0 ? '#dc2626' : 'var(--subtle)'};font-weight:${c.tickets != null && c.tickets > 0 ? '700' : '400'}">${c.tickets != null ? c.tickets : 'N/A'}</td>
-            <td style="padding:8px 12px;font-size:var(--fs-base);color:var(--subtle)">${c.manager ? escHtml(c.manager) : '—'}</td>
+            <td style="padding:8px 12px;font-size:var(--fs-base);color:var(--subtle)">${c.manager ? escHtml(c.manager) : ' -'}</td>
           </tr>`;
         }).join('') + '</tbody></table></div>';
     } else {
       html += `<div style="text-align:center;padding:28px;color:var(--muted);font-size:var(--fs-md)">No matching customers</div>`;
     }
   } else {
-    // ── Category view (default) — sorted most → least alerts ──
+    // ── Category view (default)  - sorted most → least alerts ──
     // Filter by search
     let catActive = active;
     if (_viewSearch) {
@@ -7728,7 +7728,7 @@ function renderAlertPanel(all, active, snz) {
     stageWrap.innerHTML = stageRows || '<div class="alerts-detail-empty">No active alerts</div>';
   }
 
-  // Insights — surface actionable patterns across alerts
+  // Insights  - surface actionable patterns across alerts
   const insWrap = el('alert-insights-row');
   if (insWrap) {
     const insights = [];
@@ -7743,7 +7743,7 @@ function renderAlertPanel(all, active, snz) {
       return out;
     };
 
-    // ── 1. Renewals at Risk — renewing soon AND unhealthy ──
+    // ── 1. Renewals at Risk  - renewing soon AND unhealthy ──
     const renewalAlerts = active.filter(a => a.cat === 'renewal');
     if (renewalAlerts.length > 0) {
       const healthRiskIds = new Set(active.filter(a => a.cat === 'health' && a.type === 'red').map(a => a.cid));
@@ -7759,12 +7759,12 @@ function renderAlertPanel(all, active, snz) {
           icon: _iSvg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>'),
           iconBg: 'var(--red-l)', iconColor: 'var(--red)',
           cids: rCids, navMode: rCids.length === 1 ? 'customer' : 'table', navLabel: 'Renewals at Risk',
-          text: `${nameList.join(' and ')}${extra} ${custs.length === 1 ? 'is' : 'are'} up for renewal while sitting at Critical or At Risk health. That's <strong>$${fmtNum(renewMrr)} MRR</strong> on the line — prioritize outreach before the renewal conversation starts.`
+          text: `${nameList.join(' and ')}${extra} ${custs.length === 1 ? 'is' : 'are'} up for renewal while sitting at Critical or At Risk health. That's <strong>$${fmtNum(renewMrr)} MRR</strong> on the line  - prioritize outreach before the renewal conversation starts.`
         });
       }
     }
 
-    // ── 2. Biggest Account at Risk — highest-MRR critical/risk account with specific issues ──
+    // ── 2. Biggest Account at Risk  - highest-MRR critical/risk account with specific issues ──
     const healthAlerts = active.filter(a => a.cat === 'health' && a.type === 'red');
     if (healthAlerts.length > 0) {
       const riskCusts = uniqueCusts(healthAlerts).sort((a, b) => (b.mrr || 0) - (a.mrr || 0));
@@ -7785,12 +7785,12 @@ function renderAlertPanel(all, active, snz) {
           icon: _iSvg('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'),
           iconBg: 'var(--red-l)', iconColor: 'var(--red)',
           cids: [top.id], navMode: 'customer', navLabel: 'Highest MRR at Risk',
-          text: `${_nameLink(top)} is your biggest dollar risk — <strong>$${fmtNum(top.mrr)} MRR</strong> at a score of <strong>${top.score}</strong>${issueText}. Start here today.`
+          text: `${_nameLink(top)} is your biggest dollar risk  - <strong>$${fmtNum(top.mrr)} MRR</strong> at a score of <strong>${top.score}</strong>${issueText}. Start here today.`
         });
       }
     }
 
-    // ── 3. Declining Momentum — accounts trending downward this week ──
+    // ── 3. Declining Momentum  - accounts trending downward this week ──
     const alertCustIds = new Set(active.map(a => a.cid));
     const decliningCusts = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c) && alertCustIds.has(c.id) && getMomentum(c) === 'dn');
     if (decliningCusts.length >= 2) {
@@ -7814,11 +7814,11 @@ function renderAlertPanel(all, active, snz) {
         icon: _iSvg('<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>'),
         iconBg: 'var(--red-l)', iconColor: 'var(--red)',
         cids: decIds, navMode: 'table', navLabel: 'Scores Still Falling',
-        text: `<strong>${decliningCusts.length} accounts</strong> are still trending downward week-over-week — <strong>$${fmtNum(decMrr)} MRR</strong> that hasn't stabilized. ${callout}`
+        text: `<strong>${decliningCusts.length} accounts</strong> are still trending downward week-over-week  - <strong>$${fmtNum(decMrr)} MRR</strong> that hasn't stabilized. ${callout}`
       });
     }
 
-    // ── 4. Multi-signal accounts — accounts with 3+ different alert types need a plan ──
+    // ── 4. Multi-signal accounts  - accounts with 3+ different alert types need a plan ──
     const custAlertCats = {};
     active.forEach(a => {
       if (!custAlertCats[a.cid]) custAlertCats[a.cid] = new Set();
@@ -7840,11 +7840,11 @@ function renderAlertPanel(all, active, snz) {
         icon: _iSvg('<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'),
         iconBg: 'var(--amber-l)', iconColor: 'var(--amber)',
         cids: msCids, navMode: msCids.length === 1 ? 'customer' : 'table', navLabel: 'Multiple Red Flags',
-        text: `${_nameLink(top.c)} is flagged across <strong>${catCount} categories</strong> — ${topCats.join(', ')}. When issues stack up like this, a single check-in call can uncover the root cause.${others}`
+        text: `${_nameLink(top.c)} is flagged across <strong>${catCount} categories</strong>  - ${topCats.join(', ')}. When issues stack up like this, a single check-in call can uncover the root cause.${others}`
       });
     }
 
-    // ── 5. Engagement Gap — low adoption/logins accounts with real MRR ──
+    // ── 5. Engagement Gap  - low adoption/logins accounts with real MRR ──
     const engAlerts = active.filter(a => a.cat === 'engagement');
     if (engAlerts.length >= 2) {
       const engCusts = uniqueCusts(engAlerts).sort((a, b) => (b.mrr || 0) - (a.mrr || 0));
@@ -7862,12 +7862,12 @@ function renderAlertPanel(all, active, snz) {
           icon: _iSvg('<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'),
           iconBg: 'var(--amber-l)', iconColor: 'var(--amber)',
           cids: eCids, navMode: 'table', navLabel: 'Low Engagement',
-          text: `<strong>${engCusts.length} accounts</strong> (<strong>$${fmtNum(engMrr)} MRR</strong>) are underusing the product — ${detail}. Low usage often leads to churn — consider a training session or check-in to drive adoption.`
+          text: `<strong>${engCusts.length} accounts</strong> (<strong>$${fmtNum(engMrr)} MRR</strong>) are underusing the product  - ${detail}. Low usage often leads to churn  - consider a training session or check-in to drive adoption.`
         });
       }
     }
 
-    // ── 6. Silent Revenue — quiet high-value accounts ──
+    // ── 6. Silent Revenue  - quiet high-value accounts ──
     const quietAlerts = active.filter(a => a.cat === 'quiet');
     if (quietAlerts.length > 0) {
       const quietCusts = uniqueCusts(quietAlerts).filter(c => (c.mrr || 0) >= 3000).sort((a, b) => (b.mrr || 0) - (a.mrr || 0));
@@ -7881,12 +7881,12 @@ function renderAlertPanel(all, active, snz) {
           icon: _iSvg('<path d="M18.36 6.64A9 9 0 0 1 20.77 15"/><path d="M6.16 6.16a9 9 0 1 0 12.68 12.68"/><line x1="2" y1="2" x2="22" y2="22"/>'),
           iconBg: 'var(--amber-l)', iconColor: 'var(--amber)',
           cids: qCids, navMode: qCids.length === 1 ? 'customer' : 'table', navLabel: 'Quiet Accounts',
-          text: `<strong>${quietCusts.length} ${quietCusts.length === 1 ? 'account' : 'accounts'}</strong> worth <strong>$${fmtNum(totalQuietMrr)} MRR</strong> ${quietCusts.length === 1 ? 'has' : 'have'} gone dark — zero logins, zero tickets, no contact. ${_nameLink(topQ)} ($${fmtNum(topQ.mrr || 0)} MRR) has been quiet for <strong>${qDays} days</strong>. Reach out now — the longer the silence, the harder the save.`
+          text: `<strong>${quietCusts.length} ${quietCusts.length === 1 ? 'account' : 'accounts'}</strong> worth <strong>$${fmtNum(totalQuietMrr)} MRR</strong> ${quietCusts.length === 1 ? 'has' : 'have'} gone dark  - zero logins, zero tickets, no contact. ${_nameLink(topQ)} ($${fmtNum(topQ.mrr || 0)} MRR) has been quiet for <strong>${qDays} days</strong>. Reach out now  - the longer the silence, the harder the save.`
         });
       }
     }
 
-    // Sort by score desc, show top 3 — pin "Highest MRR at Risk" first
+    // Sort by score desc, show top 3  - pin "Highest MRR at Risk" first
     insights.sort((a, b) => b.score - a.score);
     // Move "Highest MRR at Risk" to position 0 if present
     const mrrIdx = insights.findIndex(x => x.label === 'Highest MRR at Risk');
@@ -8234,7 +8234,7 @@ function _renderBriefingView(active, snz) {
   const dayName = dayNames[now.getDay()];
   const dateStr = `${monthNames[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
 
-  // Build action items from alerts — one per customer, merged
+  // Build action items from alerts  - one per customer, merged
   const custActions = {};
   active.forEach(a => {
     if (!custActions[a.cid]) {
@@ -8289,14 +8289,14 @@ function _renderBriefingView(active, snz) {
   // Build HTML
   let h = '';
 
-  // ── Minimal header — KPIs already visible above ──
+  // ── Minimal header  - KPIs already visible above ──
   h += `<div class="brief-hd"><span class="brief-hd__day">Briefing</span><span class="brief-hd__date">${dateStr}</span></div>`;
 
   // ── Urgency tiers ──
   const tierDefs = [
-    { key:'immediate', label:'Act Now', icon:'🔴', color:'#991b1b', bg:'rgba(220,38,38,.04)', desc:'Critical health, rapid drops — outreach today', items: tiers.immediate },
-    { key:'thisWeek',  label:'This Week', icon:'🟡', color:'#92400e', bg:'rgba(217,119,6,.04)', desc:'Renewals, overdue contact, support issues — schedule check-ins', items: tiers.thisWeek },
-    { key:'monitor',   label:'Monitor', icon:'🔵', color:'#1e40af', bg:'rgba(30,64,175,.04)', desc:'Watch zone or engagement dips — check in this month, escalate if signals worsen', items: tiers.monitor },
+    { key:'immediate', label:'Act Now', icon:'🔴', color:'#991b1b', bg:'rgba(220,38,38,.04)', desc:'Critical health, rapid drops  - outreach today', items: tiers.immediate },
+    { key:'thisWeek',  label:'This Week', icon:'🟡', color:'#92400e', bg:'rgba(217,119,6,.04)', desc:'Renewals, overdue contact, support issues  - schedule check-ins', items: tiers.thisWeek },
+    { key:'monitor',   label:'Monitor', icon:'🔵', color:'#1e40af', bg:'rgba(30,64,175,.04)', desc:'Watch zone or engagement dips  - check in this month, escalate if signals worsen', items: tiers.monitor },
   ];
 
   tierDefs.forEach(tier => {
@@ -8318,7 +8318,7 @@ function _renderBriefingView(active, snz) {
       const scoreColor = STATUS_COLOR[c.status] || '#94a3b8';
       const d7 = ca.delta;
       const d7Color = d7 > 0 ? '#16a34a' : d7 < 0 ? '#dc2626' : 'var(--muted)';
-      const d7Str = d7 > 0 ? '+'+d7 : d7 === 0 ? '—' : String(d7);
+      const d7Str = d7 > 0 ? '+'+d7 : d7 === 0 ? ' -' : String(d7);
 
       // Build prescribed action text
       const actions = _briefAction(ca);
@@ -8368,7 +8368,7 @@ function _renderBriefingView(active, snz) {
     h += `<div style="text-align:center;padding:40px 16px;color:var(--muted)">
       <div style="font-size:2rem;margin-bottom:8px">✓</div>
       <div style="font-weight:600;font-size:1.05rem;margin-bottom:4px">All clear</div>
-      <div>No action items — your book is in good shape.</div>
+      <div>No action items  - your book is in good shape.</div>
     </div>`;
   }
 
@@ -8381,9 +8381,9 @@ function _briefAction(ca) {
   const c = ca.c;
 
   if (c.status === 'critical') {
-    parts.push('<strong>Escalate:</strong> Account is critical — initiate rescue outreach');
+    parts.push('<strong>Escalate:</strong> Account is critical  - initiate rescue outreach');
   } else if (c.status === 'risk') {
-    parts.push('<strong>Outreach:</strong> Account at risk — schedule a health check call');
+    parts.push('<strong>Outreach:</strong> Account at risk  - schedule a health check call');
   }
 
   if (ca.delta <= -15) {
@@ -8394,35 +8394,35 @@ function _briefAction(ca) {
 
   if (ca.cats.has('renewal')) {
     const rd = c.renewal_date ? Math.round((new Date(c.renewal_date) - new Date()) / 86400000) : null;
-    if (rd != null && rd <= 14) parts.push(`<strong>Renewal prep:</strong> Renews in ${rd}d — confirm expansion/retention plan`);
-    else if (rd != null) parts.push(`<strong>Renewal touch:</strong> Renews in ${rd}d — start renewal conversation`);
+    if (rd != null && rd <= 14) parts.push(`<strong>Renewal prep:</strong> Renews in ${rd}d  - confirm expansion/retention plan`);
+    else if (rd != null) parts.push(`<strong>Renewal touch:</strong> Renews in ${rd}d  - start renewal conversation`);
   }
 
   if (ca.cats.has('tickets')) {
-    parts.push(`<strong>Support sync:</strong> ${c.tickets || '3+'} open tickets — check with support team`);
+    parts.push(`<strong>Support sync:</strong> ${c.tickets || '3+'} open tickets  - check with support team`);
   }
 
   if (ca.cats.has('quiet')) {
-    parts.push('<strong>Re-engage:</strong> Account has gone silent — send a value-add touchpoint');
+    parts.push('<strong>Re-engage:</strong> Account has gone silent  - send a value-add touchpoint');
   }
 
   if (ca.cats.has('cadence') && !parts.some(p => p.includes('Outreach'))) {
-    parts.push(`<strong>Check-in:</strong> ${c.days || 0}d since last contact — schedule a touch`);
+    parts.push(`<strong>Check-in:</strong> ${c.days || 0}d since last contact  - schedule a touch`);
   }
 
   if (ca.cats.has('engagement') && !parts.some(p => p.includes('Re-engage'))) {
-    parts.push('<strong>Adoption review:</strong> Low engagement — share best practices or training');
+    parts.push('<strong>Adoption review:</strong> Low engagement  - share best practices or training');
   }
 
   if (ca.cats.has('sentiment')) {
-    parts.push('<strong>Follow up:</strong> Negative sentiment logged — address concerns');
+    parts.push('<strong>Follow up:</strong> Negative sentiment logged  - address concerns');
   }
 
   if (ca.cats.has('expansion')) {
-    parts.push('<strong>Opportunity:</strong> Expansion signals detected — explore upsell');
+    parts.push('<strong>Opportunity:</strong> Expansion signals detected  - explore upsell');
   }
   if (ca.cats.has('onboarding')) {
-    parts.push('<strong>Onboarding:</strong> Customer going dark post-implementation — re-engage immediately');
+    parts.push('<strong>Onboarding:</strong> Customer going dark post-implementation  - re-engage immediately');
   }
 
   if (!parts.length) {
@@ -8444,7 +8444,7 @@ function alertItemHTML(a, isSnzd) {
   const def   = ALERT_CATS[a.cat] || ALERT_CATS.health;
   const sel   = _selectedAlerts.has(a.id);
   const scoreColor = STATUS_COLOR[a._status] || '#94a3b8';
-  const scoreVal   = (a._score != null) ? a._score : '—';
+  const scoreVal   = (a._score != null) ? a._score : ' -';
   const catColors = { red:'#991b1b', amber:'#92400e', blue:'#1e40af', green:'#166534' };
   const avatarBg = catColors[a.type] || '#64748b';
   // Score pill background tint
@@ -8520,7 +8520,7 @@ function snoozeAlert(aid, days=7) {
   const expiry = Date.now() + days * 86400000;
   snoozed.set(aid, expiry);
   saveSettings();
-  logAudit('alert_snoozed', ai.custId, ai.custName, { summary: `Alert snoozed for ${days}d — ${ai.catLabel}` });
+  logAudit('alert_snoozed', ai.custId, ai.custName, { summary: `Alert snoozed for ${days}d  - ${ai.catLabel}` });
   renderAlerts();
 
   toast(`Alert snoozed for ${days} day${days===1?'':'s'} ⏱`, 'default');
@@ -8543,7 +8543,7 @@ function dismissAlert(aid) {
   const c = customers.find(x => x.id === cid);
   dismissed.set(aid, c ? c.score : null);
   saveSettings();
-  logAudit('alert_dismissed', ai.custId, ai.custName, { summary: `Alert dismissed — ${ai.catLabel}` });
+  logAudit('alert_dismissed', ai.custId, ai.custName, { summary: `Alert dismissed  - ${ai.catLabel}` });
   renderAlerts();
 
   toast('Alert dismissed', 'default');
@@ -8553,7 +8553,7 @@ function unsnooze(aid) {
   const ai = _alertAuditInfo(aid);
   snoozed.delete(aid);
   saveSettings();
-  logAudit('alert_unsnoozed', ai.custId, ai.custName, { summary: `Alert unsnoozed — ${ai.catLabel}` });
+  logAudit('alert_unsnoozed', ai.custId, ai.custName, { summary: `Alert unsnoozed  - ${ai.catLabel}` });
   renderAlerts();
 
 }
@@ -8623,7 +8623,7 @@ function refreshMgrDropdown() {
     const list = document.getElementById('mgr-filter-list');
     if (list) list.innerHTML = '';
     const fmSelect = document.getElementById('f-manager');
-    if (fmSelect && fmSelect.tagName === 'SELECT') fmSelect.innerHTML = '<option value="">— none —</option>';
+    if (fmSelect && fmSelect.tagName === 'SELECT') fmSelect.innerHTML = '<option value=""> - none  -</option>';
     return;
   }
 
@@ -8843,7 +8843,7 @@ function renderFilterPills() {
     else if (f.type === 'lt')      { summary = `< ${f.val}`; }
     else if (f.type === 'eq')      { summary = `= ${f.val}`; }
     else if (f.type === 'between') { summary = `${f.min} – ${f.max}`; }
-    /* date filters use gt/lt/eq/between — handled by those branches above */
+    /* date filters use gt/lt/eq/between  - handled by those branches above */
     else if (f.type === 'up')      { summary = 'Improving this week'; }
     else if (f.type === 'down')    { summary = 'Declining this week'; }
 
@@ -9163,7 +9163,7 @@ function applyColumnFilters(list) {
           const d = getDelta7d(c);
           if (f.type === 'up'   && d <= 0) return false;
           if (f.type === 'down' && d >= 0) return false;
-          continue; // handled inline — skip v-based checks below
+          continue; // handled inline  - skip v-based checks below
         }
         default: continue;
       }
@@ -9243,11 +9243,11 @@ function _renderCustomers() {
 
   if (!list.length) {
     if (!customers.length || (filterMode !== 'all' && filterMode !== 'churned' && !customers.some(c => c.status === filterMode && c.lifecycle !== 'churned'))) {
-      // Truly no customers — show onboarding empty state
+      // Truly no customers  - show onboarding empty state
       empty.style.display = 'block';
       table.style.display = 'none';
     } else {
-      // Filters produced 0 results — keep headers, show message in tbody
+      // Filters produced 0 results  - keep headers, show message in tbody
       empty.style.display = 'none';
       table.style.display = '';
       const hasFilters = Object.keys(columnFilters).length > 0;
@@ -9269,16 +9269,16 @@ function _renderCustomers() {
       <tr class="${isSel?'selected':''}" data-id="${c.id}">
         <td class="cb-col"><input type="checkbox" ${isSel?'checked':''} onclick="event.stopPropagation();toggleSelect('${escHtml(c.id)}',this.checked,event)"/></td>
         <td class="col-frozen" style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')"><strong>${escHtml(c.name)}</strong>${(()=>{ if (!c.next_touch) return ''; const ntd = Math.round((new Date(c.next_touch)-new Date())/86400000); return ntd < 0 ? ' <span class="nt-badge nt-overdue" style="font-size:var(--fs-xs);padding:1px 5px">Touch overdue</span>' : ''; })()}</td>
-        <td>${c.manager ? escHtml(c.manager) : '<span style="color:var(--muted);font-style:italic">—</span>'}</td>
+        <td>${c.manager ? escHtml(c.manager) : '<span style="color:var(--muted);font-style:italic"> -</span>'}</td>
         <td>${c.scoring_profile && c.scoring_profile !== 'Global Weights' ? `<span class="tag">${escHtml(c.scoring_profile)}</span>` : '<span style="color:var(--muted);font-style:italic;font-size:var(--fs-sm)">Global</span>'}</td>
         <td>${scoreHTML(c)}</td>
         <td>${momentumHTML(c)}</td>
         <td>${badgeHTML(c.status)}</td>
         <td>${lifecycleBadge(c.lifecycle)}</td>
-        <td>${c.mrr ? '$'+fmtNum(c.mrr) : '—'}</td>
-        <td>${(()=>{ const arr = c.arr || (c.mrr * 12); return arr ? '$'+fmtNum(arr) : '—'; })()}</td>
+        <td>${c.mrr ? '$'+fmtNum(c.mrr) : ' -'}</td>
+        <td>${(()=>{ const arr = c.arr || (c.mrr * 12); return arr ? '$'+fmtNum(arr) : ' -'; })()}</td>
         <td>${(()=>{
-          if (!c.since) return '—';
+          if (!c.since) return ' -';
           const ms = new Date() - new Date(c.since);
           const months = Math.floor(ms / (1000*60*60*24*30.44));
           if (months < 1)  return 'New';
@@ -9300,7 +9300,7 @@ function _renderCustomers() {
             return `<span style="color:var(--muted)">${days}d</span>`;
           }
           if (c.renewal != null && c.renewal > 0) { const d = c.renewal * 30; return `<span style="color:${d<=30?'#ea580c':d<=90?'#d97706':'var(--muted)'};font-weight:600">~${d}d</span>`; }
-          return '—';
+          return ' -';
         })()}</td>
         <td class="nt-cell" onclick="event.stopPropagation();openInlineNextTouch('${escHtml(c.id)}',this)">${(()=>{
           if (!c.next_touch) return '<span class="nt-inline-empty">+ Schedule</span>';
@@ -9321,14 +9321,14 @@ function _renderCustomers() {
           return first + `<span class="tag tag-more" title="${allTags}">+${tags.length - 1}</span>`;
         })(c.tags||[])}</td>
         <td>${(()=>{
-          if (!c.created) return '—';
+          if (!c.created) return ' -';
           const d = new Date(c.created);
           return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
         })()}</td>
-        <td>${c.nps != null ? c.nps : '<span style="color:var(--muted)">—</span>'}</td>
-        <td>${c.csat != null ? c.csat : '<span style="color:var(--muted)">—</span>'}</td>
-        <td>${c.logins != null ? c.logins : '<span style="color:var(--muted)">—</span>'}</td>
-        <td>${c.adoption != null ? c.adoption + '%' : '<span style="color:var(--muted)">—</span>'}</td>
+        <td>${c.nps != null ? c.nps : '<span style="color:var(--muted)"> -</span>'}</td>
+        <td>${c.csat != null ? c.csat : '<span style="color:var(--muted)"> -</span>'}</td>
+        <td>${c.logins != null ? c.logins : '<span style="color:var(--muted)"> -</span>'}</td>
+        <td>${c.adoption != null ? c.adoption + '%' : '<span style="color:var(--muted)"> -</span>'}</td>
         <td>${(()=>{
           const g = c.growth || 'none';
           if (g === 'strong') return '<span style="color:#16a34a;font-weight:600">Strong</span>';
@@ -9460,7 +9460,7 @@ async function saveInlineNextTouch(custId, val) {
   if (error) {
     console.warn('Failed to save next_touch:', error.message);
     c.next_touch = oldVal; // rollback
-    toast('Failed to save — please try again', 'error');
+    toast('Failed to save  - please try again', 'error');
   } else {
     logAudit('next_touch_updated', c.id, c.name, { from: oldVal || '(none)', to: val || '(cleared)' });
     toast(val ? `Next touch set to ${new Date(val).toLocaleDateString('en-US',{month:'short',day:'numeric'})}` : 'Next touch cleared', 'default');
@@ -9729,11 +9729,11 @@ function deserializeColumnFilters(cf) {
       } else if (Array.isArray(f.vals)) {
         out[k] = { ...f, vals: new Set(f.vals) };
       } else if (f.vals && typeof f.vals === 'object') {
-        // Old broken format: Set serialized as {} or {0:"a",1:"b"} — try Object.values
+        // Old broken format: Set serialized as {} or {0:"a",1:"b"}  - try Object.values
         const arr = Object.values(f.vals);
         out[k] = { ...f, vals: arr.length ? new Set(arr) : new Set() };
       } else {
-        // vals missing or null — skip this broken filter
+        // vals missing or null  - skip this broken filter
         continue;
       }
     } else {
@@ -9828,7 +9828,7 @@ function rescoreAllFromToolbar() {
 function rv(key, val) {
   document.getElementById('rv-' + key).textContent = val;
 }
-// Live MRR ↔ ARR sync — only auto-fills the OTHER field
+// Live MRR ↔ ARR sync  - only auto-fills the OTHER field
 let _revSyncing = false;
 function syncRevenue(source) {
   if (_revSyncing) return;
@@ -9898,7 +9898,7 @@ function applyProfileSignalState() {
     wrapper.style.opacity = isOff ? '.35' : '';
     wrapper.style.pointerEvents = isOff ? 'none' : '';
     if (isOff) {
-      wrapper.title = 'Weight is 0 in this profile — not used in scoring';
+      wrapper.title = 'Weight is 0 in this profile  - not used in scoring';
     } else {
       wrapper.title = '';
     }
@@ -9996,7 +9996,7 @@ function showResult({ data, score, signals, status, rec, plays }) {
   // Scroll to the result so the user sees the score immediately
   card.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-  // Score ring — animate via transition + rAF
+  // Score ring  - animate via transition + rAF
   document.getElementById('score-num').textContent = score;
   const circ = 2 * Math.PI * 50;
   const fill = document.getElementById('ring-fill');
@@ -10019,7 +10019,7 @@ function showResult({ data, score, signals, status, rec, plays }) {
   // Rec
   document.getElementById('score-rec').innerHTML = '<div class="rec-box__title">Health Assessment</div>' + rec;
 
-  // Breakdown — resolve weights for the selected profile
+  // Breakdown  - resolve weights for the selected profile
   const bd = document.getElementById('breakdown-wrap');
   const profName = el('f-profile') ? el('f-profile').value : '';
   const matchedProf = profName ? profiles.find(p => p.name === profName) : null;
@@ -10038,7 +10038,7 @@ function showResult({ data, score, signals, status, rec, plays }) {
     return `<div class="bd-row${off ? ' bd-row--off' : ''}">
       <div class="bd-label">${s.label}${off ? ' <span style="font-size:var(--fs-xs);color:var(--muted)">(off)</span>' : ''}</div>
       <div class="bd-bar"><div class="bd-fill" style="width:${off ? 0 : Math.round(signals[s.key])}%;background:${s.color}"></div></div>
-      <div class="bd-score">${off ? '—' : Math.round(signals[s.key])}</div>
+      <div class="bd-score">${off ? ' -' : Math.round(signals[s.key])}</div>
     </div>`;
   }).join('');
 
@@ -10220,7 +10220,7 @@ function saveScore() {
         dupe.history.push({ score, date: new Date().toISOString(), signals: buildHistorySnapshot(data) });
         setLoading(true);
         save(dupe).then(() => { setLoading(false); toast('Score updated for ' + dupe.name, 'success'); })
-                  .catch(() => { setLoading(false); toast('Updated locally — sync failed', 'warn'); });
+                  .catch(() => { setLoading(false); toast('Updated locally  - sync failed', 'warn'); });
         logAudit('customer_scored', dupe.id, dupe.name, { score, status, summary: `Re-scored → ${score}/100 (${status}), MRR: $${dupe.mrr}, Tier: ${dupe.tier}` });
         pendingResult = null;
         resetForm();
@@ -10272,9 +10272,9 @@ function saveScore() {
     toast('Saved: ' + cust.name, 'success');
   }).catch(() => {
     setLoading(false);
-    toast('Saved locally — sync failed, check connection', 'warn');
+    toast('Saved locally  - sync failed, check connection', 'warn');
   });
-  logAudit('customer_created', cust.id, cust.name, { score, status, summary: `New customer — Score: ${score}/100 (${status}), MRR: $${cust.mrr}, Tier: ${cust.tier}, Lifecycle: ${cust.lifecycle}` });
+  logAudit('customer_created', cust.id, cust.name, { score, status, summary: `New customer  - Score: ${score}/100 (${status}), MRR: $${cust.mrr}, Tier: ${cust.tier}, Lifecycle: ${cust.lifecycle}` });
   pendingResult = null;
   resetForm();
   nav(_returnToPage || 'customers');
@@ -10321,7 +10321,7 @@ function saveDetailsOnly() {
     toast('Details saved for ' + c.name, 'success');
   }).catch(() => {
     setLoading(false);
-    toast('Saved locally — sync failed', 'warn');
+    toast('Saved locally  - sync failed', 'warn');
   });
   logAudit('customer_updated', c.id, c.name, { summary: `Details updated (no re-score)` });
   resetForm();
@@ -10375,7 +10375,7 @@ function printCustomerReport() {
   if (!detailId) return;
   const c = customers.find(x => x.id === detailId);
   if (!c) return;
-  logAudit('report_printed', c.id, c.name, { summary: `Report printed — Score: ${c.score}, Status: ${c.status}` });
+  logAudit('report_printed', c.id, c.name, { summary: `Report printed  - Score: ${c.score}, Status: ${c.status}` });
   const rec   = makeRec(c.score, c);
   const plays = buildPlaybook(c.score, c);
   const pa    = document.getElementById('print-area');
@@ -10402,13 +10402,13 @@ function buildPrintHTML(name, score, status, rec, plays, data) {
       td{padding:6px 8px;border-bottom:1px solid #f1f5f9}
       .footer-p{margin-top:32px;font-size:var(--fs-sm);color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:12px}
     </style>
-    <h1>IQcadence Health Report — ${name}</h1>
+    <h1>IQcadence Health Report  - ${name}</h1>
     <p style="color:#64748b;font-size:var(--fs-base)">Generated ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})} · IQcadence CS Health Score</p>
     <div style="margin:16px 0;display:flex;align-items:center;gap:20px;flex-wrap:wrap">
       <div class="score-big">${score}</div>
       <div>
         <div class="badge">${labels[status]}</div>
-        <div style="margin-top:6px;font-size:var(--fs-base);color:#64748b">MRR: $${(data.mrr||0).toLocaleString()} · Tier: ${(data.tier||'').toUpperCase()} · Stage: ${data.lifecycle||'—'}</div>
+        <div style="margin-top:6px;font-size:var(--fs-base);color:#64748b">MRR: $${(data.mrr||0).toLocaleString()} · Tier: ${(data.tier||'').toUpperCase()} · Stage: ${data.lifecycle||' -'}</div>
       </div>
     </div>
     <div class="rec"><strong>Health Assessment:</strong> ${rec.replace(/<[^>]+>/g,'')}</div>
@@ -10422,7 +10422,7 @@ function buildPrintHTML(name, score, status, rec, plays, data) {
       <tr><td>CSAT</td><td>${csatDisplay(data.csat)}</td></tr>
       <tr><td>Days Since Contact</td><td>${data.days != null ? data.days + ' days' : 'N/A'}</td></tr>
       <tr><td>Growth Signal</td><td>${data.growth}</td></tr>
-      <tr><td>Renewal Date</td><td>${data.renewal_date ? new Date(data.renewal_date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' (' + data.renewal + ' mo)' : '—'}</td></tr>
+      <tr><td>Renewal Date</td><td>${data.renewal_date ? new Date(data.renewal_date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) + ' (' + data.renewal + ' mo)' : ' -'}</td></tr>
     </table>
     <h2>Recommended Playbook</h2>
     ${plays.map(p=>`<div class="play">${p.icon} ${p.text.replace(/<[^>]+>/g,'')}</div>`).join('')}
@@ -10451,9 +10451,9 @@ function logSentiment() {
   ['pos','neu','neg'].forEach(k => el('sent-'+k)?.classList.remove('active'));
   if (el('sent-note')) el('sent-note').value = '';
   renderDetailSentiment();
-  logAudit('sentiment_logged', c.id, c.name, { summary: `Sentiment: ${c.sentiment[0].val}${note ? ' — "' + note.substring(0, 80) + '"' : ''}` });
+  logAudit('sentiment_logged', c.id, c.name, { summary: `Sentiment: ${c.sentiment[0].val}${note ? '  - "' + note.substring(0, 80) + '"' : ''}` });
   save(c).then(() => toast('Sentiment logged', 'success'))
-         .catch(e => { console.error('Sentiment save failed:', e); toast('Saved locally — sync failed', 'warn'); });
+         .catch(e => { console.error('Sentiment save failed:', e); toast('Saved locally  - sync failed', 'warn'); });
 }
 
 function renderDetailSentiment() {
@@ -10508,7 +10508,7 @@ function latestSentiment(c) {
   try {
     const s = Array.isArray(c.sentiment) ? c.sentiment : (typeof c.sentiment === 'string' ? JSON.parse(c.sentiment) : []);
     if (!s.length) return null;
-    // Find the entry with the most recent date (don't trust array order — unshift vs push)
+    // Find the entry with the most recent date (don't trust array order  - unshift vs push)
     let best = s[0];
     for (let i = 1; i < s.length; i++) {
       if (s[i].date && (!best.date || s[i].date > best.date)) best = s[i];
@@ -10669,7 +10669,7 @@ function renderDetailOverview() {
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-bottom:12px;padding:0;background:var(--bg);border-radius:var(--r);border:1px solid var(--border);overflow:hidden">
       <div style="padding:8px 12px;border-bottom:1px solid var(--border);border-right:1px solid var(--border)">
         <div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:2px">Manager</div>
-        <div style="font-weight:500;font-size:var(--fs-base)">${escHtml(c.manager||'—')}</div>
+        <div style="font-weight:500;font-size:var(--fs-base)">${escHtml(c.manager||' -')}</div>
       </div>
       <div style="padding:8px 12px;border-bottom:1px solid var(--border);border-right:1px solid var(--border)">
         <div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:2px">Tier</div>
@@ -10680,20 +10680,20 @@ function renderDetailOverview() {
         <div>${lifecycleBadge(c.lifecycle)}</div>
       </div>
       ${(c.contact_name||c.contact_email) ? `<div style="padding:8px 12px;grid-column:1/-1;border-bottom:1px solid var(--border);display:flex;gap:16px">
-        <div><div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:2px">Contact</div><div style="font-weight:500;font-size:var(--fs-base)">${escHtml(c.contact_name||'—')}</div></div>
-        <div><div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:2px">Email</div><div style="font-size:var(--fs-base)">${c.contact_email ? `<a href="mailto:${escHtml(c.contact_email)}" style="color:var(--blue);text-decoration:none;font-weight:500">${escHtml(c.contact_email)}</a>` : '—'}</div></div>
+        <div><div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:2px">Contact</div><div style="font-weight:500;font-size:var(--fs-base)">${escHtml(c.contact_name||' -')}</div></div>
+        <div><div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:2px">Email</div><div style="font-size:var(--fs-base)">${c.contact_email ? `<a href="mailto:${escHtml(c.contact_email)}" style="color:var(--blue);text-decoration:none;font-weight:500">${escHtml(c.contact_email)}</a>` : ' -'}</div></div>
       </div>` : ''}
       <div style="padding:8px 12px;border-right:1px solid var(--border)${(c.tags&&c.tags.length)||c.external_id||c.stripe_customer_id?';border-bottom:1px solid var(--border)':''}">
         <div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:2px">MRR</div>
-        <div style="font-weight:600;font-size:var(--fs-base)">${c.mrr ? '$'+fmtNum(c.mrr) : '—'}</div>
+        <div style="font-weight:600;font-size:var(--fs-base)">${c.mrr ? '$'+fmtNum(c.mrr) : ' -'}</div>
       </div>
       <div style="padding:8px 12px;border-right:1px solid var(--border)${(c.tags&&c.tags.length)||c.external_id||c.stripe_customer_id?';border-bottom:1px solid var(--border)':''}">
         <div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:2px">ARR</div>
-        <div style="font-weight:600;font-size:var(--fs-base)">${c.arr ? '$'+fmtNum(c.arr) : '—'}</div>
+        <div style="font-weight:600;font-size:var(--fs-base)">${c.arr ? '$'+fmtNum(c.arr) : ' -'}</div>
       </div>
       <div style="padding:8px 12px${(c.tags&&c.tags.length)||c.external_id||c.stripe_customer_id?';border-bottom:1px solid var(--border)':''}">
         <div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:2px">Billing</div>
-        <div style="font-weight:500;font-size:var(--fs-base)">${c.billing_interval ? c.billing_interval.charAt(0).toUpperCase()+c.billing_interval.slice(1) : '—'}</div>
+        <div style="font-weight:500;font-size:var(--fs-base)">${c.billing_interval ? c.billing_interval.charAt(0).toUpperCase()+c.billing_interval.slice(1) : ' -'}</div>
       </div>
       ${(c.tags&&c.tags.length) ? `<div style="padding:8px 12px;grid-column:1/-1${c.external_id||c.stripe_customer_id?';border-bottom:1px solid var(--border)':''}"><div style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle);margin-bottom:3px">Tags</div><div style="display:flex;gap:4px;flex-wrap:wrap">${c.tags.map(t=>`<span style="font-size:var(--fs-xs);background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 6px">${escHtml(t)}</span>`).join('')}</div></div>` : ''}
       ${c.external_id||c.stripe_customer_id ? `<div style="padding:8px 12px;grid-column:1/-1;display:flex;gap:16px">${c.external_id?`<div><span style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle)">External ID</span> <span style="font-size:var(--fs-sm);color:var(--muted);margin-left:4px">${escHtml(c.external_id)}</span></div>`:''}${c.stripe_customer_id?`<div><span style="font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--subtle)">Stripe</span> <span style="font-size:var(--fs-sm);color:var(--muted);margin-left:4px">${escHtml(c.stripe_customer_id)} <a href="https://dashboard.stripe.com/customers/${encodeURIComponent(c.stripe_customer_id)}" target="_blank" rel="noopener" style="color:var(--blue)" title="Open in Stripe">↗</a></span></div>`:''}</div>` : ''}
@@ -10714,7 +10714,7 @@ function renderDetailOverview() {
             return `<span style="font-size:var(--fs-base);font-weight:600">${lcd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span> <span style="font-size:var(--fs-sm);color:var(--muted)">(${daysAgo}d ago)</span>`;
           }
           if (c.days != null) return `<span style="font-size:var(--fs-base);font-weight:600">${c.days}d ago</span>`;
-          return '<span style="font-size:var(--fs-sm);color:var(--muted)">—</span>';
+          return '<span style="font-size:var(--fs-sm);color:var(--muted)"> -</span>';
         })()}
       </div>
       <div>
@@ -10741,12 +10741,12 @@ function renderDetailOverview() {
             return `<span style="font-weight:700;color:${color}">${label}</span> <span style="font-size:var(--fs-sm);color:var(--muted);margin-left:4px">${dateStr}</span>`;
           }
           if (c.renewal != null && c.renewal > 0) return urgencyHTML(c) + ` <span style="font-size:var(--fs-sm);color:var(--muted);margin-left:4px">(${c.renewal}mo)</span>`;
-          return '<span style="font-size:var(--fs-sm);color:var(--muted)">—</span>';
+          return '<span style="font-size:var(--fs-sm);color:var(--muted)"> -</span>';
         })()}
       </div>
       <div>
         <div class="sig-label">Last Vibe</div>
-        ${sentIcon ? `<span style="font-size:var(--fs-md)">${sentIcon}</span> <span style="font-size:var(--fs-sm);color:var(--muted)">${fmtDate(sent.date)}</span>` : '<span style="font-size:var(--fs-sm);color:var(--muted)">—</span>'}
+        ${sentIcon ? `<span style="font-size:var(--fs-md)">${sentIcon}</span> <span style="font-size:var(--fs-sm);color:var(--muted)">${fmtDate(sent.date)}</span>` : '<span style="font-size:var(--fs-sm);color:var(--muted)"> -</span>'}
       </div>
     </div>
     <div class="rec-box" style="margin-bottom:14px"><div class="rec-box__title">Health Assessment</div>${rec}</div>
@@ -10819,7 +10819,7 @@ async function saveNextTouch() {
   c.next_touch = newNt;
   c.next_touch_time = newNt ? newTime : '';
 
-  /* Recalculate score — days may have changed from archival */
+  /* Recalculate score  - days may have changed from archival */
   const { score: newSc } = scoreWithModel(c);
   if (newSc !== c.score) {
     c.score = newSc;
@@ -10839,7 +10839,7 @@ async function saveNextTouch() {
     toast('Next touch saved', 'success');
   } catch (err) {
     console.error('Save failed:', err);
-    toast('Save failed — ' + (err.message || 'unknown error'), 'error');
+    toast('Save failed  - ' + (err.message || 'unknown error'), 'error');
   }
 }
 
@@ -10874,15 +10874,15 @@ function buildBreakdownHTML(signals, c) {
     const off = !(d.weight > 0);
     return `<div class="bd-row${off ? ' bd-row--off' : ''}">
       <div class="bd-label">${d.label}${off ? ' <span style="font-size:var(--fs-xs);color:var(--muted)">(off)</span>' : ''}</div>
-      <div class="bd-weight">${off ? '—' : Math.round((d.weight / total) * 100) + '%'}</div>
+      <div class="bd-weight">${off ? ' -' : Math.round((d.weight / total) * 100) + '%'}</div>
       <div class="bd-bar"><div class="bd-fill" style="width:${off ? 0 : Math.round(signals[d.key])}%;background:${d.color}"></div></div>
-      <div class="bd-score">${off ? '—' : Math.round(signals[d.key])}</div>
+      <div class="bd-score">${off ? ' -' : Math.round(signals[d.key])}</div>
       ${d.raw ? `<div class="bd-raw">${d.raw}</div>` : ''}
     </div>`;
   }).join('');
 }
 
-/* stable key for a play — type + bold title (survives index shifts) */
+/* stable key for a play  - type + bold title (survives index shifts) */
 function playKey(p) {
   const t = (p.text.match(/<strong>([^<]+)</) || [])[1] || '';
   return p.type + '|' + t.replace(/:?\s*$/, '');
@@ -11018,7 +11018,7 @@ function addNote() {
   renderDetailNotes();
   logAudit('note_added', c.id, c.name, { summary: `Note: "${text.substring(0, 100)}${text.length > 100 ? '…' : ''}"` });
   save(c).then(() => toast('Note added', 'success'))
-         .catch(e => { console.error('Note save failed:', e); toast('Saved locally — sync failed', 'warn'); });
+         .catch(e => { console.error('Note save failed:', e); toast('Saved locally  - sync failed', 'warn'); });
 }
 
 function deleteNote(idx) {
@@ -11039,7 +11039,7 @@ function renderDetailHistory() {
     ? buildSparkline(hist.map(h=>h.score), 260, 60)
     : '<p style="font-size:var(--fs-base);color:var(--muted)">Score at least twice to see trend.</p>';
 
-  // List — newest first; arr[i+1] = previous (older) entry
+  // List  - newest first; arr[i+1] = previous (older) entry
   const histList = el('dm-history-list');
   const reversed = [...hist].reverse();
   if (!reversed.length) {
@@ -11065,7 +11065,7 @@ function renderDetailHistory() {
       else             deltaHtml = `<span class="delta-eq" style="font-size:var(--fs-sm)">→0</span>`;
     }
 
-    // Signal diff — what actually changed (use embedded prevSignals if available for sync entries)
+    // Signal diff  - what actually changed (use embedded prevSignals if available for sync entries)
     const prevSnap = h.prevSignals || (prev ? (prev.signals || null) : null);
     const changes = diffSnapshots(h.signals || null, prevSnap);
     let reasonHtml = '';
@@ -11144,10 +11144,10 @@ function buildSparkline(values, w, h) {
     </svg>`;
 }
 
-// Mini sparkline for customer table cells — reuses buildSparkline() at small scale
+// Mini sparkline for customer table cells  - reuses buildSparkline() at small scale
 function buildSparklineMini(c) {
   const hist = (c.history||[]).slice(-10); // last 10 score points
-  if (hist.length < 2) return '<span style="color:var(--subtle);font-size:var(--fs-sm)">—</span>';
+  if (hist.length < 2) return '<span style="color:var(--subtle);font-size:var(--fs-sm)"> -</span>';
   return buildSparkline(hist.map(h=>h.score), 72, 22);
 }
 
@@ -11279,7 +11279,7 @@ window.saveScore = function() {
       c.history.push({ score, date: new Date().toISOString(), signals: buildHistorySnapshot(data) });
       setLoading(true);
       save(c).then(() => { setLoading(false); toast('Updated: ' + c.name, 'success'); })
-              .catch(() => { setLoading(false); toast('Updated locally — sync failed', 'warn'); });
+              .catch(() => { setLoading(false); toast('Updated locally  - sync failed', 'warn'); });
       /* Build granular audit diff */
       const after = { name:c.name, manager:c.manager, score, status, mrr:c.mrr, arr:c.arr, tier:c.tier, lifecycle:c.lifecycle, logins:c.logins, adoption:c.adoption, tickets:c.tickets, nps:c.nps, csat:c.csat, days:c.days, growth:c.growth||'none', scoring_profile:c.scoring_profile||'' };
       const changes = Object.keys(after).filter(k => String(before[k]) !== String(after[k])).map(k => `${k}: ${before[k]} → ${after[k]}`);
@@ -11306,7 +11306,7 @@ function deleteFromModal() {
     customers = customers.filter(x => x.id !== detailId);
     closeModal('detail-modal');
     toast(`${c.name} moved to Trash`, 'warn');
-    logAudit('customer_deleted', c.id, c.name, { summary: `Moved to trash — Score: ${c.score}/100, MRR: $${c.mrr||0}, Tier: ${c.tier}` });
+    logAudit('customer_deleted', c.id, c.name, { summary: `Moved to trash  - Score: ${c.score}/100, MRR: $${c.mrr||0}, Tier: ${c.tier}` });
     renderCustomers();
     setLoading(true);
     await atDelete(c).catch(()=>{});
@@ -11322,7 +11322,7 @@ function deleteCustomer(id) {
     trash.push(c);
     customers = customers.filter(x => x.id !== id);
     toast(`${c.name} moved to Trash`, 'warn');
-    logAudit('customer_deleted', c.id, c.name, { summary: `Moved to trash — Score: ${c.score}/100, MRR: $${c.mrr||0}, Tier: ${c.tier}` });
+    logAudit('customer_deleted', c.id, c.name, { summary: `Moved to trash  - Score: ${c.score}/100, MRR: $${c.mrr||0}, Tier: ${c.tier}` });
     if (!customers.length) { nav('homebase'); } else { renderCustomers(); }
     setLoading(true);
     await atDelete(c).catch(()=>{});
@@ -11638,34 +11638,34 @@ function buildQBRText(c) {
   // Wins
   const wins = [];
   if (lc === 'onboarding' && c.adoption != null && c.adoption >= 40) wins.push(`Strong early adoption during onboarding (${c.adoption}%)`);
-  if (lc === 'won' && c.logins != null && c.logins >= 10) wins.push('Smooth transition after expansion — engagement remains strong');
-  if (c.logins != null && c.logins >= 15) wins.push(`Strong engagement — ${c.logins} logins in the past 30 days`);
+  if (lc === 'won' && c.logins != null && c.logins >= 10) wins.push('Smooth transition after expansion  - engagement remains strong');
+  if (c.logins != null && c.logins >= 15) wins.push(`Strong engagement  - ${c.logins} logins in the past 30 days`);
   if (c.adoption != null && c.adoption >= 60) wins.push(`High feature adoption at ${c.adoption}%`);
-  if (c.tickets != null && c.tickets <= 1) wins.push(`Clean support queue — ${c.tickets === 0 ? 'no' : 'only 1'} open ticket${c.tickets === 1 ? '' : 's'}`);
-  if (c.nps != null && npsIsPromoter(c.nps)) wins.push(`NPS promoter (${npsDisplay(c.nps)}) — strong advocacy potential`);
+  if (c.tickets != null && c.tickets <= 1) wins.push(`Clean support queue  - ${c.tickets === 0 ? 'no' : 'only 1'} open ticket${c.tickets === 1 ? '' : 's'}`);
+  if (c.nps != null && npsIsPromoter(c.nps)) wins.push(`NPS promoter (${npsDisplay(c.nps)})  - strong advocacy potential`);
   if (c.csat != null && csatIsGood(c.csat)) wins.push(`High satisfaction (CSAT ${csatDisplay(c.csat)})`);
-  if (c.growth === 'strong' && lc !== 'onboarding' && lc !== 'won') wins.push('Strong growth trajectory — expansion opportunity');
+  if (c.growth === 'strong' && lc !== 'onboarding' && lc !== 'won') wins.push('Strong growth trajectory  - expansion opportunity');
   else if (c.growth === 'mild' && lc !== 'onboarding' && lc !== 'won') wins.push('Positive growth trend emerging');
   if (sent && sent.val === 'positive') wins.push(`Positive sentiment logged on ${fmtDate(sent.date)}`);
   if (mom === 'up') wins.push('Health score is trending upward');
-  if (c.days != null && c.days <= 7) wins.push('Recently engaged — last contact within 7 days');
+  if (c.days != null && c.days <= 7) wins.push('Recently engaged  - last contact within 7 days');
 
   // Risks
   const risks = [];
-  if (c.logins != null && c.logins < 5) risks.push(`[HIGH] Low engagement — only ${c.logins} logins in the past 30 days`);
-  else if (c.logins != null && c.logins < 12) risks.push(`[MED] Moderate engagement — ${c.logins} logins/month`);
-  if (c.adoption != null && c.adoption < 25) risks.push(`[HIGH] Critical adoption gap — only ${c.adoption}% of features utilized`);
-  else if (c.adoption != null && c.adoption < 50) risks.push(`[MED] Adoption at ${c.adoption}% — value left on the table`);
-  if (c.tickets != null && c.tickets >= 5) risks.push(`[HIGH] ${c.tickets} open support tickets — unresolved friction`);
+  if (c.logins != null && c.logins < 5) risks.push(`[HIGH] Low engagement  - only ${c.logins} logins in the past 30 days`);
+  else if (c.logins != null && c.logins < 12) risks.push(`[MED] Moderate engagement  - ${c.logins} logins/month`);
+  if (c.adoption != null && c.adoption < 25) risks.push(`[HIGH] Critical adoption gap  - only ${c.adoption}% of features utilized`);
+  else if (c.adoption != null && c.adoption < 50) risks.push(`[MED] Adoption at ${c.adoption}%  - value left on the table`);
+  if (c.tickets != null && c.tickets >= 5) risks.push(`[HIGH] ${c.tickets} open support tickets  - unresolved friction`);
   else if (c.tickets != null && c.tickets >= 3) risks.push(`[MED] ${c.tickets} open tickets may indicate product friction`);
-  if (c.nps != null && npsIsDetractor(c.nps)) risks.push(`[HIGH] NPS detractor (${npsDisplay(c.nps)}) — needs immediate attention`);
-  if (c.csat != null && csatIsPoor(c.csat)) risks.push(`[HIGH] CSAT is ${csatDisplay(c.csat)} — satisfaction critically low`);
-  if (c.days != null && c.days > 30) risks.push(`[HIGH] No contact in ${c.days} days — relationship at risk`);
-  else if (c.days != null && c.days > 14) risks.push(`[MED] ${c.days} days since last contact — follow-up overdue`);
+  if (c.nps != null && npsIsDetractor(c.nps)) risks.push(`[HIGH] NPS detractor (${npsDisplay(c.nps)})  - needs immediate attention`);
+  if (c.csat != null && csatIsPoor(c.csat)) risks.push(`[HIGH] CSAT is ${csatDisplay(c.csat)}  - satisfaction critically low`);
+  if (c.days != null && c.days > 30) risks.push(`[HIGH] No contact in ${c.days} days  - relationship at risk`);
+  else if (c.days != null && c.days > 14) risks.push(`[MED] ${c.days} days since last contact  - follow-up overdue`);
   if (c.growth === 'declining') risks.push('[MED] Growth signal is declining');
   if (sent && sent.val === 'negative') risks.push(`[HIGH] Negative sentiment logged on ${fmtDate(sent.date)}`);
   if (mom === 'dn') risks.push('[MED] Health score trending downward');
-  if (c.renewal != null && c.renewal <= 2) risks.push(`[${c.renewal <= 1 ? 'HIGH' : 'MED'}] Renewal in ${fmtRenewalTime(c)} — needs proactive attention`);
+  if (c.renewal != null && c.renewal <= 2) risks.push(`[${c.renewal <= 1 ? 'HIGH' : 'MED'}] Renewal in ${fmtRenewalTime(c)}  - needs proactive attention`);
 
   // Summary
   let summary = '';
@@ -11733,18 +11733,18 @@ function buildQBRText(c) {
   const recentNotes = (c.notes || []).slice(0, 3).map(n => `  • [${fmtDate(n.date)}] ${n.text}`).join('\n');
 
   return `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-QBR MEETING PREP — ${c.name.toUpperCase()}
+QBR MEETING PREP  - ${c.name.toUpperCase()}
 Generated: ${date} · IQcadence CS Health Score
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ACCOUNT SNAPSHOT
   Health Score:    ${c.score} / 100  (${sl})
-  Momentum:        ${momLabels[mom] || '—'}
+  Momentum:        ${momLabels[mom] || ' -'}
   Score Trend:     ${histLine}
-  MRR:             ${c.mrr ? '$' + fmtNum(c.mrr) : '—'}
-  Tier:            ${tierMap[c.tier] || c.tier || '—'}
-  Lifecycle:       ${c.lifecycle || '—'}
-  Renewal:         ${c.renewal != null ? c.renewal + ' months' + (u ? ' — ' + u.label + ' urgency' : '') : '—'}
+  MRR:             ${c.mrr ? '$' + fmtNum(c.mrr) : ' -'}
+  Tier:            ${tierMap[c.tier] || c.tier || ' -'}
+  Lifecycle:       ${c.lifecycle || ' -'}
+  Renewal:         ${c.renewal != null ? c.renewal + ' months' + (u ? '  - ' + u.label + ' urgency' : '') : ' -'}
 
 EXECUTIVE SUMMARY
   ${summary}
@@ -11756,7 +11756,7 @@ ${agenda.map(a => '  ' + a).join('\n')}
 
 QUESTIONS TO ASK
 ${questions.map(q => '  ? ' + q).join('\n')}
-${recentNotes ? `\nMEETING CONTEXT — RECENT NOTES\n${recentNotes}` : ''}
+${recentNotes ? `\nMEETING CONTEXT  - RECENT NOTES\n${recentNotes}` : ''}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Prepared with IQ Cadence · iqcadence.com
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
@@ -11874,10 +11874,10 @@ function _updateSettingsGuideBadge() {
 
 function _renderSettingsGuide() {
   _renderGuide('settings-guide', 'iqc_settings_guide_dismissed',
-    '<strong>What you can do here</strong> — Configure how IQcadence scores and monitors your customers across three tabs.<br>' +
+    '<strong>What you can do here</strong>  - Configure how IQcadence scores and monitors your customers across three tabs.<br>' +
     '<strong>Config:</strong> Set <strong>signal weights</strong> to control how each metric (logins, adoption, NPS, etc.) impacts the health score. Adjust <strong>status thresholds</strong> to define what counts as Critical, At Risk, Watch, and Healthy. Create <strong>Scoring Profiles</strong> with custom weights for different customer segments (e.g. Enterprise vs SMB).<br>' +
     '<strong>Account:</strong> Manage your CSM list, view data health metrics, export/restore backups, and change your password.<br>' +
-    '<strong>Tip:</strong> Connect your CRM or billing tool in the <strong>Integrations</strong> tab to auto-sync customer data. Use Scoring Profiles to apply different weight sets per customer or segment — assign them in the Score form.');
+    '<strong>Tip:</strong> Connect your CRM or billing tool in the <strong>Integrations</strong> tab to auto-sync customer data. Use Scoring Profiles to apply different weight sets per customer or segment  - assign them in the Score form.');
 }
 
 function renderSettings() {
@@ -11896,14 +11896,14 @@ function renderSettings() {
   renderRenewalWindows();
   renderMiscThresholds();
 
-  // Weights — available to ALL tiers (ungated)
+  // Weights  - available to ALL tiers (ungated)
   const weightCard = el('weight-rows')?.closest('.card');
   if (weightCard) {
     weightCard.style.opacity = ''; weightCard.style.pointerEvents = '';
     weightCard.querySelector('.upgrade-overlay')?.remove();
   }
 
-  // Scoring Profiles — gated to Growth tier
+  // Scoring Profiles  - gated to Growth tier
   const profileCard = el('profiles-list')?.closest('.card');
   if (profileCard) {
     if (hasFeature('scoring_profiles')) {
@@ -11987,7 +11987,7 @@ function updateTotalBar() {
   const lbl   = el('total-label');
   fill.style.width      = Math.min(total,100) + '%';
   fill.style.background = total===100 ? 'var(--green)' : total>100 ? 'var(--red)' : 'var(--amber)';
-  lbl.textContent       = `Total: ${total}% ${total===100?'(good)':total>100?'— over 100%':'— needs '+( 100-total)+'%'}`;
+  lbl.textContent       = `Total: ${total}% ${total===100?'(good)':total>100?' - over 100%':' - needs '+( 100-total)+'%'}`;
   lbl.style.color       = total===100 ? 'var(--green)' : 'var(--red)';
 }
 
@@ -12071,7 +12071,7 @@ function rescoreAll() {
   renderAlerts();
   if (n > 0) {
     const changedNames = changed.slice(0, 5).map(c => `${c.name} (${c.score})`).join(', ') + (changed.length > 5 ? ` +${changed.length - 5} more` : '');
-    logAudit('customer_scored', null, '', { summary: `Bulk re-score: ${n} updated — ${changedNames}` });
+    logAudit('customer_scored', null, '', { summary: `Bulk re-score: ${n} updated  - ${changedNames}` });
   }
   logConfigChange(`Bulk re-score: ${n} customer${n!==1?'s':''} updated`);
   renderScoreDistribution();
@@ -12271,7 +12271,7 @@ function previewProfile(idx) {
   if (!p) return;
   editingProfileIdx = idx;
   const isGlobal = p.name === 'Global Weights';
-  // Load profile weights into sliders (preview only — no save)
+  // Load profile weights into sliders (preview only  - no save)
   const keys = ['logins','adoption','tickets','nps','csat','days','growth'];
   keys.forEach(k => {
     const input = el('wr-' + k);
@@ -12471,8 +12471,8 @@ function renderConfigHistory() {
   slice.forEach(e => {
     const dt = new Date(e.ts);
     const time = dt.toLocaleDateString('en-US', { month:'short', day:'numeric' }) + ' ' + dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const user = e.user ? escHtml(e.user) : '<span style="color:var(--subtle)">—</span>';
-    const detail = e.details ? escHtml(e.details) : '<span style="color:var(--subtle)">—</span>';
+    const user = e.user ? escHtml(e.user) : '<span style="color:var(--subtle)"> -</span>';
+    const detail = e.details ? escHtml(e.details) : '<span style="color:var(--subtle)"> -</span>';
     h += `<tr>
       <td style="font-size:var(--fs-sm);color:var(--muted);white-space:nowrap">${time}</td>
       <td style="font-size:var(--fs-sm);color:var(--text)">${user}</td>
@@ -12569,7 +12569,7 @@ function addCSM() {
   // Check if already exists
   const exists = customers.some(c => (c.manager || '').trim().toLowerCase() === name.toLowerCase());
   if (exists) { toast(`"${name}" is already a CSM`, 'warn'); return; }
-  // Create a placeholder — add the CSM name to the manager dropdown by assigning to no one yet
+  // Create a placeholder  - add the CSM name to the manager dropdown by assigning to no one yet
   // We store in a lightweight list so the name appears even with 0 accounts
   if (!window._manualCSMs) window._manualCSMs = [];
   if (!window._manualCSMs.includes(name)) window._manualCSMs.push(name);
@@ -12594,7 +12594,7 @@ function removeCSM(name) {
     refreshMgrDropdown();
     renderCustomers();
     renderHomeBase();
-    toast(`"${name}" removed — ${affected.length} customer${affected.length !== 1 ? 's' : ''} unassigned`, 'success');
+    toast(`"${name}" removed  - ${affected.length} customer${affected.length !== 1 ? 's' : ''} unassigned`, 'success');
   });
 }
 
@@ -12643,7 +12643,7 @@ function updateProfileModalTotal() {
   const fill = el('pm-total-fill');
   const lbl  = el('pm-total-label');
   if (fill) { fill.style.width = Math.min(total,100)+'%'; fill.style.background = total===100?'var(--green)':total>100?'var(--red)':'var(--amber)'; }
-  if (lbl)  { lbl.textContent = `Total: ${total}% ${total===100?'(good)':total>100?'— over 100%':'— needs '+(100-total)+'%'}`; lbl.style.color = total===100?'var(--green)':'var(--red)'; }
+  if (lbl)  { lbl.textContent = `Total: ${total}% ${total===100?'(good)':total>100?' - over 100%':' - needs '+(100-total)+'%'}`; lbl.style.color = total===100?'var(--green)':'var(--red)'; }
 }
 
 function saveProfile() {
@@ -12684,7 +12684,7 @@ function confirmSaveProfile() {
   const isGlobal  = existingName === 'Global Weights';
   const name      = isGlobal ? 'Global Weights' : nameInput.value.trim();
   if (!name) { toast('Enter a profile name', 'error'); return; }
-  // Duplicate name check — ignore the profile being edited itself
+  // Duplicate name check  - ignore the profile being edited itself
   const duplicate = profiles.some((p, i) => p.name.toLowerCase() === name.toLowerCase() && i !== editIdx);
   if (duplicate) { toast(`A profile named "${name}" already exists`, 'error'); return; }
 
@@ -12825,7 +12825,7 @@ function restoreBackup(e) {
         
           renderSettings();
         } catch(err) {
-          toast('Restore finished — some records may not have synced', 'warn');
+          toast('Restore finished  - some records may not have synced', 'warn');
         } finally {
           setLoading(false);
         }
@@ -12844,7 +12844,7 @@ function escHtml(str) {
 }
 
 function fmtDate(iso) {
-  if (!iso) return '—';
+  if (!iso) return ' -';
   try {
     return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
   } catch(e) { return iso; }
@@ -13010,7 +13010,7 @@ function renderReporting() {
       ]
     },
     { section:'portfolio', tier:'starter', featureKey:'reports_basic',
-      title:'Weekly Review', desc:'Friday report — week-over-week trends, portfolio insights, action items, at-risk accounts, and score movers.',
+      title:'Weekly Review', desc:'Friday report  - week-over-week trends, portfolio insights, action items, at-risk accounts, and score movers.',
       iconBg:'var(--green-l)', iconColor:'var(--green)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
       actions:[
@@ -13063,7 +13063,7 @@ function renderReporting() {
     },
     // ── Team & Segments ──
     { section:'team', tier:'team', featureKey:'report_segments',
-      title:'Segment Analysis Report', desc:'Health breakdown by tier, lifecycle, and tag — with MRR at risk per segment.',
+      title:'Segment Analysis Report', desc:'Health breakdown by tier, lifecycle, and tag  - with MRR at risk per segment.',
       iconBg:'var(--purple-l)', iconColor:'var(--purple)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
       actions:[
@@ -13073,7 +13073,7 @@ function renderReporting() {
       ]
     },
     { section:'team', tier:'pro', featureKey:'report_csmperf',
-      title:'CSM Performance Report', desc:'Per-manager portfolio metrics — avg score, risk ratio, MRR managed, contact cadence.',
+      title:'CSM Performance Report', desc:'Per-manager portfolio metrics  - avg score, risk ratio, MRR managed, contact cadence.',
       iconBg:'var(--blue-l)', iconColor:'var(--blue)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
       actions:[
@@ -13377,7 +13377,7 @@ function svgRiskBands(scored) {
 }
 
 function svgMiniBar(items) {
-  // Compact bar chart within a section — used for segment comparisons
+  // Compact bar chart within a section  - used for segment comparisons
   return items.map(function(item) {
     var pct = Math.min(100, Math.max(2, item.value));
     var col = item.value >= 80 ? '#16a34a' : item.value >= 60 ? '#4f46e5' : item.value >= 40 ? '#d97706' : '#dc2626';
@@ -13403,23 +13403,23 @@ function _rptInsights(key) {
   const riskPctBook = totalMrr > 0 ? Math.round(riskMrr / totalMrr * 100) : 0;
 
   if (key === 'portfolio_summary') {
-    // MRR concentration risk — how much MRR sits in the top 3 accounts
+    // MRR concentration risk  - how much MRR sits in the top 3 accounts
     const byMrr = [...active].sort((a,b) => (b.mrr||0) - (a.mrr||0));
     if (byMrr.length >= 3 && totalMrr > 0) {
       const top3Mrr = byMrr.slice(0,3).reduce((s,c) => s+(c.mrr||0), 0);
       const concPct = Math.round(top3Mrr / totalMrr * 100);
-      if (concPct >= 40) items.push('<strong>Concentration risk:</strong> Top 3 accounts represent ' + concPct + '% of total MRR — losing any one would be a significant book impact.');
+      if (concPct >= 40) items.push('<strong>Concentration risk:</strong> Top 3 accounts represent ' + concPct + '% of total MRR  - losing any one would be a significant book impact.');
     }
-    // Engagement-health divergence — accounts scoring well but with declining engagement
+    // Engagement-health divergence  - accounts scoring well but with declining engagement
     const silentHealthy = active.filter(c => c.score >= 70 && signalOn(c,'logins') && (c.logins||0) <= 2 && signalOn(c,'adoption') && (c.adoption||0) < 30);
-    if (silentHealthy.length) items.push('<strong>Silent risk:</strong> ' + silentHealthy.length + ' account' + (silentHealthy.length>1?'s score':'scores') + ' 70+ but ' + (silentHealthy.length>1?'have':'has') + ' very low login and adoption — scores may not reflect actual engagement.');
-    // Risk velocity — how many moved INTO risk bands this week
+    if (silentHealthy.length) items.push('<strong>Silent risk:</strong> ' + silentHealthy.length + ' account' + (silentHealthy.length>1?'s score':'scores') + ' 70+ but ' + (silentHealthy.length>1?'have':'has') + ' very low login and adoption  - scores may not reflect actual engagement.');
+    // Risk velocity  - how many moved INTO risk bands this week
     const newRisk = atRiskAll.filter(c => {
       const hist = (c.history||[]).filter(h => h.date).sort((a,b) => new Date(b.date) - new Date(a.date));
       const prev = hist.find(h => new Date(h.date) < new Date(Date.now() - 7*86400000));
       return prev && getStatus(prev.score) !== 'critical' && getStatus(prev.score) !== 'risk';
     });
-    if (newRisk.length) items.push('<strong>Deteriorating:</strong> ' + newRisk.length + ' account' + (newRisk.length>1?'s':'') + ' fell into at-risk status in the past 7 days — early outreach can prevent further decline.');
+    if (newRisk.length) items.push('<strong>Deteriorating:</strong> ' + newRisk.length + ' account' + (newRisk.length>1?'s':'') + ' fell into at-risk status in the past 7 days  - early outreach can prevent further decline.');
     // Tier health gap
     const tiers = ['smb','mid','enterprise'];
     const tierAvgs = tiers.map(t => {
@@ -13429,12 +13429,12 @@ function _rptInsights(key) {
     if (tierAvgs.length >= 2) {
       const sorted = [...tierAvgs].sort((a,b) => a.avg - b.avg);
       const gap = sorted[sorted.length-1].avg - sorted[0].avg;
-      if (gap >= 15) items.push('<strong>Tier gap:</strong> ' + sorted[sorted.length-1].label + ' averages ' + gap + ' points higher than ' + sorted[0].label + ' — consider whether ' + sorted[0].label + ' needs a different engagement model.');
+      if (gap >= 15) items.push('<strong>Tier gap:</strong> ' + sorted[sorted.length-1].label + ' averages ' + gap + ' points higher than ' + sorted[0].label + '  - consider whether ' + sorted[0].label + ' needs a different engagement model.');
     }
 
   } else if (key === 'at_risk') {
     if (!atRiskAll.length) return '';
-    // Signal correlation — what signals are most common among at-risk accounts
+    // Signal correlation  - what signals are most common among at-risk accounts
     const signals = ['logins','adoption','tickets','nps','csat'];
     const sigPairs = [];
     signals.forEach(s => {
@@ -13450,16 +13450,16 @@ function _rptInsights(key) {
       if (bad >= 2) sigPairs.push({ sig: s, count: bad, pct: Math.round(bad/atRiskAll.length*100) });
     });
     sigPairs.sort((a,b) => b.pct - a.pct);
-    if (sigPairs.length) items.push('<strong>Common signal pattern:</strong> ' + sigPairs.slice(0,2).map(p => p.pct + '% have weak ' + p.sig).join(', ') + ' — addressing ' + sigPairs[0].sig + ' across the cohort could improve multiple accounts simultaneously.');
+    if (sigPairs.length) items.push('<strong>Common signal pattern:</strong> ' + sigPairs.slice(0,2).map(p => p.pct + '% have weak ' + p.sig).join(', ') + '  - addressing ' + sigPairs[0].sig + ' across the cohort could improve multiple accounts simultaneously.');
     // Accounts declining faster than others
     const fastDrop = atRiskAll.filter(c => getDelta7d(c) <= -5).sort((a,b) => getDelta7d(a) - getDelta7d(b));
-    if (fastDrop.length) items.push('<strong>Accelerating decline:</strong> ' + fastDrop.map(c => escHtml(c.name) + ' (' + getDelta7d(c) + ')').slice(0,3).join(', ') + (fastDrop.length>1?' are':' is') + ' dropping fast — these need intervention before they hit critical.');
+    if (fastDrop.length) items.push('<strong>Accelerating decline:</strong> ' + fastDrop.map(c => escHtml(c.name) + ' (' + getDelta7d(c) + ')').slice(0,3).join(', ') + (fastDrop.length>1?' are':' is') + ' dropping fast  - these need intervention before they hit critical.');
     // Contact gap + MRR correlation
     const overdueHigh = atRiskAll.filter(c => (c.days||0) >= 14 && (c.mrr||0) >= 5000).sort((a,b) => (b.mrr||0) - (a.mrr||0));
-    if (overdueHigh.length) items.push('<strong>Unattended high-value:</strong> ' + overdueHigh.length + ' at-risk account' + (overdueHigh.length>1?'s':'') + ' with $5k+ MRR ' + (overdueHigh.length>1?'haven\'t':'hasn\'t') + ' been contacted in 14+ days — ' + escHtml(overdueHigh[0].name) + ' ($' + fmtNum(overdueHigh[0].mrr) + ') is the highest priority.');
+    if (overdueHigh.length) items.push('<strong>Unattended high-value:</strong> ' + overdueHigh.length + ' at-risk account' + (overdueHigh.length>1?'s':'') + ' with $5k+ MRR ' + (overdueHigh.length>1?'haven\'t':'hasn\'t') + ' been contacted in 14+ days  - ' + escHtml(overdueHigh[0].name) + ' ($' + fmtNum(overdueHigh[0].mrr) + ') is the highest priority.');
     // Renewal proximity
     const riskNearRenewal = atRiskAll.filter(c => c.renewal != null && c.renewal <= 3);
-    if (riskNearRenewal.length) items.push('<strong>Renewal urgency:</strong> ' + riskNearRenewal.length + ' at-risk account' + (riskNearRenewal.length>1?'s renew':'renews') + ' within 90 days — limited runway to recover before decision point.');
+    if (riskNearRenewal.length) items.push('<strong>Renewal urgency:</strong> ' + riskNearRenewal.length + ' at-risk account' + (riskNearRenewal.length>1?'s renew':'renews') + ' within 90 days  - limited runway to recover before decision point.');
 
   } else if (key === 'renewal_forecast') {
     const now = new Date(); now.setHours(0,0,0,0);
@@ -13472,27 +13472,27 @@ function _rptInsights(key) {
       const renewMrr = renewing90.reduce((s,c) => s+(c.mrr||0), 0);
       const safeRenewMrr = renewing90.filter(c => c.status === 'healthy' || c.status === 'expand').reduce((s,c) => s+(c.mrr||0), 0);
       const retPct = renewMrr > 0 ? Math.round(safeRenewMrr / renewMrr * 100) : 100;
-      items.push('<strong>Retention outlook:</strong> ' + retPct + '% of upcoming renewal MRR ($' + fmtNum(safeRenewMrr) + ' of $' + fmtNum(renewMrr) + ') is in healthy status — the remaining $' + fmtNum(renewMrr - safeRenewMrr) + ' needs active save efforts.');
+      items.push('<strong>Retention outlook:</strong> ' + retPct + '% of upcoming renewal MRR ($' + fmtNum(safeRenewMrr) + ' of $' + fmtNum(renewMrr) + ') is in healthy status  - the remaining $' + fmtNum(renewMrr - safeRenewMrr) + ' needs active save efforts.');
     }
-    // Declining renewals — trending the wrong direction into their renewal
+    // Declining renewals  - trending the wrong direction into their renewal
     const decliningRenewals = renewing90.filter(c => getMomentum(c) === 'dn');
-    if (decliningRenewals.length) items.push('<strong>Deteriorating into renewal:</strong> ' + decliningRenewals.length + ' upcoming renewal' + (decliningRenewals.length>1?'s are':' is') + ' still trending downward — these accounts are getting worse as their decision date approaches.');
+    if (decliningRenewals.length) items.push('<strong>Deteriorating into renewal:</strong> ' + decliningRenewals.length + ' upcoming renewal' + (decliningRenewals.length>1?'s are':' is') + ' still trending downward  - these accounts are getting worse as their decision date approaches.');
     // Expansion vs save split
     const expandable = renewing90.filter(c => c.status === 'expand' || c.status === 'healthy');
     const saveable = renewing90.filter(c => c.status === 'critical' || c.status === 'risk');
-    if (expandable.length && saveable.length) items.push('<strong>Renewal strategy:</strong> ' + expandable.length + ' renewal' + (expandable.length>1?'s':'') + ' ready for expansion conversations, ' + saveable.length + ' need save plays — plan different playbooks for each group.');
+    if (expandable.length && saveable.length) items.push('<strong>Renewal strategy:</strong> ' + expandable.length + ' renewal' + (expandable.length>1?'s':'') + ' ready for expansion conversations, ' + saveable.length + ' need save plays  - plan different playbooks for each group.');
     // Uncontacted approaching renewals
     const noTouchRenew = riskRenewals.filter(c => (c.days||0) >= 14);
-    if (noTouchRenew.length) items.push('<strong>Urgent outreach needed:</strong> ' + noTouchRenew.length + ' at-risk renewal' + (noTouchRenew.length>1?'s haven\'t':' hasn\'t') + ' been contacted in 14+ days — shrinking window to influence outcome.');
+    if (noTouchRenew.length) items.push('<strong>Urgent outreach needed:</strong> ' + noTouchRenew.length + ' at-risk renewal' + (noTouchRenew.length>1?'s haven\'t':' hasn\'t') + ' been contacted in 14+ days  - shrinking window to influence outcome.');
 
   } else if (key === 'trend_report') {
-    // Momentum shift — are more accounts improving or declining this week vs the data suggests
+    // Momentum shift  - are more accounts improving or declining this week vs the data suggests
     const deltas = active.map(c => ({c, d: getDelta7d(c)}));
     const improving = deltas.filter(m => m.d > 0);
     const declining = deltas.filter(m => m.d < 0);
     const ratio = declining.length > 0 ? (improving.length / declining.length) : (improving.length > 0 ? 999 : 1);
-    if (ratio < 0.5) items.push('<strong>Negative momentum:</strong> Declining accounts outnumber improving ones ' + declining.length + ' to ' + improving.length + ' — this ratio typically signals a broader engagement problem, not isolated cases.');
-    else if (ratio > 2 && improving.length >= 3) items.push('<strong>Positive momentum:</strong> Improving accounts outnumber declining ones ' + improving.length + ' to ' + declining.length + ' — the portfolio is recovering well.');
+    if (ratio < 0.5) items.push('<strong>Negative momentum:</strong> Declining accounts outnumber improving ones ' + declining.length + ' to ' + improving.length + '  - this ratio typically signals a broader engagement problem, not isolated cases.');
+    else if (ratio > 2 && improving.length >= 3) items.push('<strong>Positive momentum:</strong> Improving accounts outnumber declining ones ' + improving.length + ' to ' + declining.length + '  - the portfolio is recovering well.');
     // Status band migration
     const bandChanges = active.map(c => {
       const hist = (c.history||[]).filter(h => h.date).sort((a,b) => new Date(b.date) - new Date(a.date));
@@ -13504,9 +13504,9 @@ function _rptInsights(key) {
     }).filter(Boolean);
     const downgrades = bandChanges.filter(b => ['critical','risk'].includes(b.to) && !['critical','risk'].includes(b.from));
     const upgrades = bandChanges.filter(b => ['healthy','expand'].includes(b.to) && !['healthy','expand'].includes(b.from));
-    if (downgrades.length) items.push('<strong>New risk entries:</strong> ' + downgrades.map(b => escHtml(b.c.name)).slice(0,3).join(', ') + ' moved into at-risk/critical this week — investigate root cause before scores drop further.');
-    if (upgrades.length) items.push('<strong>Recoveries:</strong> ' + upgrades.map(b => escHtml(b.c.name)).slice(0,3).join(', ') + ' graduated to healthy — review what worked to replicate the playbook.');
-    // Score volatility — accounts bouncing up and down frequently
+    if (downgrades.length) items.push('<strong>New risk entries:</strong> ' + downgrades.map(b => escHtml(b.c.name)).slice(0,3).join(', ') + ' moved into at-risk/critical this week  - investigate root cause before scores drop further.');
+    if (upgrades.length) items.push('<strong>Recoveries:</strong> ' + upgrades.map(b => escHtml(b.c.name)).slice(0,3).join(', ') + ' graduated to healthy  - review what worked to replicate the playbook.');
+    // Score volatility  - accounts bouncing up and down frequently
     const volatile = active.filter(c => {
       const hist = (c.history||[]).slice(-5);
       if (hist.length < 4) return false;
@@ -13514,10 +13514,10 @@ function _rptInsights(key) {
       for (let i = 2; i < hist.length; i++) { if ((hist[i].score - hist[i-1].score) * (hist[i-1].score - hist[i-2].score) < 0) flips++; }
       return flips >= 2;
     });
-    if (volatile.length >= 2) items.push('<strong>Score instability:</strong> ' + volatile.length + ' accounts are oscillating rather than trending — volatile scores often indicate inconsistent product usage or data quality issues worth investigating.');
+    if (volatile.length >= 2) items.push('<strong>Score instability:</strong> ' + volatile.length + ' accounts are oscillating rather than trending  - volatile scores often indicate inconsistent product usage or data quality issues worth investigating.');
 
   } else if (key === 'churn_risk') {
-    // Multi-signal failure — accounts failing on 3+ signals simultaneously
+    // Multi-signal failure  - accounts failing on 3+ signals simultaneously
     const multiSigFail = atRiskAll.filter(c => {
       let fails = 0;
       if (signalOn(c,'logins') && (c.logins||0) <= 3) fails++;
@@ -13527,16 +13527,16 @@ function _rptInsights(key) {
       if (signalOn(c,'csat') && csatIsPoor(c.csat)) fails++;
       return fails >= 3;
     });
-    if (multiSigFail.length) items.push('<strong>Multi-signal failure:</strong> ' + multiSigFail.length + ' account' + (multiSigFail.length>1?'s are':' is') + ' failing across 3+ signals simultaneously — historically this pattern has the lowest save rate and needs executive-level intervention.');
-    // Declining + at-risk combo — accelerating toward churn
+    if (multiSigFail.length) items.push('<strong>Multi-signal failure:</strong> ' + multiSigFail.length + ' account' + (multiSigFail.length>1?'s are':' is') + ' failing across 3+ signals simultaneously  - historically this pattern has the lowest save rate and needs executive-level intervention.');
+    // Declining + at-risk combo  - accelerating toward churn
     const accelerating = atRiskAll.filter(c => getMomentum(c) === 'dn' && (c.mrr||0) > 0).sort((a,b) => (b.mrr||0) - (a.mrr||0));
-    if (accelerating.length) items.push('<strong>Active deterioration:</strong> ' + accelerating.length + ' at-risk account' + (accelerating.length>1?'s are':' is') + ' still trending downward — these are on a path to churn unless something changes, representing $' + fmtNum(accelerating.reduce((s,c)=>s+(c.mrr||0),0)) + ' MRR.');
-    // MRR-weighted risk — top 20% of MRR that's at risk
-    if (totalMrr > 0 && riskPctBook >= 15) items.push('<strong>Book exposure:</strong> ' + riskPctBook + '% of total MRR is in at-risk status — if this exceeds 20%, consider reallocating CSM capacity toward save efforts.');
+    if (accelerating.length) items.push('<strong>Active deterioration:</strong> ' + accelerating.length + ' at-risk account' + (accelerating.length>1?'s are':' is') + ' still trending downward  - these are on a path to churn unless something changes, representing $' + fmtNum(accelerating.reduce((s,c)=>s+(c.mrr||0),0)) + ' MRR.');
+    // MRR-weighted risk  - top 20% of MRR that's at risk
+    if (totalMrr > 0 && riskPctBook >= 15) items.push('<strong>Book exposure:</strong> ' + riskPctBook + '% of total MRR is in at-risk status  - if this exceeds 20%, consider reallocating CSM capacity toward save efforts.');
     // Ticket-to-risk correlation
     const highTicketRisk = atRiskAll.filter(c => (c.tickets||0) >= 4);
     const highTicketOk = active.filter(c => c.status !== 'critical' && c.status !== 'risk' && (c.tickets||0) >= 4);
-    if (highTicketRisk.length >= 2 && highTicketOk.length === 0) items.push('<strong>Ticket correlation:</strong> Every account with 4+ open tickets is at risk — elevated ticket volume appears to be a strong leading indicator of health decline in this portfolio.');
+    if (highTicketRisk.length >= 2 && highTicketOk.length === 0) items.push('<strong>Ticket correlation:</strong> Every account with 4+ open tickets is at risk  - elevated ticket volume appears to be a strong leading indicator of health decline in this portfolio.');
 
   } else if (key === 'segment_analysis') {
     // Cross-segment health disparity
@@ -13548,7 +13548,7 @@ function _rptInsights(key) {
     }).filter(t => t.count > 0);
     // Per-account MRR vs health inverse
     const expensiveUnhealthy = tierData.filter(t => t.mrrPerAcct > 5000 && t.riskPct > 20);
-    if (expensiveUnhealthy.length) items.push('<strong>High-value risk cluster:</strong> ' + expensiveUnhealthy.map(t => t.label).join(' and ') + ' ' + (expensiveUnhealthy.length>1?'have':'has') + ' above-average MRR per account but ' + expensiveUnhealthy.map(t => t.riskPct + '% at risk').join('/') + ' — disproportionate revenue impact if these churn.');
+    if (expensiveUnhealthy.length) items.push('<strong>High-value risk cluster:</strong> ' + expensiveUnhealthy.map(t => t.label).join(' and ') + ' ' + (expensiveUnhealthy.length>1?'have':'has') + ' above-average MRR per account but ' + expensiveUnhealthy.map(t => t.riskPct + '% at risk').join('/') + '  - disproportionate revenue impact if these churn.');
     // Lifecycle stage analysis
     const lcData = {};
     active.forEach(c => { const lc = c.lifecycle || 'unknown'; if (!lcData[lc]) lcData[lc] = []; lcData[lc].push(c); });
@@ -13557,7 +13557,7 @@ function _rptInsights(key) {
       riskPct: Math.round(grp.filter(c=>c.status==='critical'||c.status==='risk').length/grp.length*100)
     }));
     const worstLC = lcEntries.filter(l => l.count >= 2).sort((a,b) => a.avg - b.avg)[0];
-    if (worstLC && worstLC.avg < 65) items.push('<strong>Lifecycle bottleneck:</strong> "' + worstLC.label + '" stage has the lowest average score (' + worstLC.avg + ') — accounts may be stalling at this stage, suggesting process or enablement gaps.');
+    if (worstLC && worstLC.avg < 65) items.push('<strong>Lifecycle bottleneck:</strong> "' + worstLC.label + '" stage has the lowest average score (' + worstLC.avg + ')  - accounts may be stalling at this stage, suggesting process or enablement gaps.');
     // Tag risk clustering
     const tags = {};
     active.forEach(c => (c.tags||[]).forEach(tag => {
@@ -13567,7 +13567,7 @@ function _rptInsights(key) {
       if (c.status === 'critical' || c.status === 'risk') tags[tag].atRisk++;
     }));
     const riskTags = Object.entries(tags).filter(([,v]) => v.total >= 3 && v.atRisk/v.total >= 0.4).sort((a,b) => (b[1].atRisk/b[1].total) - (a[1].atRisk/a[1].total));
-    if (riskTags.length) items.push('<strong>Tag risk cluster:</strong> Accounts tagged "' + escHtml(riskTags[0][0]) + '" have a ' + Math.round(riskTags[0][1].atRisk/riskTags[0][1].total*100) + '% risk rate — investigate if this tag represents a shared root cause (product fit, use case, region).');
+    if (riskTags.length) items.push('<strong>Tag risk cluster:</strong> Accounts tagged "' + escHtml(riskTags[0][0]) + '" have a ' + Math.round(riskTags[0][1].atRisk/riskTags[0][1].total*100) + '% risk rate  - investigate if this tag represents a shared root cause (product fit, use case, region).');
 
   } else if (key === 'csm_performance') {
     const managers = [...new Set(active.map(c => c.manager || '').filter(Boolean))];
@@ -13587,35 +13587,35 @@ function _rptInsights(key) {
       const minLoad = Math.min(...mgrData.map(m => m.count));
       if (maxLoad > minLoad * 2) {
         const heavy = mgrData.find(m => m.count === maxLoad);
-        items.push('<strong>Workload imbalance:</strong> ' + escHtml(heavy.manager) + ' manages ' + heavy.count + ' accounts vs the smallest book of ' + minLoad + ' — overloaded CSMs typically show declining portfolio health over time.');
+        items.push('<strong>Workload imbalance:</strong> ' + escHtml(heavy.manager) + ' manages ' + heavy.count + ' accounts vs the smallest book of ' + minLoad + '  - overloaded CSMs typically show declining portfolio health over time.');
       }
     }
     // Contact cadence vs health correlation
     const slowContact = mgrData.filter(m => m.avgDays >= 14 && m.riskPct >= 25);
-    if (slowContact.length) items.push('<strong>Contact cadence gap:</strong> ' + slowContact.map(m => escHtml(m.manager)).join(', ') + ' ' + (slowContact.length>1?'average':'averages') + ' 14+ days between contacts and ' + (slowContact.length>1?'have':'has') + ' above-average risk rates — faster outreach cadence correlates with better retention.');
-    // Momentum divergence — one CSM improving while another declines
+    if (slowContact.length) items.push('<strong>Contact cadence gap:</strong> ' + slowContact.map(m => escHtml(m.manager)).join(', ') + ' ' + (slowContact.length>1?'average':'averages') + ' 14+ days between contacts and ' + (slowContact.length>1?'have':'has') + ' above-average risk rates  - faster outreach cadence correlates with better retention.');
+    // Momentum divergence  - one CSM improving while another declines
     const bestDelta = [...mgrData].sort((a,b) => b.delta - a.delta)[0];
     const worstDelta = [...mgrData].sort((a,b) => a.delta - b.delta)[0];
     if (bestDelta && worstDelta && bestDelta.manager !== worstDelta.manager && (bestDelta.delta - worstDelta.delta) >= 5)
-      items.push('<strong>Momentum divergence:</strong> ' + escHtml(bestDelta.manager) + '\'s portfolio is improving (+' + bestDelta.delta + ') while ' + escHtml(worstDelta.manager) + '\'s is declining (' + worstDelta.delta + ') — worth pairing them for knowledge transfer on what\'s working.');
+      items.push('<strong>Momentum divergence:</strong> ' + escHtml(bestDelta.manager) + '\'s portfolio is improving (+' + bestDelta.delta + ') while ' + escHtml(worstDelta.manager) + '\'s is declining (' + worstDelta.delta + ')  - worth pairing them for knowledge transfer on what\'s working.');
     // MRR per CSM risk
     const highMrrRisk = mgrData.filter(m => m.mrr >= 50000 && m.riskPct >= 30);
-    if (highMrrRisk.length) items.push('<strong>Revenue at risk:</strong> ' + highMrrRisk.map(m => escHtml(m.manager) + ' ($' + fmtNum(m.mrr) + ' MRR, ' + m.riskPct + '% at risk)').join(', ') + ' — consider temporary backup support for high-MRR risk accounts.');
+    if (highMrrRisk.length) items.push('<strong>Revenue at risk:</strong> ' + highMrrRisk.map(m => escHtml(m.manager) + ' ($' + fmtNum(m.mrr) + ' MRR, ' + m.riskPct + '% at risk)').join(', ') + '  - consider temporary backup support for high-MRR risk accounts.');
 
   } else if (key === 'customer_health') {
-    // Score distribution shape — bimodal vs normal
+    // Score distribution shape  - bimodal vs normal
     const sub40 = active.filter(c => c.score < 40).length;
     const over80 = active.filter(c => c.score >= 80).length;
     const mid = active.length - sub40 - over80;
-    if (sub40 >= 3 && over80 >= 3 && mid < Math.max(sub40, over80)) items.push('<strong>Bimodal distribution:</strong> The portfolio is polarized — ' + over80 + ' accounts score 80+ while ' + sub40 + ' score below 40 with fewer in between. This often indicates the product works well for some use cases but poorly for others.');
+    if (sub40 >= 3 && over80 >= 3 && mid < Math.max(sub40, over80)) items.push('<strong>Bimodal distribution:</strong> The portfolio is polarized  - ' + over80 + ' accounts score 80+ while ' + sub40 + ' score below 40 with fewer in between. This often indicates the product works well for some use cases but poorly for others.');
     // Engagement without contact
     const ghosted = active.filter(c => c.score < 60 && (c.days||0) >= 21).sort((a,b) => (b.mrr||0) - (a.mrr||0));
-    if (ghosted.length >= 2) items.push('<strong>Unattended risk:</strong> ' + ghosted.length + ' accounts scoring below 60 haven\'t been contacted in 21+ days — the longer the gap, the harder the recovery. Top priority: ' + escHtml(ghosted[0].name) + ' ($' + fmtNum(ghosted[0].mrr||0) + ' MRR).');
-    // Signal-score mismatch — good signals but low score (or vice versa)
+    if (ghosted.length >= 2) items.push('<strong>Unattended risk:</strong> ' + ghosted.length + ' accounts scoring below 60 haven\'t been contacted in 21+ days  - the longer the gap, the harder the recovery. Top priority: ' + escHtml(ghosted[0].name) + ' ($' + fmtNum(ghosted[0].mrr||0) + ' MRR).');
+    // Signal-score mismatch  - good signals but low score (or vice versa)
     const overScored = active.filter(c => c.score >= 75 && signalOn(c,'logins') && (c.logins||0) <= 2 && signalOn(c,'adoption') && (c.adoption||0) < 25);
-    if (overScored.length) items.push('<strong>Possible scoring gap:</strong> ' + overScored.length + ' account' + (overScored.length>1?'s score':'scores') + ' 75+ despite very low engagement — these scores may be inflated by weight distribution. Consider reviewing scoring profiles.');
+    if (overScored.length) items.push('<strong>Possible scoring gap:</strong> ' + overScored.length + ' account' + (overScored.length>1?'s score':'scores') + ' 75+ despite very low engagement  - these scores may be inflated by weight distribution. Consider reviewing scoring profiles.');
     // MRR exposure as % of book
-    if (riskPctBook >= 20) items.push('<strong>Portfolio health alert:</strong> ' + riskPctBook + '% of total MRR is in at-risk or critical status — this level of exposure typically warrants a dedicated risk review cadence.');
+    if (riskPctBook >= 20) items.push('<strong>Portfolio health alert:</strong> ' + riskPctBook + '% of total MRR is in at-risk or critical status  - this level of exposure typically warrants a dedicated risk review cadence.');
   }
 
   if (!items.length) return '';
@@ -13876,7 +13876,7 @@ function buildTrendReportHTML() {
   const d90ago = new Date(now); d90ago.setDate(d90ago.getDate() - 90);
 
   // Collect all history points in the last 90 days, group by date
-  // Exclude today — partial day data skews averages
+  // Exclude today  - partial day data skews averages
   const todayStr = now.toISOString().slice(0, 10);
   const dateMap = {};
   active.forEach(c => {
@@ -14274,24 +14274,24 @@ function buildDigestHTML() {
   const actions = [];
   // Highest MRR at risk
   const topMrrRisk = [...active].filter(c=>c.status==='critical'||c.status==='risk').sort((a,b)=>(b.mrr||0)-(a.mrr||0))[0];
-  if (topMrrRisk) actions.push(`Schedule a health check with <strong>${escHtml(topMrrRisk.name)}</strong> — $${fmtNum(topMrrRisk.mrr||0)} MRR at score ${topMrrRisk.score}`);
+  if (topMrrRisk) actions.push(`Schedule a health check with <strong>${escHtml(topMrrRisk.name)}</strong>  - $${fmtNum(topMrrRisk.mrr||0)} MRR at score ${topMrrRisk.score}`);
   // Overdue contacts
   const overdue30 = active.filter(c=>signalOn(c,'days')&&c.days!=null&&c.days>30);
   if (overdue30.length>0) actions.push(`<strong>${overdue30.length} account${overdue30.length>1?'s':''}</strong> haven't been contacted in 30+ days`);
   // Declining momentum
   if (declining.length>0) {
     const steepest = declining.sort((a,b)=>a.delta-b.delta)[0];
-    actions.push(`<strong>${declining.length} account${declining.length>1?'s':''}</strong> trending downward — ${escHtml(steepest.c.name)} dropped ${Math.abs(steepest.delta)} pts`);
+    actions.push(`<strong>${declining.length} account${declining.length>1?'s':''}</strong> trending downward  - ${escHtml(steepest.c.name)} dropped ${Math.abs(steepest.delta)} pts`);
   }
   // Renewals at risk
   const renewRisk = upcoming.filter(c=>c.status==='critical'||c.status==='risk');
-  if (renewRisk.length>0) actions.push(`<strong>${renewRisk.length} renewal${renewRisk.length>1?'s':''}</strong> coming up with at-risk health — ${escHtml(renewRisk[0].name)} renews in ${Math.round((new Date(renewRisk[0].renewal_date)-now)/86400000)}d at score ${renewRisk[0].score}`);
+  if (renewRisk.length>0) actions.push(`<strong>${renewRisk.length} renewal${renewRisk.length>1?'s':''}</strong> coming up with at-risk health  - ${escHtml(renewRisk[0].name)} renews in ${Math.round((new Date(renewRisk[0].renewal_date)-now)/86400000)}d at score ${renewRisk[0].score}`);
 
   // Portfolio summary sentence
   let trendSentence = '';
   if (withHist.length>0) {
     if (scoreDelta>2) trendSentence = `Portfolio health improved <strong>${scoreDelta} points</strong> on average this week.`;
-    else if (scoreDelta<-2) trendSentence = `Portfolio health declined <strong>${Math.abs(scoreDelta)} points</strong> this week — ${declining.length} account${declining.length!==1?'s':''} trending downward.`;
+    else if (scoreDelta<-2) trendSentence = `Portfolio health declined <strong>${Math.abs(scoreDelta)} points</strong> this week  - ${declining.length} account${declining.length!==1?'s':''} trending downward.`;
     else trendSentence = `Portfolio health held steady this week (${scoreDelta>=0?'+':''}${scoreDelta} points average).`;
   }
 
@@ -14377,7 +14377,7 @@ function copyDigestHTML() {
   const html = buildDigestHTML();
   navigator.clipboard.writeText(html)
     .then(()=>toast('HTML copied to clipboard','success'))
-    .catch(()=>toast('Copy failed — try downloading instead','error'));
+    .catch(()=>toast('Copy failed  - try downloading instead','error'));
 }
 
 function downloadDigestHTML() {
@@ -14426,7 +14426,7 @@ function buildReportEmailPayload(reportKey) {
   const html = reportKey === 'weekly_digest'
     ? '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:20px;background:#f1f5f9">' + inner + '</body></html>'
     : wrapReportForEmail(inner);
-  return { html, subject: def.label + ' — ' + rptDateStr() };
+  return { html, subject: def.label + '  - ' + rptDateStr() };
 }
 
 function _getReportScheduleCfg(reportKey) {
@@ -14547,7 +14547,7 @@ async function sendReportEmailNow() {
   saveAutomationsCfg();
 
   const { html, subject } = buildReportEmailPayload(_remKey);
-  if (!html) { toast('Could not generate report — no data', 'error'); return; }
+  if (!html) { toast('Could not generate report  - no data', 'error'); return; }
   const prefix = cfg.subject_prefix || '[iQcadence Report]';
 
   try {
@@ -14570,7 +14570,7 @@ async function sendReportEmailTest() {
   if (!email) { toast('No email on current user', 'error'); return; }
 
   const { html, subject } = buildReportEmailPayload(_remKey);
-  if (!html) { toast('Could not generate report — no data', 'error'); return; }
+  if (!html) { toast('Could not generate report  - no data', 'error'); return; }
   const prefix = (el('rem-prefix')?.value || '[iQcadence Report]').trim();
 
   try {
@@ -14599,7 +14599,7 @@ async function checkScheduledReports() {
     let isDue = false;
 
     if (!lastSent) {
-      // Never sent — due now
+      // Never sent  - due now
       isDue = true;
     } else if (cfg.frequency === 'daily') {
       // Due if last sent was before today
@@ -14649,7 +14649,7 @@ async function checkScheduledReports() {
 
 
 // ═══════════════════════════════════════════════════════════════
-// REPORTS PAGE TABS — Report Templates / Scheduled Reports
+// REPORTS PAGE TABS  - Report Templates / Scheduled Reports
 // ═══════════════════════════════════════════════════════════════
 
 function reportsTab(which) {
@@ -14837,7 +14837,7 @@ async function schedSendNow(reportKey) {
   const cfg = (automationsCfg.report_schedules || {})[reportKey];
   if (!cfg || !cfg.recipients) { toast('No recipients configured', 'warn'); return; }
   const { html, subject } = buildReportEmailPayload(reportKey);
-  if (!html) { toast('Could not generate report — no data', 'error'); return; }
+  if (!html) { toast('Could not generate report  - no data', 'error'); return; }
   const prefix = cfg.subject_prefix || '[iQcadence Report]';
   try {
     toast('Sending report...', 'default');
@@ -14860,7 +14860,7 @@ async function schedTestSend(reportKey) {
   if (!currentUser || !currentUser.email) { toast('No email on current user', 'error'); return; }
   const cfg = (automationsCfg.report_schedules || {})[reportKey];
   const { html, subject } = buildReportEmailPayload(reportKey);
-  if (!html) { toast('Could not generate report — no data', 'error'); return; }
+  if (!html) { toast('Could not generate report  - no data', 'error'); return; }
   const prefix = (cfg && cfg.subject_prefix) || '[iQcadence Report]';
   try {
     toast('Sending test to ' + currentUser.email + '...', 'default');
@@ -14909,7 +14909,7 @@ function migrateAutomationsCfg() {
         automationsCfg.alert_settings[at.key][f.name] = f.default;
     });
   });
-  // Ensure each channel has an alerts array — if missing, subscribe to all
+  // Ensure each channel has an alerts array  - if missing, subscribe to all
   if (automationsCfg.channels) {
     ['slack', 'teams', 'email'].forEach(chKey => {
       if (automationsCfg.channels[chKey] && !automationsCfg.channels[chKey].alerts) {
@@ -14917,7 +14917,7 @@ function migrateAutomationsCfg() {
       }
     });
   }
-  // Ensure selected_alerts exists — derive from channel subscriptions or default to all
+  // Ensure selected_alerts exists  - derive from channel subscriptions or default to all
   if (!automationsCfg.selected_alerts) {
     const union = new Set();
     if (automationsCfg.channels) {
@@ -15191,7 +15191,7 @@ const CHANNELS = [
       <li>Scroll down and click <strong>Add New Webhook to Workspace</strong></li>
       <li>Select the channel where alerts should post (e.g. #cs-alerts) and click <strong>Allow</strong></li>
       <li>Copy the <strong>Webhook URL</strong> (starts with <code style="font-size:var(--fs-sm);background:var(--bg);padding:1px 4px;border-radius:3px">https://hooks.slack.com/services/...</code>) and paste it above</li>
-      <li>Click <strong>Send Test</strong> below to verify — you should see a test message appear in your channel</li>
+      <li>Click <strong>Send Test</strong> below to verify  - you should see a test message appear in your channel</li>
     </ol>
     <p style="margin:8px 0 0;font-size:var(--fs-sm);color:var(--subtle)"><strong>Tip:</strong> You can customize the bot name and icon in your Slack app settings under <strong>Basic Information</strong> → <strong>Display Information</strong>. Alerts will include customer name, score, status, and the triggering event.</p>`
   },
@@ -15205,7 +15205,7 @@ const CHANNELS = [
       <li>Select the template <strong>"Post to a channel when a webhook request is received"</strong></li>
       <li>Name the workflow (e.g. "iQcadence Alerts"), select the target <strong>Team</strong> and <strong>Channel</strong>, then click <strong>Add workflow</strong></li>
       <li>Copy the <strong>Webhook URL</strong> provided (starts with <code style="font-size:var(--fs-sm);background:var(--bg);padding:1px 4px;border-radius:3px">https://prod-xx.westus.logic.azure.com...</code>) and paste it above</li>
-      <li>Click <strong>Send Test</strong> below to verify — you should see a test card appear in your channel</li>
+      <li>Click <strong>Send Test</strong> below to verify  - you should see a test card appear in your channel</li>
     </ol>
     <p style="margin:8px 0 0;font-size:var(--fs-sm);color:var(--subtle)"><strong>Note:</strong> Microsoft retired the old "Incoming Webhook" connector. Use the <strong>Workflows</strong> app instead. If you don\'t see Workflows, ask your Teams admin to enable it.</p>`
   },
@@ -15530,7 +15530,7 @@ function renderActiveAlerts() {
     '<tbody>' + rows + '</tbody></table>';
 }
 
-// ── Thin wrapper — keeps existing callers working ──
+// ── Thin wrapper  - keeps existing callers working ──
 function renderAlertSummary() { renderActiveAlerts(); }
 
 function deleteAlertRule(ruleId) {
@@ -15877,7 +15877,7 @@ function wizardSaveAndFinish() {
     return;
   }
   if (missingConn.length > 0) {
-    toast(missingConn.join(', ') + ' enabled but no connection configured — please select or add one', 'error');
+    toast(missingConn.join(', ') + ' enabled but no connection configured  - please select or add one', 'error');
     return;
   }
   // Auto-generate name if empty
@@ -16225,7 +16225,7 @@ function renderConnectionSelector(ch, currentConnectionId, onChangeName, context
     ' onchange="' + onChangeName + '(\'' + ch.key + '\', this.value)"' +
     ' style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)">';
 
-  html += '<option value="">— Select a connection —</option>';
+  html += '<option value=""> - Select a connection  -</option>';
   conns.forEach(function(c) {
     var label = c.name + (isEmail ? ' (' + (c.recipients || '') + ')' : '');
     html += '<option value="' + c.id + '"' + (c.id === currentConnectionId ? ' selected' : '') + '>' + escHtml(label) + '</option>';
@@ -16502,7 +16502,7 @@ async function renderIntegrationsSection() {
     console.warn('Failed to load integrations:', e);
   }
 
-  // Reconcile metric ownership — ensure only one platform owns each metric
+  // Reconcile metric ownership  - ensure only one platform owns each metric
   await reconcileMetricOwnership();
 
   const stripeInt = _integrationCache['stripe'] || null;
@@ -16682,7 +16682,7 @@ function renderSyncOverview() {
     const owner = owners[m.key];
     const dot = owner
       ? `<span style="display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-sm);font-weight:600;color:${platformColors[owner]}"><span style="width:8px;height:8px;border-radius:50%;background:${platformColors[owner]};display:inline-block"></span>${platformLabels[owner]}</span>`
-      : `<span style="font-size:var(--fs-sm);color:var(--muted)">—</span>`;
+      : `<span style="font-size:var(--fs-sm);color:var(--muted)"> -</span>`;
     return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)">${m.label}${dot}</div>`;
   }).join('');
   container.innerHTML = rows;
@@ -16722,7 +16722,7 @@ const PLATFORM_METRICS = {
 };
 
 // Returns { metric: platform } for all currently-enabled metrics across all connected integrations
-// Metrics default to OFF — user must explicitly enable each metric before syncing
+// Metrics default to OFF  - user must explicitly enable each metric before syncing
 function getMetricOwners() {
   const owners = {};
   for (const [platform, integration] of Object.entries(_integrationCache)) {
@@ -16752,7 +16752,7 @@ async function reconcileMetricOwnership() {
     for (const m of metrics) {
       const owner = owners[m.key];
       if (owner && owner !== platform && newSm[m.key] !== false) {
-        // Another platform owns this metric — disable it here
+        // Another platform owns this metric  - disable it here
         newSm[m.key] = false;
         changed = true;
       }
@@ -16787,7 +16787,7 @@ function buildMetricTogglesHTML(platform, integration) {
   const owners = getMetricOwners();
 
   return metrics.map(m => {
-    const enabled = syncMetrics[m.key] === true; // default off — user must enable
+    const enabled = syncMetrics[m.key] === true; // default off  - user must enable
     const ownedBy = owners[m.key];
     const ownedByOther = ownedBy && ownedBy !== platform;
     const disabled = ownedByOther ? 'disabled' : '';
@@ -17007,7 +17007,7 @@ async function syncStripeUI() {
   }
 }
 
-// ── Topbar Sync (quick access from header — syncs all connected integrations) ──
+// ── Topbar Sync (quick access from header  - syncs all connected integrations) ──
 async function topbarSyncStripe() {
   const btn = el('topbar-sync-btn');
   if (!btn || btn.classList.contains('syncing')) return;
@@ -17194,7 +17194,7 @@ function showLastSyncResults() {
   if (_lastSyncResult && _lastSyncPlatform) {
     showSyncResultsModal(_lastSyncPlatform, _lastSyncResult);
   } else {
-    toast('No sync results to show — run a sync first', 'warn');
+    toast('No sync results to show  - run a sync first', 'warn');
   }
 }
 
@@ -17204,7 +17204,7 @@ function _updateTopbarSyncDetailsBtn() {
 }
 
 function _syncFmtVal(key, val) {
-  if (val == null || val === '') return '—';
+  if (val == null || val === '') return ' -';
   if (key === 'mrr' || key === 'arr') return '$' + Number(val).toLocaleString();
   if (key === 'renewal_date') return val.split('T')[0];
   if (key === 'renewal') return val + ' mo';
@@ -17235,7 +17235,7 @@ function showSyncResultsModal(platform, result) {
   const platformLabel = platform.charAt(0).toUpperCase() + platform.slice(1);
   const ts = new Date().toLocaleString();
 
-  // Build change log rows — one row per changed field per customer
+  // Build change log rows  - one row per changed field per customer
   let rowsHtml = '';
   if (allChanges.length === 0) {
     rowsHtml = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:16px">No changes in this sync</td></tr>';
@@ -17255,9 +17255,9 @@ function showSyncResultsModal(platform, result) {
           .map(k => `<b>${_SYNC_FIELD_LABELS[k] || k}</b>: ${escHtml(_syncFmtVal(k, item[k]))}`)
           .join(' · ');
         rowsHtml += `<tr style="border-top:1px solid var(--border)">
-          <td style="padding:6px 8px;white-space:nowrap;font-weight:500;vertical-align:top">${escHtml(item.name || '—')}</td>
+          <td style="padding:6px 8px;white-space:nowrap;font-weight:500;vertical-align:top">${escHtml(item.name || ' -')}</td>
           <td style="padding:6px 8px;color:var(--green);font-weight:600">New</td>
-          <td style="padding:6px 8px;color:var(--muted)" colspan="2"><span style="font-size:11px">${summary || '—'}</span></td>
+          <td style="padding:6px 8px;color:var(--muted)" colspan="2"><span style="font-size:11px">${summary || ' -'}</span></td>
         </tr>`;
       } else {
         // Updated: one row per changed field
@@ -17273,7 +17273,7 @@ function showSyncResultsModal(platform, result) {
           const borderStyle = isFirst ? 'border-top:1px solid var(--border)' : '';
           rowsHtml += `<tr style="${borderStyle}">
             ${isFirst
-              ? `<td style="padding:6px 8px;white-space:nowrap;font-weight:500;vertical-align:top" rowspan="${fieldRows.length}">${escHtml(item.name || '—')}</td>`
+              ? `<td style="padding:6px 8px;white-space:nowrap;font-weight:500;vertical-align:top" rowspan="${fieldRows.length}">${escHtml(item.name || ' -')}</td>`
               : ''}
             <td style="padding:4px 8px;color:var(--muted);font-size:12px">${escHtml(f.label)}</td>
             <td style="padding:4px 8px;font-size:12px">${escHtml(f.oldVal)}</td>
@@ -17464,7 +17464,7 @@ async function _generateCodeChallenge(verifier) {
   return btoa(String.fromCharCode(...new Uint8Array(hash))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-// HubSpot OAuth 2.1 + PKCE — redirect to HubSpot authorization page
+// HubSpot OAuth 2.1 + PKCE  - redirect to HubSpot authorization page
 async function connectHubSpotOAuth() {
   const btn = el('hubspot-connect-btn');
   const status = el('hubspot-connect-status');
@@ -17669,7 +17669,7 @@ function renderSalesforceCard(integration) {
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
         <span style="font-size:var(--fs-base);font-weight:600">${escHtml(integration.config?.account_name || integration.config?.org_name || 'Salesforce Org')}</span>
       </div>
-      <div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:8px">Last sync: ${syncTime}${statsLine ? ' — ' + statsLine : ''}${lastMsg && !statsLine ? ' — ' + escHtml(lastMsg) : ''}</div>
+      <div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:8px">Last sync: ${syncTime}${statsLine ? '  - ' + statsLine : ''}${lastMsg && !statsLine ? '  - ' + escHtml(lastMsg) : ''}</div>
       <div style="display:flex;gap:8px;margin-bottom:8px">
         <button class="btn btn-sm" id="salesforce-sync-btn" onclick="syncSalesforceUI()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Sync Now
@@ -17868,7 +17868,7 @@ async function pullHistoryUI(platform) {
   if (result) {
     if (status) status.innerHTML = buildHistoryResultHTML(result);
   } else {
-    if (status) status.innerHTML = '<span style="color:var(--red)">Pull failed — check console</span>';
+    if (status) status.innerHTML = '<span style="color:var(--red)">Pull failed  - check console</span>';
   }
 }
 
@@ -18154,7 +18154,7 @@ function showApiKeyModal(fullKey) {
   el('confirm-msg').innerHTML = `
     <div style="margin-bottom:14px">
       <p style="font-size:var(--fs-md);font-weight:600;color:var(--red);margin-bottom:8px">
-        ${appIcon('warning',14)} Copy this key now — it will not be shown again.
+        ${appIcon('warning',14)} Copy this key now  - it will not be shown again.
       </p>
       <div class="auto-endpoint" style="user-select:all;cursor:text;font-size:var(--fs-base);padding:12px 14px">
         ${escHtml(fullKey)}
@@ -18298,7 +18298,7 @@ function renderWebhookLog() {
       <td style="white-space:nowrap;font-size:var(--fs-sm);color:var(--muted)">${escHtml(time)}</td>
       <td><span class="${dirClass}">${dirLabel}</span></td>
       <td style="font-size:var(--fs-sm);word-break:break-all">${escHtml(e.event_type || '')}</td>
-      <td style="font-weight:600;font-size:var(--fs-base)">${escHtml(e.customer_name || '—')}</td>
+      <td style="font-weight:600;font-size:var(--fs-base)">${escHtml(e.customer_name || ' -')}</td>
       <td><span class="auto-status ${statusClass}">${escHtml(e.status || 'unknown')}</span></td>
       <td style="font-size:var(--fs-sm);color:var(--muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(detail)}</td>
     </tr>`;
@@ -18316,7 +18316,7 @@ function _saveSnapshots() {
 }
 
 function snapshotCustomerStates() {
-  // Try to restore persisted snapshots first — this is what prevents repeat alerts
+  // Try to restore persisted snapshots first  - this is what prevents repeat alerts
   try {
     const stored = localStorage.getItem('iqc_trigger_snapshots');
     if (stored) {
@@ -18333,7 +18333,7 @@ function snapshotCustomerStates() {
       return;
     }
   } catch(e){}
-  // No persisted data — first run: snapshot current state (won't trigger alerts since prev matches current)
+  // No persisted data  - first run: snapshot current state (won't trigger alerts since prev matches current)
   _prevCustomerStates.clear();
   customers.forEach(c => {
     _prevCustomerStates.set(c.id, _snapFields(c));
@@ -18555,10 +18555,10 @@ function buildSlackPayload(eventType, customer, extra) {
       { type: 'mrkdwn', text: `*CSM:*\n${c.manager || 'Unassigned'}` }
     ]},
     { type: 'section', fields: [
-      { type: 'mrkdwn', text: `*Tier:*\n${c.tier || '—'}` },
+      { type: 'mrkdwn', text: `*Tier:*\n${c.tier || ' -'}` },
       { type: 'mrkdwn', text: `*Days Since Contact:*\n${c.days != null ? c.days : 'N/A'}` },
       { type: 'mrkdwn', text: `*NPS:*\n${npsDisplay(c.nps)} · *CSAT:*\n${csatDisplay(c.csat)}` },
-      { type: 'mrkdwn', text: `*Lifecycle:*\n${c.lifecycle || '—'}` }
+      { type: 'mrkdwn', text: `*Lifecycle:*\n${c.lifecycle || ' -'}` }
     ]}
   ];
 
@@ -18615,11 +18615,11 @@ function buildTeamsPayload(eventType, customer, extra) {
   const facts = [
     { title: 'MRR', value: '$' + (c.mrr||0).toLocaleString() },
     { title: 'CSM', value: c.manager || 'Unassigned' },
-    { title: 'Tier', value: c.tier || '—' },
+    { title: 'Tier', value: c.tier || ' -' },
     { title: 'Days Since Contact', value: c.days != null ? String(c.days) : 'N/A' },
     { title: 'NPS', value: npsDisplay(c.nps) },
     { title: 'CSAT', value: csatDisplay(c.csat) },
-    { title: 'Lifecycle', value: c.lifecycle || '—' }
+    { title: 'Lifecycle', value: c.lifecycle || ' -' }
   ];
 
   if (extra?.previous_score != null) {
@@ -18660,7 +18660,7 @@ function buildTeamsPayload(eventType, customer, extra) {
           { type: 'ColumnSet', columns: [
             { type: 'Column', width: 'stretch', items: [
               { type: 'TextBlock', text: c.name, weight: 'Bolder', size: 'Medium', wrap: true },
-              { type: 'TextBlock', text: `Score: ${c.score}/100 — ${c.status}`, spacing: 'None', isSubtle: true, wrap: true }
+              { type: 'TextBlock', text: `Score: ${c.score}/100  - ${c.status}`, spacing: 'None', isSubtle: true, wrap: true }
             ]}
           ]},
           { type: 'FactSet', facts },
@@ -18716,7 +18716,7 @@ function buildAlertEmailHTML(eventType, customer, extra) {
           <span style="font-size:22px;font-weight:700">${escHtml(c.name)}</span>
         </td>
         <td align="right" style="padding:8px 0">
-          <span style="display:inline-block;padding:4px 12px;border-radius:20px;font-size:13px;font-weight:600;color:#fff;background:${sColor}">${c.score}/100 — ${c.status}</span>
+          <span style="display:inline-block;padding:4px 12px;border-radius:20px;font-size:13px;font-weight:600;color:#fff;background:${sColor}">${c.score}/100  - ${c.status}</span>
         </td>
       </tr>
     </table>
@@ -18731,7 +18731,7 @@ function buildAlertEmailHTML(eventType, customer, extra) {
       </tr>
       <tr style="background:#f9fafb">
         <td style="padding:8px 12px;font-size:13px;color:#6b7280">Tier</td>
-        <td style="padding:8px 12px;font-size:13px;font-weight:600">${escHtml(c.tier || '—')}</td>
+        <td style="padding:8px 12px;font-size:13px;font-weight:600">${escHtml(c.tier || ' -')}</td>
       </tr>
       <tr>
         <td style="padding:8px 12px;font-size:13px;color:#6b7280">Days Since Contact</td>
@@ -18749,7 +18749,7 @@ function buildAlertEmailHTML(eventType, customer, extra) {
     </table>
   </td></tr>
   <tr><td style="padding:0 28px 20px;font-size:11px;color:#9ca3af;text-align:center">
-    iQcadence CS Health Score — ${new Date().toLocaleString()}
+    iQcadence CS Health Score  - ${new Date().toLocaleString()}
   </td></tr>
 </table>
 </td></tr></table></body></html>`;
@@ -18801,7 +18801,7 @@ async function fireDirectChannels(eventType, customer, extra) {
 async function fireEmailAlert(eventType, customer, extra, emailCfg) {
   const htmlBody = buildAlertEmailHTML(eventType, customer, extra);
   const prefix = emailCfg.subject_prefix || '[iQcadence Alert]';
-  const subject = `${prefix} ${_eventLabel(eventType)} — ${customer.name}`;
+  const subject = `${prefix} ${_eventLabel(eventType)}  - ${customer.name}`;
 
   const { data, error } = await sb.functions.invoke('send-webhook', {
     body: {
@@ -18820,7 +18820,7 @@ async function fireEmailAlert(eventType, customer, extra, emailCfg) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// CUSTOM RULES — Builder, CRUD, Evaluation, Delivery
+// CUSTOM RULES  - Builder, CRUD, Evaluation, Delivery
 // ═══════════════════════════════════════════════════════════════
 
 // ── List rendering ──
@@ -19051,11 +19051,11 @@ function renderRuleBuilderStep1(body, footer) {
 
   body.innerHTML = html;
 
-  // Preview results container — hide when body re-renders (conditions changed)
+  // Preview results container  - hide when body re-renders (conditions changed)
   var previewEl = el('rule-preview-results');
   if (previewEl) previewEl.style.display = 'none';
 
-  // Footer — Step 1: Preview + Next
+  // Footer  - Step 1: Preview + Next
   footer.innerHTML = '<div style="display:flex;gap:8px">' +
       '<button class="btn btn-sm btn-ghost" onclick="previewRuleMatches()" style="color:var(--blue);border:1.5px solid var(--blue);border-radius:8px">&#x1f50d; Preview Matches</button>' +
     '</div>' +
@@ -19105,7 +19105,7 @@ function renderRuleBuilderStep2(body, footer) {
   html += '</div>';
   body.innerHTML = html;
 
-  // Footer — Step 2: Back + Save
+  // Footer  - Step 2: Back + Save
   footer.innerHTML = '<div>' +
       '<button class="btn btn-sm btn-ghost" onclick="ruleWizardBack()">&larr; Back</button>' +
     '</div>' +
@@ -19280,7 +19280,7 @@ function saveCustomRule() {
       }
     }
   });
-  if (missingConn.length > 0) { toast(missingConn.join(', ') + ' enabled but no connection configured — please select or add one', 'error'); return; }
+  if (missingConn.length > 0) { toast(missingConn.join(', ') + ' enabled but no connection configured  - please select or add one', 'error'); return; }
   for (var gi = 0; gi < _ruleBuilderData.groups.length; gi++) {
     for (var ci = 0; ci < _ruleBuilderData.groups[gi].conditions.length; ci++) {
       var c = _ruleBuilderData.groups[gi].conditions[ci];
@@ -19376,18 +19376,18 @@ function previewRuleMatches() {
 
     var shown = matches.slice(0, 50);
     shown.forEach(function(m) {
-      var sc = m.score != null ? m.score : '—';
+      var sc = m.score != null ? m.score : ' -';
       var statusColor = m.status === 'critical' ? 'var(--red)' : m.status === 'risk' ? 'var(--orange)' : m.status === 'watch' ? '#eab308' : m.status === 'healthy' ? 'var(--green)' : 'var(--blue)';
       var scoreColor = sc >= 80 ? 'var(--green)' : sc >= 60 ? '#eab308' : sc >= 40 ? 'var(--orange)' : 'var(--red)';
       var days = typeof getEffectiveDays === 'function' ? getEffectiveDays(m) : m.days;
-      var mrr = m.mrr != null ? '$' + Number(m.mrr).toLocaleString() : '—';
+      var mrr = m.mrr != null ? '$' + Number(m.mrr).toLocaleString() : ' -';
       html += '<tr>' +
         '<td style="font-weight:600">' + escHtml(m.name) + '</td>' +
         '<td><span class="score-cell" style="background:' + scoreColor + ';color:#fff">' + sc + '</span></td>' +
-        '<td><span style="color:' + statusColor + ';font-weight:600;text-transform:capitalize">' + escHtml(m.status || '—') + '</span></td>' +
-        '<td style="text-transform:capitalize">' + escHtml(m.tier || '—') + '</td>' +
+        '<td><span style="color:' + statusColor + ';font-weight:600;text-transform:capitalize">' + escHtml(m.status || ' -') + '</span></td>' +
+        '<td style="text-transform:capitalize">' + escHtml(m.tier || ' -') + '</td>' +
         '<td>' + mrr + '</td>' +
-        '<td>' + (days != null ? days + 'd' : '—') + '</td>' +
+        '<td>' + (days != null ? days + 'd' : ' -') + '</td>' +
       '</tr>';
     });
 
@@ -19567,7 +19567,7 @@ function _segAvgRow(rows) {
   const scClr = avgSc >= (thresholds.healthy || 80) ? 'var(--green)' : avgSc >= (thresholds.watch || 65) ? 'var(--amber)' : avgSc >= (thresholds.risk || 50) ? 'var(--orange,#ea580c)' : 'var(--red)';
   const scBg  = avgSc >= 65 ? 'var(--green-l)' : avgSc >= 50 ? 'var(--amber-l)' : 'var(--red-l)';
   const tCls  = avgDt > 0 ? 'up' : avgDt < 0 ? 'dn' : 'flat';
-  const tIco  = avgDt > 0 ? '▲' : avgDt < 0 ? '▼' : '—';
+  const tIco  = avgDt > 0 ? '▲' : avgDt < 0 ? '▼' : ' -';
   const tTxt  = avgDt > 0 ? '+' + avgDt : '' + avgDt;
   return `<tr style="background:linear-gradient(90deg,rgba(59,130,246,.10),rgba(59,130,246,.04));font-weight:700;font-size:1.05em;border-bottom:2.5px solid var(--blue,#3b82f6);letter-spacing:.01em">
     <td style="color:var(--blue);font-weight:800;text-transform:uppercase;font-size:var(--fs-xs);letter-spacing:.08em">Avg Across Segments</td>
@@ -19576,7 +19576,7 @@ function _segAvgRow(rows) {
     <td><span class="csm-trend ${tCls}" style="font-size:var(--fs-sm);padding:2px 8px;font-weight:800">${tIco} ${tTxt}</span></td>
     <td style="font-size:var(--fs-lg)">$${fmtNum(avgMrr)}</td>
     <td><span style="font-weight:800;color:${avgRPct > 30 ? 'var(--red)' : avgRPct > 0 ? 'var(--amber)' : 'var(--green)'}">${avgRPct}%</span> <span style="font-size:var(--fs-sm);color:var(--muted)">(${avgRisk})</span></td>
-    <td style="font-size:var(--fs-lg)">${avgD != null ? avgD + 'd' : '—'}</td>
+    <td style="font-size:var(--fs-lg)">${avgD != null ? avgD + 'd' : ' -'}</td>
     <td style="font-size:var(--fs-lg)">${avgRen}</td>
     <td></td>
   </tr>`;
@@ -19850,11 +19850,11 @@ function renderSegKPIs(segments, active) {
     </div>
     <div class="dash-kpi-card ${hrColor}">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.alert}</div><span class="dash-kpi-label">Highest-Risk <span class="info-tip tip-below" data-tip="Segment with the highest percentage of Critical/Risk customers (min 2 accounts).">\u24d8</span></span></div>
-      <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.4rem${_segHrValColor ? ';color:' + _segHrValColor : ''}">${highestRisk ? escHtml(segDisplayLabel(highestRisk.tag)) : '—'}</div><div class="dash-kpi-sub">${highestRisk ? highestRisk.riskPct + '% at risk' : 'No data'}</div></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.4rem${_segHrValColor ? ';color:' + _segHrValColor : ''}">${highestRisk ? escHtml(segDisplayLabel(highestRisk.tag)) : ' -'}</div><div class="dash-kpi-sub">${highestRisk ? highestRisk.riskPct + '% at risk' : 'No data'}</div></div>
     </div>
     <div class="dash-kpi-card dash-kpi-green">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.trendUp}</div><span class="dash-kpi-label">Fastest-Growing <span class="info-tip tip-below" data-tip="Segment with the highest average health score improvement.">\u24d8</span></span></div>
-      <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.4rem${_segGrowValColor ? ';color:' + _segGrowValColor : ''}">${fastestGrow ? escHtml(segDisplayLabel(fastestGrow.tag)) : '—'}</div><div class="dash-kpi-sub">${fastestGrow ? (fastestGrow.avgDelta >= 0 ? '+' : '') + fastestGrow.avgDelta + ' avg trend' : 'No data'}</div></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.4rem${_segGrowValColor ? ';color:' + _segGrowValColor : ''}">${fastestGrow ? escHtml(segDisplayLabel(fastestGrow.tag)) : ' -'}</div><div class="dash-kpi-sub">${fastestGrow ? (fastestGrow.avgDelta >= 0 ? '+' : '') + fastestGrow.avgDelta + ' avg trend' : 'No data'}</div></div>
     </div>
   `;
 }
@@ -19934,9 +19934,9 @@ function renderTierTable(active, deltaCache) {
       </tr></thead>
       <tbody id="seg-table-tbody">${_segAvgRow(sorted)}${sorted.map(t => {
         const trendCls = t.avgDelta > 0 ? 'up' : t.avgDelta < 0 ? 'dn' : 'flat';
-        const trendIcon = t.avgDelta > 0 ? '▲' : t.avgDelta < 0 ? '▼' : '—';
+        const trendIcon = t.avgDelta > 0 ? '▲' : t.avgDelta < 0 ? '▼' : ' -';
         const trendTxt = t.avgDelta > 0 ? '+' + t.avgDelta : '' + t.avgDelta;
-        const contactStr = t.avgDays != null ? t.avgDays + 'd' : '—';
+        const contactStr = t.avgDays != null ? t.avgDays + 'd' : ' -';
         return `<tr class="seg-table-row" data-tier="${t.key}" onclick="drillTier('${t.key}')" style="cursor:pointer">
           <td><span class="tier-pill ${t.pill}">${t.label}</span></td>
           <td>${t.count}</td>
@@ -20000,7 +20000,7 @@ function buildTierDrillHTML(tierKey) {
   const totalMRR = tier.totalMRR;
   const hmColor = v => v >= 65 ? 'var(--green)' : v >= 50 ? 'var(--amber)' : 'var(--red)';
   const dColor = tier.avgDelta > 0 ? 'var(--green)' : tier.avgDelta < 0 ? 'var(--red)' : 'var(--muted)';
-  const dIcon = tier.avgDelta > 0 ? '▲' : tier.avgDelta < 0 ? '▼' : '—';
+  const dIcon = tier.avgDelta > 0 ? '▲' : tier.avgDelta < 0 ? '▼' : ' -';
 
   let summaryHTML = `<div class="csm-drill-stats">
     <div class="csm-drill-stat">
@@ -20053,17 +20053,17 @@ function buildTierDrillHTML(tierKey) {
       <th>Customer</th><th>Score</th><th>Trend</th><th>Status</th><th>MRR</th><th>Last Contact</th><th>Renewal</th><th>Lifecycle</th>
     </tr></thead>
     <tbody>${sorted.map(c => {
-      const renewStr = c.renewal_date ? new Date(c.renewal_date).toLocaleDateString() : (c.renewal ? c.renewal + 'mo' : '—');
+      const renewStr = c.renewal_date ? new Date(c.renewal_date).toLocaleDateString() : (c.renewal ? c.renewal + 'mo' : ' -');
       const isOverdue = c.days != null && c.days >= OVERDUE_DAYS;
       const delta = deltaCache.get(c.id) || 0;
       const trendHTML = delta > 0
         ? `<span class="csm-trend up" style="font-size:var(--fs-xs);padding:1px 6px">▲ +${delta}</span>`
         : delta < 0
           ? `<span class="csm-trend dn" style="font-size:var(--fs-xs);padding:1px 6px">▼ ${delta}</span>`
-          : `<span class="csm-trend flat" style="font-size:var(--fs-xs);padding:1px 6px">— 0</span>`;
+          : `<span class="csm-trend flat" style="font-size:var(--fs-xs);padding:1px 6px"> - 0</span>`;
       const contactCell = isOverdue
         ? `<span style="font-weight:700;color:var(--red)">${c.days}d ago</span> <span class="csm-overdue">OVERDUE</span>`
-        : (c.days != null ? c.days + 'd ago' : '—');
+        : (c.days != null ? c.days + 'd ago' : ' -');
       return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
         <td><strong>${escHtml(c.name)}</strong></td>
         <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${c.score >= 65 ? 'var(--green)' : c.score >= 50 ? 'var(--amber)' : 'var(--red)'};background:${c.score >= 65 ? 'var(--green-l)' : c.score >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${c.score}</span></td>
@@ -20072,7 +20072,7 @@ function buildTierDrillHTML(tierKey) {
         <td>$${fmtNum(c.mrr || 0)}</td>
         <td>${contactCell}</td>
         <td>${renewStr}</td>
-        <td style="font-size:var(--fs-base);color:var(--muted)">${c.lifecycle || '—'}</td>
+        <td style="font-size:var(--fs-base);color:var(--muted)">${c.lifecycle || ' -'}</td>
       </tr>`;
     }).join('')}</tbody>
   </table>`;
@@ -20164,9 +20164,9 @@ function renderStageTable(active, deltaCache) {
       </tr></thead>
       <tbody id="seg-table-tbody">${_segAvgRow(sorted)}${sorted.map(t => {
         const trendCls = t.avgDelta > 0 ? 'up' : t.avgDelta < 0 ? 'dn' : 'flat';
-        const trendIcon = t.avgDelta > 0 ? '▲' : t.avgDelta < 0 ? '▼' : '—';
+        const trendIcon = t.avgDelta > 0 ? '▲' : t.avgDelta < 0 ? '▼' : ' -';
         const trendTxt = t.avgDelta > 0 ? '+' + t.avgDelta : '' + t.avgDelta;
-        const contactStr = t.avgDays != null ? t.avgDays + 'd' : '—';
+        const contactStr = t.avgDays != null ? t.avgDays + 'd' : ' -';
         const sc = stageColors[t.key] || '#64748b';
         return `<tr class="seg-table-row" data-stage="${t.key}" onclick="drillStage('${t.key}')" style="cursor:pointer">
           <td><span class="stage-pill" style="background:${sc}15;color:${sc};border:1px solid ${sc}30;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700">${t.label}</span></td>
@@ -20231,7 +20231,7 @@ function buildStageDrillHTML(stageKey) {
   const totalMRR = stage.totalMRR;
   const hmColor = v => v >= 65 ? 'var(--green)' : v >= 50 ? 'var(--amber)' : 'var(--red)';
   const dColor = stage.avgDelta > 0 ? 'var(--green)' : stage.avgDelta < 0 ? 'var(--red)' : 'var(--muted)';
-  const dIcon = stage.avgDelta > 0 ? '▲' : stage.avgDelta < 0 ? '▼' : '—';
+  const dIcon = stage.avgDelta > 0 ? '▲' : stage.avgDelta < 0 ? '▼' : ' -';
 
   let summaryHTML = `<div class="csm-drill-stats">
     <div class="csm-drill-stat">
@@ -20284,17 +20284,17 @@ function buildStageDrillHTML(stageKey) {
       <th>Customer</th><th>Score</th><th>Trend</th><th>Status</th><th>MRR</th><th>Last Contact</th><th>Renewal</th><th>Tier</th>
     </tr></thead>
     <tbody>${sorted.map(c => {
-      const renewStr = c.renewal_date ? new Date(c.renewal_date).toLocaleDateString() : (c.renewal ? c.renewal + 'mo' : '—');
+      const renewStr = c.renewal_date ? new Date(c.renewal_date).toLocaleDateString() : (c.renewal ? c.renewal + 'mo' : ' -');
       const isOverdue = c.days != null && c.days >= OVERDUE_DAYS;
       const delta = deltaCache.get(c.id) || 0;
       const trendHTML = delta > 0
         ? `<span class="csm-trend up" style="font-size:var(--fs-xs);padding:1px 6px">▲ +${delta}</span>`
         : delta < 0
           ? `<span class="csm-trend dn" style="font-size:var(--fs-xs);padding:1px 6px">▼ ${delta}</span>`
-          : `<span class="csm-trend flat" style="font-size:var(--fs-xs);padding:1px 6px">— 0</span>`;
+          : `<span class="csm-trend flat" style="font-size:var(--fs-xs);padding:1px 6px"> - 0</span>`;
       const contactCell = isOverdue
         ? `<span style="font-weight:700;color:var(--red)">${c.days}d ago</span> <span class="csm-overdue">OVERDUE</span>`
-        : (c.days != null ? c.days + 'd ago' : '—');
+        : (c.days != null ? c.days + 'd ago' : ' -');
       const tierLabel = c.tier === 'enterprise' ? 'Enterprise' : c.tier === 'smb' ? 'SMB' : 'Mid-Market';
       return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
         <td><strong>${escHtml(c.name)}</strong></td>
@@ -20342,7 +20342,7 @@ function renderSegCardGrid(segments) {
 
   let html = `<div class="seg-cards-grid">${sorted.map(seg => {
     const trendCls = seg.avgDelta > 0 ? 'up' : seg.avgDelta < 0 ? 'dn' : 'flat';
-    const trendIcon = seg.avgDelta > 0 ? '▲' : seg.avgDelta < 0 ? '▼' : '—';
+    const trendIcon = seg.avgDelta > 0 ? '▲' : seg.avgDelta < 0 ? '▼' : ' -';
     const trendTxt = seg.avgDelta > 0 ? '+' + seg.avgDelta : '' + seg.avgDelta;
     const total = seg.healthy + seg.watch + seg.atRisk;
     const hPct = total ? Math.round((seg.healthy / total) * 100) : 0;
@@ -20429,10 +20429,10 @@ function renderSegTable(segments) {
       </tr></thead>
       <tbody id="seg-table-tbody">${_segAvgRow(sorted)}${sorted.map(seg => {
         const trendCls = seg.avgDelta > 0 ? 'up' : seg.avgDelta < 0 ? 'dn' : 'flat';
-        const trendIcon = seg.avgDelta > 0 ? '▲' : seg.avgDelta < 0 ? '▼' : '—';
+        const trendIcon = seg.avgDelta > 0 ? '▲' : seg.avgDelta < 0 ? '▼' : ' -';
         const trendTxt = seg.avgDelta > 0 ? '+' + seg.avgDelta : '' + seg.avgDelta;
         const safeTag = seg.tag.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-        const contactStr = seg.avgDays != null ? seg.avgDays + 'd' : '—';
+        const contactStr = seg.avgDays != null ? seg.avgDays + 'd' : ' -';
         return `<tr class="seg-table-row" data-seg="${escHtml(seg.tag)}" onclick="drillSeg('${safeTag}')" style="cursor:pointer">
           <td><strong>${escHtml(segDisplayLabel(seg.tag))}</strong></td>
           <td>${seg.count}</td>
@@ -20468,7 +20468,7 @@ function buildSegDrillHTML(tagName) {
   const totalMRR = seg.totalMRR;
   const hmColor = v => v >= 65 ? 'var(--green)' : v >= 50 ? 'var(--amber)' : 'var(--red)';
   const dColor = seg.avgDelta > 0 ? 'var(--green)' : seg.avgDelta < 0 ? 'var(--red)' : 'var(--muted)';
-  const dIcon = seg.avgDelta > 0 ? '▲' : seg.avgDelta < 0 ? '▼' : '—';
+  const dIcon = seg.avgDelta > 0 ? '▲' : seg.avgDelta < 0 ? '▼' : ' -';
 
   let summaryHTML = `<div class="csm-drill-stats">
     <div class="csm-drill-stat">
@@ -20521,17 +20521,17 @@ function buildSegDrillHTML(tagName) {
       <th>Customer</th><th>Score</th><th>Trend</th><th>Status</th><th>MRR</th><th>Last Contact</th><th>Renewal</th><th>Lifecycle</th>
     </tr></thead>
     <tbody>${sorted.map(c => {
-      const renewStr = c.renewal_date ? new Date(c.renewal_date).toLocaleDateString() : (c.renewal ? c.renewal + 'mo' : '—');
+      const renewStr = c.renewal_date ? new Date(c.renewal_date).toLocaleDateString() : (c.renewal ? c.renewal + 'mo' : ' -');
       const isOverdue = c.days != null && c.days >= OVERDUE_DAYS;
       const delta = deltaCache.get(c.id) || 0;
       const trendHTML = delta > 0
         ? `<span class="csm-trend up" style="font-size:var(--fs-xs);padding:1px 6px">▲ +${delta}</span>`
         : delta < 0
           ? `<span class="csm-trend dn" style="font-size:var(--fs-xs);padding:1px 6px">▼ ${delta}</span>`
-          : `<span class="csm-trend flat" style="font-size:var(--fs-xs);padding:1px 6px">— 0</span>`;
+          : `<span class="csm-trend flat" style="font-size:var(--fs-xs);padding:1px 6px"> - 0</span>`;
       const contactCell = isOverdue
         ? `<span style="font-weight:700;color:var(--red)">${c.days}d ago</span> <span class="csm-overdue">OVERDUE</span>`
-        : (c.days != null ? c.days + 'd ago' : '—');
+        : (c.days != null ? c.days + 'd ago' : ' -');
       return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
         <td><strong>${escHtml(c.name)}</strong></td>
         <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${c.score >= 65 ? 'var(--green)' : c.score >= 50 ? 'var(--amber)' : 'var(--red)'};background:${c.score >= 65 ? 'var(--green-l)' : c.score >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${c.score}</span></td>
@@ -20540,7 +20540,7 @@ function buildSegDrillHTML(tagName) {
         <td>$${fmtNum(c.mrr || 0)}</td>
         <td>${contactCell}</td>
         <td>${renewStr}</td>
-        <td style="font-size:var(--fs-base);color:var(--muted)">${c.lifecycle || '—'}</td>
+        <td style="font-size:var(--fs-base);color:var(--muted)">${c.lifecycle || ' -'}</td>
       </tr>`;
     }).join('')}</tbody>
   </table>`;
@@ -20787,7 +20787,7 @@ function _buildSegInsights(segments, active) {
     }
   });
 
-  // ── 11. Synthesis — combine related insights on same segment ──
+  // ── 11. Synthesis  - combine related insights on same segment ──
   // Look for compound patterns: MRR concentration + poor health in same segment
   var _synthTags = {};
   insights.forEach(function(ins) {
@@ -20807,28 +20807,28 @@ function _buildSegInsights(segments, active) {
     if (labels.indexOf('MRR Concentration') >= 0 && labels.indexOf('Risk Clustering') >= 0) {
       insights.push({ score: 20, icon: icAlert, color: 'var(--red)', bg: 'var(--red-l)',
         label: 'Compounding Risk', tags: [tag],
-        text: `<strong>${segName}</strong> concentrates both high MRR and high risk — ${seg.riskPct}% at-risk accounts holding $${fmtNum(seg.totalMRR)} MRR. This segment is your single biggest exposure point.` });
+        text: `<strong>${segName}</strong> concentrates both high MRR and high risk  - ${seg.riskPct}% at-risk accounts holding $${fmtNum(seg.totalMRR)} MRR. This segment is your single biggest exposure point.` });
     }
 
     // MRR Concentration + Revenue-Health Inversion
     if (labels.indexOf('MRR Concentration') >= 0 && labels.indexOf('Revenue-Health Inversion') >= 0) {
       insights.push({ score: 18, icon: icDollar, color: 'var(--red)', bg: 'var(--red-l)',
         label: 'Revenue at Risk', tags: [tag],
-        text: `<strong>${segName}</strong> holds your largest MRR concentration but scores below portfolio average — revenue and health are misaligned in the segment that matters most.` });
+        text: `<strong>${segName}</strong> holds your largest MRR concentration but scores below portfolio average  - revenue and health are misaligned in the segment that matters most.` });
     }
 
     // Contact Gap + Health Disparity (worst health + no contact)
     if (labels.indexOf('Contact Gap') >= 0 && labels.indexOf('Health Disparity') >= 0) {
       insights.push({ score: 15, icon: icPhone, color: 'var(--amber)', bg: 'var(--amber-l)',
         label: 'Neglect Pattern', tags: [tag],
-        text: `<strong>${segName}</strong> has both the widest contact gap and a notable health disparity — infrequent touch may be driving the health difference.` });
+        text: `<strong>${segName}</strong> has both the widest contact gap and a notable health disparity  - infrequent touch may be driving the health difference.` });
     }
 
     // Renewal Exposure + Risk Clustering
     if (labels.indexOf('Renewal Exposure') >= 0 && labels.indexOf('Risk Clustering') >= 0) {
       insights.push({ score: 17, icon: icCal, color: 'var(--red)', bg: 'var(--red-l)',
         label: 'Renewal Pipeline Risk', tags: [tag],
-        text: `<strong>${segName}</strong> has concentrated renewal exposure combined with high at-risk clustering — upcoming renewals in this segment are especially vulnerable.` });
+        text: `<strong>${segName}</strong> has concentrated renewal exposure combined with high at-risk clustering  - upcoming renewals in this segment are especially vulnerable.` });
     }
   });
 
@@ -20892,7 +20892,7 @@ function clearTierFilter() {
   renderCustomers();
 }
 
-// Bulksheet export — all editable/importable fields (excludes auto-derived: score, status, created)
+// Bulksheet export  - all editable/importable fields (excludes auto-derived: score, status, created)
 function exportBulksheet() {
   const filtered = customers.filter(c => passesManagerFilter(c));
   const hdr = 'name,manager,scoring_profile,mrr,arr,tier,lifecycle,logins_30d,feature_adoption_pct,open_tickets,nps,csat,days_since_contact,renewal_date,months_to_renewal,growth_signal,tags,since,next_touch,sentiment,note';
@@ -21138,7 +21138,7 @@ function _buildSegChartSVG(data) {
       .sort((a, b) => a.date.localeCompare(b.date));
     if (pts.length < 2) return;
 
-    // Build xy points for smooth path — downsample for long ranges
+    // Build xy points for smooth path  - downsample for long ranges
     const xyPtsRaw = pts.map(p => ({ x: xScale(dateIdx[p.date]), y: yScaleL(p.avg) }));
     const _maxRPts = rangeDays > 365 ? 90 : rangeDays > 180 ? 120 : 9999;
     const xyPts = _downsampleXY(xyPtsRaw, _maxRPts);
@@ -21163,7 +21163,7 @@ function _buildSegChartSVG(data) {
     const smoothD = _smoothPath(xyPts);
     linesSVG += `<path d="${smoothD}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linecap="round" opacity="0.9"/>`;
 
-    // No inline labels — hover tooltip shows exact values for all lines
+    // No inline labels  - hover tooltip shows exact values for all lines
   });
 
   // Build tooltip data (Map-based with carry-forward for reliable lookups)
@@ -21324,7 +21324,7 @@ function _buildSegChartAnalysis(data) {
   const metricLabel = cfg.label;
   const halfLabel = rangeDays <= 30 ? Math.round(rangeDays / 2) + 'd' : Math.round(rangeDays / 60) + 'mo';
 
-  // ── 1. Momentum shift — segment was heading one way but recently reversed ──
+  // ── 1. Momentum shift  - segment was heading one way but recently reversed ──
   // This is NOT visible at a glance since the overall delta may look flat
   series.forEach(s => {
     const accel = s.secondHalfDelta - s.firstHalfDelta;
@@ -21345,7 +21345,7 @@ function _buildSegChartAnalysis(data) {
         bg: s.secondHalfDelta > 0 ? 'var(--green-l)' : 'var(--red-l)',
         label: 'Momentum Shift',
         tags: [s.tag],
-        text: `<strong>${escHtml(s.label)}</strong> was ${wasDir} (${f(s.firstHalfDelta)}) in the first half but is now ${nowDir} (${f(s.secondHalfDelta)}) — the overall ${rangeLabel} number masks this recent change in direction.`
+        text: `<strong>${escHtml(s.label)}</strong> was ${wasDir} (${f(s.firstHalfDelta)}) in the first half but is now ${nowDir} (${f(s.secondHalfDelta)})  - the overall ${rangeLabel} number masks this recent change in direction.`
       });
     } else {
       const dir = s.secondHalfDelta > 0 ? 'accelerating upward' : 'accelerating downward';
@@ -21356,7 +21356,7 @@ function _buildSegChartAnalysis(data) {
         bg: s.secondHalfDelta > 0 ? 'var(--green-l)' : 'var(--amber-l)',
         label: 'Accelerating',
         tags: [s.tag],
-        text: `<strong>${escHtml(s.label)}</strong> is ${dir} — moved ${f(s.secondHalfDelta)} in the recent ${halfLabel} vs ${f(s.firstHalfDelta)} in the prior ${halfLabel}. The pace of change is picking up.`
+        text: `<strong>${escHtml(s.label)}</strong> is ${dir}  - moved ${f(s.secondHalfDelta)} in the recent ${halfLabel} vs ${f(s.firstHalfDelta)} in the prior ${halfLabel}. The pace of change is picking up.`
       });
     }
   });
@@ -21376,7 +21376,7 @@ function _buildSegChartAnalysis(data) {
         const sc = scoreSeries.find(ss => ss.label === s.label);
         return sc ? { label: s.label, mDelta: s.delta, sDelta: sc.sDelta } : null;
       }).filter(Boolean);
-      // Look for the outlier: metric went one way, score went the other — that's the non-obvious one
+      // Look for the outlier: metric went one way, score went the other  - that's the non-obvious one
       const outliers = pairs.filter(p => (p.mDelta > 1 && p.sDelta < -1) || (p.mDelta < -1 && p.sDelta > 1));
       if (outliers.length > 0) {
         const ex = outliers.reduce((a, b) => Math.abs(b.mDelta) + Math.abs(b.sDelta) > Math.abs(a.mDelta) + Math.abs(a.sDelta) ? b : a);
@@ -21390,10 +21390,10 @@ function _buildSegChartAnalysis(data) {
           bg: 'var(--amber-l)',
           label: 'Disconnected Signal',
           tags: exSeries ? [exSeries.tag] : [],
-          text: `<strong>${escHtml(ex.label)}</strong>'s ${metricLabel} ${mDir} (${ex.mDelta > 0 ? '+' : ''}${cfg.fmt(ex.mDelta)}) but their Health Score ${sDir} (${ex.sDelta > 0 ? '+' : ''}${Math.round(ex.sDelta)}) — something else is driving score changes in this segment.`
+          text: `<strong>${escHtml(ex.label)}</strong>'s ${metricLabel} ${mDir} (${ex.mDelta > 0 ? '+' : ''}${cfg.fmt(ex.mDelta)}) but their Health Score ${sDir} (${ex.sDelta > 0 ? '+' : ''}${Math.round(ex.sDelta)})  - something else is driving score changes in this segment.`
         });
       } else {
-        // Check for strong positive correlation — metric and score moving together
+        // Check for strong positive correlation  - metric and score moving together
         const sameDir = pairs.filter(p => (p.mDelta > 1 && p.sDelta > 1) || (p.mDelta < -1 && p.sDelta < -1));
         if (sameDir.length >= 2 && sameDir.length === pairs.length) {
           const ex = sameDir.reduce((a, b) => Math.abs(b.mDelta) > Math.abs(a.mDelta) ? b : a);
@@ -21405,14 +21405,14 @@ function _buildSegChartAnalysis(data) {
             bg: 'var(--blue-l,#dbeafe)',
             label: 'Strong Signal',
             tags: exS ? [exS.tag] : [],
-            text: `${metricLabel} changes are tracking Health Score changes across all segments — this metric appears to be a reliable leading indicator. <strong>${escHtml(ex.label)}</strong> shows the clearest link.`
+            text: `${metricLabel} changes are tracking Health Score changes across all segments  - this metric appears to be a reliable leading indicator. <strong>${escHtml(ex.label)}</strong> shows the clearest link.`
           });
         }
       }
     }
   }
 
-  // ── 3. MRR concentration risk — which segments hold the $ ──
+  // ── 3. MRR concentration risk  - which segments hold the $ ──
   // Not visible on the metric chart at all, adds financial context
   if (series.length >= 2) {
     const totalMRR = chartSegs.reduce((s, seg) => s + (seg.totalMRR || seg.custs.reduce((t, c) => t + (c.mrr || 0), 0)), 0);
@@ -21434,10 +21434,10 @@ function _buildSegChartAnalysis(data) {
           bg: 'var(--red-l)',
           label: 'Revenue Exposure',
           tags: [biggest.tag],
-          text: `<strong>${escHtml(biggest.label)}</strong> holds ${biggest.pct}% of segment MRR ($${fmtNum(biggest.mrr)}) and its ${metricLabel} is declining — this concentrates risk in your highest-value segment.`
+          text: `<strong>${escHtml(biggest.label)}</strong> holds ${biggest.pct}% of segment MRR ($${fmtNum(biggest.mrr)}) and its ${metricLabel} is declining  - this concentrates risk in your highest-value segment.`
         });
       }
-      // Flag: small MRR segment outperforming — possible expansion opportunity
+      // Flag: small MRR segment outperforming  - possible expansion opportunity
       const smallest = segMRR.filter(s => s.pct < 20 && s.delta > 2);
       if (smallest.length > 0) {
         const opp = smallest.reduce((a, b) => b.delta > a.delta ? b : a);
@@ -21448,13 +21448,13 @@ function _buildSegChartAnalysis(data) {
           bg: 'var(--green-l)',
           label: 'Growth Opportunity',
           tags: [opp.tag],
-          text: `<strong>${escHtml(opp.label)}</strong> is only ${opp.pct}% of MRR but has the strongest ${metricLabel} trajectory — healthy signals in a small segment could mean expansion potential.`
+          text: `<strong>${escHtml(opp.label)}</strong> is only ${opp.pct}% of MRR but has the strongest ${metricLabel} trajectory  - healthy signals in a small segment could mean expansion potential.`
         });
       }
     }
   }
 
-  // ── 4. Lagging risk — segment with declining customers that others don't have ──
+  // ── 4. Lagging risk  - segment with declining customers that others don't have ──
   // Looks at per-customer variance within segments, not segment-level averages
   if (series.length >= 2 && metric === 'score') {
     chartSegs.forEach(seg => {
@@ -21472,13 +21472,13 @@ function _buildSegChartAnalysis(data) {
           bg: 'var(--amber-l)',
           label: 'Hidden Risk',
           tags: [s.tag],
-          text: `<strong>${escHtml(s.label)}</strong> averages ${cfg.fmt(s.endVal)} overall but ${riskPct}% of its accounts (${riskCount}/${seg.custs.length}) are at risk — the average hides a bimodal distribution of healthy and struggling accounts.`
+          text: `<strong>${escHtml(s.label)}</strong> averages ${cfg.fmt(s.endVal)} overall but ${riskPct}% of its accounts (${riskCount}/${seg.custs.length}) are at risk  - the average hides a bimodal distribution of healthy and struggling accounts.`
         });
       }
     });
   }
 
-  // ── 5. Contact gap correlation — segments with high days-since-contact and declining metric ──
+  // ── 5. Contact gap correlation  - segments with high days-since-contact and declining metric ──
   if (series.length >= 2) {
     chartSegs.forEach(seg => {
       const s = series.find(x => x.label === _segLabel(seg));
@@ -21503,13 +21503,13 @@ function _buildSegChartAnalysis(data) {
           bg: 'var(--amber-l)',
           label: 'Engagement Gap',
           tags: [s.tag],
-          text: `<strong>${escHtml(s.label)}</strong> is declining and averages ${avgDays} days since last contact vs ${otherAvg} days for other segments — the lack of recent outreach may be contributing to the decline.`
+          text: `<strong>${escHtml(s.label)}</strong> is declining and averages ${avgDays} days since last contact vs ${otherAvg} days for other segments  - the lack of recent outreach may be contributing to the decline.`
         });
       }
     });
   }
 
-  // ── 6. Drop attribution — find the worst anomalous drop and decompose what caused it ──
+  // ── 6. Drop attribution  - find the worst anomalous drop and decompose what caused it ──
   {
     let worstSeg = null, worstDrop = 0, worstPeakPt = null, worstTroughPt = null, worstPeakIdx = 0, worstTroughIdx = 0;
     series.forEach(s => {
@@ -21569,18 +21569,18 @@ function _buildSegChartAnalysis(data) {
         if (declined.length <= 2 && declined.length > 0 && custDeltas.length > 3) {
           declined.sort((a, b) => a.delta - b.delta);
           if (declined.length === 1) {
-            concentrationNote = ` This was driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv2(declined[0].delta)}) — the remaining ${custDeltas.length - 1} accounts were relatively flat.`;
+            concentrationNote = ` This was driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv2(declined[0].delta)})  - the remaining ${custDeltas.length - 1} accounts were relatively flat.`;
           } else {
-            concentrationNote = ` Driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv2(declined[0].delta)}) and ${_taCustLink(declined[1].name, declined[1].id)} (down ${fv2(declined[1].delta)}) — most of the other ${custDeltas.length - 2} accounts were relatively flat.`;
+            concentrationNote = ` Driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv2(declined[0].delta)}) and ${_taCustLink(declined[1].name, declined[1].id)} (down ${fv2(declined[1].delta)})  - most of the other ${custDeltas.length - 2} accounts were relatively flat.`;
           }
         } else if (pctDeclined >= 60) {
           if (custDeltas.length <= 5) {
             concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts in this segment declined during this period.`;
           } else {
-            concentrationNote = ` This was a broad-based decline — <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) dropped during this period.`;
+            concentrationNote = ` This was a broad-based decline  - <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) dropped during this period.`;
           }
         } else if (pctDeclined >= 30) {
-          concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) declined while ${improved.length} improved — a split trend worth investigating.`;
+          concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) declined while ${improved.length} improved  - a split trend worth investigating.`;
         }
       }
 
@@ -21645,7 +21645,7 @@ function _buildSegChartAnalysis(data) {
           const sp = fn(scorePts, worstPeakPt.date), st = fn(scorePts, worstTroughPt.date);
           const sd = Math.round(st.avg - sp.avg);
           if (sd < -2) text += ` During the same window, Health Score also dropped <strong>${Math.abs(sd)} points</strong>.`;
-          else if (Math.abs(sd) <= 2) text += ` Health Score stayed stable during this window — other signals offset the impact.`;
+          else if (Math.abs(sd) <= 2) text += ` Health Score stayed stable during this window  - other signals offset the impact.`;
         }
         insights.push({
           score: dropAbs + 3, icon: icons.drop, color: 'var(--red)', bg: 'var(--red-l)',
@@ -21856,7 +21856,7 @@ function toggleTrendOverlay(id) {
   _refreshTrendOverlays();
 }
 
-// Light refresh: only update chart lines, tags, and table row highlights — no scroll jump
+// Light refresh: only update chart lines, tags, and table row highlights  - no scroll jump
 function _refreshTrendOverlays() {
   const range = _trendRange || '30d';
   const m1 = _trendMetric1 || 'score';
@@ -22179,7 +22179,7 @@ function renderTrends() {
   const _tDirValColor = avgDelta === null ? '' : avgDelta > 0.5 ? '#16a34a' : avgDelta < -0.5 ? '#dc2626' : '';
   const _tImpValColor = improving > 0 ? '#16a34a' : '';
   const _tDecValColor = declining > 0 ? '#dc2626' : '#16a34a';
-  const _deltaText = avgDelta === null ? 'N/A — not enough history' : `${avgDelta >= 0 ? '+' : ''}${avgDelta.toFixed(1)} avg ${rangeLabel} change`;
+  const _deltaText = avgDelta === null ? 'N/A  - not enough history' : `${avgDelta >= 0 ? '+' : ''}${avgDelta.toFixed(1)} avg ${rangeLabel} change`;
   const _impPct = deltaCount ? Math.round(improving / deltaCount * 100) : 0;
   const _decPct = deltaCount ? Math.round(declining / deltaCount * 100) : 0;
   const _trendSub = avgDelta === null ? 'not enough history for this range' : `across ${deltaCount} account${deltaCount !== 1 ? 's' : ''} with baseline data`;
@@ -22191,7 +22191,7 @@ function renderTrends() {
       <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:${_tAvgValColor}">${currentAvg}</div><div class="dash-kpi-sub">${_deltaText}</div></div>
     </div>
     <div class="dash-kpi-card ${trendDirColor}">
-      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.trend}</div><span class="dash-kpi-label">Trend Direction <span class="info-tip tip-below" data-tip="Overall portfolio health trend — Improving (avg change > +0.5), Declining (< −0.5), or Stable.">\u24d8</span></span></div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.trend}</div><span class="dash-kpi-label">Trend Direction <span class="info-tip tip-below" data-tip="Overall portfolio health trend  - Improving (avg change > +0.5), Declining (< −0.5), or Stable.">\u24d8</span></span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.5rem${_tDirValColor ? ';color:' + _tDirValColor : ''}">${trendDir}</div><div class="dash-kpi-sub">${_trendSub}</div></div>
     </div>
     <div class="dash-kpi-card dash-kpi-teal">
@@ -22219,7 +22219,7 @@ function renderTrends() {
     lines.push({ label: escHtml(_trendCsmOverlay), color: OVERLAY_COLORS[0], width: 1.5, points: csmData });
   }
 
-  // Client overlays (primary metric) — forward-fill to keep line continuous
+  // Client overlays (primary metric)  - forward-fill to keep line continuous
   const _olTodayStr = new Date().toISOString().slice(0,10);
   _trendClientOverlays.forEach((id, idx) => {
     const c = customers.find(x => x.id === id);
@@ -22314,7 +22314,7 @@ function renderTrends() {
     }
   }
 
-  // Render legend — prior period immediately after portfolio avg
+  // Render legend  - prior period immediately after portfolio avg
   const legendWrap = el('trend-legend');
   if (legendWrap) {
     let legendHTML = '';
@@ -22354,7 +22354,7 @@ function renderTrends() {
   const sel2 = el('trend-metric-2');
   if (sel2) sel2.value = m2;
 
-  // ── Top Movers — build data, then render with current sort ──
+  // ── Top Movers  - build data, then render with current sort ──
   // ── Trend Analysis ──
   _buildTrendAnalysis(active, portfolioData, m2Line ? m2Line.points : null, cutoff, days, m1, m2, priorPortfolioData);
 
@@ -22367,7 +22367,7 @@ function renderTrends() {
     const baseline = hasBaseline ? beforeRange[beforeRange.length - 1].score : null;
     const endScore = inRange.length ? inRange[inRange.length - 1].score : c.score;
     const delta = hasBaseline ? endScore - baseline : null;
-    return { name: c.name, score: c.score, delta, absDelta: delta !== null ? Math.abs(delta) : 0, noBaseline: !hasBaseline, status: c.status, mrr: c.mrr || 0, manager: c.manager || '—', tickets: c.tickets != null ? c.tickets : 0, logins: c.logins, adoption: c.adoption, id: c.id };
+    return { name: c.name, score: c.score, delta, absDelta: delta !== null ? Math.abs(delta) : 0, noBaseline: !hasBaseline, status: c.status, mrr: c.mrr || 0, manager: c.manager || ' -', tickets: c.tickets != null ? c.tickets : 0, logins: c.logins, adoption: c.adoption, id: c.id };
   });
   renderTrendMovers();
 }
@@ -22429,7 +22429,7 @@ function renderTrendMovers() {
   // Build column headers
   const trCols = TREND_COLS.map(col => cfBuildTh('trend', col, _trendSortKey, _trendSortDir)).join('');
 
-  // Remove scroll from outer wrapper — we put it on the table div only
+  // Remove scroll from outer wrapper  - we put it on the table div only
   wrap.style.maxHeight = 'none';
   wrap.style.overflowY = 'visible';
 
@@ -22613,7 +22613,7 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key, priorLine) {
     if (i % Math.max(1, Math.ceil(_xLabelEvery / 2)) === 0) {
       xLabels += `<line x1="${x}" y1="${yScaleL(yL.min)}" x2="${x}" y2="${yScaleL(yL.min)+3}" stroke="#e2e8f0" stroke-width="0.5" opacity="0.4"/>`;
     }
-    // Labels — smarter formatting
+    // Labels  - smarter formatting
     if (i % _xLabelEvery === 0 || i === dates.length - 1) {
       let lbl;
       if (_showYear && day <= 7) {
@@ -22632,7 +22632,7 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key, priorLine) {
   const dateIdx = {};
   dates.forEach((d,i) => { dateIdx[d] = i; });
 
-  // Max rendered points — downsample for smoother lines on long ranges
+  // Max rendered points  - downsample for smoother lines on long ranges
   const _maxRPts = rangeDays > 365 ? 90 : rangeDays > 180 ? 120 : 9999;
 
   const _hasBreakdown = lines.some(l => l.dashed);
@@ -22665,7 +22665,7 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key, priorLine) {
     const lineOp = line.dashed ? '0.45' : '0.9';
     linesSVG += `<path d="${smoothD}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linecap="round" opacity="${lineOp}"${dashAttr}/>`;
 
-    // No inline labels — hover tooltip shows exact values for all lines
+    // No inline labels  - hover tooltip shows exact values for all lines
   });
 
   // ── Draw prior-period comparison line (dashed, muted gray) ──
@@ -22916,7 +22916,7 @@ function _taMetricCorrelation(data1, data2, m1, m2, rangeDays) {
 
   const sameDir = (d1 > 0 && d2 > 0) || (d1 < 0 && d2 < 0);
   const oppositeDir = (d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0);
-  // Check significance — both need meaningful movement
+  // Check significance  - both need meaningful movement
   const t1 = m1 === 'mrr' || m1 === 'arr' ? 100 : 0.5;
   const t2 = m2 === 'mrr' || m2 === 'arr' ? 100 : 0.5;
   if (Math.abs(rawD1) < t1 && Math.abs(rawD2) < t2) return null;
@@ -22933,24 +22933,24 @@ function _taMetricCorrelation(data1, data2, m1, m2, rangeDays) {
       accent = 'amber';
     } else {
       title = l1 + ' and ' + l2 + ' both ' + (bothGood ? 'improved' : 'worsened');
-      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> while <strong>${l2} ${f2(rawD2)}${m2Hint}</strong>. ` + (bothGood ? 'Both metrics moving positively — a healthy reinforcing trend.' : 'Both metrics declining — investigate shared root causes.');
+      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> while <strong>${l2} ${f2(rawD2)}${m2Hint}</strong>. ` + (bothGood ? 'Both metrics moving positively  - a healthy reinforcing trend.' : 'Both metrics declining  - investigate shared root causes.');
       accent = bothGood ? 'green' : 'red';
     }
   } else if (oppositeDir) {
     const m1Good = d1 > 0;
     if (!m1Good && m1Recovering) {
-      // m1 overall down but recovering, m2 improving — both now trending up
-      title = l1 + ' recovering — now trending with ' + l2;
+      // m1 overall down but recovering, m2 improving  - both now trending up
+      title = l1 + ' recovering  - now trending with ' + l2;
       detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> overall but has been trending up in the recent ${halfLabel} (<strong>${f1(rawD1Recent)}</strong>). Combined with <strong>${l2} ${f2(rawD2)}${m2Hint}</strong>, both metrics are now moving in the right direction.`;
       accent = 'green';
     } else if (m1Good && m2Recovering) {
       title = l1 + ' improved and ' + l2 + ' now recovering';
-      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> while <strong>${l2} ${f2(rawD2)}${m2Hint}</strong> overall. However, ${l2} has turned around in the recent ${halfLabel} — a positive signal.`;
+      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> while <strong>${l2} ${f2(rawD2)}${m2Hint}</strong> overall. However, ${l2} has turned around in the recent ${halfLabel}  - a positive signal.`;
       accent = 'green';
     } else {
       const m2Improved = d2 > 0;
       title = l1 + (m1Good ? ' improved' : ' declined') + ' while ' + l2 + (m2Improved ? ' improved' : ' worsened');
-      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> while <strong>${l2} ${f2(rawD2)}${m2Hint}</strong>. ` + (m1Good ? 'Mixed signals — ' + l2 + ' may be pulling down ' + l1 + ' gains. Open the customer detail to see which accounts have both signals moving in different directions.' : l2 + ' is improving but hasn\'t lifted ' + l1 + ' yet. This is common — give it another 1–2 scoring cycles. If ' + l1 + ' doesn\'t follow, the ' + l2 + ' improvement may not be translating to real engagement.');
+      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> while <strong>${l2} ${f2(rawD2)}${m2Hint}</strong>. ` + (m1Good ? 'Mixed signals  - ' + l2 + ' may be pulling down ' + l1 + ' gains. Open the customer detail to see which accounts have both signals moving in different directions.' : l2 + ' is improving but hasn\'t lifted ' + l1 + ' yet. This is common  - give it another 1–2 scoring cycles. If ' + l1 + ' doesn\'t follow, the ' + l2 + ' improvement may not be translating to real engagement.');
       accent = 'amber';
     }
   } else {
@@ -22959,7 +22959,7 @@ function _taMetricCorrelation(data1, data2, m1, m2, rangeDays) {
   return { priority: 1, icon: _taSvg.corr, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail };
 }
 
-/* 3. Inflection Point — enhanced with customer attribution */
+/* 3. Inflection Point  - enhanced with customer attribution */
 function _taInflection(data, metricKey, rangeDays, active) {
   if (data.length < 10 || !active || active.length < 3) return null;
   const win = Math.max(3, Math.min(15, Math.round(data.length * 0.1)));
@@ -22991,7 +22991,7 @@ function _taInflection(data, metricKey, rangeDays, active) {
   const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
   const wasRising = bestBefore > 0;
 
-  // Find which customers drove the reversal — biggest movers around the inflection
+  // Find which customers drove the reversal  - biggest movers around the inflection
   const inflT = inflDate.getTime();
   const windowMs = win * 86400000 * (rangeDays / data.length);
   const custMovers = [];
@@ -23052,7 +23052,7 @@ function _taCsmDivergence(data, active, cutoff, rangeDays, metricKey) {
   if (csmDeltas.length < 2) return null;
   const csmAvgDelta = csmDeltas.reduce((s,d) => s+d, 0) / csmDeltas.length;
 
-  // Rest-of-portfolio delta — same methodology, excluding CSM's own accounts
+  // Rest-of-portfolio delta  - same methodology, excluding CSM's own accounts
   const restCusts = active.filter(c => c.manager !== csmName);
   const restDeltas = restCusts.map(_custDelta).filter(d => d !== null);
   const portDelta = restDeltas.length ? restDeltas.reduce((s,d) => s+d, 0) / restDeltas.length : 0;
@@ -23125,7 +23125,7 @@ function _taCrossSignal(active, cutoff, metricKey) {
   // gap = impAvg - decAvg; for inverted: negative gap means improving accounts have lower (better) values
   const isHealthyPattern = inverted ? bestSignal.gap < 0 : bestSignal.gap > 0;
 
-  // Make it actionable — name specific declining accounts with the worst signal values
+  // Make it actionable  - name specific declining accounts with the worst signal values
   const actionAccounts = declining.filter(c => {
     const v = bestSignal.getter(c);
     if (v == null) return false;
@@ -23148,7 +23148,7 @@ function _taCrossSignal(active, cutoff, metricKey) {
   return { priority: 3, icon: _taSvg.signal, iconBg: isHealthyPattern ? 'var(--green-l)' : 'var(--amber-l)', iconColor: isHealthyPattern ? 'var(--green)' : 'var(--amber)', accent, title, detail };
 }
 
-/* ── Drop Attribution — decompose score drops into signal contributions ── */
+/* ── Drop Attribution  - decompose score drops into signal contributions ── */
 
 function _attributeScoreDrop(custs, peakDate, troughDate) {
   const SIGNALS = [
@@ -23191,7 +23191,7 @@ function _attributeScoreDrop(custs, peakDate, troughDate) {
     if (!pArr.length || !tArr.length) return null;
     let rawStart, rawEnd, normStart, normEnd;
     if (s.key === 'growth') {
-      // Growth is categorical (none/mild/strong) — use mode, not numeric average
+      // Growth is categorical (none/mild/strong)  - use mode, not numeric average
       const mode = arr => { const freq = {}; arr.forEach(v => freq[v] = (freq[v]||0)+1); return Object.entries(freq).sort((a,b) => b[1]-a[1])[0]?.[0] || 'none'; };
       rawStart = mode(pArr);
       rawEnd   = mode(tArr);
@@ -23231,8 +23231,8 @@ function _taDropAttribution(active, data1, metricKey, cutoff, rangeDays) {
   // For lowerIsBetter metrics a drop is good, so "recovery" (going back up) means the gain was lost
   const finalPt = data1[data1.length - 1];
   const recovery = finalPt.avg - troughPt.avg;
-  if (!cfg.lowerIsBetter && dropAbs > 0 && recovery / dropAbs > 0.5) return null; // recovered — not a current concern
-  if (cfg.lowerIsBetter && dropAbs > 0 && recovery / dropAbs > 0.5) return null; // bounced back up — gain was temporary
+  if (!cfg.lowerIsBetter && dropAbs > 0 && recovery / dropAbs > 0.5) return null; // recovered  - not a current concern
+  if (cfg.lowerIsBetter && dropAbs > 0 && recovery / dropAbs > 0.5) return null; // bounced back up  - gain was temporary
 
   // Significance check: compute std dev of daily changes
   const deltas = [];
@@ -23281,18 +23281,18 @@ function _taDropAttribution(active, data1, metricKey, cutoff, rangeDays) {
       declined.sort((a, b) => a.delta - b.delta);
       const fv = v => _fmtTaVal(Math.abs(v), metricKey);
       if (declined.length === 1) {
-        concentrationNote = ` This was driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv(declined[0].delta)}) — the remaining ${custDeltas.length - 1} accounts were relatively flat.`;
+        concentrationNote = ` This was driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv(declined[0].delta)})  - the remaining ${custDeltas.length - 1} accounts were relatively flat.`;
       } else {
-        concentrationNote = ` Driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv(declined[0].delta)}) and ${_taCustLink(declined[1].name, declined[1].id)} (down ${fv(declined[1].delta)}) — most of the other ${custDeltas.length - 2} accounts were relatively flat.`;
+        concentrationNote = ` Driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv(declined[0].delta)}) and ${_taCustLink(declined[1].name, declined[1].id)} (down ${fv(declined[1].delta)})  - most of the other ${custDeltas.length - 2} accounts were relatively flat.`;
       }
     } else if (pctDeclined >= 60) {
       if (custDeltas.length <= 5) {
         concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts ${droppedWord} during this period.`;
       } else {
-        concentrationNote = ` This was a broad-based ${dropWord} across the portfolio — <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) ${droppedWord} during this period.`;
+        concentrationNote = ` This was a broad-based ${dropWord} across the portfolio  - <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) ${droppedWord} during this period.`;
       }
     } else if (pctDeclined >= 30) {
-      concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) ${droppedWord} while ${improved.length} ${_lib ? 'worsened' : 'improved'} — a split trend worth investigating by segment.`;
+      concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) ${droppedWord} while ${improved.length} ${_lib ? 'worsened' : 'improved'}  - a split trend worth investigating by segment.`;
     }
   }
 
@@ -23339,7 +23339,7 @@ function _taDropAttribution(active, data1, metricKey, cutoff, rangeDays) {
       const impact = Math.abs(Math.round(a.contribution * 10) / 10);
       if (a.signal === 'growth') {
         const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : 'None';
-        if (a.rawStart === a.rawEnd) return null; // no change in mode — skip
+        if (a.rawStart === a.rawEnd) return null; // no change in mode  - skip
         return `<strong>${a.label}</strong> shifted from ${cap(a.rawStart)} to ${cap(a.rawEnd)}, costing ~${impact} pts`;
       }
       if (a.signal === 'tickets') {
@@ -23392,7 +23392,7 @@ function _taDropAttribution(active, data1, metricKey, cutoff, rangeDays) {
           if (sDelta < -2) {
             detail += ` During the same window, Health Score also dropped <strong>${Math.abs(sDelta)} points</strong>.`;
           } else if (Math.abs(sDelta) <= 2) {
-            detail += ` Health Score stayed stable during this window — other signals offset the impact.`;
+            detail += ` Health Score stayed stable during this window  - other signals offset the impact.`;
           }
         }
       }
@@ -23407,7 +23407,7 @@ function _taDropAttribution(active, data1, metricKey, cutoff, rangeDays) {
   return { priority: 1, icon: _icon, iconBg: _iconBg, iconColor: _iconClr, accent: _accent, title, detail };
 }
 
-/* 9. Churn Impact — call out churned accounts and their revenue impact */
+/* 9. Churn Impact  - call out churned accounts and their revenue impact */
 function _taChurnImpact(cutoff, rangeDays) {
   if (!_trendShowChurned) return null;
   const churned = customers.filter(c => c.lifecycle === 'churned' && passesManagerFilter(c));
@@ -23454,7 +23454,7 @@ function _taChurnImpact(cutoff, rangeDays) {
       }
     }
     if (!churnDate) return;
-    // Last resort fallback for MRR — estimate from tier if no _mrr in history
+    // Last resort fallback for MRR  - estimate from tier if no _mrr in history
     if (!preMrr) preMrr = c._prechurnMrr || 0;
     if (!preMrr) {
       // Estimate based on tier midpoints
@@ -23478,11 +23478,11 @@ function _taChurnImpact(cutoff, rangeDays) {
   if (recentChurns.length > 3) detail += ` and ${recentChurns.length - 3} more`;
   detail += '.';
 
-  const title = recentChurns.length + ' account' + (recentChurns.length > 1 ? 's' : '') + ' churned — $' + fmtNum(totalLostMRR) + '/mo lost';
+  const title = recentChurns.length + ' account' + (recentChurns.length > 1 ? 's' : '') + ' churned  - $' + fmtNum(totalLostMRR) + '/mo lost';
   return { priority: 1, icon: _taSvg.drop, iconBg: 'var(--red-l)', iconColor: 'var(--red)', accent: 'red', title, detail };
 }
 
-/* ── At-Risk Accounts — declining + renewal soon + MRR at stake ── */
+/* ── At-Risk Accounts  - declining + renewal soon + MRR at stake ── */
 function _taAtRiskAccounts(active, cutoff, rangeDays) {
   if (active.length < 3) return null;
   const now = Date.now();
@@ -23510,7 +23510,7 @@ function _taAtRiskAccounts(active, cutoff, rangeDays) {
   const fmtRen = d => d <= 0 ? 'overdue' : d <= 30 ? 'this month' : d <= 60 ? 'within 60d' : d <= 90 ? 'within 90d' : '';
 
   const count = atRisk.length;
-  const title = count + ' account' + (count > 1 ? 's' : '') + ' declining — $' + fmtNum(totalMrr) + '/mo at stake';
+  const title = count + ' account' + (count > 1 ? 's' : '') + ' declining  - $' + fmtNum(totalMrr) + '/mo at stake';
   let detail = '';
   // List top accounts with their delta, MRR, and renewal status
   detail += top.map(x => {
@@ -23571,11 +23571,11 @@ function _taSeasonalPattern(data, metricKey, rangeDays, priorData) {
   const levelDiff = Math.round(currAvg - priorAvg);
 
   if (corr > 0.4) {
-    // Similar shape — seasonal pattern detected
+    // Similar shape  - seasonal pattern detected
     const title = 'Seasonal pattern detected in ' + label;
     let detail;
     if (Math.abs(levelDiff) <= 3) {
-      detail = `${label} is following a similar pattern to the same period last year (correlation: ${Math.round(corr * 100)}%). This suggests <strong>seasonal movement</strong>, not a structural change — likely to follow the same trajectory.`;
+      detail = `${label} is following a similar pattern to the same period last year (correlation: ${Math.round(corr * 100)}%). This suggests <strong>seasonal movement</strong>, not a structural change  - likely to follow the same trajectory.`;
     } else if (levelDiff > 3) {
       detail = `${label} is following a similar pattern to last year but running <strong>${levelDiff} pts higher</strong>. The seasonal shape is repeating but the overall level has improved.`;
     } else {
@@ -23584,7 +23584,7 @@ function _taSeasonalPattern(data, metricKey, rangeDays, priorData) {
     const accent = levelDiff >= -2 ? 'green' : 'amber';
     return { priority: 2, icon: _taSvg.clock, iconBg: accent === 'green' ? 'var(--green-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : 'var(--amber)', accent, title, detail };
   } else if (corr < 0.1 && Math.abs(levelDiff) > 5) {
-    // Different pattern AND different level — this isn't seasonal
+    // Different pattern AND different level  - this isn't seasonal
     const direction = levelDiff > 0 ? 'higher' : 'lower';
     const title = label + ' diverging from last year\'s pattern';
     const detail = `${label} is <strong>${Math.abs(levelDiff)} pts ${direction}</strong> than the same period last year and not following the previous seasonal pattern. This appears to be a <strong>structural shift</strong>, not a seasonal cycle.`;
@@ -23594,7 +23594,7 @@ function _taSeasonalPattern(data, metricKey, rangeDays, priorData) {
   return null;
 }
 
-/* ── Concentration Risk — top MRR accounts declining ── */
+/* ── Concentration Risk  - top MRR accounts declining ── */
 function _taConcentrationRisk(active, rangeDays) {
   if (active.length < 5) return null;
   // Sort by MRR descending, take top 5
@@ -23620,12 +23620,12 @@ function _taConcentrationRisk(active, rangeDays) {
   const title = declining.length + ' of your top 5 accounts ' + (declining.length === 1 ? 'is' : 'are') + ' declining';
   let detail = `Your 5 largest accounts represent <strong>$${fmtNum(top5Mrr)}/mo</strong> (${top5Pct}% of portfolio MRR). `;
   detail += declining.map(x => `${_taCustLink(x.c.name, x.c.id)} (${fd(x.delta)} pts, $${fmtNum(x.c.mrr)}/mo)`).join(', ');
-  detail += ` — <strong>$${fmtNum(decMrr)}/mo</strong> in high-value MRR needs priority attention.`;
+  detail += `  - <strong>$${fmtNum(decMrr)}/mo</strong> in high-value MRR needs priority attention.`;
 
   return { priority: 1, icon: _taSvg.bar, iconBg: 'var(--red-l)', iconColor: 'var(--red)', accent: 'red', title, detail };
 }
 
-/* ── Top Performers — accounts doing well, call out wins ── */
+/* ── Top Performers  - accounts doing well, call out wins ── */
 function _taTopPerformers(active, rangeDays) {
   if (active.length < 5) return null;
   const winners = [];
@@ -23644,11 +23644,11 @@ function _taTopPerformers(active, rangeDays) {
   const title = winners.length + ' account' + (winners.length > 1 ? 's' : '') + ' showing strong improvement';
   let detail = top.map(x => `${_taCustLink(x.c.name, x.c.id)} (${fd(x.delta)} pts, $${fmtNum(x.mrr)}/mo)`).join(', ');
   if (winners.length > 3) detail += ` and ${winners.length - 3} more`;
-  detail += `. These accounts represent <strong>$${fmtNum(totalMrr)}/mo</strong> in MRR — consider them for case studies or expansion conversations.`;
+  detail += `. These accounts represent <strong>$${fmtNum(totalMrr)}/mo</strong> in MRR  - consider them for case studies or expansion conversations.`;
   return { priority: 3, icon: _taSvg.rise || _taSvg.trend, iconBg: 'var(--green-l)', iconColor: 'var(--green)', accent: 'green', title, detail };
 }
 
-/* ── Renewal Pipeline — upcoming renewals and their health ── */
+/* ── Renewal Pipeline  - upcoming renewals and their health ── */
 function _taRenewalPipeline(active, rangeDays) {
   if (active.length < 3) return null;
   const now = Date.now();
@@ -23668,7 +23668,7 @@ function _taRenewalPipeline(active, rangeDays) {
   const totalMrr = upcoming.reduce((s,x) => s + x.mrr, 0);
   const atRiskMrr = atRisk.reduce((s,x) => s + x.mrr, 0);
 
-  const title = upcoming.length + ' renewal' + (upcoming.length > 1 ? 's' : '') + ' in next 90 days — $' + fmtNum(totalMrr) + '/mo';
+  const title = upcoming.length + ' renewal' + (upcoming.length > 1 ? 's' : '') + ' in next 90 days  - $' + fmtNum(totalMrr) + '/mo';
   let detail = '';
   if (atRisk.length) {
     detail += `<strong>${atRisk.length} at risk</strong> ($${fmtNum(atRiskMrr)}/mo): ` +
@@ -23684,7 +23684,7 @@ function _taRenewalPipeline(active, rangeDays) {
   return { priority: 2, icon: _taSvg.clock, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail };
 }
 
-/* ── Signal Deep Dive — look at all signals to find the weakest/strongest ── */
+/* ── Signal Deep Dive  - look at all signals to find the weakest/strongest ── */
 function _taSignalDeepDive(active, cutoff, rangeDays) {
   if (active.length < 5) return null;
   const now = Date.now();
@@ -23753,7 +23753,7 @@ function _taSignalDeepDive(active, cutoff, rangeDays) {
     }
     accent = 'amber';
   } else {
-    // All signals improving or flat — highlight the winner
+    // All signals improving or flat  - highlight the winner
     const direction = best.good === 'lower' ? 'decreased' : 'improved';
     title = best.label + ' ' + direction + ' across the portfolio';
     detail = `${best.label} ${direction} by <strong>${fd(best.avgDelta)}${best.unit}</strong> on average (now ${fv(best.avgCurrent)}${best.unit}). This is the strongest signal movement in the period.`;
@@ -23762,7 +23762,7 @@ function _taSignalDeepDive(active, cutoff, rangeDays) {
   return { priority: 3, icon: _taSvg.signal, iconBg: accent === 'green' ? 'var(--green-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : 'var(--amber)', accent, title, detail };
 }
 
-/* ── Segment Divergence — compare tiers ── */
+/* ── Segment Divergence  - compare tiers ── */
 function _taSegmentDivergence(active, rangeDays) {
   if (active.length < 8) return null;
   const tiers = {};
@@ -23794,15 +23794,15 @@ function _taSegmentDivergence(active, rangeDays) {
   const title = best.label + ' outperforming ' + worst.label + ' by ' + Math.round(gap) + ' pts';
   let detail = tierAvgs.map(t => `<strong>${t.label}</strong>: ${fd(t.avg)} avg (${t.count} accounts)`).join(' · ') + '. ';
   if (worst.avg < -2) {
-    detail += `${worst.label} accounts are the priority — investigate whether they\'re getting adequate support and onboarding.`;
+    detail += `${worst.label} accounts are the priority  - investigate whether they\'re getting adequate support and onboarding.`;
   } else {
-    detail += `The ${best.label} segment is leading — explore what\'s driving their success and apply those lessons across the portfolio.`;
+    detail += `The ${best.label} segment is leading  - explore what\'s driving their success and apply those lessons across the portfolio.`;
   }
   const accent = worst.avg < -3 ? 'red' : 'amber';
   return { priority: 3, icon: _taSvg.bar, iconBg: accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail };
 }
 
-/* ── Portfolio Summary — always-available fallback insight ── */
+/* ── Portfolio Summary  - always-available fallback insight ── */
 function _taPortfolioSummary(active, data1, rangeDays) {
   if (active.length < 3 || !data1 || data1.length < 2) return null;
   const now = Date.now();
@@ -23832,7 +23832,7 @@ function _taPortfolioSummary(active, data1, rangeDays) {
     }
   });
 
-  const title = 'Portfolio snapshot — ' + active.filter(c => c.lifecycle !== 'churned').length + ' accounts, $' + fmtNum(totalMrr) + '/mo MRR';
+  const title = 'Portfolio snapshot  - ' + active.filter(c => c.lifecycle !== 'churned').length + ' accounts, $' + fmtNum(totalMrr) + '/mo MRR';
   let detail = `<strong>${healthy}</strong> healthy, <strong>${watch}</strong> watch, <strong>${critical}</strong> critical. `;
   detail += `Score ${change >= 0 ? 'up' : 'down'} <strong>${change >= 0 ? '+' : ''}${change}</strong> pts over ${rl}. `;
   if (biggestRisk) {
@@ -23984,7 +23984,7 @@ function renderCSMPerformance() {
   const totalOverdue  = active.filter(c => c.days != null && c.days >= 14).length;
   const avgAccsPerCSM = totalCSMs ? Math.round(totalAccounts / totalCSMs) : 0;
 
-  const deltaIcon  = overallDelta > 0 ? '▲' : overallDelta < 0 ? '▼' : '—';
+  const deltaIcon  = overallDelta > 0 ? '▲' : overallDelta < 0 ? '▼' : ' -';
   const deltaColor = overallDelta > 0 ? 'var(--green)' : overallDelta < 0 ? 'var(--red)' : 'var(--muted)';
 
   const _si = (path) => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
@@ -24048,7 +24048,7 @@ function renderCSMPerformance() {
   const trendBadge = d => {
     if (d > 0) return `<span class="csm-trend up">▲ +${d}</span>`;
     if (d < 0) return `<span class="csm-trend dn">▼ ${d}</span>`;
-    return `<span class="csm-trend flat">— 0</span>`;
+    return `<span class="csm-trend flat"> - 0</span>`;
   };
   const healthBar = m => {
     const total = m.count || 1;
@@ -24116,8 +24116,8 @@ function renderCSMPerformance() {
       <td>${m.count}</td>
       <td>$${fmtNum(m.totalMRR)}</td>
       <td style="color:${m.riskMRR ? 'var(--red)' : 'var(--muted)'};font-weight:${m.riskMRR ? '700' : '400'}">$${fmtNum(m.riskMRR)}</td>
-      <td style="color:${contactWarn?'var(--red)':'inherit'};font-weight:${contactWarn?'700':'400'}">${m.avgDays != null ? m.avgDays + 'd' : '—'}</td>
-      <td>${m.renewals90 || '—'}</td>
+      <td style="color:${contactWarn?'var(--red)':'inherit'};font-weight:${contactWarn?'700':'400'}">${m.avgDays != null ? m.avgDays + 'd' : ' -'}</td>
+      <td>${m.renewals90 || ' -'}</td>
       <td><button class="btn btn-xs btn-ghost csm-expand-btn" data-csm="${escHtml(m.name)}" onclick="drillCSM('${safeName}')"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg> Expand</button></td>
     </tr>`}).join('')}</tbody>
   </table></div>`;
@@ -24211,7 +24211,7 @@ function renderCSMFocus(mgrList) {
   const icTarget = _fi('<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>');
   const icShuffle = _fi('<polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/>');
 
-  // Clickable customer name link — closes modal, opens detail
+  // Clickable customer name link  - closes modal, opens detail
   const _cl = (c) => '<a class="fd-cust-link" onclick="closeModal(\'focus-detail-modal\');openDetail(\'' + escHtml(c.id) + '\')">' + escHtml(c.name) + '</a>';
 
   // ── Gather cross-team data ───────────────────────────────────
@@ -24225,7 +24225,7 @@ function renderCSMFocus(mgrList) {
   const teamAvgDelta = Math.round(allAccs.reduce((s,c) => s + getDelta7d(c), 0) / allAccs.length * 10) / 10;
 
   // ── Generator 1: Consolidated renewal pipeline ───────────────
-  // One combined insight — "X at-risk renewals across Y CSMs with $Z MRR"
+  // One combined insight  - "X at-risk renewals across Y CSMs with $Z MRR"
   (() => {
     const riskRenewals = allAccs.filter(c => (c.status === 'critical' || c.status === 'risk') && c.renewal != null && c.renewal > 0 && c.renewal <= 3);
     if (!riskRenewals.length) return;
@@ -24248,18 +24248,18 @@ function renderCSMFocus(mgrList) {
     const detail = `There ${riskRenewals.length === 1 ? 'is' : 'are'} <strong>${riskRenewals.length}</strong> account${riskRenewals.length>1?'s':''} coming up for renewal that ${riskRenewals.length === 1 ? 'is' : 'are'} currently at risk, representing <strong>$${fmtNum(renewMRR)}/mo</strong> in revenue that could churn. The largest is ${_cl(top)} at $${fmtNum(top.mrr||0)}/mo with a health score of ${top.score} and roughly ${topDays} days until renewal.${heaviestCSM ? ` <strong>${escHtml(heaviestCSM[0])}</strong> is carrying the heaviest load with $${fmtNum(heaviestCSM[1])}/mo of at-risk renewal MRR on their plate.` : ''}${_rrUrgency}`;
     items.push({ priority: _rrPri, icon: icCal,
       color: _rrColor, bg: _rrBg,
-      title: `${riskRenewals.length} At-Risk Renewal${riskRenewals.length>1?'s':''} — $${fmtNum(renewMRR)}/mo`,
-      text: `<strong>${riskRenewals.length}</strong> at-risk renewal${riskRenewals.length>1?'s':''} across ${csmNames.length} CSM${csmNames.length>1?'s':''} — <strong>$${fmtNum(renewMRR)}/mo</strong> MRR at stake`,
+      title: `${riskRenewals.length} At-Risk Renewal${riskRenewals.length>1?'s':''}  - $${fmtNum(renewMRR)}/mo`,
+      text: `<strong>${riskRenewals.length}</strong> at-risk renewal${riskRenewals.length>1?'s':''} across ${csmNames.length} CSM${csmNames.length>1?'s':''}  - <strong>$${fmtNum(renewMRR)}/mo</strong> MRR at stake`,
       detail,
       steps: [
-        'Prioritize outreach to the highest-MRR renewal — ' + _cl(top) + ' ($' + fmtNum(top.mrr||0) + '/mo, ~' + topDays + 'd out)',
+        'Prioritize outreach to the highest-MRR renewal  - ' + _cl(top) + ' ($' + fmtNum(top.mrr||0) + '/mo, ~' + topDays + 'd out)',
         heaviestCSM ? 'Coordinate with <strong>' + escHtml(heaviestCSM[0]) + '</strong> who carries the most at-risk renewal exposure' : 'Align CSMs on renewal save strategies',
         'Flag any accounts with a score below 40 for executive sponsor escalation'
       ] });
   })();
 
   // ── Generator 2: Neglected + declining accounts (cross-team) ─
-  // Accounts declining with no recent contact — the "silent bleed"
+  // Accounts declining with no recent contact  - the "silent bleed"
   (() => {
     const neglected = allAccs.filter(c => c.days != null && c.days >= 14 && getDelta7d(c) < -2);
     if (neglected.length < 2) return;
@@ -24272,22 +24272,22 @@ function renderCSMFocus(mgrList) {
     var _ndColor = _ndSev === 'high' ? 'var(--red)' : 'var(--amber)';
     var _ndBg = _ndSev === 'high' ? 'var(--red-l)' : 'var(--amber-l)';
     var _ndPri = _ndSev === 'high' ? 6 : _ndSev === 'medium' ? 4 : 3;
-    var _ndSuffix = _ndSev === 'high' ? ` This is a systemic issue — too many accounts are bleeding out unnoticed.` : _ndSev === 'medium' ? ` This pattern needs addressing before more accounts slip into critical.` : ` Worth flagging to prevent this from becoming a larger problem.`;
-    const detail = `These accounts are actively losing health points while no one is reaching out — a "silent bleed" that often leads to surprise churn. The worst right now: ` + worst.map(c => `${_cl(c)} is down ${Math.abs(getDelta7d(c))} pts this week with ${c.days} days since last contact ($${fmtNum(c.mrr||0)}/mo)`).join('; ') + `. Together they represent <strong>$${fmtNum(ndMRR)}/mo</strong> in MRR that\'s eroding without anyone noticing.${_ndSuffix}`;
+    var _ndSuffix = _ndSev === 'high' ? ` This is a systemic issue  - too many accounts are bleeding out unnoticed.` : _ndSev === 'medium' ? ` This pattern needs addressing before more accounts slip into critical.` : ` Worth flagging to prevent this from becoming a larger problem.`;
+    const detail = `These accounts are actively losing health points while no one is reaching out  - a "silent bleed" that often leads to surprise churn. The worst right now: ` + worst.map(c => `${_cl(c)} is down ${Math.abs(getDelta7d(c))} pts this week with ${c.days} days since last contact ($${fmtNum(c.mrr||0)}/mo)`).join('; ') + `. Together they represent <strong>$${fmtNum(ndMRR)}/mo</strong> in MRR that\'s eroding without anyone noticing.${_ndSuffix}`;
     items.push({ priority: _ndPri, icon: icPhone,
       color: _ndColor, bg: _ndBg,
       title: `${neglected.length} Neglected & Declining Accounts`,
-      text: `<strong>${neglected.length}</strong> accounts declining with no contact in 14+ days across ${csmsAffected.length} CSM${csmsAffected.length>1?'s':''} — $${fmtNum(ndMRR)}/mo exposed`,
+      text: `<strong>${neglected.length}</strong> accounts declining with no contact in 14+ days across ${csmsAffected.length} CSM${csmsAffected.length>1?'s':''}  - $${fmtNum(ndMRR)}/mo exposed`,
       detail,
       steps: [
-        'Assign same-day outreach for the worst-declining accounts — start with ' + _cl(worst[0]),
-        'Review contact cadence — these accounts have gone 14+ days without a touchpoint while declining',
+        'Assign same-day outreach for the worst-declining accounts  - start with ' + _cl(worst[0]),
+        'Review contact cadence  - these accounts have gone 14+ days without a touchpoint while declining',
         'Set up alerts for accounts that go 10+ days without contact while score is dropping'
       ] });
   })();
 
   // ── Generator 3: CSM performance spread ──────────────────────
-  // Gap between best and worst performing CSM — flags team disparity
+  // Gap between best and worst performing CSM  - flags team disparity
   (() => {
     if (activeMgrs.length < 2) return;
     const sorted = [...activeMgrs].sort((a,b) => b.avgDelta - a.avgDelta);
@@ -24300,7 +24300,7 @@ function renderCSMFocus(mgrList) {
     var _psColor = _psSev === 'high' ? 'var(--red)' : 'var(--amber)';
     var _psBg = _psSev === 'high' ? 'var(--red-l)' : 'var(--amber-l)';
     var _psPri = _psSev === 'high' ? 5 : _psSev === 'medium' ? 3 : 2;
-    var _psSuffix = _psSev === 'high' ? ` A ${spread}-point gap is unusually wide and likely signals a structural issue — coaching, workload, or account complexity mismatch.` : ` A ${spread}-point spread usually signals different engagement approaches, workload issues, or account mix problems worth digging into.`;
+    var _psSuffix = _psSev === 'high' ? ` A ${spread}-point gap is unusually wide and likely signals a structural issue  - coaching, workload, or account complexity mismatch.` : ` A ${spread}-point spread usually signals different engagement approaches, workload issues, or account mix problems worth digging into.`;
     const detail = `There\'s a significant gap in how CSM portfolios are performing this week. <strong>${escHtml(best.name)}</strong> is trending at <strong>${best.avgDelta > 0 ? '+' : ''}${best.avgDelta} pts/wk</strong> with an avg score of ${best.avgScore}, while <strong>${escHtml(worst.name)}</strong> is at <strong>${worst.avgDelta > 0 ? '+' : ''}${worst.avgDelta} pts/wk</strong> with an avg score of ${worst.avgScore}.${_psSuffix}`;
     items.push({ priority: _psPri, icon: icShuffle,
       color: _psColor, bg: _psBg,
@@ -24329,7 +24329,7 @@ function renderCSMFocus(mgrList) {
     // Severity: high if pct ≥20 or any critical, medium if pct ≥12, low otherwise
     var _mcSev = (pct >= 20 || highMRR.some(c => c.status === 'critical')) ? 'high' : pct >= 12 ? 'medium' : 'low';
     var _mcPri = _mcSev === 'high' ? 6 : _mcSev === 'medium' ? 4 : 3;
-    var _mcSuffix = _mcSev === 'high' ? ` This is a top-of-house risk — losing ${highMRR.length === 1 ? 'this account' : 'any of these'} would materially damage the business.` : ` Losing ${highMRR.length === 1 ? 'this account' : 'any of these'} would create a noticeable impact on the overall book of business.`;
+    var _mcSuffix = _mcSev === 'high' ? ` This is a top-of-house risk  - losing ${highMRR.length === 1 ? 'this account' : 'any of these'} would materially damage the business.` : ` Losing ${highMRR.length === 1 ? 'this account' : 'any of these'} would create a noticeable impact on the overall book of business.`;
     const detail = `A large share of portfolio revenue is concentrated in ${highMRR.length === 1 ? 'a single account that\'s' : highMRR.length + ' accounts that are'} currently at risk. ${_cl(topAcct)} alone accounts for <strong>${topPct}%</strong> of total MRR with a health score of ${topAcct.score} (${topAcct.status}), managed by ${escHtml(topAcct.manager||'Unassigned')}.${highMRR.length > 1 ? ' Plus ' + (highMRR.length - 1) + ' more high-value account' + (highMRR.length > 2 ? 's' : '') + ' also at risk.' : ''}${_mcSuffix}`;
     items.push({ priority: _mcPri, icon: icAlert,
       color: 'var(--red)', bg: 'var(--red-l)',
@@ -24339,12 +24339,12 @@ function renderCSMFocus(mgrList) {
       steps: [
         'Assign an executive sponsor to ' + _cl(topAcct) + ' immediately',
         'Build a 30-day save plan with specific adoption and engagement milestones',
-        'Assess pipeline diversification — single-account exposure above 8% of MRR is high risk'
+        'Assess pipeline diversification  - single-account exposure above 8% of MRR is high risk'
       ] });
   })();
 
   // ── Generator 5: Adoption-score disconnect ───────────────────
-  // Accounts with decent scores but dropping adoption — lagging risk
+  // Accounts with decent scores but dropping adoption  - lagging risk
   (() => {
     const disconnected = allAccs.filter(c =>
       c.adoption != null && c.adoption < 25 &&
@@ -24360,16 +24360,16 @@ function renderCSMFocus(mgrList) {
     var _dcColor = _dcSev === 'high' ? 'var(--red)' : 'var(--amber)';
     var _dcBg = _dcSev === 'high' ? 'var(--red-l)' : 'var(--amber-l)';
     var _dcPri = _dcSev === 'high' ? 5 : _dcSev === 'medium' ? 3 : 2;
-    var _dcSuffix = _dcSev === 'high' ? ` This is a widespread adoption gap — these accounts will likely drop scores in the next 1–2 cycles without enablement.` : ` This is a leading indicator of future churn — customers who aren\'t using the product tend to question its value at renewal.`;
+    var _dcSuffix = _dcSev === 'high' ? ` This is a widespread adoption gap  - these accounts will likely drop scores in the next 1–2 cycles without enablement.` : ` This is a leading indicator of future churn  - customers who aren\'t using the product tend to question its value at renewal.`;
     items.push({ priority: _dcPri, icon: icDown,
       color: _dcColor, bg: _dcBg,
       title: `${disconnected.length} Accounts with Low Adoption Risk`,
-      text: `<strong>${disconnected.length}</strong> accounts look healthy but have adoption under 25% — potential lagging risk ($${fmtNum(dcMRR)}/mo)`,
-      detail: `These accounts look healthy on the surface — scores above 60 — but product adoption is under 25%.${_dcSuffix} The most at risk: ` + examples + `. Together they represent <strong>$${fmtNum(dcMRR)}/mo</strong> in MRR that could quietly slip away.`,
+      text: `<strong>${disconnected.length}</strong> accounts look healthy but have adoption under 25%  - potential lagging risk ($${fmtNum(dcMRR)}/mo)`,
+      detail: `These accounts look healthy on the surface  - scores above 60  - but product adoption is under 25%.${_dcSuffix} The most at risk: ` + examples + `. Together they represent <strong>$${fmtNum(dcMRR)}/mo</strong> in MRR that could quietly slip away.`,
       steps: [
-        'Run adoption deep-dives on the lowest-adoption accounts — identify unused features',
+        'Run adoption deep-dives on the lowest-adoption accounts  - identify unused features',
         'Schedule product training or enablement sessions for these accounts',
-        'Treat these as leading indicators — scores may drop soon if adoption stays low'
+        'Treat these as leading indicators  - scores may drop soon if adoption stays low'
       ] });
   })();
 
@@ -24387,12 +24387,12 @@ function renderCSMFocus(mgrList) {
     var _wlColor = _wlSev === 'high' ? 'var(--red)' : 'var(--amber)';
     var _wlBg = _wlSev === 'high' ? 'var(--red-l)' : 'var(--amber-l)';
     var _wlPri = _wlSev === 'high' ? 5 : _wlSev === 'medium' ? 3 : 2;
-    var _wlSuffix = _wlSev === 'high' ? ` This CSM is critically overloaded — immediate redistribution is needed to prevent account losses.` : ` Redistributing some of this load could prevent accounts from slipping through the cracks.`;
+    var _wlSuffix = _wlSev === 'high' ? ` This CSM is critically overloaded  - immediate redistribution is needed to prevent account losses.` : ` Redistributing some of this load could prevent accounts from slipping through the cracks.`;
     const detail = `<strong>${escHtml(csm.name)}</strong> is managing <strong>${csm.atRisk} at-risk accounts</strong> worth $${fmtNum(csm.riskMRR)}/mo, while the team average is only ${Math.round(avgRisk)}. When one CSM is stretched too thin across too many problem accounts, response times suffer and at-risk accounts don\'t get the attention they need.${overloaded.length > 1 ? ' <strong>' + escHtml(overloaded[1].name) + '</strong> is also elevated at ' + overloaded[1].atRisk + ' at-risk accounts.' : ''}${_wlSuffix}`;
     items.push({ priority: _wlPri, icon: icAlert,
       color: _wlColor, bg: _wlBg,
       title: `${escHtml(csm.name)} Carrying ${csm.atRisk} At-Risk Accounts`,
-      text: `Risk accounts are unevenly distributed — <strong>${escHtml(csm.name)}</strong> carries ${Math.round(csm.atRisk / Math.max(1, activeMgrs.reduce((s,m)=>s+m.atRisk,0)) * 100)}% of team's at-risk load`,
+      text: `Risk accounts are unevenly distributed  - <strong>${escHtml(csm.name)}</strong> carries ${Math.round(csm.atRisk / Math.max(1, activeMgrs.reduce((s,m)=>s+m.atRisk,0)) * 100)}% of team's at-risk load`,
       detail,
       steps: [
         'Evaluate redistributing 1–2 at-risk accounts to lower-loaded CSMs',
@@ -24418,7 +24418,7 @@ function renderCSMFocus(mgrList) {
     if (avgContact != null && teamAvgContact != null && avgContact < teamAvgContact - 3) {
       why += ` One likely factor: they\'re making contact every <strong>${avgContact} days</strong> on average, vs <strong>${teamAvgContact} days</strong> team-wide. More frequent touchpoints are clearly correlating with better outcomes.`;
     } else {
-      why += ` Understanding what they\'re doing differently — whether it\'s talk tracks, timing, or prioritization — could help lift the rest of the team.`;
+      why += ` Understanding what they\'re doing differently  - whether it\'s talk tracks, timing, or prioritization  - could help lift the rest of the team.`;
     }
     items.push({ priority: 1, icon: icUp,
       color: 'var(--green)', bg: 'var(--green-l)',
@@ -24426,7 +24426,7 @@ function renderCSMFocus(mgrList) {
       text: `<strong>${escHtml(best.name)}</strong> is driving the strongest portfolio gains at <strong>+${best.avgDelta} pts/wk</strong>`,
       detail: why,
       steps: [
-        'Document what <strong>' + escHtml(best.name) + '</strong> is doing differently — contact cadence, talk tracks, etc.',
+        'Document what <strong>' + escHtml(best.name) + '</strong> is doing differently  - contact cadence, talk tracks, etc.',
         'Have them present their approach at the next team meeting',
         'Apply their methods to underperforming portfolios as a test'
       ] });
@@ -24504,7 +24504,7 @@ function renderCSMFocus(mgrList) {
       steps: [
         'Reach out to <strong>' + escHtml(top.manager||'Unassigned') + '</strong> today for a status update on this account',
         'Review the risk signals (' + signalStr + ') and build a specific action plan for each',
-        'Schedule a customer check-in within 48 hours — don\'t let this one go quiet'
+        'Schedule a customer check-in within 48 hours  - don\'t let this one go quiet'
       ] });
   })();
 
@@ -24546,13 +24546,13 @@ function openFocusDetail(idx) {
     '<div class="fd-section-body">' + it.text + '</div>' +
   '</div>';
 
-  // Why This Matters — callout card
+  // Why This Matters  - callout card
   h += '<div class="fd-callout" style="border-left-color:' + it.color + '">' +
     '<div class="fd-callout-hd">Why This Matters</div>' +
     '<div class="fd-callout-body">' + it.detail + '</div>' +
   '</div>';
 
-  // Next Steps — numbered cards
+  // Next Steps  - numbered cards
   h += '<div class="fd-section">' +
     '<div class="fd-section-hd"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Suggested Next Steps</div>' +
     '<div class="fd-steps-list">' +
@@ -24704,7 +24704,7 @@ function renderCSMActivity(mgrList) {
   wrap.innerHTML = html;
 }
 
-// Drill into a specific CSM's accounts — inline expand/collapse
+// Drill into a specific CSM's accounts  - inline expand/collapse
 function drillCSM(mgrName) {
   const tbody = el('csm-perf-tbody');
   if (!tbody) return;
@@ -24714,7 +24714,7 @@ function drillCSM(mgrName) {
   const parentRow = tbody.querySelector(`tr.csm-row[data-csm="${CSS.escape(mgrName)}"]`);
   if (!parentRow) return;
 
-  // Check if already expanded — toggle off
+  // Check if already expanded  - toggle off
   const existingExpand = parentRow.nextElementSibling;
   if (existingExpand && existingExpand.classList.contains('csm-expand-row')) {
     existingExpand.remove();
@@ -24762,7 +24762,7 @@ function drillCSM(mgrName) {
 
   const hmColor = v => v >= 65 ? 'var(--green)' : v >= 50 ? 'var(--amber)' : 'var(--red)';
   const dColor  = avgDelta > 0 ? 'var(--green)' : avgDelta < 0 ? 'var(--red)' : 'var(--muted)';
-  const dIcon   = avgDelta > 0 ? '▲' : avgDelta < 0 ? '▼' : '—';
+  const dIcon   = avgDelta > 0 ? '▲' : avgDelta < 0 ? '▼' : ' -';
 
   let summaryHTML = `<div class="csm-drill-stats">
     <div class="csm-drill-stat">
@@ -24825,15 +24825,15 @@ function drillCSM(mgrName) {
     <tbody>${sorted.map(c => {
       const renewStr = c.renewal_date
         ? new Date(c.renewal_date).toLocaleDateString()
-        : (c.renewal ? c.renewal + 'mo' : '—');
+        : (c.renewal ? c.renewal + 'mo' : ' -');
       const isOverdue = c.days != null && c.days >= OVERDUE_DAYS;
       const delta = getDelta7d(c);
       const trendHTML = delta > 0 ? `<span class="csm-trend up" style="font-size:var(--fs-xs);padding:1px 6px">▲ +${delta}</span>`
         : delta < 0 ? `<span class="csm-trend dn" style="font-size:var(--fs-xs);padding:1px 6px">▼ ${delta}</span>`
-        : `<span class="csm-trend flat" style="font-size:var(--fs-xs);padding:1px 6px">— 0</span>`;
+        : `<span class="csm-trend flat" style="font-size:var(--fs-xs);padding:1px 6px"> - 0</span>`;
       const contactCell = isOverdue
         ? `<span style="font-weight:700;color:var(--red)">${c.days}d ago</span> <span class="csm-overdue">OVERDUE</span>`
-        : (c.days != null ? c.days + 'd ago' : '—');
+        : (c.days != null ? c.days + 'd ago' : ' -');
       return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
         <td><strong>${escHtml(c.name)}</strong></td>
         <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${c.score>=65?'var(--green)':c.score>=50?'var(--amber)':'var(--red)'};background:${c.score>=65?'var(--green-l)':c.score>=50?'var(--amber-l)':'var(--red-l)'}">${c.score}</span></td>
@@ -24842,7 +24842,7 @@ function drillCSM(mgrName) {
         <td>$${fmtNum(c.mrr||0)}</td>
         <td>${contactCell}</td>
         <td>${renewStr}</td>
-        <td style="font-size:var(--fs-base);color:var(--muted)">${c.lifecycle || '—'}</td>
+        <td style="font-size:var(--fs-base);color:var(--muted)">${c.lifecycle || ' -'}</td>
       </tr>`;
     }).join('')}</tbody>
   </table>`;
@@ -24984,11 +24984,11 @@ function _renderCalendar() {
   html += '<div id="cal-search-results" class="cal-search-results" style="display:none"></div>';
   html += '</div>';
 
-  // Context bar — show last/next call when a customer is selected
+  // Context bar  - show last/next call when a customer is selected
   if (_calCustFilter) {
     var fc = allActive.find(function(c) { return c.id === _calCustFilter; });
     if (fc) {
-      var _fmtD = function(d) { return d ? new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) : '—'; };
+      var _fmtD = function(d) { return d ? new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) : ' -'; };
       // Find last past touch from history (most recent)
       var lastTouch = '';
       if (fc.touch_history && fc.touch_history.length) {
@@ -25034,7 +25034,7 @@ function _renderCalendar() {
     // Build summary items
     const lines = [];
 
-    // Today's calls — sort by time (earliest first)
+    // Today's calls  - sort by time (earliest first)
     var _evTime = function(e) {
       if (e.histIdx != null && e.customer.touch_history && e.customer.touch_history[e.histIdx]) return e.customer.touch_history[e.histIdx].time || '';
       if (e.isNextTouch) return e.customer.next_touch_time || '';
@@ -25047,14 +25047,14 @@ function _renderCalendar() {
         return '<strong>' + t + escHtml(e.customer.name) + '</strong>';
       }).join(', ');
       lines.push({ icon: 'phone', accent: 'var(--blue)',
-        text: todayTouches.length + ' call' + (todayTouches.length > 1 ? 's' : '') + ' scheduled today — ' + names + (todayTouches.length > 3 ? ' +' + (todayTouches.length - 3) + ' more' : '') });
+        text: todayTouches.length + ' call' + (todayTouches.length > 1 ? 's' : '') + ' scheduled today  - ' + names + (todayTouches.length > 3 ? ' +' + (todayTouches.length - 3) + ' more' : '') });
     }
 
     // Today's renewals
     if (todayRenewals.length) {
       const names = todayRenewals.map(e => '<strong>' + escHtml(e.customer.name) + '</strong> ($' + fmtNum(e.customer.mrr||0) + '/mo)').join(', ');
       lines.push({ icon: 'alert', accent: 'var(--purple)',
-        text: todayRenewals.length + ' renewal' + (todayRenewals.length > 1 ? 's' : '') + ' due today — ' + names });
+        text: todayRenewals.length + ' renewal' + (todayRenewals.length > 1 ? 's' : '') + ' due today  - ' + names });
     }
 
     // Overdue contacts
@@ -25062,7 +25062,7 @@ function _renderCalendar() {
       const sorted = todayOverdue.slice().sort((a,b) => (b.daysSince||0) - (a.daysSince||0));
       const top3 = sorted.slice(0,3).map(e => escHtml(e.customer.name) + ' (' + (e.daysSince||30) + 'd)').join(', ');
       lines.push({ icon: 'overdue', accent: 'var(--red)',
-        text: '<strong>' + todayOverdue.length + '</strong> account' + (todayOverdue.length > 1 ? 's' : '') + ' overdue for contact — ' + top3 + (todayOverdue.length > 3 ? ' +' + (todayOverdue.length - 3) + ' more' : '') });
+        text: '<strong>' + todayOverdue.length + '</strong> account' + (todayOverdue.length > 1 ? 's' : '') + ' overdue for contact  - ' + top3 + (todayOverdue.length > 3 ? ' +' + (todayOverdue.length - 3) + ' more' : '') });
     }
 
     // Rest of this week (Sun–Sat)
@@ -25072,7 +25072,7 @@ function _renderCalendar() {
         return escHtml(e.customer.name) + ' (' + d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) + ')';
       }).join(', ');
       lines.push({ icon: 'cal', accent: 'var(--purple)',
-        text: upcomingRenewals.length + ' renewal' + (upcomingRenewals.length > 1 ? 's' : '') + ' later this week — ' + names });
+        text: upcomingRenewals.length + ' renewal' + (upcomingRenewals.length > 1 ? 's' : '') + ' later this week  - ' + names });
     }
 
     if (upcomingTouches.length) {
@@ -25504,7 +25504,7 @@ async function calToggleTouchStatus(custId, histIdx, newStatus) {
     next_touch_time: c.next_touch_time
   }).eq('id', c.id);
   if (error) {
-    toast('Failed to update — ' + error.message, 'error');
+    toast('Failed to update  - ' + error.message, 'error');
   }
   renderCalendar();
 }
@@ -25521,7 +25521,7 @@ async function calRemoveTouch(custId, histIdx) {
     next_touch_time: c.next_touch_time
   }).eq('id', c.id);
   if (error) {
-    toast('Failed to remove — ' + error.message, 'error');
+    toast('Failed to remove  - ' + error.message, 'error');
   }
   renderCalendar();
 }
@@ -25551,7 +25551,7 @@ async function calMarkScheduledMissed(custId) {
     touch_history: JSON.stringify(c.touch_history)
   }).eq('id', c.id);
   if (error) {
-    toast('Failed to update — ' + error.message, 'error');
+    toast('Failed to update  - ' + error.message, 'error');
   }
   renderCalendar();
 }
@@ -25577,7 +25577,7 @@ async function calRemoveScheduled(custId) {
     touch_history: JSON.stringify(c.touch_history)
   }).eq('id', c.id);
   if (error) {
-    toast('Failed to remove — ' + error.message, 'error');
+    toast('Failed to remove  - ' + error.message, 'error');
   }
   renderCalendar();
 }
@@ -25669,7 +25669,7 @@ async function calSaveSchedule(dateStr) {
   var schedDate = new Date(dateStr + 'T12:00:00');
   var isPast = schedDate <= today;
 
-  // Always add to touch_history — supports multiple calls per customer
+  // Always add to touch_history  - supports multiple calls per customer
   if (!c.touch_history) c.touch_history = [];
   c.touch_history.push({
     date: dateStr,
@@ -25696,7 +25696,7 @@ async function calSaveSchedule(dateStr) {
     toast('Call scheduled for ' + c.name, 'success');
   } catch(e) {
     console.error('Schedule save failed:', e);
-    toast('Saved locally — sync failed', 'warn');
+    toast('Saved locally  - sync failed', 'warn');
   }
 
   _calSchedCustId = '';
@@ -25737,9 +25737,9 @@ async function calSaveSentiment(custId) {
   var note = noteEl ? noteEl.value.trim() : '';
   c.sentiment = c.sentiment || [];
   c.sentiment.unshift({ val: val, note: note, date: new Date().toISOString() });
-  logAudit('sentiment_logged', c.id, c.name, { summary: 'Sentiment: ' + val + (note ? ' — "' + note.substring(0, 80) + '"' : '') });
+  logAudit('sentiment_logged', c.id, c.name, { summary: 'Sentiment: ' + val + (note ? '  - "' + note.substring(0, 80) + '"' : '') });
   save(c).then(function() { toast('Sentiment logged', 'success'); })
-         .catch(function(e) { console.error('Sentiment save failed:', e); toast('Saved locally — sync failed', 'warn'); });
+         .catch(function(e) { console.error('Sentiment save failed:', e); toast('Saved locally  - sync failed', 'warn'); });
   _calPendingSentiment[custId] = null;
   var form = el('cal-log-' + custId);
   if (form) form.style.display = 'none';
@@ -25843,7 +25843,7 @@ function auditSearchFilter(val) {
   renderAuditLog();
 }
 
-// logAudit — fire-and-forget insert to Supabase
+// logAudit  - fire-and-forget insert to Supabase
 function logAudit(action, customerId, customerName, details) {
   if (!currentUser) return;
   const d = { ...(details || {}), user_email: currentUser.email || '' };
@@ -25861,7 +25861,7 @@ function logAudit(action, customerId, customerName, details) {
   });
 }
 
-// loadAuditLog — fetch from Supabase with pagination + filter
+// loadAuditLog  - fetch from Supabase with pagination + filter
 async function loadAuditLog(forceRefresh) {
   if (forceRefresh) { auditLogs = []; auditOffset = 0; }
 
@@ -25991,7 +25991,7 @@ function renderAuditLog() {
     /* ── Parse details + extract user email ── */
     let parsedDetails = {};
     try { parsedDetails = typeof e.details === 'string' ? JSON.parse(e.details) : (e.details || {}); } catch {}
-    const userEmail = parsedDetails.user_email || currentUser?.email || '—';
+    const userEmail = parsedDetails.user_email || currentUser?.email || ' -';
 
     /* ── Customer / scope column ── */
     let name;
@@ -26011,7 +26011,7 @@ function renderAuditLog() {
       else if (backupActions.includes(e.action))    name = '<span style="color:var(--muted);font-style:italic">Backup</span>';
       else if (accountActions.includes(e.action))   name = '<span style="color:var(--muted);font-style:italic">Account</span>';
       else if (e.action === 'bulk_tag' || e.action === 'bulk_lifecycle' || e.action === 'bulk_delete') name = '<span style="color:var(--muted);font-style:italic">Bulk Action</span>';
-      else                                          name = '<span style="color:var(--subtle)">—</span>';
+      else                                          name = '<span style="color:var(--subtle)"> -</span>';
     }
 
     /* ── Details column (exclude user_email from display) ── */
@@ -26021,7 +26021,7 @@ function renderAuditLog() {
       delete d.user_email;
       const keys = Object.keys(d);
       if (keys.length === 0) {
-        detailStr = '<span style="color:var(--subtle)">—</span>';
+        detailStr = '<span style="color:var(--subtle)"> -</span>';
       } else if (d.summary) {
         detailStr = escHtml(d.summary);
       } else {
@@ -26034,7 +26034,7 @@ function renderAuditLog() {
         detailStr = parts.join(' &nbsp;·&nbsp; ');
       }
     } catch {
-      detailStr = '<span style="color:var(--subtle)">—</span>';
+      detailStr = '<span style="color:var(--subtle)"> -</span>';
     }
 
     return `<tr>
@@ -26096,7 +26096,7 @@ async function crmImportPull() {
   if (!platform) { toast('Select a platform first', 'error'); return; }
 
   const connected = _integrationCache[platform]?.status === 'connected';
-  if (!connected) { toast(platform + ' is not connected — go to Settings → Integrations', 'error'); return; }
+  if (!connected) { toast(platform + ' is not connected  - go to Settings → Integrations', 'error'); return; }
 
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-sm"></span> Pulling…'; }
   if (status) status.innerHTML = '<span style="color:var(--muted)">Pulling historical data from ' + platform + '…</span>';
@@ -26107,7 +26107,7 @@ async function crmImportPull() {
   if (result) {
     if (status) status.innerHTML = typeof buildHistoryResultHTML === 'function' ? buildHistoryResultHTML(result) : `<span style="color:var(--green)">✓ ${result.matched} customers, ${result.totalAdded} snapshots</span>`;
   } else {
-    if (status) status.innerHTML = '<span style="color:var(--red)">Pull failed — check console for details</span>';
+    if (status) status.innerHTML = '<span style="color:var(--red)">Pull failed  - check console for details</span>';
   }
 }
 
@@ -26127,8 +26127,8 @@ function _updateCsvGuideBadge() {
 function _renderCsvGuide() {
   _renderGuide('csv-guide', 'iqc_csv_guide_dismissed',
     '<strong>How to use CSV Import</strong><br>' +
-    '<strong>No integration?</strong> Upload a full bulksheet with all your customer data — names, MRR, signals, etc. You can also add customers one at a time via <a href="#" onclick="event.stopPropagation();nav(\'score\')" style="color:var(--teal);font-weight:600">Score a Customer</a>.<br>' +
-    '<strong>Using an integration?</strong> You only need to import customer names here. Keep the other columns blank — once your integration is connected, run a sync and it will fill in MRR, tickets, NPS, and other metrics automatically for matching customers.<br>' +
+    '<strong>No integration?</strong> Upload a full bulksheet with all your customer data  - names, MRR, signals, etc. You can also add customers one at a time via <a href="#" onclick="event.stopPropagation();nav(\'score\')" style="color:var(--teal);font-weight:600">Score a Customer</a>.<br>' +
+    '<strong>Using an integration?</strong> You only need to import customer names here. Keep the other columns blank  - once your integration is connected, run a sync and it will fill in MRR, tickets, NPS, and other metrics automatically for matching customers.<br>' +
     '<strong>Historical data:</strong> Put a date in the <strong>date</strong> column (e.g. <code style="font-size:.8em">2025-12-01</code>) to import that row as a historical snapshot. Leave the date blank to update the customer\'s current signals. Great for backfilling trends from other systems or exported data.<br>' +
     '<strong>Tip:</strong> Download the <strong>Template CSV</strong> above to see all supported columns and the expected format.<br>' +
     '<strong>Note:</strong> You can also pull in customers directly from your integration by enabling the <strong>Import new accounts</strong> toggle in <a href="#" onclick="event.stopPropagation();nav(\'settings\');setTimeout(()=>cfgTab(\'api\'),100)" style="color:var(--teal);font-weight:600">Settings → Integrations</a>.');
@@ -26300,7 +26300,7 @@ function showColumnMap() {
         <div style="font-size:.8rem;font-weight:600">${meta.label}${meta.required?' *':''}</div>
         <div class="col-map__arrow">→</div>
         <select id="cm-${field}">
-          <option value="-1">— skip —</option>
+          <option value="-1"> - skip  -</option>
           ${opts}
         </select>
       </div>`;
@@ -26386,7 +26386,7 @@ function applyMapping() {
     };
   }).filter(r => r.name);
 
-  // Show preview — count new vs updates vs history
+  // Show preview  - count new vs updates vs history
   const today = new Date().toISOString().slice(0,10);
   const _historyCount = parsed.filter(r => r._snapshot_date && r._snapshot_date < today).length;
   const currentRows = parsed.filter(r => !r._snapshot_date || r._snapshot_date >= today);
@@ -26420,12 +26420,12 @@ function applyMapping() {
           : '<span style="font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:8px;background:rgba(22,163,74,.12);color:#16a34a">NEW</span>';
         return `<tr>
           <td>${tag}</td>
-          ${hasDateCol?`<td style="font-size:var(--fs-sm);color:var(--muted)">${r._snapshot_date||'—'}</td>`:''}
+          ${hasDateCol?`<td style="font-size:var(--fs-sm);color:var(--muted)">${r._snapshot_date||' -'}</td>`:''}
           <td>${escHtml(r.name)}</td>
           <td><strong>${score}</strong></td>
-          <td>${r.mrr?'$'+fmtNum(r.mrr):'—'}</td>
-          <td>${r.nps != null ? r.nps : '—'}</td>
-          <td>${r.csat != null ? r.csat : '—'}</td>
+          <td>${r.mrr?'$'+fmtNum(r.mrr):' -'}</td>
+          <td>${r.nps != null ? r.nps : ' -'}</td>
+          <td>${r.csat != null ? r.csat : ' -'}</td>
           <td>${r.tier}</td>
         </tr>`;
       }).join('')}
@@ -26612,7 +26612,7 @@ async function importCSV() {
     if (historyAdded) parts.push(`${historyAdded} history snapshots`);
     toast(`Done: ${parts.join(', ')}`, 'success');
   } catch(e) {
-    toast('Import finished — some records may not have synced', 'warn');
+    toast('Import finished  - some records may not have synced', 'warn');
   } finally {
     setLoading(false);
     refreshMgrDropdown();
@@ -26706,7 +26706,7 @@ function refreshClientDropdown() {
 
 // Populate client <select> dropdowns in create/edit user modals
 function refreshClientSelects() {
-  const opts = `<option value="">— No client assigned —</option>` +
+  const opts = `<option value=""> - No client assigned  -</option>` +
     adminClients.map(c => `<option value="${escHtml(c.id)}">${escHtml(c.name)}</option>`).join('');
   ['cu-client','eu-client'].forEach(id => {
     const sel = document.getElementById(id);
@@ -26842,7 +26842,7 @@ async function renderClients() {
   const userCounts = {};
   profiles.forEach(p => { if (p.client_id) userCounts[p.client_id] = (userCounts[p.client_id]||0)+1; });
 
-  // Count customers per client — try client_id first, fall back to user→client mapping
+  // Count customers per client  - try client_id first, fall back to user→client mapping
   const custCounts = {};
   let totalCustomers = 0;
   try {
@@ -26872,7 +26872,7 @@ async function renderClients() {
       <td>${tierBadgeHTML(c.plan_tier || 'starter')}</td>
       <td>${userCounts[c.id] || 0}</td>
       <td><strong>${cc}</strong></td>
-      <td style="color:var(--muted);font-size:var(--fs-base)">${escHtml(c.notes || '—')}</td>
+      <td style="color:var(--muted);font-size:var(--fs-base)">${escHtml(c.notes || ' -')}</td>
       <td>
         <div style="display:flex;gap:4px">
           <button class="btn btn-xs btn-outline" onclick="openEditClientModal('${escHtml(c.id)}','${escHtml(c.name)}',\`${escHtml(c.notes||'')}\`,'${escHtml(c.plan_tier||'starter')}')">Edit</button>
@@ -26971,7 +26971,7 @@ async function adminDeleteClient(id, name) {
 // Uses the `profiles` Supabase table to track user metadata.
 // Admin creates users via signUp, then stores business name in `user_profiles` table.
 // Listing users: admin reads all rows from user_profiles (RLS allows admin to see all).
-// Deleting users: removes from user_profiles + calls Supabase admin delete (requires service key — we soft-delete via profile flag).
+// Deleting users: removes from user_profiles + calls Supabase admin delete (requires service key  - we soft-delete via profile flag).
 
 async function renderUsers() {
   if (!isAdmin()) { nav('homebase'); return; }
@@ -27018,11 +27018,11 @@ async function renderUsers() {
       const email     = escHtml(p.email || '');
       const clientId  = p.client_id || '';
       const client    = adminClients.find(c => c.id === clientId);
-      const clientName = client ? escHtml(client.name) : '<span style="color:var(--subtle);font-style:italic">—</span>';
+      const clientName = client ? escHtml(client.name) : '<span style="color:var(--subtle);font-style:italic"> -</span>';
       return `
         <tr>
           <td>
-            <strong>${email || '—'}</strong>
+            <strong>${email || ' -'}</strong>
             ${isSelf ? '<span style="margin-left:6px;font-size:var(--fs-sm);background:var(--blue-l);color:var(--blue);padding:1px 6px;border-radius:4px;font-weight:700">YOU</span>' : ''}
           </td>
           <td>${clientName}</td>
@@ -27245,7 +27245,7 @@ async function ensureUserProfile(user) {
     const { data: rows } = await sb.from('user_profiles').select('user_id, role, client_id').eq('user_id', user.id).limit(1);
     const data = rows && rows.length ? rows[0] : null;
     if (!data) {
-      // Not registered yet — create profile row
+      // Not registered yet  - create profile row
       await sb.from('user_profiles').insert({
         user_id:       user.id,
         email:         user.email,
@@ -27262,7 +27262,7 @@ async function ensureUserProfile(user) {
     }
     // Re-apply admin UI now that role is confirmed from server
     updateUserUI(user);
-  } catch(e) { /* silent — non-critical */ }
+  } catch(e) { /* silent  - non-critical */ }
 }
 
 // ─── WELCOME MODAL (first-time users) ────────────────────────
@@ -27298,7 +27298,7 @@ function _checkUserSwitch(userId) {
     window._manualCSMs = [];
     auditLogs = []; auditOffset = 0;
     loadSettings(); // reset all in-memory state to defaults
-    if (prev) console.info('[auth] User switch detected — cleared stale cache');
+    if (prev) console.info('[auth] User switch detected  - cleared stale cache');
   }
   localStorage.setItem('iqc_uid', userId);
 }
@@ -27309,12 +27309,12 @@ function _checkUserSwitch(userId) {
   loadSettings();
 
   // ── Step 1: Check for existing session instantly ──────────
-  // getSession() reads from localStorage — no network call needed.
+  // getSession() reads from localStorage  - no network call needed.
   // This prevents the flicker of showing the auth gate on refresh.
   const { data: { session: existingSession } } = await sb.auth.getSession();
 
   if (existingSession?.user) {
-    // Already logged in — show app immediately
+    // Already logged in  - show app immediately
     currentUser = existingSession.user;
     _checkUserSwitch(currentUser.id);
     hideAuthGate();
@@ -27322,7 +27322,7 @@ function _checkUserSwitch(userId) {
     _updateAllGuideBadges();
     await ensureUserProfile(currentUser); // register in user_profiles + resolve _userClientId before loading data
 
-    // Load from cache instantly — no spinner
+    // Load from cache instantly  - no spinner
     let hasCached = false;
     try {
       const cached = localStorage.getItem('iqc_customers_cache');
@@ -27353,7 +27353,7 @@ function _checkUserSwitch(userId) {
     renderSettings();
     startPolling();
 
-    // Sync from Supabase — only show spinner if no cache (first ever load)
+    // Sync from Supabase  - only show spinner if no cache (first ever load)
     if (!hasCached) setLoading(true);
     try {
       await loadSettingsFromSupabase();
@@ -27362,10 +27362,10 @@ function _checkUserSwitch(userId) {
     } catch(err) {
       console.error('Supabase sync error:', err?.message || err, err);
       if (err?.message?.includes('quota')) {
-        console.warn('[sync] localStorage quota — clearing cache');
+        console.warn('[sync] localStorage quota  - clearing cache');
         try { localStorage.removeItem('iqc_customers_cache'); } catch(e2) {}
       } else {
-        toast('Could not reach Supabase — showing cached data', 'warn');
+        toast('Could not reach Supabase  - showing cached data', 'warn');
       }
     } finally {
       setLoading(false);
@@ -27399,16 +27399,16 @@ function _checkUserSwitch(userId) {
     }
 
   } else {
-    // No session — show auth gate
+    // No session  - show auth gate
     showAuthGate();
   }
 
   // ── Step 2: Listen for future auth changes (sign in / sign out) ──
   sb.auth.onAuthStateChange(async (event, session) => {
-    // Ignore INITIAL_SESSION — already handled above via getSession()
+    // Ignore INITIAL_SESSION  - already handled above via getSession()
     if (event === 'INITIAL_SESSION') return;
 
-    // TOKEN_REFRESHED fires silently when returning to the tab — don't reload
+    // TOKEN_REFRESHED fires silently when returning to the tab  - don't reload
     if (event === 'TOKEN_REFRESHED') {
       currentUser = session?.user || null;
       silentSync(); // background refresh, no spinner
@@ -27425,7 +27425,7 @@ function _checkUserSwitch(userId) {
       return;
     }
 
-    // SIGNED_IN can fire on token refresh after expiry — if we already have data
+    // SIGNED_IN can fire on token refresh after expiry  - if we already have data
     // AND it's the same user, treat it like TOKEN_REFRESHED (silent sync, no overlay).
     // If it's a different user, fall through to full sign-in flow.
     const prevUid = localStorage.getItem('iqc_uid');
@@ -27452,10 +27452,10 @@ function _checkUserSwitch(userId) {
     } catch(err) {
       console.error('Supabase sync error:', err?.message || err, err);
       if (err?.message?.includes('quota')) {
-        console.warn('[sync] localStorage quota — clearing cache');
+        console.warn('[sync] localStorage quota  - clearing cache');
         try { localStorage.removeItem('iqc_customers_cache'); } catch(e2) {}
       } else {
-        toast('Could not reach Supabase — showing cached data', 'warn');
+        toast('Could not reach Supabase  - showing cached data', 'warn');
       }
     } finally {
       setLoading(false);

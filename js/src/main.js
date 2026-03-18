@@ -31,7 +31,7 @@ function _checkUserSwitch(userId) {
     window._manualCSMs = [];
     auditLogs = []; auditOffset = 0;
     loadSettings(); // reset all in-memory state to defaults
-    if (prev) console.info('[auth] User switch detected — cleared stale cache');
+    if (prev) console.info('[auth] User switch detected  - cleared stale cache');
   }
   localStorage.setItem('iqc_uid', userId);
 }
@@ -42,12 +42,12 @@ function _checkUserSwitch(userId) {
   loadSettings();
 
   // ── Step 1: Check for existing session instantly ──────────
-  // getSession() reads from localStorage — no network call needed.
+  // getSession() reads from localStorage  - no network call needed.
   // This prevents the flicker of showing the auth gate on refresh.
   const { data: { session: existingSession } } = await sb.auth.getSession();
 
   if (existingSession?.user) {
-    // Already logged in — show app immediately
+    // Already logged in  - show app immediately
     currentUser = existingSession.user;
     _checkUserSwitch(currentUser.id);
     hideAuthGate();
@@ -55,7 +55,7 @@ function _checkUserSwitch(userId) {
     _updateAllGuideBadges();
     await ensureUserProfile(currentUser); // register in user_profiles + resolve _userClientId before loading data
 
-    // Load from cache instantly — no spinner
+    // Load from cache instantly  - no spinner
     let hasCached = false;
     try {
       const cached = localStorage.getItem('iqc_customers_cache');
@@ -86,7 +86,7 @@ function _checkUserSwitch(userId) {
     renderSettings();
     startPolling();
 
-    // Sync from Supabase — only show spinner if no cache (first ever load)
+    // Sync from Supabase  - only show spinner if no cache (first ever load)
     if (!hasCached) setLoading(true);
     try {
       await loadSettingsFromSupabase();
@@ -95,10 +95,10 @@ function _checkUserSwitch(userId) {
     } catch(err) {
       console.error('Supabase sync error:', err?.message || err, err);
       if (err?.message?.includes('quota')) {
-        console.warn('[sync] localStorage quota — clearing cache');
+        console.warn('[sync] localStorage quota  - clearing cache');
         try { localStorage.removeItem('iqc_customers_cache'); } catch(e2) {}
       } else {
-        toast('Could not reach Supabase — showing cached data', 'warn');
+        toast('Could not reach Supabase  - showing cached data', 'warn');
       }
     } finally {
       setLoading(false);
@@ -132,16 +132,16 @@ function _checkUserSwitch(userId) {
     }
 
   } else {
-    // No session — show auth gate
+    // No session  - show auth gate
     showAuthGate();
   }
 
   // ── Step 2: Listen for future auth changes (sign in / sign out) ──
   sb.auth.onAuthStateChange(async (event, session) => {
-    // Ignore INITIAL_SESSION — already handled above via getSession()
+    // Ignore INITIAL_SESSION  - already handled above via getSession()
     if (event === 'INITIAL_SESSION') return;
 
-    // TOKEN_REFRESHED fires silently when returning to the tab — don't reload
+    // TOKEN_REFRESHED fires silently when returning to the tab  - don't reload
     if (event === 'TOKEN_REFRESHED') {
       currentUser = session?.user || null;
       silentSync(); // background refresh, no spinner
@@ -158,7 +158,7 @@ function _checkUserSwitch(userId) {
       return;
     }
 
-    // SIGNED_IN can fire on token refresh after expiry — if we already have data
+    // SIGNED_IN can fire on token refresh after expiry  - if we already have data
     // AND it's the same user, treat it like TOKEN_REFRESHED (silent sync, no overlay).
     // If it's a different user, fall through to full sign-in flow.
     const prevUid = localStorage.getItem('iqc_uid');
@@ -185,10 +185,10 @@ function _checkUserSwitch(userId) {
     } catch(err) {
       console.error('Supabase sync error:', err?.message || err, err);
       if (err?.message?.includes('quota')) {
-        console.warn('[sync] localStorage quota — clearing cache');
+        console.warn('[sync] localStorage quota  - clearing cache');
         try { localStorage.removeItem('iqc_customers_cache'); } catch(e2) {}
       } else {
-        toast('Could not reach Supabase — showing cached data', 'warn');
+        toast('Could not reach Supabase  - showing cached data', 'warn');
       }
     } finally {
       setLoading(false);

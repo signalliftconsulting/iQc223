@@ -90,7 +90,7 @@ async function authSignOut() {
   trash       = [];
   // Clear all cached data to prevent leakage to next user
   Object.keys(localStorage).filter(k => k.startsWith('iqc_')).forEach(k => localStorage.removeItem(k));
-  // Show login immediately — don't wait for Supabase
+  // Show login immediately  - don't wait for Supabase
   showAuthGate();
   authTab('login');
   toast('Signed out', 'default');
@@ -125,7 +125,7 @@ function updateUserUI(user) {
     if (sbName) sbName.textContent = user.email.split('@')[0].replace(/[._]/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
     if (sbPlan) sbPlan.textContent = user.email;
 
-    // Show admin nav items — uses isAdmin() which checks server-fetched role first
+    // Show admin nav items  - uses isAdmin() which checks server-fetched role first
     const admin = isAdmin();
     ['ni-admin-sep','ni-admin-label','ni-clients','ni-users'].forEach(id => {
       const el2 = document.getElementById(id);

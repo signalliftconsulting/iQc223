@@ -23,7 +23,7 @@ function _segAvgRow(rows) {
   const scClr = avgSc >= (thresholds.healthy || 80) ? 'var(--green)' : avgSc >= (thresholds.watch || 65) ? 'var(--amber)' : avgSc >= (thresholds.risk || 50) ? 'var(--orange,#ea580c)' : 'var(--red)';
   const scBg  = avgSc >= 65 ? 'var(--green-l)' : avgSc >= 50 ? 'var(--amber-l)' : 'var(--red-l)';
   const tCls  = avgDt > 0 ? 'up' : avgDt < 0 ? 'dn' : 'flat';
-  const tIco  = avgDt > 0 ? '▲' : avgDt < 0 ? '▼' : '—';
+  const tIco  = avgDt > 0 ? '▲' : avgDt < 0 ? '▼' : ' -';
   const tTxt  = avgDt > 0 ? '+' + avgDt : '' + avgDt;
   return `<tr style="background:linear-gradient(90deg,rgba(59,130,246,.10),rgba(59,130,246,.04));font-weight:700;font-size:1.05em;border-bottom:2.5px solid var(--blue,#3b82f6);letter-spacing:.01em">
     <td style="color:var(--blue);font-weight:800;text-transform:uppercase;font-size:var(--fs-xs);letter-spacing:.08em">Avg Across Segments</td>
@@ -32,7 +32,7 @@ function _segAvgRow(rows) {
     <td><span class="csm-trend ${tCls}" style="font-size:var(--fs-sm);padding:2px 8px;font-weight:800">${tIco} ${tTxt}</span></td>
     <td style="font-size:var(--fs-lg)">$${fmtNum(avgMrr)}</td>
     <td><span style="font-weight:800;color:${avgRPct > 30 ? 'var(--red)' : avgRPct > 0 ? 'var(--amber)' : 'var(--green)'}">${avgRPct}%</span> <span style="font-size:var(--fs-sm);color:var(--muted)">(${avgRisk})</span></td>
-    <td style="font-size:var(--fs-lg)">${avgD != null ? avgD + 'd' : '—'}</td>
+    <td style="font-size:var(--fs-lg)">${avgD != null ? avgD + 'd' : ' -'}</td>
     <td style="font-size:var(--fs-lg)">${avgRen}</td>
     <td></td>
   </tr>`;
@@ -306,11 +306,11 @@ function renderSegKPIs(segments, active) {
     </div>
     <div class="dash-kpi-card ${hrColor}">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.alert}</div><span class="dash-kpi-label">Highest-Risk <span class="info-tip tip-below" data-tip="Segment with the highest percentage of Critical/Risk customers (min 2 accounts).">\u24d8</span></span></div>
-      <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.4rem${_segHrValColor ? ';color:' + _segHrValColor : ''}">${highestRisk ? escHtml(segDisplayLabel(highestRisk.tag)) : '—'}</div><div class="dash-kpi-sub">${highestRisk ? highestRisk.riskPct + '% at risk' : 'No data'}</div></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.4rem${_segHrValColor ? ';color:' + _segHrValColor : ''}">${highestRisk ? escHtml(segDisplayLabel(highestRisk.tag)) : ' -'}</div><div class="dash-kpi-sub">${highestRisk ? highestRisk.riskPct + '% at risk' : 'No data'}</div></div>
     </div>
     <div class="dash-kpi-card dash-kpi-green">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${icons.trendUp}</div><span class="dash-kpi-label">Fastest-Growing <span class="info-tip tip-below" data-tip="Segment with the highest average health score improvement.">\u24d8</span></span></div>
-      <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.4rem${_segGrowValColor ? ';color:' + _segGrowValColor : ''}">${fastestGrow ? escHtml(segDisplayLabel(fastestGrow.tag)) : '—'}</div><div class="dash-kpi-sub">${fastestGrow ? (fastestGrow.avgDelta >= 0 ? '+' : '') + fastestGrow.avgDelta + ' avg trend' : 'No data'}</div></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.4rem${_segGrowValColor ? ';color:' + _segGrowValColor : ''}">${fastestGrow ? escHtml(segDisplayLabel(fastestGrow.tag)) : ' -'}</div><div class="dash-kpi-sub">${fastestGrow ? (fastestGrow.avgDelta >= 0 ? '+' : '') + fastestGrow.avgDelta + ' avg trend' : 'No data'}</div></div>
     </div>
   `;
 }
@@ -390,9 +390,9 @@ function renderTierTable(active, deltaCache) {
       </tr></thead>
       <tbody id="seg-table-tbody">${_segAvgRow(sorted)}${sorted.map(t => {
         const trendCls = t.avgDelta > 0 ? 'up' : t.avgDelta < 0 ? 'dn' : 'flat';
-        const trendIcon = t.avgDelta > 0 ? '▲' : t.avgDelta < 0 ? '▼' : '—';
+        const trendIcon = t.avgDelta > 0 ? '▲' : t.avgDelta < 0 ? '▼' : ' -';
         const trendTxt = t.avgDelta > 0 ? '+' + t.avgDelta : '' + t.avgDelta;
-        const contactStr = t.avgDays != null ? t.avgDays + 'd' : '—';
+        const contactStr = t.avgDays != null ? t.avgDays + 'd' : ' -';
         return `<tr class="seg-table-row" data-tier="${t.key}" onclick="drillTier('${t.key}')" style="cursor:pointer">
           <td><span class="tier-pill ${t.pill}">${t.label}</span></td>
           <td>${t.count}</td>
@@ -456,7 +456,7 @@ function buildTierDrillHTML(tierKey) {
   const totalMRR = tier.totalMRR;
   const hmColor = v => v >= 65 ? 'var(--green)' : v >= 50 ? 'var(--amber)' : 'var(--red)';
   const dColor = tier.avgDelta > 0 ? 'var(--green)' : tier.avgDelta < 0 ? 'var(--red)' : 'var(--muted)';
-  const dIcon = tier.avgDelta > 0 ? '▲' : tier.avgDelta < 0 ? '▼' : '—';
+  const dIcon = tier.avgDelta > 0 ? '▲' : tier.avgDelta < 0 ? '▼' : ' -';
 
   let summaryHTML = `<div class="csm-drill-stats">
     <div class="csm-drill-stat">
@@ -509,17 +509,17 @@ function buildTierDrillHTML(tierKey) {
       <th>Customer</th><th>Score</th><th>Trend</th><th>Status</th><th>MRR</th><th>Last Contact</th><th>Renewal</th><th>Lifecycle</th>
     </tr></thead>
     <tbody>${sorted.map(c => {
-      const renewStr = c.renewal_date ? new Date(c.renewal_date).toLocaleDateString() : (c.renewal ? c.renewal + 'mo' : '—');
+      const renewStr = c.renewal_date ? new Date(c.renewal_date).toLocaleDateString() : (c.renewal ? c.renewal + 'mo' : ' -');
       const isOverdue = c.days != null && c.days >= OVERDUE_DAYS;
       const delta = deltaCache.get(c.id) || 0;
       const trendHTML = delta > 0
         ? `<span class="csm-trend up" style="font-size:var(--fs-xs);padding:1px 6px">▲ +${delta}</span>`
         : delta < 0
           ? `<span class="csm-trend dn" style="font-size:var(--fs-xs);padding:1px 6px">▼ ${delta}</span>`
-          : `<span class="csm-trend flat" style="font-size:var(--fs-xs);padding:1px 6px">— 0</span>`;
+          : `<span class="csm-trend flat" style="font-size:var(--fs-xs);padding:1px 6px"> - 0</span>`;
       const contactCell = isOverdue
         ? `<span style="font-weight:700;color:var(--red)">${c.days}d ago</span> <span class="csm-overdue">OVERDUE</span>`
-        : (c.days != null ? c.days + 'd ago' : '—');
+        : (c.days != null ? c.days + 'd ago' : ' -');
       return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
         <td><strong>${escHtml(c.name)}</strong></td>
         <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${c.score >= 65 ? 'var(--green)' : c.score >= 50 ? 'var(--amber)' : 'var(--red)'};background:${c.score >= 65 ? 'var(--green-l)' : c.score >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${c.score}</span></td>
@@ -528,7 +528,7 @@ function buildTierDrillHTML(tierKey) {
         <td>$${fmtNum(c.mrr || 0)}</td>
         <td>${contactCell}</td>
         <td>${renewStr}</td>
-        <td style="font-size:var(--fs-base);color:var(--muted)">${c.lifecycle || '—'}</td>
+        <td style="font-size:var(--fs-base);color:var(--muted)">${c.lifecycle || ' -'}</td>
       </tr>`;
     }).join('')}</tbody>
   </table>`;
@@ -620,9 +620,9 @@ function renderStageTable(active, deltaCache) {
       </tr></thead>
       <tbody id="seg-table-tbody">${_segAvgRow(sorted)}${sorted.map(t => {
         const trendCls = t.avgDelta > 0 ? 'up' : t.avgDelta < 0 ? 'dn' : 'flat';
-        const trendIcon = t.avgDelta > 0 ? '▲' : t.avgDelta < 0 ? '▼' : '—';
+        const trendIcon = t.avgDelta > 0 ? '▲' : t.avgDelta < 0 ? '▼' : ' -';
         const trendTxt = t.avgDelta > 0 ? '+' + t.avgDelta : '' + t.avgDelta;
-        const contactStr = t.avgDays != null ? t.avgDays + 'd' : '—';
+        const contactStr = t.avgDays != null ? t.avgDays + 'd' : ' -';
         const sc = stageColors[t.key] || '#64748b';
         return `<tr class="seg-table-row" data-stage="${t.key}" onclick="drillStage('${t.key}')" style="cursor:pointer">
           <td><span class="stage-pill" style="background:${sc}15;color:${sc};border:1px solid ${sc}30;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700">${t.label}</span></td>
@@ -687,7 +687,7 @@ function buildStageDrillHTML(stageKey) {
   const totalMRR = stage.totalMRR;
   const hmColor = v => v >= 65 ? 'var(--green)' : v >= 50 ? 'var(--amber)' : 'var(--red)';
   const dColor = stage.avgDelta > 0 ? 'var(--green)' : stage.avgDelta < 0 ? 'var(--red)' : 'var(--muted)';
-  const dIcon = stage.avgDelta > 0 ? '▲' : stage.avgDelta < 0 ? '▼' : '—';
+  const dIcon = stage.avgDelta > 0 ? '▲' : stage.avgDelta < 0 ? '▼' : ' -';
 
   let summaryHTML = `<div class="csm-drill-stats">
     <div class="csm-drill-stat">
@@ -740,17 +740,17 @@ function buildStageDrillHTML(stageKey) {
       <th>Customer</th><th>Score</th><th>Trend</th><th>Status</th><th>MRR</th><th>Last Contact</th><th>Renewal</th><th>Tier</th>
     </tr></thead>
     <tbody>${sorted.map(c => {
-      const renewStr = c.renewal_date ? new Date(c.renewal_date).toLocaleDateString() : (c.renewal ? c.renewal + 'mo' : '—');
+      const renewStr = c.renewal_date ? new Date(c.renewal_date).toLocaleDateString() : (c.renewal ? c.renewal + 'mo' : ' -');
       const isOverdue = c.days != null && c.days >= OVERDUE_DAYS;
       const delta = deltaCache.get(c.id) || 0;
       const trendHTML = delta > 0
         ? `<span class="csm-trend up" style="font-size:var(--fs-xs);padding:1px 6px">▲ +${delta}</span>`
         : delta < 0
           ? `<span class="csm-trend dn" style="font-size:var(--fs-xs);padding:1px 6px">▼ ${delta}</span>`
-          : `<span class="csm-trend flat" style="font-size:var(--fs-xs);padding:1px 6px">— 0</span>`;
+          : `<span class="csm-trend flat" style="font-size:var(--fs-xs);padding:1px 6px"> - 0</span>`;
       const contactCell = isOverdue
         ? `<span style="font-weight:700;color:var(--red)">${c.days}d ago</span> <span class="csm-overdue">OVERDUE</span>`
-        : (c.days != null ? c.days + 'd ago' : '—');
+        : (c.days != null ? c.days + 'd ago' : ' -');
       const tierLabel = c.tier === 'enterprise' ? 'Enterprise' : c.tier === 'smb' ? 'SMB' : 'Mid-Market';
       return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
         <td><strong>${escHtml(c.name)}</strong></td>
@@ -798,7 +798,7 @@ function renderSegCardGrid(segments) {
 
   let html = `<div class="seg-cards-grid">${sorted.map(seg => {
     const trendCls = seg.avgDelta > 0 ? 'up' : seg.avgDelta < 0 ? 'dn' : 'flat';
-    const trendIcon = seg.avgDelta > 0 ? '▲' : seg.avgDelta < 0 ? '▼' : '—';
+    const trendIcon = seg.avgDelta > 0 ? '▲' : seg.avgDelta < 0 ? '▼' : ' -';
     const trendTxt = seg.avgDelta > 0 ? '+' + seg.avgDelta : '' + seg.avgDelta;
     const total = seg.healthy + seg.watch + seg.atRisk;
     const hPct = total ? Math.round((seg.healthy / total) * 100) : 0;
@@ -885,10 +885,10 @@ function renderSegTable(segments) {
       </tr></thead>
       <tbody id="seg-table-tbody">${_segAvgRow(sorted)}${sorted.map(seg => {
         const trendCls = seg.avgDelta > 0 ? 'up' : seg.avgDelta < 0 ? 'dn' : 'flat';
-        const trendIcon = seg.avgDelta > 0 ? '▲' : seg.avgDelta < 0 ? '▼' : '—';
+        const trendIcon = seg.avgDelta > 0 ? '▲' : seg.avgDelta < 0 ? '▼' : ' -';
         const trendTxt = seg.avgDelta > 0 ? '+' + seg.avgDelta : '' + seg.avgDelta;
         const safeTag = seg.tag.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-        const contactStr = seg.avgDays != null ? seg.avgDays + 'd' : '—';
+        const contactStr = seg.avgDays != null ? seg.avgDays + 'd' : ' -';
         return `<tr class="seg-table-row" data-seg="${escHtml(seg.tag)}" onclick="drillSeg('${safeTag}')" style="cursor:pointer">
           <td><strong>${escHtml(segDisplayLabel(seg.tag))}</strong></td>
           <td>${seg.count}</td>
@@ -924,7 +924,7 @@ function buildSegDrillHTML(tagName) {
   const totalMRR = seg.totalMRR;
   const hmColor = v => v >= 65 ? 'var(--green)' : v >= 50 ? 'var(--amber)' : 'var(--red)';
   const dColor = seg.avgDelta > 0 ? 'var(--green)' : seg.avgDelta < 0 ? 'var(--red)' : 'var(--muted)';
-  const dIcon = seg.avgDelta > 0 ? '▲' : seg.avgDelta < 0 ? '▼' : '—';
+  const dIcon = seg.avgDelta > 0 ? '▲' : seg.avgDelta < 0 ? '▼' : ' -';
 
   let summaryHTML = `<div class="csm-drill-stats">
     <div class="csm-drill-stat">
@@ -977,17 +977,17 @@ function buildSegDrillHTML(tagName) {
       <th>Customer</th><th>Score</th><th>Trend</th><th>Status</th><th>MRR</th><th>Last Contact</th><th>Renewal</th><th>Lifecycle</th>
     </tr></thead>
     <tbody>${sorted.map(c => {
-      const renewStr = c.renewal_date ? new Date(c.renewal_date).toLocaleDateString() : (c.renewal ? c.renewal + 'mo' : '—');
+      const renewStr = c.renewal_date ? new Date(c.renewal_date).toLocaleDateString() : (c.renewal ? c.renewal + 'mo' : ' -');
       const isOverdue = c.days != null && c.days >= OVERDUE_DAYS;
       const delta = deltaCache.get(c.id) || 0;
       const trendHTML = delta > 0
         ? `<span class="csm-trend up" style="font-size:var(--fs-xs);padding:1px 6px">▲ +${delta}</span>`
         : delta < 0
           ? `<span class="csm-trend dn" style="font-size:var(--fs-xs);padding:1px 6px">▼ ${delta}</span>`
-          : `<span class="csm-trend flat" style="font-size:var(--fs-xs);padding:1px 6px">— 0</span>`;
+          : `<span class="csm-trend flat" style="font-size:var(--fs-xs);padding:1px 6px"> - 0</span>`;
       const contactCell = isOverdue
         ? `<span style="font-weight:700;color:var(--red)">${c.days}d ago</span> <span class="csm-overdue">OVERDUE</span>`
-        : (c.days != null ? c.days + 'd ago' : '—');
+        : (c.days != null ? c.days + 'd ago' : ' -');
       return `<tr style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')">
         <td><strong>${escHtml(c.name)}</strong></td>
         <td><span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:var(--fs-base);font-weight:700;color:${c.score >= 65 ? 'var(--green)' : c.score >= 50 ? 'var(--amber)' : 'var(--red)'};background:${c.score >= 65 ? 'var(--green-l)' : c.score >= 50 ? 'var(--amber-l)' : 'var(--red-l)'}">${c.score}</span></td>
@@ -996,7 +996,7 @@ function buildSegDrillHTML(tagName) {
         <td>$${fmtNum(c.mrr || 0)}</td>
         <td>${contactCell}</td>
         <td>${renewStr}</td>
-        <td style="font-size:var(--fs-base);color:var(--muted)">${c.lifecycle || '—'}</td>
+        <td style="font-size:var(--fs-base);color:var(--muted)">${c.lifecycle || ' -'}</td>
       </tr>`;
     }).join('')}</tbody>
   </table>`;
@@ -1243,7 +1243,7 @@ function _buildSegInsights(segments, active) {
     }
   });
 
-  // ── 11. Synthesis — combine related insights on same segment ──
+  // ── 11. Synthesis  - combine related insights on same segment ──
   // Look for compound patterns: MRR concentration + poor health in same segment
   var _synthTags = {};
   insights.forEach(function(ins) {
@@ -1263,28 +1263,28 @@ function _buildSegInsights(segments, active) {
     if (labels.indexOf('MRR Concentration') >= 0 && labels.indexOf('Risk Clustering') >= 0) {
       insights.push({ score: 20, icon: icAlert, color: 'var(--red)', bg: 'var(--red-l)',
         label: 'Compounding Risk', tags: [tag],
-        text: `<strong>${segName}</strong> concentrates both high MRR and high risk — ${seg.riskPct}% at-risk accounts holding $${fmtNum(seg.totalMRR)} MRR. This segment is your single biggest exposure point.` });
+        text: `<strong>${segName}</strong> concentrates both high MRR and high risk  - ${seg.riskPct}% at-risk accounts holding $${fmtNum(seg.totalMRR)} MRR. This segment is your single biggest exposure point.` });
     }
 
     // MRR Concentration + Revenue-Health Inversion
     if (labels.indexOf('MRR Concentration') >= 0 && labels.indexOf('Revenue-Health Inversion') >= 0) {
       insights.push({ score: 18, icon: icDollar, color: 'var(--red)', bg: 'var(--red-l)',
         label: 'Revenue at Risk', tags: [tag],
-        text: `<strong>${segName}</strong> holds your largest MRR concentration but scores below portfolio average — revenue and health are misaligned in the segment that matters most.` });
+        text: `<strong>${segName}</strong> holds your largest MRR concentration but scores below portfolio average  - revenue and health are misaligned in the segment that matters most.` });
     }
 
     // Contact Gap + Health Disparity (worst health + no contact)
     if (labels.indexOf('Contact Gap') >= 0 && labels.indexOf('Health Disparity') >= 0) {
       insights.push({ score: 15, icon: icPhone, color: 'var(--amber)', bg: 'var(--amber-l)',
         label: 'Neglect Pattern', tags: [tag],
-        text: `<strong>${segName}</strong> has both the widest contact gap and a notable health disparity — infrequent touch may be driving the health difference.` });
+        text: `<strong>${segName}</strong> has both the widest contact gap and a notable health disparity  - infrequent touch may be driving the health difference.` });
     }
 
     // Renewal Exposure + Risk Clustering
     if (labels.indexOf('Renewal Exposure') >= 0 && labels.indexOf('Risk Clustering') >= 0) {
       insights.push({ score: 17, icon: icCal, color: 'var(--red)', bg: 'var(--red-l)',
         label: 'Renewal Pipeline Risk', tags: [tag],
-        text: `<strong>${segName}</strong> has concentrated renewal exposure combined with high at-risk clustering — upcoming renewals in this segment are especially vulnerable.` });
+        text: `<strong>${segName}</strong> has concentrated renewal exposure combined with high at-risk clustering  - upcoming renewals in this segment are especially vulnerable.` });
     }
   });
 
@@ -1348,7 +1348,7 @@ function clearTierFilter() {
   renderCustomers();
 }
 
-// Bulksheet export — all editable/importable fields (excludes auto-derived: score, status, created)
+// Bulksheet export  - all editable/importable fields (excludes auto-derived: score, status, created)
 function exportBulksheet() {
   const filtered = customers.filter(c => passesManagerFilter(c));
   const hdr = 'name,manager,scoring_profile,mrr,arr,tier,lifecycle,logins_30d,feature_adoption_pct,open_tickets,nps,csat,days_since_contact,renewal_date,months_to_renewal,growth_signal,tags,since,next_touch,sentiment,note';
@@ -1594,7 +1594,7 @@ function _buildSegChartSVG(data) {
       .sort((a, b) => a.date.localeCompare(b.date));
     if (pts.length < 2) return;
 
-    // Build xy points for smooth path — downsample for long ranges
+    // Build xy points for smooth path  - downsample for long ranges
     const xyPtsRaw = pts.map(p => ({ x: xScale(dateIdx[p.date]), y: yScaleL(p.avg) }));
     const _maxRPts = rangeDays > 365 ? 90 : rangeDays > 180 ? 120 : 9999;
     const xyPts = _downsampleXY(xyPtsRaw, _maxRPts);
@@ -1619,7 +1619,7 @@ function _buildSegChartSVG(data) {
     const smoothD = _smoothPath(xyPts);
     linesSVG += `<path d="${smoothD}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linecap="round" opacity="0.9"/>`;
 
-    // No inline labels — hover tooltip shows exact values for all lines
+    // No inline labels  - hover tooltip shows exact values for all lines
   });
 
   // Build tooltip data (Map-based with carry-forward for reliable lookups)
@@ -1780,7 +1780,7 @@ function _buildSegChartAnalysis(data) {
   const metricLabel = cfg.label;
   const halfLabel = rangeDays <= 30 ? Math.round(rangeDays / 2) + 'd' : Math.round(rangeDays / 60) + 'mo';
 
-  // ── 1. Momentum shift — segment was heading one way but recently reversed ──
+  // ── 1. Momentum shift  - segment was heading one way but recently reversed ──
   // This is NOT visible at a glance since the overall delta may look flat
   series.forEach(s => {
     const accel = s.secondHalfDelta - s.firstHalfDelta;
@@ -1801,7 +1801,7 @@ function _buildSegChartAnalysis(data) {
         bg: s.secondHalfDelta > 0 ? 'var(--green-l)' : 'var(--red-l)',
         label: 'Momentum Shift',
         tags: [s.tag],
-        text: `<strong>${escHtml(s.label)}</strong> was ${wasDir} (${f(s.firstHalfDelta)}) in the first half but is now ${nowDir} (${f(s.secondHalfDelta)}) — the overall ${rangeLabel} number masks this recent change in direction.`
+        text: `<strong>${escHtml(s.label)}</strong> was ${wasDir} (${f(s.firstHalfDelta)}) in the first half but is now ${nowDir} (${f(s.secondHalfDelta)})  - the overall ${rangeLabel} number masks this recent change in direction.`
       });
     } else {
       const dir = s.secondHalfDelta > 0 ? 'accelerating upward' : 'accelerating downward';
@@ -1812,7 +1812,7 @@ function _buildSegChartAnalysis(data) {
         bg: s.secondHalfDelta > 0 ? 'var(--green-l)' : 'var(--amber-l)',
         label: 'Accelerating',
         tags: [s.tag],
-        text: `<strong>${escHtml(s.label)}</strong> is ${dir} — moved ${f(s.secondHalfDelta)} in the recent ${halfLabel} vs ${f(s.firstHalfDelta)} in the prior ${halfLabel}. The pace of change is picking up.`
+        text: `<strong>${escHtml(s.label)}</strong> is ${dir}  - moved ${f(s.secondHalfDelta)} in the recent ${halfLabel} vs ${f(s.firstHalfDelta)} in the prior ${halfLabel}. The pace of change is picking up.`
       });
     }
   });
@@ -1832,7 +1832,7 @@ function _buildSegChartAnalysis(data) {
         const sc = scoreSeries.find(ss => ss.label === s.label);
         return sc ? { label: s.label, mDelta: s.delta, sDelta: sc.sDelta } : null;
       }).filter(Boolean);
-      // Look for the outlier: metric went one way, score went the other — that's the non-obvious one
+      // Look for the outlier: metric went one way, score went the other  - that's the non-obvious one
       const outliers = pairs.filter(p => (p.mDelta > 1 && p.sDelta < -1) || (p.mDelta < -1 && p.sDelta > 1));
       if (outliers.length > 0) {
         const ex = outliers.reduce((a, b) => Math.abs(b.mDelta) + Math.abs(b.sDelta) > Math.abs(a.mDelta) + Math.abs(a.sDelta) ? b : a);
@@ -1846,10 +1846,10 @@ function _buildSegChartAnalysis(data) {
           bg: 'var(--amber-l)',
           label: 'Disconnected Signal',
           tags: exSeries ? [exSeries.tag] : [],
-          text: `<strong>${escHtml(ex.label)}</strong>'s ${metricLabel} ${mDir} (${ex.mDelta > 0 ? '+' : ''}${cfg.fmt(ex.mDelta)}) but their Health Score ${sDir} (${ex.sDelta > 0 ? '+' : ''}${Math.round(ex.sDelta)}) — something else is driving score changes in this segment.`
+          text: `<strong>${escHtml(ex.label)}</strong>'s ${metricLabel} ${mDir} (${ex.mDelta > 0 ? '+' : ''}${cfg.fmt(ex.mDelta)}) but their Health Score ${sDir} (${ex.sDelta > 0 ? '+' : ''}${Math.round(ex.sDelta)})  - something else is driving score changes in this segment.`
         });
       } else {
-        // Check for strong positive correlation — metric and score moving together
+        // Check for strong positive correlation  - metric and score moving together
         const sameDir = pairs.filter(p => (p.mDelta > 1 && p.sDelta > 1) || (p.mDelta < -1 && p.sDelta < -1));
         if (sameDir.length >= 2 && sameDir.length === pairs.length) {
           const ex = sameDir.reduce((a, b) => Math.abs(b.mDelta) > Math.abs(a.mDelta) ? b : a);
@@ -1861,14 +1861,14 @@ function _buildSegChartAnalysis(data) {
             bg: 'var(--blue-l,#dbeafe)',
             label: 'Strong Signal',
             tags: exS ? [exS.tag] : [],
-            text: `${metricLabel} changes are tracking Health Score changes across all segments — this metric appears to be a reliable leading indicator. <strong>${escHtml(ex.label)}</strong> shows the clearest link.`
+            text: `${metricLabel} changes are tracking Health Score changes across all segments  - this metric appears to be a reliable leading indicator. <strong>${escHtml(ex.label)}</strong> shows the clearest link.`
           });
         }
       }
     }
   }
 
-  // ── 3. MRR concentration risk — which segments hold the $ ──
+  // ── 3. MRR concentration risk  - which segments hold the $ ──
   // Not visible on the metric chart at all, adds financial context
   if (series.length >= 2) {
     const totalMRR = chartSegs.reduce((s, seg) => s + (seg.totalMRR || seg.custs.reduce((t, c) => t + (c.mrr || 0), 0)), 0);
@@ -1890,10 +1890,10 @@ function _buildSegChartAnalysis(data) {
           bg: 'var(--red-l)',
           label: 'Revenue Exposure',
           tags: [biggest.tag],
-          text: `<strong>${escHtml(biggest.label)}</strong> holds ${biggest.pct}% of segment MRR ($${fmtNum(biggest.mrr)}) and its ${metricLabel} is declining — this concentrates risk in your highest-value segment.`
+          text: `<strong>${escHtml(biggest.label)}</strong> holds ${biggest.pct}% of segment MRR ($${fmtNum(biggest.mrr)}) and its ${metricLabel} is declining  - this concentrates risk in your highest-value segment.`
         });
       }
-      // Flag: small MRR segment outperforming — possible expansion opportunity
+      // Flag: small MRR segment outperforming  - possible expansion opportunity
       const smallest = segMRR.filter(s => s.pct < 20 && s.delta > 2);
       if (smallest.length > 0) {
         const opp = smallest.reduce((a, b) => b.delta > a.delta ? b : a);
@@ -1904,13 +1904,13 @@ function _buildSegChartAnalysis(data) {
           bg: 'var(--green-l)',
           label: 'Growth Opportunity',
           tags: [opp.tag],
-          text: `<strong>${escHtml(opp.label)}</strong> is only ${opp.pct}% of MRR but has the strongest ${metricLabel} trajectory — healthy signals in a small segment could mean expansion potential.`
+          text: `<strong>${escHtml(opp.label)}</strong> is only ${opp.pct}% of MRR but has the strongest ${metricLabel} trajectory  - healthy signals in a small segment could mean expansion potential.`
         });
       }
     }
   }
 
-  // ── 4. Lagging risk — segment with declining customers that others don't have ──
+  // ── 4. Lagging risk  - segment with declining customers that others don't have ──
   // Looks at per-customer variance within segments, not segment-level averages
   if (series.length >= 2 && metric === 'score') {
     chartSegs.forEach(seg => {
@@ -1928,13 +1928,13 @@ function _buildSegChartAnalysis(data) {
           bg: 'var(--amber-l)',
           label: 'Hidden Risk',
           tags: [s.tag],
-          text: `<strong>${escHtml(s.label)}</strong> averages ${cfg.fmt(s.endVal)} overall but ${riskPct}% of its accounts (${riskCount}/${seg.custs.length}) are at risk — the average hides a bimodal distribution of healthy and struggling accounts.`
+          text: `<strong>${escHtml(s.label)}</strong> averages ${cfg.fmt(s.endVal)} overall but ${riskPct}% of its accounts (${riskCount}/${seg.custs.length}) are at risk  - the average hides a bimodal distribution of healthy and struggling accounts.`
         });
       }
     });
   }
 
-  // ── 5. Contact gap correlation — segments with high days-since-contact and declining metric ──
+  // ── 5. Contact gap correlation  - segments with high days-since-contact and declining metric ──
   if (series.length >= 2) {
     chartSegs.forEach(seg => {
       const s = series.find(x => x.label === _segLabel(seg));
@@ -1959,13 +1959,13 @@ function _buildSegChartAnalysis(data) {
           bg: 'var(--amber-l)',
           label: 'Engagement Gap',
           tags: [s.tag],
-          text: `<strong>${escHtml(s.label)}</strong> is declining and averages ${avgDays} days since last contact vs ${otherAvg} days for other segments — the lack of recent outreach may be contributing to the decline.`
+          text: `<strong>${escHtml(s.label)}</strong> is declining and averages ${avgDays} days since last contact vs ${otherAvg} days for other segments  - the lack of recent outreach may be contributing to the decline.`
         });
       }
     });
   }
 
-  // ── 6. Drop attribution — find the worst anomalous drop and decompose what caused it ──
+  // ── 6. Drop attribution  - find the worst anomalous drop and decompose what caused it ──
   {
     let worstSeg = null, worstDrop = 0, worstPeakPt = null, worstTroughPt = null, worstPeakIdx = 0, worstTroughIdx = 0;
     series.forEach(s => {
@@ -2025,18 +2025,18 @@ function _buildSegChartAnalysis(data) {
         if (declined.length <= 2 && declined.length > 0 && custDeltas.length > 3) {
           declined.sort((a, b) => a.delta - b.delta);
           if (declined.length === 1) {
-            concentrationNote = ` This was driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv2(declined[0].delta)}) — the remaining ${custDeltas.length - 1} accounts were relatively flat.`;
+            concentrationNote = ` This was driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv2(declined[0].delta)})  - the remaining ${custDeltas.length - 1} accounts were relatively flat.`;
           } else {
-            concentrationNote = ` Driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv2(declined[0].delta)}) and ${_taCustLink(declined[1].name, declined[1].id)} (down ${fv2(declined[1].delta)}) — most of the other ${custDeltas.length - 2} accounts were relatively flat.`;
+            concentrationNote = ` Driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv2(declined[0].delta)}) and ${_taCustLink(declined[1].name, declined[1].id)} (down ${fv2(declined[1].delta)})  - most of the other ${custDeltas.length - 2} accounts were relatively flat.`;
           }
         } else if (pctDeclined >= 60) {
           if (custDeltas.length <= 5) {
             concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts in this segment declined during this period.`;
           } else {
-            concentrationNote = ` This was a broad-based decline — <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) dropped during this period.`;
+            concentrationNote = ` This was a broad-based decline  - <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) dropped during this period.`;
           }
         } else if (pctDeclined >= 30) {
-          concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) declined while ${improved.length} improved — a split trend worth investigating.`;
+          concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) declined while ${improved.length} improved  - a split trend worth investigating.`;
         }
       }
 
@@ -2101,7 +2101,7 @@ function _buildSegChartAnalysis(data) {
           const sp = fn(scorePts, worstPeakPt.date), st = fn(scorePts, worstTroughPt.date);
           const sd = Math.round(st.avg - sp.avg);
           if (sd < -2) text += ` During the same window, Health Score also dropped <strong>${Math.abs(sd)} points</strong>.`;
-          else if (Math.abs(sd) <= 2) text += ` Health Score stayed stable during this window — other signals offset the impact.`;
+          else if (Math.abs(sd) <= 2) text += ` Health Score stayed stable during this window  - other signals offset the impact.`;
         }
         insights.push({
           score: dropAbs + 3, icon: icons.drop, color: 'var(--red)', bg: 'var(--red-l)',

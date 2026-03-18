@@ -33,7 +33,7 @@ function refreshMgrDropdown() {
     const list = document.getElementById('mgr-filter-list');
     if (list) list.innerHTML = '';
     const fmSelect = document.getElementById('f-manager');
-    if (fmSelect && fmSelect.tagName === 'SELECT') fmSelect.innerHTML = '<option value="">— none —</option>';
+    if (fmSelect && fmSelect.tagName === 'SELECT') fmSelect.innerHTML = '<option value=""> - none  -</option>';
     return;
   }
 
@@ -253,7 +253,7 @@ function renderFilterPills() {
     else if (f.type === 'lt')      { summary = `< ${f.val}`; }
     else if (f.type === 'eq')      { summary = `= ${f.val}`; }
     else if (f.type === 'between') { summary = `${f.min} – ${f.max}`; }
-    /* date filters use gt/lt/eq/between — handled by those branches above */
+    /* date filters use gt/lt/eq/between  - handled by those branches above */
     else if (f.type === 'up')      { summary = 'Improving this week'; }
     else if (f.type === 'down')    { summary = 'Declining this week'; }
 
@@ -573,7 +573,7 @@ function applyColumnFilters(list) {
           const d = getDelta7d(c);
           if (f.type === 'up'   && d <= 0) return false;
           if (f.type === 'down' && d >= 0) return false;
-          continue; // handled inline — skip v-based checks below
+          continue; // handled inline  - skip v-based checks below
         }
         default: continue;
       }
@@ -653,11 +653,11 @@ function _renderCustomers() {
 
   if (!list.length) {
     if (!customers.length || (filterMode !== 'all' && filterMode !== 'churned' && !customers.some(c => c.status === filterMode && c.lifecycle !== 'churned'))) {
-      // Truly no customers — show onboarding empty state
+      // Truly no customers  - show onboarding empty state
       empty.style.display = 'block';
       table.style.display = 'none';
     } else {
-      // Filters produced 0 results — keep headers, show message in tbody
+      // Filters produced 0 results  - keep headers, show message in tbody
       empty.style.display = 'none';
       table.style.display = '';
       const hasFilters = Object.keys(columnFilters).length > 0;
@@ -679,16 +679,16 @@ function _renderCustomers() {
       <tr class="${isSel?'selected':''}" data-id="${c.id}">
         <td class="cb-col"><input type="checkbox" ${isSel?'checked':''} onclick="event.stopPropagation();toggleSelect('${escHtml(c.id)}',this.checked,event)"/></td>
         <td class="col-frozen" style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')"><strong>${escHtml(c.name)}</strong>${(()=>{ if (!c.next_touch) return ''; const ntd = Math.round((new Date(c.next_touch)-new Date())/86400000); return ntd < 0 ? ' <span class="nt-badge nt-overdue" style="font-size:var(--fs-xs);padding:1px 5px">Touch overdue</span>' : ''; })()}</td>
-        <td>${c.manager ? escHtml(c.manager) : '<span style="color:var(--muted);font-style:italic">—</span>'}</td>
+        <td>${c.manager ? escHtml(c.manager) : '<span style="color:var(--muted);font-style:italic"> -</span>'}</td>
         <td>${c.scoring_profile && c.scoring_profile !== 'Global Weights' ? `<span class="tag">${escHtml(c.scoring_profile)}</span>` : '<span style="color:var(--muted);font-style:italic;font-size:var(--fs-sm)">Global</span>'}</td>
         <td>${scoreHTML(c)}</td>
         <td>${momentumHTML(c)}</td>
         <td>${badgeHTML(c.status)}</td>
         <td>${lifecycleBadge(c.lifecycle)}</td>
-        <td>${c.mrr ? '$'+fmtNum(c.mrr) : '—'}</td>
-        <td>${(()=>{ const arr = c.arr || (c.mrr * 12); return arr ? '$'+fmtNum(arr) : '—'; })()}</td>
+        <td>${c.mrr ? '$'+fmtNum(c.mrr) : ' -'}</td>
+        <td>${(()=>{ const arr = c.arr || (c.mrr * 12); return arr ? '$'+fmtNum(arr) : ' -'; })()}</td>
         <td>${(()=>{
-          if (!c.since) return '—';
+          if (!c.since) return ' -';
           const ms = new Date() - new Date(c.since);
           const months = Math.floor(ms / (1000*60*60*24*30.44));
           if (months < 1)  return 'New';
@@ -710,7 +710,7 @@ function _renderCustomers() {
             return `<span style="color:var(--muted)">${days}d</span>`;
           }
           if (c.renewal != null && c.renewal > 0) { const d = c.renewal * 30; return `<span style="color:${d<=30?'#ea580c':d<=90?'#d97706':'var(--muted)'};font-weight:600">~${d}d</span>`; }
-          return '—';
+          return ' -';
         })()}</td>
         <td class="nt-cell" onclick="event.stopPropagation();openInlineNextTouch('${escHtml(c.id)}',this)">${(()=>{
           if (!c.next_touch) return '<span class="nt-inline-empty">+ Schedule</span>';
@@ -731,14 +731,14 @@ function _renderCustomers() {
           return first + `<span class="tag tag-more" title="${allTags}">+${tags.length - 1}</span>`;
         })(c.tags||[])}</td>
         <td>${(()=>{
-          if (!c.created) return '—';
+          if (!c.created) return ' -';
           const d = new Date(c.created);
           return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
         })()}</td>
-        <td>${c.nps != null ? c.nps : '<span style="color:var(--muted)">—</span>'}</td>
-        <td>${c.csat != null ? c.csat : '<span style="color:var(--muted)">—</span>'}</td>
-        <td>${c.logins != null ? c.logins : '<span style="color:var(--muted)">—</span>'}</td>
-        <td>${c.adoption != null ? c.adoption + '%' : '<span style="color:var(--muted)">—</span>'}</td>
+        <td>${c.nps != null ? c.nps : '<span style="color:var(--muted)"> -</span>'}</td>
+        <td>${c.csat != null ? c.csat : '<span style="color:var(--muted)"> -</span>'}</td>
+        <td>${c.logins != null ? c.logins : '<span style="color:var(--muted)"> -</span>'}</td>
+        <td>${c.adoption != null ? c.adoption + '%' : '<span style="color:var(--muted)"> -</span>'}</td>
         <td>${(()=>{
           const g = c.growth || 'none';
           if (g === 'strong') return '<span style="color:#16a34a;font-weight:600">Strong</span>';
@@ -870,7 +870,7 @@ async function saveInlineNextTouch(custId, val) {
   if (error) {
     console.warn('Failed to save next_touch:', error.message);
     c.next_touch = oldVal; // rollback
-    toast('Failed to save — please try again', 'error');
+    toast('Failed to save  - please try again', 'error');
   } else {
     logAudit('next_touch_updated', c.id, c.name, { from: oldVal || '(none)', to: val || '(cleared)' });
     toast(val ? `Next touch set to ${new Date(val).toLocaleDateString('en-US',{month:'short',day:'numeric'})}` : 'Next touch cleared', 'default');
@@ -1139,11 +1139,11 @@ function deserializeColumnFilters(cf) {
       } else if (Array.isArray(f.vals)) {
         out[k] = { ...f, vals: new Set(f.vals) };
       } else if (f.vals && typeof f.vals === 'object') {
-        // Old broken format: Set serialized as {} or {0:"a",1:"b"} — try Object.values
+        // Old broken format: Set serialized as {} or {0:"a",1:"b"}  - try Object.values
         const arr = Object.values(f.vals);
         out[k] = { ...f, vals: arr.length ? new Set(arr) : new Set() };
       } else {
-        // vals missing or null — skip this broken filter
+        // vals missing or null  - skip this broken filter
         continue;
       }
     } else {

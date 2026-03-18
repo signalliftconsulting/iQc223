@@ -26,7 +26,7 @@ function saveSettings() {
   localStorage.setItem('iqc_quiet_days', String(quietDays));
   localStorage.setItem('iqc_momentum_pts', String(momentumPts));
   localStorage.setItem('iqc_signal_model', JSON.stringify(signalModelCfg));
-  // Sync to Supabase (fire and forget) — keyed by client_id
+  // Sync to Supabase (fire and forget)  - keyed by client_id
   const cid = getEffectiveClientId();
   if (currentUser && cid) {
     sb.from('settings').upsert({
@@ -54,7 +54,7 @@ function loadSettings() {
       const stored = JSON.parse(t);
       // Migrate old 2-key format to 4-key format
       if (stored.expand !== undefined && stored.critical === undefined) {
-        // Old format had { risk, expand } — discard and use new defaults
+        // Old format had { risk, expand }  - discard and use new defaults
         thresholds = { ...DEFAULT_THRESHOLDS };
       } else {
         thresholds = { ...DEFAULT_THRESHOLDS, ...stored };
@@ -143,10 +143,10 @@ function ensureGlobalWeightsProfile(persist = false) {
 async function loadSettingsFromSupabase() {
   if (!currentUser) return;
   const cid = getEffectiveClientId();
-  if (!cid) return; // no client assigned yet — use defaults
+  if (!cid) return; // no client assigned yet  - use defaults
   const { data: settingsRows, error } = await sb.from('settings').select('*').eq('client_id', cid).limit(1);
   const data = settingsRows && settingsRows.length ? settingsRows[0] : null;
-  if (error || !data) return; // no settings row yet — use defaults
+  if (error || !data) return; // no settings row yet  - use defaults
   try { if (data.weights)    weights    = { ...DEFAULT_WEIGHTS,    ...JSON.parse(data.weights) }; }    catch(e){}
   try { if (data.thresholds) thresholds = { ...DEFAULT_THRESHOLDS, ...JSON.parse(data.thresholds) }; } catch(e){}
   try { if (data.profiles)   profiles   = JSON.parse(data.profiles); }  catch(e){}
@@ -321,7 +321,7 @@ function toRow(c) {
 }
 
 // Load all customers for current user's client from Supabase
-// Uses client_id for ownership — all users in the same client see the same customers
+// Uses client_id for ownership  - all users in the same client see the same customers
 // Active rows (deleted_at IS NULL) → customers[]
 // Soft-deleted rows (deleted_at IS NOT NULL) → trash[]
 async function loadCustomersFromSupabase() {
@@ -385,7 +385,7 @@ async function loadCustomersFromSupabase() {
   snapshotCustomerStates();
 }
 
-// Loading overlay — reference counted so nested calls don't hide prematurely
+// Loading overlay  - reference counted so nested calls don't hide prematurely
 let _loadingCount = 0;
 let _loadingTimeout = null;
 function setLoading(on) {
@@ -426,7 +426,7 @@ function _showOverlay(on) {
   }
 }
 
-// save(c) — upsert a single customer
+// save(c)  - upsert a single customer
 async function save(c) {
   if (!currentUser) return;
   // Always update localStorage cache immediately so UI stays intact
@@ -512,13 +512,13 @@ async function pullHistoricalData(platform, lookback) {
   }
 }
 
-// Ownership filter helper — uses client_id if DB supports it, else user_id
+// Ownership filter helper  - uses client_id if DB supports it, else user_id
 function _ownerEq(query) {
   if (_dbHasClientId && _userClientId) return query.eq('client_id', _userClientId);
   return query.eq('user_id', currentUser.id);
 }
 
-// atDelete(c) — SOFT delete: sets deleted_at, never removes the row
+// atDelete(c)  - SOFT delete: sets deleted_at, never removes the row
 async function atDelete(c) {
   if (!currentUser) return;
   const deletedAt = new Date().toISOString();
@@ -526,7 +526,7 @@ async function atDelete(c) {
   if (error) console.warn('atDelete DB error:', error.message);
 }
 
-// restoreCustomer(id) — clears deleted_at, brings customer back
+// restoreCustomer(id)  - clears deleted_at, brings customer back
 async function restoreCustomer(id) {
   if (!currentUser) return;
   const c = trash.find(x => x.id === id);
@@ -537,13 +537,13 @@ async function restoreCustomer(id) {
   try { localStorage.setItem('iqc_customers_cache', JSON.stringify(customers)); } catch(e) {}
   renderTrash();
   renderCustomers();
-  logAudit('customer_restored', c.id, c.name, { summary: `Restored from trash — Score: ${c.score}/100, MRR: $${c.mrr||0}` });
+  logAudit('customer_restored', c.id, c.name, { summary: `Restored from trash  - Score: ${c.score}/100, MRR: $${c.mrr||0}` });
   toast(`${c.name} restored`, 'success');
   const { error } = await sb.from('customers').update({ deleted_at: null }).eq('id', id);
   if (error) toast('Restore sync failed', 'warn');
 }
 
-// hardDeleteCustomer(id) — permanently removes a row (from trash only)
+// hardDeleteCustomer(id)  - permanently removes a row (from trash only)
 async function hardDeleteCustomer(id) {
   const c = trash.find(x => x.id === id);
   if (!c) return;
@@ -558,7 +558,7 @@ async function hardDeleteCustomer(id) {
   });
 }
 
-// emptyTrash() — hard delete all soft-deleted records
+// emptyTrash()  - hard delete all soft-deleted records
 async function emptyTrash() {
   if (!trash.length) return;
   confirmAction(`Permanently delete all ${trash.length} items in trash? These accounts and all their data will be gone forever and cannot be recovered.`, async () => {
@@ -568,7 +568,7 @@ async function emptyTrash() {
     trash = [];
     toast('Trash emptied', 'warn');
     if (!customers.length) { if (typeof _wtDismiss === 'function') _wtDismiss(); nav('homebase'); } else { renderTrash(); }
-    // Delete by id list — RLS handles ownership check
+    // Delete by id list  - RLS handles ownership check
     const { error } = await sb.from('customers').delete().in('id', ids);
     if (error) console.warn('Trash empty DB error:', error.message);
   });
@@ -609,7 +609,7 @@ function _trashBulkDelete() {
   });
 }
 
-// renderTrash() — shows soft-deleted customers inside the customers view
+// renderTrash()  - shows soft-deleted customers inside the customers view
 function renderTrash() {
   const wrap = document.getElementById('trash-wrap');
   if (!wrap) return;
@@ -637,7 +637,7 @@ function renderTrash() {
     </div>` : '';
 
   const rows = trash.map(c => {
-    const deletedStr = c.deleted_at ? new Date(c.deleted_at).toLocaleDateString() : '—';
+    const deletedStr = c.deleted_at ? new Date(c.deleted_at).toLocaleDateString() : ' -';
     const checked = _trashSelected.has(c.id) ? 'checked' : '';
     return `<tr style="${checked ? 'background:color-mix(in srgb, var(--teal) 5%, var(--surface))' : ''}">
       <td style="width:36px;text-align:center"><input type="checkbox" ${checked} onchange="_trashToggle('${escHtml(c.id)}')" style="cursor:pointer"></td>
@@ -671,7 +671,7 @@ function renderTrash() {
   </div>`;
 }
 
-// atUpdate(c) — alias for save
+// atUpdate(c)  - alias for save
 async function atUpdate(c) { return save(c); }
 async function atCreate(c) { return save(c); }
 
@@ -749,19 +749,19 @@ const _DEMO_SUFFIXES = [
   'Media','Metrics','Networks','Ops','Partners','Platform','Point','Pulse','Shift','Soft',
   'Solutions','Stack','Studio','Systems','Tech','Ventures','Ware','Works'
 ];
-// Weighted CSM list — senior reps get more accounts, junior fewer
+// Weighted CSM list  - senior reps get more accounts, junior fewer
 // Duplicates control weight: more entries = more accounts assigned
 // CSM definitions with target account share and health bias
 // bias: 'good' = mostly healthy accounts, 'mixed' = realistic spread, 'tough' = more at-risk
 const _DEMO_CSMS = [
-  { name: 'Sarah Mitchell',   pct: 0.19, bias: 'good'  },  // Sr — largest book, mostly healthy
-  { name: 'James Chen',       pct: 0.17, bias: 'mixed' },  // Sr — big book, realistic mix
-  { name: 'Maria Rodriguez',  pct: 0.15, bias: 'mixed' },  // Mid — solid portfolio
-  { name: 'David Kim',        pct: 0.13, bias: 'tough' },  // Mid — inherited some tough accounts
-  { name: 'Rachel Foster',    pct: 0.12, bias: 'good'  },  // Mid — strong performer
-  { name: 'Anil Patel',       pct: 0.10, bias: 'tough' },  // Jr — newer, got at-risk book
-  { name: 'Emily Nakamura',   pct: 0.08, bias: 'mixed' },  // Jr — small book, still ramping
-  { name: 'Tom Brennan',      pct: 0.06, bias: 'mixed' },  // Jr — smallest book
+  { name: 'Sarah Mitchell',   pct: 0.19, bias: 'good'  },  // Sr  - largest book, mostly healthy
+  { name: 'James Chen',       pct: 0.17, bias: 'mixed' },  // Sr  - big book, realistic mix
+  { name: 'Maria Rodriguez',  pct: 0.15, bias: 'mixed' },  // Mid  - solid portfolio
+  { name: 'David Kim',        pct: 0.13, bias: 'tough' },  // Mid  - inherited some tough accounts
+  { name: 'Rachel Foster',    pct: 0.12, bias: 'good'  },  // Mid  - strong performer
+  { name: 'Anil Patel',       pct: 0.10, bias: 'tough' },  // Jr  - newer, got at-risk book
+  { name: 'Emily Nakamura',   pct: 0.08, bias: 'mixed' },  // Jr  - small book, still ramping
+  { name: 'Tom Brennan',      pct: 0.06, bias: 'mixed' },  // Jr  - smallest book
 ];
 
 // Build weighted CSM list for round-robin (legacy compat for 250-count)
@@ -802,25 +802,25 @@ function _assignCSMs(trajList, count) {
 }
 const _DEMO_NOTES = [
   'QBR went well. Champion is engaged and open to upsell convo.',
-  'Escalated to VP of Support — tickets still climbing.',
+  'Escalated to VP of Support  - tickets still climbing.',
   'Onboarding kickoff completed. Primary contact trained.',
   'NPS follow-up done. Main concern is reporting gaps.',
   'Renewed early with 10% uplift. Very happy with recent features.',
-  'Exec sponsor changed — need to rebuild relationship.',
+  'Exec sponsor changed  - need to rebuild relationship.',
   'Product usage dropped after key team member left.',
   'Expansion convo scheduled for next week.',
-  'Flagged integration issues — eng team is investigating.',
+  'Flagged integration issues  - eng team is investigating.',
   'Great case-study candidate. Asked about speaking at conference.',
-  'User training session completed — team showing strong adoption.',
+  'User training session completed  - team showing strong adoption.',
   'Billing dispute resolved. Customer satisfied with outcome.',
-  'Competitor eval in progress — need to demonstrate value ASAP.',
+  'Competitor eval in progress  - need to demonstrate value ASAP.',
   'New decision-maker introduced. Scheduling intro call.',
-  'Feature request logged for API enhancements — product team reviewing.'
+  'Feature request logged for API enhancements  - product team reviewing.'
 ];
 const _DEMO_SENTIMENTS = [
   { val:'negative', note:'Customer expressed frustration with onboarding delays.' },
   { val:'negative', note:'Unhappy with recent product changes. Wants old workflow back.' },
-  { val:'negative', note:'Support response time too slow — escalated internally.' },
+  { val:'negative', note:'Support response time too slow  - escalated internally.' },
   { val:'positive', note:'Very happy with latest release. Praised the team.' },
   { val:'positive', note:'Referred a colleague. Strong advocate.' },
   { val:'neutral',  note:'Routine check-in. No strong feelings either way.' },
@@ -837,7 +837,7 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[8,9,9,10,10], csatOpts:[4,4,5,5,5],
     growthOpts:['strong','strong','mild'],
     lifecycle:'active', noise:0.12,
-    // Solid performer — cruises 72-88 with natural wobble, occasional dip to high 60s
+    // Solid performer  - cruises 72-88 with natural wobble, occasional dip to high 60s
     trend: (d,t) => 0.76 + 0.14 * Math.sin(d/t * Math.PI * 8) + 0.05 * Math.cos(d/t * Math.PI * 3)
   },
   'good-not-great': {
@@ -845,7 +845,7 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[7,7,8,8,9], csatOpts:[3,4,4,4,5],
     growthOpts:['mild','mild','none'],
     lifecycle:'active', noise:0.09,
-    // Reliably mid-range 60-75 — not a concern but not a star
+    // Reliably mid-range 60-75  - not a concern but not a star
     trend: (d,t) => 0.66 + 0.08 * Math.sin(d/t * Math.PI * 6) + 0.04 * Math.cos(d/t * Math.PI * 11)
   },
   'stable-mid': {
@@ -853,7 +853,7 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[5,6,7,7,8], csatOpts:[3,3,3,4,4],
     growthOpts:['none','mild','mild'],
     lifecycle:'active', noise:0.10,
-    // Watch zone 42-62 — enough wobble to sometimes trigger alerts, sometimes look ok
+    // Watch zone 42-62  - enough wobble to sometimes trigger alerts, sometimes look ok
     trend: (d,t) => 0.48 + 0.14 * Math.sin(d/t * Math.PI * 5) + 0.06 * Math.cos(d/t * Math.PI * 13)
   },
   'stable-low': {
@@ -861,7 +861,7 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[3,4,4,5,5,6], csatOpts:[1,2,2,3,3],
     growthOpts:['none','none','mild'],
     lifecycle:'atrisk', noise:0.10,
-    // Risk zone 22-38 — brief upticks that never sustain
+    // Risk zone 22-38  - brief upticks that never sustain
     trend: (d,t) => 0.25 + 0.10 * Math.sin(d/t * Math.PI * 4) + 0.06 * Math.max(0, Math.sin(d/t * Math.PI * 9))
   },
   'improving': {
@@ -869,7 +869,7 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[4,5,6,7,8,9], csatOpts:[2,3,3,4,4,5],
     growthOpts:['none','mild','mild','strong'],
     lifecycle:'active', noise:0.10,
-    // Clear upward ramp — starts ~30, ends ~82, with steps/plateaus
+    // Clear upward ramp  - starts ~30, ends ~82, with steps/plateaus
     trend: (d,t) => {
       const p = d/t;
       if (p < 0.15) return 0.22 + 0.08 * p / 0.15;                         // slow start
@@ -884,7 +884,7 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[5,5,6,6,7,7,8], csatOpts:[3,3,3,4,4,4],
     growthOpts:['none','none','mild','mild'],
     lifecycle:'active', noise:0.08,
-    // Gradual grind upward 40→68 over the full period — not dramatic
+    // Gradual grind upward 40→68 over the full period  - not dramatic
     trend: (d,t) => 0.38 + 0.30 * (d/t) + 0.05 * Math.sin(d/t * Math.PI * 9)
   },
   'declining': {
@@ -914,7 +914,7 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[4,6,7,9,10,7,4], csatOpts:[2,3,4,5,4,3,2],
     growthOpts:['none','mild','strong','none','mild'],
     lifecycle:'active', noise:0.14,
-    // Wild swings — 3 full cycles between ~30 and ~85
+    // Wild swings  - 3 full cycles between ~30 and ~85
     trend: (d,t) => {
       const p = d/t;
       return 0.52 + 0.32 * Math.sin(p * Math.PI * 6) * (0.7 + 0.3 * Math.cos(p * Math.PI * 2.3));
@@ -940,7 +940,7 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[null,null,5,6,6,7], csatOpts:[null,null,3,3,3,4],
     growthOpts:['none','none','mild'],
     lifecycle:'onboarding', noise:0.10,
-    // Sluggish ramp — 6 months in and only at ~55
+    // Sluggish ramp  - 6 months in and only at ~55
     trend: (d,t) => {
       const p = d/t;
       if (p < 0.15) return 0.02 + 0.05 * p / 0.15;
@@ -955,7 +955,7 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[6,5,4,3,3,2], csatOpts:[3,3,2,2,1,1],
     growthOpts:['none','none'],
     lifecycle:'churned', noise:0.08,
-    // Never really got going — ramped to ~50 then fell off within 6 months
+    // Never really got going  - ramped to ~50 then fell off within 6 months
     trend: (d,t) => {
       const p = d/t;
       if (p < 0.35) return 0.10 + 0.45 * p / 0.35;                         // ramp attempt
@@ -970,7 +970,7 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[9,8,7,5,4,3,2], csatOpts:[5,4,3,2,2,1,1],
     growthOpts:['mild','none','none','none'],
     lifecycle:'churned', noise:0.06,
-    // Long-time customer — healthy for 60% of history, then steep collapse
+    // Long-time customer  - healthy for 60% of history, then steep collapse
     trend: (d,t) => {
       const p = d/t;
       if (p < 0.55) return 0.82 + 0.08 * Math.sin(p * Math.PI * 5);        // long healthy era
@@ -997,7 +997,7 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[7,5,4,4,5,6,6], csatOpts:[4,3,2,2,3,3,3],
     growthOpts:['mild','none','none','mild'],
     lifecycle:'active', noise:0.09,
-    // Dropped from 78 to 30, recovered to 58 but stalled — not fully back
+    // Dropped from 78 to 30, recovered to 58 but stalled  - not fully back
     trend: (d,t) => {
       const p = d/t;
       if (p < 0.25) return 0.78 - 0.46 * p / 0.25;                         // drop
@@ -1011,7 +1011,7 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[6,7,8,8,9,10], csatOpts:[3,4,4,5,5],
     growthOpts:['mild','strong','mild'],
     lifecycle:'active', noise:0.08,
-    // 3-4 pronounced seasonal cycles — 45-88 range
+    // 3-4 pronounced seasonal cycles  - 45-88 range
     trend: (d,t) => {
       const p = d/t;
       return 0.62 + 0.26 * Math.sin(p * Math.PI * 7) + 0.06 * Math.sin(p * Math.PI * 19);
@@ -1022,7 +1022,7 @@ const _DEMO_TRAJECTORIES = {
     npsOpts:[8,7,7,6,6,5,5], csatOpts:[4,4,3,3,3,2],
     growthOpts:['mild','none','none'],
     lifecycle:'active', noise:0.09,
-    // Seasonal cycles but each peak is lower — envelope shrinks from 85 to 55
+    // Seasonal cycles but each peak is lower  - envelope shrinks from 85 to 55
     trend: (d,t) => {
       const p = d/t;
       const envelope = 0.75 - 0.25 * p;
@@ -1031,7 +1031,7 @@ const _DEMO_TRAJECTORIES = {
   }
 };
 
-// Trajectory percentages — realistic SaaS portfolio with spread across score ranges
+// Trajectory percentages  - realistic SaaS portfolio with spread across score ranges
 // More mid-range customers, fewer at extremes, varied stories
 const _DEMO_TRAJ_PCTS = [
   ['stable-healthy',      0.14],  // top performers (75-88)
@@ -1043,8 +1043,8 @@ const _DEMO_TRAJ_PCTS = [
   ['declining',           0.04],  // sliding down
   ['slow-decline',        0.04],  // gradual erosion
   ['volatile',            0.04],  // unpredictable swings
-  ['onboarding-fast',     0.04],  // new — ramping quickly
-  ['onboarding-slow',     0.03],  // new — struggling to ramp
+  ['onboarding-fast',     0.04],  // new  - ramping quickly
+  ['onboarding-slow',     0.03],  // new  - struggling to ramp
   ['churned-early',       0.07],  // lost early on (~5-6 accounts)
   ['churned-late',        0.07],  // lost after long tenure (~5-6 accounts)
   ['recovered',           0.06],  // bounced back strong
@@ -1074,7 +1074,7 @@ function _dPick(arr,t,rng){
   const jitter = Math.floor((rng||Math.random)() * 2) - 1;
   return arr[_dClamp(idx+jitter, 0, arr.length-1)];
 }
-// Mulberry32 seeded PRNG — deterministic per customer
+// Mulberry32 seeded PRNG  - deterministic per customer
 function _makeRng(seed) {
   let s = seed | 0;
   return () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -1084,7 +1084,7 @@ function _generateDemoNames(count) {
   // Build all possible combinations, shuffle deterministically, and pick the first `count`
   const combos = [];
   for (const p of _DEMO_PREFIXES) for (const s of _DEMO_SUFFIXES) combos.push(p + ' ' + s);
-  // Seeded PRNG (mulberry32) for deterministic shuffle — same names every time
+  // Seeded PRNG (mulberry32) for deterministic shuffle  - same names every time
   let _s = 42;
   const rng = () => { _s = (_s + 0x6D2B79F5) | 0; let t = Math.imul(_s ^ (_s >>> 15), 1 | _s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   // Fisher-Yates shuffle with seeded RNG
@@ -1130,7 +1130,7 @@ function _generateDemoHistory(trajKey, now, overrideDays, rng, phaseOff, mrr) {
     }
     const dayIdx = totalDays - d;
     const signals = _generateDemoSignals(traj, dayIdx, totalDays, rng, phaseOff);
-    // Embed MRR in signals — drops to 0 after churn point
+    // Embed MRR in signals  - drops to 0 after churn point
     if (mrr != null) {
       const daysFromEnd = d;
       if (isChurned && daysFromEnd < (totalDays - churnDay)) {
@@ -1150,26 +1150,26 @@ function _generateDemoCustomer(name, index, now, trajList, csmAssignments) {
   const trajKey = dist[index % dist.length];
   const traj = _DEMO_TRAJECTORIES[trajKey];
 
-  // Per-customer seeded RNG — deterministic but unique per customer
+  // Per-customer seeded RNG  - deterministic but unique per customer
   const rng = _makeRng(1000 + index * 137);
 
-  // Per-customer phase offset (±10-25% of history) — same trajectory type
+  // Per-customer phase offset (±10-25% of history)  - same trajectory type
   // produces visibly different curves for each customer
   const phaseOff = Math.round((rng() - 0.5) * 180);
 
-  // Tier & MRR — deterministic per customer, decoupled from trajectory
+  // Tier & MRR  - deterministic per customer, decoupled from trajectory
   // Churned accounts skew toward mid/enterprise so churn impact is visible
   const tierRoll = rng();
   const isChurnedTraj = trajKey.startsWith('churned');
   const tier = isChurnedTraj
     ? (tierRoll < 0.30 ? 'smb' : tierRoll < 0.70 ? 'mid' : 'enterprise')
     : (tierRoll < 0.55 ? 'smb' : tierRoll < 0.85 ? 'mid' : 'enterprise');
-  // Per-customer MRR spread — wider ranges so customers differ meaningfully
+  // Per-customer MRR spread  - wider ranges so customers differ meaningfully
   const mrr = tier === 'smb' ? Math.round(_dRand(400,4000,rng)/50)*50
             : tier === 'mid' ? Math.round(_dRand(2500,22000,rng)/100)*100
             : Math.round(_dRand(12000,65000,rng)/500)*500;
 
-  // History depth — stagger tenure: some founding clients, some recent additions
+  // History depth  - stagger tenure: some founding clients, some recent additions
   // Creates natural cohorts: founding (18-24mo), early (12-18mo), mid (6-12mo), recent (2-6mo)
   let histDays;
   if (traj.historyDays) {
@@ -1192,7 +1192,7 @@ function _generateDemoCustomer(name, index, now, trajList, csmAssignments) {
   const isChurned = trajKey.startsWith('churned');
   const currentMrr = isChurned ? 0 : mrr;
 
-  // Lifecycle — spread across all stages for realistic mix
+  // Lifecycle  - spread across all stages for realistic mix
   let lifecycle = traj.lifecycle;
   if (trajKey === 'stable-healthy') {
     const r = rng();
@@ -1225,7 +1225,7 @@ function _generateDemoCustomer(name, index, now, trajList, csmAssignments) {
   const renewal_date = renDate.toISOString().slice(0,10);
   const renewal = Math.max(0, Math.round((renDate - new Date(now)) / (1000*60*60*24*30.44)));
 
-  // Customer-since date — match history depth
+  // Customer-since date  - match history depth
   const sinceDate = new Date(now);
   sinceDate.setDate(sinceDate.getDate() - histDays - Math.floor(rng() * 60));
   const since = sinceDate.toISOString().slice(0,10);
@@ -1235,7 +1235,7 @@ function _generateDemoCustomer(name, index, now, trajList, csmAssignments) {
   createdDate.setDate(createdDate.getDate() - Math.floor(rng()*14));
   const created = createdDate.toISOString();
 
-  // Industry segment tag — 6 verticals, keeps segments page clean
+  // Industry segment tag  - 6 verticals, keeps segments page clean
   const _DEMO_INDUSTRIES = [
     'technology','healthcare','financial-services',
     'retail','professional-services','manufacturing'
@@ -1349,10 +1349,10 @@ function initDemo(count) {
 // Run from browser console while logged in as admin: seedDemoData()
 async function seedDemoData(emailOrClientId, count) {
   // Seeds demo customers into an EXISTING client.
-  // Usage: seedDemoData()                           — seeds the currently selected client (admin dropdown)
-  //        seedDemoData('some-email@x.com')         — 75 accounts via email lookup
-  //        seedDemoData('some-uuid-client-id')      — 75 accounts via client_id
-  //        seedDemoData('client-uuid', 100)         — custom count
+  // Usage: seedDemoData()                            - seeds the currently selected client (admin dropdown)
+  //        seedDemoData('some-email@x.com')          - 75 accounts via email lookup
+  //        seedDemoData('some-uuid-client-id')       - 75 accounts via client_id
+  //        seedDemoData('client-uuid', 100)          - custom count
   count = count || 75;
   if (!isAdmin()) { console.error('Must be logged in as admin'); return; }
 
@@ -1361,10 +1361,10 @@ async function seedDemoData(emailOrClientId, count) {
   if (!arg) {
     if (typeof activeClientId !== 'undefined' && activeClientId && activeClientId !== '__own__') {
       arg = activeClientId;
-      console.log('No arg supplied — using active client from dropdown: ' + arg);
+      console.log('No arg supplied  - using active client from dropdown: ' + arg);
     } else {
       arg = 'demo@iqcadence.com';
-      console.log('No arg supplied and no client selected — defaulting to demo@iqcadence.com');
+      console.log('No arg supplied and no client selected  - defaulting to demo@iqcadence.com');
     }
   }
   const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(arg);
@@ -1372,8 +1372,8 @@ async function seedDemoData(emailOrClientId, count) {
   let targetClientId, targetUserId;
 
   if (isUUID) {
-    // Direct client_id passed — verify it exists
-    console.log('1/4 — Verifying client ' + arg + '…');
+    // Direct client_id passed  - verify it exists
+    console.log('1/4  - Verifying client ' + arg + '…');
     const { data: cl, error: clErr } = await sb.from('clients').select('id, name').eq('id', arg).limit(1);
     if (clErr) { console.error('Client query error:', clErr.message); return; }
     if (!cl || !cl.length) { console.error('No client found with ID ' + arg); return; }
@@ -1381,9 +1381,9 @@ async function seedDemoData(emailOrClientId, count) {
     targetUserId = (await sb.auth.getUser()).data.user.id; // audit: current admin
     console.log('   Client:', cl[0].name, '(' + targetClientId + ')');
   } else {
-    // Email passed — resolve to client_id
+    // Email passed  - resolve to client_id
     const targetEmail = arg;
-    console.log('1/4 — Finding user profile for ' + targetEmail + '…');
+    console.log('1/4  - Finding user profile for ' + targetEmail + '…');
     let prof;
     try {
       const { data, error: profErr } = await sb.from('user_profiles')
@@ -1412,17 +1412,17 @@ async function seedDemoData(emailOrClientId, count) {
   }
 
   // 2. Delete existing customers for this client
-  console.log('2/4 — Deleting existing customers for client ' + targetClientId + '…');
+  console.log('2/4  - Deleting existing customers for client ' + targetClientId + '…');
   const { error: delErr } = await sb.from('customers').delete().eq('client_id', targetClientId);
   if (delErr) { console.error('Delete error:', delErr.message); return; }
   console.log('   Old data cleared.');
 
   // 3. Generate demo customers in memory
-  console.log('3/4 — Generating ' + count + ' demo customers (2+ years history each)…');
+  console.log('3/4  - Generating ' + count + ' demo customers (2+ years history each)…');
   initDemo(count); // populates customers[]
 
   // 4. Push to Supabase under that user's ID
-  console.log('4/4 — Pushing to Supabase (' + count + ' rows)…');
+  console.log('4/4  - Pushing to Supabase (' + count + ' rows)…');
   const rows = customers.map(c => {
     const row = toRow(c);
     row.user_id = targetUserId;       // audit: who seeded
@@ -1465,7 +1465,7 @@ async function seedDemoData(emailOrClientId, count) {
   const { count: verifyCount } = await sb.from('customers').select('*', { count: 'exact', head: true }).eq('client_id', targetClientId);
   console.log('✓ Verification: ' + (verifyCount ?? 'unknown') + ' rows in Supabase for client ' + targetClientId);
   console.log('✓ Done! Refresh the page to load them.');
-  toast('Demo data seeded — ' + (verifyCount ?? count) + ' customers', 'success');
+  toast('Demo data seeded  - ' + (verifyCount ?? count) + ' customers', 'success');
 }
 
 // Helper: list all clients (logs to console, no await needed)
@@ -1483,7 +1483,7 @@ async function seedExampleData() {
   if (!isAdmin()) { console.error('Must be logged in as admin'); return; }
 
   // 1. Find 'Demo Account' client
-  console.log('1/4 — Finding Demo Account client…');
+  console.log('1/4  - Finding Demo Account client…');
   const { data: clients } = await sb.from('clients').select('id, name');
   const exClient = (clients || []).find(c => c.name.toLowerCase() === 'demo account');
   if (!exClient) { console.error("No client named 'Demo Account'. Create it in Settings → Clients first."); return; }
@@ -1496,7 +1496,7 @@ async function seedExampleData() {
   console.log('   Target user:', targetUser.email);
 
   // 3. Delete existing customers for this client
-  console.log('2/4 — Clearing existing data…');
+  console.log('2/4  - Clearing existing data…');
   await sb.from('customers').delete().eq('client_id', exClient.id);
   console.log('   Old data cleared.');
 
@@ -1505,10 +1505,10 @@ async function seedExampleData() {
   const CSMS = ['Alex Thompson', 'Jordan Lee', 'Sam Patel'];
 
   // Company definitions: [name, tier, mrr, trajKey, csmIndex, tenureMonths, renewalMonths, extraTags]
-  // Spread across 2 years to show portfolio growth — started with ~8 clients, now 42
+  // Spread across 2 years to show portfolio growth  - started with ~8 clients, now 42
   // Earlier clients have more volatile histories (growing pains), newer ones healthier (product matured)
   const COMPANIES = [
-    // ── Wave 1: Founding clients (22-24 months ago) — 8 accounts ──
+    // ── Wave 1: Founding clients (22-24 months ago)  - 8 accounts ──
     ['Meridian Health Systems',  'enterprise', 42000, 'recovered',       0, 24, 4, ['healthcare']],
     ['Atlas Robotics',           'enterprise', 48000, 'stable-healthy',  1, 23, 6, ['manufacturing']],
     ['Granite Peak Energy',      'enterprise', 52000, 'seasonal',        2, 24, 5, ['energy']],
@@ -1518,7 +1518,7 @@ async function seedExampleData() {
     ['Lantern Group',            'smb',        1200,  'churned',         0, 22, -3, ['media']],
     ['CloudNine Ventures',       'mid',        5500,  'volatile',        0, 23, 5, ['financial-services']],
 
-    // ── Wave 2: Early growth (17-21 months ago) — 8 accounts ──
+    // ── Wave 2: Early growth (17-21 months ago)  - 8 accounts ──
     ['Northpoint Logistics',     'enterprise', 35000, 'improving',       0, 21, 3, ['logistics']],
     ['Pacific Coast Insurance',  'enterprise', 31000, 'recovered',       1, 19, 3, ['insurance']],
     ['Zenith Pharma',            'mid',        11000, 'seasonal',        1, 20, 5, ['healthcare']],
@@ -1528,7 +1528,7 @@ async function seedExampleData() {
     ['Terraverde Foods',         'smb',        1600,  'churned',         1, 17, -2, ['food-beverage']],
     ['Ironclad Security',        'mid',        6500,  'improving',       2, 20, 7, ['technology']],
 
-    // ── Wave 3: Acceleration (12-16 months ago) — 10 accounts ──
+    // ── Wave 3: Acceleration (12-16 months ago)  - 10 accounts ──
     ['TrueVista Analytics',      'mid',        12000, 'volatile',        0, 16, 6, ['technology']],
     ['Bridgewell Partners',      'mid',        9500,  'improving',       0, 14, 10, ['financial-services']],
     ['Horizon Biotech',          'mid',        6800,  'stable-healthy',  0, 15, 7, ['healthcare']],
@@ -1540,7 +1540,7 @@ async function seedExampleData() {
     ['Lakeshore Realty',         'smb',        3100,  'seasonal',        2, 14, 6, ['real-estate']],
     ['Summit Trail Co',          'smb',        1500,  'improving',       0, 13, 6, ['retail']],
 
-    // ── Wave 4: Growth phase (7-11 months ago) — 8 accounts ──
+    // ── Wave 4: Growth phase (7-11 months ago)  - 8 accounts ──
     ['Crestline Manufacturing',  'smb',        3200,  'declining',       0, 10, 1, ['manufacturing']],
     ['Oakridge Consulting',      'smb',        2800,  'stable-healthy',  0, 9, 9, ['professional-services']],
     ['RapidEdge Tech',           'smb',        2600,  'volatile',        0, 8, 8, ['technology']],
@@ -1550,20 +1550,20 @@ async function seedExampleData() {
     ['Timberline Outdoors',      'smb',        2500,  'stable-healthy',  2, 8, 9, ['retail']],
     ['Greystone Partners',       'mid',        8800,  'improving',       0, 7, 2, ['financial-services']],
 
-    // ── Wave 5: Recent additions (3-6 months ago) — 5 accounts ──
+    // ── Wave 5: Recent additions (3-6 months ago)  - 5 accounts ──
     ['Pinecrest Digital',        'smb',        2400,  'improving',       0, 5, 11, ['technology']],
     ['Wrenfield Analytics',      'smb',        1900,  'stable-healthy',  0, 4, 9, ['technology']],
     ['Frostbyte Gaming',         'smb',        2900,  'stable-healthy',  1, 6, 12, ['media']],
     ['Nightfall Studios',        'smb',        1400,  'improving',       2, 5, 3, ['media']],
     ['Sagebrush Marketing',      'smb',        2000,  'stable-healthy',  2, 3, 10, ['professional-services']],
 
-    // ── Wave 6: Newest onboarding (0-2 months) — 3 accounts ──
+    // ── Wave 6: Newest onboarding (0-2 months)  - 3 accounts ──
     ['Evergreen Solutions',      'smb',        2100,  'onboarding',      0, 2, 12, ['professional-services']],
     ['Driftwood Creative',       'smb',        2200,  'onboarding',      1, 1, 13, ['media']],
     ['Helix Genomics',           'mid',        8500,  'onboarding',      2, 1, 14, ['healthcare']]
   ];
 
-  console.log('3/4 — Generating ' + COMPANIES.length + ' curated customers…');
+  console.log('3/4  - Generating ' + COMPANIES.length + ' curated customers…');
   const exCustomers = COMPANIES.map(([name, tier, mrr, trajKey, csmIdx, tenureMo, renewMo, extraTags], i) => {
     // Generate history scoped to tenure (so newer clients have shorter history)
     const tenureDays = Math.max(30, tenureMo * 30);
@@ -1595,24 +1595,24 @@ async function seedExampleData() {
     // Tags (industry-based)
     const tags = [...extraTags];
 
-    // Notes — ~50% get notes, weighted toward troubled/important accounts
+    // Notes  - ~50% get notes, weighted toward troubled/important accounts
     const notes = [];
     const notePool = [
-      'QBR went well — champion engaged, discussing expansion next quarter.',
+      'QBR went well  - champion engaged, discussing expansion next quarter.',
       'Escalation raised around ticket response times. Eng team investigating.',
       'Onboarding progressing well. Primary users trained on core workflows.',
       'NPS follow-up complete. Concern around missing analytics features.',
       'Renewed early with 8% uplift. Very satisfied with recent improvements.',
-      'Exec sponsor left the company — identifying new stakeholder.',
+      'Exec sponsor left the company  - identifying new stakeholder.',
       'Usage dipped after team restructuring. Scheduled re-enablement session.',
       'Expansion discussion planned for next month. Multi-seat opportunity.',
-      'Integration issues flagged — coordinating with product team.',
-      'Strong advocate — asked about case study and referral program.',
+      'Integration issues flagged  - coordinating with product team.',
+      'Strong advocate  - asked about case study and referral program.',
       'Training session delivered to 12 new users. Adoption climbing.',
-      'Competitor mentioned in renewal convo — need to reinforce value.',
-      'Budget review coming up — prepared ROI deck for champion.',
+      'Competitor mentioned in renewal convo  - need to reinforce value.',
+      'Budget review coming up  - prepared ROI deck for champion.',
       'New VP of Ops introduced. Scheduling exec alignment call.',
-      'Feature request submitted for API webhooks — product reviewing.'
+      'Feature request submitted for API webhooks  - product reviewing.'
     ];
     if (Math.random() < 0.50 || ['declining','slow-decline','churned','recovered'].includes(trajKey)) {
       notes.push({ text: notePool[i % notePool.length], date: new Date(now - Math.floor(Math.random()*20)*86400000).toISOString() });
@@ -1621,12 +1621,12 @@ async function seedExampleData() {
       }
     }
 
-    // Sentiment — ~45% get entries
+    // Sentiment  - ~45% get entries
     const sentiment = [];
     const sentPool = [
       { val:'negative', note:'Expressed frustration with slow support response.' },
       { val:'negative', note:'Unhappy with recent UX changes. Wants rollback option.' },
-      { val:'negative', note:'Budget pressure — may reduce seats at renewal.' },
+      { val:'negative', note:'Budget pressure  - may reduce seats at renewal.' },
       { val:'positive', note:'Very happy with Q4 release. Praised the team publicly.' },
       { val:'positive', note:'Referred two new prospects. Strong internal advocate.' },
       { val:'neutral',  note:'Routine check-in. Stable, no major concerns.' },
@@ -1644,7 +1644,7 @@ async function seedExampleData() {
       }
     }
 
-    // Next touch — 50% of active
+    // Next touch  - 50% of active
     let next_touch = '';
     let next_touch_time = '';
     if (lifecycle !== 'churned' && Math.random() < 0.50) {
@@ -1658,7 +1658,7 @@ async function seedExampleData() {
       }
     }
 
-    // Last contact date — 70% of active
+    // Last contact date  - 70% of active
     let last_contact_date = '';
     if (lifecycle !== 'churned' && lastSig.days != null && lastSig.days > 0 && Math.random() < 0.70) {
       const lcd = new Date(now);
@@ -1666,7 +1666,7 @@ async function seedExampleData() {
       last_contact_date = lcd.toISOString().slice(0,10);
     }
 
-    // Touch history — past calls for accounts with tenure > 3 months
+    // Touch history  - past calls for accounts with tenure > 3 months
     const touch_history = [];
     if (lifecycle !== 'churned' && tenureMo > 3) {
       const numPast = 2 + Math.floor(Math.random() * Math.min(4, Math.floor(tenureMo / 3)));
@@ -1718,7 +1718,7 @@ async function seedExampleData() {
   });
 
   // 5. Push to Supabase
-  console.log('4/4 — Pushing ' + exCustomers.length + ' customers to Supabase…');
+  console.log('4/4  - Pushing ' + exCustomers.length + ' customers to Supabase…');
   const rows = exCustomers.map(c => {
     const row = toRow(c);
     row.user_id = targetUser.user_id;   // audit: who seeded
@@ -1737,7 +1737,7 @@ async function seedExampleData() {
 
   console.log('✓ Done! 42 customers seeded under Demo Account (' + exClient.id + ')');
   console.log('CSM distribution: Alex Thompson (18), Jordan Lee (14), Sam Patel (10)');
-  toast('Demo data seeded — 42 customers across 3 CSMs', 'success');
+  toast('Demo data seeded  - 42 customers across 3 CSMs', 'success');
 }
 
 // ─── AUTO-REFRESH ────────────────────────────────────────────
@@ -1750,7 +1750,7 @@ let _syncInProgress = false;
 // while Supabase writes are still in flight
 function pauseSync(ms) { _syncPauseUntil = Date.now() + (ms || 120000); }
 
-// Silent background sync — never shows the loading overlay
+// Silent background sync  - never shows the loading overlay
 async function silentSync() {
   if (!currentUser) return;
   if (Date.now() < _syncPauseUntil) return; // skip while bulk saves are in flight
@@ -1762,7 +1762,7 @@ async function silentSync() {
     // Snapshot current state to detect if data actually changed
     const prevHash = customers.length + '|' + customers.reduce((s,c) => s + c.score, 0);
 
-    // Respect the active client context — if admin switched to a specific client,
+    // Respect the active client context  - if admin switched to a specific client,
     // reload that client's data instead of the admin's own
     if (isAdmin() && activeClientId !== '__own__') {
       await loadClientCustomers(activeClientId, true);

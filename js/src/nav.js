@@ -214,7 +214,7 @@ function renderBellDd() {
   const all = buildAlerts();
   const active = all.filter(a => !isSnoozed(a.id) && !isDismissed(a.id));
   if (!active.length) {
-    m.innerHTML = `<div style="padding:14px 16px;font-size:var(--fs-base);color:var(--muted);text-align:center">${appIcon('check',13)} All clear — no active alerts</div>`;
+    m.innerHTML = `<div style="padding:14px 16px;font-size:var(--fs-base);color:var(--muted);text-align:center">${appIcon('check',13)} All clear  - no active alerts</div>`;
     return;
   }
   const top5 = active.slice(0, 5);

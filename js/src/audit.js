@@ -88,7 +88,7 @@ function auditSearchFilter(val) {
   renderAuditLog();
 }
 
-// logAudit — fire-and-forget insert to Supabase
+// logAudit  - fire-and-forget insert to Supabase
 function logAudit(action, customerId, customerName, details) {
   if (!currentUser) return;
   const d = { ...(details || {}), user_email: currentUser.email || '' };
@@ -106,7 +106,7 @@ function logAudit(action, customerId, customerName, details) {
   });
 }
 
-// loadAuditLog — fetch from Supabase with pagination + filter
+// loadAuditLog  - fetch from Supabase with pagination + filter
 async function loadAuditLog(forceRefresh) {
   if (forceRefresh) { auditLogs = []; auditOffset = 0; }
 
@@ -236,7 +236,7 @@ function renderAuditLog() {
     /* ── Parse details + extract user email ── */
     let parsedDetails = {};
     try { parsedDetails = typeof e.details === 'string' ? JSON.parse(e.details) : (e.details || {}); } catch {}
-    const userEmail = parsedDetails.user_email || currentUser?.email || '—';
+    const userEmail = parsedDetails.user_email || currentUser?.email || ' -';
 
     /* ── Customer / scope column ── */
     let name;
@@ -256,7 +256,7 @@ function renderAuditLog() {
       else if (backupActions.includes(e.action))    name = '<span style="color:var(--muted);font-style:italic">Backup</span>';
       else if (accountActions.includes(e.action))   name = '<span style="color:var(--muted);font-style:italic">Account</span>';
       else if (e.action === 'bulk_tag' || e.action === 'bulk_lifecycle' || e.action === 'bulk_delete') name = '<span style="color:var(--muted);font-style:italic">Bulk Action</span>';
-      else                                          name = '<span style="color:var(--subtle)">—</span>';
+      else                                          name = '<span style="color:var(--subtle)"> -</span>';
     }
 
     /* ── Details column (exclude user_email from display) ── */
@@ -266,7 +266,7 @@ function renderAuditLog() {
       delete d.user_email;
       const keys = Object.keys(d);
       if (keys.length === 0) {
-        detailStr = '<span style="color:var(--subtle)">—</span>';
+        detailStr = '<span style="color:var(--subtle)"> -</span>';
       } else if (d.summary) {
         detailStr = escHtml(d.summary);
       } else {
@@ -279,7 +279,7 @@ function renderAuditLog() {
         detailStr = parts.join(' &nbsp;·&nbsp; ');
       }
     } catch {
-      detailStr = '<span style="color:var(--subtle)">—</span>';
+      detailStr = '<span style="color:var(--subtle)"> -</span>';
     }
 
     return `<tr>

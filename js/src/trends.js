@@ -160,7 +160,7 @@ function toggleTrendOverlay(id) {
   _refreshTrendOverlays();
 }
 
-// Light refresh: only update chart lines, tags, and table row highlights — no scroll jump
+// Light refresh: only update chart lines, tags, and table row highlights  - no scroll jump
 function _refreshTrendOverlays() {
   const range = _trendRange || '30d';
   const m1 = _trendMetric1 || 'score';
@@ -483,7 +483,7 @@ function renderTrends() {
   const _tDirValColor = avgDelta === null ? '' : avgDelta > 0.5 ? '#16a34a' : avgDelta < -0.5 ? '#dc2626' : '';
   const _tImpValColor = improving > 0 ? '#16a34a' : '';
   const _tDecValColor = declining > 0 ? '#dc2626' : '#16a34a';
-  const _deltaText = avgDelta === null ? 'N/A — not enough history' : `${avgDelta >= 0 ? '+' : ''}${avgDelta.toFixed(1)} avg ${rangeLabel} change`;
+  const _deltaText = avgDelta === null ? 'N/A  - not enough history' : `${avgDelta >= 0 ? '+' : ''}${avgDelta.toFixed(1)} avg ${rangeLabel} change`;
   const _impPct = deltaCount ? Math.round(improving / deltaCount * 100) : 0;
   const _decPct = deltaCount ? Math.round(declining / deltaCount * 100) : 0;
   const _trendSub = avgDelta === null ? 'not enough history for this range' : `across ${deltaCount} account${deltaCount !== 1 ? 's' : ''} with baseline data`;
@@ -495,7 +495,7 @@ function renderTrends() {
       <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:${_tAvgValColor}">${currentAvg}</div><div class="dash-kpi-sub">${_deltaText}</div></div>
     </div>
     <div class="dash-kpi-card ${trendDirColor}">
-      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.trend}</div><span class="dash-kpi-label">Trend Direction <span class="info-tip tip-below" data-tip="Overall portfolio health trend — Improving (avg change > +0.5), Declining (< −0.5), or Stable.">\u24d8</span></span></div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.trend}</div><span class="dash-kpi-label">Trend Direction <span class="info-tip tip-below" data-tip="Overall portfolio health trend  - Improving (avg change > +0.5), Declining (< −0.5), or Stable.">\u24d8</span></span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.5rem${_tDirValColor ? ';color:' + _tDirValColor : ''}">${trendDir}</div><div class="dash-kpi-sub">${_trendSub}</div></div>
     </div>
     <div class="dash-kpi-card dash-kpi-teal">
@@ -523,7 +523,7 @@ function renderTrends() {
     lines.push({ label: escHtml(_trendCsmOverlay), color: OVERLAY_COLORS[0], width: 1.5, points: csmData });
   }
 
-  // Client overlays (primary metric) — forward-fill to keep line continuous
+  // Client overlays (primary metric)  - forward-fill to keep line continuous
   const _olTodayStr = new Date().toISOString().slice(0,10);
   _trendClientOverlays.forEach((id, idx) => {
     const c = customers.find(x => x.id === id);
@@ -618,7 +618,7 @@ function renderTrends() {
     }
   }
 
-  // Render legend — prior period immediately after portfolio avg
+  // Render legend  - prior period immediately after portfolio avg
   const legendWrap = el('trend-legend');
   if (legendWrap) {
     let legendHTML = '';
@@ -658,7 +658,7 @@ function renderTrends() {
   const sel2 = el('trend-metric-2');
   if (sel2) sel2.value = m2;
 
-  // ── Top Movers — build data, then render with current sort ──
+  // ── Top Movers  - build data, then render with current sort ──
   // ── Trend Analysis ──
   _buildTrendAnalysis(active, portfolioData, m2Line ? m2Line.points : null, cutoff, days, m1, m2, priorPortfolioData);
 
@@ -671,7 +671,7 @@ function renderTrends() {
     const baseline = hasBaseline ? beforeRange[beforeRange.length - 1].score : null;
     const endScore = inRange.length ? inRange[inRange.length - 1].score : c.score;
     const delta = hasBaseline ? endScore - baseline : null;
-    return { name: c.name, score: c.score, delta, absDelta: delta !== null ? Math.abs(delta) : 0, noBaseline: !hasBaseline, status: c.status, mrr: c.mrr || 0, manager: c.manager || '—', tickets: c.tickets != null ? c.tickets : 0, logins: c.logins, adoption: c.adoption, id: c.id };
+    return { name: c.name, score: c.score, delta, absDelta: delta !== null ? Math.abs(delta) : 0, noBaseline: !hasBaseline, status: c.status, mrr: c.mrr || 0, manager: c.manager || ' -', tickets: c.tickets != null ? c.tickets : 0, logins: c.logins, adoption: c.adoption, id: c.id };
   });
   renderTrendMovers();
 }
@@ -733,7 +733,7 @@ function renderTrendMovers() {
   // Build column headers
   const trCols = TREND_COLS.map(col => cfBuildTh('trend', col, _trendSortKey, _trendSortDir)).join('');
 
-  // Remove scroll from outer wrapper — we put it on the table div only
+  // Remove scroll from outer wrapper  - we put it on the table div only
   wrap.style.maxHeight = 'none';
   wrap.style.overflowY = 'visible';
 
@@ -917,7 +917,7 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key, priorLine) {
     if (i % Math.max(1, Math.ceil(_xLabelEvery / 2)) === 0) {
       xLabels += `<line x1="${x}" y1="${yScaleL(yL.min)}" x2="${x}" y2="${yScaleL(yL.min)+3}" stroke="#e2e8f0" stroke-width="0.5" opacity="0.4"/>`;
     }
-    // Labels — smarter formatting
+    // Labels  - smarter formatting
     if (i % _xLabelEvery === 0 || i === dates.length - 1) {
       let lbl;
       if (_showYear && day <= 7) {
@@ -936,7 +936,7 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key, priorLine) {
   const dateIdx = {};
   dates.forEach((d,i) => { dateIdx[d] = i; });
 
-  // Max rendered points — downsample for smoother lines on long ranges
+  // Max rendered points  - downsample for smoother lines on long ranges
   const _maxRPts = rangeDays > 365 ? 90 : rangeDays > 180 ? 120 : 9999;
 
   const _hasBreakdown = lines.some(l => l.dashed);
@@ -969,7 +969,7 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key, priorLine) {
     const lineOp = line.dashed ? '0.45' : '0.9';
     linesSVG += `<path d="${smoothD}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linecap="round" opacity="${lineOp}"${dashAttr}/>`;
 
-    // No inline labels — hover tooltip shows exact values for all lines
+    // No inline labels  - hover tooltip shows exact values for all lines
   });
 
   // ── Draw prior-period comparison line (dashed, muted gray) ──
@@ -1220,7 +1220,7 @@ function _taMetricCorrelation(data1, data2, m1, m2, rangeDays) {
 
   const sameDir = (d1 > 0 && d2 > 0) || (d1 < 0 && d2 < 0);
   const oppositeDir = (d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0);
-  // Check significance — both need meaningful movement
+  // Check significance  - both need meaningful movement
   const t1 = m1 === 'mrr' || m1 === 'arr' ? 100 : 0.5;
   const t2 = m2 === 'mrr' || m2 === 'arr' ? 100 : 0.5;
   if (Math.abs(rawD1) < t1 && Math.abs(rawD2) < t2) return null;
@@ -1237,24 +1237,24 @@ function _taMetricCorrelation(data1, data2, m1, m2, rangeDays) {
       accent = 'amber';
     } else {
       title = l1 + ' and ' + l2 + ' both ' + (bothGood ? 'improved' : 'worsened');
-      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> while <strong>${l2} ${f2(rawD2)}${m2Hint}</strong>. ` + (bothGood ? 'Both metrics moving positively — a healthy reinforcing trend.' : 'Both metrics declining — investigate shared root causes.');
+      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> while <strong>${l2} ${f2(rawD2)}${m2Hint}</strong>. ` + (bothGood ? 'Both metrics moving positively  - a healthy reinforcing trend.' : 'Both metrics declining  - investigate shared root causes.');
       accent = bothGood ? 'green' : 'red';
     }
   } else if (oppositeDir) {
     const m1Good = d1 > 0;
     if (!m1Good && m1Recovering) {
-      // m1 overall down but recovering, m2 improving — both now trending up
-      title = l1 + ' recovering — now trending with ' + l2;
+      // m1 overall down but recovering, m2 improving  - both now trending up
+      title = l1 + ' recovering  - now trending with ' + l2;
       detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> overall but has been trending up in the recent ${halfLabel} (<strong>${f1(rawD1Recent)}</strong>). Combined with <strong>${l2} ${f2(rawD2)}${m2Hint}</strong>, both metrics are now moving in the right direction.`;
       accent = 'green';
     } else if (m1Good && m2Recovering) {
       title = l1 + ' improved and ' + l2 + ' now recovering';
-      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> while <strong>${l2} ${f2(rawD2)}${m2Hint}</strong> overall. However, ${l2} has turned around in the recent ${halfLabel} — a positive signal.`;
+      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> while <strong>${l2} ${f2(rawD2)}${m2Hint}</strong> overall. However, ${l2} has turned around in the recent ${halfLabel}  - a positive signal.`;
       accent = 'green';
     } else {
       const m2Improved = d2 > 0;
       title = l1 + (m1Good ? ' improved' : ' declined') + ' while ' + l2 + (m2Improved ? ' improved' : ' worsened');
-      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> while <strong>${l2} ${f2(rawD2)}${m2Hint}</strong>. ` + (m1Good ? 'Mixed signals — ' + l2 + ' may be pulling down ' + l1 + ' gains. Open the customer detail to see which accounts have both signals moving in different directions.' : l2 + ' is improving but hasn\'t lifted ' + l1 + ' yet. This is common — give it another 1–2 scoring cycles. If ' + l1 + ' doesn\'t follow, the ' + l2 + ' improvement may not be translating to real engagement.');
+      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> while <strong>${l2} ${f2(rawD2)}${m2Hint}</strong>. ` + (m1Good ? 'Mixed signals  - ' + l2 + ' may be pulling down ' + l1 + ' gains. Open the customer detail to see which accounts have both signals moving in different directions.' : l2 + ' is improving but hasn\'t lifted ' + l1 + ' yet. This is common  - give it another 1–2 scoring cycles. If ' + l1 + ' doesn\'t follow, the ' + l2 + ' improvement may not be translating to real engagement.');
       accent = 'amber';
     }
   } else {
@@ -1263,7 +1263,7 @@ function _taMetricCorrelation(data1, data2, m1, m2, rangeDays) {
   return { priority: 1, icon: _taSvg.corr, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail };
 }
 
-/* 3. Inflection Point — enhanced with customer attribution */
+/* 3. Inflection Point  - enhanced with customer attribution */
 function _taInflection(data, metricKey, rangeDays, active) {
   if (data.length < 10 || !active || active.length < 3) return null;
   const win = Math.max(3, Math.min(15, Math.round(data.length * 0.1)));
@@ -1295,7 +1295,7 @@ function _taInflection(data, metricKey, rangeDays, active) {
   const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
   const wasRising = bestBefore > 0;
 
-  // Find which customers drove the reversal — biggest movers around the inflection
+  // Find which customers drove the reversal  - biggest movers around the inflection
   const inflT = inflDate.getTime();
   const windowMs = win * 86400000 * (rangeDays / data.length);
   const custMovers = [];
@@ -1356,7 +1356,7 @@ function _taCsmDivergence(data, active, cutoff, rangeDays, metricKey) {
   if (csmDeltas.length < 2) return null;
   const csmAvgDelta = csmDeltas.reduce((s,d) => s+d, 0) / csmDeltas.length;
 
-  // Rest-of-portfolio delta — same methodology, excluding CSM's own accounts
+  // Rest-of-portfolio delta  - same methodology, excluding CSM's own accounts
   const restCusts = active.filter(c => c.manager !== csmName);
   const restDeltas = restCusts.map(_custDelta).filter(d => d !== null);
   const portDelta = restDeltas.length ? restDeltas.reduce((s,d) => s+d, 0) / restDeltas.length : 0;
@@ -1429,7 +1429,7 @@ function _taCrossSignal(active, cutoff, metricKey) {
   // gap = impAvg - decAvg; for inverted: negative gap means improving accounts have lower (better) values
   const isHealthyPattern = inverted ? bestSignal.gap < 0 : bestSignal.gap > 0;
 
-  // Make it actionable — name specific declining accounts with the worst signal values
+  // Make it actionable  - name specific declining accounts with the worst signal values
   const actionAccounts = declining.filter(c => {
     const v = bestSignal.getter(c);
     if (v == null) return false;
@@ -1452,7 +1452,7 @@ function _taCrossSignal(active, cutoff, metricKey) {
   return { priority: 3, icon: _taSvg.signal, iconBg: isHealthyPattern ? 'var(--green-l)' : 'var(--amber-l)', iconColor: isHealthyPattern ? 'var(--green)' : 'var(--amber)', accent, title, detail };
 }
 
-/* ── Drop Attribution — decompose score drops into signal contributions ── */
+/* ── Drop Attribution  - decompose score drops into signal contributions ── */
 
 function _attributeScoreDrop(custs, peakDate, troughDate) {
   const SIGNALS = [
@@ -1495,7 +1495,7 @@ function _attributeScoreDrop(custs, peakDate, troughDate) {
     if (!pArr.length || !tArr.length) return null;
     let rawStart, rawEnd, normStart, normEnd;
     if (s.key === 'growth') {
-      // Growth is categorical (none/mild/strong) — use mode, not numeric average
+      // Growth is categorical (none/mild/strong)  - use mode, not numeric average
       const mode = arr => { const freq = {}; arr.forEach(v => freq[v] = (freq[v]||0)+1); return Object.entries(freq).sort((a,b) => b[1]-a[1])[0]?.[0] || 'none'; };
       rawStart = mode(pArr);
       rawEnd   = mode(tArr);
@@ -1535,8 +1535,8 @@ function _taDropAttribution(active, data1, metricKey, cutoff, rangeDays) {
   // For lowerIsBetter metrics a drop is good, so "recovery" (going back up) means the gain was lost
   const finalPt = data1[data1.length - 1];
   const recovery = finalPt.avg - troughPt.avg;
-  if (!cfg.lowerIsBetter && dropAbs > 0 && recovery / dropAbs > 0.5) return null; // recovered — not a current concern
-  if (cfg.lowerIsBetter && dropAbs > 0 && recovery / dropAbs > 0.5) return null; // bounced back up — gain was temporary
+  if (!cfg.lowerIsBetter && dropAbs > 0 && recovery / dropAbs > 0.5) return null; // recovered  - not a current concern
+  if (cfg.lowerIsBetter && dropAbs > 0 && recovery / dropAbs > 0.5) return null; // bounced back up  - gain was temporary
 
   // Significance check: compute std dev of daily changes
   const deltas = [];
@@ -1585,18 +1585,18 @@ function _taDropAttribution(active, data1, metricKey, cutoff, rangeDays) {
       declined.sort((a, b) => a.delta - b.delta);
       const fv = v => _fmtTaVal(Math.abs(v), metricKey);
       if (declined.length === 1) {
-        concentrationNote = ` This was driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv(declined[0].delta)}) — the remaining ${custDeltas.length - 1} accounts were relatively flat.`;
+        concentrationNote = ` This was driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv(declined[0].delta)})  - the remaining ${custDeltas.length - 1} accounts were relatively flat.`;
       } else {
-        concentrationNote = ` Driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv(declined[0].delta)}) and ${_taCustLink(declined[1].name, declined[1].id)} (down ${fv(declined[1].delta)}) — most of the other ${custDeltas.length - 2} accounts were relatively flat.`;
+        concentrationNote = ` Driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv(declined[0].delta)}) and ${_taCustLink(declined[1].name, declined[1].id)} (down ${fv(declined[1].delta)})  - most of the other ${custDeltas.length - 2} accounts were relatively flat.`;
       }
     } else if (pctDeclined >= 60) {
       if (custDeltas.length <= 5) {
         concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts ${droppedWord} during this period.`;
       } else {
-        concentrationNote = ` This was a broad-based ${dropWord} across the portfolio — <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) ${droppedWord} during this period.`;
+        concentrationNote = ` This was a broad-based ${dropWord} across the portfolio  - <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) ${droppedWord} during this period.`;
       }
     } else if (pctDeclined >= 30) {
-      concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) ${droppedWord} while ${improved.length} ${_lib ? 'worsened' : 'improved'} — a split trend worth investigating by segment.`;
+      concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) ${droppedWord} while ${improved.length} ${_lib ? 'worsened' : 'improved'}  - a split trend worth investigating by segment.`;
     }
   }
 
@@ -1643,7 +1643,7 @@ function _taDropAttribution(active, data1, metricKey, cutoff, rangeDays) {
       const impact = Math.abs(Math.round(a.contribution * 10) / 10);
       if (a.signal === 'growth') {
         const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : 'None';
-        if (a.rawStart === a.rawEnd) return null; // no change in mode — skip
+        if (a.rawStart === a.rawEnd) return null; // no change in mode  - skip
         return `<strong>${a.label}</strong> shifted from ${cap(a.rawStart)} to ${cap(a.rawEnd)}, costing ~${impact} pts`;
       }
       if (a.signal === 'tickets') {
@@ -1696,7 +1696,7 @@ function _taDropAttribution(active, data1, metricKey, cutoff, rangeDays) {
           if (sDelta < -2) {
             detail += ` During the same window, Health Score also dropped <strong>${Math.abs(sDelta)} points</strong>.`;
           } else if (Math.abs(sDelta) <= 2) {
-            detail += ` Health Score stayed stable during this window — other signals offset the impact.`;
+            detail += ` Health Score stayed stable during this window  - other signals offset the impact.`;
           }
         }
       }
@@ -1711,7 +1711,7 @@ function _taDropAttribution(active, data1, metricKey, cutoff, rangeDays) {
   return { priority: 1, icon: _icon, iconBg: _iconBg, iconColor: _iconClr, accent: _accent, title, detail };
 }
 
-/* 9. Churn Impact — call out churned accounts and their revenue impact */
+/* 9. Churn Impact  - call out churned accounts and their revenue impact */
 function _taChurnImpact(cutoff, rangeDays) {
   if (!_trendShowChurned) return null;
   const churned = customers.filter(c => c.lifecycle === 'churned' && passesManagerFilter(c));
@@ -1758,7 +1758,7 @@ function _taChurnImpact(cutoff, rangeDays) {
       }
     }
     if (!churnDate) return;
-    // Last resort fallback for MRR — estimate from tier if no _mrr in history
+    // Last resort fallback for MRR  - estimate from tier if no _mrr in history
     if (!preMrr) preMrr = c._prechurnMrr || 0;
     if (!preMrr) {
       // Estimate based on tier midpoints
@@ -1782,11 +1782,11 @@ function _taChurnImpact(cutoff, rangeDays) {
   if (recentChurns.length > 3) detail += ` and ${recentChurns.length - 3} more`;
   detail += '.';
 
-  const title = recentChurns.length + ' account' + (recentChurns.length > 1 ? 's' : '') + ' churned — $' + fmtNum(totalLostMRR) + '/mo lost';
+  const title = recentChurns.length + ' account' + (recentChurns.length > 1 ? 's' : '') + ' churned  - $' + fmtNum(totalLostMRR) + '/mo lost';
   return { priority: 1, icon: _taSvg.drop, iconBg: 'var(--red-l)', iconColor: 'var(--red)', accent: 'red', title, detail };
 }
 
-/* ── At-Risk Accounts — declining + renewal soon + MRR at stake ── */
+/* ── At-Risk Accounts  - declining + renewal soon + MRR at stake ── */
 function _taAtRiskAccounts(active, cutoff, rangeDays) {
   if (active.length < 3) return null;
   const now = Date.now();
@@ -1814,7 +1814,7 @@ function _taAtRiskAccounts(active, cutoff, rangeDays) {
   const fmtRen = d => d <= 0 ? 'overdue' : d <= 30 ? 'this month' : d <= 60 ? 'within 60d' : d <= 90 ? 'within 90d' : '';
 
   const count = atRisk.length;
-  const title = count + ' account' + (count > 1 ? 's' : '') + ' declining — $' + fmtNum(totalMrr) + '/mo at stake';
+  const title = count + ' account' + (count > 1 ? 's' : '') + ' declining  - $' + fmtNum(totalMrr) + '/mo at stake';
   let detail = '';
   // List top accounts with their delta, MRR, and renewal status
   detail += top.map(x => {
@@ -1875,11 +1875,11 @@ function _taSeasonalPattern(data, metricKey, rangeDays, priorData) {
   const levelDiff = Math.round(currAvg - priorAvg);
 
   if (corr > 0.4) {
-    // Similar shape — seasonal pattern detected
+    // Similar shape  - seasonal pattern detected
     const title = 'Seasonal pattern detected in ' + label;
     let detail;
     if (Math.abs(levelDiff) <= 3) {
-      detail = `${label} is following a similar pattern to the same period last year (correlation: ${Math.round(corr * 100)}%). This suggests <strong>seasonal movement</strong>, not a structural change — likely to follow the same trajectory.`;
+      detail = `${label} is following a similar pattern to the same period last year (correlation: ${Math.round(corr * 100)}%). This suggests <strong>seasonal movement</strong>, not a structural change  - likely to follow the same trajectory.`;
     } else if (levelDiff > 3) {
       detail = `${label} is following a similar pattern to last year but running <strong>${levelDiff} pts higher</strong>. The seasonal shape is repeating but the overall level has improved.`;
     } else {
@@ -1888,7 +1888,7 @@ function _taSeasonalPattern(data, metricKey, rangeDays, priorData) {
     const accent = levelDiff >= -2 ? 'green' : 'amber';
     return { priority: 2, icon: _taSvg.clock, iconBg: accent === 'green' ? 'var(--green-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : 'var(--amber)', accent, title, detail };
   } else if (corr < 0.1 && Math.abs(levelDiff) > 5) {
-    // Different pattern AND different level — this isn't seasonal
+    // Different pattern AND different level  - this isn't seasonal
     const direction = levelDiff > 0 ? 'higher' : 'lower';
     const title = label + ' diverging from last year\'s pattern';
     const detail = `${label} is <strong>${Math.abs(levelDiff)} pts ${direction}</strong> than the same period last year and not following the previous seasonal pattern. This appears to be a <strong>structural shift</strong>, not a seasonal cycle.`;
@@ -1898,7 +1898,7 @@ function _taSeasonalPattern(data, metricKey, rangeDays, priorData) {
   return null;
 }
 
-/* ── Concentration Risk — top MRR accounts declining ── */
+/* ── Concentration Risk  - top MRR accounts declining ── */
 function _taConcentrationRisk(active, rangeDays) {
   if (active.length < 5) return null;
   // Sort by MRR descending, take top 5
@@ -1924,12 +1924,12 @@ function _taConcentrationRisk(active, rangeDays) {
   const title = declining.length + ' of your top 5 accounts ' + (declining.length === 1 ? 'is' : 'are') + ' declining';
   let detail = `Your 5 largest accounts represent <strong>$${fmtNum(top5Mrr)}/mo</strong> (${top5Pct}% of portfolio MRR). `;
   detail += declining.map(x => `${_taCustLink(x.c.name, x.c.id)} (${fd(x.delta)} pts, $${fmtNum(x.c.mrr)}/mo)`).join(', ');
-  detail += ` — <strong>$${fmtNum(decMrr)}/mo</strong> in high-value MRR needs priority attention.`;
+  detail += `  - <strong>$${fmtNum(decMrr)}/mo</strong> in high-value MRR needs priority attention.`;
 
   return { priority: 1, icon: _taSvg.bar, iconBg: 'var(--red-l)', iconColor: 'var(--red)', accent: 'red', title, detail };
 }
 
-/* ── Top Performers — accounts doing well, call out wins ── */
+/* ── Top Performers  - accounts doing well, call out wins ── */
 function _taTopPerformers(active, rangeDays) {
   if (active.length < 5) return null;
   const winners = [];
@@ -1948,11 +1948,11 @@ function _taTopPerformers(active, rangeDays) {
   const title = winners.length + ' account' + (winners.length > 1 ? 's' : '') + ' showing strong improvement';
   let detail = top.map(x => `${_taCustLink(x.c.name, x.c.id)} (${fd(x.delta)} pts, $${fmtNum(x.mrr)}/mo)`).join(', ');
   if (winners.length > 3) detail += ` and ${winners.length - 3} more`;
-  detail += `. These accounts represent <strong>$${fmtNum(totalMrr)}/mo</strong> in MRR — consider them for case studies or expansion conversations.`;
+  detail += `. These accounts represent <strong>$${fmtNum(totalMrr)}/mo</strong> in MRR  - consider them for case studies or expansion conversations.`;
   return { priority: 3, icon: _taSvg.rise || _taSvg.trend, iconBg: 'var(--green-l)', iconColor: 'var(--green)', accent: 'green', title, detail };
 }
 
-/* ── Renewal Pipeline — upcoming renewals and their health ── */
+/* ── Renewal Pipeline  - upcoming renewals and their health ── */
 function _taRenewalPipeline(active, rangeDays) {
   if (active.length < 3) return null;
   const now = Date.now();
@@ -1972,7 +1972,7 @@ function _taRenewalPipeline(active, rangeDays) {
   const totalMrr = upcoming.reduce((s,x) => s + x.mrr, 0);
   const atRiskMrr = atRisk.reduce((s,x) => s + x.mrr, 0);
 
-  const title = upcoming.length + ' renewal' + (upcoming.length > 1 ? 's' : '') + ' in next 90 days — $' + fmtNum(totalMrr) + '/mo';
+  const title = upcoming.length + ' renewal' + (upcoming.length > 1 ? 's' : '') + ' in next 90 days  - $' + fmtNum(totalMrr) + '/mo';
   let detail = '';
   if (atRisk.length) {
     detail += `<strong>${atRisk.length} at risk</strong> ($${fmtNum(atRiskMrr)}/mo): ` +
@@ -1988,7 +1988,7 @@ function _taRenewalPipeline(active, rangeDays) {
   return { priority: 2, icon: _taSvg.clock, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail };
 }
 
-/* ── Signal Deep Dive — look at all signals to find the weakest/strongest ── */
+/* ── Signal Deep Dive  - look at all signals to find the weakest/strongest ── */
 function _taSignalDeepDive(active, cutoff, rangeDays) {
   if (active.length < 5) return null;
   const now = Date.now();
@@ -2057,7 +2057,7 @@ function _taSignalDeepDive(active, cutoff, rangeDays) {
     }
     accent = 'amber';
   } else {
-    // All signals improving or flat — highlight the winner
+    // All signals improving or flat  - highlight the winner
     const direction = best.good === 'lower' ? 'decreased' : 'improved';
     title = best.label + ' ' + direction + ' across the portfolio';
     detail = `${best.label} ${direction} by <strong>${fd(best.avgDelta)}${best.unit}</strong> on average (now ${fv(best.avgCurrent)}${best.unit}). This is the strongest signal movement in the period.`;
@@ -2066,7 +2066,7 @@ function _taSignalDeepDive(active, cutoff, rangeDays) {
   return { priority: 3, icon: _taSvg.signal, iconBg: accent === 'green' ? 'var(--green-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : 'var(--amber)', accent, title, detail };
 }
 
-/* ── Segment Divergence — compare tiers ── */
+/* ── Segment Divergence  - compare tiers ── */
 function _taSegmentDivergence(active, rangeDays) {
   if (active.length < 8) return null;
   const tiers = {};
@@ -2098,15 +2098,15 @@ function _taSegmentDivergence(active, rangeDays) {
   const title = best.label + ' outperforming ' + worst.label + ' by ' + Math.round(gap) + ' pts';
   let detail = tierAvgs.map(t => `<strong>${t.label}</strong>: ${fd(t.avg)} avg (${t.count} accounts)`).join(' · ') + '. ';
   if (worst.avg < -2) {
-    detail += `${worst.label} accounts are the priority — investigate whether they\'re getting adequate support and onboarding.`;
+    detail += `${worst.label} accounts are the priority  - investigate whether they\'re getting adequate support and onboarding.`;
   } else {
-    detail += `The ${best.label} segment is leading — explore what\'s driving their success and apply those lessons across the portfolio.`;
+    detail += `The ${best.label} segment is leading  - explore what\'s driving their success and apply those lessons across the portfolio.`;
   }
   const accent = worst.avg < -3 ? 'red' : 'amber';
   return { priority: 3, icon: _taSvg.bar, iconBg: accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail };
 }
 
-/* ── Portfolio Summary — always-available fallback insight ── */
+/* ── Portfolio Summary  - always-available fallback insight ── */
 function _taPortfolioSummary(active, data1, rangeDays) {
   if (active.length < 3 || !data1 || data1.length < 2) return null;
   const now = Date.now();
@@ -2136,7 +2136,7 @@ function _taPortfolioSummary(active, data1, rangeDays) {
     }
   });
 
-  const title = 'Portfolio snapshot — ' + active.filter(c => c.lifecycle !== 'churned').length + ' accounts, $' + fmtNum(totalMrr) + '/mo MRR';
+  const title = 'Portfolio snapshot  - ' + active.filter(c => c.lifecycle !== 'churned').length + ' accounts, $' + fmtNum(totalMrr) + '/mo MRR';
   let detail = `<strong>${healthy}</strong> healthy, <strong>${watch}</strong> watch, <strong>${critical}</strong> critical. `;
   detail += `Score ${change >= 0 ? 'up' : 'down'} <strong>${change >= 0 ? '+' : ''}${change}</strong> pts over ${rl}. `;
   if (biggestRisk) {

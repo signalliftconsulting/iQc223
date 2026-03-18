@@ -11,8 +11,8 @@ function csatCategory(score) {
   if (score == null) return 'N/A';
   return score >= 4 ? 'Good' : score === 3 ? 'Neutral' : 'Poor';
 }
-function npsDisplay(score)  { if (score == null) return 'N/A'; return score + ' — ' + npsCategory(score); }
-function csatDisplay(score) { if (score == null) return 'N/A'; return score + '/5 — ' + csatCategory(score); }
+function npsDisplay(score)  { if (score == null) return 'N/A'; return score + '  - ' + npsCategory(score); }
+function csatDisplay(score) { if (score == null) return 'N/A'; return score + '/5  - ' + csatCategory(score); }
 function npsIsDetractor(score) { return score != null && score <= 6; }
 function npsIsPromoter(score)  { return score != null && score >= 9; }
 function csatIsPoor(score)     { return score != null && score <= 2; }
@@ -73,7 +73,7 @@ function calcScore(data, w) {
   };
 }
 
-// ─── iQcadence SIGNAL MODEL — 26-Factor Proprietary Engine ──
+// ─── iQcadence SIGNAL MODEL  - 26-Factor Proprietary Engine ──
 const SIGNAL_FACTORS = [
   // ── Engagement & Usage ──
   { id:'recency_decay', name:'Recency Decay', category:'engagement',
@@ -396,7 +396,7 @@ function getStatus(score) {
 function applyAutoStage(c) {
   if (!c) return false;
   const lc = c.lifecycle || 'active';
-  // Don't touch onboarding, won, or churned — those are business decisions
+  // Don't touch onboarding, won, or churned  - those are business decisions
   if (lc === 'onboarding' || lc === 'won' || lc === 'churned') return false;
   const st = c.status || getStatus(c.score || 50);
   // Score fell to risk/critical → auto-set At Risk
@@ -527,7 +527,7 @@ function makeRec(score, data) {
     else if (data.tickets != null && data.tickets >= 3) bad.push('they\'ve got ' + data.tickets + ' open support tickets');
   }
   if (signalOn(data,'nps')) {
-    if (npsIsPromoter(data.nps)) good.push('they gave us a ' + data.nps + ' on NPS — a promoter');
+    if (npsIsPromoter(data.nps)) good.push('they gave us a ' + data.nps + ' on NPS  - a promoter');
     else if (npsIsDetractor(data.nps)) bad.push('they scored us a ' + data.nps + ' on NPS, which is detractor territory');
   }
   if (signalOn(data,'csat')) {
@@ -577,14 +577,14 @@ function makeRec(score, data) {
 
   // Kicker: most relevant extra context (only one fires)
   var _kicker = function(st) {
-    if (disengaged && st !== 'expand' && st !== 'healthy') return ' This looks like full disengagement — not just one signal, they\'ve pulled back across the board.';
-    if (unhappyAndQuiet) return ' They\'re unhappy and we\'re not in touch — that\'s a dangerous combination.';
-    if (silentAndSlipping && st !== 'healthy') return ' Score is dropping and we haven\'t been in contact — that silence is the risk.';
-    if (renewNow && (st === 'critical' || st === 'risk' || st === 'watch')) return ' Renewal is today — this needs immediate attention to prevent churn.';
-    if (renewNow && (st === 'healthy' || st === 'expand')) return ' Renewal is today — health looks good, so this should close smoothly.';
+    if (disengaged && st !== 'expand' && st !== 'healthy') return ' This looks like full disengagement  - not just one signal, they\'ve pulled back across the board.';
+    if (unhappyAndQuiet) return ' They\'re unhappy and we\'re not in touch  - that\'s a dangerous combination.';
+    if (silentAndSlipping && st !== 'healthy') return ' Score is dropping and we haven\'t been in contact  - that silence is the risk.';
+    if (renewNow && (st === 'critical' || st === 'risk' || st === 'watch')) return ' Renewal is today  - this needs immediate attention to prevent churn.';
+    if (renewNow && (st === 'healthy' || st === 'expand')) return ' Renewal is today  - health looks good, so this should close smoothly.';
     if (renewUrgent && (st === 'critical' || st === 'risk')) return ' Renewal is imminent, which puts real timeline pressure on this.';
-    if (renewSoon && (st === 'critical' || st === 'risk' || st === 'watch')) return ' Renewal is in ' + fmtRenewalTime(data) + ' — we need to be in a better position by then.';
-    if (renewSoon && (st === 'healthy' || st === 'expand')) return ' Renewal is in ' + fmtRenewalTime(data) + ' — should be smooth given current health.';
+    if (renewSoon && (st === 'critical' || st === 'risk' || st === 'watch')) return ' Renewal is in ' + fmtRenewalTime(data) + '  - we need to be in a better position by then.';
+    if (renewSoon && (st === 'healthy' || st === 'expand')) return ' Renewal is in ' + fmtRenewalTime(data) + '  - should be smooth given current health.';
     if (isHighValue && mrrStr && st !== 'expand' && st !== 'healthy') return ' As ' + tierLabel + ' account at ' + mrrStr + ', this should be a top priority.';
     return '';
   };
@@ -594,18 +594,18 @@ function makeRec(score, data) {
     if ((status === 'critical' || status === 'risk') && mom === 'up') {
       var t = name + ' is still ramping up, but things are starting to turn around.';
       if (bad.length) t += ' The concern is that ' + _join(bad.slice(0,2)) + '.';
-      t += ' Onboarding recoveries are fragile though — these gains can reverse before they\'ve seen real value from the product.';
+      t += ' Onboarding recoveries are fragile though  - these gains can reverse before they\'ve seen real value from the product.';
       return t;
     }
     if (status === 'critical' || status === 'risk') {
       var t = name + ' is struggling during onboarding, which is the worst time for it.';
       if (bad.length) t += ' ' + _cap(bad[0]) + (bad.length > 1 ? ', and ' + bad[1] : '') + '.';
-      t += ' Issues this early compound fast — they lose confidence before they\'ve gotten any real value.';
+      t += ' Issues this early compound fast  - they lose confidence before they\'ve gotten any real value.';
       return t;
     }
     if (status === 'watch') {
       var t = name + ' is onboarding and mostly on track, but not quite where we\'d want them.';
-      if (bad.length) t += ' ' + _cap(bad[0]) + ' — common early on, but it becomes a real problem if it persists past the first 30 days.';
+      if (bad.length) t += ' ' + _cap(bad[0]) + '  - common early on, but it becomes a real problem if it persists past the first 30 days.';
       return t;
     }
     var t = name + ' is onboarding well.';
@@ -617,14 +617,14 @@ function makeRec(score, data) {
   if (lc === 'won') {
     if ((status === 'critical' || status === 'risk') && mom === 'up') {
       var t = name + ' had a dip after expanding, but things are trending back up.';
-      if (bad.length) t += ' Still seeing some issues — ' + _join(bad.slice(0,2)) + '.';
+      if (bad.length) t += ' Still seeing some issues  - ' + _join(bad.slice(0,2)) + '.';
       t += ' Post-expansion dips happen when the new scope hasn\'t fully landed yet.';
       return t;
     }
     if (status === 'critical' || status === 'risk') {
       var t = name + ' has gone downhill since the expansion.';
       if (bad.length) t += ' ' + _cap(bad[0]) + '.';
-      t += ' The new capabilities might not be landing as expected — if they don\'t see value soon, buyer\'s remorse kicks in.';
+      t += ' The new capabilities might not be landing as expected  - if they don\'t see value soon, buyer\'s remorse kicks in.';
       return t;
     }
     if (status === 'watch') {
@@ -642,7 +642,7 @@ function makeRec(score, data) {
   if (lc === 'churned') {
     if (score >= 50) {
       var t = 'There might be a winback opportunity here.';
-      if (good.length) t += ' Before they left, ' + _join(good.slice(0,2)) + ' — so the relationship wasn\'t all bad.';
+      if (good.length) t += ' Before they left, ' + _join(good.slice(0,2)) + '  - so the relationship wasn\'t all bad.';
       t += ' A targeted re-engagement could work.';
       return t;
     }
@@ -658,9 +658,9 @@ function makeRec(score, data) {
     if (bad.length) t += ' ' + _cap(bad[0]) + (bad.length > 1 ? ', and ' + bad[1] : '') + '.';
     if (good.length) t += ' The one bright spot is ' + good[0] + '.';
     if (data.mrr) t += ' That\'s $' + fmtNum(data.mrr) + ' MRR we could lose.';
-    if (momFlavor === 'freefall') t += ' The score is in freefall — this needs immediate intervention before it\'s too late.';
+    if (momFlavor === 'freefall') t += ' The score is in freefall  - this needs immediate intervention before it\'s too late.';
     else if (momFlavor === 'recovering') t += ' There are early signs of recovery, but they\'re still deep in the danger zone.';
-    else if (mom === 'dn') t += ' And it\'s getting worse — without stepping in, this is heading toward churn.';
+    else if (mom === 'dn') t += ' And it\'s getting worse  - without stepping in, this is heading toward churn.';
     t += _kicker('critical');
     return t;
   }
@@ -678,20 +678,20 @@ function makeRec(score, data) {
   }
 
   if (status === 'watch') {
-    var t = name + ' is okay but not great — worth keeping an eye on.';
+    var t = name + ' is okay but not great  - worth keeping an eye on.';
     if (bad.length) t += ' ' + _cap(bad[0]) + ', which is the main thing I\'d flag.';
     if (good.length) t += ' ' + _cap(good[0]) + ' though, which is a positive.';
     if (isHighValue) t += ' As ' + tierLabel + ' account, even Watch status warrants closer attention.';
     if (mom === 'dn') t += ' If this keeps slipping, they\'ll move into At Risk.';
-    else if (mom === 'up') t += ' The trend is positive — a little more attention could push them back to Healthy.';
+    else if (mom === 'up') t += ' The trend is positive  - a little more attention could push them back to Healthy.';
     t += _kicker('watch');
     return t;
   }
 
   if (status === 'expand') {
-    var t = name + ' is thriving — this is one to get excited about.';
+    var t = name + ' is thriving  - this is one to get excited about.';
     if (good.length) t += ' ' + _cap(good[0]) + (good.length > 1 ? ', and ' + good[1] : '') + '.';
-    if (mom === 'dn') { t += ' Score dipped ' + (Math.abs(delta) || 'a few') + ' points recently though — check the trend chart to see which signals are pulling back before pushing growth conversations.'; }
+    if (mom === 'dn') { t += ' Score dipped ' + (Math.abs(delta) || 'a few') + ' points recently though  - check the trend chart to see which signals are pulling back before pushing growth conversations.'; }
     else if (data.mrr) t += ' At ' + mrrStr + ', a successful expansion here would be a big win.';
     else t += ' Great candidate for an expansion conversation.';
     t += _kicker('expand');
@@ -699,11 +699,11 @@ function makeRec(score, data) {
   }
 
   // Healthy
-  var t = name + ' is in good shape — no major concerns.';
+  var t = name + ' is in good shape  - no major concerns.';
   if (good.length) t += ' ' + _cap(good[0]) + (good.length > 1 ? ', and ' + good[1] : '') + '.';
-  if (bad.length) t += ' The only thing I\'d keep an eye on is ' + bad[0] + ' — if that gets worse, it could drag the score down.';
-  if (momFlavor === 'slipping') t += ' Score has been dipping from a good position — down ' + (Math.abs(delta) || 'a few') + ' points recently. Check the signal breakdown to see what\'s changing before it becomes a trend.';
-  else if (mom === 'dn') t += ' Score has been dipping — down ' + (Math.abs(delta) || 'a few') + ' points recently. Check the signal breakdown to see what\'s changing.';
+  if (bad.length) t += ' The only thing I\'d keep an eye on is ' + bad[0] + '  - if that gets worse, it could drag the score down.';
+  if (momFlavor === 'slipping') t += ' Score has been dipping from a good position  - down ' + (Math.abs(delta) || 'a few') + ' points recently. Check the signal breakdown to see what\'s changing before it becomes a trend.';
+  else if (mom === 'dn') t += ' Score has been dipping  - down ' + (Math.abs(delta) || 'a few') + ' points recently. Check the signal breakdown to see what\'s changing.';
   t += _kicker('healthy');
   return t;
 }
@@ -717,15 +717,15 @@ function buildPlaybook(score, data) {
 
   // ── Lifecycle-specific plays (prepended) ─────────────────
   if (lc === 'onboarding') {
-    plays.push({ type:'adopt', text:`<strong>Kickoff check-in:</strong> ${name} is onboarding — confirm the onboarding plan is on track. Ask: <em>"Are you getting the value you expected so far? Any blockers we should remove right away?"</em>` });
+    plays.push({ type:'adopt', text:`<strong>Kickoff check-in:</strong> ${name} is onboarding  - confirm the onboarding plan is on track. Ask: <em>"Are you getting the value you expected so far? Any blockers we should remove right away?"</em>` });
     plays.push({ type:'coach', text:`<strong>Stakeholder mapping:</strong> Identify the champion, executive sponsor, and day-to-day users at ${name}. Build relationships across the org early to reduce single-point-of-failure risk.` });
     if (signalOn(data,'adoption') && data.adoption != null && data.adoption < 50)
-      plays.push({ type:'adopt', text:`<strong>Hands-on enablement:</strong> Adoption is at ${data.adoption}% — expected to be ramping but needs a push. Schedule a dedicated training session: <em>"Let me walk your team through the key workflows — teams that adopt these early see results 2x faster."</em>` });
-    plays.push({ type:'coach', text:`<strong>Success plan review:</strong> Revisit the success criteria defined at kickoff. Make sure ${name} is tracking toward their first measurable win — this is critical for long-term retention.` });
+      plays.push({ type:'adopt', text:`<strong>Hands-on enablement:</strong> Adoption is at ${data.adoption}%  - expected to be ramping but needs a push. Schedule a dedicated training session: <em>"Let me walk your team through the key workflows  - teams that adopt these early see results 2x faster."</em>` });
+    plays.push({ type:'coach', text:`<strong>Success plan review:</strong> Revisit the success criteria defined at kickoff. Make sure ${name} is tracking toward their first measurable win  - this is critical for long-term retention.` });
   }
   if (lc === 'won') {
-    plays.push({ type:'coach', text:`<strong>Value realization check:</strong> ${name} recently expanded — confirm the new capabilities are being used. Ask: <em>"How is [new feature/tier] working for your team? Is it meeting the expectations we discussed?"</em>` });
-    plays.push({ type:'adopt', text:`<strong>Transition support:</strong> Ensure the expanded scope is fully onboarded and users are trained. Don't assume the new purchase auto-deploys — schedule a walkthrough if needed.` });
+    plays.push({ type:'coach', text:`<strong>Value realization check:</strong> ${name} recently expanded  - confirm the new capabilities are being used. Ask: <em>"How is [new feature/tier] working for your team? Is it meeting the expectations we discussed?"</em>` });
+    plays.push({ type:'adopt', text:`<strong>Transition support:</strong> Ensure the expanded scope is fully onboarded and users are trained. Don't assume the new purchase auto-deploys  - schedule a walkthrough if needed.` });
   }
   if (lc === 'churned') {
     plays.push({ type:'engage', text:`<strong>Winback assessment:</strong> Review what led to ${name}'s churn. If the relationship was positive and conditions have changed, draft a targeted win-back offer with a clear "what's new" message.` });
@@ -735,9 +735,9 @@ function buildPlaybook(score, data) {
   // ── Login frequency ──────────────────────────────────────
   if (signalOn(data,'logins')) {
     if (data.logins === 0)
-      plays.push({ type:'urgent', text:`<strong>Immediate re-engagement:</strong> ${name} hasn't logged in at all this month. Open with: <em>"Hey [name], I noticed you haven't had a chance to log in recently — is there something getting in the way? I'd love to set up a quick session to make sure you're getting value."</em>` });
+      plays.push({ type:'urgent', text:`<strong>Immediate re-engagement:</strong> ${name} hasn't logged in at all this month. Open with: <em>"Hey [name], I noticed you haven't had a chance to log in recently  - is there something getting in the way? I'd love to set up a quick session to make sure you're getting value."</em>` });
     else if (data.logins < 5)
-      plays.push({ type:'engage', text:`<strong>Re-engagement call:</strong> Only ${data.logins} logins this month — well below healthy levels. Ask: <em>"What does your typical week look like — are there blockers to using the platform more regularly? Let's remove them together."</em>` });
+      plays.push({ type:'engage', text:`<strong>Re-engagement call:</strong> Only ${data.logins} logins this month  - well below healthy levels. Ask: <em>"What does your typical week look like  - are there blockers to using the platform more regularly? Let's remove them together."</em>` });
     else if (data.logins < 12)
       plays.push({ type:'coach', text:`<strong>Usage coaching:</strong> Login frequency is moderate at ${data.logins} days. Share a "tip of the month" and ask: <em>"Are there features you haven't had a chance to explore yet? I can walk you through what's working for similar teams."</em>` });
   }
@@ -745,7 +745,7 @@ function buildPlaybook(score, data) {
   // ── Feature adoption ─────────────────────────────────────
   if (signalOn(data,'adoption')) {
     if (data.adoption < 25)
-      plays.push({ type:'adopt', text:`<strong>Adoption rescue:</strong> Feature adoption is critically low at ${data.adoption}%. Book a hands-on session and say: <em>"A lot of value is sitting unused — let me show you exactly what [top feature] can do for your workflow. Teams like yours typically see [outcome] within 30 days."</em>` });
+      plays.push({ type:'adopt', text:`<strong>Adoption rescue:</strong> Feature adoption is critically low at ${data.adoption}%. Book a hands-on session and say: <em>"A lot of value is sitting unused  - let me show you exactly what [top feature] can do for your workflow. Teams like yours typically see [outcome] within 30 days."</em>` });
     else if (data.adoption < 50)
       plays.push({ type:'adopt', text:`<strong>Adoption workshop:</strong> ${data.adoption}% adoption leaves significant value on the table. Run a feature discovery session and ask: <em>"Which parts of the product does your team use daily? I want to make sure you're getting full value from everything available to you."</em>` });
   }
@@ -753,40 +753,40 @@ function buildPlaybook(score, data) {
   // ── Support tickets ──────────────────────────────────────
   if (signalOn(data,'tickets')) {
     if (data.tickets >= 5)
-      plays.push({ type:'urgent', text:`<strong>Escalation review:</strong> ${data.tickets} open tickets is a red flag. Loop in your support lead immediately and open with: <em>"I've been keeping a close eye on your open tickets — I want to make sure these are getting resolved fast enough. Can we get 20 minutes this week to walk through each one together?"</em>` });
+      plays.push({ type:'urgent', text:`<strong>Escalation review:</strong> ${data.tickets} open tickets is a red flag. Loop in your support lead immediately and open with: <em>"I've been keeping a close eye on your open tickets  - I want to make sure these are getting resolved fast enough. Can we get 20 minutes this week to walk through each one together?"</em>` });
     else if (data.tickets >= 3)
-      plays.push({ type:'support', text:`<strong>Support sync:</strong> ${data.tickets} open tickets suggests friction. Ask: <em>"I saw you have a few open support requests — are these blocking anything important? I want to make sure nothing is slipping through the cracks on our end."</em>` });
+      plays.push({ type:'support', text:`<strong>Support sync:</strong> ${data.tickets} open tickets suggests friction. Ask: <em>"I saw you have a few open support requests  - are these blocking anything important? I want to make sure nothing is slipping through the cracks on our end."</em>` });
   }
 
   // ── NPS ─────────────────────────────────────────────────
   if (signalOn(data,'nps')) {
     if (npsIsDetractor(data.nps))
-      plays.push({ type:'urgent', text:`<strong>Executive recovery call:</strong> NPS detractor (${npsDisplay(data.nps)}) — don't wait. Escalate to leadership and reach out personally: <em>"I wanted to call you directly because your feedback matters a lot to us. Can you help me understand what's fallen short? I want to make this right."</em>` });
+      plays.push({ type:'urgent', text:`<strong>Executive recovery call:</strong> NPS detractor (${npsDisplay(data.nps)})  - don't wait. Escalate to leadership and reach out personally: <em>"I wanted to call you directly because your feedback matters a lot to us. Can you help me understand what's fallen short? I want to make this right."</em>` });
     else if (npsIsPromoter(data.nps) && status === 'expand')
-      plays.push({ type:'expand', text:`<strong>Leverage the promoter:</strong> NPS ${npsDisplay(data.nps)} + strong health = referral opportunity. Ask: <em>"We love having you as a customer — would you be open to a quick case study or intro to a peer who might benefit from [product]? I'll make it easy for you."</em>` });
+      plays.push({ type:'expand', text:`<strong>Leverage the promoter:</strong> NPS ${npsDisplay(data.nps)} + strong health = referral opportunity. Ask: <em>"We love having you as a customer  - would you be open to a quick case study or intro to a peer who might benefit from [product]? I'll make it easy for you."</em>` });
   }
 
   // ── CSAT ────────────────────────────────────────────────
   if (signalOn(data,'csat')) {
     if (csatIsPoor(data.csat))
-      plays.push({ type:'urgent', text:`<strong>CSAT recovery needed:</strong> CSAT is ${csatDisplay(data.csat)} — satisfaction is critically low. Reach out today: <em>"I saw your recent feedback and I want to personally make sure we address what's not working. Can we get 20 minutes this week?"</em>` });
+      plays.push({ type:'urgent', text:`<strong>CSAT recovery needed:</strong> CSAT is ${csatDisplay(data.csat)}  - satisfaction is critically low. Reach out today: <em>"I saw your recent feedback and I want to personally make sure we address what's not working. Can we get 20 minutes this week?"</em>` });
     else if (csatIsGood(data.csat) && status === 'expand')
-      plays.push({ type:'expand', text:`<strong>High CSAT — referral ready:</strong> CSAT ${csatDisplay(data.csat)} indicates strong satisfaction. Ask: <em>"You've had such a great experience — would you be open to sharing your story or introducing a peer?"</em>` });
+      plays.push({ type:'expand', text:`<strong>High CSAT  - referral ready:</strong> CSAT ${csatDisplay(data.csat)} indicates strong satisfaction. Ask: <em>"You've had such a great experience  - would you be open to sharing your story or introducing a peer?"</em>` });
   }
 
   // ── Days since contact ───────────────────────────────────
   if (signalOn(data,'days')) {
     if (data.days > 45)
-      plays.push({ type:'urgent', text:`<strong>Urgent re-connect:</strong> No contact in ${data.days} days — this account has gone dark. Send a personal note today: <em>"Hey [name], it's been a while and I wanted to check in. How's everything going with [product]? Anything on your radar I should know about?"</em>` });
+      plays.push({ type:'urgent', text:`<strong>Urgent re-connect:</strong> No contact in ${data.days} days  - this account has gone dark. Send a personal note today: <em>"Hey [name], it's been a while and I wanted to check in. How's everything going with [product]? Anything on your radar I should know about?"</em>` });
     else if (data.days > 21)
-      plays.push({ type:'engage', text:`<strong>Check-in email:</strong> ${data.days} days since last contact. Reach out with something valuable — share a relevant case study, tip, or product update, then close with: <em>"Anything you'd like to cover on our next call?"</em>` });
+      plays.push({ type:'engage', text:`<strong>Check-in email:</strong> ${data.days} days since last contact. Reach out with something valuable  - share a relevant case study, tip, or product update, then close with: <em>"Anything you'd like to cover on our next call?"</em>` });
   }
 
   // ── Compound signal patterns ────────────────────────────
   if (signalOn(data,'logins') && signalOn(data,'adoption') && data.logins != null && data.logins < 5 && data.adoption != null && data.adoption < 30)
-    plays.push({ type:'urgent', text:`<strong>Full disengagement:</strong> ${name} has both low logins (${data.logins}/mo) and low adoption (${data.adoption}%). This isn't one signal — they've checked out across the board. This needs a direct, honest conversation: <em>"I want to be straight with you — the data shows your team isn't getting value from us right now. Can we reset and figure out what needs to change?"</em>` });
+    plays.push({ type:'urgent', text:`<strong>Full disengagement:</strong> ${name} has both low logins (${data.logins}/mo) and low adoption (${data.adoption}%). This isn't one signal  - they've checked out across the board. This needs a direct, honest conversation: <em>"I want to be straight with you  - the data shows your team isn't getting value from us right now. Can we reset and figure out what needs to change?"</em>` });
   if (signalOn(data,'days') && data.days > 30 && getMomentum(data) === 'dn')
-    plays.push({ type:'urgent', text:`<strong>Silent decline:</strong> Score is dropping and we haven't been in touch for ${data.days} days. The longer this goes unaddressed, the harder recovery gets. Break the silence today with a personal note — not a template.` });
+    plays.push({ type:'urgent', text:`<strong>Silent decline:</strong> Score is dropping and we haven't been in touch for ${data.days} days. The longer this goes unaddressed, the harder recovery gets. Break the silence today with a personal note  - not a template.` });
   if ((signalOn(data,'nps') && npsIsDetractor(data.nps)) && signalOn(data,'days') && data.days > 21)
     plays.push({ type:'urgent', text:`<strong>Unhappy and unreachable:</strong> NPS detractor (${npsDisplay(data.nps)}) combined with ${data.days} days of no contact. They may already be evaluating alternatives. This needs an exec-level save call, not a standard check-in.` });
   if (data.renewal != null && data.renewal <= 3 && (status === 'critical' || status === 'risk'))
@@ -794,34 +794,34 @@ function buildPlaybook(score, data) {
 
   // ── Renewal ──────────────────────────────────────────────
   if (data.renewal === 0)
-    plays.push({ type:'renew', text:`<strong>Renewal NOW:</strong> Contract is at renewal — get this closed immediately. If health is strong, make it easy: <em>"Everything looks great on your account — I'd love to lock in your renewal and talk about what's coming next year."</em>` });
+    plays.push({ type:'renew', text:`<strong>Renewal NOW:</strong> Contract is at renewal  - get this closed immediately. If health is strong, make it easy: <em>"Everything looks great on your account  - I'd love to lock in your renewal and talk about what's coming next year."</em>` });
   else if (data.renewal != null && data.renewal <= 1)
-    plays.push({ type:'renew', text:`<strong>Renewal urgency:</strong> ${fmtRenewalTime(data)} to renewal. Schedule the contract review call this week — lead with value: <em>"Before we talk paperwork, I want to make sure you've seen the ROI you were expecting. Let's walk through your results together."</em>` });
+    plays.push({ type:'renew', text:`<strong>Renewal urgency:</strong> ${fmtRenewalTime(data)} to renewal. Schedule the contract review call this week  - lead with value: <em>"Before we talk paperwork, I want to make sure you've seen the ROI you were expecting. Let's walk through your results together."</em>` });
   else if (data.renewal != null && data.renewal <= 3 && status !== 'risk' && status !== 'critical')
-    plays.push({ type:'renew', text:`<strong>Renewal prep:</strong> ${fmtRenewalTime(data)} to renewal. Start the conversation now while sentiment is positive: <em>"Renewal is coming up — I'd love to get ahead of it and make sure everything is lined up on your end."</em>` });
+    plays.push({ type:'renew', text:`<strong>Renewal prep:</strong> ${fmtRenewalTime(data)} to renewal. Start the conversation now while sentiment is positive: <em>"Renewal is coming up  - I'd love to get ahead of it and make sure everything is lined up on your end."</em>` });
 
   // ── Growth signal ────────────────────────────────────────
   if (signalOn(data,'growth')) {
     if (data.growth === 'strong')
-      plays.push({ type:'expand', text:`<strong>Upsell now:</strong> Strong growth signal detected — this is the right moment. Say: <em>"I noticed your team has been expanding usage significantly — have you thought about [next tier / additional seats / premium feature]? A lot of teams at your stage find it unlocks [specific outcome]."</em>` });
+      plays.push({ type:'expand', text:`<strong>Upsell now:</strong> Strong growth signal detected  - this is the right moment. Say: <em>"I noticed your team has been expanding usage significantly  - have you thought about [next tier / additional seats / premium feature]? A lot of teams at your stage find it unlocks [specific outcome]."</em>` });
     else if (data.growth === 'mild' && status !== 'risk' && status !== 'critical')
-      plays.push({ type:'expand', text:`<strong>Growth conversation:</strong> Mild growth signal — explore expansion potential. Ask: <em>"You've been growing steadily — where is the team headed over the next 6 months? I want to make sure [product] scales with you."</em>` });
+      plays.push({ type:'expand', text:`<strong>Growth conversation:</strong> Mild growth signal  - explore expansion potential. Ask: <em>"You've been growing steadily  - where is the team headed over the next 6 months? I want to make sure [product] scales with you."</em>` });
   }
 
   // ── Case study ───────────────────────────────────────────
   if (status === 'expand' && ((signalOn(data,'nps') && npsIsPromoter(data.nps)) || (signalOn(data,'csat') && csatIsGood(data.csat))))
-    plays.push({ type:'expand', text:`<strong>Case study / referral:</strong> Happy, expanding customer — perfect for advocacy. Ask: <em>"You've had such a strong experience — would you be open to sharing your story? Even a quick quote or intro to a peer would mean a lot to us."</em>` });
+    plays.push({ type:'expand', text:`<strong>Case study / referral:</strong> Happy, expanding customer  - perfect for advocacy. Ask: <em>"You've had such a strong experience  - would you be open to sharing your story? Even a quick quote or intro to a peer would mean a lot to us."</em>` });
 
   // ── Borderline signal checks (catch mediocre signals that contribute to a Watch/Risk score) ──
   if (status === 'watch' || status === 'risk' || status === 'critical') {
     if (signalOn(data,'logins') && data.logins >= 5 && data.logins < 12 && !plays.some(p => p.type === 'coach' || p.type === 'engage'))
-      plays.push({ type:'coach', text:`<strong>Boost engagement:</strong> ${name} is logging in ${data.logins} days/month — moderate but below ideal. Ask: <em>"Are there features your team hasn't explored yet? I'd love to walk you through what's working for similar teams."</em>` });
+      plays.push({ type:'coach', text:`<strong>Boost engagement:</strong> ${name} is logging in ${data.logins} days/month  - moderate but below ideal. Ask: <em>"Are there features your team hasn't explored yet? I'd love to walk you through what's working for similar teams."</em>` });
     if (signalOn(data,'adoption') && data.adoption >= 25 && data.adoption < 50 && !plays.some(p => p.type === 'adopt'))
-      plays.push({ type:'adopt', text:`<strong>Improve adoption:</strong> Feature adoption is at ${data.adoption}% — there's value being left on the table. Run a feature discovery session: <em>"I'd love to show you a few capabilities that could save your team time."</em>` });
+      plays.push({ type:'adopt', text:`<strong>Improve adoption:</strong> Feature adoption is at ${data.adoption}%  - there's value being left on the table. Run a feature discovery session: <em>"I'd love to show you a few capabilities that could save your team time."</em>` });
     if (signalOn(data,'days') && data.days > 14 && data.days <= 21 && !plays.some(p => p.type === 'engage' || p.type === 'urgent'))
-      plays.push({ type:'engage', text:`<strong>Close the gap:</strong> It's been ${data.days} days since last contact — get ahead of this before it becomes a bigger issue. Send a check-in: <em>"Hey [name], just wanted to touch base — anything on your radar?"</em>` });
+      plays.push({ type:'engage', text:`<strong>Close the gap:</strong> It's been ${data.days} days since last contact  - get ahead of this before it becomes a bigger issue. Send a check-in: <em>"Hey [name], just wanted to touch base  - anything on your radar?"</em>` });
     if (signalOn(data,'nps') && !npsIsDetractor(data.nps) && !npsIsPromoter(data.nps) && data.nps != null && !plays.some(p => p.type === 'urgent'))
-      plays.push({ type:'coach', text:`<strong>Move the needle on NPS:</strong> ${name} is in the passive range (${npsDisplay(data.nps)}) — not unhappy, but not an advocate either. Ask: <em>"What would it take for us to go from good to great for your team?"</em>` });
+      plays.push({ type:'coach', text:`<strong>Move the needle on NPS:</strong> ${name} is in the passive range (${npsDisplay(data.nps)})  - not unhappy, but not an advocate either. Ask: <em>"What would it take for us to go from good to great for your team?"</em>` });
     if (signalOn(data,'csat') && !csatIsPoor(data.csat) && !csatIsGood(data.csat) && data.csat != null && !plays.some(p => p.type === 'urgent'))
       plays.push({ type:'coach', text:`<strong>Improve CSAT:</strong> ${name} has a neutral CSAT rating (${csatDisplay(data.csat)}). Ask: <em>"What's one thing we could improve to make your experience better?"</em>` });
   }
@@ -830,20 +830,20 @@ function buildPlaybook(score, data) {
   if (!plays.length) {
     if (status === 'critical' || status === 'risk') {
       const drivers = _nbaScoreDrivers(data);
-      const driverHint = drivers.length ? ' The biggest movers: ' + drivers.map(d => d.label + ' ' + d.desc).join('; ') + '.' : ' No single signal is in crisis, but several are dragging the score down together — check the Signal Breakdown for the full picture.';
-      plays.push({ type:'urgent', text:`<strong>Dig into what changed:</strong> ${name} is ${status === 'critical' ? 'critical' : 'at risk'}.${driverHint} Reach out today: <em>"I've been keeping a close eye on your account — can we find time this week to check in?"</em>` });
+      const driverHint = drivers.length ? ' The biggest movers: ' + drivers.map(d => d.label + ' ' + d.desc).join('; ') + '.' : ' No single signal is in crisis, but several are dragging the score down together  - check the Signal Breakdown for the full picture.';
+      plays.push({ type:'urgent', text:`<strong>Dig into what changed:</strong> ${name} is ${status === 'critical' ? 'critical' : 'at risk'}.${driverHint} Reach out today: <em>"I've been keeping a close eye on your account  - can we find time this week to check in?"</em>` });
     }
     else if (status === 'watch')
-      plays.push({ type:'engage', text:`<strong>Proactive check-in:</strong> ${name} is in the Watch zone — signals are borderline across the board. Increase your cadence and reach out: <em>"I wanted to check in and make sure everything is tracking well. Anything on your radar I should know about?"</em>` });
+      plays.push({ type:'engage', text:`<strong>Proactive check-in:</strong> ${name} is in the Watch zone  - signals are borderline across the board. Increase your cadence and reach out: <em>"I wanted to check in and make sure everything is tracking well. Anything on your radar I should know about?"</em>` });
     else if (status === 'expand' && getMomentum(data) !== 'dn')
       plays.push({ type:'expand', text:`<strong>Capitalize on momentum:</strong> ${name} is in great shape with strong engagement. Explore expansion opportunities, ask for a referral, or propose a tier upgrade at your next touchpoint.` });
     else if (status === 'expand') {
       const drivers = _nbaScoreDrivers(data);
       const driverHint = drivers.length ? drivers.map(d => d.label + ' ' + d.desc).join('; ') + '.' : 'Check the trend chart and signal breakdown to see which signals are pulling back.';
-      plays.push({ type:'engage', text:`<strong>Pause on expansion — score is dipping:</strong> ${name} scores well overall but momentum has turned negative. ${driverHint} Understand the drop before pushing growth conversations.` });
+      plays.push({ type:'engage', text:`<strong>Pause on expansion  - score is dipping:</strong> ${name} scores well overall but momentum has turned negative. ${driverHint} Understand the drop before pushing growth conversations.` });
     }
     else
-      plays.push({ type:'ok', text:`<strong>Stay the course:</strong> ${name} is healthy across all signals. Maintain your regular cadence and bring value on every call. If logins drop below 5/mo, adoption falls under 30%, or you go more than 30 days without contact — that's when to act.` });
+      plays.push({ type:'ok', text:`<strong>Stay the course:</strong> ${name} is healthy across all signals. Maintain your regular cadence and bring value on every call. If logins drop below 5/mo, adoption falls under 30%, or you go more than 30 days without contact  - that's when to act.` });
   }
 
   // ── Lifecycle suppression: remove play types not appropriate for this stage ──
@@ -915,7 +915,7 @@ function _nbaScoreDrivers(c) {
 }
 
 // ─── SCORE IMPROVEMENT DRIVERS (per-customer) ────────────────
-// Like _nbaScoreDrivers but for positive changes — what improved?
+// Like _nbaScoreDrivers but for positive changes  - what improved?
 function _nbaScoreGains(c) {
   const hist = (c.history || []).filter(h => h.date).sort((a, b) => a.date.localeCompare(b.date));
   if (hist.length < 2) return [];
@@ -991,72 +991,72 @@ function buildNextBestAction(c) {
   // ── Lifecycle-first overrides ──────────────────────────────
   if (lc === 'onboarding') {
     if ((status === 'critical' || status === 'risk') && bigImprove)
-      return { level:'warn', action:'Reinforce onboarding momentum', talk:`${c.name||'This customer'} started rough but is recovering fast. Whatever changed is working — find out what and double down: "Things are heading in the right direction — what clicked for your team recently? Let's make sure we keep that going."` };
+      return { level:'warn', action:'Reinforce onboarding momentum', talk:`${c.name||'This customer'} started rough but is recovering fast. Whatever changed is working  - find out what and double down: "Things are heading in the right direction  - what clicked for your team recently? Let's make sure we keep that going."` };
     if (status === 'critical' || status === 'risk')
-      return { level:'urgent', action:'Onboarding at risk — remove blockers now', talk:`${c.name||'This customer'} is a new customer showing risk signals with no recovery trend yet. Schedule a hands-on enablement session immediately: "I want to make sure we get you off to a strong start. Can we get 30 minutes to walk through any blockers together?"` };
+      return { level:'urgent', action:'Onboarding at risk  - remove blockers now', talk:`${c.name||'This customer'} is a new customer showing risk signals with no recovery trend yet. Schedule a hands-on enablement session immediately: "I want to make sure we get you off to a strong start. Can we get 30 minutes to walk through any blockers together?"` };
     if (signalOn(c,'adoption') && c.adoption != null && c.adoption < 40)
-      return { level:'warn', action:`Drive adoption — only ${c.adoption}% utilized`, talk:`New customer at ${c.adoption}% adoption — this is the critical window for time-to-value. Schedule a training session: "Let me walk your team through the key features — teams that adopt these early see results much faster."` };
+      return { level:'warn', action:`Drive adoption  - only ${c.adoption}% utilized`, talk:`New customer at ${c.adoption}% adoption  - this is the critical window for time-to-value. Schedule a training session: "Let me walk your team through the key features  - teams that adopt these early see results much faster."` };
     if (signalOn(c,'logins') && c.logins != null && c.logins < 5)
-      return { level:'warn', action:'Boost early engagement — low logins', talk:`New customer with only ${c.logins} logins this month. Reach out: "I wanted to check in on how things are going — are you finding it easy to get started? I'd love to walk you through a few things."` };
-    return { level:'ok', action:'Continue onboarding — confirm time-to-value', talk:`Onboarding is on track. Keep the momentum going — focus on adoption milestones and building champion relationships. Ask: "What's working well so far? Anything we can do to help you get more value faster?"` };
+      return { level:'warn', action:'Boost early engagement  - low logins', talk:`New customer with only ${c.logins} logins this month. Reach out: "I wanted to check in on how things are going  - are you finding it easy to get started? I'd love to walk you through a few things."` };
+    return { level:'ok', action:'Continue onboarding  - confirm time-to-value', talk:`Onboarding is on track. Keep the momentum going  - focus on adoption milestones and building champion relationships. Ask: "What's working well so far? Anything we can do to help you get more value faster?"` };
   }
   if (lc === 'won') {
     if ((status === 'critical' || status === 'risk') && bigImprove)
-      return { level:'warn', action:'Post-expansion recovering — stay close', talk:`${c.name||'This customer'} struggled after expanding but is now trending in the right direction. Stay close to ensure the recovery continues: "Glad to see things picking up — what's been the biggest adjustment for your team with the new capabilities?"` };
+      return { level:'warn', action:'Post-expansion recovering  - stay close', talk:`${c.name||'This customer'} struggled after expanding but is now trending in the right direction. Stay close to ensure the recovery continues: "Glad to see things picking up  - what's been the biggest adjustment for your team with the new capabilities?"` };
     if (status === 'critical' || status === 'risk')
-      return { level:'warn', action:'Expansion at risk — ensure value realization', talk:`${c.name||'This customer'} recently expanded but signals are dropping. Focus on ensuring the new capabilities are delivering value: "I want to make sure you're getting what you expected from the expansion. Can we review how things are going?"` };
-    return { level:'ok', action:'Value realization — check new capabilities adoption', talk:`Recently expanded — make sure the new scope is fully adopted and delivering ROI. Ask: "How is [the new capability] working for your team? Is it meeting the expectations we discussed?"` };
+      return { level:'warn', action:'Expansion at risk  - ensure value realization', talk:`${c.name||'This customer'} recently expanded but signals are dropping. Focus on ensuring the new capabilities are delivering value: "I want to make sure you're getting what you expected from the expansion. Can we review how things are going?"` };
+    return { level:'ok', action:'Value realization  - check new capabilities adoption', talk:`Recently expanded  - make sure the new scope is fully adopted and delivering ROI. Ask: "How is [the new capability] working for your team? Is it meeting the expectations we discussed?"` };
   }
   if (lc === 'churned') {
     if (c.score >= 50)
-      return { level:'warn', action:'Assess winback potential', talk:`${c.name||'This account'} churned but had decent engagement. Consider a targeted re-engagement: "We've made some improvements since we last worked together — would you be open to a quick conversation about what's new?"` };
-    return { level:'ok', action:'Account churned — document lessons learned', talk:`This account has churned. Document what led to the loss. If their signals ever start improving (new logins, support tickets closing), or you hear about leadership changes or new funding — that's your winback window.` };
+      return { level:'warn', action:'Assess winback potential', talk:`${c.name||'This account'} churned but had decent engagement. Consider a targeted re-engagement: "We've made some improvements since we last worked together  - would you be open to a quick conversation about what's new?"` };
+    return { level:'ok', action:'Account churned  - document lessons learned', talk:`This account has churned. Document what led to the loss. If their signals ever start improving (new logins, support tickets closing), or you hear about leadership changes or new funding  - that's your winback window.` };
   }
   const urgency = getRenewalUrgency(c);
 
   // Priority order: most urgent condition wins
   // Each check is also gated on whether that signal dimension is active (weight > 0)
   if (signalOn(c,'nps') && npsIsDetractor(c.nps))
-    return { level:'urgent', action:'Call them today', talk:`NPS detractor (${npsDisplay(c.nps)}) — this needs a personal call, not an email. Open with: "I wanted to reach out directly. Can you help me understand what's fallen short? I want to make this right."` };
+    return { level:'urgent', action:'Call them today', talk:`NPS detractor (${npsDisplay(c.nps)})  - this needs a personal call, not an email. Open with: "I wanted to reach out directly. Can you help me understand what's fallen short? I want to make this right."` };
 
   if (signalOn(c,'csat') && csatIsPoor(c.csat))
-    return { level:'urgent', action:'Follow up on CSAT', talk:`Poor CSAT (${csatDisplay(c.csat)}) — satisfaction is critically low. Reach out today: "I saw your recent feedback and want to personally address what's not working."` };
+    return { level:'urgent', action:'Follow up on CSAT', talk:`Poor CSAT (${csatDisplay(c.csat)})  - satisfaction is critically low. Reach out today: "I saw your recent feedback and want to personally address what's not working."` };
 
   if (signalOn(c,'tickets') && c.tickets >= 5)
-    return { level:'urgent', action:'Escalate support now', talk:`${c.tickets} open tickets is critical. Loop in your support lead and contact the customer today: "I've been watching your open tickets closely — can we get 20 minutes to walk through each one together?"` };
+    return { level:'urgent', action:'Escalate support now', talk:`${c.tickets} open tickets is critical. Loop in your support lead and contact the customer today: "I've been watching your open tickets closely  - can we get 20 minutes to walk through each one together?"` };
 
   if (c.renewal != null && c.renewal <= 1 && c.renewal >= 0)
-    return { level:'urgent', action:'Close the renewal this week', talk:`Renewal is ${c.renewal === 0 ? 'NOW' : 'in 1 month'} — get this on the calendar immediately. Lead with value before paperwork: "Before we talk renewal, let's walk through your results together."` };
+    return { level:'urgent', action:'Close the renewal this week', talk:`Renewal is ${c.renewal === 0 ? 'NOW' : 'in 1 month'}  - get this on the calendar immediately. Lead with value before paperwork: "Before we talk renewal, let's walk through your results together."` };
 
   if (sent?.val === 'negative')
-    return { level:'warn', action:'Follow up on last call', talk:`Last call logged as negative — follow up within 24 hours. Ask: "I wanted to check in after our last conversation. Is there anything I can do to help get things back on track?"` };
+    return { level:'warn', action:'Follow up on last call', talk:`Last call logged as negative  - follow up within 24 hours. Ask: "I wanted to check in after our last conversation. Is there anything I can do to help get things back on track?"` };
 
   if (signalOn(c,'days') && cad.status === 'overdue')
-    return { level:'warn', action:`Reach out now — ${c.days} days no contact`, talk:`This account has gone silent. Send a personal note today: "Hey [name], it's been a while — how's everything going? Anything on your radar I should know about?"` };
+    return { level:'warn', action:`Reach out now  - ${c.days} days no contact`, talk:`This account has gone silent. Send a personal note today: "Hey [name], it's been a while  - how's everything going? Anything on your radar I should know about?"` };
 
   if (status === 'critical' && bigImprove)
-    return { level:'warn', action:'Recovery underway — stay close', talk:`Critical score but recovering fast. Something is working — find out what and reinforce it: "I can see things are moving in the right direction. What's been the biggest change recently? Let's make sure we keep this going."` };
+    return { level:'warn', action:'Recovery underway  - stay close', talk:`Critical score but recovering fast. Something is working  - find out what and reinforce it: "I can see things are moving in the right direction. What's been the biggest change recently? Let's make sure we keep this going."` };
 
   if (status === 'critical')
-    return { level:'urgent', action:'Escalate — critical health score', talk:`Critical score with no recovery trend — act immediately. Book an executive call this week: "I've been keeping a very close eye on your account and want to personally make sure we get things back on track."` };
+    return { level:'urgent', action:'Escalate  - critical health score', talk:`Critical score with no recovery trend  - act immediately. Book an executive call this week: "I've been keeping a very close eye on your account and want to personally make sure we get things back on track."` };
 
   if (status === 'risk' && declining)
-    return { level:'urgent', action:'Schedule emergency health check', talk:`At Risk AND still declining — don't wait. Book a call this week: "I've been keeping a close eye on your account and want to make sure we're getting ahead of anything before it becomes a bigger issue."` };
+    return { level:'urgent', action:'Schedule emergency health check', talk:`At Risk AND still declining  - don't wait. Book a call this week: "I've been keeping a close eye on your account and want to make sure we're getting ahead of anything before it becomes a bigger issue."` };
 
   if (status === 'risk' && bigImprove)
-    return { level:'warn', action:'Keep the recovery going', talk:`At Risk but on an upward trajectory. Don't change what's working — check in to understand what's driving the improvement: "Things are trending better — what shifted? I want to make sure we keep building on this."` };
+    return { level:'warn', action:'Keep the recovery going', talk:`At Risk but on an upward trajectory. Don't change what's working  - check in to understand what's driving the improvement: "Things are trending better  - what shifted? I want to make sure we keep building on this."` };
 
   if (status === 'risk')
-    return { level:'warn', action:'Schedule a health check call', talk:`At Risk account — reach out this week: "I wanted to check in and make sure you're getting the value you expected. Can we find 30 minutes to review where things stand?"` };
+    return { level:'warn', action:'Schedule a health check call', talk:`At Risk account  - reach out this week: "I wanted to check in and make sure you're getting the value you expected. Can we find 30 minutes to review where things stand?"` };
 
   if (signalOn(c,'logins') && c.logins != null && c.logins < 5 && signalOn(c,'adoption') && c.adoption != null && c.adoption < 30)
-    return { level:'warn', action:'Address low engagement — logins & adoption down', talk:`Both login frequency (${c.logins}/mo) and adoption (${c.adoption}%) are low. Schedule a hands-on session: "I'd love to walk you through a few features your team might not be using yet — can we find 30 minutes?"` };
+    return { level:'warn', action:'Address low engagement  - logins & adoption down', talk:`Both login frequency (${c.logins}/mo) and adoption (${c.adoption}%) are low. Schedule a hands-on session: "I'd love to walk you through a few features your team might not be using yet  - can we find 30 minutes?"` };
 
   if (signalOn(c,'adoption') && c.adoption != null && c.adoption < 30)
-    return { level:'warn', action:`Drive adoption — only ${c.adoption}% utilized`, talk:`Adoption is at ${c.adoption}% — they're not getting full value. Offer a guided session: "I noticed your team is only using a fraction of what's available. Can I show you a few quick wins that other teams at your stage love?"` };
+    return { level:'warn', action:`Drive adoption  - only ${c.adoption}% utilized`, talk:`Adoption is at ${c.adoption}%  - they're not getting full value. Offer a guided session: "I noticed your team is only using a fraction of what's available. Can I show you a few quick wins that other teams at your stage love?"` };
 
   if (signalOn(c,'logins') && c.logins != null && c.logins < 5)
-    return { level:'warn', action:`Investigate low logins (${c.logins}/mo)`, talk:`Only ${c.logins} logins this month is a red flag. Reach out: "I noticed your team's activity has dipped recently — is everything okay? Anything I can help unblock?"` };
+    return { level:'warn', action:`Investigate low logins (${c.logins}/mo)`, talk:`Only ${c.logins} logins this month is a red flag. Reach out: "I noticed your team's activity has dipped recently  - is everything okay? Anything I can help unblock?"` };
 
   if (status === 'watch') {
     // Build a specific action based on which signals are actually weak
@@ -1069,15 +1069,15 @@ function buildNextBestAction(c) {
     if (signalOn(c,'csat') && c.csat != null && c.csat <= 3) watchSigns.push('CSAT ' + csatDisplay(c.csat));
     const signSummary = watchSigns.length ? watchSigns.slice(0, 2).join(', ') : 'mixed signals';
     if (improving)
-      return { level:'warn', action:'Trending up — address remaining gaps', talk:`Heading in the right direction but still in Watch territory (${signSummary}). Keep the momentum: "Things are looking better — I want to make sure we close the remaining gaps. Can we review where you're still seeing friction?"` };
-    return { level:'warn', action:'Check in — ' + signSummary, talk:`In the Watch zone with ${signSummary}. Proactively reach out: "I wanted to check in and make sure everything is going well. Anything on your radar I should know about?"` };
+      return { level:'warn', action:'Trending up  - address remaining gaps', talk:`Heading in the right direction but still in Watch territory (${signSummary}). Keep the momentum: "Things are looking better  - I want to make sure we close the remaining gaps. Can we review where you're still seeing friction?"` };
+    return { level:'warn', action:'Check in  - ' + signSummary, talk:`In the Watch zone with ${signSummary}. Proactively reach out: "I wanted to check in and make sure everything is going well. Anything on your radar I should know about?"` };
   }
 
   if (signalOn(c,'growth') && status === 'expand' && c.growth === 'strong' && !declining)
-    return { level:'expand', action:'Open the upsell conversation', talk:`Perfect timing for expansion. Say: "Your team's engagement has been really strong — have you thought about [next tier / additional seats]? Teams at your stage typically see [outcome] when they expand."` };
+    return { level:'expand', action:'Open the upsell conversation', talk:`Perfect timing for expansion. Say: "Your team's engagement has been really strong  - have you thought about [next tier / additional seats]? Teams at your stage typically see [outcome] when they expand."` };
 
   if (c.renewal != null && c.renewal <= 3)
-    return { level:'renew', action:'Start renewal conversation', talk:`Get ahead of the renewal while sentiment is positive: "Renewal is coming up — I'd love to get ahead of it and make sure everything is lined up on your end."` };
+    return { level:'renew', action:'Start renewal conversation', talk:`Get ahead of the renewal while sentiment is positive: "Renewal is coming up  - I'd love to get ahead of it and make sure everything is lined up on your end."` };
 
   if (declining) {
     const drop = Math.abs(delta);
@@ -1087,20 +1087,20 @@ function buildNextBestAction(c) {
     let actionSuffix = '';
     if (drivers.length > 0) {
       const top = drivers[0];
-      actionSuffix = ` — driven by ${top.label}`;
+      actionSuffix = `  - driven by ${top.label}`;
       if (drivers.length === 1) {
         driverText = `The main factor: <strong>${top.label}</strong> ${top.desc}. `;
       } else {
         driverText = `The main factors: <strong>${top.label}</strong> ${top.desc} and <strong>${drivers[1].label}</strong> ${drivers[1].desc}. `;
       }
     }
-    return { level:'warn', action:`Score decline (−${drop} pts)${actionSuffix}`, talk:`Score dropped ${drop} points this week. ${driverText}Ask: "I noticed some changes in your usage patterns recently — is there anything going on that I should know about?"` };
+    return { level:'warn', action:`Score decline (−${drop} pts)${actionSuffix}`, talk:`Score dropped ${drop} points this week. ${driverText}Ask: "I noticed some changes in your usage patterns recently  - is there anything going on that I should know about?"` };
   }
 
   if (status === 'expand')
-    return { level:'expand', action:'Ask for a referral or case study', talk:`Happy, healthy customer — great time to ask: "You've had such a great experience — would you be open to a quick intro to a peer who might benefit? I'll make it easy for you."` };
+    return { level:'expand', action:'Ask for a referral or case study', talk:`Happy, healthy customer  - great time to ask: "You've had such a great experience  - would you be open to a quick intro to a peer who might benefit? I'll make it easy for you."` };
 
-  return { level:'ok', action:'Send a value-add touchpoint', talk:`Account is healthy — maintain momentum. Send something useful: a relevant tip, case study, or product update. Close with: "Anything you'd like to cover on our next call?"` };
+  return { level:'ok', action:'Send a value-add touchpoint', talk:`Account is healthy  - maintain momentum. Send something useful: a relevant tip, case study, or product update. Close with: "Anything you'd like to cover on our next call?"` };
 }
 
 // ─── MOMENTUM ────────────────────────────────────────────────
@@ -1151,7 +1151,7 @@ function getRenewalUrgency(c) {
 
 function urgencyHTML(c) {
   const u = getRenewalUrgency(c);
-  if (!u) return '—';
+  if (!u) return ' -';
   return `<span class="urgency ${u.cls}" title="Urgency score: ${u.score}/100">${u.label}</span>`;
 }
 
@@ -1196,19 +1196,19 @@ function buildCadenceAlerts() {
     if (c.next_touch) {
       const ntDays = Math.round((new Date() - new Date(c.next_touch)) / 86400000);
       if (ntDays > 0) {
-        var _ntCtx = ntDays > 14 ? 'Significantly overdue — reschedule immediately' : ntDays > 7 ? 'Over a week late' : 'Recently overdue';
+        var _ntCtx = ntDays > 14 ? 'Significantly overdue  - reschedule immediately' : ntDays > 7 ? 'Over a week late' : 'Recently overdue';
         var _ntHealth = (c.status === 'critical' || c.status === 'risk') ? ' · ⚠ ' + (c.status === 'critical' ? 'Critical' : 'At Risk') : '';
         alerts.push({
           id:  `${c.id}-ntouch`,
           cid: c.id,
           cat: 'cadence',
           type: ntDays > 7 ? 'red' : 'amber',
-          msg: `<strong>${escHtml(c.name)}</strong> <span>— scheduled touch overdue by ${ntDays} day${ntDays !== 1 ? 's' : ''}</span>`,
+          msg: `<strong>${escHtml(c.name)}</strong> <span> - scheduled touch overdue by ${ntDays} day${ntDays !== 1 ? 's' : ''}</span>`,
           sub: `${_ntCtx} · Was due ${new Date(c.next_touch).toLocaleDateString('en-US', { month:'short', day:'numeric' })}${_ntHealth}`
         });
       }
     }
-    if (!signalOn(c,'days')) return; // cadence is a days-based signal — skip if weight is 0
+    if (!signalOn(c,'days')) return; // cadence is a days-based signal  - skip if weight is 0
     const cad = getCadenceStatus(c);
     if (cad.status === 'overdue') {
       var _cadCtx = (c.status === 'critical' || c.status === 'risk') ? 'At-risk account going uncontacted' : c.tier === 'enterprise' ? 'Enterprise SLA breach' : 'Contact cadence exceeded';
@@ -1217,16 +1217,16 @@ function buildCadenceAlerts() {
         id: c.id+'-cadence',
         cid: c.id,
         type: 'red',
-        msg: `<strong>${c.name}</strong> <span>— check-in overdue! No contact in ${c.days} days (${(c.tier||'mid').toUpperCase()} SLA: ${getCadenceThresholds()[c.tier||'mid'].overdue}d)</span>`,
+        msg: `<strong>${c.name}</strong> <span> - check-in overdue! No contact in ${c.days} days (${(c.tier||'mid').toUpperCase()} SLA: ${getCadenceThresholds()[c.tier||'mid'].overdue}d)</span>`,
         sub: `${_cadCtx} · $${fmtNum(c.mrr||0)} MRR${_cadMom}`
       });
     } else if (cad.status === 'warn') {
-      var _cadWCtx = (c.status === 'critical' || c.status === 'risk') ? 'At-risk — don\'t let this go overdue' : 'Approaching cadence limit';
+      var _cadWCtx = (c.status === 'critical' || c.status === 'risk') ? 'At-risk  - don\'t let this go overdue' : 'Approaching cadence limit';
       alerts.push({
         id: c.id+'-cadence',
         cid: c.id,
         type: 'amber',
-        msg: `<strong>${c.name}</strong> <span>— check-in due soon (${c.days} days since contact)</span>`,
+        msg: `<strong>${c.name}</strong> <span> - check-in due soon (${c.days} days since contact)</span>`,
         sub: `${_cadWCtx} · $${fmtNum(c.mrr||0)} MRR`
       });
     }

@@ -32,7 +32,7 @@ function refreshClientDropdown() {
 
 // Populate client <select> dropdowns in create/edit user modals
 function refreshClientSelects() {
-  const opts = `<option value="">— No client assigned —</option>` +
+  const opts = `<option value=""> - No client assigned  -</option>` +
     adminClients.map(c => `<option value="${escHtml(c.id)}">${escHtml(c.name)}</option>`).join('');
   ['cu-client','eu-client'].forEach(id => {
     const sel = document.getElementById(id);
@@ -168,7 +168,7 @@ async function renderClients() {
   const userCounts = {};
   profiles.forEach(p => { if (p.client_id) userCounts[p.client_id] = (userCounts[p.client_id]||0)+1; });
 
-  // Count customers per client — try client_id first, fall back to user→client mapping
+  // Count customers per client  - try client_id first, fall back to user→client mapping
   const custCounts = {};
   let totalCustomers = 0;
   try {
@@ -198,7 +198,7 @@ async function renderClients() {
       <td>${tierBadgeHTML(c.plan_tier || 'starter')}</td>
       <td>${userCounts[c.id] || 0}</td>
       <td><strong>${cc}</strong></td>
-      <td style="color:var(--muted);font-size:var(--fs-base)">${escHtml(c.notes || '—')}</td>
+      <td style="color:var(--muted);font-size:var(--fs-base)">${escHtml(c.notes || ' -')}</td>
       <td>
         <div style="display:flex;gap:4px">
           <button class="btn btn-xs btn-outline" onclick="openEditClientModal('${escHtml(c.id)}','${escHtml(c.name)}',\`${escHtml(c.notes||'')}\`,'${escHtml(c.plan_tier||'starter')}')">Edit</button>
@@ -297,7 +297,7 @@ async function adminDeleteClient(id, name) {
 // Uses the `profiles` Supabase table to track user metadata.
 // Admin creates users via signUp, then stores business name in `user_profiles` table.
 // Listing users: admin reads all rows from user_profiles (RLS allows admin to see all).
-// Deleting users: removes from user_profiles + calls Supabase admin delete (requires service key — we soft-delete via profile flag).
+// Deleting users: removes from user_profiles + calls Supabase admin delete (requires service key  - we soft-delete via profile flag).
 
 async function renderUsers() {
   if (!isAdmin()) { nav('homebase'); return; }
@@ -344,11 +344,11 @@ async function renderUsers() {
       const email     = escHtml(p.email || '');
       const clientId  = p.client_id || '';
       const client    = adminClients.find(c => c.id === clientId);
-      const clientName = client ? escHtml(client.name) : '<span style="color:var(--subtle);font-style:italic">—</span>';
+      const clientName = client ? escHtml(client.name) : '<span style="color:var(--subtle);font-style:italic"> -</span>';
       return `
         <tr>
           <td>
-            <strong>${email || '—'}</strong>
+            <strong>${email || ' -'}</strong>
             ${isSelf ? '<span style="margin-left:6px;font-size:var(--fs-sm);background:var(--blue-l);color:var(--blue);padding:1px 6px;border-radius:4px;font-weight:700">YOU</span>' : ''}
           </td>
           <td>${clientName}</td>
@@ -571,7 +571,7 @@ async function ensureUserProfile(user) {
     const { data: rows } = await sb.from('user_profiles').select('user_id, role, client_id').eq('user_id', user.id).limit(1);
     const data = rows && rows.length ? rows[0] : null;
     if (!data) {
-      // Not registered yet — create profile row
+      // Not registered yet  - create profile row
       await sb.from('user_profiles').insert({
         user_id:       user.id,
         email:         user.email,
@@ -588,5 +588,5 @@ async function ensureUserProfile(user) {
     }
     // Re-apply admin UI now that role is confirmed from server
     updateUserUI(user);
-  } catch(e) { /* silent — non-critical */ }
+  } catch(e) { /* silent  - non-critical */ }
 }

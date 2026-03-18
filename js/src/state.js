@@ -1,11 +1,11 @@
 /* ============================================================
-   IQcadence — CS Health Score — app.js
+   IQcadence  - CS Health Score  - app.js
    ============================================================ */
 const APP_VERSION = 'v93';
 console.log('%c IQcadence ' + APP_VERSION + ' loaded ', 'background:#6366f1;color:#fff;font-weight:bold;padding:2px 8px;border-radius:4px');
 
 // ─── UNIFIED ICON SYSTEM ─────────────────────────────────────
-// Feather-style SVG paths — 24×24 viewBox, stroke-based.
+// Feather-style SVG paths  - 24×24 viewBox, stroke-based.
 // Usage: appIcon('check', 16) → <svg ...>
 const APP_ICONS = {
   /* Sentiment */
@@ -59,7 +59,7 @@ function statusDotSVG(status) {
 }
 
 // ─── SUPABASE CLIENT ─────────────────────────────────────────
-// NOTE: The anon key is intentionally public — Supabase security comes from
+// NOTE: The anon key is intentionally public  - Supabase security comes from
 // Row Level Security (RLS) policies, not from hiding this key.
 // Admin emails are loaded from js/config.js (gitignored) if available.
 const _cfg = window.__IQCADENCE_CONFIG__ || {};
@@ -81,26 +81,26 @@ let mgrFilterAll   = true; // true = show all managers, false = use activeManage
 const SEG_UNTAGGED = '__untagged__';
 const SEG_UNTAGGED_LABEL = 'Untagged';
 function segDisplayLabel(tag) { return tag === SEG_UNTAGGED ? SEG_UNTAGGED_LABEL : tag; }
-let _userRole      = null;      // 'admin' | 'user' — fetched from user_profiles on login
-let _userClientId  = null;      // user's client_id — resolved from user_profiles on login
-let adminClients   = [];        // list of {id, name, notes} — admin only
+let _userRole      = null;      // 'admin' | 'user'  - fetched from user_profiles on login
+let _userClientId  = null;      // user's client_id  - resolved from user_profiles on login
+let adminClients   = [];        // list of {id, name, notes}  - admin only
 let activeClientId = '__own__'; // '__own__' = admin's own data, else client UUID
 let trash          = [];        // soft-deleted customers
 let columnFilters  = {};        // per-column filter state (see COL_DEFS)
 let _openColFilterKey = null;   // key of currently open column filter dropdown
 let filterPresets  = [];        // saved filter presets [{ name, filterMode, columnFilters, sortKey, sortDir }]
-let mrrExposureFilter = null;   // { label: string, ids: Set<string> } — set by clicking MRR Exposure rows
+let mrrExposureFilter = null;   // { label: string, ids: Set<string> }  - set by clicking MRR Exposure rows
 let _filterTier       = null;   // tier filter for customers table (set by segment click-through)
 let _filterStage      = null;   // lifecycle stage filter for customers table (set by stage click-through)
 let _filterManager    = null;   // CSM name filter for customers table (set by workload click-through)
-let insightFilter     = null;   // { label: string, ids: Set<string> } — set by insight card click-through
+let insightFilter     = null;   // { label: string, ids: Set<string> }  - set by insight card click-through
 
 // ─── AUTOMATIONS STATE ──────────────────────────────────────
 let automationsCfg    = {};        // { api_key_prefix, webhooks: { type: { url, enabled, threshold? } } }
 let webhookEvents     = [];        // loaded from webhook_events table
 let webhookLogOffset  = 0;
 let _prevCustomerStates = new Map(); // id → { score, status } for trigger detection
-let _alertCooldowns     = {};       // "custId|eventKey" → timestamp — dedup same alert within 24h
+let _alertCooldowns     = {};       // "custId|eventKey" → timestamp  - dedup same alert within 24h
 
 // ─── SHARED PAGINATION ──────────────────────────────────────
 const PAGE_SIZE = 50;
@@ -109,7 +109,7 @@ const _pagState = {}; // key → current page (0-indexed)
 function _pagGet(key) { return _pagState[key] || 0; }
 function _pagSet(key, pg, renderFn) { _pagState[key] = pg; if (renderFn) renderFn(); }
 
-// Build page controls HTML — place at top and/or bottom of a list
+// Build page controls HTML  - place at top and/or bottom of a list
 // total = total item count, key = state key, renderFnName = global function name to call on page change
 function _pagHTML(total, key, renderFnName) {
   const pages = Math.ceil(total / PAGE_SIZE);
@@ -132,7 +132,7 @@ function _pagHTML(total, key, renderFnName) {
 }
 
 // ─── PLAN TIER GATING ──────────────────────────────────────
-let clientPlanTier = 'pro'; // default to pro until resolved — admin gets enterprise via isAdmin()
+let clientPlanTier = 'pro'; // default to pro until resolved  - admin gets enterprise via isAdmin()
 
 const PLAN_TIERS = ['starter', 'team', 'pro', 'enterprise'];
 const PLAN_TIER_LABELS = { starter: 'Starter', team: 'Team', pro: 'Pro', enterprise: 'Enterprise' };
@@ -262,7 +262,7 @@ const DEFAULT_SIGNAL_MODEL = { enabled: false, sensitivity: 'balanced' };
 let signalModelCfg = { ...DEFAULT_SIGNAL_MODEL };
 const SM_SENSITIVITY = { conservative: 5, balanced: 10, aggressive: 15 };
 
-// Column definitions — drives header rendering + filter logic
+// Column definitions  - drives header rendering + filter logic
 const COL_DEFS = [
   { key:'name',      label:'Customer',      ftype:'text',   sortKey:'name' },
   { key:'manager',   label:'Manager',       ftype:'text',   sortKey:'manager' },

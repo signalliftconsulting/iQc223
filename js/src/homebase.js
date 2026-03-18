@@ -58,7 +58,7 @@ function renderHomeBase() { try { _renderHomeBase(); } catch(e) { console.error(
 async function _loadDemoFromCard() {
   if (!currentUser) { toast('Please sign in first', 'warn'); return; }
   const cid = getEffectiveClientId();
-  if (!cid) { toast('No client found — contact support', 'error'); return; }
+  if (!cid) { toast('No client found  - contact support', 'error'); return; }
   if (!confirm('This will load 75 demo customers into your account. Any existing customers will be replaced. Continue?')) return;
   toast('Loading demo data…', 'default');
   try {
@@ -111,7 +111,7 @@ async function _loadDemoFromCard() {
     if (typeof refreshMgrDropdown === 'function') refreshMgrDropdown();
     renderHomeBase();
     nav('homebase');
-    toast('Demo data loaded — ' + COUNT + ' customers ready to explore!', 'success');
+    toast('Demo data loaded  - ' + COUNT + ' customers ready to explore!', 'success');
     if (typeof _wtInit === 'function') _wtInit();
   } catch(e) {
     console.error('Demo seed error:', e);
@@ -134,7 +134,7 @@ function _gettingStartedHTML() {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
       </div>
       <div class="gs-detail" style="display:none;padding:0 14px 12px;border-top:1px solid var(--border);padding-top:10px">
-        ${steps.map((s, i) => `<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px">${si(i+1)}<div style="font-size:var(--fs-sm);line-height:1.4"><strong>${s.title}</strong> — <span style="color:var(--muted)">${s.desc}</span></div></div>`).join('')}
+        ${steps.map((s, i) => `<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px">${si(i+1)}<div style="font-size:var(--fs-sm);line-height:1.4"><strong>${s.title}</strong>  - <span style="color:var(--muted)">${s.desc}</span></div></div>`).join('')}
         <div style="display:flex;gap:6px;margin-top:2px">${buttons}</div>
       </div>
     </div>`;
@@ -154,10 +154,10 @@ function _gettingStartedHTML() {
     '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();nav(\'settings\')">Go to Settings →</button>'
   ) + card(pplIco, 'linear-gradient(135deg,#6366f1,#4f46e5)',
     'I want to add a selected customer list first, then connect an integration',
-    'Only the accounts you add in IQc will be tracked — the integration won\'t pull in everything, just enrich your selected customers',
+    'Only the accounts you add in IQc will be tracked  - the integration won\'t pull in everything, just enrich your selected customers',
     [
       { title:'Add your selected customers', desc:'Go to <a href="#" onclick="event.stopPropagation();nav(\'customers\')" style="color:var(--teal);font-weight:600">Customers</a> and add them one at a time, or use <a href="#" onclick="event.stopPropagation();nav(\'csv\')" style="color:var(--teal);font-weight:600">CSV Import</a> to bulk upload just the accounts you want to track.' },
-      { title:'Connect your integration', desc:'Go to <a href="#" onclick="event.stopPropagation();nav(\'settings\')" style="color:var(--teal);font-weight:600">Settings → Integrations</a> and connect your tool. Make sure "Import new accounts" is turned off — the integration will only update the customers you already added, not create new ones from your CRM.' },
+      { title:'Connect your integration', desc:'Go to <a href="#" onclick="event.stopPropagation();nav(\'settings\')" style="color:var(--teal);font-weight:600">Settings → Integrations</a> and connect your tool. Make sure "Import new accounts" is turned off  - the integration will only update the customers you already added, not create new ones from your CRM.' },
       { title:'Sync to enrich data', desc:'Run a sync to pull in metrics like MRR, tickets, NPS, and more for your existing customers. Their scores will update automatically.' }
     ],
     '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();nav(\'csv\')">Import Customers →</button>'
@@ -300,13 +300,13 @@ function _renderHomeBase() {
 
   // ── Delta formatters for gradient cards (white text) ──
   const deltaArrow = (val, invert) => {
-    if (val === 0) return '<span style="opacity:.5">—</span>';
+    if (val === 0) return '<span style="opacity:.5"> -</span>';
     const good = invert ? val < 0 : val > 0;
     const arrow = val > 0 ? '▲' : '▼';
     return `<span class="${good ? 'up' : 'down'}">${arrow} ${Math.abs(val)}</span>`;
   };
   const deltaArrowMRR = (val) => {
-    if (val === 0) return '<span style="opacity:.5">—</span>';
+    if (val === 0) return '<span style="opacity:.5"> -</span>';
     const good = val < 0;
     const arrow = val > 0 ? '▲' : '▼';
     return `<span class="${good ? 'up' : 'down'}">${arrow} $${fmtNum(Math.abs(val))}</span>`;
@@ -400,7 +400,7 @@ function _renderHomeBase() {
   // ── Portfolio overview blurb + deduplicated action items ──
   const _ids = arr => JSON.stringify(arr.map(c => c.id));
 
-  // Build portfolio overview — insight-driven briefing (not widget restatement)
+  // Build portfolio overview  - insight-driven briefing (not widget restatement)
   const _overviewCandidates = [];
 
   // 1. Weakest signal across at-risk accounts
@@ -468,7 +468,7 @@ function _renderHomeBase() {
     }
   }
 
-  // 4. Contact impact — are contacted accounts trending differently?
+  // 4. Contact impact  - are contacted accounts trending differently?
   {
     const withDays = active.filter(c => c.days != null && (c.history || []).length >= 1);
     const contacted   = withDays.filter(c => c.days <= 14);
@@ -658,7 +658,7 @@ function _renderHomeBase() {
     <div class="hb-pulse-center">
       <div class="hb-pulse-num">${_portfolioScore}</div>
       <div class="hb-pulse-lbl">Portfolio</div>
-      <div class="hb-pulse-delta" style="color:${avgDelta > 0 ? 'var(--green)' : avgDelta < 0 ? 'var(--red)' : 'var(--muted)'}">${avgDelta > 0 ? '\u25B2 ' + Math.abs(avgDelta) : avgDelta < 0 ? '\u25BC ' + Math.abs(avgDelta) : '— Flat'}</div>
+      <div class="hb-pulse-delta" style="color:${avgDelta > 0 ? 'var(--green)' : avgDelta < 0 ? 'var(--red)' : 'var(--muted)'}">${avgDelta > 0 ? '\u25B2 ' + Math.abs(avgDelta) : avgDelta < 0 ? '\u25BC ' + Math.abs(avgDelta) : ' - Flat'}</div>
     </div>
   </div>`;
   html += '<div class="hb-quick-stats">';
@@ -802,7 +802,7 @@ function _renderHomeBase() {
   html += '</div></div>';
 
   if (!insights.length) {
-    html += `<div class="hb-empty">${_hbSvg.chartEmpty}<p>Portfolio data is building — insights will appear as you score more customers and history accumulates.</p></div>`;
+    html += `<div class="hb-empty">${_hbSvg.chartEmpty}<p>Portfolio data is building  - insights will appear as you score more customers and history accumulates.</p></div>`;
   } else {
     html += '<div class="hb-insights-wrap">';
     insights.forEach(ins => {
@@ -859,7 +859,7 @@ function _statusColor(status) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// INSIGHT ENGINE — ~15 generators producing strategic observations
+// INSIGHT ENGINE  - ~15 generators producing strategic observations
 // ═══════════════════════════════════════════════════════════════
 
 function _generateInsights(active, now, cutoff) {
@@ -941,7 +941,7 @@ function _insightTierDivergence(active) {
     category: 'Risk',
     priority: 2,
     title: `${worst.label} tier underperforming at ${worst.riskPct}% at-risk`,
-    detail: `${worst.label} has ${worst.riskPct}% at-risk accounts vs ${best.riskPct}% for ${best.label} — a ${gap}pt gap. Consider a tier-specific engagement strategy.`,
+    detail: `${worst.label} has ${worst.riskPct}% at-risk accounts vs ${best.riskPct}% for ${best.label}  - a ${gap}pt gap. Consider a tier-specific engagement strategy.`,
     action: { label: 'View Segments', fn: "nav('segments')" }
   };
 }
@@ -1035,7 +1035,7 @@ function _insightMrrAtRiskDelta(active, now, cutoff) {
       ? `At-risk MRR increased $${fmtNum(Math.abs(delta))} this period`
       : `At-risk MRR decreased $${fmtNum(Math.abs(delta))} this period`,
     detail: increased
-      ? `Revenue exposure grew from $${fmtNum(prevMRR)} to $${fmtNum(currentMRR)}. New accounts entered the risk zone — review before they escalate.`
+      ? `Revenue exposure grew from $${fmtNum(prevMRR)} to $${fmtNum(currentMRR)}. New accounts entered the risk zone  - review before they escalate.`
       : `Revenue exposure shrank from $${fmtNum(prevMRR)} to $${fmtNum(currentMRR)}. Recovery efforts are paying off.`,
     action: { label: 'View Customers', fn: `setInsightFilter('${atRisk.length} at-risk accounts',${arIds})` }
   };
@@ -1100,7 +1100,7 @@ function _insightRenewalVelocity(active, now, cutoff) {
     category: 'Renewal',
     priority: gap > 8 ? 1 : 2,
     title: `Renewal cohort declining ${Math.abs(renewAvgDelta)} pts vs portfolio ${portfolioAvgDelta > 0 ? '+' : ''}${portfolioAvgDelta}`,
-    detail: `${next60.length} accounts renewing in the next 60 days are losing health ${gap} pts faster than your portfolio average. ${decliningRenewals.length} are actively declining — $${fmtNum(renewMRR)} MRR at stake. Set up alerts to catch further drops early.`,
+    detail: `${next60.length} accounts renewing in the next 60 days are losing health ${gap} pts faster than your portfolio average. ${decliningRenewals.length} are actively declining  - $${fmtNum(renewMRR)} MRR at stake. Set up alerts to catch further drops early.`,
     action: { label: 'Review Alerts', fn: "nav('alerts')" }
   };
 }
@@ -1123,7 +1123,7 @@ function _insightContactImpact(active, now, cutoff) {
 
   const outreachHelps = gap > 0;
 
-  // Find uncontacted accounts that are declining — prime outreach candidates
+  // Find uncontacted accounts that are declining  - prime outreach candidates
   const neglectedDecliners = uncontacted
     .filter(c => _getDeltaPeriod(c, cutoff) < -2)
     .sort((a,b) => (b.mrr || 0) - (a.mrr || 0));
@@ -1134,13 +1134,13 @@ function _insightContactImpact(active, now, cutoff) {
       category: 'Engagement',
       priority: neglectedDecliners.length >= 3 ? 2 : 3,
       title: `Contacted accounts trending ${contactedDelta > 0 ? '+' : ''}${contactedDelta} pts vs ${uncontactedDelta > 0 ? '+' : ''}${uncontactedDelta} for uncontacted`,
-      detail: `Accounts with recent CSM contact (≤14 days) are outperforming uncontacted ones by ${gap} pts this period. ${neglectedDecliners.length} uncontacted account${neglectedDecliners.length !== 1 ? 's are' : ' is'} actively declining — outreach could reverse the trend.`,
+      detail: `Accounts with recent CSM contact (≤14 days) are outperforming uncontacted ones by ${gap} pts this period. ${neglectedDecliners.length} uncontacted account${neglectedDecliners.length !== 1 ? 's are' : ' is'} actively declining  - outreach could reverse the trend.`,
       action: neglectedDecliners.length
         ? { label: 'View Declining Uncontacted', fn: `setInsightFilter('${neglectedDecliners.length} declining uncontacted',${ndIds})` }
         : { label: 'View Customers', fn: "nav('customers')" }
     };
   } else {
-    // Unusual: uncontacted are doing better — maybe over-contact or wrong accounts contacted
+    // Unusual: uncontacted are doing better  - maybe over-contact or wrong accounts contacted
     return {
       category: 'Engagement',
       priority: 3,
@@ -1191,7 +1191,7 @@ function _insightSignalDivergence(active) {
     detail = `These accounts are actively using the product but showing frustration signals (low NPS, high tickets, or low CSAT). $${fmtNum(frustratedMRR)} MRR. When usage is high but sentiment is low, churn often follows once an alternative appears.`;
   } else if (disengaging.length >= 2) {
     title = `${disengaging.length} accounts show positive sentiment but low engagement`;
-    detail = `These accounts report satisfaction but have low login/adoption numbers. Positive sentiment without active usage often precedes quiet churn — they like the idea but aren't embedded in it.`;
+    detail = `These accounts report satisfaction but have low login/adoption numbers. Positive sentiment without active usage often precedes quiet churn  - they like the idea but aren't embedded in it.`;
   } else {
     title = `${divergent.length} accounts have usage-sentiment divergence`;
     detail = `${frustrated.length} show high usage with negative sentiment (frustration risk), ${disengaging.length} show low usage with positive sentiment (disengagement risk). Both patterns warrant investigation.`;
@@ -1236,7 +1236,7 @@ function _insightAdoptionCorrelation(active) {
 // ── INSIGHT: Renewal Clustering (are renewals bunched, creating workload risk?) ──
 function _insightRenewalClustering(active, now) {
   // Analyze renewal date distribution over next 90 days
-  // Detect if renewals cluster in narrow windows — creating attention-dilution risk
+  // Detect if renewals cluster in narrow windows  - creating attention-dilution risk
   const withRenewal = active.filter(c => {
     if (c.renewal_date) {
       const diff = (new Date(c.renewal_date) - now) / 86400000;
@@ -1295,7 +1295,7 @@ function _insightRenewalClustering(active, now) {
     category: 'Renewal',
     priority: peakPct >= 50 ? 2 : 3,
     title: `${peakPct}% of renewals clustered in ${windowLabel}`,
-    detail: `${peakCount} of ${withRenewal.length} upcoming renewals ($${fmtNum(peakMRR)} MRR) fall in a single 2-week window. ${clusterPct > peakPct ? `Including the adjacent window, ${clusterPct}% ($${fmtNum(clusterMRR)} MRR) land in a 4-week span. ` : ''}Clustering creates attention-dilution risk — plan outreach cadence now.`,
+    detail: `${peakCount} of ${withRenewal.length} upcoming renewals ($${fmtNum(peakMRR)} MRR) fall in a single 2-week window. ${clusterPct > peakPct ? `Including the adjacent window, ${clusterPct}% ($${fmtNum(clusterMRR)} MRR) land in a 4-week span. ` : ''}Clustering creates attention-dilution risk  - plan outreach cadence now.`,
     action: { label: 'View Calendar', fn: "nav('calendar')" }
   };
 }
@@ -1411,7 +1411,7 @@ function _renderInsightCard(ins) {
 }
 
 // ─── HOME BASE WIDGETS ──────────────────────────────────────
-// Signal heatmap, wins/drops, renewal pipeline — all called by renderHomeBase()
+// Signal heatmap, wins/drops, renewal pipeline  - all called by renderHomeBase()
 
 // ─── SIGNAL HEATMAP ─────────────────────────────────────────
 let _heatSearch = '';
@@ -1462,7 +1462,7 @@ function renderHeatmap(active) {
   // Filter by search
   const heatFiltered = _heatSearch ? active.filter(c => c.name.toLowerCase().includes(_heatSearch) || (c.manager||'').toLowerCase().includes(_heatSearch)) : active;
 
-  // Sort — NPS/CSAT sort uses normalized 0-100
+  // Sort  - NPS/CSAT sort uses normalized 0-100
   const growOrder = { strong:2, mild:1, none:0 };
   const sorted = [...heatFiltered].sort((a, b) => {
     let av, bv;
@@ -1652,12 +1652,12 @@ function renderRenewalPipeline(active) {
   wrap.innerHTML = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
     ${rows.map(r => {
       const riskBadge = r.atRisk ? `<span style="color:${r.color};font-size:var(--fs-xs);font-weight:700">${appIcon('warning',11)} ${r.atRisk} at risk</span>` : '';
-      const countText = r.count ? `${r.count} acct${r.count!==1?'s':''}` : `<span style="color:var(--subtle)">—</span>`;
+      const countText = r.count ? `${r.count} acct${r.count!==1?'s':''}` : `<span style="color:var(--subtle)"> -</span>`;
       const clickable = r.count > 0;
       const _rIds = JSON.stringify(r.ids).replace(/"/g,'&quot;');
       return `<div style="border-left:3px solid ${r.color};background:${r.bg};border-radius:6px;padding:9px 12px;${clickable?'cursor:pointer;transition:transform .15s,box-shadow .15s':''}" ${clickable?`onclick="filterRenewalBucket('Renewal ${r.label}',${_rIds})" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,.1)'" onmouseout="this.style.transform='';this.style.boxShadow=''"`:''}>
         <div style="font-size:var(--fs-xs);font-weight:700;color:${r.color};text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${r.label}</div>
-        <div style="font-size:1.05rem;font-weight:800;color:#1e293b;margin-bottom:2px">${r.mrr ? '$'+fmtNum(r.mrr) : '—'}</div>
+        <div style="font-size:1.05rem;font-weight:800;color:#1e293b;margin-bottom:2px">${r.mrr ? '$'+fmtNum(r.mrr) : ' -'}</div>
         <div style="font-size:var(--fs-sm);color:var(--muted);display:flex;gap:5px;align-items:center;flex-wrap:wrap">${countText}${r.atRisk?' · ':''}${riskBadge}</div>
       </div>`;
     }).join('')}
