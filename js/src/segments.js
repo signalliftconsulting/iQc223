@@ -143,6 +143,9 @@ function toggleSegView(view) {
   if (stageBtn) stageBtn.classList.toggle('active', view === 'stage');
   const active = window._segActive;
   const dc = window._segDeltaCache;
+  // Rebuild insights with the correct view-specific data
+  const insightData = view === 'tiers' ? window._tierData : view === 'stage' ? window._stageData : window._segData;
+  if (insightData && active) _buildSegInsights(insightData, active, view);
   if (view === 'segments') {
     const segs = window._segData;
     if (segs) { renderSegTable(segs); renderSegChart(segs, active, dc); }

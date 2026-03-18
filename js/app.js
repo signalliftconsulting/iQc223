@@ -19702,6 +19702,9 @@ function toggleSegView(view) {
   if (stageBtn) stageBtn.classList.toggle('active', view === 'stage');
   const active = window._segActive;
   const dc = window._segDeltaCache;
+  // Rebuild insights with the correct view-specific data
+  const insightData = view === 'tiers' ? window._tierData : view === 'stage' ? window._stageData : window._segData;
+  if (insightData && active) _buildSegInsights(insightData, active, view);
   if (view === 'segments') {
     const segs = window._segData;
     if (segs) { renderSegTable(segs); renderSegChart(segs, active, dc); }
@@ -23607,94 +23610,113 @@ function _stats(arr) {
 }
 
 /* ── Distribution Analysis: score distribution shape and outliers ── */
-function _taDistribution(active, rangeDays) {
+function _taDistribution(active, rangeDays, metricKey) {
   const nonChurned = active.filter(c => c.lifecycle !== 'churned');
   if (nonChurned.length < 8) return null;
 
-  const scores = nonChurned.map(c => c.score || 0);
-  const st = _stats(scores);
+  const cfg = METRIC_CFG[metricKey || 'score'] || METRIC_CFG.score;
+  const label = cfg.label || metricKey || 'Health Score';
+  const isScore = !metricKey || metricKey === 'score';
+
+  // Get current value for each customer based on metric
+  const getVal = (c) => {
+    if (isScore) return c.score || 0;
+    const hist = (c.history || []).filter(h => h.date).sort((a,b) => a.date.localeCompare(b.date));
+    if (!hist.length) return null;
+    return cfg.val(hist[hist.length - 1], c);
+  };
+
+  const vals = nonChurned.map(c => getVal(c)).filter(v => v != null);
+  if (vals.length < 8) return null;
+  const st = _stats(vals);
   if (!st) return null;
 
-  // Also compute delta distribution
+  // Also compute delta distribution using metric-specific values
   const deltas = [];
   nonChurned.forEach(c => {
-    const d = _getDeltaNd(c, rangeDays);
-    if (d !== null) deltas.push({ c, d });
+    if (isScore) {
+      const d = _getDeltaNd(c, rangeDays);
+      if (d !== null) deltas.push({ c, d });
+    } else {
+      const hist = (c.history || []).filter(h => h.date).sort((a,b) => a.date.localeCompare(b.date));
+      const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - rangeDays);
+      const before = hist.filter(h => new Date(h.date) < cutoff);
+      const after = hist.filter(h => new Date(h.date) >= cutoff);
+      if (before.length && after.length) {
+        const sv = cfg.val(before[before.length - 1], c);
+        const ev = cfg.val(after[after.length - 1], c);
+        if (sv != null && ev != null) deltas.push({ c, d: ev - sv });
+      }
+    }
   });
   const deltaVals = deltas.map(x => x.d);
   const dst = deltaVals.length >= 5 ? _stats(deltaVals) : null;
 
-  // Find outliers by name
-  const scoreOutliers = nonChurned.filter(c => (c.score || 0) < st.lo || (c.score || 0) > st.hi);
   const deltaOutliers = dst ? deltas.filter(x => x.d < dst.lo || x.d > dst.hi) : [];
 
   const rl = _taRangeLabel(rangeDays);
+  const isCurrency = metricKey === 'mrr' || metricKey === 'arr';
+  const fmtV = v => isCurrency ? '$' + fmtNum(Math.round(v)) : String(Math.round(v * 10) / 10);
   const r1 = v => Math.round(v);
   const r1d = v => Math.round(v * 10) / 10;
+  const unit = isCurrency ? '' : (metricKey === 'adoption' ? '%' : ' pts');
 
   let title, detail, accent;
 
   // Decide what's most interesting to report
   if (deltaOutliers.length >= 1 && deltaOutliers.length <= 3) {
-    // Outlier accounts - moving way more than the rest
-    deltaOutliers.sort((a,b) => a.d - b.d); // most negative first
+    deltaOutliers.sort((a,b) => a.d - b.d);
     const negOut = deltaOutliers.filter(x => x.d < dst.lo);
     const posOut = deltaOutliers.filter(x => x.d > dst.hi);
 
     if (negOut.length && posOut.length) {
-      title = 'Outlier accounts pulling the portfolio in opposite directions';
-      detail = `Most accounts changed between <strong>${r1d(dst.q1)}</strong> and <strong>${r1d(dst.q3)}</strong> pts (median ${r1d(dst.median)}). `;
-      detail += negOut.slice(0,1).map(x => `${_taCustLink(x.c.name, x.c.id)} (${r1(x.d)} pts)`).join('') + ' is an outlier drop';
-      detail += ' and ' + posOut.slice(0,1).map(x => `${_taCustLink(x.c.name, x.c.id)} (+${r1(x.d)} pts)`).join('') + ' is an outlier gain. ';
+      title = label + ' outliers pulling the portfolio in opposite directions';
+      detail = `Most accounts changed between <strong>${fmtV(dst.q1)}</strong> and <strong>${fmtV(dst.q3)}</strong>${unit} (median ${fmtV(dst.median)}). `;
+      detail += negOut.slice(0,1).map(x => `${_taCustLink(x.c.name, x.c.id)} (${fmtV(x.d)}${unit})`).join('') + ' is an outlier drop';
+      detail += ' and ' + posOut.slice(0,1).map(x => `${_taCustLink(x.c.name, x.c.id)} (+${fmtV(x.d)}${unit})`).join('') + ' is an outlier gain. ';
       detail += `These are disproportionately affecting the portfolio average. Look at what's different about these accounts.`;
       accent = 'amber';
     } else if (negOut.length) {
-      title = negOut.length + ' outlier account' + (negOut.length > 1 ? 's' : '') + ' dragging down the portfolio';
-      detail = `The typical account changed <strong>${r1d(dst.median)}</strong> pts (middle 50% between ${r1d(dst.q1)} and ${r1d(dst.q3)}). `;
-      detail += negOut.slice(0,2).map(x => `${_taCustLink(x.c.name, x.c.id)} (${r1(x.d)} pts, $${fmtNum(x.c.mrr || 0)}/mo)`).join(' and ');
-      detail += ` fell well outside the normal range. Without ${negOut.length === 1 ? 'this account' : 'these accounts'}, the portfolio average would be higher. Prioritize ${negOut.length === 1 ? 'it' : 'them'}.`;
+      title = negOut.length + ' outlier' + (negOut.length > 1 ? 's' : '') + ' dragging down portfolio ' + label;
+      detail = `The typical account changed <strong>${fmtV(dst.median)}</strong>${unit} (middle 50% between ${fmtV(dst.q1)} and ${fmtV(dst.q3)}). `;
+      detail += negOut.slice(0,2).map(x => `${_taCustLink(x.c.name, x.c.id)} (${fmtV(x.d)}${unit}, $${fmtNum(x.c.mrr || 0)}/mo)`).join(' and ');
+      detail += ` fell well outside the normal range. Prioritize ${negOut.length === 1 ? 'this account' : 'these accounts'}.`;
       accent = 'red';
     } else {
-      title = posOut.length + ' account' + (posOut.length > 1 ? 's' : '') + ' significantly outperforming the portfolio';
-      detail = `The typical account changed <strong>${r1d(dst.median)}</strong> pts. `;
-      detail += posOut.slice(0,2).map(x => `${_taCustLink(x.c.name, x.c.id)} (+${r1(x.d)} pts)`).join(' and ');
+      title = posOut.length + ' account' + (posOut.length > 1 ? 's' : '') + ' significantly outperforming on ' + label;
+      detail = `The typical account changed <strong>${fmtV(dst.median)}</strong>${unit}. `;
+      detail += posOut.slice(0,2).map(x => `${_taCustLink(x.c.name, x.c.id)} (+${fmtV(x.d)}${unit})`).join(' and ');
       detail += ` grew far beyond the normal range. Understand what's working for ${posOut.length === 1 ? 'this account' : 'them'} and replicate it.`;
       accent = 'green';
     }
   } else if (Math.abs(st.skew) > 0.8) {
-    // Skewed distribution - scores aren't evenly spread
     if (st.skew < -0.8) {
-      // Negative skew - most scores clustered high, long tail of low scores
-      const lowTail = nonChurned.filter(c => (c.score || 0) < st.q1).sort((a,b) => (a.score||0) - (b.score||0));
-      title = 'Score distribution is top-heavy with a few accounts pulling it down';
-      detail = `Median score is <strong>${r1(st.median)}</strong> (higher than the mean of ${r1(st.mean)}), meaning most accounts are healthy. `;
-      detail += `But ${lowTail.length} accounts in the bottom quartile (below ${r1(st.q1)}) are dragging the average. `;
+      const lowTail = nonChurned.filter(c => getVal(c) != null && getVal(c) < st.q1).sort((a,b) => (getVal(a) || 0) - (getVal(b) || 0));
+      title = label + ' distribution is top-heavy with a few accounts pulling it down';
+      detail = `Median ${label} is <strong>${fmtV(st.median)}</strong> (higher than the mean of ${fmtV(st.mean)}). `;
+      detail += `But ${lowTail.length} accounts in the bottom quartile (below ${fmtV(st.q1)}) are dragging the average. `;
       if (lowTail.length >= 1) {
-        detail += `Lowest: ${_taCustLink(lowTail[0].c.name, lowTail[0].c.id)} (${lowTail[0].c.score}). Fix the tail to lift the whole portfolio.`;
+        detail += `Lowest: ${_taCustLink(lowTail[0].name, lowTail[0].id)} (${fmtV(getVal(lowTail[0]))}). Fix the tail to lift the portfolio.`;
       }
       accent = 'amber';
     } else {
-      // Positive skew - most scores clustered low, few high performers
-      title = 'Most accounts are underperforming - a few high scores inflate the average';
-      detail = `Median score is <strong>${r1(st.median)}</strong> (lower than the mean of ${r1(st.mean)}). Most accounts cluster in the ${r1(st.q1)}-${r1(st.q3)} range. `;
-      detail += `The portfolio looks healthier than it is because a few high-scoring accounts pull the average up. Focus on the middle of the pack.`;
+      title = 'Most accounts have low ' + label + ' - a few high values inflate the average';
+      detail = `Median ${label} is <strong>${fmtV(st.median)}</strong> (lower than the mean of ${fmtV(st.mean)}). Most accounts cluster in the ${fmtV(st.q1)}-${fmtV(st.q3)} range. `;
+      detail += `The portfolio looks better than it is because a few high performers pull the average up. Focus on the middle of the pack.`;
       accent = 'red';
     }
-  } else if (st.stddev > 18) {
-    // High spread - scores are all over the place
-    title = 'Wide score spread across the portfolio (std dev: ' + r1(st.stddev) + ')';
-    detail = `Scores range from <strong>${r1(st.min)}</strong> to <strong>${r1(st.max)}</strong> with a standard deviation of ${r1(st.stddev)}. `;
-    detail += `The middle 50% falls between ${r1(st.q1)} and ${r1(st.q3)}. This level of variance suggests inconsistent customer experience - some accounts are thriving while others are struggling. `;
-    detail += `Standardize onboarding and engagement cadences to tighten this range.`;
+  } else if (st.stddev > (isCurrency ? st.mean * 0.5 : 18)) {
+    title = 'Wide ' + label + ' spread across the portfolio (std dev: ' + fmtV(st.stddev) + ')';
+    detail = `${label} ranges from <strong>${fmtV(st.min)}</strong> to <strong>${fmtV(st.max)}</strong> with a standard deviation of ${fmtV(st.stddev)}. `;
+    detail += `The middle 50% falls between ${fmtV(st.q1)} and ${fmtV(st.q3)}. This level of variance suggests inconsistent performance across accounts.`;
     accent = 'amber';
   } else {
-    // Normal-ish distribution - report the basics with the most notable stat
-    title = 'Portfolio health: median ' + r1(st.median) + ', spread ' + r1(st.q1) + '-' + r1(st.q3) + ' (middle 50%)';
-    detail = `Across ${st.n} accounts: mean <strong>${r1(st.mean)}</strong>, median <strong>${r1(st.median)}</strong>, std dev ${r1(st.stddev)}. `;
+    title = label + ' distribution: median ' + fmtV(st.median) + ', spread ' + fmtV(st.q1) + '-' + fmtV(st.q3) + ' (middle 50%)';
+    detail = `Across ${st.n} accounts: mean <strong>${fmtV(st.mean)}</strong>, median <strong>${fmtV(st.median)}</strong>, std dev ${fmtV(st.stddev)}. `;
     if (dst) {
-      detail += `Over ${rl}, the typical account moved <strong>${r1d(dst.median)}</strong> pts (range: ${r1d(dst.min)} to ${r1d(dst.max > 0 ? '+' : '')}${r1d(dst.max)}).`;
+      detail += `Over ${rl}, the typical account moved <strong>${fmtV(dst.median)}</strong>${unit} (range: ${fmtV(dst.min)} to +${fmtV(dst.max)}).`;
     }
-    accent = st.median >= 65 ? 'green' : st.median >= 45 ? 'amber' : 'red';
+    accent = isScore ? (st.median >= 65 ? 'green' : st.median >= 45 ? 'amber' : 'red') : 'amber';
   }
 
   return { priority: 4, icon: _taSvg.bar, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail };
@@ -23829,7 +23851,7 @@ function _buildTrendAnalysis(active, data1, data2, cutoff, rangeDays, m1, m2, pr
     _taInflection(data1, m1, rangeDays, active),
     _taSeasonalPattern(data1, m1, rangeDays, priorData),
     _taCrossSignal(active, cutoff, m1),
-    _taDistribution(active, rangeDays)
+    _taDistribution(active, rangeDays, m1)
   ].filter(Boolean);
 
   // Don't duplicate CSM/correlation insights if already in contextual
