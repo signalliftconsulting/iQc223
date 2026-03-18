@@ -4272,6 +4272,55 @@ function makeRec(score, data) {
   };
   const _cap = function(s) { return s.charAt(0).toUpperCase() + s.slice(1); };
 
+  // ── 7v7 signal change explanation ─────────────────────────
+  // Computes which signals moved week-over-week and returns a readable sentence
+  var _7v7Why = '';
+  if (data.history && data.history.length >= 4 && Math.abs(delta) >= 1) {
+    var hist = data.history.slice().sort(function(a,b) { return (a.date||'').localeCompare(b.date||''); });
+    var now = new Date();
+    var d7 = new Date(now); d7.setDate(d7.getDate() - 7);
+    var d14 = new Date(now); d14.setDate(d14.getDate() - 14);
+    var thisWeek = hist.filter(function(h) { return new Date(h.date) >= d7; });
+    var lastWeek = hist.filter(function(h) { return new Date(h.date) >= d14 && new Date(h.date) < d7; });
+    if (thisWeek.length && lastWeek.length) {
+      var sigKeys = ['logins','adoption','tickets','nps','csat','days'];
+      var sigNames = {logins:'Logins',adoption:'Adoption',tickets:'Tickets',nps:'NPS',csat:'CSAT',days:'Days Since Contact'};
+      var inverted = {tickets:true, days:true};
+      var changes = [];
+      sigKeys.forEach(function(k) {
+        if (!signalOn(data, k)) return;
+        var tw = thisWeek.filter(function(h){return h.signals && h.signals[k] != null;});
+        var lw = lastWeek.filter(function(h){return h.signals && h.signals[k] != null;});
+        if (!tw.length || !lw.length) return;
+        var twAvg = tw.reduce(function(s,h){return s + h.signals[k];}, 0) / tw.length;
+        var lwAvg = lw.reduce(function(s,h){return s + h.signals[k];}, 0) / lw.length;
+        var diff = Math.round((twAvg - lwAvg) * 10) / 10;
+        if (Math.abs(diff) < 0.5) return;
+        var isWorse = inverted[k] ? diff > 0 : diff < 0;
+        var isBetter = inverted[k] ? diff < 0 : diff > 0;
+        changes.push({key:k, name:sigNames[k], diff:diff, worse:isWorse, better:isBetter});
+      });
+      if (changes.length) {
+        var worse = changes.filter(function(c){return c.worse;}).sort(function(a,b){return Math.abs(b.diff)-Math.abs(a.diff);});
+        var better = changes.filter(function(c){return c.better;}).sort(function(a,b){return Math.abs(b.diff)-Math.abs(a.diff);});
+        var parts = [];
+        if (delta < -1 && worse.length) {
+          parts = worse.slice(0,2).map(function(c) {
+            var dir = c.key === 'tickets' || c.key === 'days' ? 'up' : 'down';
+            return c.name + ' went ' + dir + ' ' + Math.abs(c.diff) + (c.key === 'adoption' ? '%' : '');
+          });
+          _7v7Why = ' The ' + Math.abs(Math.round(delta)) + '-point drop this week was driven by ' + _join(parts) + '.';
+        } else if (delta > 1 && better.length) {
+          parts = better.slice(0,2).map(function(c) {
+            var dir = c.key === 'tickets' || c.key === 'days' ? 'down' : 'up';
+            return c.name + ' went ' + dir + ' ' + Math.abs(c.diff) + (c.key === 'adoption' ? '%' : '');
+          });
+          _7v7Why = ' The ' + Math.round(delta) + '-point gain this week came from ' + _join(parts) + '.';
+        }
+      }
+    }
+  }
+
   // ── Contextual enrichment ─────────────────────────────────
   const tier = data.tier || 'mid';
   const tierLabel = {enterprise:'an Enterprise',mid:'a Mid-Market',smb:'an SMB'}[tier] || 'a Mid-Market';
@@ -4383,6 +4432,7 @@ function makeRec(score, data) {
     if (momFlavor === 'freefall') t += ' The score is in freefall  - this needs immediate intervention before it\'s too late.';
     else if (momFlavor === 'recovering') t += ' There are early signs of recovery, but they\'re still deep in the danger zone.';
     else if (mom === 'dn') t += ' And it\'s getting worse  - without stepping in, this is heading toward churn.';
+    t += _7v7Why;
     t += _kicker('critical');
     return t;
   }
@@ -4395,6 +4445,7 @@ function makeRec(score, data) {
     if (data.mrr && data.mrr >= 5000) t += ' At ' + mrrStr + ', this is worth prioritizing.';
     if (mom === 'up') t += ' Things are trending up, which is encouraging, but they\'re not out of the woods yet.';
     else if (mom === 'dn') t += ' And the trend is going the wrong direction, which makes this more pressing.';
+    t += _7v7Why;
     t += _kicker('risk');
     return t;
   }
@@ -4406,6 +4457,7 @@ function makeRec(score, data) {
     if (isHighValue) t += ' As ' + tierLabel + ' account, even Watch status warrants closer attention.';
     if (mom === 'dn') t += ' If this keeps slipping, they\'ll move into At Risk.';
     else if (mom === 'up') t += ' The trend is positive  - a little more attention could push them back to Healthy.';
+    t += _7v7Why;
     t += _kicker('watch');
     return t;
   }
@@ -4413,9 +4465,9 @@ function makeRec(score, data) {
   if (status === 'expand') {
     var t = name + ' is thriving  - this is one to get excited about.';
     if (good.length) t += ' ' + _cap(good[0]) + (good.length > 1 ? ', and ' + good[1] : '') + '.';
-    if (mom === 'dn') { t += ' Score dipped ' + (Math.abs(delta) || 'a few') + ' points recently though  - check the trend chart to see which signals are pulling back before pushing growth conversations.'; }
-    else if (data.mrr) t += ' At ' + mrrStr + ', a successful expansion here would be a big win.';
-    else t += ' Great candidate for an expansion conversation.';
+    if (mom === 'dn') { t += ' Score dipped ' + (Math.abs(delta) || 'a few') + ' points recently though.' + _7v7Why + ' Check the trend chart before pushing growth conversations.'; }
+    else if (data.mrr) t += ' At ' + mrrStr + ', a successful expansion here would be a big win.' + _7v7Why;
+    else t += ' Great candidate for an expansion conversation.' + _7v7Why;
     t += _kicker('expand');
     return t;
   }
@@ -4424,8 +4476,9 @@ function makeRec(score, data) {
   var t = name + ' is in good shape  - no major concerns.';
   if (good.length) t += ' ' + _cap(good[0]) + (good.length > 1 ? ', and ' + good[1] : '') + '.';
   if (bad.length) t += ' The only thing I\'d keep an eye on is ' + bad[0] + '  - if that gets worse, it could drag the score down.';
-  if (momFlavor === 'slipping') t += ' Score has been dipping from a good position  - down ' + (Math.abs(delta) || 'a few') + ' points recently. Check the signal breakdown to see what\'s changing before it becomes a trend.';
-  else if (mom === 'dn') t += ' Score has been dipping  - down ' + (Math.abs(delta) || 'a few') + ' points recently. Check the signal breakdown to see what\'s changing.';
+  if (momFlavor === 'slipping') t += ' Score has been dipping from a good position  - down ' + (Math.abs(delta) || 'a few') + ' points recently.' + _7v7Why;
+  else if (mom === 'dn') t += ' Score has been dipping  - down ' + (Math.abs(delta) || 'a few') + ' points recently.' + _7v7Why;
+  else if (mom === 'up' && _7v7Why) t += _7v7Why;
   t += _kicker('healthy');
   return t;
 }
