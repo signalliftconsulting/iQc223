@@ -81,9 +81,9 @@ const METRIC_CFG = {
   nps:      { label:'NPS Score',            agg:'avg', fixed:[0,10],  val: (h,c) => h.signals?.nps,                     fmt: v => String(Math.round(v*10)/10),     axFmt: v => String(Math.round(v)) },
   csat:     { label:'CSAT Score',           agg:'avg', fixed:[1,5],   val: (h,c) => h.signals?.csat,                    fmt: v => String(Math.round(v*10)/10),     axFmt: v => String(Math.round(v)) },
   days:     { label:'Days Since Contact',  agg:'avg', fixed:null,    val: (h,c) => h.signals?.days,                    fmt: v => String(Math.round(v)),            axFmt: v => String(Math.round(v)), lowerIsBetter:true },
-  mrr:      { label:'Total MRR',          agg:'sum', fixed:null,     val: (h,c) => c.mrr,                              fmt: v => '$'+fmtNum(Math.round(v)),       axFmt: v => { if(Math.abs(v)>=1e6) return '$'+(v/1e6).toFixed(1)+'M'; if(Math.abs(v)>=1e3) return '$'+Math.round(v/1e3)+'K'; return '$'+Math.round(v); } },
-  arr:      { label:'Total ARR',          agg:'sum', fixed:null,     val: (h,c) => c.arr,                              fmt: v => '$'+fmtNum(Math.round(v)),       axFmt: v => { if(Math.abs(v)>=1e6) return '$'+(v/1e6).toFixed(1)+'M'; if(Math.abs(v)>=1e3) return '$'+Math.round(v/1e3)+'K'; return '$'+Math.round(v); } },
-  customers:{ label:'# Customers',        agg:'count', fixed:null,   val: (h,c) => 1,                                  fmt: v => String(Math.round(v)),            axFmt: v => String(Math.round(v)) },
+  mrr:      { label:'Total MRR',          agg:'sum', fixed:null,     val: (h,c) => h.signals?._mrr != null ? h.signals._mrr : c.mrr, includeChurned:true, fmt: v => '$'+fmtNum(Math.round(v)), axFmt: v => { if(Math.abs(v)>=1e6) return '$'+(v/1e6).toFixed(1)+'M'; if(Math.abs(v)>=1e3) return '$'+Math.round(v/1e3)+'K'; return '$'+Math.round(v); } },
+  arr:      { label:'Total ARR',          agg:'sum', fixed:null,     val: (h,c) => (h.signals?._mrr != null ? h.signals._mrr : c.mrr) * 12, includeChurned:true, fmt: v => '$'+fmtNum(Math.round(v)), axFmt: v => { if(Math.abs(v)>=1e6) return '$'+(v/1e6).toFixed(1)+'M'; if(Math.abs(v)>=1e3) return '$'+Math.round(v/1e3)+'K'; return '$'+Math.round(v); } },
+  customers:{ label:'# Customers',        agg:'count', fixed:null,   val: (h,c) => (h.signals?._mrr != null && h.signals._mrr === 0) ? null : 1, includeChurned:true, fmt: v => String(Math.round(v)), axFmt: v => String(Math.round(v)) },
 };
 
 function setTrendMetric(slot, key) {
@@ -149,6 +149,7 @@ function _refreshTrendOverlays() {
   cutoff.setHours(0,0,0,0);
 
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
+  const allWithHistory = customers.filter(c => passesManagerFilter(c));
   const _rangeName = { '3d':'3 Days','7d':'7 Days','30d':'30 Days','90d':'90 Days','6m':'6 Months','1y':'1 Year','2y':'2 Years','ytd':'YTD' }[range] || range;
 
   // Rebuild just the chart lines (reuse renderTrends' aggregation inline)
@@ -174,11 +175,12 @@ function _refreshTrendOverlays() {
 
   const OVERLAY_COLORS = ['#7c3aed','#ea580c','#0891b2','#db2777','#059669','#2563eb','#d97706','#dc2626','#16a34a','#64748b'];
   const m1AggLabel = m1Cfg.agg === 'sum' ? 'Total' : 'Avg';
-  const portfolioData = _aggByDay(active, m1);
+  const m1Pool = m1Cfg.includeChurned ? allWithHistory : active;
+  const portfolioData = _aggByDay(m1Pool, m1);
   const lines = [{ label: 'Portfolio ' + m1AggLabel, color: '#3b82f6', width: 2.5, points: portfolioData }];
 
   if (_trendCsmOverlay) {
-    const csmCusts = active.filter(c => c.manager === _trendCsmOverlay);
+    const csmCusts = m1Pool.filter(c => c.manager === _trendCsmOverlay);
     lines.push({ label: escHtml(_trendCsmOverlay), color: OVERLAY_COLORS[0], width: 1.5, points: _aggByDay(csmCusts, m1) });
   }
 
@@ -198,7 +200,7 @@ function _refreshTrendOverlays() {
 
   // Prior period
   const priorCutoff = new Date(cutoff.getTime() - days * 86400000);
-  const priorPortfolioData = _aggByDay(active, m1, priorCutoff, cutoff);
+  const priorPortfolioData = _aggByDay(m1Pool, m1, priorCutoff, cutoff);
   let priorLine = null;
   if (priorPortfolioData.length >= 2) {
     const shiftedPrior = priorPortfolioData.map(p => { const s=new Date(new Date(p.date).getTime()+days*86400000); return {date:s.toISOString().slice(0,10),avg:p.avg}; });
@@ -208,7 +210,8 @@ function _refreshTrendOverlays() {
   // Secondary metric
   let m2Line = null;
   if (m2Cfg) {
-    const m2Data = _aggByDay(active, m2);
+    const m2Pool = m2Cfg.includeChurned ? allWithHistory : active;
+    const m2Data = _aggByDay(m2Pool, m2);
     if (m2Data.length) m2Line = { label: m2Cfg.label + ' (' + (m2Cfg.agg==='sum'?'Total':'Avg') + ')', color: '#f59e0b', width: 2, points: m2Data };
   }
 
@@ -299,6 +302,8 @@ function renderTrends() {
   cutoff.setHours(0,0,0,0);
 
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
+  // Include churned customers for revenue/count metrics so churn shows as MRR drop
+  const allWithHistory = customers.filter(c => passesManagerFilter(c));
 
   // ── Aggregate portfolio data by day (supports any metric) ──
   // For avg metrics: forward-fills each customer's last known value so every
@@ -387,11 +392,13 @@ function renderTrends() {
     }).filter(p => p._count > 0);
   }
 
-  const portfolioData = aggregateByDay(active, m1);
+  // Use allWithHistory for metrics that need churned customers (MRR, ARR, customer count)
+  const m1Pool = m1Cfg.includeChurned ? allWithHistory : active;
+  const portfolioData = aggregateByDay(m1Pool, m1);
 
   // ── Prior-period comparison data ──
   const priorCutoff = new Date(cutoff.getTime() - days * 86400000);
-  const priorPortfolioData = aggregateByDay(active, m1, priorCutoff, cutoff);
+  const priorPortfolioData = aggregateByDay(m1Pool, m1, priorCutoff, cutoff);
 
   // Change indicator: current end vs prior end
   const _curEnd = portfolioData.length ? portfolioData[portfolioData.length - 1].avg : null;
@@ -485,7 +492,7 @@ function renderTrends() {
 
   // CSM overlay (primary metric)
   if (_trendCsmOverlay) {
-    const csmCusts = active.filter(c => c.manager === _trendCsmOverlay);
+    const csmCusts = m1Pool.filter(c => c.manager === _trendCsmOverlay);
     const csmData = aggregateByDay(csmCusts, m1);
     lines.push({ label: escHtml(_trendCsmOverlay), color: OVERLAY_COLORS[0], width: 1.5, points: csmData });
   }
@@ -545,7 +552,8 @@ function renderTrends() {
   // ── Secondary metric line ──
   let m2Line = null;
   if (m2Cfg) {
-    const m2Data = aggregateByDay(active, m2);
+    const m2Pool = m2Cfg.includeChurned ? allWithHistory : active;
+    const m2Data = aggregateByDay(m2Pool, m2);
     const m2AggLabel = m2Cfg.agg === 'sum' ? 'Total' : 'Avg';
     if (m2Data.length) {
       m2Line = { label: m2Cfg.label + ' (' + m2AggLabel + ')', color: '#f59e0b', width: 2, points: m2Data };

@@ -1111,11 +1111,14 @@ function _generateDemoSignals(traj, dayIdx, totalDays, rng, phaseOff) {
   return { logins, adoption, tickets, nps, csat, days, growth, lifecycle: traj.lifecycle };
 }
 
-function _generateDemoHistory(trajKey, now, overrideDays, rng, phaseOff) {
+function _generateDemoHistory(trajKey, now, overrideDays, rng, phaseOff, mrr) {
   const traj = _DEMO_TRAJECTORIES[trajKey];
   const r = rng || Math.random;
   const totalDays = overrideDays || traj.historyDays || 730;
   const entries = [];
+  // For churned trajectories, determine the churn point (~70-80% through history)
+  const isChurned = trajKey.startsWith('churned');
+  const churnDay = isChurned ? Math.round(totalDays * (0.70 + (r() * 0.15))) : null;
   for (let d = totalDays; d >= 0; d--) {
     // Variable frequency: weekly for old data, denser for recent
     if (d > 0 && d < totalDays) {
@@ -1125,6 +1128,15 @@ function _generateDemoHistory(trajKey, now, overrideDays, rng, phaseOff) {
     }
     const dayIdx = totalDays - d;
     const signals = _generateDemoSignals(traj, dayIdx, totalDays, rng, phaseOff);
+    // Embed MRR in signals — drops to 0 after churn point
+    if (mrr != null) {
+      const daysFromEnd = d;
+      if (isChurned && daysFromEnd < (totalDays - churnDay)) {
+        signals._mrr = 0;
+      } else {
+        signals._mrr = mrr;
+      }
+    }
     const { score } = calcScore(signals);
     entries.push({ score, date: new Date(now - d * 86400000).toISOString(), signals });
   }
@@ -1167,9 +1179,12 @@ function _generateDemoCustomer(name, index, now, trajList, csmAssignments) {
     else if (cohortRoll < 0.72) histDays = 180 + Math.floor(rng() * 185);  // mid: 6-12 months
     else                        histDays = 60 + Math.floor(rng() * 120);   // recent: 2-6 months
   }
-  const history = _generateDemoHistory(trajKey, now, histDays, rng, phaseOff);
+  const history = _generateDemoHistory(trajKey, now, histDays, rng, phaseOff, mrr);
   const last = history[history.length - 1];
   const lastSig = last.signals;
+  // Churned customers: current MRR is 0 (they left), keep _prechurnMrr for reference
+  const isChurned = trajKey.startsWith('churned');
+  const currentMrr = isChurned ? 0 : mrr;
 
   // Lifecycle — spread across all stages for realistic mix
   let lifecycle = traj.lifecycle;
@@ -1277,8 +1292,9 @@ function _generateDemoCustomer(name, index, now, trajList, csmAssignments) {
     name,
     score:           last.score,
     status:          getStatus(last.score),
-    mrr,
-    arr:             mrr * 12,
+    mrr:             currentMrr,
+    arr:             currentMrr * 12,
+    _prechurnMrr:    isChurned ? mrr : undefined,
     since,
     tier,
     lifecycle,
