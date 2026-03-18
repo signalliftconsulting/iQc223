@@ -1929,24 +1929,256 @@ function _taConcentrationRisk(active, rangeDays) {
   return { priority: 1, icon: _taSvg.bar, iconBg: 'var(--red-l)', iconColor: 'var(--red)', accent: 'red', title, detail };
 }
 
+/* ── Top Performers — accounts doing well, call out wins ── */
+function _taTopPerformers(active, rangeDays) {
+  if (active.length < 5) return null;
+  const winners = [];
+  active.forEach(c => {
+    if (c.lifecycle === 'churned') return;
+    const d = _getDeltaNd(c, rangeDays);
+    if (d === null || d < 5) return; // only accounts improving ≥5 pts
+    winners.push({ c, delta: d, mrr: c.mrr || 0 });
+  });
+  if (winners.length < 2) return null;
+  winners.sort((a,b) => b.delta - a.delta);
+  const top = winners.slice(0, 3);
+  const totalMrr = winners.reduce((s,x) => s + x.mrr, 0);
+  const fd = v => '+' + Math.round(v);
+
+  const title = winners.length + ' account' + (winners.length > 1 ? 's' : '') + ' showing strong improvement';
+  let detail = top.map(x => `${_taCustLink(x.c.name, x.c.id)} (${fd(x.delta)} pts, $${fmtNum(x.mrr)}/mo)`).join(', ');
+  if (winners.length > 3) detail += ` and ${winners.length - 3} more`;
+  detail += `. These accounts represent <strong>$${fmtNum(totalMrr)}/mo</strong> in MRR — consider them for case studies or expansion conversations.`;
+  return { priority: 3, icon: _taSvg.rise || _taSvg.trend, iconBg: 'var(--green-l)', iconColor: 'var(--green)', accent: 'green', title, detail };
+}
+
+/* ── Renewal Pipeline — upcoming renewals and their health ── */
+function _taRenewalPipeline(active, rangeDays) {
+  if (active.length < 3) return null;
+  const now = Date.now();
+  const upcoming = [];
+  active.forEach(c => {
+    if (c.lifecycle === 'churned' || !c.renewal_date) return;
+    const rd = new Date(c.renewal_date);
+    const daysUntil = Math.round((rd.getTime() - now) / 86400000);
+    if (daysUntil < 0 || daysUntil > 90) return;
+    upcoming.push({ c, daysUntil, score: c.score || 0, mrr: c.mrr || 0 });
+  });
+  if (upcoming.length < 2) return null;
+  upcoming.sort((a,b) => a.daysUntil - b.daysUntil);
+
+  const healthy = upcoming.filter(x => x.score >= 70);
+  const atRisk = upcoming.filter(x => x.score < 60);
+  const totalMrr = upcoming.reduce((s,x) => s + x.mrr, 0);
+  const atRiskMrr = atRisk.reduce((s,x) => s + x.mrr, 0);
+
+  const title = upcoming.length + ' renewal' + (upcoming.length > 1 ? 's' : '') + ' in next 90 days — $' + fmtNum(totalMrr) + '/mo';
+  let detail = '';
+  if (atRisk.length) {
+    detail += `<strong>${atRisk.length} at risk</strong> ($${fmtNum(atRiskMrr)}/mo): ` +
+      atRisk.slice(0, 3).map(x => `${_taCustLink(x.c.name, x.c.id)} (score ${x.score}, $${fmtNum(x.mrr)}/mo, ${x.daysUntil}d)`).join(', ') + '. ';
+  }
+  if (healthy.length) {
+    detail += `<strong>${healthy.length} healthy</strong>: ` +
+      healthy.slice(0, 2).map(x => `${_taCustLink(x.c.name, x.c.id)} (score ${x.score})`).join(', ');
+    if (healthy.length > 2) detail += ` +${healthy.length - 2} more`;
+    detail += '.';
+  }
+  const accent = atRisk.length > healthy.length ? 'red' : atRisk.length ? 'amber' : 'green';
+  return { priority: 2, icon: _taSvg.clock, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail };
+}
+
+/* ── Signal Deep Dive — look at all signals to find the weakest/strongest ── */
+function _taSignalDeepDive(active, cutoff, rangeDays) {
+  if (active.length < 5) return null;
+  const now = Date.now();
+  const SIGNALS = [
+    { key: 'logins', label: 'Login Frequency', getter: c => c.logins, good: 'higher', unit: '' },
+    { key: 'adoption', label: 'Feature Adoption', getter: c => c.adoption, good: 'higher', unit: '%' },
+    { key: 'tickets', label: 'Support Tickets', getter: c => c.tickets, good: 'lower', unit: '' },
+    { key: 'nps', label: 'NPS', getter: c => c.nps, good: 'higher', unit: '' },
+    { key: 'csat', label: 'CSAT', getter: c => c.csat, good: 'higher', unit: '' },
+    { key: 'days', label: 'Days Since Contact', getter: c => c.days, good: 'lower', unit: 'd' }
+  ];
+
+  // For each signal, compute portfolio avg change over the period
+  const signalChanges = [];
+  SIGNALS.forEach(sig => {
+    const changes = [];
+    active.forEach(c => {
+      if (c.lifecycle === 'churned') return;
+      const hist = (c.history || []).filter(h => h.date).sort((a,b) => a.date.localeCompare(b.date));
+      const inRange = hist.filter(h => new Date(h.date) >= cutoff);
+      const before = hist.filter(h => new Date(h.date) < cutoff);
+      if (!inRange.length || !before.length) return;
+      const sv = before[before.length - 1].signals?.[sig.key];
+      const ev = inRange[inRange.length - 1].signals?.[sig.key];
+      if (sv != null && ev != null && typeof sv === 'number' && typeof ev === 'number') {
+        changes.push({ c, delta: ev - sv, current: ev });
+      }
+    });
+    if (changes.length < 3) return;
+    const avgDelta = changes.reduce((s,x) => s + x.delta, 0) / changes.length;
+    const avgCurrent = changes.reduce((s,x) => s + x.current, 0) / changes.length;
+    // Normalize the impact: positive = good direction
+    const normalizedDelta = sig.good === 'lower' ? -avgDelta : avgDelta;
+    signalChanges.push({ ...sig, avgDelta, avgCurrent, normalizedDelta, changes });
+  });
+
+  if (signalChanges.length < 2) return null;
+  signalChanges.sort((a,b) => a.normalizedDelta - b.normalizedDelta);
+
+  const worst = signalChanges[0]; // most negative normalized = biggest problem
+  const best = signalChanges[signalChanges.length - 1]; // most positive = biggest win
+
+  // Only report if there's something meaningful
+  if (Math.abs(worst.normalizedDelta) < 0.3 && Math.abs(best.normalizedDelta) < 0.3) return null;
+
+  const fv = v => Math.round(v * 10) / 10;
+  const fd = v => (v >= 0 ? '+' : '') + fv(v);
+
+  // Find worst accounts for the declining signal
+  const worstAccounts = worst.changes.filter(x => worst.good === 'lower' ? x.delta > 0.5 : x.delta < -0.5)
+    .sort((a,b) => worst.good === 'lower' ? b.delta - a.delta : a.delta - b.delta).slice(0, 3);
+
+  let title, detail, accent;
+  if (worst.normalizedDelta < -0.5) {
+    const direction = worst.good === 'lower' ? 'increased' : 'decreased';
+    title = worst.label + ' ' + direction + ' portfolio-wide';
+    detail = `${worst.label} ${direction} by <strong>${fd(worst.avgDelta)}${worst.unit}</strong> on average across the portfolio (now ${fv(worst.avgCurrent)}${worst.unit}).`;
+    if (worstAccounts.length) {
+      detail += ' Biggest movers: ' + worstAccounts.map(x =>
+        `${_taCustLink(x.c.name, x.c.id)} (${fd(x.delta)}${worst.unit})`
+      ).join(', ') + '.';
+    }
+    if (best.normalizedDelta > 0.5) {
+      const bestDir = best.good === 'lower' ? 'decreased' : 'improved';
+      detail += ` On the positive side, <strong>${best.label}</strong> ${bestDir} by ${fd(best.avgDelta)}${best.unit}.`;
+    }
+    accent = 'amber';
+  } else {
+    // All signals improving or flat — highlight the winner
+    const direction = best.good === 'lower' ? 'decreased' : 'improved';
+    title = best.label + ' ' + direction + ' across the portfolio';
+    detail = `${best.label} ${direction} by <strong>${fd(best.avgDelta)}${best.unit}</strong> on average (now ${fv(best.avgCurrent)}${best.unit}). This is the strongest signal movement in the period.`;
+    accent = 'green';
+  }
+  return { priority: 3, icon: _taSvg.signal, iconBg: accent === 'green' ? 'var(--green-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : 'var(--amber)', accent, title, detail };
+}
+
+/* ── Segment Divergence — compare tiers ── */
+function _taSegmentDivergence(active, rangeDays) {
+  if (active.length < 8) return null;
+  const tiers = {};
+  active.forEach(c => {
+    if (c.lifecycle === 'churned') return;
+    const t = c.tier || 'smb';
+    if (!tiers[t]) tiers[t] = [];
+    const d = _getDeltaNd(c, rangeDays);
+    if (d !== null) tiers[t].push({ c, delta: d });
+  });
+  const tierNames = Object.keys(tiers).filter(t => tiers[t].length >= 2);
+  if (tierNames.length < 2) return null;
+
+  const tierAvgs = tierNames.map(t => ({
+    tier: t,
+    avg: tiers[t].reduce((s,x) => s + x.delta, 0) / tiers[t].length,
+    count: tiers[t].length,
+    label: t === 'smb' ? 'SMB' : t === 'mid' ? 'Mid-Market' : 'Enterprise'
+  }));
+  tierAvgs.sort((a,b) => b.avg - a.avg);
+
+  const gap = tierAvgs[0].avg - tierAvgs[tierAvgs.length - 1].avg;
+  if (gap < 4) return null; // Not a meaningful difference
+
+  const best = tierAvgs[0];
+  const worst = tierAvgs[tierAvgs.length - 1];
+  const fd = v => (v >= 0 ? '+' : '') + Math.round(v * 10) / 10;
+
+  const title = best.label + ' outperforming ' + worst.label + ' by ' + Math.round(gap) + ' pts';
+  let detail = tierAvgs.map(t => `<strong>${t.label}</strong>: ${fd(t.avg)} avg (${t.count} accounts)`).join(' · ') + '. ';
+  if (worst.avg < -2) {
+    detail += `${worst.label} accounts are the priority — investigate whether they\'re getting adequate support and onboarding.`;
+  } else {
+    detail += `The ${best.label} segment is leading — explore what\'s driving their success and apply those lessons across the portfolio.`;
+  }
+  const accent = worst.avg < -3 ? 'red' : 'amber';
+  return { priority: 3, icon: _taSvg.bar, iconBg: accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail };
+}
+
+/* ── Portfolio Summary — always-available fallback insight ── */
+function _taPortfolioSummary(active, data1, rangeDays) {
+  if (active.length < 3 || !data1 || data1.length < 2) return null;
+  const now = Date.now();
+
+  // Overall portfolio metrics
+  const avgScore = Math.round(active.filter(c => c.lifecycle !== 'churned').reduce((s,c) => s + (c.score || 0), 0) / active.filter(c => c.lifecycle !== 'churned').length);
+  const totalMrr = active.reduce((s,c) => s + (c.mrr || 0), 0);
+
+  // Count by status
+  const healthy = active.filter(c => c.score >= 70 && c.lifecycle !== 'churned').length;
+  const watch = active.filter(c => c.score >= 40 && c.score < 70 && c.lifecycle !== 'churned').length;
+  const critical = active.filter(c => c.score < 40 && c.lifecycle !== 'churned').length;
+
+  // Chart movement
+  const startVal = data1[0].avg;
+  const endVal = data1[data1.length - 1].avg;
+  const change = Math.round((endVal - startVal) * 10) / 10;
+  const rl = _taRangeLabel(rangeDays);
+
+  // Biggest single risk
+  let biggestRisk = null;
+  active.forEach(c => {
+    if (c.lifecycle === 'churned') return;
+    const d = _getDeltaNd(c, rangeDays);
+    if (d !== null && d < -3 && (!biggestRisk || d < biggestRisk.delta)) {
+      biggestRisk = { c, delta: d };
+    }
+  });
+
+  const title = 'Portfolio snapshot — ' + active.filter(c => c.lifecycle !== 'churned').length + ' accounts, $' + fmtNum(totalMrr) + '/mo MRR';
+  let detail = `<strong>${healthy}</strong> healthy, <strong>${watch}</strong> watch, <strong>${critical}</strong> critical. `;
+  detail += `Score ${change >= 0 ? 'up' : 'down'} <strong>${change >= 0 ? '+' : ''}${change}</strong> pts over ${rl}. `;
+  if (biggestRisk) {
+    detail += `Biggest single risk: ${_taCustLink(biggestRisk.c.name, biggestRisk.c.id)} (${Math.round(biggestRisk.delta)} pts, $${fmtNum(biggestRisk.c.mrr)}/mo).`;
+  }
+  const accent = critical > watch ? 'red' : change >= 0 ? 'green' : 'amber';
+  return { priority: 5, icon: _taSvg.clock, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail };
+}
+
 /* ── Orchestrator ─────────────────────────────── */
 function _buildTrendAnalysis(active, data1, data2, cutoff, rangeDays, m1, m2, priorData) {
   const wrap = el('trend-analysis-wrap');
   if (!wrap) return;
 
+  // Include churned accounts in analysis pool when toggle is on
+  const allForAnalysis = _trendShowChurned
+    ? customers.filter(c => passesManagerFilter(c))
+    : active;
+
   const results = [
+    // Priority 0-1: critical issues
     _taAtRiskAccounts(active, cutoff, rangeDays),
     _taChurnImpact(cutoff, rangeDays),
     _taConcentrationRisk(active, rangeDays),
+    // Priority 2: structural insights
+    _taRenewalPipeline(active, rangeDays),
     _taInflection(data1, m1, rangeDays, active),
     _taDropAttribution(active, data1, m1, cutoff, rangeDays),
     _taSeasonalPattern(data1, m1, rangeDays, priorData),
+    _taSegmentDivergence(active, rangeDays),
+    // Priority 3: signal-level and positive insights
+    _taSignalDeepDive(active, cutoff, rangeDays),
     _taCrossSignal(active, cutoff, m1),
+    _taTopPerformers(active, rangeDays),
     _taMetricCorrelation(data1, data2, m1, m2, rangeDays),
-    _taCsmDivergence(data1, active, cutoff, rangeDays, m1)
+    _taCsmDivergence(data1, active, cutoff, rangeDays, m1),
+    // Priority 5: always-available fallback
+    _taPortfolioSummary(active, data1, rangeDays)
   ].filter(Boolean);
 
   results.sort((a, b) => a.priority - b.priority);
+  // Always show exactly 3 insights (or fewer if not enough data)
   const top = results.slice(0, 3);
 
   if (!top.length) {
