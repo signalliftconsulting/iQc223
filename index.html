@@ -2158,12 +2158,14 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       <select id="trend-csm-overlay" onchange="setTrendCsmOverlay(this.value)">
         <option value="">No CSM Overlay</option>
       </select>
-      <select id="trend-client-1" onchange="setTrendClientSlot(0,this.value)" style="max-width:150px">
-        <option value="">Client 1</option>
-      </select>
-      <select id="trend-client-2" onchange="setTrendClientSlot(1,this.value)" style="max-width:150px">
-        <option value="">Client 2</option>
-      </select>
+      <div style="position:relative;flex:0 0 auto" class="trend-client-box">
+        <input type="text" id="trend-client-input-0" placeholder="Client 1" oninput="_trendClientSearch(0)" onfocus="_trendClientSearch(0)" autocomplete="off" style="width:130px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-sm);font-family:inherit;background:var(--bg)">
+        <div class="trend-autocomplete" id="trend-client-ac-0"></div>
+      </div>
+      <div style="position:relative;flex:0 0 auto" class="trend-client-box">
+        <input type="text" id="trend-client-input-1" placeholder="Client 2" oninput="_trendClientSearch(1)" onfocus="_trendClientSearch(1)" autocomplete="off" style="width:130px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-sm);font-family:inherit;background:var(--bg)">
+        <div class="trend-autocomplete" id="trend-client-ac-1"></div>
+      </div>
     </div>
     <div class="trend-ctrl-sep"></div>
     <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none;white-space:nowrap;padding:4px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);font-size:var(--fs-sm);color:var(--muted);transition:all .15s" title="Include churned accounts in charts and metrics. Their data stops counting from their churn date." id="trend-churned-label">
@@ -4389,6 +4391,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=587"></script>
+<script src="js/app.js?v=588"></script>
 </body>
 </html>

@@ -177,26 +177,62 @@ function setTrendClientSlot(slot, id) {
   renderTrends();
 }
 
+function _trendClientSearch(slot) {
+  const inp = el('trend-client-input-' + slot);
+  const ac = el('trend-client-ac-' + slot);
+  if (!inp || !ac) return;
+  const q = (inp.value || '').trim().toLowerCase();
+  if (!q) {
+    // If cleared and there was a client, remove it
+    if (_trendClientOverlays[slot]) {
+      _trendClientOverlays[slot] = undefined;
+      _trendClientOverlays = _trendClientOverlays.filter(Boolean);
+      renderTrends();
+    }
+    ac.style.display = 'none';
+    return;
+  }
+  const otherSlotId = _trendClientOverlays[slot === 0 ? 1 : 0];
+  const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
+  const matches = active.filter(c =>
+    (c.name || '').toLowerCase().indexOf(q) !== -1 && c.id !== otherSlotId
+  ).sort((a,b) => (a.name||'').localeCompare(b.name||'')).slice(0, 8);
+  if (!matches.length) { ac.style.display = 'none'; return; }
+  ac.innerHTML = matches.map(c =>
+    `<div onclick="_trendClientPick(${slot},'${escHtml(c.id)}')">${escHtml(c.name)} <span style="color:var(--subtle);font-size:var(--fs-xs)">(${c.score})</span></div>`
+  ).join('');
+  ac.style.display = 'block';
+}
+
+function _trendClientPick(slot, id) {
+  _trendClientOverlays = _trendClientOverlays.filter(x => x !== id);
+  while (_trendClientOverlays.length <= slot) _trendClientOverlays.push(undefined);
+  _trendClientOverlays[slot] = id;
+  _trendClientOverlays = _trendClientOverlays.filter(Boolean);
+  const c = customers.find(x => x.id === id);
+  const inp = el('trend-client-input-' + slot);
+  if (inp && c) inp.value = c.name || '';
+  const ac = el('trend-client-ac-' + slot);
+  if (ac) ac.style.display = 'none';
+  renderTrends();
+}
+
 function _populateClientDropdowns() {
-  const sel1 = el('trend-client-1');
-  const sel2 = el('trend-client-2');
-  if (!sel1 || !sel2) return;
-  const sorted = customers.filter(c => c.lifecycle !== 'churned').sort((a,b) => (a.name || '').localeCompare(b.name || ''));
-  const buildOpts = (placeholder) => {
-    let html = '<option value="">' + placeholder + '</option>';
-    sorted.forEach(c => { html += '<option value="' + c.id + '">' + escHtml(c.name || 'Unnamed') + '</option>'; });
-    return html;
-  };
-  sel1.innerHTML = buildOpts('Client 1');
-  sel2.innerHTML = buildOpts('Client 2');
   _syncClientDropdowns();
 }
 
 function _syncClientDropdowns() {
-  const sel1 = el('trend-client-1');
-  const sel2 = el('trend-client-2');
-  if (sel1) sel1.value = _trendClientOverlays[0] || '';
-  if (sel2) sel2.value = _trendClientOverlays[1] || '';
+  for (var s = 0; s < 2; s++) {
+    var inp = el('trend-client-input-' + s);
+    if (!inp) continue;
+    var cid = _trendClientOverlays[s];
+    if (cid) {
+      var c = customers.find(function(x) { return x.id === cid; });
+      inp.value = c ? c.name : '';
+    } else if (document.activeElement !== inp) {
+      inp.value = '';
+    }
+  }
 }
 
 // Light refresh: only update chart lines, tags, and table row highlights  - no scroll jump
@@ -346,6 +382,12 @@ function trendClientAutocomplete() {
 
 // Close autocomplete on outside click
 document.addEventListener('click', function(e) {
+  for (var s = 0; s < 2; s++) {
+    var ac2 = el('trend-client-ac-' + s);
+    if (ac2 && !e.target.closest('#trend-client-input-' + s) && !e.target.closest('#trend-client-ac-' + s)) {
+      ac2.style.display = 'none';
+    }
+  }
   const ac = el('trend-client-ac');
   if (ac && !e.target.closest('#trend-client-search') && !e.target.closest('#trend-client-ac')) {
     ac.style.display = 'none';
