@@ -1984,6 +1984,90 @@ function _taDistribution(active, rangeDays) {
   return { priority: 4, icon: _taSvg.bar, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail };
 }
 
+/* ── Client Overlay Insight ── */
+function _taClientOverlay(active, cutoff, rangeDays, metricKey) {
+  if (!_trendClientOverlays || !_trendClientOverlays.length) return [];
+  const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
+  const label = cfg.label || metricKey;
+  const rl = _taRangeLabel(rangeDays);
+  const results = [];
+
+  _trendClientOverlays.forEach(cid => {
+    const c = customers.find(x => x.id === cid);
+    if (!c) return;
+    const hist = (c.history || []).filter(h => h.date).sort((a,b) => a.date.localeCompare(b.date));
+    const inRange = hist.filter(h => new Date(h.date) >= cutoff);
+    const before = hist.filter(h => new Date(h.date) < cutoff);
+    if (!inRange.length) return;
+
+    const startVal = before.length ? cfg.val(before[before.length - 1], c) : cfg.val(inRange[0], c);
+    const endVal = cfg.val(inRange[inRange.length - 1], c);
+    if (startVal == null || endVal == null) return;
+    const delta = endVal - startVal;
+    const f = v => _fmtTaVal(v, metricKey);
+    const fd = v => (v >= 0 ? '+' : '') + _fmtTaVal(v, metricKey);
+
+    // Compare to portfolio average change
+    const portStart = active.length ? active.reduce((s,x) => {
+      const h2 = (x.history || []).filter(h => h.date).sort((a,b) => a.date.localeCompare(b.date));
+      const b2 = h2.filter(h => new Date(h.date) < cutoff);
+      if (!b2.length) return s;
+      const v = cfg.val(b2[b2.length - 1], x);
+      return v != null ? { sum: s.sum + v, n: s.n + 1 } : s;
+    }, { sum: 0, n: 0 }) : { sum: 0, n: 0 };
+    const portEnd = active.length ? active.reduce((s,x) => {
+      const h2 = (x.history || []).filter(h => h.date).sort((a,b) => a.date.localeCompare(b.date));
+      const r2 = h2.filter(h => new Date(h.date) >= cutoff);
+      if (!r2.length) return s;
+      const v = cfg.val(r2[r2.length - 1], x);
+      return v != null ? { sum: s.sum + v, n: s.n + 1 } : s;
+    }, { sum: 0, n: 0 }) : { sum: 0, n: 0 };
+    const portDelta = (portEnd.n && portStart.n) ? (portEnd.sum / portEnd.n) - (portStart.sum / portStart.n) : 0;
+
+    const outperformed = delta > portDelta;
+    const gap = Math.abs(delta - portDelta);
+
+    // Build signal breakdown for this client
+    const sigs = [
+      { key: 'logins', label: 'Logins' }, { key: 'adoption', label: 'Adoption' },
+      { key: 'tickets', label: 'Tickets' }, { key: 'nps', label: 'NPS' },
+      { key: 'days', label: 'Days Since Contact' }
+    ];
+    const sigChanges = [];
+    sigs.forEach(sig => {
+      const sh = _sigHist(c, sig.key, cutoff);
+      if (sh.delta != null && Math.abs(sh.delta) > 0.5) {
+        const inverted = _invertedMetrics.has(sig.key);
+        const good = inverted ? sh.delta < 0 : sh.delta > 0;
+        sigChanges.push({ ...sig, delta: sh.delta, good });
+      }
+    });
+    sigChanges.sort((a,b) => Math.abs(b.delta) - Math.abs(a.delta));
+
+    let title = _taCustLink(c.name, c.id) + ': ' + label + ' ' + fd(delta) + ' over ' + rl;
+    let detail = `${label} went from <strong>${f(startVal)}</strong> to <strong>${f(endVal)}</strong>. `;
+    if (portDelta !== 0) {
+      detail += outperformed
+        ? `That's ${fd(gap)} better than the portfolio average (${fd(portDelta)}). `
+        : `Portfolio average was ${fd(portDelta)} - this account is ${fd(gap)} behind. `;
+    }
+    if (sigChanges.length) {
+      const top2 = sigChanges.slice(0, 2);
+      detail += 'Key signal changes: ' + top2.map(s => {
+        const fv = (s.delta >= 0 ? '+' : '') + (Math.round(s.delta * 10) / 10);
+        return `<strong>${s.label}</strong> ${fv}`;
+      }).join(', ') + '. ';
+      const worst = sigChanges.filter(s => !s.good);
+      if (worst.length) {
+        detail += `Focus on ${worst[0].label} to improve this account.`;
+      }
+    }
+    const accent = delta > 2 ? 'green' : delta < -2 ? 'red' : 'amber';
+    results.push({ priority: 0, _contextual: true, icon: _taSvg.users, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail });
+  });
+  return results;
+}
+
 /* ── Orchestrator ─────────────────────────────── */
 function _buildTrendAnalysis(active, data1, data2, cutoff, rangeDays, m1, m2, priorData) {
   const wrap = el('trend-analysis-wrap');
@@ -1994,49 +2078,59 @@ function _buildTrendAnalysis(active, data1, data2, cutoff, rangeDays, m1, m2, pr
     ? customers.filter(c => passesManagerFilter(c))
     : active;
 
-  // When user selects a dual metric or CSM overlay, those insights should appear first
-  // because the user is actively asking about that relationship
   const hasDualMetric = m2 && data2 && data2.length;
   const hasCsmOverlay = !!_trendCsmOverlay;
+  const hasClientOverlay = _trendClientOverlays && _trendClientOverlays.length > 0;
 
-  const results = [
-    // Pattern-based predictions
+  // === CONTEXTUAL insights: directly tied to what the user selected ===
+  // These ALWAYS appear first when applicable
+  const contextual = [];
+
+  // Client overlay: per-client breakdown with signal changes
+  if (hasClientOverlay) {
+    contextual.push(..._taClientOverlay(active, cutoff, rangeDays, m1));
+  }
+
+  // CSM overlay: how this CSM compares to the rest
+  if (hasCsmOverlay) {
+    const csm = _taCsmDivergence(data1, active, cutoff, rangeDays, m1);
+    if (csm) { csm.priority = 0; csm._contextual = true; contextual.push(csm); }
+  }
+
+  // Dual metric: how the two selected metrics relate
+  if (hasDualMetric) {
+    const corr = _taMetricCorrelation(data1, data2, m1, m2, rangeDays);
+    if (corr) { corr.priority = 0; corr._contextual = true; contextual.push(corr); }
+  }
+
+  // === GENERAL insights: portfolio-wide analysis ===
+  const general = [
+    _taScoreDrivers(active, data1, m1, cutoff, rangeDays),
     _taLeadingIndicator(active, cutoff, rangeDays),
     _taChurnPatternMatch(active, rangeDays),
     _taChurnImpact(cutoff, rangeDays),
-    // Cross-signal analysis
     _taContactGapImpact(active, cutoff, rangeDays),
     _taInflection(data1, m1, rangeDays, active),
-    _taScoreDrivers(active, data1, m1, cutoff, rangeDays),
     _taSeasonalPattern(data1, m1, rangeDays, priorData),
-    // Signal relationships
     _taCrossSignal(active, cutoff, m1),
-    _taMetricCorrelation(data1, data2, m1, m2, rangeDays),
-    _taCsmDivergence(data1, active, cutoff, rangeDays, m1),
-    // Stats-driven fallback
     _taDistribution(active, rangeDays)
   ].filter(Boolean);
 
-  // Boost priority of contextual insights when user has selected overlays
-  // These should always be in the top 3 since the user explicitly asked about them
-  results.forEach(r => {
-    if (hasDualMetric && r === results.find(x => x && x.detail && x.detail.includes(METRIC_CFG[m2]?.label))) {
-      r.priority = 0;
-    }
-  });
-  // Simpler: boost CSM divergence and metric correlation directly
+  // Don't duplicate CSM/correlation insights if already in contextual
   if (hasCsmOverlay) {
-    const csm = results.find(r => r.title && r.title.includes(_trendCsmOverlay));
-    if (csm) csm.priority = 0;
-  }
-  if (hasDualMetric) {
-    const corr = results.find(r => r.title && (r.title.includes('both') || r.title.includes('recovering') || r.title.includes('while')));
-    if (corr) corr.priority = 0;
+    const idx = general.findIndex(r => r.title && r.title.includes(escHtml(_trendCsmOverlay)));
+    if (idx >= 0) general.splice(idx, 1);
   }
 
-  results.sort((a, b) => a.priority - b.priority);
-  // Always show exactly 3 insights (or fewer if not enough data)
-  const top = results.slice(0, 3);
+  general.sort((a, b) => a.priority - b.priority);
+
+  // === Combine: contextual first, then fill remaining slots from general ===
+  const maxInsights = 3;
+  const top = contextual.slice(0, maxInsights);
+  const remaining = maxInsights - top.length;
+  if (remaining > 0) {
+    top.push(...general.slice(0, remaining));
+  }
 
   if (!top.length) {
     wrap.innerHTML = '';
