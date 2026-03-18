@@ -21760,6 +21760,7 @@ function _trendVal(m, key) {
 }
 let _trendMetric1 = 'score';    // primary metric key
 let _trendMetric2 = '';          // secondary metric key (empty = none)
+let _trendShowChurned = false;   // include churned accounts in charts
 let _trendTipData = [];          // tooltip data per date column
 let _trendFirstRender = true;    // fade-in only on first render
 
@@ -21773,7 +21774,7 @@ const METRIC_CFG = {
   days:     { label:'Days Since Contact',  agg:'avg', fixed:null,    val: (h,c) => h.signals?.days,                    fmt: v => String(Math.round(v)),            axFmt: v => String(Math.round(v)), lowerIsBetter:true },
   mrr:      { label:'Total MRR',          agg:'sum', fixed:null,     val: (h,c) => h.signals?._mrr != null ? h.signals._mrr : c.mrr, includeChurned:true, fmt: v => '$'+fmtNum(Math.round(v)), axFmt: v => { if(Math.abs(v)>=1e6) return '$'+(v/1e6).toFixed(1)+'M'; if(Math.abs(v)>=1e3) return '$'+Math.round(v/1e3)+'K'; return '$'+Math.round(v); } },
   arr:      { label:'Total ARR',          agg:'sum', fixed:null,     val: (h,c) => (h.signals?._mrr != null ? h.signals._mrr : c.mrr) * 12, includeChurned:true, fmt: v => '$'+fmtNum(Math.round(v)), axFmt: v => { if(Math.abs(v)>=1e6) return '$'+(v/1e6).toFixed(1)+'M'; if(Math.abs(v)>=1e3) return '$'+Math.round(v/1e3)+'K'; return '$'+Math.round(v); } },
-  customers:{ label:'# Customers',        agg:'count', fixed:null,   val: (h,c) => (h.signals?._mrr != null && h.signals._mrr === 0) ? null : 1, includeChurned:true, fmt: v => String(Math.round(v)), axFmt: v => String(Math.round(v)) },
+  customers:{ label:'# Customers',        agg:'sum', fixed:null,     val: (h,c) => (h.signals?._mrr != null && h.signals._mrr === 0) ? 0 : 1, includeChurned:true, fmt: v => String(Math.round(v)), axFmt: v => String(Math.round(v)) },
 };
 
 function setTrendMetric(slot, key) {
@@ -21792,6 +21793,11 @@ function setTrendRange(range) {
 
 function setTrendCsmOverlay(mgr) {
   _trendCsmOverlay = mgr || '';
+  renderTrends();
+}
+
+function toggleTrendChurned(on) {
+  _trendShowChurned = !!on;
   renderTrends();
 }
 
@@ -21839,7 +21845,7 @@ function _refreshTrendOverlays() {
   cutoff.setHours(0,0,0,0);
 
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
-  const allWithHistory = customers.filter(c => passesManagerFilter(c));
+  const allWithHistory = _trendShowChurned ? customers.filter(c => passesManagerFilter(c)) : active;
   const _rangeName = { '3d':'3 Days','7d':'7 Days','30d':'30 Days','90d':'90 Days','6m':'6 Months','1y':'1 Year','2y':'2 Years','ytd':'YTD' }[range] || range;
 
   // Rebuild just the chart lines (reuse renderTrends' aggregation inline)
@@ -21973,6 +21979,10 @@ document.addEventListener('click', function(e) {
 });
 
 function renderTrends() {
+  // Sync churned toggle checkbox
+  const _churnCb = el('trend-show-churned');
+  if (_churnCb) _churnCb.checked = _trendShowChurned;
+
   const range = _trendRange || '30d';
   const m1 = _trendMetric1 || 'score';
   const m2 = _trendMetric2 || '';
@@ -21992,8 +22002,9 @@ function renderTrends() {
   cutoff.setHours(0,0,0,0);
 
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
-  // Include churned customers for revenue/count metrics so churn shows as MRR drop
-  const allWithHistory = customers.filter(c => passesManagerFilter(c));
+  // When "Include Churned" is on, revenue/count metrics include churned accounts
+  // so churn shows as MRR drops and customer count decreases
+  const allWithHistory = _trendShowChurned ? customers.filter(c => passesManagerFilter(c)) : active;
 
   // ── Aggregate portfolio data by day (supports any metric) ──
   // For avg metrics: forward-fills each customer's last known value so every
@@ -23492,12 +23503,56 @@ function _taDropAttribution(active, data1, metricKey, cutoff, rangeDays) {
   return { priority: 1, icon: _icon, iconBg: _iconBg, iconColor: _iconClr, accent: _accent, title, detail };
 }
 
+/* 9. Churn Impact — call out churned accounts and their revenue impact */
+function _taChurnImpact(cutoff, rangeDays) {
+  if (!_trendShowChurned) return null;
+  const churned = customers.filter(c => c.lifecycle === 'churned' && passesManagerFilter(c));
+  if (!churned.length) return null;
+
+  // Find churned customers whose churn happened within the selected range
+  const rangeStart = cutoff.getTime();
+  const rangeEnd = Date.now();
+  const recentChurns = [];
+  churned.forEach(c => {
+    const hist = (c.history || []).filter(h => h.date).sort((a,b) => a.date.localeCompare(b.date));
+    // Find churn point: first entry where _mrr drops to 0
+    let churnDate = null;
+    for (let i = 1; i < hist.length; i++) {
+      if (hist[i].signals?._mrr === 0 && hist[i-1].signals?._mrr > 0) {
+        churnDate = new Date(hist[i].date);
+        break;
+      }
+    }
+    if (!churnDate) return;
+    const ct = churnDate.getTime();
+    if (ct >= rangeStart && ct <= rangeEnd) {
+      recentChurns.push({ c, churnDate, mrr: c._prechurnMrr || 0 });
+    }
+  });
+  if (!recentChurns.length) return null;
+
+  recentChurns.sort((a,b) => b.mrr - a.mrr);
+  const totalLostMRR = recentChurns.reduce((s,x) => s + x.mrr, 0);
+  const rl = _taRangeLabel(rangeDays);
+  const fmtDate = d => d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+
+  let detail = `<strong>${recentChurns.length} account${recentChurns.length > 1 ? 's' : ''}</strong> churned in this period, losing <strong>$${fmtNum(totalLostMRR)}/mo</strong> in MRR. `;
+  const top = recentChurns.slice(0, 3);
+  detail += top.map(x => `<strong>${_taCustLink(x.c.name, x.c.id)}</strong> ($${fmtNum(x.mrr)}/mo, churned ${fmtDate(x.churnDate)})`).join(', ');
+  if (recentChurns.length > 3) detail += ` and ${recentChurns.length - 3} more`;
+  detail += '.';
+
+  const title = recentChurns.length + ' account' + (recentChurns.length > 1 ? 's' : '') + ' churned — $' + fmtNum(totalLostMRR) + '/mo lost';
+  return { priority: 1, icon: _taSvg.drop, iconBg: 'var(--red-l)', iconColor: 'var(--red)', accent: 'red', title, detail };
+}
+
 /* ── Orchestrator ─────────────────────────────── */
 function _buildTrendAnalysis(active, data1, data2, cutoff, rangeDays, m1, m2) {
   const wrap = el('trend-analysis-wrap');
   if (!wrap) return;
 
   const results = [
+    _taChurnImpact(cutoff, rangeDays),
     _taPeriodComparison(data1, m1, cutoff, rangeDays, active),
     _taTrendAccel(data1, m1, rangeDays),
     _taMetricCorrelation(data1, data2, m1, m2, rangeDays),

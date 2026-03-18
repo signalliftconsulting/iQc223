@@ -2184,6 +2184,10 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       </div>
       <div class="trend-client-tags" id="trend-client-tags"></div>
     </div>
+    <div class="trend-ctrl-sep"></div>
+    <label class="trend-ctrl-group" style="cursor:pointer;gap:6px;font-size:var(--fs-base);color:var(--muted);user-select:none;white-space:nowrap" title="Include churned accounts in charts and metrics. Their data stops counting from their churn date.">
+      <input type="checkbox" id="trend-show-churned" onchange="toggleTrendChurned(this.checked)" style="accent-color:var(--blue);cursor:pointer"> Include Churned
+    </label>
   </div>
 
   <!-- Main chart -->
@@ -4388,6 +4392,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=552"></script>
+<script src="js/app.js?v=553"></script>
 </body>
 </html>
