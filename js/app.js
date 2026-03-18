@@ -307,13 +307,13 @@ let csvRows    = null;    // parsed CSV rows pending import
 let csvHeaders = [];
 
 const DEFAULT_WEIGHTS = {
-  logins:    25,
-  adoption:  25,
-  tickets:   20,
-  nps:       10,
+  logins:    15,
+  adoption:  30,
+  tickets:   10,
+  nps:       15,
   csat:       5,
-  days:      10,
-  growth:     5
+  days:      15,
+  growth:    10
 };
 
 const WEIGHT_LABELS = {
