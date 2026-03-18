@@ -1792,13 +1792,12 @@ function _taContactGapImpact(active, cutoff, rangeDays) {
   const gappedAvg = gappedDeltas.length >= 2 ? Math.round(gappedDeltas.reduce((s,v) => s+v, 0) / gappedDeltas.length * 10) / 10 : null;
 
   const top = gapAccounts.slice(0, 2);
-  const title = 'Accounts going silent are dropping - contact gap is costing points';
-  let detail = `${gapAccounts.length} accounts lost contact and their scores fell. ` +
-    top.map(x => `${_taCustLink(x.c.name, x.c.id)} (${Math.round(x.daysNow)}d gap, score ${Math.round(x.scoreDelta)})`).join(', ') + '.';
+  const title = gapAccounts.length + ' accounts have not been contacted in 30+ days and their scores are falling';
+  let detail = top.map(x => `${_taCustLink(x.c.name, x.c.id)} - ${Math.round(x.daysNow)} days since last contact, score dropped ${Math.round(Math.abs(x.scoreDelta))} pts`).join('. ') + '. ';
   if (contactedAvg != null && gappedAvg != null && contactedAvg - gappedAvg > 2) {
-    detail += ` Contacted accounts averaged <strong>${contactedAvg > 0 ? '+' : ''}${contactedAvg}</strong> pts vs <strong>${gappedAvg > 0 ? '+' : ''}${gappedAvg}</strong> for 30+ day gaps - regular touchpoints make a measurable difference.`;
+    detail += `Accounts contacted recently averaged <strong>${contactedAvg > 0 ? '+' : ''}${contactedAvg}</strong> pts while accounts with 30+ day gaps averaged <strong>${gappedAvg > 0 ? '+' : ''}${gappedAvg}</strong> pts. `;
   }
-  detail += ` Re-engage the silent accounts with a check-in or value touchpoint.`;
+  detail += `Schedule a check-in or value touchpoint with these accounts.`;
   return { priority: 2, icon: _taSvg.users, iconBg: 'var(--amber-l)', iconColor: 'var(--amber)', accent: 'amber', title, detail };
 }
 
