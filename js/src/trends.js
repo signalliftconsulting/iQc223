@@ -1226,9 +1226,20 @@ function _taTrendAccel(data, metricKey, rangeDays) {
     title = label + (_lib ? ' worsening is picking up speed' : ' gains are accelerating');
     accent = _lib ? 'red' : 'green';
     detail = `The pace of change increased <strong>${rateMultiple ? rateMultiple + '×' : 'significantly'}</strong> in the recent ${halfLabel}. `;
-    detail += _lib
-      ? `At this rate, ${label} could reach <strong>${f(proj30)}</strong> within 30 days — act now to reverse the trend.`
-      : `At this pace, ${label} could reach <strong>${f(proj30)}</strong> within 30 days if momentum holds.`;
+    // Only show projection if it's meaningfully different from current value
+    const projDiff = Math.abs(proj30 - current);
+    const projMeaningful = metricKey === 'mrr' || metricKey === 'arr' ? projDiff > 500 : projDiff > 2;
+    if (projMeaningful && ((_lib && proj30 > current) || (!_lib && proj30 > current))) {
+      detail += _lib
+        ? `At this rate, ${label} could reach <strong>${f(proj30)}</strong> within 30 days — act now to reverse the trend.`
+        : `At this pace, ${label} could reach <strong>${f(proj30)}</strong> within 30 days if momentum holds.`;
+    } else if (projMeaningful && _lib && proj30 < current) {
+      detail += `At this rate, ${label} could drop to <strong>${f(proj30)}</strong> within 30 days — act now to reverse the trend.`;
+    } else {
+      detail += _lib
+        ? `If this continues, expect further degradation across the portfolio.`
+        : `This momentum is a positive sign — continue reinforcing what's working.`;
+    }
   } else if (decel) {
     title = label + (_lib ? ' worsening is losing steam' : ' growth is plateauing');
     accent = 'amber';
