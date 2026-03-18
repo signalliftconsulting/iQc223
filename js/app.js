@@ -22356,7 +22356,7 @@ function renderTrends() {
 
   // ── Top Movers — build data, then render with current sort ──
   // ── Trend Analysis ──
-  _buildTrendAnalysis(active, portfolioData, m2Line ? m2Line.points : null, cutoff, days, m1, m2);
+  _buildTrendAnalysis(active, portfolioData, m2Line ? m2Line.points : null, cutoff, days, m1, m2, priorPortfolioData);
 
   _trendMovers = active.map(c => {
     const allHist = (c.history || []).filter(h => h.date).sort((a,b) => a.date.localeCompare(b.date));
@@ -22887,78 +22887,6 @@ function _taRangeLabel(rangeDays) {
   return (rangeDays / 365).toFixed(1).replace('.0', '') + ' years';
 }
 
-/* 1. Trend Acceleration */
-function _taTrendAccel(data, metricKey, rangeDays) {
-  if (data.length < 6) return null;
-  const mid = Math.floor(data.length / 2);
-  const firstHalf = data.slice(0, mid);
-  const secondHalf = data.slice(mid);
-  const d1 = firstHalf[firstHalf.length - 1].avg - firstHalf[0].avg;
-  const d2 = secondHalf[secondHalf.length - 1].avg - secondHalf[0].avg;
-  const diff = d2 - d1;
-  const label = (METRIC_CFG[metricKey] || {}).label || metricKey;
-  const isCurrency = metricKey === 'mrr' || metricKey === 'arr';
-  const threshold = isCurrency ? Math.max(Math.abs(d1) * 0.1, 100) : 1;
-  if (Math.abs(diff) < threshold) return null;
-  const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
-  const _lib = cfg.lowerIsBetter;
-  const accel = diff > 0 && d2 > 0;
-  const decel = diff < 0 && d1 > 0 && d2 >= 0;
-  const accelDn = diff < 0 && d2 < 0;
-  const decelDn = diff > 0 && d1 < 0 && d2 <= 0;
-
-  // Current value and recent trajectory for projection
-  const current = data[data.length - 1].avg;
-  const recentRate = d2 / (secondHalf.length || 1); // per data point
-  const daysPerPt = rangeDays / data.length;
-  const proj30 = current + recentRate * (30 / daysPerPt);
-  const f = v => _fmtTaVal(v, metricKey);
-  const fd = v => (v >= 0 ? '+' : '') + _fmtTaVal(v, metricKey);
-  const halfLabel = _taRangeLabel(Math.round(rangeDays / 2));
-  const rateMultiple = d1 !== 0 ? Math.abs(Math.round(d2 / d1 * 10) / 10) : null;
-
-  let title, detail, accent;
-  if (accel) {
-    title = label + (_lib ? ' worsening is picking up speed' : ' gains are accelerating');
-    accent = _lib ? 'red' : 'green';
-    detail = `The pace of change increased <strong>${rateMultiple ? rateMultiple + '×' : 'significantly'}</strong> in the recent ${halfLabel}. `;
-    // Only show projection if it's meaningfully different from current value
-    const projDiff = Math.abs(proj30 - current);
-    const projMeaningful = metricKey === 'mrr' || metricKey === 'arr' ? projDiff > 500 : projDiff > 2;
-    if (projMeaningful && ((_lib && proj30 > current) || (!_lib && proj30 > current))) {
-      detail += _lib
-        ? `At this rate, ${label} could reach <strong>${f(proj30)}</strong> within 30 days — act now to reverse the trend.`
-        : `At this pace, ${label} could reach <strong>${f(proj30)}</strong> within 30 days if momentum holds.`;
-    } else if (projMeaningful && _lib && proj30 < current) {
-      detail += `At this rate, ${label} could drop to <strong>${f(proj30)}</strong> within 30 days — act now to reverse the trend.`;
-    } else {
-      detail += _lib
-        ? `If this continues, expect further degradation across the portfolio.`
-        : `This momentum is a positive sign — continue reinforcing what's working.`;
-    }
-  } else if (decel) {
-    title = label + (_lib ? ' worsening is losing steam' : ' growth is plateauing');
-    accent = 'amber';
-    detail = `Gained <strong>${fd(d1)}</strong> in the first half but only <strong>${fd(d2)}</strong> recently. Growth is flattening — the current trajectory may stall without intervention.`;
-  } else if (accelDn) {
-    title = label + (_lib ? ' improvement is speeding up' : ' decline is getting worse');
-    accent = _lib ? 'green' : 'red';
-    detail = `Dropped <strong>${fd(d2)}</strong> recently vs <strong>${fd(d1)}</strong> before — the decline is <strong>${rateMultiple ? rateMultiple + '× faster' : 'steeper'}</strong>. `;
-    detail += _lib
-      ? `This improvement trend is strong and accelerating.`
-      : `If unchecked, ${label} could hit <strong>${f(proj30)}</strong> in 30 days. Identify root causes now.`;
-  } else if (decelDn) {
-    title = label + (_lib ? ' improvement is slowing down' : ' decline is easing');
-    accent = 'amber';
-    detail = `The rate of decline slowed from <strong>${fd(d1)}</strong> to <strong>${fd(d2)}</strong>. The bleeding may be stopping, but ${label} hasn't turned positive yet — watch closely.`;
-  } else {
-    title = label + ' momentum shifted direction';
-    accent = 'amber';
-    detail = `Moved <strong>${fd(d1)}</strong> then <strong>${fd(d2)}</strong> — a reversal in trajectory. Monitor whether this is a correction or a sustained change.`;
-  }
-  return { priority: 2, icon: _taSvg.trend, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail };
-}
-
 /* 2. Metric Correlation (dual metric) */
 // Inverted metrics: lower value = better outcome
 const _invertedMetrics = new Set(['days', 'tickets']);
@@ -23031,150 +22959,70 @@ function _taMetricCorrelation(data1, data2, m1, m2, rangeDays) {
   return { priority: 1, icon: _taSvg.corr, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail };
 }
 
-/* 3. Inflection Point */
-function _taInflection(data, metricKey, rangeDays) {
-  if (data.length < 10) return null;
-  // Use a wider window to find sustained reversals, not blips
-  // Window = ~10% of data length, min 3, max 15
+/* 3. Inflection Point — enhanced with customer attribution */
+function _taInflection(data, metricKey, rangeDays, active) {
+  if (data.length < 10 || !active || active.length < 3) return null;
   const win = Math.max(3, Math.min(15, Math.round(data.length * 0.1)));
-  // For each candidate point, compare avg slope before vs after over the window
   let maxSwing = 0, bestIdx = -1, bestBefore = 0, bestAfter = 0;
   for (let i = win; i < data.length - win; i++) {
     const beforeSlope = (data[i].avg - data[i - win].avg) / win;
     const afterSlope = (data[i + win].avg - data[i].avg) / win;
     if ((beforeSlope > 0 && afterSlope < 0) || (beforeSlope < 0 && afterSlope > 0)) {
-      const swing = Math.abs(afterSlope - beforeSlope) * win; // Total magnitude over window
+      const swing = Math.abs(afterSlope - beforeSlope) * win;
       if (swing > maxSwing) { maxSwing = swing; bestIdx = i; bestBefore = beforeSlope; bestAfter = afterSlope; }
     }
   }
   const isCurrency = metricKey === 'mrr' || metricKey === 'arr';
-  // Threshold relative to data range — swing must be at least 15% of the total range
   const vals = data.map(d => d.avg);
   const dataRange = Math.max(...vals) - Math.min(...vals);
   const threshold = isCurrency ? Math.max(200, dataRange * 0.15) : Math.max(3, dataRange * 0.15);
   if (bestIdx < 0 || maxSwing < threshold) return null;
 
-  // Verify the reversal actually sustained — check overall slope from inflection to end
-  // If the trend from inflection→end agrees with the BEFORE direction (not the after),
-  // the reversal was a temporary blip and didn't stick
   const remaining = data.length - 1 - bestIdx;
   if (remaining >= win) {
     const endSlope = (data[data.length - 1].avg - data[bestIdx].avg) / remaining;
-    // Reversal was temporary: original direction resumed
     if ((bestBefore > 0 && endSlope > 0) || (bestBefore < 0 && endSlope < 0)) return null;
   }
 
   const inflPt = data[bestIdx];
-  const d = new Date(inflPt.date);
-  const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const inflDate = new Date(inflPt.date);
+  const dateStr = inflDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const label = (METRIC_CFG[metricKey] || {}).label || metricKey;
+  const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
   const wasRising = bestBefore > 0;
-  const title = 'Trend reversed around ' + dateStr;
-  const swingFmt = _fmtTaVal(Math.round(maxSwing * 10) / 10, metricKey);
-  const unit = isCurrency ? '' : metricKey === 'csat' ? '' : ' pts';
-  const detail = `<strong>${label}</strong> shifted from ${wasRising ? 'climbing' : 'declining'} to ${wasRising ? 'declining' : 'climbing'} around <strong>${dateStr}</strong>. The ${wasRising ? 'pullback' : 'recovery'} magnitude was <strong>${swingFmt}${unit}</strong>.`;
-  const accent = wasRising ? 'red' : 'green';
-  return { priority: 1, icon: _taSvg.zap, iconBg: accent === 'green' ? 'var(--green-l)' : 'var(--red-l)', iconColor: accent === 'green' ? 'var(--green)' : 'var(--red)', accent, title, detail };
-}
 
-/* 4. Volatility Assessment */
-function _taVolatility(data, metricKey) {
-  if (data.length < 10) return null;
-  const diffs = [];
-  for (let i = 1; i < data.length; i++) diffs.push(data[i].avg - data[i-1].avg);
-  const mean = diffs.reduce((s,d) => s+d, 0) / diffs.length;
-  const variance = diffs.reduce((s,d) => s + (d - mean) ** 2, 0) / diffs.length;
-  const stddev = Math.sqrt(variance);
-  const label = (METRIC_CFG[metricKey] || {}).label || metricKey;
-  const isCurrency = metricKey === 'mrr' || metricKey === 'arr';
-  // Compare to expected volatility scaled by metric range
-  // Score ~0-100, CSAT ~1-5, Adoption ~0-100, Logins ~0-50, Days ~0-60, Tickets ~0-20
-  const dataVals = data.map(d => d.avg);
-  const dataRange = Math.max(...dataVals) - Math.min(...dataVals);
-  const baseExpected = isCurrency ? 500 : Math.max(0.1, dataRange * 0.05);
-  const ratio = stddev / baseExpected;
-  if (ratio > 0.5 && ratio < 2.0) return null; // Normal range
-  // Don't flag volatility if the actual stddev is trivially small
-  // For scores (0-100): ±1 is noise. For others: ±0.5 is noise.
-  const minStddev = isCurrency ? 1000 : (metricKey === 'score' || metricKey === 'adoption' ? 1.5 : 0.5);
-  if (stddev < minStddev && !isStable) return null;
-  const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
-  const _lib = cfg.lowerIsBetter;
-  const isStable = ratio <= 0.5;
-  const fmtStd = isCurrency ? '$' + fmtNum(Math.round(stddev)) : (Math.round(stddev * 10) / 10);
-
-  // For lowerIsBetter metrics (tickets, days), stable & low is simply good — skip the insight
-  if (_lib && isStable) return null;
-
-  const title = label + ' has been ' + (isStable ? 'unusually stable' : 'volatile');
-  let detail;
-  if (isStable) {
-    detail = `Daily variation of just <strong>${fmtStd}</strong> — the portfolio is in a tight range. A breakout in either direction could signal a shift.`;
-  } else {
-    detail = _lib
-      ? `Swinging <strong>±${fmtStd}</strong> day-to-day — higher than typical. Sporadic spikes may indicate inconsistent support load or data quality issues.`
-      : `Swinging <strong>±${fmtStd}</strong> day-to-day — higher than typical. Investigate whether specific accounts are driving the volatility.`;
-  }
-  const accent = isStable ? 'green' : 'amber';
-  return { priority: 3, icon: _taSvg.bar, iconBg: isStable ? 'var(--green-l)' : 'var(--amber-l)', iconColor: isStable ? 'var(--green)' : 'var(--amber)', accent, title, detail };
-}
-
-/* 5. Period-over-Period Comparison */
-function _taPeriodComparison(data, metricKey, cutoff, rangeDays, active) {
-  const label = (METRIC_CFG[metricKey] || {}).label || metricKey;
-  const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
-  if (data.length < 2 || active.length < 3) return null;
-
-  // Use getDelta7d for health score (matches KPI cards exactly),
-  // otherwise compute from metric val function
-  const isScore = metricKey === 'score';
-  const movers = [];
+  // Find which customers drove the reversal — biggest movers around the inflection
+  const inflT = inflDate.getTime();
+  const windowMs = win * 86400000 * (rangeDays / data.length);
+  const custMovers = [];
   active.forEach(c => {
-    if (isScore) {
-      const d = _getDeltaNd(c, rangeDays);
-      if (d === null) return;
-      movers.push({ name: c.name, id: c.id, delta: d, start: c.score - d, end: c.score });
-    } else {
-      const hist = (c.history || []).filter(h => h.date).sort((a,b) => a.date.localeCompare(b.date));
-      const inRange = hist.filter(h => new Date(h.date) >= cutoff);
-      const before = hist.filter(h => new Date(h.date) < cutoff);
-      if (!inRange.length) return;
-      const startVal = before.length ? cfg.val(before[before.length - 1], c) : cfg.val(inRange[0], c);
-      const endVal = cfg.val(inRange[inRange.length - 1], c);
-      if (startVal == null || endVal == null) return;
-      movers.push({ name: c.name, id: c.id, delta: endVal - startVal, start: startVal, end: endVal });
-    }
+    const hist = (c.history || []).filter(h => h.date).sort((a,b) => a.date.localeCompare(b.date));
+    if (hist.length < 2) return;
+    const findNearest = (tgt) => hist.reduce((best, h) =>
+      Math.abs(new Date(h.date).getTime() - tgt) < Math.abs(new Date(best.date).getTime() - tgt) ? h : best
+    );
+    const before = findNearest(inflT - windowMs);
+    const after = findNearest(inflT + windowMs);
+    if (before === after) return;
+    const sv = cfg.val ? cfg.val(before, c) : before.score;
+    const ev = cfg.val ? cfg.val(after, c) : after.score;
+    if (sv != null && ev != null) custMovers.push({ name: c.name, id: c.id, delta: ev - sv, mrr: c.mrr || 0 });
   });
-  if (movers.length < 3) return null;
-  movers.sort((a, b) => a.delta - b.delta);
 
-  // Use same thresholds as KPI cards: >0 = improving, <0 = declining
-  const improving = movers.filter(m => m.delta > 0);
-  const declining = movers.filter(m => m.delta < 0);
-  const flat = movers.length - improving.length - declining.length;
-  const pctUp = Math.round(improving.length / movers.length * 100);
-  const pctDn = Math.round(declining.length / movers.length * 100);
+  // Sort by absolute delta to find biggest movers
+  custMovers.sort((a,b) => Math.abs(b.delta) - Math.abs(a.delta));
+  const topMovers = custMovers.filter(m => wasRising ? m.delta < -1 : m.delta > 1).slice(0, 3);
+  const fd = v => (v >= 0 ? '+' : '') + Math.round(v);
 
-  // No movement at all
-  if (!improving.length && !declining.length) return null;
-
-  const isGood = cfg.lowerIsBetter ? declining.length > improving.length : improving.length > declining.length;
-  const rl = _taRangeLabel(rangeDays);
-  const f = v => (v >= 0 ? '+' : '') + _fmtTaVal(v, metricKey);
-
-  // Build detail with top movers
-  let detail = `<strong>${pctUp}%</strong> of accounts improved, <strong>${pctDn}%</strong> declined, <strong>${100 - pctUp - pctDn}%</strong> flat over ${rl}. `;
-  const topGainers = movers.slice(-3).reverse().filter(m => m.delta > 0);
-  const topDecliners = movers.slice(0, 3).filter(m => m.delta < 0);
-  if (topGainers.length) {
-    detail += 'Top movers up: ' + topGainers.map(m => `<strong>${_taCustLink(m.name, m.id)}</strong> (${f(m.delta)})`).join(', ') + '. ';
+  const title = (wasRising ? 'Decline' : 'Recovery') + ' started around ' + dateStr;
+  let detail = `<strong>${label}</strong> shifted from ${wasRising ? 'climbing' : 'declining'} to ${wasRising ? 'declining' : 'climbing'} around <strong>${dateStr}</strong>.`;
+  if (topMovers.length) {
+    const word = wasRising ? 'Biggest drops' : 'Biggest gains';
+    detail += ` ${word}: ` + topMovers.map(m => `${_taCustLink(m.name, m.id)} (${fd(m.delta)})`).join(', ') + '.';
   }
-  if (topDecliners.length) {
-    detail += 'Biggest drops: ' + topDecliners.map(m => `<strong>${_taCustLink(m.name, m.id)}</strong> (${f(m.delta)})`).join(', ') + '.';
-  }
-  const title = label + ': ' + pctUp + '% improving, ' + pctDn + '% declining';
-  const accent = isGood ? 'green' : (pctDn > 40 ? 'red' : 'amber');
-  return { priority: 2, icon: _taSvg.clock, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail };
+
+  const accent = wasRising ? 'red' : 'green';
+  return { priority: 2, icon: _taSvg.zap, iconBg: accent === 'green' ? 'var(--green-l)' : 'var(--red-l)', iconColor: accent === 'green' ? 'var(--green)' : 'var(--red)', accent, title, detail };
 }
 
 /* 6. CSM Overlay Divergence */
@@ -23276,13 +23124,25 @@ function _taCrossSignal(active, cutoff, metricKey) {
   // For inverted metrics: improving accounts having LOWER values = expected positive pattern
   // gap = impAvg - decAvg; for inverted: negative gap means improving accounts have lower (better) values
   const isHealthyPattern = inverted ? bestSignal.gap < 0 : bestSignal.gap > 0;
-  const title = bestSignal.label + ' correlates most with ' + label + ' changes';
+
+  // Make it actionable — name specific declining accounts with the worst signal values
+  const actionAccounts = declining.filter(c => {
+    const v = bestSignal.getter(c);
+    if (v == null) return false;
+    return inverted ? v > bestSignal.decAvg : v < bestSignal.decAvg;
+  }).slice(0, 3);
+
+  const title = bestSignal.label + ' is the biggest factor in ' + label + ' changes';
   let detail;
   if (inverted) {
-    const lowerGroup = bestSignal.gap < 0 ? 'rising' : 'declining';
-    detail = `Accounts with rising ${label} averaged <strong>${fv(bestSignal.impAvg)}</strong> ${bestSignal.label} vs <strong>${fv(bestSignal.decAvg)}</strong> for declining accounts — <strong>lower ${bestSignal.label} tracks with better ${label}</strong>.`;
+    detail = `Declining accounts average <strong>${fv(bestSignal.decAvg)}</strong> ${bestSignal.label} vs <strong>${fv(bestSignal.impAvg)}</strong> for improving accounts. `;
+    detail += `Reducing ${bestSignal.label} is the fastest lever to improve ${label}.`;
   } else {
-    detail = `Accounts with rising ${label} averaged <strong>${fv(bestSignal.impAvg)}</strong> ${bestSignal.label} vs <strong>${fv(bestSignal.decAvg)}</strong> for declining accounts — <strong>higher ${bestSignal.label} tracks with better ${label}</strong>.`;
+    detail = `Declining accounts average <strong>${fv(bestSignal.decAvg)}</strong> ${bestSignal.label} vs <strong>${fv(bestSignal.impAvg)}</strong> for improving accounts. `;
+    detail += `Improving ${bestSignal.label} is the fastest lever to lift ${label}.`;
+  }
+  if (actionAccounts.length) {
+    detail += ' Focus on: ' + actionAccounts.map(c => `${_taCustLink(c.name, c.id)} (${bestSignal.label}: ${fv(bestSignal.getter(c))})`).join(', ') + '.';
   }
   const accent = isHealthyPattern ? 'green' : 'amber';
   return { priority: 3, icon: _taSvg.signal, iconBg: isHealthyPattern ? 'var(--green-l)' : 'var(--amber-l)', iconColor: isHealthyPattern ? 'var(--green)' : 'var(--amber)', accent, title, detail };
@@ -23622,25 +23482,168 @@ function _taChurnImpact(cutoff, rangeDays) {
   return { priority: 1, icon: _taSvg.drop, iconBg: 'var(--red-l)', iconColor: 'var(--red)', accent: 'red', title, detail };
 }
 
+/* ── At-Risk Accounts — declining + renewal soon + MRR at stake ── */
+function _taAtRiskAccounts(active, cutoff, rangeDays) {
+  if (active.length < 3) return null;
+  const now = Date.now();
+  const atRisk = [];
+  active.forEach(c => {
+    if (c.lifecycle === 'churned') return;
+    const d = _getDeltaNd(c, rangeDays);
+    if (d === null || d >= -3) return; // only accounts declining ≥3 pts
+    // Check renewal proximity (within 120 days)
+    let renewalDays = Infinity;
+    if (c.renewal_date) {
+      const rd = new Date(c.renewal_date);
+      renewalDays = Math.round((rd.getTime() - now) / 86400000);
+    }
+    // Urgency score: bigger drop + sooner renewal = higher urgency
+    const urgency = Math.abs(d) * (renewalDays <= 120 ? (150 - renewalDays) / 30 : 0.5);
+    atRisk.push({ c, delta: d, renewalDays, mrr: c.mrr || 0, urgency });
+  });
+  if (atRisk.length < 1) return null;
+  atRisk.sort((a,b) => b.urgency - a.urgency);
+  const top = atRisk.slice(0, 4);
+  const totalMrr = atRisk.reduce((s,x) => s + x.mrr, 0);
+  const renewalRisk = atRisk.filter(x => x.renewalDays > 0 && x.renewalDays <= 90);
+  const fd = v => (v >= 0 ? '+' : '') + Math.round(v);
+  const fmtRen = d => d <= 0 ? 'overdue' : d <= 30 ? 'this month' : d <= 60 ? 'within 60d' : d <= 90 ? 'within 90d' : '';
+
+  const count = atRisk.length;
+  const title = count + ' account' + (count > 1 ? 's' : '') + ' declining — $' + fmtNum(totalMrr) + '/mo at stake';
+  let detail = '';
+  // List top accounts with their delta, MRR, and renewal status
+  detail += top.map(x => {
+    let info = `${_taCustLink(x.c.name, x.c.id)} (${fd(x.delta)} pts, $${fmtNum(x.mrr)}/mo`;
+    const ren = fmtRen(x.renewalDays);
+    if (ren) info += `, renewal ${ren}`;
+    return info + ')';
+  }).join(', ');
+  if (atRisk.length > 4) detail += ` and ${atRisk.length - 4} more`;
+  detail += '.';
+  if (renewalRisk.length) {
+    detail += ` <strong>${renewalRisk.length}</strong> of these renew within 90 days.`;
+  }
+  return { priority: 0, icon: _taSvg.drop, iconBg: 'var(--red-l)', iconColor: 'var(--red)', accent: 'red', title, detail };
+}
+
+/* ── Seasonal Pattern Detection ── */
+function _taSeasonalPattern(data, metricKey, rangeDays, priorData) {
+  // Need at least 6 months of data and a prior period to compare
+  if (rangeDays < 180 || !priorData || priorData.length < 10 || data.length < 10) return null;
+  const label = (METRIC_CFG[metricKey] || {}).label || metricKey;
+
+  // Sample both periods at matching intervals and compute correlation
+  const n = Math.min(data.length, priorData.length);
+  const step = Math.max(1, Math.floor(n / 20)); // ~20 sample points
+  const curr = [], prior = [];
+  for (let i = 0; i < n; i += step) {
+    curr.push(data[Math.min(i, data.length - 1)].avg);
+    prior.push(priorData[Math.min(i, priorData.length - 1)].avg);
+  }
+  if (curr.length < 5) return null;
+
+  // Pearson correlation on the shape (detrended: subtract linear fit)
+  const detrend = (arr) => {
+    const n = arr.length;
+    const sx = n * (n - 1) / 2, sx2 = n * (n - 1) * (2 * n - 1) / 6;
+    const sy = arr.reduce((s,v) => s+v, 0);
+    const sxy = arr.reduce((s,v,i) => s + i * v, 0);
+    const slope = (n * sxy - sx * sy) / (n * sx2 - sx * sx);
+    const intercept = (sy - slope * sx) / n;
+    return arr.map((v,i) => v - (slope * i + intercept));
+  };
+  const dc = detrend(curr);
+  const dp = detrend(prior);
+  const mc = dc.reduce((s,v) => s+v, 0) / dc.length;
+  const mp = dp.reduce((s,v) => s+v, 0) / dp.length;
+  let num = 0, dc2 = 0, dp2 = 0;
+  for (let i = 0; i < dc.length; i++) {
+    num += (dc[i] - mc) * (dp[i] - mp);
+    dc2 += (dc[i] - mc) ** 2;
+    dp2 += (dp[i] - mp) ** 2;
+  }
+  const corr = (dc2 > 0 && dp2 > 0) ? num / Math.sqrt(dc2 * dp2) : 0;
+
+  // Compare current vs prior level
+  const currAvg = curr.reduce((s,v) => s+v, 0) / curr.length;
+  const priorAvg = prior.reduce((s,v) => s+v, 0) / prior.length;
+  const levelDiff = Math.round(currAvg - priorAvg);
+
+  if (corr > 0.4) {
+    // Similar shape — seasonal pattern detected
+    const title = 'Seasonal pattern detected in ' + label;
+    let detail;
+    if (Math.abs(levelDiff) <= 3) {
+      detail = `${label} is following a similar pattern to the same period last year (correlation: ${Math.round(corr * 100)}%). This suggests <strong>seasonal movement</strong>, not a structural change — likely to follow the same trajectory.`;
+    } else if (levelDiff > 3) {
+      detail = `${label} is following a similar pattern to last year but running <strong>${levelDiff} pts higher</strong>. The seasonal shape is repeating but the overall level has improved.`;
+    } else {
+      detail = `${label} follows the same seasonal shape as last year but is running <strong>${Math.abs(levelDiff)} pts lower</strong>. While the pattern is seasonal, the declining baseline warrants attention.`;
+    }
+    const accent = levelDiff >= -2 ? 'green' : 'amber';
+    return { priority: 2, icon: _taSvg.clock, iconBg: accent === 'green' ? 'var(--green-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : 'var(--amber)', accent, title, detail };
+  } else if (corr < 0.1 && Math.abs(levelDiff) > 5) {
+    // Different pattern AND different level — this isn't seasonal
+    const direction = levelDiff > 0 ? 'higher' : 'lower';
+    const title = label + ' diverging from last year\'s pattern';
+    const detail = `${label} is <strong>${Math.abs(levelDiff)} pts ${direction}</strong> than the same period last year and not following the previous seasonal pattern. This appears to be a <strong>structural shift</strong>, not a seasonal cycle.`;
+    const accent = levelDiff > 0 ? 'green' : 'red';
+    return { priority: 1, icon: _taSvg.zap, iconBg: accent === 'green' ? 'var(--green-l)' : 'var(--red-l)', iconColor: accent === 'green' ? 'var(--green)' : 'var(--red)', accent, title, detail };
+  }
+  return null;
+}
+
+/* ── Concentration Risk — top MRR accounts declining ── */
+function _taConcentrationRisk(active, rangeDays) {
+  if (active.length < 5) return null;
+  // Sort by MRR descending, take top 5
+  const byMrr = active.filter(c => (c.mrr || 0) > 0 && c.lifecycle !== 'churned').slice().sort((a,b) => (b.mrr || 0) - (a.mrr || 0));
+  if (byMrr.length < 5) return null;
+  const top5 = byMrr.slice(0, 5);
+  const totalPortMrr = active.reduce((s,c) => s + (c.mrr || 0), 0);
+  const top5Mrr = top5.reduce((s,c) => s + (c.mrr || 0), 0);
+  const top5Pct = totalPortMrr > 0 ? Math.round(top5Mrr / totalPortMrr * 100) : 0;
+
+  // Check which of these are declining
+  const declining = [];
+  top5.forEach(c => {
+    const d = _getDeltaNd(c, rangeDays);
+    if (d !== null && d < -3) declining.push({ c, delta: d });
+  });
+  if (!declining.length) return null;
+  declining.sort((a,b) => a.delta - b.delta); // most negative first
+
+  const decMrr = declining.reduce((s,x) => s + (x.c.mrr || 0), 0);
+  const fd = v => (v >= 0 ? '+' : '') + Math.round(v);
+
+  const title = declining.length + ' of your top 5 accounts ' + (declining.length === 1 ? 'is' : 'are') + ' declining';
+  let detail = `Your 5 largest accounts represent <strong>$${fmtNum(top5Mrr)}/mo</strong> (${top5Pct}% of portfolio MRR). `;
+  detail += declining.map(x => `${_taCustLink(x.c.name, x.c.id)} (${fd(x.delta)} pts, $${fmtNum(x.c.mrr)}/mo)`).join(', ');
+  detail += ` — <strong>$${fmtNum(decMrr)}/mo</strong> in high-value MRR needs priority attention.`;
+
+  return { priority: 1, icon: _taSvg.bar, iconBg: 'var(--red-l)', iconColor: 'var(--red)', accent: 'red', title, detail };
+}
+
 /* ── Orchestrator ─────────────────────────────── */
-function _buildTrendAnalysis(active, data1, data2, cutoff, rangeDays, m1, m2) {
+function _buildTrendAnalysis(active, data1, data2, cutoff, rangeDays, m1, m2, priorData) {
   const wrap = el('trend-analysis-wrap');
   if (!wrap) return;
 
   const results = [
+    _taAtRiskAccounts(active, cutoff, rangeDays),
     _taChurnImpact(cutoff, rangeDays),
-    _taPeriodComparison(data1, m1, cutoff, rangeDays, active),
-    _taTrendAccel(data1, m1, rangeDays),
-    _taMetricCorrelation(data1, data2, m1, m2, rangeDays),
-    _taInflection(data1, m1, rangeDays),
-    _taVolatility(data1, m1),
-    _taCsmDivergence(data1, active, cutoff, rangeDays, m1),
+    _taConcentrationRisk(active, rangeDays),
+    _taInflection(data1, m1, rangeDays, active),
+    _taDropAttribution(active, data1, m1, cutoff, rangeDays),
+    _taSeasonalPattern(data1, m1, rangeDays, priorData),
     _taCrossSignal(active, cutoff, m1),
-    _taDropAttribution(active, data1, m1, cutoff, rangeDays)
+    _taMetricCorrelation(data1, data2, m1, m2, rangeDays),
+    _taCsmDivergence(data1, active, cutoff, rangeDays, m1)
   ].filter(Boolean);
 
   results.sort((a, b) => a.priority - b.priority);
-  const top = results.slice(0, 5);
+  const top = results.slice(0, 3);
 
   if (!top.length) {
     wrap.innerHTML = '';
