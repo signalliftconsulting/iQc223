@@ -2082,6 +2082,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
     </div>
     <div style="flex:1"></div>
     <div class="dtab-row trend-range-bar" style="margin:0" id="seg-chart-range-row">
+      <button class="dtab" data-range="3d" onclick="setSegChartRange('3d')">3d</button>
       <button class="dtab" data-range="7d" onclick="setSegChartRange('7d')">7d</button>
       <button class="dtab" data-range="30d" onclick="setSegChartRange('30d')">30d</button>
       <button class="dtab active" data-range="90d" onclick="setSegChartRange('90d')">90d</button>
@@ -2157,11 +2158,12 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       <select id="trend-csm-overlay" onchange="setTrendCsmOverlay(this.value)">
         <option value="">No CSM Overlay</option>
       </select>
-      <div style="position:relative;flex:0 0 auto">
-        <input type="text" id="trend-client-search" placeholder="Add client overlay…" oninput="trendClientAutocomplete()" onfocus="trendClientAutocomplete()">
-        <div class="trend-autocomplete" id="trend-client-ac"></div>
-      </div>
-      <div class="trend-client-tags" id="trend-client-tags"></div>
+      <select id="trend-client-1" onchange="setTrendClientSlot(0,this.value)" style="max-width:150px">
+        <option value="">Client 1</option>
+      </select>
+      <select id="trend-client-2" onchange="setTrendClientSlot(1,this.value)" style="max-width:150px">
+        <option value="">Client 2</option>
+      </select>
     </div>
     <div class="trend-ctrl-sep"></div>
     <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none;white-space:nowrap;padding:4px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);font-size:var(--fs-sm);color:var(--muted);transition:all .15s" title="Include churned accounts in charts and metrics. Their data stops counting from their churn date." id="trend-churned-label">
@@ -4387,6 +4389,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=586"></script>
+<script src="js/app.js?v=587"></script>
 </body>
 </html>

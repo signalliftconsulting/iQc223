@@ -139,20 +139,15 @@ function _syncChurnedToggle() {
 
 function addTrendClient(id) {
   if (_trendClientOverlays.includes(id)) return;
-  // Max 2 client overlays
-  if (_trendClientOverlays.length >= 2) {
-    _trendClientOverlays.shift(); // remove oldest
-  }
+  if (_trendClientOverlays.length >= 2) _trendClientOverlays.shift();
   _trendClientOverlays.push(id);
-  const inp = el('trend-client-search');
-  if (inp) inp.value = '';
-  const ac = el('trend-client-ac');
-  if (ac) ac.style.display = 'none';
+  _syncClientDropdowns();
   renderTrends();
 }
 
 function removeTrendClient(id) {
   _trendClientOverlays = _trendClientOverlays.filter(x => x !== id);
+  _syncClientDropdowns();
   _refreshTrendOverlays();
 }
 
@@ -160,11 +155,48 @@ function toggleTrendOverlay(id) {
   if (_trendClientOverlays.includes(id)) {
     _trendClientOverlays = _trendClientOverlays.filter(x => x !== id);
   } else {
-    // Max 2 client overlays
     if (_trendClientOverlays.length >= 2) _trendClientOverlays.shift();
     _trendClientOverlays.push(id);
   }
+  _syncClientDropdowns();
   _refreshTrendOverlays();
+}
+
+function setTrendClientSlot(slot, id) {
+  // slot 0 or 1
+  if (id) {
+    // Remove if already in other slot
+    _trendClientOverlays = _trendClientOverlays.filter(x => x !== id);
+    _trendClientOverlays[slot] = id;
+  } else {
+    _trendClientOverlays[slot] = undefined;
+  }
+  // Clean up: remove undefined/empty entries but keep slot positions
+  _trendClientOverlays = _trendClientOverlays.filter(Boolean);
+  _syncClientDropdowns();
+  renderTrends();
+}
+
+function _populateClientDropdowns() {
+  const sel1 = el('trend-client-1');
+  const sel2 = el('trend-client-2');
+  if (!sel1 || !sel2) return;
+  const sorted = customers.filter(c => c.lifecycle !== 'churned').sort((a,b) => (a.name || '').localeCompare(b.name || ''));
+  const buildOpts = (placeholder) => {
+    let html = '<option value="">' + placeholder + '</option>';
+    sorted.forEach(c => { html += '<option value="' + c.id + '">' + escHtml(c.name || 'Unnamed') + '</option>'; });
+    return html;
+  };
+  sel1.innerHTML = buildOpts('Client 1');
+  sel2.innerHTML = buildOpts('Client 2');
+  _syncClientDropdowns();
+}
+
+function _syncClientDropdowns() {
+  const sel1 = el('trend-client-1');
+  const sel2 = el('trend-client-2');
+  if (sel1) sel1.value = _trendClientOverlays[0] || '';
+  if (sel2) sel2.value = _trendClientOverlays[1] || '';
 }
 
 // Light refresh: only update chart lines, tags, and table row highlights  - no scroll jump
@@ -270,9 +302,8 @@ function _refreshTrendOverlays() {
     legendWrap.innerHTML = legendHTML;
   }
 
-  // Update client tags
-  const tagsWrap = el('trend-client-tags');
-  if (tagsWrap) tagsWrap.innerHTML = _trendClientOverlays.map(id => { const c=customers.find(x=>x.id===id); return c?`<span class="trend-client-tag">${escHtml(c.name)}<button onclick="removeTrendClient('${escHtml(id)}')">&times;</button></span>`:''; }).join('');
+  // Sync client dropdowns
+  _syncClientDropdowns();
 
   // Update table row highlights in-place (no rebuild)
   const rows = document.querySelectorAll('#trend-movers-wrap tbody tr');
@@ -658,6 +689,9 @@ function renderTrends() {
     csmSel.innerHTML = '<option value="">No CSM Overlay</option>' +
       mgrs.map(m => `<option value="${escHtml(m)}"${m === prev ? ' selected' : ''}>${escHtml(m)}</option>`).join('');
   }
+
+  // ── Populate client dropdowns ──
+  _populateClientDropdowns();
 
   // ── Sync metric dropdowns ──
   const sel1 = el('trend-metric-1');
