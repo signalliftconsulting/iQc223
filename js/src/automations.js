@@ -3003,6 +3003,7 @@ function buildHistoryResultHTML(result) {
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
         <strong style="font-size:var(--fs-sm);color:var(--green)">History Pull Complete</strong>
+        <button class="btn btn-sm btn-ghost" onclick="exportPulledHistory()" style="margin-left:auto;font-size:var(--fs-xs);padding:3px 10px;gap:4px;display:inline-flex;align-items:center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export CSV</button>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:var(--fs-sm)">
         <div><span style="color:var(--muted)">Date Range:</span> <strong>${fmtD(from)} → ${fmtD(to)}</strong></div>
@@ -3012,6 +3013,44 @@ function buildHistoryResultHTML(result) {
         ${s.snapshots != null ? `<div><span style="color:var(--muted)">Total Snapshots:</span> <strong>${s.snapshots}</strong></div>` : ''}
       </div>
     </div>`;
+}
+
+function exportPulledHistory() {
+  // Export all customer history that was just pulled (all matched customers with history)
+  const matched = customers.filter(c => (c.history || []).length > 0);
+  if (!matched.length) { toast('No history data to export', 'error'); return; }
+
+  const headers = ['name','date','score','logins','adoption','tickets','nps','csat','days_since_contact','growth'];
+  const rows = [headers.join(',')];
+
+  matched.forEach(c => {
+    (c.history || []).forEach(h => {
+      const sig = h.signals || {};
+      rows.push([
+        '"' + (c.name || '').replace(/"/g, '""') + '"',
+        (h.date || '').split('T')[0],
+        h.score != null ? h.score : '',
+        sig.logins != null ? sig.logins : '',
+        sig.adoption != null ? sig.adoption : '',
+        sig.tickets != null ? sig.tickets : '',
+        sig.nps != null ? sig.nps : '',
+        sig.csat != null ? sig.csat : '',
+        sig.days != null ? sig.days : '',
+        sig.growth || ''
+      ].join(','));
+    });
+  });
+
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'history_export_' + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('History exported to CSV', 'success');
 }
 
 // ── Topbar Customer Search ──
