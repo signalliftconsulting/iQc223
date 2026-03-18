@@ -19559,6 +19559,28 @@ function ruleConditionSummaryPlain(rule) {
 
 // ─── SEGMENTS VIEW ───────────────────────────────────────────
 
+let _segInsightActiveTab = 'cross';
+
+function _switchSegInsightTab(tab) {
+  _segInsightActiveTab = tab;
+  const crossWrap = el('seg-insights-wrap');
+  const analysisWrap = el('seg-chart-analysis');
+  const tabCross = el('seg-tab-cross');
+  const tabAnalysis = el('seg-tab-analysis');
+  if (crossWrap) crossWrap.style.display = tab === 'cross' ? '' : 'none';
+  if (analysisWrap) analysisWrap.style.display = tab === 'analysis' ? '' : 'none';
+  if (tabCross) {
+    tabCross.style.background = tab === 'cross' ? 'var(--bg)' : 'transparent';
+    tabCross.style.color = tab === 'cross' ? 'var(--text)' : 'var(--muted)';
+    tabCross.className = tab === 'cross' ? 'dtab active' : 'dtab';
+  }
+  if (tabAnalysis) {
+    tabAnalysis.style.background = tab === 'analysis' ? 'var(--bg)' : 'transparent';
+    tabAnalysis.style.color = tab === 'analysis' ? 'var(--text)' : 'var(--muted)';
+    tabAnalysis.className = tab === 'analysis' ? 'dtab active' : 'dtab';
+  }
+}
+
 let segSortKey = 'mrr';
 let segSortDir = 'desc';
 let _hideUntagged = localStorage.getItem('iqc_hide_untagged') === 'true';
@@ -20890,7 +20912,9 @@ function _renderSegInsightPage(wrap, viewTitle) {
     (hasMore ? `<button class="btn btn-ghost btn-sm" onclick="_segInsightNext()" style="font-size:var(--fs-xs);padding:2px 8px;background:var(--blue);color:#fff;border-color:var(--blue)">More &rarr;</button>` : '') +
     `</div>` : '';
 
-  wrap.innerHTML = `<div style="display:flex;align-items:center;margin-bottom:8px"><div style="font-size:var(--fs-base);font-weight:700;color:var(--text)">${viewTitle} Insights${pageLabel}</div>${navBtns}</div>` +
+  const navRow = totalPages > 1 ? `<div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:8px">${pageLabel}${navBtns}</div>` : '';
+
+  wrap.innerHTML = navRow +
     slice.map((ins, i) => {
       const idx = start + i;
       const accentCls = ins.color === 'var(--green)' ? ' ta-card-green' : ins.color === 'var(--red)' ? ' ta-card-red' : ins.color === 'var(--amber)' ? ' ta-card-amber' : '';
@@ -21752,7 +21776,9 @@ function _renderSegChartInsightPage(wrap) {
   // Keep window._segChartInsights pointing to current page for click handlers
   window._segChartInsights = slice;
 
-  wrap.innerHTML = `<div style="display:flex;align-items:center;margin-bottom:8px"><div style="font-size:var(--fs-base);font-weight:700;color:var(--text)">Analysis${pageLabel}</div>${navBtns}</div>` +
+  var navRow2 = totalPages > 1 ? `<div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:8px">${pageLabel}${navBtns}</div>` : '';
+
+  wrap.innerHTML = navRow2 +
     slice.map((ins, i) => {
       const idx = i;
       const clickable = ins.tags && ins.tags.length > 0;

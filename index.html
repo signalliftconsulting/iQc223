@@ -2102,9 +2102,17 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
     </div>
   </div>
 
-  <!-- Cross-segment portfolio insights + Segment chart analysis (fixed min-height to prevent layout shift) -->
-  <div id="seg-insights-wrap" class="trend-analysis-wrap" style="margin-top:16px;min-height:180px"></div>
-  <div id="seg-chart-analysis" class="trend-analysis-wrap"></div>
+  <!-- Tabbed insights: Cross-segment + Analysis -->
+  <div style="margin-top:16px">
+    <div id="seg-insight-tabs" style="display:flex;align-items:center;gap:0;margin-bottom:0">
+      <button class="dtab active" id="seg-tab-cross" onclick="_switchSegInsightTab('cross')" style="padding:8px 16px;font-size:var(--fs-base);font-weight:700;border-radius:8px 8px 0 0;border:1px solid var(--border);border-bottom:none;background:var(--bg);color:var(--text);cursor:pointer">Insights</button>
+      <button class="dtab" id="seg-tab-analysis" onclick="_switchSegInsightTab('analysis')" style="padding:8px 16px;font-size:var(--fs-base);font-weight:700;border-radius:8px 8px 0 0;border:1px solid var(--border);border-bottom:none;background:transparent;color:var(--muted);cursor:pointer">Analysis</button>
+    </div>
+    <div style="border:1px solid var(--border);border-radius:0 8px 8px 8px;padding:12px 14px;background:var(--bg)">
+      <div id="seg-insights-wrap" class="trend-analysis-wrap" style="min-height:140px"></div>
+      <div id="seg-chart-analysis" class="trend-analysis-wrap" style="display:none;min-height:140px"></div>
+    </div>
+  </div>
 
   <div class="card" style="margin-top:16px">
     <div class="card-hd-bar" style="background:#7c3aed"><span class="card-hd-bar__title">Segment Detail <span class="info-tip tip-below" data-tip="Detailed breakdown of each segment — accounts, MRR, health mix, and trends. Click to expand.">ⓘ</span></span></div>
@@ -4391,6 +4399,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=591"></script>
+<script src="js/app.js?v=592"></script>
 </body>
 </html>
