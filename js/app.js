@@ -23093,13 +23093,14 @@ function _taPeriodComparison(data, metricKey, cutoff, rangeDays, active) {
   if (movers.length < 3) return null;
   movers.sort((a, b) => a.delta - b.delta);
 
-  const improving = movers.filter(m => m.delta > 0.5);
-  const declining = movers.filter(m => m.delta < -0.5);
+  // Use same thresholds as KPI cards: >0 = improving, <0 = declining
+  const improving = movers.filter(m => m.delta > 0);
+  const declining = movers.filter(m => m.delta < 0);
   const flat = movers.length - improving.length - declining.length;
   const pctUp = Math.round(improving.length / movers.length * 100);
   const pctDn = Math.round(declining.length / movers.length * 100);
 
-  // No significant movement at all
+  // No movement at all
   if (!improving.length && !declining.length) return null;
 
   const isGood = cfg.lowerIsBetter ? declining.length > improving.length : improving.length > declining.length;
@@ -23108,8 +23109,8 @@ function _taPeriodComparison(data, metricKey, cutoff, rangeDays, active) {
 
   // Build detail with top movers
   let detail = `<strong>${pctUp}%</strong> of accounts improved, <strong>${pctDn}%</strong> declined, <strong>${100 - pctUp - pctDn}%</strong> flat over ${rl}. `;
-  const topGainers = movers.slice(-3).reverse().filter(m => m.delta > 0.5);
-  const topDecliners = movers.slice(0, 3).filter(m => m.delta < -0.5);
+  const topGainers = movers.slice(-3).reverse().filter(m => m.delta > 0);
+  const topDecliners = movers.slice(0, 3).filter(m => m.delta < 0);
   if (topGainers.length) {
     detail += 'Top movers up: ' + topGainers.map(m => `<strong>${_taCustLink(m.name, m.id)}</strong> (${f(m.delta)})`).join(', ') + '. ';
   }
