@@ -21901,7 +21901,12 @@ function _syncChurnedToggle() {
 }
 
 function addTrendClient(id) {
-  if (!_trendClientOverlays.includes(id)) _trendClientOverlays.push(id);
+  if (_trendClientOverlays.includes(id)) return;
+  // Max 2 client overlays
+  if (_trendClientOverlays.length >= 2) {
+    _trendClientOverlays.shift(); // remove oldest
+  }
+  _trendClientOverlays.push(id);
   const inp = el('trend-client-search');
   if (inp) inp.value = '';
   const ac = el('trend-client-ac');
@@ -21918,6 +21923,8 @@ function toggleTrendOverlay(id) {
   if (_trendClientOverlays.includes(id)) {
     _trendClientOverlays = _trendClientOverlays.filter(x => x !== id);
   } else {
+    // Max 2 client overlays
+    if (_trendClientOverlays.length >= 2) _trendClientOverlays.shift();
     _trendClientOverlays.push(id);
   }
   _refreshTrendOverlays();
