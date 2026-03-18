@@ -22964,71 +22964,127 @@ function _taRangeLabel(rangeDays) {
 /* 2. Metric Correlation (dual metric) */
 // Inverted metrics: lower value = better outcome
 const _invertedMetrics = new Set(['days', 'tickets']);
+
+// Pearson correlation coefficient between two arrays
+function _pearsonR(xs, ys) {
+  const n = Math.min(xs.length, ys.length);
+  if (n < 5) return 0;
+  const mx = xs.slice(0, n).reduce((s,v) => s+v, 0) / n;
+  const my = ys.slice(0, n).reduce((s,v) => s+v, 0) / n;
+  let num = 0, dx2 = 0, dy2 = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = xs[i] - mx, dy = ys[i] - my;
+    num += dx * dy; dx2 += dx * dx; dy2 += dy * dy;
+  }
+  const denom = Math.sqrt(dx2 * dy2);
+  return denom > 0 ? num / denom : 0;
+}
+
 function _taMetricCorrelation(data1, data2, m1, m2, rangeDays) {
-  if (!data2 || !data2.length || data1.length < 3) return null;
-  const rawD1 = data1[data1.length - 1].avg - data1[0].avg;
-  const rawD2 = data2[data2.length - 1].avg - data2[0].avg;
-  // Flip inverted metrics so positive = good for both
-  const d1 = _invertedMetrics.has(m1) ? -rawD1 : rawD1;
-  const d2 = _invertedMetrics.has(m2) ? -rawD2 : rawD2;
+  if (!data2 || !data2.length || data1.length < 5) return null;
   const l1 = (METRIC_CFG[m1] || {}).label || m1;
   const l2 = (METRIC_CFG[m2] || {}).label || m2;
   const f1 = v => (v >= 0 ? '+' : '') + _fmtTaVal(v, m1);
   const f2 = v => (v >= 0 ? '+' : '') + _fmtTaVal(v, m2);
-  const m2Hint = _invertedMetrics.has(m2) ? (rawD2 < 0 ? ' (improving)' : ' (worsening)') : '';
-
-  // Detect recovery: check second-half trend for each metric
-  const mid1 = Math.floor(data1.length / 2);
-  const mid2 = Math.floor(data2.length / 2);
-  const rawD1Recent = data1.length >= 6 ? data1[data1.length - 1].avg - data1[mid1].avg : rawD1;
-  const rawD2Recent = data2.length >= 6 ? data2[data2.length - 1].avg - data2[mid2].avg : rawD2;
-  const d1Recent = _invertedMetrics.has(m1) ? -rawD1Recent : rawD1Recent;
-  const d2Recent = _invertedMetrics.has(m2) ? -rawD2Recent : rawD2Recent;
-  // Recovery = overall negative but recent half is positive (and meaningful)
-  const m1Recovering = d1 < 0 && d1Recent > 0 && Math.abs(rawD1Recent) > Math.abs(rawD1) * 0.3;
-  const m2Recovering = d2 < 0 && d2Recent > 0 && Math.abs(rawD2Recent) > Math.abs(rawD2) * 0.3;
-
-  const sameDir = (d1 > 0 && d2 > 0) || (d1 < 0 && d2 < 0);
-  const oppositeDir = (d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0);
-  // Check significance  - both need meaningful movement
-  const t1 = m1 === 'mrr' || m1 === 'arr' ? 100 : 0.5;
-  const t2 = m2 === 'mrr' || m2 === 'arr' ? 100 : 0.5;
-  if (Math.abs(rawD1) < t1 && Math.abs(rawD2) < t2) return null;
   const rl = _taRangeLabel(rangeDays);
-  const halfLabel = _taRangeLabel(Math.round(rangeDays / 2));
+
+  // Align data series by date
+  const d1Map = {};
+  data1.forEach(d => { d1Map[d.date] = d.avg; });
+  const aligned1 = [], aligned2 = [];
+  data2.forEach(d => {
+    if (d1Map[d.date] != null) {
+      aligned1.push(d1Map[d.date]);
+      aligned2.push(d.avg);
+    }
+  });
+  if (aligned1.length < 5) return null;
+
+  // Flip inverted metrics so positive correlation = both improving together
+  const s1 = _invertedMetrics.has(m1) ? aligned1.map(v => -v) : aligned1;
+  const s2 = _invertedMetrics.has(m2) ? aligned2.map(v => -v) : aligned2;
+
+  // Compute Pearson r on the full series
+  const r = _pearsonR(s1, s2);
+  const rPct = Math.abs(Math.round(r * 100));
+
+  // Check for lagged correlation (does m2 follow m1 with a delay?)
+  let bestLag = 0, bestLagR = Math.abs(r);
+  const maxLag = Math.min(14, Math.floor(aligned1.length * 0.2));
+  for (let lag = 1; lag <= maxLag; lag++) {
+    const lagged1 = s1.slice(0, s1.length - lag);
+    const lagged2 = s2.slice(lag);
+    if (lagged1.length < 5) break;
+    const lr = Math.abs(_pearsonR(lagged1, lagged2));
+    if (lr > bestLagR + 0.1) { bestLagR = lr; bestLag = lag; }
+  }
+
+  // Check first-half vs second-half correlation for seasonal co-movement
+  const mid = Math.floor(aligned1.length / 2);
+  const rFirst = aligned1.length >= 10 ? _pearsonR(s1.slice(0, mid), s2.slice(0, mid)) : r;
+  const rSecond = aligned1.length >= 10 ? _pearsonR(s1.slice(mid), s2.slice(mid)) : r;
+  const corrShifted = Math.abs(rFirst - rSecond) > 0.4;
+
+  // Overall changes for context
+  const rawD1 = data1[data1.length - 1].avg - data1[0].avg;
+  const rawD2 = data2[data2.length - 1].avg - data2[0].avg;
+
   let title, detail, accent;
-  if (sameDir) {
-    const bothGood = d1 > 0;
-    if (!bothGood && (m1Recovering || m2Recovering)) {
-      // Both down overall but one or both recovering
-      const recoverNames = [m1Recovering ? l1 : null, m2Recovering ? l2 : null].filter(Boolean).join(' and ');
-      title = recoverNames + ' recovering after earlier decline';
-      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> and <strong>${l2} ${f2(rawD2)}${m2Hint}</strong> overall, but ${recoverNames} ${m1Recovering && m2Recovering ? 'have' : 'has'} been trending up in the recent ${halfLabel}. The recovery trend is encouraging.`;
+
+  if (Math.abs(r) < 0.3 && bestLagR < 0.4) {
+    // No meaningful correlation at any lag
+    if (corrShifted) {
+      // Correlation changed over time
+      const rFirstPct = Math.abs(Math.round(rFirst * 100));
+      const rSecondPct = Math.abs(Math.round(rSecond * 100));
+      title = l1 + ' and ' + l2 + ' correlation shifted over time';
+      detail = `In the first half of this period, ${l1} and ${l2} had a <strong>${rFirstPct}%</strong> ${rFirst > 0 ? 'positive' : 'inverse'} correlation. In the recent half, it shifted to <strong>${rSecondPct}%</strong> ${rSecond > 0 ? 'positive' : 'inverse'}. `;
+      detail += `Something changed in how these metrics relate - worth investigating what happened around the midpoint.`;
       accent = 'amber';
     } else {
-      title = l1 + ' and ' + l2 + ' both ' + (bothGood ? 'improved' : 'declined');
-      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> and <strong>${l2} ${f2(rawD2)}${m2Hint}</strong>. ` + (bothGood ? 'Both moving in the right direction - these are reinforcing each other.' : 'Both declining together suggests a shared underlying issue like reduced engagement or a product change affecting usage.');
-      accent = bothGood ? 'green' : 'red';
-    }
-  } else if (oppositeDir) {
-    const m1Good = d1 > 0;
-    if (!m1Good && m1Recovering) {
-      // m1 overall down but recovering, m2 improving  - both now trending up
-      title = l1 + ' recovering  - now trending with ' + l2;
-      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> overall but has been trending up in the recent ${halfLabel} (<strong>${f1(rawD1Recent)}</strong>). Combined with <strong>${l2} ${f2(rawD2)}${m2Hint}</strong>, both metrics are now moving in the right direction.`;
-      accent = 'green';
-    } else if (m1Good && m2Recovering) {
-      title = l1 + ' improved and ' + l2 + ' now recovering';
-      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> while <strong>${l2} ${f2(rawD2)}${m2Hint}</strong> overall. However, ${l2} has turned around in the recent ${halfLabel}  - a positive signal.`;
-      accent = 'green';
-    } else {
-      const m2Improved = d2 > 0;
-      title = l1 + (m1Good ? ' improved' : ' declined') + ' while ' + l2 + (m2Improved ? ' improved' : ' worsened');
-      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> while <strong>${l2} ${f2(rawD2)}${m2Hint}</strong>. ` + (m1Good ? l1 + ' gains are being offset by ' + l2 + ' movement. The net effect on health scores depends on signal weights.' : l2 + ' is improving but hasn\'t lifted ' + l1 + ' yet. This lag is common - ' + l2 + ' improvements typically take 1-2 weeks to show up in overall scores.');
+      title = 'No correlation between ' + l1 + ' and ' + l2;
+      detail = `Over ${rl}, ${l1} (${f1(rawD1)}) and ${l2} (${f2(rawD2)}) moved independently - only <strong>${rPct}% correlation</strong>. `;
+      detail += `These metrics are driven by different factors in your portfolio. Changes in one won't reliably predict changes in the other.`;
       accent = 'amber';
     }
+  } else if (bestLag > 0 && bestLagR > Math.abs(r) + 0.1) {
+    // Lagged correlation is stronger than direct
+    const lagDays = Math.round(bestLag * rangeDays / aligned1.length);
+    const lagRPct = Math.round(bestLagR * 100);
+    title = l2 + ' follows ' + l1 + ' with a ~' + lagDays + ' day lag';
+    detail = `Direct correlation is <strong>${rPct}%</strong>, but when ${l2} is shifted ${lagDays} days forward, correlation jumps to <strong>${lagRPct}%</strong>. `;
+    detail += `This means changes in ${l1} show up in ${l2} about ${lagDays} days later. ${l1} (${f1(rawD1)}) is a leading indicator for ${l2} (${f2(rawD2)}) in your portfolio.`;
+    accent = r > 0 ? 'green' : 'amber';
+  } else if (r > 0.5) {
+    // Strong positive correlation
+    title = l1 + ' and ' + l2 + ' are strongly correlated (' + rPct + '%)';
+    detail = `Over ${rl}, ${l1} (${f1(rawD1)}) and ${l2} (${f2(rawD2)}) moved together with <strong>${rPct}% correlation</strong>. `;
+    const bothUp = rawD1 > 0 && rawD2 > 0;
+    const bothDown = rawD1 < 0 && rawD2 < 0;
+    if (bothUp) {
+      detail += `Both improving together - these signals are reinforcing each other. Keep doing what's working.`;
+      accent = 'green';
+    } else if (bothDown) {
+      detail += `Both declining together - this suggests a shared root cause. Fixing one may lift the other.`;
+      accent = 'red';
+    } else {
+      detail += `They track closely - improvements in one tend to come with improvements in the other.`;
+      accent = 'green';
+    }
+  } else if (r < -0.5) {
+    // Strong inverse correlation
+    title = l1 + ' and ' + l2 + ' move in opposite directions (' + rPct + '% inverse)';
+    detail = `Over ${rl}, ${l1} (${f1(rawD1)}) and ${l2} (${f2(rawD2)}) have a <strong>${rPct}% inverse correlation</strong>. `;
+    detail += `When ${l1} goes up, ${l2} tends to go down. This trade-off may indicate a resource constraint or competing priorities in your accounts.`;
+    accent = 'amber';
   } else {
-    return null;
+    // Moderate correlation
+    title = l1 + ' and ' + l2 + ' have a moderate ' + (r > 0 ? '' : 'inverse ') + 'relationship (' + rPct + '%)';
+    detail = `Over ${rl}, ${l1} (${f1(rawD1)}) and ${l2} (${f2(rawD2)}) show <strong>${rPct}% ${r > 0 ? '' : 'inverse '}correlation</strong>. `;
+    detail += r > 0
+      ? `They tend to move together but not perfectly - other factors are also at play.`
+      : `They tend to move in opposite directions, but the relationship isn't strong enough to be a reliable predictor.`;
+    accent = 'amber';
   }
   return { priority: 1, icon: _taSvg.corr, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail };
 }
