@@ -1090,7 +1090,7 @@ function setSmSensitivity(level) {
   document.querySelectorAll('.sm-sens-btn').forEach(function(b) {
     b.classList.toggle('active', b.dataset.sens === level);
   });
-  var desc = { conservative: 'Max adjustment: \u00b18 pts', balanced: 'Max adjustment: \u00b115 pts', aggressive: 'Max adjustment: \u00b125 pts' };
+  var desc = { conservative: 'Max adjustment: \u00b15 pts', balanced: 'Max adjustment: \u00b110 pts', aggressive: 'Max adjustment: \u00b115 pts' };
   var descEl = el('cfg-sm-sens-desc');
   if (descEl) descEl.textContent = desc[level] || desc.balanced;
   saveSettings();
@@ -1123,7 +1123,7 @@ function renderSignalModelSettings() {
   document.querySelectorAll('.sm-sens-btn').forEach(function(b) {
     b.classList.toggle('active', b.dataset.sens === signalModelCfg.sensitivity);
   });
-  var desc = { conservative: 'Max adjustment: \u00b18 pts', balanced: 'Max adjustment: \u00b115 pts', aggressive: 'Max adjustment: \u00b125 pts' };
+  var desc = { conservative: 'Max adjustment: \u00b15 pts', balanced: 'Max adjustment: \u00b110 pts', aggressive: 'Max adjustment: \u00b115 pts' };
   var descEl = el('cfg-sm-sens-desc');
   if (descEl) descEl.textContent = desc[signalModelCfg.sensitivity] || desc.balanced;
   renderSignalModelPreview();
