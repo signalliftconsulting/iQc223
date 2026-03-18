@@ -11980,17 +11980,46 @@ function refreshProfileDropdown() {
 
 function renderWeightRows() {
   const keys = ['logins','adoption','tickets','nps','csat','days','growth'];
-  el('weight-rows').innerHTML = keys.map(k => `
-    <div class="weight-row">
+  el('weight-rows').innerHTML = keys.map(k => {
+    const isOff = (weights[k] || 0) === 0;
+    return `
+    <div class="weight-row" id="wrow-${k}" style="${isOff ? 'opacity:.45' : ''}">
       <div class="weight-label">${WEIGHT_LABELS[k]}</div>
+      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:var(--fs-xs);color:var(--muted);white-space:nowrap;min-width:56px" title="Toggle this signal on/off">
+        <input type="checkbox" id="wt-${k}" ${isOff ? '' : 'checked'} onchange="toggleSignalWeight('${k}',this.checked)" style="accent-color:var(--blue);cursor:pointer;margin:0"/>
+        <span id="wt-lbl-${k}">${isOff ? 'Off' : 'On'}</span>
+      </label>
       <input type="range" min="0" max="100" value="${weights[k]}" id="wr-${k}"
-        oninput="updateWeightFromSlider('${k}',this.value)" style="flex:1;cursor:pointer;accent-color:var(--blue)"/>
+        oninput="updateWeightFromSlider('${k}',this.value)" style="flex:1;cursor:pointer;accent-color:var(--blue)"${isOff ? ' disabled' : ''}/>
       <div class="weight-pct"><input type="number" min="0" max="100" value="${weights[k]}" id="wp-${k}"
         oninput="updateWeightFromInput('${k}',this.value)"
         style="width:42px;text-align:center;border:1.5px solid var(--border);border-radius:6px;padding:2px 2px;font-size:var(--fs-base);font-weight:700;font-family:var(--font);color:var(--text);outline:none;background:var(--surface);-moz-appearance:textfield"
-        onfocus="this.select()"/><span style="font-size:var(--fs-base);font-weight:700;margin-left:1px">%</span></div>
-    </div>`).join('');
+        onfocus="this.select()"${isOff ? ' disabled' : ''}/><span style="font-size:var(--fs-base);font-weight:700;margin-left:1px">%</span></div>
+    </div>`;
+  }).join('');
   updateTotalBar();
+}
+
+function toggleSignalWeight(key, on) {
+  const slider = el('wr-' + key);
+  const inp = el('wp-' + key);
+  const row = el('wrow-' + key);
+  const lbl = el('wt-lbl-' + key);
+  if (on) {
+    // Turning on - restore to a default value (10) so they can adjust
+    if (slider) { slider.value = 10; slider.disabled = false; }
+    if (inp) { inp.value = 10; inp.disabled = false; }
+    if (row) row.style.opacity = '';
+    if (lbl) lbl.textContent = 'On';
+  } else {
+    // Turning off - set to 0
+    if (slider) { slider.value = 0; slider.disabled = true; }
+    if (inp) { inp.value = 0; inp.disabled = true; }
+    if (row) row.style.opacity = '.45';
+    if (lbl) lbl.textContent = 'Off';
+  }
+  updateTotalBar();
+  _previewDistFromSliders();
 }
 
 function updateWeightFromSlider(key, val) {
