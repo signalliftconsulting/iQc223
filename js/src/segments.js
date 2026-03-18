@@ -239,7 +239,7 @@ function renderSegments() {
   }
 
   renderSegKPIs(visibleSegments, active);
-  _buildSegInsights(visibleSegments, active);
+  _buildSegInsights(visibleSegments, active, _segView);
   if (_segView === 'tiers') {
     renderTierTable(active, deltaCache);
   } else if (_segView === 'stage') {
@@ -1064,10 +1064,15 @@ function drillSegFromCard(tagName) {
 }
 
 /* ── Cross-Segment Portfolio Insights ──────────────────────── */
-function _buildSegInsights(segments, active) {
+function _buildSegInsights(segments, active, view) {
   const wrap = el('seg-insights-wrap');
   if (!wrap) return;
   if (segments.length < 2) { wrap.innerHTML = ''; return; }
+
+  // View-aware labels
+  const viewLabel = view === 'tiers' ? 'tier' : view === 'stage' ? 'stage' : 'segment';
+  const viewLabelPlural = view === 'tiers' ? 'tiers' : view === 'stage' ? 'stages' : 'segments';
+  const viewTitle = view === 'tiers' ? 'Cross-Tier' : view === 'stage' ? 'Cross-Stage' : 'Cross-Segment';
 
   const _si = (path) => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
   const icCorr    = _si('<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>');
@@ -1107,11 +1112,11 @@ function _buildSegInsights(segments, active) {
       if (r < -0.5) {
         insights.push({ score: Math.abs(r) * 10, icon: icCorr, color: 'var(--green)', bg: 'var(--green-l)',
           label: 'Contact Correlation', tags: [],
-          text: `Segments with more frequent contact tend to score higher \u2014 <strong>${Math.abs(Math.round(r * 100))}% correlation</strong> across ${n} segments. Average gap: <strong>${gap} points</strong> between most and least contacted.` });
+          text: `${viewLabelPlural.charAt(0).toUpperCase() + viewLabelPlural.slice(1)} with more frequent contact tend to score higher - <strong>${Math.abs(Math.round(r * 100))}% correlation</strong> across ${n} ${viewLabelPlural}. Average gap: <strong>${gap} points</strong> between most and least contacted.` });
       } else {
         insights.push({ score: Math.abs(r) * 10, icon: icCorr, color: 'var(--amber)', bg: 'var(--amber-l)',
           label: 'Inverse Contact Pattern', tags: [],
-          text: `Segments contacted less frequently actually score higher \u2014 <strong>${Math.round(r * 100)}% positive correlation</strong>. This may indicate over-servicing struggling segments or that healthy segments need less touch.` });
+          text: `${viewLabelPlural.charAt(0).toUpperCase() + viewLabelPlural.slice(1)} contacted less frequently actually score higher - <strong>${Math.round(r * 100)}% positive correlation</strong>. This may indicate over-servicing struggling ${viewLabelPlural} or that healthy ${viewLabelPlural} need less touch.` });
       }
     }
   }
@@ -1123,7 +1128,7 @@ function _buildSegInsights(segments, active) {
       if (pct >= 40) {
         insights.push({ score: pct * 0.2, icon: icDollar, color: 'var(--amber)', bg: 'var(--amber-l)',
           label: 'MRR Concentration', tags: [seg.tag],
-          text: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> holds <strong>${pct}%</strong> of portfolio MRR ($${fmtNum(seg.totalMRR)} of $${fmtNum(totalMRR)}) \u2014 a concentrated risk if this segment's health declines.` });
+          text: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> holds <strong>${pct}%</strong> of portfolio MRR ($${fmtNum(seg.totalMRR)} of $${fmtNum(totalMRR)}) - a concentrated risk if this ${viewLabel}'s health declines.` });
       }
     });
   }
@@ -1139,7 +1144,7 @@ function _buildSegInsights(segments, active) {
       const acBg = gap >= 25 ? 'var(--red-l)' : 'var(--amber-l)';
       insights.push({ score: gap * 0.4, icon: icGap, color: acColor, bg: acBg,
         label: 'Health Disparity', tags: [best.tag, worst.tag],
-        text: `<strong>${gap}-point</strong> health gap between segments: <strong>${escHtml(segDisplayLabel(best.tag))}</strong> averages ${best.avgScore} while <strong>${escHtml(segDisplayLabel(worst.tag))}</strong> averages ${worst.avgScore}.` });
+        text: `<strong>${gap}-point</strong> health gap between ${viewLabelPlural}: <strong>${escHtml(segDisplayLabel(best.tag))}</strong> averages ${best.avgScore} while <strong>${escHtml(segDisplayLabel(worst.tag))}</strong> averages ${worst.avgScore}.` });
     }
   }
 
@@ -1151,7 +1156,7 @@ function _buildSegInsights(segments, active) {
       if (pct >= 50) {
         insights.push({ score: pct * 0.2 + seg.atRisk, icon: icAlert, color: 'var(--red)', bg: 'var(--red-l)',
           label: 'Risk Clustering', tags: [seg.tag],
-          text: `<strong>${pct}%</strong> of at-risk accounts (${seg.atRisk} of ${totalAtRisk}) are concentrated in <strong>${escHtml(segDisplayLabel(seg.tag))}</strong> \u2014 targeted intervention here would address the majority of portfolio risk.` });
+          text: `<strong>${pct}%</strong> of at-risk accounts (${seg.atRisk} of ${totalAtRisk}) are concentrated in <strong>${escHtml(segDisplayLabel(seg.tag))}</strong> - targeted intervention here would address the majority of portfolio risk.` });
       }
     });
   }
@@ -1164,7 +1169,7 @@ function _buildSegInsights(segments, active) {
       const diff = portfolioAvgScore - topSeg.avgScore;
       insights.push({ score: diff * 0.5 + (topSeg.totalMRR / totalMRR) * 10, icon: icDollar, color: 'var(--red)', bg: 'var(--red-l)',
         label: 'Revenue-Health Inversion', tags: [topSeg.tag],
-        text: `Your highest-revenue segment <strong>${escHtml(segDisplayLabel(topSeg.tag))}</strong> ($${fmtNum(topSeg.totalMRR)} MRR) scores <strong>${diff} points below</strong> the portfolio average of ${portfolioAvgScore} \u2014 revenue and health are misaligned.` });
+        text: `Your highest-revenue ${viewLabel} <strong>${escHtml(segDisplayLabel(topSeg.tag))}</strong> ($${fmtNum(topSeg.totalMRR)} MRR) scores <strong>${diff} points below</strong> the portfolio average of ${portfolioAvgScore} - revenue and health are misaligned.` });
     }
   }
 
@@ -1177,7 +1182,7 @@ function _buildSegInsights(segments, active) {
       insights.push({ score: (improving.length + declining.length) * 2 + Math.abs(improving[0].avgDelta) + Math.abs(declining[0].avgDelta),
         icon: icTrend, color: 'var(--amber)', bg: 'var(--amber-l)',
         label: 'Trend Divergence', tags: [],
-        text: `<strong>${improving.length}</strong> segment${improving.length !== 1 ? 's' : ''} improving while <strong>${declining.length}</strong> ${declining.length !== 1 ? 'are' : 'is'} declining \u2014 the ${Math.abs(portfolioAvgDelta) < 0.5 ? 'flat' : 'near-flat'} portfolio average of ${portfolioAvgDelta >= 0 ? '+' : ''}${portfolioAvgDelta} masks real movement underneath.` });
+        text: `<strong>${improving.length}</strong> ${viewLabel}${improving.length !== 1 ? 's' : ''} improving while <strong>${declining.length}</strong> ${declining.length !== 1 ? 'are' : 'is'} declining - the ${Math.abs(portfolioAvgDelta) < 0.5 ? 'flat' : 'near-flat'} portfolio average of ${portfolioAvgDelta >= 0 ? '+' : ''}${portfolioAvgDelta} masks real movement underneath.` });
     }
   }
 
@@ -1191,7 +1196,7 @@ function _buildSegInsights(segments, active) {
           const ratio = Math.round(seg.avgDays / median * 10) / 10;
           insights.push({ score: ratio * 3 + seg.count, icon: icPhone, color: 'var(--amber)', bg: 'var(--amber-l)',
             label: 'Contact Gap', tags: [seg.tag],
-            text: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> averages <strong>${seg.avgDays} days</strong> since contact vs the ${median}-day median \u2014 a <strong>${ratio}x gap</strong> that may be contributing to ${seg.avgScore < portfolioAvgScore ? 'its below-average health score of ' + seg.avgScore : 'risk if left unaddressed'}.` });
+            text: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> averages <strong>${seg.avgDays} days</strong> since contact vs the ${median}-day median - a <strong>${ratio}x gap</strong> that may be contributing to ${seg.avgScore < portfolioAvgScore ? 'its below-average health score of ' + seg.avgScore : 'risk if left unaddressed'}.` });
         }
       });
     }
@@ -1207,7 +1212,7 @@ function _buildSegInsights(segments, active) {
         const rBg = seg.riskPct > 30 ? 'var(--red-l)' : 'var(--amber-l)';
         insights.push({ score: pct * 0.2 + seg.renewals90, icon: icCal, color: rColor, bg: rBg,
           label: 'Renewal Exposure', tags: [seg.tag],
-          text: `<strong>${pct}%</strong> of upcoming renewals (${seg.renewals90} of ${totalRenewals}) are in <strong>${escHtml(segDisplayLabel(seg.tag))}</strong>${seg.riskPct > 30 ? ' which also has ' + seg.riskPct + '% at-risk accounts \u2014 a compounding concern' : ' \u2014 worth ensuring this segment is well-covered'}.` });
+          text: `<strong>${pct}%</strong> of upcoming renewals (${seg.renewals90} of ${totalRenewals}) are in <strong>${escHtml(segDisplayLabel(seg.tag))}</strong>${seg.riskPct > 30 ? ' which also has ' + seg.riskPct + '% at-risk accounts - a compounding concern' : ' - worth ensuring this ' + viewLabel + ' is well-covered'}.` });
       }
     });
   }
@@ -1231,7 +1236,7 @@ function _buildSegInsights(segments, active) {
   if (bestOverlap) {
     insights.push({ score: bestOverlap.pct * 0.08 + bestOverlap.shared, icon: icOverlap, color: 'var(--blue)', bg: 'var(--blue-l, #dbeafe)',
       label: 'Segment Overlap', tags: [bestOverlap.a.tag, bestOverlap.b.tag],
-      text: `<strong>${escHtml(segDisplayLabel(bestOverlap.a.tag))}</strong> and <strong>${escHtml(segDisplayLabel(bestOverlap.b.tag))}</strong> share <strong>${bestOverlap.pct}%</strong> of accounts (${bestOverlap.shared} of ${bestOverlap.smaller}) \u2014 their health metrics will naturally track together.` });
+      text: `<strong>${escHtml(segDisplayLabel(bestOverlap.a.tag))}</strong> and <strong>${escHtml(segDisplayLabel(bestOverlap.b.tag))}</strong> share <strong>${bestOverlap.pct}%</strong> of accounts (${bestOverlap.shared} of ${bestOverlap.smaller}) - their health metrics will naturally track together.` });
   }
 
   // ── 10. Recovery Signal ──
@@ -1239,7 +1244,7 @@ function _buildSegInsights(segments, active) {
     if (seg.avgDelta >= 2.0 && seg.riskPct >= 30 && seg.count >= 3) {
       insights.push({ score: seg.avgDelta * 2 + seg.riskPct * 0.2, icon: icUp, color: 'var(--green)', bg: 'var(--green-l)',
         label: 'Recovery Signal', tags: [seg.tag],
-        text: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> is trending up (<strong>+${seg.avgDelta} pts/wk</strong>) but still has ${seg.riskPct}% at-risk accounts (${seg.atRisk}/${seg.count}) \u2014 recovery may be underway. Watch for accounts crossing back into healthy status.` });
+        text: `<strong>${escHtml(segDisplayLabel(seg.tag))}</strong> is trending up (<strong>+${seg.avgDelta} pts/wk</strong>) but still has ${seg.riskPct}% at-risk accounts (${seg.atRisk}/${seg.count}) - recovery may be underway. Watch for accounts crossing back into healthy status.` });
     }
   });
 
@@ -1263,28 +1268,28 @@ function _buildSegInsights(segments, active) {
     if (labels.indexOf('MRR Concentration') >= 0 && labels.indexOf('Risk Clustering') >= 0) {
       insights.push({ score: 20, icon: icAlert, color: 'var(--red)', bg: 'var(--red-l)',
         label: 'Compounding Risk', tags: [tag],
-        text: `<strong>${segName}</strong> concentrates both high MRR and high risk  - ${seg.riskPct}% at-risk accounts holding $${fmtNum(seg.totalMRR)} MRR. This segment is your single biggest exposure point.` });
+        text: `<strong>${segName}</strong> concentrates both high MRR and high risk - ${seg.riskPct}% at-risk accounts holding $${fmtNum(seg.totalMRR)} MRR. This ${viewLabel} is your single biggest exposure point.` });
     }
 
     // MRR Concentration + Revenue-Health Inversion
     if (labels.indexOf('MRR Concentration') >= 0 && labels.indexOf('Revenue-Health Inversion') >= 0) {
       insights.push({ score: 18, icon: icDollar, color: 'var(--red)', bg: 'var(--red-l)',
         label: 'Revenue at Risk', tags: [tag],
-        text: `<strong>${segName}</strong> holds your largest MRR concentration but scores below portfolio average  - revenue and health are misaligned in the segment that matters most.` });
+        text: `<strong>${segName}</strong> holds your largest MRR concentration but scores below portfolio average - revenue and health are misaligned in the ${viewLabel} that matters most.` });
     }
 
     // Contact Gap + Health Disparity (worst health + no contact)
     if (labels.indexOf('Contact Gap') >= 0 && labels.indexOf('Health Disparity') >= 0) {
       insights.push({ score: 15, icon: icPhone, color: 'var(--amber)', bg: 'var(--amber-l)',
         label: 'Neglect Pattern', tags: [tag],
-        text: `<strong>${segName}</strong> has both the widest contact gap and a notable health disparity  - infrequent touch may be driving the health difference.` });
+        text: `<strong>${segName}</strong> has both the widest contact gap and a notable health disparity - infrequent touch may be driving the health difference.` });
     }
 
     // Renewal Exposure + Risk Clustering
     if (labels.indexOf('Renewal Exposure') >= 0 && labels.indexOf('Risk Clustering') >= 0) {
       insights.push({ score: 17, icon: icCal, color: 'var(--red)', bg: 'var(--red-l)',
         label: 'Renewal Pipeline Risk', tags: [tag],
-        text: `<strong>${segName}</strong> has concentrated renewal exposure combined with high at-risk clustering  - upcoming renewals in this segment are especially vulnerable.` });
+        text: `<strong>${segName}</strong> has concentrated renewal exposure combined with high at-risk clustering - upcoming renewals in this ${viewLabel} are especially vulnerable.` });
     }
   });
 
@@ -1295,7 +1300,7 @@ function _buildSegInsights(segments, active) {
 
   if (!top.length) { wrap.innerHTML = ''; return; }
 
-  wrap.innerHTML = '<div style="font-size:var(--fs-base);font-weight:700;color:var(--text);margin-bottom:8px">Cross-Segment Insights</div>' +
+  wrap.innerHTML = '<div style="font-size:var(--fs-base);font-weight:700;color:var(--text);margin-bottom:8px">' + viewTitle + ' Insights</div>' +
     top.map((ins, idx) => {
       const accentCls = ins.color === 'var(--green)' ? ' ta-card-green' : ins.color === 'var(--red)' ? ' ta-card-red' : ins.color === 'var(--amber)' ? ' ta-card-amber' : '';
       const clickable = ins.tags && ins.tags.length > 0;
