@@ -4225,6 +4225,8 @@ function makeRec(score, data) {
   const unhappyAndQuiet = (bad.some(function(b){return b.includes('NPS');}) || bad.some(function(b){return b.includes('satisfaction');})) && bad.some(function(b){return b.includes('haven\'t talked');});
 
   // Renewal proximity
+  const renewDays = (data.renewal_date) ? Math.round((new Date(data.renewal_date) - new Date()) / 86400000) : null;
+  const renewNow = renewDays != null && renewDays <= 0;
   const renewSoon = data.renewal != null && data.renewal <= 3;
   const renewUrgent = data.renewal != null && data.renewal <= 1;
 
@@ -4241,6 +4243,8 @@ function makeRec(score, data) {
     if (disengaged && st !== 'expand' && st !== 'healthy') return ' This looks like full disengagement — not just one signal, they\'ve pulled back across the board.';
     if (unhappyAndQuiet) return ' They\'re unhappy and we\'re not in touch — that\'s a dangerous combination.';
     if (silentAndSlipping && st !== 'healthy') return ' Score is dropping and we haven\'t been in contact — that silence is the risk.';
+    if (renewNow && (st === 'critical' || st === 'risk' || st === 'watch')) return ' Renewal is today — this needs immediate attention to prevent churn.';
+    if (renewNow && (st === 'healthy' || st === 'expand')) return ' Renewal is today — health looks good, so this should close smoothly.';
     if (renewUrgent && (st === 'critical' || st === 'risk')) return ' Renewal is imminent, which puts real timeline pressure on this.';
     if (renewSoon && (st === 'critical' || st === 'risk' || st === 'watch')) return ' Renewal is in ' + fmtRenewalTime(data) + ' — we need to be in a better position by then.';
     if (renewSoon && (st === 'healthy' || st === 'expand')) return ' Renewal is in ' + fmtRenewalTime(data) + ' — should be smooth given current health.';
