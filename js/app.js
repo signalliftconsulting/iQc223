@@ -22932,8 +22932,8 @@ function _taMetricCorrelation(data1, data2, m1, m2, rangeDays) {
       detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> and <strong>${l2} ${f2(rawD2)}${m2Hint}</strong> overall, but ${recoverNames} ${m1Recovering && m2Recovering ? 'have' : 'has'} been trending up in the recent ${halfLabel}. The recovery trend is encouraging.`;
       accent = 'amber';
     } else {
-      title = l1 + ' and ' + l2 + ' both ' + (bothGood ? 'improved' : 'worsened');
-      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> while <strong>${l2} ${f2(rawD2)}${m2Hint}</strong>. ` + (bothGood ? 'Both metrics moving positively  - a healthy reinforcing trend.' : 'Both metrics declining  - investigate shared root causes.');
+      title = l1 + ' and ' + l2 + ' both ' + (bothGood ? 'improved' : 'declined');
+      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> and <strong>${l2} ${f2(rawD2)}${m2Hint}</strong>. ` + (bothGood ? 'Both moving in the right direction - these are reinforcing each other.' : 'Both declining together suggests a shared underlying issue like reduced engagement or a product change affecting usage.');
       accent = bothGood ? 'green' : 'red';
     }
   } else if (oppositeDir) {
@@ -22950,7 +22950,7 @@ function _taMetricCorrelation(data1, data2, m1, m2, rangeDays) {
     } else {
       const m2Improved = d2 > 0;
       title = l1 + (m1Good ? ' improved' : ' declined') + ' while ' + l2 + (m2Improved ? ' improved' : ' worsened');
-      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> while <strong>${l2} ${f2(rawD2)}${m2Hint}</strong>. ` + (m1Good ? 'Mixed signals  - ' + l2 + ' may be pulling down ' + l1 + ' gains. Open the customer detail to see which accounts have both signals moving in different directions.' : l2 + ' is improving but hasn\'t lifted ' + l1 + ' yet. This is common  - give it another 1–2 scoring cycles. If ' + l1 + ' doesn\'t follow, the ' + l2 + ' improvement may not be translating to real engagement.');
+      detail = `Over ${rl}, <strong>${l1} ${f1(rawD1)}</strong> while <strong>${l2} ${f2(rawD2)}${m2Hint}</strong>. ` + (m1Good ? l1 + ' gains are being offset by ' + l2 + ' movement. The net effect on health scores depends on signal weights.' : l2 + ' is improving but hasn\'t lifted ' + l1 + ' yet. This lag is common - ' + l2 + ' improvements typically take 1-2 weeks to show up in overall scores.');
       accent = 'amber';
     }
   } else {
@@ -23125,24 +23125,19 @@ function _taCrossSignal(active, cutoff, metricKey) {
   // gap = impAvg - decAvg; for inverted: negative gap means improving accounts have lower (better) values
   const isHealthyPattern = inverted ? bestSignal.gap < 0 : bestSignal.gap > 0;
 
-  // Make it actionable  - name specific declining accounts with the worst signal values
+  // Name the 2 worst accounts for this signal
   const actionAccounts = declining.filter(c => {
     const v = bestSignal.getter(c);
-    if (v == null) return false;
-    return inverted ? v > bestSignal.decAvg : v < bestSignal.decAvg;
-  }).slice(0, 3);
+    return v != null;
+  }).sort((a,b) => {
+    const va = bestSignal.getter(a), vb = bestSignal.getter(b);
+    return inverted ? vb - va : va - vb; // worst first
+  }).slice(0, 2);
 
-  const title = bestSignal.label + ' is the biggest factor in ' + label + ' changes';
-  let detail;
-  if (inverted) {
-    detail = `Declining accounts average <strong>${fv(bestSignal.decAvg)}</strong> ${bestSignal.label} vs <strong>${fv(bestSignal.impAvg)}</strong> for improving accounts. `;
-    detail += `Reducing ${bestSignal.label} is the fastest lever to improve ${label}.`;
-  } else {
-    detail = `Declining accounts average <strong>${fv(bestSignal.decAvg)}</strong> ${bestSignal.label} vs <strong>${fv(bestSignal.impAvg)}</strong> for improving accounts. `;
-    detail += `Improving ${bestSignal.label} is the fastest lever to lift ${label}.`;
-  }
+  const title = bestSignal.label + ' is the biggest gap between healthy and declining accounts';
+  let detail = `Declining accounts average <strong>${fv(bestSignal.decAvg)}</strong> ${bestSignal.label} vs <strong>${fv(bestSignal.impAvg)}</strong> for improving ones. `;
   if (actionAccounts.length) {
-    detail += ' Focus on: ' + actionAccounts.map(c => `${_taCustLink(c.name, c.id)} (${bestSignal.label}: ${fv(bestSignal.getter(c))})`).join(', ') + '.';
+    detail += 'Worst: ' + actionAccounts.map(c => `${_taCustLink(c.name, c.id)} (${fv(bestSignal.getter(c))})`).join(', ') + '.';
   }
   const accent = isHealthyPattern ? 'green' : 'amber';
   return { priority: 3, icon: _taSvg.signal, iconBg: isHealthyPattern ? 'var(--green-l)' : 'var(--amber-l)', iconColor: isHealthyPattern ? 'var(--green)' : 'var(--amber)', accent, title, detail };
@@ -23292,7 +23287,7 @@ function _taDropAttribution(active, data1, metricKey, cutoff, rangeDays) {
         concentrationNote = ` This was a broad-based ${dropWord} across the portfolio  - <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) ${droppedWord} during this period.`;
       }
     } else if (pctDeclined >= 30) {
-      concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) ${droppedWord} while ${improved.length} ${_lib ? 'worsened' : 'improved'}  - a split trend worth investigating by segment.`;
+      concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) ${droppedWord} while ${improved.length} ${_lib ? 'worsened' : 'improved'} - a mixed portfolio with accounts moving in different directions.`;
     }
   }
 
@@ -23482,7 +23477,7 @@ function _taChurnImpact(cutoff, rangeDays) {
   return { priority: 1, icon: _taSvg.drop, iconBg: 'var(--red-l)', iconColor: 'var(--red)', accent: 'red', title, detail };
 }
 
-/* ── At-Risk Accounts  - declining + renewal soon + MRR at stake ── */
+/* ── Revenue at Risk - accounts declining with upcoming renewals ── */
 function _taAtRiskAccounts(active, cutoff, rangeDays) {
   if (active.length < 3) return null;
   const now = Date.now();
@@ -23490,40 +23485,54 @@ function _taAtRiskAccounts(active, cutoff, rangeDays) {
   active.forEach(c => {
     if (c.lifecycle === 'churned') return;
     const d = _getDeltaNd(c, rangeDays);
-    if (d === null || d >= -3) return; // only accounts declining ≥3 pts
-    // Check renewal proximity (within 120 days)
+    if (d === null || d >= -3) return;
     let renewalDays = Infinity;
     if (c.renewal_date) {
       const rd = new Date(c.renewal_date);
       renewalDays = Math.round((rd.getTime() - now) / 86400000);
     }
-    // Urgency score: bigger drop + sooner renewal = higher urgency
     const urgency = Math.abs(d) * (renewalDays <= 120 ? (150 - renewalDays) / 30 : 0.5);
     atRisk.push({ c, delta: d, renewalDays, mrr: c.mrr || 0, urgency });
   });
   if (atRisk.length < 1) return null;
   atRisk.sort((a,b) => b.urgency - a.urgency);
-  const top = atRisk.slice(0, 4);
+  const top = atRisk.slice(0, 3);
   const totalMrr = atRisk.reduce((s,x) => s + x.mrr, 0);
   const renewalRisk = atRisk.filter(x => x.renewalDays > 0 && x.renewalDays <= 90);
   const fd = v => (v >= 0 ? '+' : '') + Math.round(v);
   const fmtRen = d => d <= 0 ? 'overdue' : d <= 30 ? 'this month' : d <= 60 ? 'within 60d' : d <= 90 ? 'within 90d' : '';
 
-  const count = atRisk.length;
-  const title = count + ' account' + (count > 1 ? 's' : '') + ' declining  - $' + fmtNum(totalMrr) + '/mo at stake';
-  let detail = '';
-  // List top accounts with their delta, MRR, and renewal status
-  detail += top.map(x => {
+  // Figure out what's driving the decline - check signals for the top 3
+  let commonIssue = '';
+  if (top.length >= 2) {
+    const sigChecks = [
+      { key: 'days', label: 'contact gap', test: c => (c.days || 0) > 30 },
+      { key: 'tickets', label: 'open tickets', test: c => (c.tickets || 0) >= 3 },
+      { key: 'adoption', label: 'low adoption', test: c => (c.adoption || 100) < 40 },
+      { key: 'nps', label: 'low NPS', test: c => c.nps != null && c.nps <= 6 }
+    ];
+    for (const sc of sigChecks) {
+      const matching = top.filter(x => sc.test(x.c));
+      if (matching.length >= 2) {
+        commonIssue = ` Common factor: <strong>${sc.label}</strong> across ${matching.length} of these accounts.`;
+        break;
+      }
+    }
+  }
+
+  const title = '$' + fmtNum(totalMrr) + '/mo at risk across ' + atRisk.length + ' declining account' + (atRisk.length > 1 ? 's' : '');
+  let detail = top.map(x => {
     let info = `${_taCustLink(x.c.name, x.c.id)} (${fd(x.delta)} pts, $${fmtNum(x.mrr)}/mo`;
     const ren = fmtRen(x.renewalDays);
     if (ren) info += `, renewal ${ren}`;
     return info + ')';
   }).join(', ');
-  if (atRisk.length > 4) detail += ` and ${atRisk.length - 4} more`;
+  if (atRisk.length > 3) detail += ` and ${atRisk.length - 3} more`;
   detail += '.';
   if (renewalRisk.length) {
-    detail += ` <strong>${renewalRisk.length}</strong> of these renew within 90 days.`;
+    detail += ` <strong>${renewalRisk.length}</strong> renew within 90 days.`;
   }
+  detail += commonIssue;
   return { priority: 0, icon: _taSvg.drop, iconBg: 'var(--red-l)', iconColor: 'var(--red)', accent: 'red', title, detail };
 }
 
@@ -23739,104 +23748,128 @@ function _taSignalDeepDive(active, cutoff, rangeDays) {
 
   let title, detail, accent;
   if (worst.normalizedDelta < -0.5) {
-    const direction = worst.good === 'lower' ? 'increased' : 'decreased';
-    title = worst.label + ' ' + direction + ' portfolio-wide';
-    detail = `${worst.label} ${direction} by <strong>${fd(worst.avgDelta)}${worst.unit}</strong> on average across the portfolio (now ${fv(worst.avgCurrent)}${worst.unit}).`;
-    if (worstAccounts.length) {
-      detail += ' Biggest movers: ' + worstAccounts.map(x =>
+    const direction = worst.good === 'lower' ? 'up' : 'down';
+    // Show top 2 worst accounts only
+    const top2 = worstAccounts.slice(0, 2);
+    title = worst.label + ' trending ' + direction + ' across the portfolio';
+    detail = `Average ${worst.label} moved <strong>${fd(worst.avgDelta)}${worst.unit}</strong> (now ${fv(worst.avgCurrent)}${worst.unit}).`;
+    if (top2.length) {
+      detail += ' ' + top2.map(x =>
         `${_taCustLink(x.c.name, x.c.id)} (${fd(x.delta)}${worst.unit})`
-      ).join(', ') + '.';
+      ).join(' and ') + ' saw the largest shifts.';
     }
     if (best.normalizedDelta > 0.5) {
-      const bestDir = best.good === 'lower' ? 'decreased' : 'improved';
-      detail += ` On the positive side, <strong>${best.label}</strong> ${bestDir} by ${fd(best.avgDelta)}${best.unit}.`;
+      const bestDir = best.good === 'lower' ? 'down' : 'up';
+      detail += ` ${best.label} is trending ${bestDir} (${fd(best.avgDelta)}${best.unit}) - offsetting some of the impact.`;
     }
     accent = 'amber';
   } else {
-    // All signals improving or flat  - highlight the winner
-    const direction = best.good === 'lower' ? 'decreased' : 'improved';
-    title = best.label + ' ' + direction + ' across the portfolio';
-    detail = `${best.label} ${direction} by <strong>${fd(best.avgDelta)}${best.unit}</strong> on average (now ${fv(best.avgCurrent)}${best.unit}). This is the strongest signal movement in the period.`;
+    const direction = best.good === 'lower' ? 'down' : 'up';
+    title = best.label + ' trending ' + direction + ' across the portfolio';
+    detail = `Average ${best.label} moved <strong>${fd(best.avgDelta)}${best.unit}</strong> (now ${fv(best.avgCurrent)}${best.unit}). This is the strongest positive signal movement in the period.`;
     accent = 'green';
   }
   return { priority: 3, icon: _taSvg.signal, iconBg: accent === 'green' ? 'var(--green-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : 'var(--amber)', accent, title, detail };
 }
 
-/* ── Segment Divergence  - compare tiers ── */
-function _taSegmentDivergence(active, rangeDays) {
-  if (active.length < 8) return null;
-  const tiers = {};
+/* ── Engagement Trend - are customers using the product more or less ── */
+function _taEngagementTrend(active, cutoff, rangeDays) {
+  if (active.length < 5) return null;
+  // Check logins + adoption together for engagement picture
+  let loginUp = 0, loginDown = 0, adoptUp = 0, adoptDown = 0;
+  let totalLogin = 0, totalAdopt = 0;
+  const lowEngagement = []; // accounts with both signals declining
   active.forEach(c => {
     if (c.lifecycle === 'churned') return;
-    const t = c.tier || 'smb';
-    if (!tiers[t]) tiers[t] = [];
-    const d = _getDeltaNd(c, rangeDays);
-    if (d !== null) tiers[t].push({ c, delta: d });
+    const hist = (c.history || []).filter(h => h.date).sort((a,b) => a.date.localeCompare(b.date));
+    const inRange = hist.filter(h => new Date(h.date) >= cutoff);
+    const before = hist.filter(h => new Date(h.date) < cutoff);
+    if (!inRange.length || !before.length) return;
+    const loginBefore = before[before.length - 1].signals?.logins;
+    const loginAfter = inRange[inRange.length - 1].signals?.logins;
+    const adoptBefore = before[before.length - 1].signals?.adoption;
+    const adoptAfter = inRange[inRange.length - 1].signals?.adoption;
+    let lDelta = null, aDelta = null;
+    if (loginBefore != null && loginAfter != null) {
+      lDelta = loginAfter - loginBefore;
+      totalLogin++;
+      if (lDelta > 1) loginUp++; else if (lDelta < -1) loginDown++;
+    }
+    if (adoptBefore != null && adoptAfter != null) {
+      aDelta = adoptAfter - adoptBefore;
+      totalAdopt++;
+      if (aDelta > 2) adoptUp++; else if (aDelta < -2) adoptDown++;
+    }
+    if (lDelta != null && aDelta != null && lDelta < -1 && aDelta < -2) {
+      lowEngagement.push({ c, loginDelta: lDelta, adoptDelta: aDelta });
+    }
   });
-  const tierNames = Object.keys(tiers).filter(t => tiers[t].length >= 2);
-  if (tierNames.length < 2) return null;
+  if (totalLogin < 3 && totalAdopt < 3) return null;
 
-  const tierAvgs = tierNames.map(t => ({
-    tier: t,
-    avg: tiers[t].reduce((s,x) => s + x.delta, 0) / tiers[t].length,
-    count: tiers[t].length,
-    label: t === 'smb' ? 'SMB' : t === 'mid' ? 'Mid-Market' : 'Enterprise'
-  }));
-  tierAvgs.sort((a,b) => b.avg - a.avg);
+  // Only report if there's a clear pattern
+  const loginPctDown = totalLogin > 0 ? Math.round(loginDown / totalLogin * 100) : 0;
+  const adoptPctDown = totalAdopt > 0 ? Math.round(adoptDown / totalAdopt * 100) : 0;
+  const bothDeclining = loginPctDown > 30 && adoptPctDown > 30;
+  const bothImproving = (totalLogin > 0 ? loginUp / totalLogin : 0) > 0.4 && (totalAdopt > 0 ? adoptUp / totalAdopt : 0) > 0.4;
 
-  const gap = tierAvgs[0].avg - tierAvgs[tierAvgs.length - 1].avg;
-  if (gap < 4) return null; // Not a meaningful difference
+  if (!bothDeclining && !bothImproving && lowEngagement.length < 3) return null;
 
-  const best = tierAvgs[0];
-  const worst = tierAvgs[tierAvgs.length - 1];
-  const fd = v => (v >= 0 ? '+' : '') + Math.round(v * 10) / 10;
-
-  const title = best.label + ' outperforming ' + worst.label + ' by ' + Math.round(gap) + ' pts';
-  let detail = tierAvgs.map(t => `<strong>${t.label}</strong>: ${fd(t.avg)} avg (${t.count} accounts)`).join(' · ') + '. ';
-  if (worst.avg < -2) {
-    detail += `${worst.label} accounts are the priority  - investigate whether they\'re getting adequate support and onboarding.`;
+  let title, detail, accent;
+  if (bothDeclining) {
+    lowEngagement.sort((a,b) => (a.loginDelta + a.adoptDelta) - (b.loginDelta + b.adoptDelta));
+    const top2 = lowEngagement.slice(0, 2);
+    title = 'Engagement declining - logins and adoption both dropping';
+    detail = `<strong>${loginPctDown}%</strong> of accounts have lower logins and <strong>${adoptPctDown}%</strong> have lower adoption vs the start of this period.`;
+    if (top2.length) {
+      detail += ' ' + top2.map(x => `${_taCustLink(x.c.name, x.c.id)} (logins ${x.loginDelta > 0 ? '+' : ''}${Math.round(x.loginDelta)}, adoption ${x.adoptDelta > 0 ? '+' : ''}${Math.round(x.adoptDelta)}%)`).join(' and ') + ' dropped the most.';
+    }
+    accent = 'red';
+  } else if (bothImproving) {
+    title = 'Engagement improving - logins and adoption both up';
+    const loginPctUp = Math.round(loginUp / totalLogin * 100);
+    const adoptPctUp = Math.round(adoptUp / totalAdopt * 100);
+    detail = `<strong>${loginPctUp}%</strong> of accounts have higher logins and <strong>${adoptPctUp}%</strong> have higher adoption. Product usage is trending in the right direction across the portfolio.`;
+    accent = 'green';
   } else {
-    detail += `The ${best.label} segment is leading  - explore what\'s driving their success and apply those lessons across the portfolio.`;
+    lowEngagement.sort((a,b) => (a.loginDelta + a.adoptDelta) - (b.loginDelta + b.adoptDelta));
+    const top2 = lowEngagement.slice(0, 2);
+    title = lowEngagement.length + ' accounts showing declining engagement';
+    detail = top2.map(x => `${_taCustLink(x.c.name, x.c.id)} (logins ${x.loginDelta > 0 ? '+' : ''}${Math.round(x.loginDelta)}, adoption ${x.adoptDelta > 0 ? '+' : ''}${Math.round(x.adoptDelta)}%)`).join(' and ');
+    detail += ` have both logins and adoption dropping - early warning signs before scores reflect it.`;
+    accent = 'amber';
   }
-  const accent = worst.avg < -3 ? 'red' : 'amber';
-  return { priority: 3, icon: _taSvg.bar, iconBg: accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail };
+  return { priority: 2, icon: _taSvg.signal, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail };
 }
 
-/* ── Portfolio Summary  - always-available fallback insight ── */
+/* ── Portfolio Summary - always-available fallback ── */
 function _taPortfolioSummary(active, data1, rangeDays) {
   if (active.length < 3 || !data1 || data1.length < 2) return null;
-  const now = Date.now();
-
-  // Overall portfolio metrics
-  const avgScore = Math.round(active.filter(c => c.lifecycle !== 'churned').reduce((s,c) => s + (c.score || 0), 0) / active.filter(c => c.lifecycle !== 'churned').length);
-  const totalMrr = active.reduce((s,c) => s + (c.mrr || 0), 0);
-
-  // Count by status
-  const healthy = active.filter(c => c.score >= 70 && c.lifecycle !== 'churned').length;
-  const watch = active.filter(c => c.score >= 40 && c.score < 70 && c.lifecycle !== 'churned').length;
-  const critical = active.filter(c => c.score < 40 && c.lifecycle !== 'churned').length;
-
-  // Chart movement
+  const nonChurned = active.filter(c => c.lifecycle !== 'churned');
+  const totalMrr = nonChurned.reduce((s,c) => s + (c.mrr || 0), 0);
+  const healthy = nonChurned.filter(c => c.score >= 70).length;
+  const watch = nonChurned.filter(c => c.score >= 40 && c.score < 70).length;
+  const critical = nonChurned.filter(c => c.score < 40).length;
   const startVal = data1[0].avg;
   const endVal = data1[data1.length - 1].avg;
   const change = Math.round((endVal - startVal) * 10) / 10;
   const rl = _taRangeLabel(rangeDays);
 
-  // Biggest single risk
-  let biggestRisk = null;
-  active.forEach(c => {
-    if (c.lifecycle === 'churned') return;
+  // Find the single biggest mover in each direction
+  let biggestDrop = null, biggestGain = null;
+  nonChurned.forEach(c => {
     const d = _getDeltaNd(c, rangeDays);
-    if (d !== null && d < -3 && (!biggestRisk || d < biggestRisk.delta)) {
-      biggestRisk = { c, delta: d };
-    }
+    if (d === null) return;
+    if (d < -3 && (!biggestDrop || d < biggestDrop.delta)) biggestDrop = { c, delta: d };
+    if (d > 3 && (!biggestGain || d > biggestGain.delta)) biggestGain = { c, delta: d };
   });
 
-  const title = 'Portfolio snapshot  - ' + active.filter(c => c.lifecycle !== 'churned').length + ' accounts, $' + fmtNum(totalMrr) + '/mo MRR';
+  const title = nonChurned.length + ' accounts, $' + fmtNum(totalMrr) + '/mo - score ' + (change >= 0 ? 'up' : 'down') + ' ' + (change >= 0 ? '+' : '') + change + ' pts over ' + rl;
   let detail = `<strong>${healthy}</strong> healthy, <strong>${watch}</strong> watch, <strong>${critical}</strong> critical. `;
-  detail += `Score ${change >= 0 ? 'up' : 'down'} <strong>${change >= 0 ? '+' : ''}${change}</strong> pts over ${rl}. `;
-  if (biggestRisk) {
-    detail += `Biggest single risk: ${_taCustLink(biggestRisk.c.name, biggestRisk.c.id)} (${Math.round(biggestRisk.delta)} pts, $${fmtNum(biggestRisk.c.mrr)}/mo).`;
+  if (biggestDrop) {
+    detail += `Biggest drop: ${_taCustLink(biggestDrop.c.name, biggestDrop.c.id)} (${Math.round(biggestDrop.delta)} pts, $${fmtNum(biggestDrop.c.mrr || 0)}/mo). `;
+  }
+  if (biggestGain) {
+    detail += `Biggest gain: ${_taCustLink(biggestGain.c.name, biggestGain.c.id)} (+${Math.round(biggestGain.delta)} pts).`;
   }
   const accent = critical > watch ? 'red' : change >= 0 ? 'green' : 'amber';
   return { priority: 5, icon: _taSvg.clock, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail };
@@ -23853,17 +23886,17 @@ function _buildTrendAnalysis(active, data1, data2, cutoff, rangeDays, m1, m2, pr
     : active;
 
   const results = [
-    // Priority 0-1: critical issues
+    // Priority 0-1: revenue impact and critical risks
     _taAtRiskAccounts(active, cutoff, rangeDays),
     _taChurnImpact(cutoff, rangeDays),
     _taConcentrationRisk(active, rangeDays),
-    // Priority 2: structural insights
+    // Priority 2: what's happening and why
     _taRenewalPipeline(active, rangeDays),
+    _taEngagementTrend(active, cutoff, rangeDays),
     _taInflection(data1, m1, rangeDays, active),
     _taDropAttribution(active, data1, m1, cutoff, rangeDays),
     _taSeasonalPattern(data1, m1, rangeDays, priorData),
-    _taSegmentDivergence(active, rangeDays),
-    // Priority 3: signal-level and positive insights
+    // Priority 3: deeper signal analysis and positive callouts
     _taSignalDeepDive(active, cutoff, rangeDays),
     _taCrossSignal(active, cutoff, m1),
     _taTopPerformers(active, rangeDays),
