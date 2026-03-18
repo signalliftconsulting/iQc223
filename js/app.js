@@ -17939,9 +17939,9 @@ function buildHistoryResultHTML(result) {
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:14px;font-size:var(--fs-sm)">
         <div><span style="color:var(--muted)">Date Range:</span> <strong>${fmtD(from)} - ${fmtD(to)}</strong></div>
-        <div><span style="color:var(--muted)">Customers Matched:</span> <strong>${result.matched}</strong></div>
-        <div><span style="color:var(--muted)">Snapshots Added:</span> <strong>${result.totalAdded}</strong></div>
-        ${s.customers != null ? `<div><span style="color:var(--muted)">Returned from CRM:</span> <strong>${s.customers}</strong></div>` : ''}
+        ${s.customers != null ? `<div><span style="color:var(--muted)">Found in CRM:</span> <strong>${s.customers} customers</strong></div>` : ''}
+        <div><span style="color:var(--muted)">Matched:</span> <strong>${result.matched} of ${s.customers || '?'}</strong></div>
+        <div><span style="color:var(--muted)">Data Points Imported:</span> <strong>${result.totalAdded}</strong></div>
       </div>
       ${unmatchedHTML}
     </div>`;
