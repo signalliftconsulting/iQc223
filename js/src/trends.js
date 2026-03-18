@@ -1869,38 +1869,120 @@ function _taSeasonalPattern(data, metricKey, rangeDays, priorData) {
   return null;
 }
 
-/* ── Portfolio Summary - always-available fallback ── */
-function _taPortfolioSummary(active, data1, rangeDays) {
-  if (active.length < 3 || !data1 || data1.length < 2) return null;
-  const nonChurned = active.filter(c => c.lifecycle !== 'churned');
-  const totalMrr = nonChurned.reduce((s,c) => s + (c.mrr || 0), 0);
-  const healthy = nonChurned.filter(c => c.score >= 70).length;
-  const watch = nonChurned.filter(c => c.score >= 40 && c.score < 70).length;
-  const critical = nonChurned.filter(c => c.score < 40).length;
-  const startVal = data1[0].avg;
-  const endVal = data1[data1.length - 1].avg;
-  const change = Math.round((endVal - startVal) * 10) / 10;
-  const rl = _taRangeLabel(rangeDays);
+/* ═══ Stats Utilities ═══ */
+function _stats(arr) {
+  if (!arr.length) return null;
+  const sorted = arr.slice().sort((a,b) => a - b);
+  const n = sorted.length;
+  const sum = sorted.reduce((s,v) => s + v, 0);
+  const mean = sum / n;
+  const median = n % 2 === 0 ? (sorted[n/2-1] + sorted[n/2]) / 2 : sorted[Math.floor(n/2)];
+  const variance = sorted.reduce((s,v) => s + (v - mean) ** 2, 0) / n;
+  const stddev = Math.sqrt(variance);
+  const q1 = sorted[Math.floor(n * 0.25)];
+  const q3 = sorted[Math.floor(n * 0.75)];
+  const iqr = q3 - q1;
+  const lo = q1 - 1.5 * iqr;
+  const hi = q3 + 1.5 * iqr;
+  const outliers = sorted.filter(v => v < lo || v > hi);
+  const min = sorted[0], max = sorted[n - 1];
+  // Skewness: positive = tail right (most scores clustered low), negative = tail left (clustered high)
+  const skew = n >= 3 ? sorted.reduce((s,v) => s + ((v - mean) / (stddev || 1)) ** 3, 0) / n : 0;
+  return { mean, median, stddev, q1, q3, iqr, min, max, lo, hi, outliers, skew, n };
+}
 
-  // Find the single biggest mover in each direction
-  let biggestDrop = null, biggestGain = null;
+/* ── Distribution Analysis: score distribution shape and outliers ── */
+function _taDistribution(active, rangeDays) {
+  const nonChurned = active.filter(c => c.lifecycle !== 'churned');
+  if (nonChurned.length < 8) return null;
+
+  const scores = nonChurned.map(c => c.score || 0);
+  const st = _stats(scores);
+  if (!st) return null;
+
+  // Also compute delta distribution
+  const deltas = [];
   nonChurned.forEach(c => {
     const d = _getDeltaNd(c, rangeDays);
-    if (d === null) return;
-    if (d < -3 && (!biggestDrop || d < biggestDrop.delta)) biggestDrop = { c, delta: d };
-    if (d > 3 && (!biggestGain || d > biggestGain.delta)) biggestGain = { c, delta: d };
+    if (d !== null) deltas.push({ c, d });
   });
+  const deltaVals = deltas.map(x => x.d);
+  const dst = deltaVals.length >= 5 ? _stats(deltaVals) : null;
 
-  const title = nonChurned.length + ' accounts, $' + fmtNum(totalMrr) + '/mo - score ' + (change >= 0 ? 'up' : 'down') + ' ' + (change >= 0 ? '+' : '') + change + ' pts over ' + rl;
-  let detail = `<strong>${healthy}</strong> healthy, <strong>${watch}</strong> watch, <strong>${critical}</strong> critical. `;
-  if (biggestDrop) {
-    detail += `Biggest drop: ${_taCustLink(biggestDrop.c.name, biggestDrop.c.id)} (${Math.round(biggestDrop.delta)} pts, $${fmtNum(biggestDrop.c.mrr || 0)}/mo). `;
+  // Find outliers by name
+  const scoreOutliers = nonChurned.filter(c => (c.score || 0) < st.lo || (c.score || 0) > st.hi);
+  const deltaOutliers = dst ? deltas.filter(x => x.d < dst.lo || x.d > dst.hi) : [];
+
+  const rl = _taRangeLabel(rangeDays);
+  const r1 = v => Math.round(v);
+  const r1d = v => Math.round(v * 10) / 10;
+
+  let title, detail, accent;
+
+  // Decide what's most interesting to report
+  if (deltaOutliers.length >= 1 && deltaOutliers.length <= 3) {
+    // Outlier accounts - moving way more than the rest
+    deltaOutliers.sort((a,b) => a.d - b.d); // most negative first
+    const negOut = deltaOutliers.filter(x => x.d < dst.lo);
+    const posOut = deltaOutliers.filter(x => x.d > dst.hi);
+
+    if (negOut.length && posOut.length) {
+      title = 'Outlier accounts pulling the portfolio in opposite directions';
+      detail = `Most accounts changed between <strong>${r1d(dst.q1)}</strong> and <strong>${r1d(dst.q3)}</strong> pts (median ${r1d(dst.median)}). `;
+      detail += negOut.slice(0,1).map(x => `${_taCustLink(x.c.name, x.c.id)} (${r1(x.d)} pts)`).join('') + ' is an outlier drop';
+      detail += ' and ' + posOut.slice(0,1).map(x => `${_taCustLink(x.c.name, x.c.id)} (+${r1(x.d)} pts)`).join('') + ' is an outlier gain. ';
+      detail += `These are disproportionately affecting the portfolio average. Look at what's different about these accounts.`;
+      accent = 'amber';
+    } else if (negOut.length) {
+      title = negOut.length + ' outlier account' + (negOut.length > 1 ? 's' : '') + ' dragging down the portfolio';
+      detail = `The typical account changed <strong>${r1d(dst.median)}</strong> pts (middle 50% between ${r1d(dst.q1)} and ${r1d(dst.q3)}). `;
+      detail += negOut.slice(0,2).map(x => `${_taCustLink(x.c.name, x.c.id)} (${r1(x.d)} pts, $${fmtNum(x.c.mrr || 0)}/mo)`).join(' and ');
+      detail += ` fell well outside the normal range. Without ${negOut.length === 1 ? 'this account' : 'these accounts'}, the portfolio average would be higher. Prioritize ${negOut.length === 1 ? 'it' : 'them'}.`;
+      accent = 'red';
+    } else {
+      title = posOut.length + ' account' + (posOut.length > 1 ? 's' : '') + ' significantly outperforming the portfolio';
+      detail = `The typical account changed <strong>${r1d(dst.median)}</strong> pts. `;
+      detail += posOut.slice(0,2).map(x => `${_taCustLink(x.c.name, x.c.id)} (+${r1(x.d)} pts)`).join(' and ');
+      detail += ` grew far beyond the normal range. Understand what's working for ${posOut.length === 1 ? 'this account' : 'them'} and replicate it.`;
+      accent = 'green';
+    }
+  } else if (Math.abs(st.skew) > 0.8) {
+    // Skewed distribution - scores aren't evenly spread
+    if (st.skew < -0.8) {
+      // Negative skew - most scores clustered high, long tail of low scores
+      const lowTail = nonChurned.filter(c => (c.score || 0) < st.q1).sort((a,b) => (a.score||0) - (b.score||0));
+      title = 'Score distribution is top-heavy with a few accounts pulling it down';
+      detail = `Median score is <strong>${r1(st.median)}</strong> (higher than the mean of ${r1(st.mean)}), meaning most accounts are healthy. `;
+      detail += `But ${lowTail.length} accounts in the bottom quartile (below ${r1(st.q1)}) are dragging the average. `;
+      if (lowTail.length >= 1) {
+        detail += `Lowest: ${_taCustLink(lowTail[0].c.name, lowTail[0].c.id)} (${lowTail[0].c.score}). Fix the tail to lift the whole portfolio.`;
+      }
+      accent = 'amber';
+    } else {
+      // Positive skew - most scores clustered low, few high performers
+      title = 'Most accounts are underperforming - a few high scores inflate the average';
+      detail = `Median score is <strong>${r1(st.median)}</strong> (lower than the mean of ${r1(st.mean)}). Most accounts cluster in the ${r1(st.q1)}-${r1(st.q3)} range. `;
+      detail += `The portfolio looks healthier than it is because a few high-scoring accounts pull the average up. Focus on the middle of the pack.`;
+      accent = 'red';
+    }
+  } else if (st.stddev > 18) {
+    // High spread - scores are all over the place
+    title = 'Wide score spread across the portfolio (std dev: ' + r1(st.stddev) + ')';
+    detail = `Scores range from <strong>${r1(st.min)}</strong> to <strong>${r1(st.max)}</strong> with a standard deviation of ${r1(st.stddev)}. `;
+    detail += `The middle 50% falls between ${r1(st.q1)} and ${r1(st.q3)}. This level of variance suggests inconsistent customer experience - some accounts are thriving while others are struggling. `;
+    detail += `Standardize onboarding and engagement cadences to tighten this range.`;
+    accent = 'amber';
+  } else {
+    // Normal-ish distribution - report the basics with the most notable stat
+    title = 'Portfolio health: median ' + r1(st.median) + ', spread ' + r1(st.q1) + '-' + r1(st.q3) + ' (middle 50%)';
+    detail = `Across ${st.n} accounts: mean <strong>${r1(st.mean)}</strong>, median <strong>${r1(st.median)}</strong>, std dev ${r1(st.stddev)}. `;
+    if (dst) {
+      detail += `Over ${rl}, the typical account moved <strong>${r1d(dst.median)}</strong> pts (range: ${r1d(dst.min)} to ${r1d(dst.max > 0 ? '+' : '')}${r1d(dst.max)}).`;
+    }
+    accent = st.median >= 65 ? 'green' : st.median >= 45 ? 'amber' : 'red';
   }
-  if (biggestGain) {
-    detail += `Biggest gain: ${_taCustLink(biggestGain.c.name, biggestGain.c.id)} (+${Math.round(biggestGain.delta)} pts).`;
-  }
-  const accent = critical > watch ? 'red' : change >= 0 ? 'green' : 'amber';
-  return { priority: 5, icon: _taSvg.clock, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail };
+
+  return { priority: 4, icon: _taSvg.bar, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail };
 }
 
 /* ── Orchestrator ─────────────────────────────── */
@@ -1932,8 +2014,8 @@ function _buildTrendAnalysis(active, data1, data2, cutoff, rangeDays, m1, m2, pr
     _taCrossSignal(active, cutoff, m1),
     _taMetricCorrelation(data1, data2, m1, m2, rangeDays),
     _taCsmDivergence(data1, active, cutoff, rangeDays, m1),
-    // Fallback
-    _taPortfolioSummary(active, data1, rangeDays)
+    // Stats-driven fallback
+    _taDistribution(active, rangeDays)
   ].filter(Boolean);
 
   // Boost priority of contextual insights when user has selected overlays
