@@ -10663,6 +10663,9 @@ function openDetail(id) {
 
   dtab('overview');
   openModal('detail-modal');
+  // Always start at the top
+  var scrollWrap = document.querySelector('#detail-modal .dm-scroll');
+  if (scrollWrap) scrollWrap.scrollTop = 0;
 }
 
 function dtab(which) {
