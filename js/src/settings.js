@@ -4,6 +4,7 @@ function cfgTab(which) {
     el('cfg-tab-'+t)?.classList.toggle('active', t === which);
     el('cfg-pane-'+t)?.classList.toggle('active', t === which);
   });
+  _renderSettingsGuide(which);
   if (which === 'account') {
     renderCSMList();
     renderDataHealth();
@@ -55,12 +56,31 @@ function _updateSettingsGuideBadge() {
   try { b.style.display = localStorage.getItem('iqc_settings_guide_dismissed') === '1' ? 'none' : ''; } catch(e) { b.style.display = 'none'; }
 }
 
-function _renderSettingsGuide() {
-  _renderGuide('settings-guide', 'iqc_settings_guide_dismissed',
-    '<strong>What you can do here</strong> - Configure how IQcadence scores and monitors your customers across three tabs.<br>' +
-    '<strong>Config:</strong> Set <strong>signal weights</strong> to control how each metric (logins, adoption, NPS, etc.) impacts the health score. Adjust <strong>status thresholds</strong> to define what counts as Critical, At Risk, Watch, and Healthy. Create <strong>Scoring Profiles</strong> with custom weights for different customer segments (e.g. Enterprise vs SMB).<br>' +
-    '<strong>Account:</strong> Manage your CSM list, view data health metrics, export/restore backups, and change your password.<br>' +
-    '<strong>Tip:</strong> Connect your CRM or billing tool in the <strong>Integrations</strong> tab to auto-sync customer data. Use Scoring Profiles to apply different weight sets per customer or segment - assign them in the Score form.');
+function _renderSettingsGuide(tab) {
+  var content = '';
+  if (tab === 'account') {
+    content =
+      '<strong>Account Settings</strong> - Manage your team and data from here.<br>' +
+      '<strong>CSM List:</strong> Add, edit, or remove Customer Success Managers. CSMs assigned here appear in the manager filter and CSM Performance page.<br>' +
+      '<strong>Data Health:</strong> See how complete your customer data is - missing fields, stale accounts, and signal coverage gaps.<br>' +
+      '<strong>Backup & Restore:</strong> Export your full dataset as a JSON backup or restore from a previous export.<br>' +
+      '<strong>Password:</strong> Change your account password.';
+  } else if (tab === 'api') {
+    content =
+      '<strong>Integrations</strong> - Connect external tools to auto-sync customer data.<br>' +
+      '<strong>Native Integrations:</strong> Connect Salesforce, HubSpot, or Stripe to pull customer data, contacts, and revenue automatically.<br>' +
+      '<strong>API & Webhooks:</strong> Use the REST API to push data from any system. Generate API keys, view endpoints, and configure inbound webhooks for real-time updates.<br>' +
+      '<strong>Tip:</strong> Connected integrations sync on a schedule. Use the API for custom or real-time data flows.';
+  } else {
+    content =
+      '<strong>Scoring Configuration</strong> - Control how iQcadence calculates health scores.<br>' +
+      '<strong>iQcadence Signal Model:</strong> Enable the built-in signal model to automatically adjust scores based on signal trends, velocity, and cross-signal patterns. Choose Conservative, Balanced, or Aggressive sensitivity.<br>' +
+      '<strong>Signal Weights:</strong> Set how much each metric (logins, adoption, NPS, CSAT, tickets, contact days, growth) impacts the health score. Weights must total 100%.<br>' +
+      '<strong>Status Thresholds:</strong> Define the score boundaries for Critical, At Risk, Watch, Healthy, and Expand status bands.<br>' +
+      '<strong>Scoring Profiles:</strong> Create custom weight sets for different segments (e.g. Enterprise vs SMB) - assign them per customer in the Score form.<br>' +
+      '<strong>Tip:</strong> The Signal Model works on top of your weights - it detects patterns like declining engagement or improving sentiment and nudges scores accordingly.';
+  }
+  _renderGuide('settings-guide', 'iqc_settings_guide_dismissed', content);
 }
 
 function goToScoringConfig() {
@@ -72,9 +92,8 @@ function goToScoringConfig() {
 }
 
 function renderSettings() {
-  // Always reset to Config tab on navigation
+  // Always reset to Config tab on navigation (also renders the tab-specific guide)
   cfgTab('config');
-  _renderSettingsGuide();
 
   // Thresholds (available to all tiers)
   el('th-critical').value = thresholds.critical;
