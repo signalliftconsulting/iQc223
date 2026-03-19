@@ -448,19 +448,19 @@ function _renderForecast() {
   kpiRow.innerHTML = `
     <div class="dash-kpi-card ${nrrBg}">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${nrrIcon}</div><span class="dash-kpi-label">Projected NRR</span></div>
-      <div class="dash-kpi-body"><div class="dash-kpi-num">${Math.round(nrr)}%</div><div class="dash-kpi-sub">Net Revenue Retention (90-day)</div></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:${nrrColor}">${Math.round(nrr)}%</div><div class="dash-kpi-sub">Net Revenue Retention (90-day)</div></div>
     </div>
     <div class="dash-kpi-card dash-kpi-green">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${upIcon}</div><span class="dash-kpi-label">Expansion Pipeline</span></div>
-      <div class="dash-kpi-body"><div class="dash-kpi-num">$${fmtNum(expandTotal)}</div><div class="dash-kpi-sub">${expandCount} account${expandCount !== 1 ? 's' : ''} with growth signals</div></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:#16a34a">$${fmtNum(expandTotal)}</div><div class="dash-kpi-sub">${expandCount} account${expandCount !== 1 ? 's' : ''} with growth signals</div></div>
     </div>
     <div class="dash-kpi-card dash-kpi-amber">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${downIcon}</div><span class="dash-kpi-label">Contraction Risk</span></div>
-      <div class="dash-kpi-body"><div class="dash-kpi-num">$${fmtNum(contractTotal)}</div><div class="dash-kpi-sub">${contractCount} account${contractCount !== 1 ? 's' : ''} with declining scores</div></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:#b45309">$${fmtNum(contractTotal)}</div><div class="dash-kpi-sub">${contractCount} account${contractCount !== 1 ? 's' : ''} with declining scores</div></div>
     </div>
     <div class="dash-kpi-card dash-kpi-red">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${warnIcon}</div><span class="dash-kpi-label">Churn Risk</span></div>
-      <div class="dash-kpi-body"><div class="dash-kpi-num">$${fmtNum(Math.round(churnTotal))}</div><div class="dash-kpi-sub">Probability-weighted from ${churnCount} account${churnCount !== 1 ? 's' : ''}</div></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:#dc2626">$${fmtNum(Math.round(churnTotal))}</div><div class="dash-kpi-sub">Probability-weighted from ${churnCount} account${churnCount !== 1 ? 's' : ''}</div></div>
     </div>
   `;
 
