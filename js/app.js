@@ -23001,44 +23001,50 @@ function _renderForecast() {
   var wfWrap = el('fc-waterfall-wrap');
   if (wfWrap) wfWrap.innerHTML = _fcBuildWaterfall(startMRR, expandTotal, contractTotal, churnTotal, projectedMRR);
 
-  // ── MRR at Risk by Tier chart ──
-  var tierRiskWrap = el('fc-tier-risk-wrap');
-  if (tierRiskWrap) {
-    var tierData = {};
-    var tierColors = { enterprise: '#6366f1', mid: '#3b82f6', smb: '#f59e0b' };
-    var tierLabels = { enterprise: 'Enterprise', mid: 'Mid-Market', smb: 'SMB' };
-    classified.forEach(function(c) {
-      var t = c.tier || 'mid';
-      if (!tierData[t]) tierData[t] = { retained: 0, atRisk: 0, churn: 0 };
-      var mrr = c.mrr || 0;
-      if (c._fc_class === 'churn') tierData[t].churn += mrr;
-      else if (c._fc_class === 'contraction') tierData[t].atRisk += mrr;
-      else tierData[t].retained += mrr;
-    });
-    var tiers = ['enterprise', 'mid', 'smb'].filter(function(t) { return tierData[t]; });
-    var maxTierMRR = Math.max.apply(null, tiers.map(function(t) { return tierData[t].retained + tierData[t].atRisk + tierData[t].churn; })) || 1;
+  // ── Revenue Concentration chart ──
+  var concWrap = el('fc-concentration-wrap');
+  if (concWrap) {
+    var sorted = classified.slice().sort(function(a, b) { return (b.mrr || 0) - (a.mrr || 0); });
+    var totalMRR = sorted.reduce(function(s, c) { return s + (c.mrr || 0); }, 0) || 1;
+    var top10 = sorted.slice(0, 10);
+    var maxBar = top10.length ? (top10[0].mrr || 0) : 1;
+    var statusColors = { critical: '#dc2626', risk: '#f59e0b', watch: '#eab308', healthy: '#10b981', expand: '#6366f1' };
 
-    tierRiskWrap.innerHTML = '<div style="display:flex;flex-direction:column;gap:12px;padding:8px 0">' +
-      tiers.map(function(t) {
-        var d = tierData[t];
-        var total = d.retained + d.atRisk + d.churn;
-        var retPct = (d.retained / maxTierMRR * 100).toFixed(1);
-        var riskPct = (d.atRisk / maxTierMRR * 100).toFixed(1);
-        var churnPct = (d.churn / maxTierMRR * 100).toFixed(1);
-        return '<div>' +
-          '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:var(--fs-sm);font-weight:600;color:var(--text)">' + tierLabels[t] + '</span><span style="font-size:var(--fs-sm);color:var(--muted)">$' + fmtNum(Math.round(total)) + '</span></div>' +
-          '<div style="display:flex;height:24px;border-radius:6px;overflow:hidden;background:var(--bg)">' +
-            '<div style="width:' + retPct + '%;background:#10b981" title="Retained: $' + fmtNum(Math.round(d.retained)) + '"></div>' +
-            '<div style="width:' + riskPct + '%;background:#f59e0b" title="At Risk: $' + fmtNum(Math.round(d.atRisk)) + '"></div>' +
-            '<div style="width:' + churnPct + '%;background:#dc2626" title="Churn: $' + fmtNum(Math.round(d.churn)) + '"></div>' +
-          '</div>' +
-        '</div>';
-      }).join('') +
-      '<div style="display:flex;gap:16px;justify-content:center;margin-top:4px">' +
-        '<span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)"><span style="width:10px;height:10px;border-radius:2px;background:#10b981;display:inline-block"></span>Retained</span>' +
-        '<span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)"><span style="width:10px;height:10px;border-radius:2px;background:#f59e0b;display:inline-block"></span>At Risk</span>' +
-        '<span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)"><span style="width:10px;height:10px;border-radius:2px;background:#dc2626;display:inline-block"></span>Churn</span>' +
-      '</div></div>';
+    // Concentration metrics
+    var top3MRR = sorted.slice(0, 3).reduce(function(s, c) { return s + (c.mrr || 0); }, 0);
+    var top3Pct = (top3MRR / totalMRR * 100).toFixed(0);
+    var top10MRR = top10.reduce(function(s, c) { return s + (c.mrr || 0); }, 0);
+    var top10Pct = (top10MRR / totalMRR * 100).toFixed(0);
+    var concentrationRisk = top3Pct > 50 ? 'high' : top3Pct > 35 ? 'moderate' : 'low';
+    var concColor = concentrationRisk === 'high' ? '#dc2626' : concentrationRisk === 'moderate' ? '#f59e0b' : '#10b981';
+    var concLabel = concentrationRisk === 'high' ? 'High concentration risk' : concentrationRisk === 'moderate' ? 'Moderate concentration' : 'Well diversified';
+
+    // Warning banner
+    var bannerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;background:color-mix(in srgb, ' + concColor + ' 8%, transparent);border:1px solid color-mix(in srgb, ' + concColor + ' 20%, transparent);margin-bottom:10px">' +
+      '<div style="width:8px;height:8px;border-radius:50%;background:' + concColor + ';flex-shrink:0"></div>' +
+      '<span style="font-size:var(--fs-sm);color:var(--text)">' + concLabel + ' - Top 3 accounts = <strong>' + top3Pct + '%</strong> of MRR, Top 10 = <strong>' + top10Pct + '%</strong></span>' +
+    '</div>';
+
+    // Bars
+    var barsHTML = top10.map(function(c, i) {
+      var mrr = c.mrr || 0;
+      var pct = (mrr / totalMRR * 100).toFixed(1);
+      var barW = (mrr / maxBar * 100).toFixed(1);
+      var sColor = statusColors[c.status] || '#94a3b8';
+      var name = (c.name || 'Unknown').length > 18 ? (c.name || 'Unknown').slice(0, 17) + '...' : (c.name || 'Unknown');
+      return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:' + (i < 9 ? '4' : '0') + 'px">' +
+        '<div style="width:110px;display:flex;align-items:center;gap:5px;flex-shrink:0;overflow:hidden">' +
+          '<div style="width:7px;height:7px;border-radius:50%;background:' + sColor + ';flex-shrink:0" title="' + (c.status || '') + '"></div>' +
+          '<span style="font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + (c.name || '') + '">' + name + '</span>' +
+        '</div>' +
+        '<div style="flex:1;background:var(--bg);border-radius:3px;height:18px;overflow:hidden">' +
+          '<div style="width:' + barW + '%;height:100%;border-radius:3px;background:' + (i < 3 ? 'linear-gradient(90deg,' + sColor + ',' + sColor + 'cc)' : sColor + '66') + ';min-width:2px"></div>' +
+        '</div>' +
+        '<div style="width:68px;text-align:right;flex-shrink:0"><span style="font-size:12px;font-weight:600;color:var(--text)">$' + fmtNum(Math.round(mrr)) + '</span> <span style="font-size:10px;color:var(--muted)">' + pct + '%</span></div>' +
+      '</div>';
+    }).join('');
+
+    concWrap.innerHTML = bannerHTML + barsHTML;
   }
 
   // ── Analysis ──
