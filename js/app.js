@@ -28526,7 +28526,8 @@ async function adminCreateUser() {
       refresh_token: adminSession.session.refresh_token,
     } : null;
 
-    // Suppress auth listener so it doesn't switch to the new user
+    // Suppress auth listener so it doesn't switch to the new user.
+    // Keep flag on for 3 seconds to catch all async auth events.
     window._adminCreatingUser = true;
 
     const { data: signUpData, error: signUpErr } = await sb.auth.signUp({
@@ -28539,7 +28540,8 @@ async function adminCreateUser() {
     if (adminTokens) {
       await sb.auth.setSession(adminTokens);
     }
-    window._adminCreatingUser = false;
+    // Delay clearing the flag - setSession triggers async SIGNED_IN events
+    setTimeout(function() { window._adminCreatingUser = false; }, 3000);
 
     // If identities is empty, this email already exists in Supabase
     if (signUpData?.user?.identities?.length === 0) {
@@ -28559,6 +28561,9 @@ async function adminCreateUser() {
     }, { onConflict: 'user_id' });
 
     if (profileErr) throw new Error('User created in Auth but profile save failed: ' + profileErr.message);
+
+    // Ensure currentUser is still the admin (auth events may have swapped it)
+    currentUser = adminSession.session.user;
 
     el('cu-ok').textContent  = `User "${email}" created! They can log in now with the password you set.`;
     el('cu-btn').textContent = 'Create User →';
