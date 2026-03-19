@@ -625,7 +625,7 @@ function _renderAlerts() {
     tblList = _applyATFilters(tblList, alertCountMap);
 
     const filterLabel = _alertTableFilter ? _alertTableFilter.label : 'All Alerted Customers';
-    html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+    html += `<div style="display:flex;align-items:center;gap:8px;padding:12px 16px 14px;flex-wrap:wrap">
       <span style="font-size:var(--fs-base);font-weight:700;color:var(--text)">${escHtml(filterLabel)}</span>
       <span style="font-size:var(--fs-sm);color:var(--muted)">${tblList.length} customer${tblList.length!==1?'s':''}</span>
       ${_alertTableFilter ? `<button class="btn btn-xs btn-ghost" onclick="_alertTableFilter=null;renderAlerts()">✕ Clear filter</button>` : ''}
