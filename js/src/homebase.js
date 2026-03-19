@@ -127,33 +127,33 @@ function _seedDemoAutomations() {
   // Seed sample alert rules and custom rules so the Automations page isn't empty
   if (!automationsCfg) automationsCfg = {};
 
-  // Alert rules (pre-built alerts)
+  // Alert rules (pre-built alerts) - use correct ALERT_TYPES keys
   automationsCfg.alert_rules = [
     {
-      id: 'demo-ar-1', name: 'Critical Account Alert', enabled: true,
-      alert_types: ['score_drop', 'status_change'],
-      settings: { score_drop: { points: 10 }, status_change: { from: 'watch', to: 'critical' } },
-      channels: { slack: false, teams: false, email: false },
+      id: 'demo-ar-1', name: 'Critical Score Drop', enabled: true,
+      alert_types: ['health_below_threshold', 'rapid_score_drop'],
+      settings: { health_below_threshold: { threshold: 40 }, rapid_score_drop: { points: 15 } },
+      channels: { slack: false, teams: false, email: true },
       schedule: { mode: 'realtime' },
       manager_scope: { mode: 'all', managers: [] },
       created_at: new Date(Date.now() - 30 * 86400000).toISOString()
     },
     {
       id: 'demo-ar-2', name: 'Renewal Risk Watch', enabled: true,
-      alert_types: ['renewal_risk'],
-      settings: { renewal_risk: { days: 60, maxScore: 50 } },
-      channels: { slack: false, teams: false, email: false },
-      schedule: { mode: 'realtime' },
+      alert_types: ['renewal_approaching', 'account_at_risk'],
+      settings: { renewal_approaching: { days: 60 } },
+      channels: { slack: true, teams: false, email: false },
+      schedule: { mode: 'daily', daily_time: '9:00 AM' },
       manager_scope: { mode: 'all', managers: [] },
       created_at: new Date(Date.now() - 14 * 86400000).toISOString()
     },
     {
-      id: 'demo-ar-3', name: 'Expansion Opportunity', enabled: true,
-      alert_types: ['expansion'],
-      settings: {},
-      channels: { slack: false, teams: false, email: false },
-      schedule: { mode: 'realtime' },
-      manager_scope: { mode: 'all', managers: [] },
+      id: 'demo-ar-3', name: 'Silent Account Monitor', enabled: true,
+      alert_types: ['no_contact', 'nps_detractor'],
+      settings: { no_contact: { max_days: 21 } },
+      channels: { slack: false, teams: true, email: false },
+      schedule: { mode: 'weekly', weekly_day: 'monday', weekly_time: '9:00 AM' },
+      manager_scope: { mode: 'selected', managers: ['Sarah Mitchell', 'David Kim'] },
       created_at: new Date(Date.now() - 7 * 86400000).toISOString()
     }
   ];
@@ -167,17 +167,23 @@ function _seedDemoAutomations() {
         { field: 'tier', op: 'eq', value: 'enterprise' },
         { field: 'days', op: 'gt', value: 21 }
       ]}],
-      channels: { slack: false, teams: false, email: false },
+      channels: { slack: false, teams: false, email: true },
       created_at: new Date(Date.now() - 20 * 86400000).toISOString()
     },
     {
-      id: 'demo-cr-2', name: 'Low adoption with upcoming renewal',
+      id: 'demo-cr-2', name: 'At-risk accounts needing attention',
       enabled: true,
-      groups: [{ conditions: [
-        { field: 'adoption', op: 'lt', value: 25 },
-        { field: 'renewal', op: 'lte', value: 3 }
-      ]}],
-      channels: { slack: false, teams: false, email: false },
+      groups: [
+        { conditions: [
+          { field: 'adoption', op: 'lt', value: 25 },
+          { field: 'renewal', op: 'lte', value: 3 }
+        ]},
+        { conditions: [
+          { field: 'score', op: 'lt', value: 30 },
+          { field: 'lifecycle', op: 'eq', value: 'atrisk' }
+        ]}
+      ],
+      channels: { slack: true, teams: false, email: false },
       created_at: new Date(Date.now() - 10 * 86400000).toISOString()
     },
     {
@@ -187,7 +193,7 @@ function _seedDemoAutomations() {
         { field: 'mrr', op: 'gte', value: 5000 },
         { field: 'score', op: 'lt', value: 40 }
       ]}],
-      channels: { slack: false, teams: false, email: false },
+      channels: { slack: false, teams: true, email: false },
       created_at: new Date(Date.now() - 5 * 86400000).toISOString()
     }
   ];
