@@ -1346,7 +1346,7 @@ function _taMetricCorrelation(data1, data2, m1, m2, rangeDays) {
 
   let title, detail, accent;
 
-  if (Math.abs(r) < 0.3 && bestLagR < 0.4) {
+  if (Math.abs(r) < 0.4 && bestLagR < 0.5) {
     // No meaningful correlation at any lag
     if (corrShifted) {
       // Correlation changed over time
@@ -1362,7 +1362,7 @@ function _taMetricCorrelation(data1, data2, m1, m2, rangeDays) {
       detail += `These metrics are driven by different factors in your portfolio. Changes in one won't reliably predict changes in the other.`;
       accent = 'amber';
     }
-  } else if (bestLag > 0 && bestLagR > Math.abs(r) + 0.1) {
+  } else if (bestLag > 0 && bestLagR > 0.5 && bestLagR > Math.abs(r) + 0.1) {
     // Lagged correlation is stronger than direct
     const lagDays = Math.round(bestLag * rangeDays / aligned1.length);
     const lagRPct = Math.round(bestLagR * 100);
@@ -1370,7 +1370,7 @@ function _taMetricCorrelation(data1, data2, m1, m2, rangeDays) {
     detail = `Direct correlation is <strong>${rPct}%</strong>, but when ${l2} is shifted ${lagDays} days forward, correlation jumps to <strong>${lagRPct}%</strong>. `;
     detail += `This means changes in ${l1} show up in ${l2} about ${lagDays} days later. ${l1} (${f1(rawD1)}) is a leading indicator for ${l2} (${f2(rawD2)}) in your portfolio.`;
     accent = r > 0 ? 'green' : 'amber';
-  } else if (r > 0.5) {
+  } else if (r > 0.7) {
     // Strong positive correlation
     title = l1 + ' and ' + l2 + ' are strongly correlated (' + rPct + '%)';
     detail = `Over ${rl}, ${l1} (${f1(rawD1)}) and ${l2} (${f2(rawD2)}) moved together with <strong>${rPct}% correlation</strong>. `;
@@ -1386,20 +1386,15 @@ function _taMetricCorrelation(data1, data2, m1, m2, rangeDays) {
       detail += `They track closely - improvements in one tend to come with improvements in the other.`;
       accent = 'green';
     }
-  } else if (r < -0.5) {
+  } else if (r < -0.7) {
     // Strong inverse correlation
     title = l1 + ' and ' + l2 + ' move in opposite directions (' + rPct + '% inverse)';
     detail = `Over ${rl}, ${l1} (${f1(rawD1)}) and ${l2} (${f2(rawD2)}) have a <strong>${rPct}% inverse correlation</strong>. `;
     detail += `When ${l1} goes up, ${l2} tends to go down. This trade-off may indicate a resource constraint or competing priorities in your accounts.`;
     accent = 'amber';
   } else {
-    // Moderate correlation
-    title = l1 + ' and ' + l2 + ' have a moderate ' + (r > 0 ? '' : 'inverse ') + 'relationship (' + rPct + '%)';
-    detail = `Over ${rl}, ${l1} (${f1(rawD1)}) and ${l2} (${f2(rawD2)}) show <strong>${rPct}% ${r > 0 ? '' : 'inverse '}correlation</strong>. `;
-    detail += r > 0
-      ? `They tend to move together but not perfectly - other factors are also at play.`
-      : `They tend to move in opposite directions, but the relationship isn't strong enough to be a reliable predictor.`;
-    accent = 'amber';
+    // Moderate or weak correlation - not interesting enough to show
+    return null;
   }
   return { priority: 1, icon: _taSvg.corr, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail, cat: 'dualmetric' };
 }
@@ -2292,7 +2287,7 @@ function _taMrrConcentration(active) {
     detail += `Avg score of ${top3Avg}. Concentration is moderate and these accounts are in good shape.`;
     accent = 'green';
   }
-  return { priority: 3, icon: _taSvg.dollar, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail, cat: 'mrrconc' };
+  return { priority: 7, icon: _taSvg.dollar, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail, cat: 'mrrconc' };
 }
 
 /* ── Renewal Pipeline Risk ── */
@@ -2328,7 +2323,7 @@ function _taRenewalRisk(active, rangeDays) {
   } else {
     return null;
   }
-  return { priority: 2, icon: _taSvg.clock, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail, cat: 'renewal' };
+  return { priority: 6, icon: _taSvg.clock, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail, cat: 'renewal' };
 }
 
 /* ── Silent Risk: accounts going quiet across multiple signals ── */
@@ -2656,32 +2651,51 @@ function _buildTrendAnalysis(active, data1, data2, cutoff, rangeDays, m1, m2, pr
 
   // === GENERAL insights: large library, pick best & most diverse ===
   const isScoreMetric = !m1 || m1 === 'score';
-  const allGeneral = [
-    // Statistical
-    _taDistribution(allForAnalysis, rangeDays, m1),
-    // Trends & acceleration
+  const isRevenueMetric = m1 === 'mrr' || m1 === 'arr';
+
+  // TIER 1: Metric-specific dynamic insights (change with metric & timeframe)
+  const tier1 = [
     _taAcceleration(data1, m1, rangeDays),
     _taWoWChange(data1, m1, rangeDays),
     _taInflection(data1, m1, rangeDays, allForAnalysis),
     _taSeasonalPattern(data1, m1, rangeDays, priorData),
-    // Correlations
+    _taDistribution(allForAnalysis, rangeDays, m1),
+  ].filter(Boolean);
+  tier1.forEach(ins => { ins.priority = Math.min(ins.priority, 2); }); // boost to top
+
+  // TIER 2: Cross-signal & correlation insights
+  const tier2 = [
     _taSignalCorrelation(allForAnalysis, cutoff, rangeDays, m1),
     _taCrossSignal(allForAnalysis, cutoff, m1),
-    // Score-specific deep dives
-    isScoreMetric ? _taScoreDrivers(allForAnalysis, data1, m1, cutoff, rangeDays) : null,
-    isScoreMetric ? _taLeadingIndicator(allForAnalysis, cutoff, rangeDays) : null,
-    isScoreMetric ? _taChurnPatternMatch(allForAnalysis, rangeDays) : null,
-    isScoreMetric ? _taSilentRisk(allForAnalysis, rangeDays) : null,
-    isScoreMetric ? _taContactGapImpact(allForAnalysis, cutoff, rangeDays) : null,
-    // Cohorts & segments
+  ].filter(Boolean);
+  tier2.forEach(ins => { ins.priority = Math.min(ins.priority, 3); });
+
+  // TIER 3: Score-specific deep dives (only when viewing health score)
+  const tier3 = isScoreMetric ? [
+    _taScoreDrivers(allForAnalysis, data1, m1, cutoff, rangeDays),
+    _taLeadingIndicator(allForAnalysis, cutoff, rangeDays),
+    _taChurnPatternMatch(allForAnalysis, rangeDays),
+    _taSilentRisk(allForAnalysis, rangeDays),
+    _taContactGapImpact(allForAnalysis, cutoff, rangeDays),
+  ].filter(Boolean) : [];
+  tier3.forEach(ins => { ins.priority = Math.min(ins.priority, 3); });
+
+  // TIER 4: Cohort analysis
+  const tier4 = [
     _taSpendCohort(allForAnalysis, rangeDays, m1),
     _taTenureCohort(allForAnalysis, rangeDays, m1),
-    // Revenue & risk
+  ].filter(Boolean);
+  tier4.forEach(ins => { ins.priority = 4; });
+
+  // TIER 5: Static revenue/risk (only when viewing score or revenue metrics)
+  const tier5 = (isScoreMetric || isRevenueMetric) ? [
     _taMrrConcentration(allForAnalysis),
     _taRenewalRisk(allForAnalysis, rangeDays),
-    // Churn
-    _taChurnImpact(cutoff, rangeDays)
-  ].filter(Boolean);
+    _taChurnImpact(cutoff, rangeDays),
+  ].filter(Boolean) : [];
+  tier5.forEach(ins => { ins.priority = 6; }); // always last resort
+
+  const allGeneral = [...tier1, ...tier2, ...tier3, ...tier4, ...tier5];
 
   // Remove duplicates if CSM/correlation already in contextual
   if (hasCsmOverlay) {
