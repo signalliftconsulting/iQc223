@@ -129,9 +129,11 @@ function _renderSettingsGuide(tab) {
 
 function goToScoringConfig() {
   nav('settings');
+  var _firstVisit = !localStorage.getItem('iqc_score_settings_toured');
+  localStorage.setItem('iqc_score_settings_toured', '1');
   setTimeout(function() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    if (typeof _wtStartPageTour === 'function') _wtStartPageTour('settings');
+    if (_firstVisit && typeof _wtStartPageTour === 'function') _wtStartPageTour('settings');
   }, 200);
 }
 
