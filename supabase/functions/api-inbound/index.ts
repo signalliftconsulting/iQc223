@@ -238,6 +238,61 @@ serve(async (req) => {
       .single();
     const clientId = userProfile?.client_id || null;
 
+    // ── Rate limiting ──
+    const RATE_LIMITS: Record<string, { seconds: number; max: number }> = {
+      minute: { seconds: 60, max: 60 },
+      hour:   { seconds: 3600, max: 1000 },
+    };
+
+    for (const [windowType, cfg] of Object.entries(RATE_LIMITS)) {
+      const { data: rl, error: rlErr } = await serviceClient.rpc('check_rate_limit', {
+        p_user_id: userId,
+        p_window_type: windowType,
+        p_window_seconds: cfg.seconds,
+        p_max_requests: cfg.max,
+      });
+
+      if (rlErr) {
+        console.error('Rate limit check failed:', rlErr.message);
+        continue; // Fail open: allow the request if rate-limit check errors
+      }
+
+      const check = Array.isArray(rl) ? rl[0] : rl;
+      if (check && !check.allowed) {
+        // Log the rate-limited attempt
+        try {
+          await serviceClient.from('webhook_events').insert({
+            user_id:    userId,
+            direction:  'inbound',
+            event_type: 'rate_limited',
+            payload:    JSON.stringify({ window: windowType, count: check.current_count, limit: cfg.max }),
+            status:     'failed',
+            error_msg:  `Rate limit exceeded: ${check.current_count}/${cfg.max} per ${windowType}`,
+          });
+        } catch { /* best-effort logging */ }
+
+        return new Response(
+          JSON.stringify({
+            error: `Rate limit exceeded. You have made ${check.current_count} requests in the current ${windowType}. Limit: ${cfg.max} per ${windowType}.`,
+            limit: cfg.max,
+            window: windowType,
+            retry_after: check.retry_after,
+          }),
+          {
+            status: 429,
+            headers: {
+              ...getCorsHeaders(req),
+              'Content-Type': 'application/json',
+              'Retry-After': String(check.retry_after),
+              'X-RateLimit-Limit': String(cfg.max),
+              'X-RateLimit-Remaining': '0',
+              'X-RateLimit-Reset': String(Math.floor(Date.now() / 1000) + check.retry_after),
+            },
+          }
+        );
+      }
+    }
+
     // ── Parse request: GET uses query params, POST uses JSON body ──
     let action: string;
     let data: Record<string, any>;
