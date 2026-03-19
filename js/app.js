@@ -2747,15 +2747,15 @@ const _DEMO_TRAJECTORIES = {
     trend: (d,t) => 0.66 + 0.08 * Math.sin(d/t * Math.PI * 6) + 0.04 * Math.cos(d/t * Math.PI * 11)
   },
   'stable-mid': {
-    logins:[4,20], adoption:[28,72], tickets:[0,3], days:[8,40],
-    npsOpts:[5,6,7,7,8], csatOpts:[3,3,3,4,4],
+    logins:[6,22], adoption:[35,75], tickets:[0,2], days:[5,28],
+    npsOpts:[6,6,7,7,8], csatOpts:[3,3,4,4,4],
     growthOpts:['none','mild','mild'],
-    lifecycle:'active', noise:0.10,
-    // Watch zone 42-62 - enough wobble to sometimes trigger alerts, sometimes look ok
-    trend: (d,t) => 0.48 + 0.14 * Math.sin(d/t * Math.PI * 5) + 0.06 * Math.cos(d/t * Math.PI * 13)
+    lifecycle:'active', noise:0.09,
+    // Mid zone 52-68 - occasionally dips into watch but mostly fine
+    trend: (d,t) => 0.56 + 0.12 * Math.sin(d/t * Math.PI * 5) + 0.05 * Math.cos(d/t * Math.PI * 13)
   },
   'stable-low': {
-    logins:[1,12], adoption:[10,45], tickets:[1,5], days:[20,70],
+    logins:[1,12], adoption:[10,45], tickets:[1,5], days:[15,50],
     npsOpts:[3,4,4,5,5,6], csatOpts:[1,2,2,3,3],
     growthOpts:['none','none','mild'],
     lifecycle:'atrisk', noise:0.10,
@@ -2800,7 +2800,7 @@ const _DEMO_TRAJECTORIES = {
     }
   },
   'slow-decline': {
-    logins:[3,22], adoption:[15,68], tickets:[0,3], days:[8,55],
+    logins:[3,22], adoption:[15,68], tickets:[0,3], days:[6,40],
     npsOpts:[7,7,6,6,5,5,4], csatOpts:[4,4,3,3,3,2,2],
     growthOpts:['mild','none','none'],
     lifecycle:'active', noise:0.07,
@@ -2808,14 +2808,14 @@ const _DEMO_TRAJECTORIES = {
     trend: (d,t) => 0.80 - 0.38 * (d/t) + 0.06 * Math.sin(d/t * Math.PI * 7)
   },
   'volatile': {
-    logins:[2,30], adoption:[15,95], tickets:[0,3], days:[2,55],
-    npsOpts:[4,6,7,9,10,7,4], csatOpts:[2,3,4,5,4,3,2],
+    logins:[4,30], adoption:[25,95], tickets:[0,3], days:[2,35],
+    npsOpts:[5,6,7,9,10,7,5], csatOpts:[3,3,4,5,4,3,3],
     growthOpts:['none','mild','strong','none','mild'],
-    lifecycle:'active', noise:0.14,
-    // Wild swings - 3 full cycles between ~30 and ~85
+    lifecycle:'active', noise:0.13,
+    // Swings between ~40 and ~85, centered higher so fewer alert triggers
     trend: (d,t) => {
       const p = d/t;
-      return 0.52 + 0.32 * Math.sin(p * Math.PI * 6) * (0.7 + 0.3 * Math.cos(p * Math.PI * 2.3));
+      return 0.58 + 0.26 * Math.sin(p * Math.PI * 6) * (0.7 + 0.3 * Math.cos(p * Math.PI * 2.3));
     }
   },
   'onboarding-fast': {
@@ -2891,17 +2891,17 @@ const _DEMO_TRAJECTORIES = {
     }
   },
   'partial-recovery': {
-    logins:[3,22], adoption:[12,72], tickets:[0,3], days:[5,50],
-    npsOpts:[7,5,4,4,5,6,6], csatOpts:[4,3,2,2,3,3,3],
+    logins:[5,22], adoption:[18,72], tickets:[0,2], days:[4,35],
+    npsOpts:[7,5,4,5,6,6,7], csatOpts:[4,3,2,3,3,3,4],
     growthOpts:['mild','none','none','mild'],
     lifecycle:'active', noise:0.09,
-    // Dropped from 78 to 30, recovered to 58 but stalled - not fully back
+    // Dropped from 78 to 35, recovered to 64 but stalled - not fully back
     trend: (d,t) => {
       const p = d/t;
-      if (p < 0.25) return 0.78 - 0.46 * p / 0.25;                         // drop
-      if (p < 0.40) return 0.32 + 0.02 * Math.sin((p - 0.25) / 0.15 * Math.PI * 2); // trough
-      if (p < 0.70) return 0.32 + 0.26 * (p - 0.40) / 0.30;               // partial recovery
-      return 0.58 + 0.04 * Math.sin((p - 0.70) * Math.PI * 8);             // stalled
+      if (p < 0.25) return 0.78 - 0.42 * p / 0.25;                         // drop
+      if (p < 0.40) return 0.36 + 0.02 * Math.sin((p - 0.25) / 0.15 * Math.PI * 2); // trough
+      if (p < 0.70) return 0.36 + 0.28 * (p - 0.40) / 0.30;               // partial recovery
+      return 0.64 + 0.04 * Math.sin((p - 0.70) * Math.PI * 8);             // stalled
     }
   },
   'seasonal': {
@@ -2916,7 +2916,7 @@ const _DEMO_TRAJECTORIES = {
     }
   },
   'seasonal-declining': {
-    logins:[4,26], adoption:[20,80], tickets:[0,3], days:[3,40],
+    logins:[4,26], adoption:[20,80], tickets:[0,3], days:[3,30],
     npsOpts:[8,7,7,6,6,5,5], csatOpts:[4,4,3,3,3,2],
     growthOpts:['mild','none','none'],
     lifecycle:'active', noise:0.09,
@@ -2935,58 +2935,57 @@ const _DEMO_TRAJECTORIES = {
 // SMB: most volatile, highest churn, more onboarding issues
 const _DEMO_TRAJ_BY_TIER = {
   enterprise: [
-    ['stable-healthy',      0.30],
-    ['good-not-great',      0.18],
+    ['stable-healthy',      0.35],  // most are solid performers
+    ['good-not-great',      0.22],
     ['seasonal',            0.08],
     ['improving',           0.10],
     ['recovered',           0.06],
-    ['stable-mid',          0.06],
-    ['slow-improve',        0.04],
-    ['onboarding-fast',     0.04],
+    ['slow-improve',        0.05],
+    ['stable-mid',          0.04],
+    ['onboarding-fast',     0.03],
     ['volatile',            0.02],
-    ['declining',           0.03],
-    ['slow-decline',        0.03],
-    ['partial-recovery',    0.02],
-    ['churned-late',        0.02],
-    ['seasonal-declining',  0.02],
+    ['slow-decline',        0.02],
+    ['partial-recovery',    0.01],
+    ['churned-late',        0.01],
+    ['seasonal-declining',  0.01],
   ],
   mid: [
-    ['stable-healthy',      0.16],
-    ['good-not-great',      0.14],
+    ['stable-healthy',      0.20],
+    ['good-not-great',      0.16],
     ['seasonal',            0.06],
-    ['improving',           0.08],
-    ['slow-improve',        0.05],
+    ['improving',           0.10],
+    ['slow-improve',        0.06],
     ['recovered',           0.06],
-    ['stable-mid',          0.10],
-    ['partial-recovery',    0.05],
+    ['stable-mid',          0.08],
     ['onboarding-fast',     0.05],
+    ['partial-recovery',    0.04],
     ['volatile',            0.04],
-    ['declining',           0.05],
-    ['slow-decline',        0.04],
-    ['onboarding-slow',     0.03],
+    ['declining',           0.04],
+    ['slow-decline',        0.03],
+    ['onboarding-slow',     0.02],
     ['stable-low',          0.02],
-    ['churned-early',       0.03],
-    ['churned-late',        0.02],
-    ['seasonal-declining',  0.02],
+    ['churned-early',       0.02],
+    ['churned-late',        0.01],
+    ['seasonal-declining',  0.01],
   ],
   smb: [
-    ['stable-healthy',      0.10],
+    ['stable-healthy',      0.12],  // fewer healthy, more variety
     ['good-not-great',      0.10],
     ['seasonal',            0.04],
-    ['improving',           0.06],
+    ['improving',           0.07],
     ['slow-improve',        0.04],
     ['recovered',           0.04],
     ['stable-mid',          0.10],
     ['partial-recovery',    0.05],
     ['onboarding-fast',     0.06],
-    ['onboarding-slow',     0.05],
+    ['onboarding-slow',     0.06],
     ['volatile',            0.06],
-    ['declining',           0.05],
+    ['declining',           0.04],
     ['slow-decline',        0.05],
-    ['stable-low',          0.04],
+    ['stable-low',          0.03],
     ['seasonal-declining',  0.04],
-    ['churned-early',       0.07],
-    ['churned-late',        0.05],
+    ['churned-early',       0.06],
+    ['churned-late',        0.04],
   ]
 };
 
