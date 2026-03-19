@@ -141,6 +141,9 @@ function _checkUserSwitch(userId) {
     // Ignore INITIAL_SESSION - already handled above via getSession()
     if (event === 'INITIAL_SESSION') return;
 
+    // Suppress auth events during admin user creation (signUp swaps session temporarily)
+    if (window._adminCreatingUser) return;
+
     // TOKEN_REFRESHED fires silently when returning to the tab - don't reload
     if (event === 'TOKEN_REFRESHED') {
       currentUser = session?.user || null;

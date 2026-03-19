@@ -28526,16 +28526,20 @@ async function adminCreateUser() {
       refresh_token: adminSession.session.refresh_token,
     } : null;
 
+    // Suppress auth listener so it doesn't switch to the new user
+    window._adminCreatingUser = true;
+
     const { data: signUpData, error: signUpErr } = await sb.auth.signUp({
       email, password: pw,
       options: { emailRedirectTo: window.location.href }
     });
-    if (signUpErr) throw signUpErr;
+    if (signUpErr) { window._adminCreatingUser = false; throw signUpErr; }
 
     // Restore admin session immediately so we don't stay signed in as the new user
     if (adminTokens) {
       await sb.auth.setSession(adminTokens);
     }
+    window._adminCreatingUser = false;
 
     // If identities is empty, this email already exists in Supabase
     if (signUpData?.user?.identities?.length === 0) {
@@ -28563,6 +28567,7 @@ async function adminCreateUser() {
     setTimeout(() => { closeModal('create-user-modal'); renderUsers(); }, 2000);
 
   } catch(e) {
+    window._adminCreatingUser = false;
     el('cu-err').textContent = e.message || 'Failed to create user.';
     el('cu-btn').textContent = 'Create User →';
     el('cu-btn').disabled    = false;
@@ -28842,6 +28847,9 @@ function _checkUserSwitch(userId) {
   sb.auth.onAuthStateChange(async (event, session) => {
     // Ignore INITIAL_SESSION - already handled above via getSession()
     if (event === 'INITIAL_SESSION') return;
+
+    // Suppress auth events during admin user creation (signUp swaps session temporarily)
+    if (window._adminCreatingUser) return;
 
     // TOKEN_REFRESHED fires silently when returning to the tab - don't reload
     if (event === 'TOKEN_REFRESHED') {
