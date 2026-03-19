@@ -63,6 +63,14 @@ function _renderSettingsGuide() {
     '<strong>Tip:</strong> Connect your CRM or billing tool in the <strong>Integrations</strong> tab to auto-sync customer data. Use Scoring Profiles to apply different weight sets per customer or segment - assign them in the Score form.');
 }
 
+function goToScoringConfig() {
+  nav('settings');
+  setTimeout(function() {
+    var sc = document.getElementById('settings-scoring');
+    if (sc) sc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 200);
+}
+
 function renderSettings() {
   // Always reset to Config tab on navigation
   cfgTab('config');

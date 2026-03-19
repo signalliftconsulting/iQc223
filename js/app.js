@@ -6014,8 +6014,13 @@ function _renderHomeBase() {
 
   // Left column: portfolio health ring + quick stats
   html += '<div class="hb-welcome-left">';
+  html += `<div style="display:flex;align-items:center;justify-content:space-between">`;
+  html += `<div>`;
   html += `<div class="hb-greeting">${greeting}${userName ? ', ' + escHtml(userName) : ''}</div>`;
   html += `<div class="hb-date">${dateStr}</div>`;
+  html += `</div>`;
+  html += `<button onclick="goToScoringConfig()" style="display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-xs);background:var(--bg);color:var(--text);border:1px solid var(--border);padding:5px 10px;border-radius:6px;cursor:pointer;font-weight:600;font-family:inherit;white-space:nowrap"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Scoring Config</button>`;
+  html += `</div>`;
   html += '<div style="display:flex;align-items:center;gap:32px;margin-top:16px">';
   html += `<div class="hb-pulse-ring">
     <svg viewBox="0 0 100 100" width="110" height="110">
@@ -12089,6 +12094,14 @@ function _renderSettingsGuide() {
     '<strong>Config:</strong> Set <strong>signal weights</strong> to control how each metric (logins, adoption, NPS, etc.) impacts the health score. Adjust <strong>status thresholds</strong> to define what counts as Critical, At Risk, Watch, and Healthy. Create <strong>Scoring Profiles</strong> with custom weights for different customer segments (e.g. Enterprise vs SMB).<br>' +
     '<strong>Account:</strong> Manage your CSM list, view data health metrics, export/restore backups, and change your password.<br>' +
     '<strong>Tip:</strong> Connect your CRM or billing tool in the <strong>Integrations</strong> tab to auto-sync customer data. Use Scoring Profiles to apply different weight sets per customer or segment - assign them in the Score form.');
+}
+
+function goToScoringConfig() {
+  nav('settings');
+  setTimeout(function() {
+    var sc = document.getElementById('settings-scoring');
+    if (sc) sc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 200);
 }
 
 function renderSettings() {
