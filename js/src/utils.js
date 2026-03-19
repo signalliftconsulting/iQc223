@@ -1,3 +1,64 @@
+// ─── GLOBAL ERROR MONITORING ────────────────────────────────
+// Catches uncaught exceptions and unhandled promise rejections,
+// logs to webhook_events (admin-only, not visible to regular users).
+(function() {
+  var _errSeen = {};  // dedup: msg → timestamp
+  var _errQueue = []; // batch queue
+  var _errTimer = null;
+
+  function _logClientError(msg, source, line, col, stack) {
+    var key = (msg || '') + ':' + (source || '') + ':' + (line || 0);
+    var now = Date.now();
+    if (_errSeen[key] && now - _errSeen[key] < 60000) return; // dedup: same error within 60s
+    _errSeen[key] = now;
+
+    _errQueue.push({
+      direction:  'client_error',
+      event_type: 'js_error',
+      status:     'error',
+      error_msg:  (msg || 'Unknown error').substring(0, 500),
+      payload:    JSON.stringify({
+        source: (source || '').split('/').pop(),
+        line: line || 0,
+        col: col || 0,
+        stack: (stack || '').substring(0, 1000),
+        page: window._currentPage || 'unknown',
+        ua: navigator.userAgent.substring(0, 150),
+        v: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '?'
+      })
+    });
+
+    // Batch: flush after 2s so rapid errors get sent together
+    if (!_errTimer) {
+      _errTimer = setTimeout(_flushErrors, 2000);
+    }
+  }
+
+  function _flushErrors() {
+    _errTimer = null;
+    if (!_errQueue.length) return;
+    var batch = _errQueue.splice(0, 10); // max 10 per flush
+    try {
+      if (typeof sb === 'undefined' || !sb || typeof currentUser === 'undefined' || !currentUser) return;
+      batch.forEach(function(evt) {
+        evt.user_id = currentUser.id;
+        sb.from('webhook_events').insert(evt).then(function() {}).catch(function() {});
+      });
+    } catch(e) { /* fail silently */ }
+  }
+
+  window.onerror = function(msg, source, line, col, err) {
+    _logClientError(msg, source, line, col, err ? err.stack : '');
+    return false; // don't suppress console output
+  };
+
+  window.addEventListener('unhandledrejection', function(e) {
+    var msg = e.reason ? (e.reason.message || String(e.reason)) : 'Unhandled promise rejection';
+    var stack = e.reason ? (e.reason.stack || '') : '';
+    _logClientError(msg, 'promise', 0, 0, stack);
+  });
+})();
+
 // ─── CORE HELPERS ───────────────────────────────────────────
 function el(id) { return document.getElementById(id); }
 function fmtNum(n) {

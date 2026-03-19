@@ -2850,6 +2850,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <div class="dtab-row" style="margin-bottom:16px">
     <button class="dtab active" id="audit-tab-activity" onclick="auditTab('activity')">Activity Log</button>
     <button class="dtab" id="audit-tab-config" onclick="auditTab('config')">Config History</button>
+    <button class="dtab" id="audit-tab-errors" onclick="auditTab('errors')" style="display:none">Error Log</button>
   </div>
   <!-- Activity Log pane -->
   <div class="dtab-pane active" id="audit-pane-activity">
@@ -2915,6 +2916,13 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
     <div class="card">
       <div class="card-hd"><h2>Config History <span class="info-tip" data-tip="Recent changes to thresholds, weights, and profiles — a mini audit trail for your scoring setup.">ⓘ</span></h2><button class="btn btn-ghost btn-sm" onclick="exportConfigHistory()">Export CSV</button></div>
       <div id="cfg-change-history"></div>
+    </div>
+  </div>
+  <!-- Error Log pane (admin only) -->
+  <div class="dtab-pane" id="audit-pane-errors">
+    <div class="card">
+      <div class="card-hd"><h2>Client Error Log <span class="info-tip" data-tip="JavaScript errors caught from user browsers. Only visible to admins.">ⓘ</span></h2><button class="btn btn-ghost btn-sm" onclick="refreshErrorLog()">Refresh</button></div>
+      <div id="error-log-wrap"></div>
     </div>
   </div>
 </div><!-- /auditlog -->
@@ -4413,6 +4421,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=630"></script>
+<script src="js/app.js?v=631"></script>
 </body>
 </html>

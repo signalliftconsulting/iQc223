@@ -154,7 +154,7 @@ function nav(v) {
   if (v === 'csmperf')   { renderCsmperfGuide(); if (!hasFeature('csm_performance')) { el('csmperf-wrap').innerHTML = upgradeHTML('csm_performance'); el('csmperf-stats').innerHTML = ''; } else renderCSMPerformance(); }
   if (v === 'calendar')  { renderCalendarGuide(); renderCalendar(); }
   if (v === 'settings')  renderSettings();
-  if (v === 'auditlog')  { renderAuditlogGuide(); if (!hasFeature('audit_log')) { el('audit-loading').style.display='none'; document.getElementById('audit-table').style.display='none'; document.getElementById('audit-empty').innerHTML = upgradeHTML('audit_log'); document.getElementById('audit-empty').style.display='block'; } else { loadAuditLog(); renderConfigHistory(); } }
+  if (v === 'auditlog')  { renderAuditlogGuide(); _updateErrorLogTab(); if (!hasFeature('audit_log')) { el('audit-loading').style.display='none'; document.getElementById('audit-table').style.display='none'; document.getElementById('audit-empty').innerHTML = upgradeHTML('audit_log'); document.getElementById('audit-empty').style.display='block'; } else { loadAuditLog(); renderConfigHistory(); } }
   if (v === 'csv')         { _renderCsvGuide(); if (typeof initCrmImportCard === 'function') initCrmImportCard(); }
   if (v === 'reports')     { renderReportsGuide(); renderReporting(); }
   if (v === 'automations') { renderAutomationsGuide(); renderAutomations(); }

@@ -35,15 +35,59 @@ function apiSubTab(which) {
 
 function auditTab(which) {
   document.querySelectorAll('#view-auditlog .dtab').forEach(b => {
-    const key = b.textContent.trim().toLowerCase().startsWith('activity') ? 'activity' : 'config';
+    var txt = b.textContent.trim().toLowerCase();
+    var key = txt.startsWith('activity') ? 'activity' : txt.startsWith('config') ? 'config' : 'errors';
     b.classList.toggle('active', key === which);
   });
-  ['activity','config'].forEach(t => {
+  ['activity','config','errors'].forEach(t => {
     const pane = el('audit-pane-'+t);
     if (pane) pane.classList.toggle('active', t === which);
   });
   if (which === 'config') renderConfigHistory();
+  if (which === 'errors') renderErrorLog();
 }
+
+// Show/hide Error Log tab based on admin status
+function _updateErrorLogTab() {
+  var tab = el('audit-tab-errors');
+  if (tab) tab.style.display = isAdmin() ? '' : 'none';
+}
+
+// Fetch and render client errors from webhook_events
+async function renderErrorLog() {
+  var wrap = el('error-log-wrap');
+  if (!wrap || !sb || !currentUser) return;
+  wrap.innerHTML = '<p style="padding:20px;text-align:center;color:var(--muted)">Loading...</p>';
+
+  try {
+    var { data, error } = await sb.from('webhook_events')
+      .select('id, created_at, error_msg, payload, user_id')
+      .eq('direction', 'client_error')
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) { wrap.innerHTML = '<p style="padding:20px;text-align:center;color:var(--red)">Failed to load error log</p>'; return; }
+    if (!data || !data.length) { wrap.innerHTML = '<p style="padding:20px;text-align:center;color:var(--muted)">No client errors recorded.</p>'; return; }
+
+    var html = '<table class="ct"><thead><tr><th>Time</th><th>Error</th><th>Source</th><th>Page</th><th>Version</th></tr></thead><tbody>';
+    data.forEach(function(row) {
+      var d = {};
+      try { d = typeof row.payload === 'string' ? JSON.parse(row.payload) : (row.payload || {}); } catch(e) {}
+      var time = new Date(row.created_at).toLocaleString();
+      var msg = escHtml((row.error_msg || '').substring(0, 120));
+      var src = escHtml((d.source || '-') + (d.line ? ':' + d.line : ''));
+      var page = escHtml(d.page || '-');
+      var ver = escHtml(d.v || '-');
+      html += '<tr><td style="white-space:nowrap;font-size:var(--fs-sm)">' + time + '</td><td style="font-size:var(--fs-sm);max-width:400px;overflow:hidden;text-overflow:ellipsis" title="' + escHtml(row.error_msg || '') + '">' + msg + '</td><td style="font-size:var(--fs-sm)">' + src + '</td><td style="font-size:var(--fs-sm)">' + page + '</td><td style="font-size:var(--fs-sm)">' + ver + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+  } catch(e) {
+    wrap.innerHTML = '<p style="padding:20px;text-align:center;color:var(--red)">Error loading log: ' + escHtml(e.message) + '</p>';
+  }
+}
+
+function refreshErrorLog() { renderErrorLog(); }
 
 function _dismissSettingsGuide() {
   _dismissGuide('settings-guide', 'iqc_settings_guide_dismissed', true);

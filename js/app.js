@@ -359,6 +359,67 @@ let momentumPts = DEFAULT_MOMENTUM_PTS;
 
 
 
+// ─── GLOBAL ERROR MONITORING ────────────────────────────────
+// Catches uncaught exceptions and unhandled promise rejections,
+// logs to webhook_events (admin-only, not visible to regular users).
+(function() {
+  var _errSeen = {};  // dedup: msg → timestamp
+  var _errQueue = []; // batch queue
+  var _errTimer = null;
+
+  function _logClientError(msg, source, line, col, stack) {
+    var key = (msg || '') + ':' + (source || '') + ':' + (line || 0);
+    var now = Date.now();
+    if (_errSeen[key] && now - _errSeen[key] < 60000) return; // dedup: same error within 60s
+    _errSeen[key] = now;
+
+    _errQueue.push({
+      direction:  'client_error',
+      event_type: 'js_error',
+      status:     'error',
+      error_msg:  (msg || 'Unknown error').substring(0, 500),
+      payload:    JSON.stringify({
+        source: (source || '').split('/').pop(),
+        line: line || 0,
+        col: col || 0,
+        stack: (stack || '').substring(0, 1000),
+        page: window._currentPage || 'unknown',
+        ua: navigator.userAgent.substring(0, 150),
+        v: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '?'
+      })
+    });
+
+    // Batch: flush after 2s so rapid errors get sent together
+    if (!_errTimer) {
+      _errTimer = setTimeout(_flushErrors, 2000);
+    }
+  }
+
+  function _flushErrors() {
+    _errTimer = null;
+    if (!_errQueue.length) return;
+    var batch = _errQueue.splice(0, 10); // max 10 per flush
+    try {
+      if (typeof sb === 'undefined' || !sb || typeof currentUser === 'undefined' || !currentUser) return;
+      batch.forEach(function(evt) {
+        evt.user_id = currentUser.id;
+        sb.from('webhook_events').insert(evt).then(function() {}).catch(function() {});
+      });
+    } catch(e) { /* fail silently */ }
+  }
+
+  window.onerror = function(msg, source, line, col, err) {
+    _logClientError(msg, source, line, col, err ? err.stack : '');
+    return false; // don't suppress console output
+  };
+
+  window.addEventListener('unhandledrejection', function(e) {
+    var msg = e.reason ? (e.reason.message || String(e.reason)) : 'Unhandled promise rejection';
+    var stack = e.reason ? (e.reason.stack || '') : '';
+    _logClientError(msg, 'promise', 0, 0, stack);
+  });
+})();
+
 // ─── CORE HELPERS ───────────────────────────────────────────
 function el(id) { return document.getElementById(id); }
 function fmtNum(n) {
@@ -5288,7 +5349,7 @@ function nav(v) {
   if (v === 'csmperf')   { renderCsmperfGuide(); if (!hasFeature('csm_performance')) { el('csmperf-wrap').innerHTML = upgradeHTML('csm_performance'); el('csmperf-stats').innerHTML = ''; } else renderCSMPerformance(); }
   if (v === 'calendar')  { renderCalendarGuide(); renderCalendar(); }
   if (v === 'settings')  renderSettings();
-  if (v === 'auditlog')  { renderAuditlogGuide(); if (!hasFeature('audit_log')) { el('audit-loading').style.display='none'; document.getElementById('audit-table').style.display='none'; document.getElementById('audit-empty').innerHTML = upgradeHTML('audit_log'); document.getElementById('audit-empty').style.display='block'; } else { loadAuditLog(); renderConfigHistory(); } }
+  if (v === 'auditlog')  { renderAuditlogGuide(); _updateErrorLogTab(); if (!hasFeature('audit_log')) { el('audit-loading').style.display='none'; document.getElementById('audit-table').style.display='none'; document.getElementById('audit-empty').innerHTML = upgradeHTML('audit_log'); document.getElementById('audit-empty').style.display='block'; } else { loadAuditLog(); renderConfigHistory(); } }
   if (v === 'csv')         { _renderCsvGuide(); if (typeof initCrmImportCard === 'function') initCrmImportCard(); }
   if (v === 'reports')     { renderReportsGuide(); renderReporting(); }
   if (v === 'automations') { renderAutomationsGuide(); renderAutomations(); }
@@ -12155,15 +12216,59 @@ function apiSubTab(which) {
 
 function auditTab(which) {
   document.querySelectorAll('#view-auditlog .dtab').forEach(b => {
-    const key = b.textContent.trim().toLowerCase().startsWith('activity') ? 'activity' : 'config';
+    var txt = b.textContent.trim().toLowerCase();
+    var key = txt.startsWith('activity') ? 'activity' : txt.startsWith('config') ? 'config' : 'errors';
     b.classList.toggle('active', key === which);
   });
-  ['activity','config'].forEach(t => {
+  ['activity','config','errors'].forEach(t => {
     const pane = el('audit-pane-'+t);
     if (pane) pane.classList.toggle('active', t === which);
   });
   if (which === 'config') renderConfigHistory();
+  if (which === 'errors') renderErrorLog();
 }
+
+// Show/hide Error Log tab based on admin status
+function _updateErrorLogTab() {
+  var tab = el('audit-tab-errors');
+  if (tab) tab.style.display = isAdmin() ? '' : 'none';
+}
+
+// Fetch and render client errors from webhook_events
+async function renderErrorLog() {
+  var wrap = el('error-log-wrap');
+  if (!wrap || !sb || !currentUser) return;
+  wrap.innerHTML = '<p style="padding:20px;text-align:center;color:var(--muted)">Loading...</p>';
+
+  try {
+    var { data, error } = await sb.from('webhook_events')
+      .select('id, created_at, error_msg, payload, user_id')
+      .eq('direction', 'client_error')
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) { wrap.innerHTML = '<p style="padding:20px;text-align:center;color:var(--red)">Failed to load error log</p>'; return; }
+    if (!data || !data.length) { wrap.innerHTML = '<p style="padding:20px;text-align:center;color:var(--muted)">No client errors recorded.</p>'; return; }
+
+    var html = '<table class="ct"><thead><tr><th>Time</th><th>Error</th><th>Source</th><th>Page</th><th>Version</th></tr></thead><tbody>';
+    data.forEach(function(row) {
+      var d = {};
+      try { d = typeof row.payload === 'string' ? JSON.parse(row.payload) : (row.payload || {}); } catch(e) {}
+      var time = new Date(row.created_at).toLocaleString();
+      var msg = escHtml((row.error_msg || '').substring(0, 120));
+      var src = escHtml((d.source || '-') + (d.line ? ':' + d.line : ''));
+      var page = escHtml(d.page || '-');
+      var ver = escHtml(d.v || '-');
+      html += '<tr><td style="white-space:nowrap;font-size:var(--fs-sm)">' + time + '</td><td style="font-size:var(--fs-sm);max-width:400px;overflow:hidden;text-overflow:ellipsis" title="' + escHtml(row.error_msg || '') + '">' + msg + '</td><td style="font-size:var(--fs-sm)">' + src + '</td><td style="font-size:var(--fs-sm)">' + page + '</td><td style="font-size:var(--fs-sm)">' + ver + '</td></tr>';
+    });
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+  } catch(e) {
+    wrap.innerHTML = '<p style="padding:20px;text-align:center;color:var(--red)">Error loading log: ' + escHtml(e.message) + '</p>';
+  }
+}
+
+function refreshErrorLog() { renderErrorLog(); }
 
 function _dismissSettingsGuide() {
   _dismissGuide('settings-guide', 'iqc_settings_guide_dismissed', true);
