@@ -448,7 +448,7 @@ svg.sparkline{display:block}
 .hb-welcome::before{content:'';position:absolute;inset:0;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,#0f766e,#14b8a6,#0d9488);pointer-events:none}
 @keyframes hb-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 @keyframes btn-shimmer{0%{left:-100%}100%{left:100%}}
-.btn-shimmer{position:relative;overflow:hidden}.btn-shimmer::after{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);animation:btn-shimmer 2s ease-in-out infinite;pointer-events:none}
+.btn-shimmer{position:relative;overflow:hidden}.btn-shimmer::after{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.85) 40%,rgba(255,255,255,.95) 50%,rgba(255,255,255,.85) 60%,transparent 100%);animation:btn-shimmer 2s ease-in-out infinite;pointer-events:none}
 .hb-welcome::after{content:'';position:absolute;top:-40px;right:-40px;width:250px;height:250px;background:var(--hb-glow,radial-gradient(circle,rgba(15,118,110,.06) 0%,rgba(20,184,166,.03) 40%,transparent 70%));border-radius:50%;pointer-events:none}
 .hb-welcome-grid{display:grid;grid-template-columns:auto 1fr;gap:32px;align-items:center}
 .hb-welcome-left{min-width:0}
@@ -4511,6 +4511,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=641"></script>
+<script src="js/app.js?v=642"></script>
 </body>
 </html>

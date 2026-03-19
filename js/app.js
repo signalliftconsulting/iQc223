@@ -11105,7 +11105,7 @@ function openDetail(id) {
   // Gate QBR button
   const qbrBtn = el('dm-qbr-btn');
   if (qbrBtn) {
-    if (hasFeature('qbr_prep')) { qbrBtn.style.display = ''; qbrBtn.disabled = false; }
+    if (hasFeature('qbr_prep')) { qbrBtn.style.display = ''; qbrBtn.disabled = false; if (!localStorage.getItem('iqc_qbr_clicked')) qbrBtn.classList.add('btn-shimmer'); }
     else { qbrBtn.style.display = 'none'; }
   }
 
@@ -11912,6 +11912,8 @@ function confirmAction(msg, onOk) {
 function openQBR() {
   const c = customers.find(x => x.id === detailId);
   if (!c) return;
+  localStorage.setItem('iqc_qbr_clicked','1');
+  var _qbrBtn = el('dm-qbr-btn'); if (_qbrBtn) _qbrBtn.classList.remove('btn-shimmer');
   if (typeof _wtCompleteIfActive === 'function') _wtCompleteIfActive('qbr-prep');
   logAudit('qbr_opened', c.id, c.name, { summary: 'QBR Prep opened' });
   el('qbr-content').innerHTML = buildQBRHTML(c);
