@@ -3,6 +3,12 @@ let _fcSortKey = 'impact';
 let _fcSortDir = -1;
 let _fcSearch = '';
 let _fcTab = 'all';
+let _fcCatFilter = 'all';
+
+function setFcCatFilter(cat) {
+  _fcCatFilter = cat;
+  _renderFcTable();
+}
 
 // ── Classification ─────────────────────────────────────────
 
@@ -235,6 +241,7 @@ function _renderFcTable() {
   var q = _fcSearch.toLowerCase();
   var list = classified;
   if (q) list = list.filter(function(c) { return (c.name || '').toLowerCase().indexOf(q) !== -1; });
+  if (_fcCatFilter !== 'all') list = list.filter(function(c) { return c.fc.cat === _fcCatFilter; });
 
   // Sort
   list.sort(function(a, b) {
@@ -258,7 +265,21 @@ function _renderFcTable() {
     return '<th style="cursor:pointer;white-space:nowrap;padding:8px 10px;font-size:var(--fs-sm);color:var(--muted);font-weight:600;text-align:left;border-bottom:2px solid var(--border)" onclick="sortFcTable(\'' + key + '\')">' + label + (_fcSortKey === key ? arrow : '') + '</th>';
   };
 
-  var html = '<div style="margin-bottom:10px"><input type="text" placeholder="Search customers..." value="' + escHtml(_fcSearch) + '" oninput="_fcSearch=this.value;_renderFcTable()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-base);width:220px"/></div>';
+  function _fcChip(key, label, color) {
+    var active = _fcCatFilter === key;
+    var bg = active ? (color || 'var(--text)') : 'transparent';
+    var fg = active ? '#fff' : 'var(--muted)';
+    var bdr = active ? bg : 'var(--border)';
+    return '<button onclick="setFcCatFilter(\'' + key + '\')" style="padding:4px 12px;font-size:var(--fs-sm);font-weight:600;border-radius:100px;border:1.5px solid ' + bdr + ';background:' + bg + ';color:' + fg + ';cursor:pointer;font-family:inherit">' + label + '</button>';
+  }
+  var html = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">' +
+    '<input type="text" placeholder="Search customers..." value="' + escHtml(_fcSearch) + '" oninput="_fcSearch=this.value;_renderFcTable()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-base);width:220px"/>' +
+    _fcChip('all', 'All', 'var(--text)') +
+    _fcChip('expand', 'Expand', 'var(--green)') +
+    _fcChip('retain', 'Retain', 'var(--muted)') +
+    _fcChip('contract', 'Contract', 'var(--amber)') +
+    _fcChip('churn', 'Churn', 'var(--red)') +
+  '</div>';
   html += '<div style="max-height:500px;overflow-y:auto"><table class="ct" style="width:100%;border-collapse:collapse">';
   html += '<thead><tr>' + th('name', 'Customer') + th('mrr', 'MRR') + th('score', 'Score') + th('delta30', '\u039430d') + th('renewal', 'Renewal') + th('category', 'Forecast') + th('impact', 'Impact') + '</tr></thead>';
   html += '<tbody>';
