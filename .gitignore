@@ -9,3 +9,7 @@ supabase.exe
 supabase/.temp/
 *.exe
 js/app.js.bak
+MP4/
+*.bak
+serve.cmd
+serve.ps1
