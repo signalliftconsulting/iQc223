@@ -649,7 +649,7 @@ svg.sparkline{display:block}
 .nba-banner__talk{font-size:var(--fs-base);color:var(--muted);line-height:1.6}
 
 /* SCORE DISPLAY */
-.score-panel{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+.score-panel{display:grid;grid-template-columns:2fr 1fr;gap:14px;align-items:start}
 .score-panel>.card{padding:18px 20px}
 .score-panel .fg{grid-template-columns:1fr 1fr;gap:10px 16px}
 .score-panel .fg .field:not(.full){flex-direction:row;align-items:center;gap:8px}
@@ -1188,7 +1188,8 @@ svg.sparkline{display:block}
 /* RESPONSIVE */
 @media(max-width:1300px){.dash-kpi-row{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:1100px){.dash-kpi-row{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:900px){.sidebar{display:none}.charts-grid{grid-template-columns:1fr}.charts-left{grid-template-columns:1fr;grid-template-rows:auto}.charts-right{grid-template-rows:auto}.score-panel{grid-template-columns:1fr}.score-panel .fg{grid-template-columns:1fr}.score-panel .fg .field:not(.full){flex-direction:column;align-items:stretch}.score-panel .fg .field:not(.full) label{min-width:0}.signals-grid{grid-template-columns:1fr!important}#mobile-nav-btn{display:flex!important}}
+@media(max-width:1100px){.score-panel{grid-template-columns:1fr}.score-panel .fg{grid-template-columns:1fr 1fr}.signals-grid{grid-template-columns:1fr 1fr!important}}
+@media(max-width:900px){.sidebar{display:none}.charts-grid{grid-template-columns:1fr}.charts-left{grid-template-columns:1fr;grid-template-rows:auto}.charts-right{grid-template-rows:auto}.score-panel .fg{grid-template-columns:1fr}.score-panel .fg .field:not(.full){flex-direction:column;align-items:stretch}.score-panel .fg .field:not(.full) label{min-width:0}.signals-grid{grid-template-columns:1fr!important}#mobile-nav-btn{display:flex!important}}
 #mobile-nav-btn{display:none;background:none;border:none;cursor:pointer;padding:6px;border-radius:6px;color:#fff;margin-right:8px;align-items:center;justify-content:center}
 #mobile-nav-btn:hover{background:rgba(255,255,255,.15)}
 #mobile-nav-dd{display:none;position:fixed;top:48px;left:0;right:0;background:#115e59;z-index:49;padding:8px 12px 12px;box-shadow:0 4px 16px rgba(0,0,0,.25);max-height:calc(100vh - 48px);overflow-y:auto}
@@ -4412,6 +4413,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=627"></script>
+<script src="js/app.js?v=628"></script>
 </body>
 </html>
