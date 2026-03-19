@@ -253,7 +253,7 @@ function renderFilterPills() {
     else if (f.type === 'lt')      { summary = `< ${f.val}`; }
     else if (f.type === 'eq')      { summary = `= ${f.val}`; }
     else if (f.type === 'between') { summary = `${f.min} – ${f.max}`; }
-    /* date filters use gt/lt/eq/between  - handled by those branches above */
+    /* date filters use gt/lt/eq/between - handled by those branches above */
     else if (f.type === 'up')      { summary = 'Improving this week'; }
     else if (f.type === 'down')    { summary = 'Declining this week'; }
 
@@ -573,7 +573,7 @@ function applyColumnFilters(list) {
           const d = getDelta7d(c);
           if (f.type === 'up'   && d <= 0) return false;
           if (f.type === 'down' && d >= 0) return false;
-          continue; // handled inline  - skip v-based checks below
+          continue; // handled inline - skip v-based checks below
         }
         default: continue;
       }
@@ -653,11 +653,11 @@ function _renderCustomers() {
 
   if (!list.length) {
     if (!customers.length || (filterMode !== 'all' && filterMode !== 'churned' && !customers.some(c => c.status === filterMode && c.lifecycle !== 'churned'))) {
-      // Truly no customers  - show onboarding empty state
+      // Truly no customers - show onboarding empty state
       empty.style.display = 'block';
       table.style.display = 'none';
     } else {
-      // Filters produced 0 results  - keep headers, show message in tbody
+      // Filters produced 0 results - keep headers, show message in tbody
       empty.style.display = 'none';
       table.style.display = '';
       const hasFilters = Object.keys(columnFilters).length > 0;
@@ -870,7 +870,7 @@ async function saveInlineNextTouch(custId, val) {
   if (error) {
     console.warn('Failed to save next_touch:', error.message);
     c.next_touch = oldVal; // rollback
-    toast('Failed to save  - please try again', 'error');
+    toast('Failed to save - please try again', 'error');
   } else {
     logAudit('next_touch_updated', c.id, c.name, { from: oldVal || '(none)', to: val || '(cleared)' });
     toast(val ? `Next touch set to ${new Date(val).toLocaleDateString('en-US',{month:'short',day:'numeric'})}` : 'Next touch cleared', 'default');
@@ -1139,11 +1139,11 @@ function deserializeColumnFilters(cf) {
       } else if (Array.isArray(f.vals)) {
         out[k] = { ...f, vals: new Set(f.vals) };
       } else if (f.vals && typeof f.vals === 'object') {
-        // Old broken format: Set serialized as {} or {0:"a",1:"b"}  - try Object.values
+        // Old broken format: Set serialized as {} or {0:"a",1:"b"} - try Object.values
         const arr = Object.values(f.vals);
         out[k] = { ...f, vals: arr.length ? new Set(arr) : new Set() };
       } else {
-        // vals missing or null  - skip this broken filter
+        // vals missing or null - skip this broken filter
         continue;
       }
     } else {

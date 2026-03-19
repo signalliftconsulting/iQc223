@@ -126,7 +126,7 @@ function _renderCalendar() {
   html += '<div id="cal-search-results" class="cal-search-results" style="display:none"></div>';
   html += '</div>';
 
-  // Context bar  - show last/next call when a customer is selected
+  // Context bar - show last/next call when a customer is selected
   if (_calCustFilter) {
     var fc = allActive.find(function(c) { return c.id === _calCustFilter; });
     if (fc) {
@@ -176,7 +176,7 @@ function _renderCalendar() {
     // Build summary items
     const lines = [];
 
-    // Today's calls  - sort by time (earliest first)
+    // Today's calls - sort by time (earliest first)
     var _evTime = function(e) {
       if (e.histIdx != null && e.customer.touch_history && e.customer.touch_history[e.histIdx]) return e.customer.touch_history[e.histIdx].time || '';
       if (e.isNextTouch) return e.customer.next_touch_time || '';
@@ -189,14 +189,14 @@ function _renderCalendar() {
         return '<strong>' + t + escHtml(e.customer.name) + '</strong>';
       }).join(', ');
       lines.push({ icon: 'phone', accent: 'var(--blue)',
-        text: todayTouches.length + ' call' + (todayTouches.length > 1 ? 's' : '') + ' scheduled today  - ' + names + (todayTouches.length > 3 ? ' +' + (todayTouches.length - 3) + ' more' : '') });
+        text: todayTouches.length + ' call' + (todayTouches.length > 1 ? 's' : '') + ' scheduled today - ' + names + (todayTouches.length > 3 ? ' +' + (todayTouches.length - 3) + ' more' : '') });
     }
 
     // Today's renewals
     if (todayRenewals.length) {
       const names = todayRenewals.map(e => '<strong>' + escHtml(e.customer.name) + '</strong> ($' + fmtNum(e.customer.mrr||0) + '/mo)').join(', ');
       lines.push({ icon: 'alert', accent: 'var(--purple)',
-        text: todayRenewals.length + ' renewal' + (todayRenewals.length > 1 ? 's' : '') + ' due today  - ' + names });
+        text: todayRenewals.length + ' renewal' + (todayRenewals.length > 1 ? 's' : '') + ' due today - ' + names });
     }
 
     // Overdue contacts
@@ -204,7 +204,7 @@ function _renderCalendar() {
       const sorted = todayOverdue.slice().sort((a,b) => (b.daysSince||0) - (a.daysSince||0));
       const top3 = sorted.slice(0,3).map(e => escHtml(e.customer.name) + ' (' + (e.daysSince||30) + 'd)').join(', ');
       lines.push({ icon: 'overdue', accent: 'var(--red)',
-        text: '<strong>' + todayOverdue.length + '</strong> account' + (todayOverdue.length > 1 ? 's' : '') + ' overdue for contact  - ' + top3 + (todayOverdue.length > 3 ? ' +' + (todayOverdue.length - 3) + ' more' : '') });
+        text: '<strong>' + todayOverdue.length + '</strong> account' + (todayOverdue.length > 1 ? 's' : '') + ' overdue for contact - ' + top3 + (todayOverdue.length > 3 ? ' +' + (todayOverdue.length - 3) + ' more' : '') });
     }
 
     // Rest of this week (Sun–Sat)
@@ -214,7 +214,7 @@ function _renderCalendar() {
         return escHtml(e.customer.name) + ' (' + d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) + ')';
       }).join(', ');
       lines.push({ icon: 'cal', accent: 'var(--purple)',
-        text: upcomingRenewals.length + ' renewal' + (upcomingRenewals.length > 1 ? 's' : '') + ' later this week  - ' + names });
+        text: upcomingRenewals.length + ' renewal' + (upcomingRenewals.length > 1 ? 's' : '') + ' later this week - ' + names });
     }
 
     if (upcomingTouches.length) {
@@ -646,7 +646,7 @@ async function calToggleTouchStatus(custId, histIdx, newStatus) {
     next_touch_time: c.next_touch_time
   }).eq('id', c.id);
   if (error) {
-    toast('Failed to update  - ' + error.message, 'error');
+    toast('Failed to update - ' + error.message, 'error');
   }
   renderCalendar();
 }
@@ -663,7 +663,7 @@ async function calRemoveTouch(custId, histIdx) {
     next_touch_time: c.next_touch_time
   }).eq('id', c.id);
   if (error) {
-    toast('Failed to remove  - ' + error.message, 'error');
+    toast('Failed to remove - ' + error.message, 'error');
   }
   renderCalendar();
 }
@@ -693,7 +693,7 @@ async function calMarkScheduledMissed(custId) {
     touch_history: JSON.stringify(c.touch_history)
   }).eq('id', c.id);
   if (error) {
-    toast('Failed to update  - ' + error.message, 'error');
+    toast('Failed to update - ' + error.message, 'error');
   }
   renderCalendar();
 }
@@ -719,7 +719,7 @@ async function calRemoveScheduled(custId) {
     touch_history: JSON.stringify(c.touch_history)
   }).eq('id', c.id);
   if (error) {
-    toast('Failed to remove  - ' + error.message, 'error');
+    toast('Failed to remove - ' + error.message, 'error');
   }
   renderCalendar();
 }
@@ -811,7 +811,7 @@ async function calSaveSchedule(dateStr) {
   var schedDate = new Date(dateStr + 'T12:00:00');
   var isPast = schedDate <= today;
 
-  // Always add to touch_history  - supports multiple calls per customer
+  // Always add to touch_history - supports multiple calls per customer
   if (!c.touch_history) c.touch_history = [];
   c.touch_history.push({
     date: dateStr,
@@ -838,7 +838,7 @@ async function calSaveSchedule(dateStr) {
     toast('Call scheduled for ' + c.name, 'success');
   } catch(e) {
     console.error('Schedule save failed:', e);
-    toast('Saved locally  - sync failed', 'warn');
+    toast('Saved locally - sync failed', 'warn');
   }
 
   _calSchedCustId = '';
@@ -879,9 +879,9 @@ async function calSaveSentiment(custId) {
   var note = noteEl ? noteEl.value.trim() : '';
   c.sentiment = c.sentiment || [];
   c.sentiment.unshift({ val: val, note: note, date: new Date().toISOString() });
-  logAudit('sentiment_logged', c.id, c.name, { summary: 'Sentiment: ' + val + (note ? '  - "' + note.substring(0, 80) + '"' : '') });
+  logAudit('sentiment_logged', c.id, c.name, { summary: 'Sentiment: ' + val + (note ? ' - "' + note.substring(0, 80) + '"' : '') });
   save(c).then(function() { toast('Sentiment logged', 'success'); })
-         .catch(function(e) { console.error('Sentiment save failed:', e); toast('Saved locally  - sync failed', 'warn'); });
+         .catch(function(e) { console.error('Sentiment save failed:', e); toast('Saved locally - sync failed', 'warn'); });
   _calPendingSentiment[custId] = null;
   var form = el('cal-log-' + custId);
   if (form) form.style.display = 'none';

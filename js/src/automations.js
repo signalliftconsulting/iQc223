@@ -30,7 +30,7 @@ function migrateAutomationsCfg() {
         automationsCfg.alert_settings[at.key][f.name] = f.default;
     });
   });
-  // Ensure each channel has an alerts array  - if missing, subscribe to all
+  // Ensure each channel has an alerts array - if missing, subscribe to all
   if (automationsCfg.channels) {
     ['slack', 'teams', 'email'].forEach(chKey => {
       if (automationsCfg.channels[chKey] && !automationsCfg.channels[chKey].alerts) {
@@ -38,7 +38,7 @@ function migrateAutomationsCfg() {
       }
     });
   }
-  // Ensure selected_alerts exists  - derive from channel subscriptions or default to all
+  // Ensure selected_alerts exists - derive from channel subscriptions or default to all
   if (!automationsCfg.selected_alerts) {
     const union = new Set();
     if (automationsCfg.channels) {
@@ -312,7 +312,7 @@ const CHANNELS = [
       <li>Scroll down and click <strong>Add New Webhook to Workspace</strong></li>
       <li>Select the channel where alerts should post (e.g. #cs-alerts) and click <strong>Allow</strong></li>
       <li>Copy the <strong>Webhook URL</strong> (starts with <code style="font-size:var(--fs-sm);background:var(--bg);padding:1px 4px;border-radius:3px">https://hooks.slack.com/services/...</code>) and paste it above</li>
-      <li>Click <strong>Send Test</strong> below to verify  - you should see a test message appear in your channel</li>
+      <li>Click <strong>Send Test</strong> below to verify - you should see a test message appear in your channel</li>
     </ol>
     <p style="margin:8px 0 0;font-size:var(--fs-sm);color:var(--subtle)"><strong>Tip:</strong> You can customize the bot name and icon in your Slack app settings under <strong>Basic Information</strong> → <strong>Display Information</strong>. Alerts will include customer name, score, status, and the triggering event.</p>`
   },
@@ -326,7 +326,7 @@ const CHANNELS = [
       <li>Select the template <strong>"Post to a channel when a webhook request is received"</strong></li>
       <li>Name the workflow (e.g. "iQcadence Alerts"), select the target <strong>Team</strong> and <strong>Channel</strong>, then click <strong>Add workflow</strong></li>
       <li>Copy the <strong>Webhook URL</strong> provided (starts with <code style="font-size:var(--fs-sm);background:var(--bg);padding:1px 4px;border-radius:3px">https://prod-xx.westus.logic.azure.com...</code>) and paste it above</li>
-      <li>Click <strong>Send Test</strong> below to verify  - you should see a test card appear in your channel</li>
+      <li>Click <strong>Send Test</strong> below to verify - you should see a test card appear in your channel</li>
     </ol>
     <p style="margin:8px 0 0;font-size:var(--fs-sm);color:var(--subtle)"><strong>Note:</strong> Microsoft retired the old "Incoming Webhook" connector. Use the <strong>Workflows</strong> app instead. If you don\'t see Workflows, ask your Teams admin to enable it.</p>`
   },
@@ -651,7 +651,7 @@ function renderActiveAlerts() {
     '<tbody>' + rows + '</tbody></table>';
 }
 
-// ── Thin wrapper  - keeps existing callers working ──
+// ── Thin wrapper - keeps existing callers working ──
 function renderAlertSummary() { renderActiveAlerts(); }
 
 function deleteAlertRule(ruleId) {
@@ -998,7 +998,7 @@ function wizardSaveAndFinish() {
     return;
   }
   if (missingConn.length > 0) {
-    toast(missingConn.join(', ') + ' enabled but no connection configured  - please select or add one', 'error');
+    toast(missingConn.join(', ') + ' enabled but no connection configured - please select or add one', 'error');
     return;
   }
   // Auto-generate name if empty
@@ -1623,7 +1623,7 @@ async function renderIntegrationsSection() {
     console.warn('Failed to load integrations:', e);
   }
 
-  // Reconcile metric ownership  - ensure only one platform owns each metric
+  // Reconcile metric ownership - ensure only one platform owns each metric
   await reconcileMetricOwnership();
 
   const stripeInt = _integrationCache['stripe'] || null;
@@ -1843,7 +1843,7 @@ const PLATFORM_METRICS = {
 };
 
 // Returns { metric: platform } for all currently-enabled metrics across all connected integrations
-// Metrics default to OFF  - user must explicitly enable each metric before syncing
+// Metrics default to OFF - user must explicitly enable each metric before syncing
 function getMetricOwners() {
   const owners = {};
   for (const [platform, integration] of Object.entries(_integrationCache)) {
@@ -1873,7 +1873,7 @@ async function reconcileMetricOwnership() {
     for (const m of metrics) {
       const owner = owners[m.key];
       if (owner && owner !== platform && newSm[m.key] !== false) {
-        // Another platform owns this metric  - disable it here
+        // Another platform owns this metric - disable it here
         newSm[m.key] = false;
         changed = true;
       }
@@ -1908,7 +1908,7 @@ function buildMetricTogglesHTML(platform, integration) {
   const owners = getMetricOwners();
 
   return metrics.map(m => {
-    const enabled = syncMetrics[m.key] === true; // default off  - user must enable
+    const enabled = syncMetrics[m.key] === true; // default off - user must enable
     const ownedBy = owners[m.key];
     const ownedByOther = ownedBy && ownedBy !== platform;
     const disabled = ownedByOther ? 'disabled' : '';
@@ -2128,7 +2128,7 @@ async function syncStripeUI() {
   }
 }
 
-// ── Topbar Sync (quick access from header  - syncs all connected integrations) ──
+// ── Topbar Sync (quick access from header - syncs all connected integrations) ──
 async function topbarSyncStripe() {
   const btn = el('topbar-sync-btn');
   if (!btn || btn.classList.contains('syncing')) return;
@@ -2315,7 +2315,7 @@ function showLastSyncResults() {
   if (_lastSyncResult && _lastSyncPlatform) {
     showSyncResultsModal(_lastSyncPlatform, _lastSyncResult);
   } else {
-    toast('No sync results to show  - run a sync first', 'warn');
+    toast('No sync results to show - run a sync first', 'warn');
   }
 }
 
@@ -2356,7 +2356,7 @@ function showSyncResultsModal(platform, result) {
   const platformLabel = platform.charAt(0).toUpperCase() + platform.slice(1);
   const ts = new Date().toLocaleString();
 
-  // Build change log rows  - one row per changed field per customer
+  // Build change log rows - one row per changed field per customer
   let rowsHtml = '';
   if (allChanges.length === 0) {
     rowsHtml = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:16px">No changes in this sync</td></tr>';
@@ -2585,7 +2585,7 @@ async function _generateCodeChallenge(verifier) {
   return btoa(String.fromCharCode(...new Uint8Array(hash))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-// HubSpot OAuth 2.1 + PKCE  - redirect to HubSpot authorization page
+// HubSpot OAuth 2.1 + PKCE - redirect to HubSpot authorization page
 async function connectHubSpotOAuth() {
   const btn = el('hubspot-connect-btn');
   const status = el('hubspot-connect-status');
@@ -2790,7 +2790,7 @@ function renderSalesforceCard(integration) {
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
         <span style="font-size:var(--fs-base);font-weight:600">${escHtml(integration.config?.account_name || integration.config?.org_name || 'Salesforce Org')}</span>
       </div>
-      <div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:8px">Last sync: ${syncTime}${statsLine ? '  - ' + statsLine : ''}${lastMsg && !statsLine ? '  - ' + escHtml(lastMsg) : ''}</div>
+      <div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:8px">Last sync: ${syncTime}${statsLine ? ' - ' + statsLine : ''}${lastMsg && !statsLine ? ' - ' + escHtml(lastMsg) : ''}</div>
       <div style="display:flex;gap:8px;margin-bottom:8px">
         <button class="btn btn-sm" id="salesforce-sync-btn" onclick="syncSalesforceUI()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Sync Now
@@ -2989,7 +2989,7 @@ async function pullHistoryUI(platform) {
   if (result) {
     if (status) status.innerHTML = buildHistoryResultHTML(result);
   } else {
-    if (status) status.innerHTML = '<span style="color:var(--red)">Pull failed  - check console</span>';
+    if (status) status.innerHTML = '<span style="color:var(--red)">Pull failed - check console</span>';
   }
 }
 
@@ -3330,7 +3330,7 @@ function showApiKeyModal(fullKey) {
   el('confirm-msg').innerHTML = `
     <div style="margin-bottom:14px">
       <p style="font-size:var(--fs-md);font-weight:600;color:var(--red);margin-bottom:8px">
-        ${appIcon('warning',14)} Copy this key now  - it will not be shown again.
+        ${appIcon('warning',14)} Copy this key now - it will not be shown again.
       </p>
       <div class="auto-endpoint" style="user-select:all;cursor:text;font-size:var(--fs-base);padding:12px 14px">
         ${escHtml(fullKey)}
@@ -3492,7 +3492,7 @@ function _saveSnapshots() {
 }
 
 function snapshotCustomerStates() {
-  // Try to restore persisted snapshots first  - this is what prevents repeat alerts
+  // Try to restore persisted snapshots first - this is what prevents repeat alerts
   try {
     const stored = localStorage.getItem('iqc_trigger_snapshots');
     if (stored) {
@@ -3509,7 +3509,7 @@ function snapshotCustomerStates() {
       return;
     }
   } catch(e){}
-  // No persisted data  - first run: snapshot current state (won't trigger alerts since prev matches current)
+  // No persisted data - first run: snapshot current state (won't trigger alerts since prev matches current)
   _prevCustomerStates.clear();
   customers.forEach(c => {
     _prevCustomerStates.set(c.id, _snapFields(c));
@@ -3836,7 +3836,7 @@ function buildTeamsPayload(eventType, customer, extra) {
           { type: 'ColumnSet', columns: [
             { type: 'Column', width: 'stretch', items: [
               { type: 'TextBlock', text: c.name, weight: 'Bolder', size: 'Medium', wrap: true },
-              { type: 'TextBlock', text: `Score: ${c.score}/100  - ${c.status}`, spacing: 'None', isSubtle: true, wrap: true }
+              { type: 'TextBlock', text: `Score: ${c.score}/100 - ${c.status}`, spacing: 'None', isSubtle: true, wrap: true }
             ]}
           ]},
           { type: 'FactSet', facts },
@@ -3892,7 +3892,7 @@ function buildAlertEmailHTML(eventType, customer, extra) {
           <span style="font-size:22px;font-weight:700">${escHtml(c.name)}</span>
         </td>
         <td align="right" style="padding:8px 0">
-          <span style="display:inline-block;padding:4px 12px;border-radius:20px;font-size:13px;font-weight:600;color:#fff;background:${sColor}">${c.score}/100  - ${c.status}</span>
+          <span style="display:inline-block;padding:4px 12px;border-radius:20px;font-size:13px;font-weight:600;color:#fff;background:${sColor}">${c.score}/100 - ${c.status}</span>
         </td>
       </tr>
     </table>
@@ -3925,7 +3925,7 @@ function buildAlertEmailHTML(eventType, customer, extra) {
     </table>
   </td></tr>
   <tr><td style="padding:0 28px 20px;font-size:11px;color:#9ca3af;text-align:center">
-    iQcadence CS Health Score  - ${new Date().toLocaleString()}
+    iQcadence CS Health Score - ${new Date().toLocaleString()}
   </td></tr>
 </table>
 </td></tr></table></body></html>`;
@@ -3977,7 +3977,7 @@ async function fireDirectChannels(eventType, customer, extra) {
 async function fireEmailAlert(eventType, customer, extra, emailCfg) {
   const htmlBody = buildAlertEmailHTML(eventType, customer, extra);
   const prefix = emailCfg.subject_prefix || '[iQcadence Alert]';
-  const subject = `${prefix} ${_eventLabel(eventType)}  - ${customer.name}`;
+  const subject = `${prefix} ${_eventLabel(eventType)} - ${customer.name}`;
 
   const { data, error } = await sb.functions.invoke('send-webhook', {
     body: {
@@ -3996,7 +3996,7 @@ async function fireEmailAlert(eventType, customer, extra, emailCfg) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// CUSTOM RULES  - Builder, CRUD, Evaluation, Delivery
+// CUSTOM RULES - Builder, CRUD, Evaluation, Delivery
 // ═══════════════════════════════════════════════════════════════
 
 // ── List rendering ──
@@ -4227,11 +4227,11 @@ function renderRuleBuilderStep1(body, footer) {
 
   body.innerHTML = html;
 
-  // Preview results container  - hide when body re-renders (conditions changed)
+  // Preview results container - hide when body re-renders (conditions changed)
   var previewEl = el('rule-preview-results');
   if (previewEl) previewEl.style.display = 'none';
 
-  // Footer  - Step 1: Preview + Next
+  // Footer - Step 1: Preview + Next
   footer.innerHTML = '<div style="display:flex;gap:8px">' +
       '<button class="btn btn-sm btn-ghost" onclick="previewRuleMatches()" style="color:var(--blue);border:1.5px solid var(--blue);border-radius:8px">&#x1f50d; Preview Matches</button>' +
     '</div>' +
@@ -4281,7 +4281,7 @@ function renderRuleBuilderStep2(body, footer) {
   html += '</div>';
   body.innerHTML = html;
 
-  // Footer  - Step 2: Back + Save
+  // Footer - Step 2: Back + Save
   footer.innerHTML = '<div>' +
       '<button class="btn btn-sm btn-ghost" onclick="ruleWizardBack()">&larr; Back</button>' +
     '</div>' +
@@ -4456,7 +4456,7 @@ function saveCustomRule() {
       }
     }
   });
-  if (missingConn.length > 0) { toast(missingConn.join(', ') + ' enabled but no connection configured  - please select or add one', 'error'); return; }
+  if (missingConn.length > 0) { toast(missingConn.join(', ') + ' enabled but no connection configured - please select or add one', 'error'); return; }
   for (var gi = 0; gi < _ruleBuilderData.groups.length; gi++) {
     for (var ci = 0; ci < _ruleBuilderData.groups[gi].conditions.length; ci++) {
       var c = _ruleBuilderData.groups[gi].conditions[ci];

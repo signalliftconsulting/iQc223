@@ -235,7 +235,7 @@ function _syncClientDropdowns() {
   }
 }
 
-// Light refresh: only update chart lines, tags, and table row highlights  - no scroll jump
+// Light refresh: only update chart lines, tags, and table row highlights - no scroll jump
 function _refreshTrendOverlays() {
   const range = _trendRange || '30d';
   const m1 = _trendMetric1 || 'score';
@@ -563,7 +563,7 @@ function renderTrends() {
   const _tDirValColor = avgDelta === null ? '' : avgDelta > 0.5 ? '#16a34a' : avgDelta < -0.5 ? '#dc2626' : '';
   const _tImpValColor = improving > 0 ? '#16a34a' : '';
   const _tDecValColor = declining > 0 ? '#dc2626' : '#16a34a';
-  const _deltaText = avgDelta === null ? 'N/A  - not enough history' : `${avgDelta >= 0 ? '+' : ''}${avgDelta.toFixed(1)} avg ${rangeLabel} change`;
+  const _deltaText = avgDelta === null ? 'N/A - not enough history' : `${avgDelta >= 0 ? '+' : ''}${avgDelta.toFixed(1)} avg ${rangeLabel} change`;
   const _impPct = deltaCount ? Math.round(improving / deltaCount * 100) : 0;
   const _decPct = deltaCount ? Math.round(declining / deltaCount * 100) : 0;
   const _trendSub = avgDelta === null ? 'not enough history for this range' : `across ${deltaCount} account${deltaCount !== 1 ? 's' : ''} with baseline data`;
@@ -575,7 +575,7 @@ function renderTrends() {
       <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:${_tAvgValColor}">${currentAvg}</div><div class="dash-kpi-sub">${_deltaText}</div></div>
     </div>
     <div class="dash-kpi-card ${trendDirColor}">
-      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.trend}</div><span class="dash-kpi-label">Trend Direction <span class="info-tip tip-below" data-tip="Overall portfolio health trend  - Improving (avg change > +0.5), Declining (< −0.5), or Stable.">\u24d8</span></span></div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${tIcons.trend}</div><span class="dash-kpi-label">Trend Direction <span class="info-tip tip-below" data-tip="Overall portfolio health trend - Improving (avg change > +0.5), Declining (< −0.5), or Stable.">\u24d8</span></span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num" style="font-size:1.5rem${_tDirValColor ? ';color:' + _tDirValColor : ''}">${trendDir}</div><div class="dash-kpi-sub">${_trendSub}</div></div>
     </div>
     <div class="dash-kpi-card dash-kpi-teal">
@@ -603,7 +603,7 @@ function renderTrends() {
     lines.push({ label: escHtml(_trendCsmOverlay), color: OVERLAY_COLORS[0], width: 1.5, points: csmData });
   }
 
-  // Client overlays (primary metric)  - forward-fill to keep line continuous
+  // Client overlays (primary metric) - forward-fill to keep line continuous
   const _olTodayStr = new Date().toISOString().slice(0,10);
   _trendClientOverlays.forEach((id, idx) => {
     const c = customers.find(x => x.id === id);
@@ -698,7 +698,7 @@ function renderTrends() {
     }
   }
 
-  // Render legend  - prior period immediately after portfolio avg
+  // Render legend - prior period immediately after portfolio avg
   const legendWrap = el('trend-legend');
   if (legendWrap) {
     let legendHTML = '';
@@ -741,7 +741,7 @@ function renderTrends() {
   const sel2 = el('trend-metric-2');
   if (sel2) sel2.value = m2;
 
-  // ── Top Movers  - build data, then render with current sort ──
+  // ── Top Movers - build data, then render with current sort ──
   // ── Trend Analysis ──
   _buildTrendAnalysis(active, portfolioData, m2Line ? m2Line.points : null, cutoff, days, m1, m2, priorPortfolioData);
 
@@ -816,7 +816,7 @@ function renderTrendMovers() {
   // Build column headers
   const trCols = TREND_COLS.map(col => cfBuildTh('trend', col, _trendSortKey, _trendSortDir)).join('');
 
-  // Remove scroll from outer wrapper  - we put it on the table div only
+  // Remove scroll from outer wrapper - we put it on the table div only
   wrap.style.maxHeight = 'none';
   wrap.style.overflowY = 'visible';
 
@@ -1000,7 +1000,7 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key, priorLine) {
     if (i % Math.max(1, Math.ceil(_xLabelEvery / 2)) === 0) {
       xLabels += `<line x1="${x}" y1="${yScaleL(yL.min)}" x2="${x}" y2="${yScaleL(yL.min)+3}" stroke="#e2e8f0" stroke-width="0.5" opacity="0.4"/>`;
     }
-    // Labels  - smarter formatting
+    // Labels - smarter formatting
     if (i % _xLabelEvery === 0 || i === dates.length - 1) {
       let lbl;
       if (_showYear && day <= 7) {
@@ -1019,7 +1019,7 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key, priorLine) {
   const dateIdx = {};
   dates.forEach((d,i) => { dateIdx[d] = i; });
 
-  // Max rendered points  - downsample for smoother lines on long ranges
+  // Max rendered points - downsample for smoother lines on long ranges
   const _maxRPts = rangeDays > 365 ? 90 : rangeDays > 180 ? 120 : 9999;
 
   const _hasBreakdown = lines.some(l => l.dashed);
@@ -1052,7 +1052,7 @@ function buildTrendChart(lines, rangeDays, m1Key, m2Line, m2Key, priorLine) {
     const lineOp = line.dashed ? '0.45' : '0.9';
     linesSVG += `<path d="${smoothD}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linecap="round" opacity="${lineOp}"${dashAttr}/>`;
 
-    // No inline labels  - hover tooltip shows exact values for all lines
+    // No inline labels - hover tooltip shows exact values for all lines
   });
 
   // ── Draw prior-period comparison line (dashed, muted gray) ──
@@ -1404,7 +1404,7 @@ function _taMetricCorrelation(data1, data2, m1, m2, rangeDays) {
   return { priority: 1, icon: _taSvg.corr, iconBg: accent === 'green' ? 'var(--green-l)' : accent === 'red' ? 'var(--red-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : accent === 'red' ? 'var(--red)' : 'var(--amber)', accent, title, detail, cat: 'dualmetric' };
 }
 
-/* 3. Inflection Point  - enhanced with customer attribution */
+/* 3. Inflection Point - enhanced with customer attribution */
 function _taInflection(data, metricKey, rangeDays, active) {
   if (data.length < 10 || !active || active.length < 3) return null;
   const win = Math.max(3, Math.min(15, Math.round(data.length * 0.1)));
@@ -1436,7 +1436,7 @@ function _taInflection(data, metricKey, rangeDays, active) {
   const cfg = METRIC_CFG[metricKey] || METRIC_CFG.score;
   const wasRising = bestBefore > 0;
 
-  // Find which customers drove the reversal  - biggest movers around the inflection
+  // Find which customers drove the reversal - biggest movers around the inflection
   const inflT = inflDate.getTime();
   const windowMs = win * 86400000 * (rangeDays / data.length);
   const custMovers = [];
@@ -1497,7 +1497,7 @@ function _taCsmDivergence(data, active, cutoff, rangeDays, metricKey) {
   if (csmDeltas.length < 2) return null;
   const csmAvgDelta = csmDeltas.reduce((s,d) => s+d, 0) / csmDeltas.length;
 
-  // Rest-of-portfolio delta  - same methodology, excluding CSM's own accounts
+  // Rest-of-portfolio delta - same methodology, excluding CSM's own accounts
   const restCusts = active.filter(c => c.manager !== csmName);
   const restDeltas = restCusts.map(_custDelta).filter(d => d !== null);
   const portDelta = restDeltas.length ? restDeltas.reduce((s,d) => s+d, 0) / restDeltas.length : 0;
@@ -1604,7 +1604,7 @@ function _taCrossSignal(active, cutoff, metricKey) {
   return { priority: 3, icon: _taSvg.signal, iconBg: 'var(--amber-l)', iconColor: 'var(--amber)', accent: 'amber', title, detail, cat: 'crosssignal' };
 }
 
-/* ── Drop Attribution  - decompose score drops into signal contributions ── */
+/* ── Drop Attribution - decompose score drops into signal contributions ── */
 
 // REMOVED: old _attributeScoreDrop - was diluting per-signal impact to near zero
 // by averaging across all customers. Replaced with _taScoreDrivers below.
@@ -1649,7 +1649,7 @@ function _DISABLED_attributeScoreDrop(custs, peakDate, troughDate) {
     if (!pArr.length || !tArr.length) return null;
     let rawStart, rawEnd, normStart, normEnd;
     if (s.key === 'growth') {
-      // Growth is categorical (none/mild/strong)  - use mode, not numeric average
+      // Growth is categorical (none/mild/strong) - use mode, not numeric average
       const mode = arr => { const freq = {}; arr.forEach(v => freq[v] = (freq[v]||0)+1); return Object.entries(freq).sort((a,b) => b[1]-a[1])[0]?.[0] || 'none'; };
       rawStart = mode(pArr);
       rawEnd   = mode(tArr);
@@ -1742,7 +1742,7 @@ function _taScoreDrivers(active, data1, metricKey, cutoff, rangeDays) {
   }
 }
 
-/* 9. Churn Impact  - call out churned accounts and their revenue impact */
+/* 9. Churn Impact - call out churned accounts and their revenue impact */
 function _taChurnImpact(cutoff, rangeDays) {
   if (!_trendShowChurned) return null;
   const churned = customers.filter(c => c.lifecycle === 'churned' && passesManagerFilter(c));
@@ -1789,7 +1789,7 @@ function _taChurnImpact(cutoff, rangeDays) {
       }
     }
     if (!churnDate) return;
-    // Last resort fallback for MRR  - estimate from tier if no _mrr in history
+    // Last resort fallback for MRR - estimate from tier if no _mrr in history
     if (!preMrr) preMrr = c._prechurnMrr || 0;
     if (!preMrr) {
       // Estimate based on tier midpoints
@@ -1813,7 +1813,7 @@ function _taChurnImpact(cutoff, rangeDays) {
   if (recentChurns.length > 3) detail += ` and ${recentChurns.length - 3} more`;
   detail += '.';
 
-  const title = recentChurns.length + ' account' + (recentChurns.length > 1 ? 's' : '') + ' churned  - $' + fmtNum(totalLostMRR) + '/mo lost';
+  const title = recentChurns.length + ' account' + (recentChurns.length > 1 ? 's' : '') + ' churned - $' + fmtNum(totalLostMRR) + '/mo lost';
   return { priority: 1, icon: _taSvg.drop, iconBg: 'var(--red-l)', iconColor: 'var(--red)', accent: 'red', title, detail, cat: 'churn' };
 }
 
@@ -1996,7 +1996,7 @@ function _taSeasonalPattern(data, metricKey, rangeDays, priorData) {
   const levelDiff = Math.round(currAvg - priorAvg);
 
   if (corr > 0.4) {
-    // Similar shape  - seasonal pattern detected
+    // Similar shape - seasonal pattern detected
     const title = 'Seasonal pattern detected in ' + label;
     let detail;
     if (Math.abs(levelDiff) <= 3) {
@@ -2009,7 +2009,7 @@ function _taSeasonalPattern(data, metricKey, rangeDays, priorData) {
     const accent = levelDiff >= -2 ? 'green' : 'amber';
     return { priority: 2, icon: _taSvg.clock, iconBg: accent === 'green' ? 'var(--green-l)' : 'var(--amber-l)', iconColor: accent === 'green' ? 'var(--green)' : 'var(--amber)', accent, title, detail, cat: 'gen' };
   } else if (corr < 0.1 && Math.abs(levelDiff) > 5) {
-    // Different pattern AND different level  - this isn't seasonal
+    // Different pattern AND different level - this isn't seasonal
     const direction = levelDiff > 0 ? 'higher' : 'lower';
     const title = label + ' diverging from last year\'s pattern';
     const detail = `${label} is <strong>${Math.abs(levelDiff)} pts ${direction}</strong> than the same period last year and the pattern doesn't match. This isn't seasonal - something changed. ` + (levelDiff < 0 ? 'Look at what shifted in the portfolio around the time the divergence started.' : 'Whatever changed is working - identify it and double down.');

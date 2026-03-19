@@ -2,7 +2,7 @@
 function rv(key, val) {
   document.getElementById('rv-' + key).textContent = val;
 }
-// Live MRR ↔ ARR sync  - only auto-fills the OTHER field
+// Live MRR ↔ ARR sync - only auto-fills the OTHER field
 let _revSyncing = false;
 function syncRevenue(source) {
   if (_revSyncing) return;
@@ -72,7 +72,7 @@ function applyProfileSignalState() {
     wrapper.style.opacity = isOff ? '.35' : '';
     wrapper.style.pointerEvents = isOff ? 'none' : '';
     if (isOff) {
-      wrapper.title = 'Weight is 0 in this profile  - not used in scoring';
+      wrapper.title = 'Weight is 0 in this profile - not used in scoring';
     } else {
       wrapper.title = '';
     }
@@ -170,7 +170,7 @@ function showResult({ data, score, signals, status, rec, plays }) {
   // Scroll to the result so the user sees the score immediately
   card.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-  // Score ring  - animate via transition + rAF
+  // Score ring - animate via transition + rAF
   document.getElementById('score-num').textContent = score;
   const circ = 2 * Math.PI * 50;
   const fill = document.getElementById('ring-fill');
@@ -193,7 +193,7 @@ function showResult({ data, score, signals, status, rec, plays }) {
   // Rec
   document.getElementById('score-rec').innerHTML = '<div class="rec-box__title">Health Assessment</div>' + rec;
 
-  // Breakdown  - resolve weights for the selected profile
+  // Breakdown - resolve weights for the selected profile
   const bd = document.getElementById('breakdown-wrap');
   const profName = el('f-profile') ? el('f-profile').value : '';
   const matchedProf = profName ? profiles.find(p => p.name === profName) : null;
@@ -394,7 +394,7 @@ function saveScore() {
         dupe.history.push({ score, date: new Date().toISOString(), signals: buildHistorySnapshot(data) });
         setLoading(true);
         save(dupe).then(() => { setLoading(false); toast('Score updated for ' + dupe.name, 'success'); })
-                  .catch(() => { setLoading(false); toast('Updated locally  - sync failed', 'warn'); });
+                  .catch(() => { setLoading(false); toast('Updated locally - sync failed', 'warn'); });
         logAudit('customer_scored', dupe.id, dupe.name, { score, status, summary: `Re-scored → ${score}/100 (${status}), MRR: $${dupe.mrr}, Tier: ${dupe.tier}` });
         pendingResult = null;
         resetForm();
@@ -446,9 +446,9 @@ function saveScore() {
     toast('Saved: ' + cust.name, 'success');
   }).catch(() => {
     setLoading(false);
-    toast('Saved locally  - sync failed, check connection', 'warn');
+    toast('Saved locally - sync failed, check connection', 'warn');
   });
-  logAudit('customer_created', cust.id, cust.name, { score, status, summary: `New customer  - Score: ${score}/100 (${status}), MRR: $${cust.mrr}, Tier: ${cust.tier}, Lifecycle: ${cust.lifecycle}` });
+  logAudit('customer_created', cust.id, cust.name, { score, status, summary: `New customer - Score: ${score}/100 (${status}), MRR: $${cust.mrr}, Tier: ${cust.tier}, Lifecycle: ${cust.lifecycle}` });
   pendingResult = null;
   resetForm();
   nav(_returnToPage || 'customers');
@@ -495,7 +495,7 @@ function saveDetailsOnly() {
     toast('Details saved for ' + c.name, 'success');
   }).catch(() => {
     setLoading(false);
-    toast('Saved locally  - sync failed', 'warn');
+    toast('Saved locally - sync failed', 'warn');
   });
   logAudit('customer_updated', c.id, c.name, { summary: `Details updated (no re-score)` });
   resetForm();
@@ -549,7 +549,7 @@ function printCustomerReport() {
   if (!detailId) return;
   const c = customers.find(x => x.id === detailId);
   if (!c) return;
-  logAudit('report_printed', c.id, c.name, { summary: `Report printed  - Score: ${c.score}, Status: ${c.status}` });
+  logAudit('report_printed', c.id, c.name, { summary: `Report printed - Score: ${c.score}, Status: ${c.status}` });
   const rec   = makeRec(c.score, c);
   const plays = buildPlaybook(c.score, c);
   const pa    = document.getElementById('print-area');
@@ -576,7 +576,7 @@ function buildPrintHTML(name, score, status, rec, plays, data) {
       td{padding:6px 8px;border-bottom:1px solid #f1f5f9}
       .footer-p{margin-top:32px;font-size:var(--fs-sm);color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:12px}
     </style>
-    <h1>IQcadence Health Report  - ${name}</h1>
+    <h1>IQcadence Health Report - ${name}</h1>
     <p style="color:#64748b;font-size:var(--fs-base)">Generated ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})} · IQcadence CS Health Score</p>
     <div style="margin:16px 0;display:flex;align-items:center;gap:20px;flex-wrap:wrap">
       <div class="score-big">${score}</div>
@@ -625,9 +625,9 @@ function logSentiment() {
   ['pos','neu','neg'].forEach(k => el('sent-'+k)?.classList.remove('active'));
   if (el('sent-note')) el('sent-note').value = '';
   renderDetailSentiment();
-  logAudit('sentiment_logged', c.id, c.name, { summary: `Sentiment: ${c.sentiment[0].val}${note ? '  - "' + note.substring(0, 80) + '"' : ''}` });
+  logAudit('sentiment_logged', c.id, c.name, { summary: `Sentiment: ${c.sentiment[0].val}${note ? ' - "' + note.substring(0, 80) + '"' : ''}` });
   save(c).then(() => toast('Sentiment logged', 'success'))
-         .catch(e => { console.error('Sentiment save failed:', e); toast('Saved locally  - sync failed', 'warn'); });
+         .catch(e => { console.error('Sentiment save failed:', e); toast('Saved locally - sync failed', 'warn'); });
 }
 
 function renderDetailSentiment() {
@@ -682,7 +682,7 @@ function latestSentiment(c) {
   try {
     const s = Array.isArray(c.sentiment) ? c.sentiment : (typeof c.sentiment === 'string' ? JSON.parse(c.sentiment) : []);
     if (!s.length) return null;
-    // Find the entry with the most recent date (don't trust array order  - unshift vs push)
+    // Find the entry with the most recent date (don't trust array order - unshift vs push)
     let best = s[0];
     for (let i = 1; i < s.length; i++) {
       if (s[i].date && (!best.date || s[i].date > best.date)) best = s[i];
@@ -996,7 +996,7 @@ async function saveNextTouch() {
   c.next_touch = newNt;
   c.next_touch_time = newNt ? newTime : '';
 
-  /* Recalculate score  - days may have changed from archival */
+  /* Recalculate score - days may have changed from archival */
   const { score: newSc } = scoreWithModel(c);
   if (newSc !== c.score) {
     c.score = newSc;
@@ -1016,7 +1016,7 @@ async function saveNextTouch() {
     toast('Next touch saved', 'success');
   } catch (err) {
     console.error('Save failed:', err);
-    toast('Save failed  - ' + (err.message || 'unknown error'), 'error');
+    toast('Save failed - ' + (err.message || 'unknown error'), 'error');
   }
 }
 
@@ -1059,7 +1059,7 @@ function buildBreakdownHTML(signals, c) {
   }).join('');
 }
 
-/* stable key for a play  - type + bold title (survives index shifts) */
+/* stable key for a play - type + bold title (survives index shifts) */
 function playKey(p) {
   const t = (p.text.match(/<strong>([^<]+)</) || [])[1] || '';
   return p.type + '|' + t.replace(/:?\s*$/, '');
@@ -1195,7 +1195,7 @@ function addNote() {
   renderDetailNotes();
   logAudit('note_added', c.id, c.name, { summary: `Note: "${text.substring(0, 100)}${text.length > 100 ? '…' : ''}"` });
   save(c).then(() => toast('Note added', 'success'))
-         .catch(e => { console.error('Note save failed:', e); toast('Saved locally  - sync failed', 'warn'); });
+         .catch(e => { console.error('Note save failed:', e); toast('Saved locally - sync failed', 'warn'); });
 }
 
 function deleteNote(idx) {
@@ -1216,7 +1216,7 @@ function renderDetailHistory() {
     ? buildSparkline(hist.map(h=>h.score), 260, 60)
     : '<p style="font-size:var(--fs-base);color:var(--muted)">Score at least twice to see trend.</p>';
 
-  // List  - newest first; arr[i+1] = previous (older) entry
+  // List - newest first; arr[i+1] = previous (older) entry
   const histList = el('dm-history-list');
   const reversed = [...hist].reverse();
   if (!reversed.length) {
@@ -1242,7 +1242,7 @@ function renderDetailHistory() {
       else             deltaHtml = `<span class="delta-eq" style="font-size:var(--fs-sm)">→0</span>`;
     }
 
-    // Signal diff  - what actually changed (use embedded prevSignals if available for sync entries)
+    // Signal diff - what actually changed (use embedded prevSignals if available for sync entries)
     const prevSnap = h.prevSignals || (prev ? (prev.signals || null) : null);
     const changes = diffSnapshots(h.signals || null, prevSnap);
     let reasonHtml = '';
@@ -1321,7 +1321,7 @@ function buildSparkline(values, w, h) {
     </svg>`;
 }
 
-// Mini sparkline for customer table cells  - reuses buildSparkline() at small scale
+// Mini sparkline for customer table cells - reuses buildSparkline() at small scale
 function buildSparklineMini(c) {
   const hist = (c.history||[]).slice(-10); // last 10 score points
   if (hist.length < 2) return '<span style="color:var(--subtle);font-size:var(--fs-sm)"> -</span>';
@@ -1456,7 +1456,7 @@ window.saveScore = function() {
       c.history.push({ score, date: new Date().toISOString(), signals: buildHistorySnapshot(data) });
       setLoading(true);
       save(c).then(() => { setLoading(false); toast('Updated: ' + c.name, 'success'); })
-              .catch(() => { setLoading(false); toast('Updated locally  - sync failed', 'warn'); });
+              .catch(() => { setLoading(false); toast('Updated locally - sync failed', 'warn'); });
       /* Build granular audit diff */
       const after = { name:c.name, manager:c.manager, score, status, mrr:c.mrr, arr:c.arr, tier:c.tier, lifecycle:c.lifecycle, logins:c.logins, adoption:c.adoption, tickets:c.tickets, nps:c.nps, csat:c.csat, days:c.days, growth:c.growth||'none', scoring_profile:c.scoring_profile||'' };
       const changes = Object.keys(after).filter(k => String(before[k]) !== String(after[k])).map(k => `${k}: ${before[k]} → ${after[k]}`);
@@ -1483,7 +1483,7 @@ function deleteFromModal() {
     customers = customers.filter(x => x.id !== detailId);
     closeModal('detail-modal');
     toast(`${c.name} moved to Trash`, 'warn');
-    logAudit('customer_deleted', c.id, c.name, { summary: `Moved to trash  - Score: ${c.score}/100, MRR: $${c.mrr||0}, Tier: ${c.tier}` });
+    logAudit('customer_deleted', c.id, c.name, { summary: `Moved to trash - Score: ${c.score}/100, MRR: $${c.mrr||0}, Tier: ${c.tier}` });
     renderCustomers();
     setLoading(true);
     await atDelete(c).catch(()=>{});
@@ -1499,7 +1499,7 @@ function deleteCustomer(id) {
     trash.push(c);
     customers = customers.filter(x => x.id !== id);
     toast(`${c.name} moved to Trash`, 'warn');
-    logAudit('customer_deleted', c.id, c.name, { summary: `Moved to trash  - Score: ${c.score}/100, MRR: $${c.mrr||0}, Tier: ${c.tier}` });
+    logAudit('customer_deleted', c.id, c.name, { summary: `Moved to trash - Score: ${c.score}/100, MRR: $${c.mrr||0}, Tier: ${c.tier}` });
     if (!customers.length) { nav('homebase'); } else { renderCustomers(); }
     setLoading(true);
     await atDelete(c).catch(()=>{});
@@ -1815,34 +1815,34 @@ function buildQBRText(c) {
   // Wins
   const wins = [];
   if (lc === 'onboarding' && c.adoption != null && c.adoption >= 40) wins.push(`Strong early adoption during onboarding (${c.adoption}%)`);
-  if (lc === 'won' && c.logins != null && c.logins >= 10) wins.push('Smooth transition after expansion  - engagement remains strong');
-  if (c.logins != null && c.logins >= 15) wins.push(`Strong engagement  - ${c.logins} logins in the past 30 days`);
+  if (lc === 'won' && c.logins != null && c.logins >= 10) wins.push('Smooth transition after expansion - engagement remains strong');
+  if (c.logins != null && c.logins >= 15) wins.push(`Strong engagement - ${c.logins} logins in the past 30 days`);
   if (c.adoption != null && c.adoption >= 60) wins.push(`High feature adoption at ${c.adoption}%`);
-  if (c.tickets != null && c.tickets <= 1) wins.push(`Clean support queue  - ${c.tickets === 0 ? 'no' : 'only 1'} open ticket${c.tickets === 1 ? '' : 's'}`);
-  if (c.nps != null && npsIsPromoter(c.nps)) wins.push(`NPS promoter (${npsDisplay(c.nps)})  - strong advocacy potential`);
+  if (c.tickets != null && c.tickets <= 1) wins.push(`Clean support queue - ${c.tickets === 0 ? 'no' : 'only 1'} open ticket${c.tickets === 1 ? '' : 's'}`);
+  if (c.nps != null && npsIsPromoter(c.nps)) wins.push(`NPS promoter (${npsDisplay(c.nps)}) - strong advocacy potential`);
   if (c.csat != null && csatIsGood(c.csat)) wins.push(`High satisfaction (CSAT ${csatDisplay(c.csat)})`);
-  if (c.growth === 'strong' && lc !== 'onboarding' && lc !== 'won') wins.push('Strong growth trajectory  - expansion opportunity');
+  if (c.growth === 'strong' && lc !== 'onboarding' && lc !== 'won') wins.push('Strong growth trajectory - expansion opportunity');
   else if (c.growth === 'mild' && lc !== 'onboarding' && lc !== 'won') wins.push('Positive growth trend emerging');
   if (sent && sent.val === 'positive') wins.push(`Positive sentiment logged on ${fmtDate(sent.date)}`);
   if (mom === 'up') wins.push('Health score is trending upward');
-  if (c.days != null && c.days <= 7) wins.push('Recently engaged  - last contact within 7 days');
+  if (c.days != null && c.days <= 7) wins.push('Recently engaged - last contact within 7 days');
 
   // Risks
   const risks = [];
-  if (c.logins != null && c.logins < 5) risks.push(`[HIGH] Low engagement  - only ${c.logins} logins in the past 30 days`);
-  else if (c.logins != null && c.logins < 12) risks.push(`[MED] Moderate engagement  - ${c.logins} logins/month`);
-  if (c.adoption != null && c.adoption < 25) risks.push(`[HIGH] Critical adoption gap  - only ${c.adoption}% of features utilized`);
-  else if (c.adoption != null && c.adoption < 50) risks.push(`[MED] Adoption at ${c.adoption}%  - value left on the table`);
-  if (c.tickets != null && c.tickets >= 5) risks.push(`[HIGH] ${c.tickets} open support tickets  - unresolved friction`);
+  if (c.logins != null && c.logins < 5) risks.push(`[HIGH] Low engagement - only ${c.logins} logins in the past 30 days`);
+  else if (c.logins != null && c.logins < 12) risks.push(`[MED] Moderate engagement - ${c.logins} logins/month`);
+  if (c.adoption != null && c.adoption < 25) risks.push(`[HIGH] Critical adoption gap - only ${c.adoption}% of features utilized`);
+  else if (c.adoption != null && c.adoption < 50) risks.push(`[MED] Adoption at ${c.adoption}% - value left on the table`);
+  if (c.tickets != null && c.tickets >= 5) risks.push(`[HIGH] ${c.tickets} open support tickets - unresolved friction`);
   else if (c.tickets != null && c.tickets >= 3) risks.push(`[MED] ${c.tickets} open tickets may indicate product friction`);
-  if (c.nps != null && npsIsDetractor(c.nps)) risks.push(`[HIGH] NPS detractor (${npsDisplay(c.nps)})  - needs immediate attention`);
-  if (c.csat != null && csatIsPoor(c.csat)) risks.push(`[HIGH] CSAT is ${csatDisplay(c.csat)}  - satisfaction critically low`);
-  if (c.days != null && c.days > 30) risks.push(`[HIGH] No contact in ${c.days} days  - relationship at risk`);
-  else if (c.days != null && c.days > 14) risks.push(`[MED] ${c.days} days since last contact  - follow-up overdue`);
+  if (c.nps != null && npsIsDetractor(c.nps)) risks.push(`[HIGH] NPS detractor (${npsDisplay(c.nps)}) - needs immediate attention`);
+  if (c.csat != null && csatIsPoor(c.csat)) risks.push(`[HIGH] CSAT is ${csatDisplay(c.csat)} - satisfaction critically low`);
+  if (c.days != null && c.days > 30) risks.push(`[HIGH] No contact in ${c.days} days - relationship at risk`);
+  else if (c.days != null && c.days > 14) risks.push(`[MED] ${c.days} days since last contact - follow-up overdue`);
   if (c.growth === 'declining') risks.push('[MED] Growth signal is declining');
   if (sent && sent.val === 'negative') risks.push(`[HIGH] Negative sentiment logged on ${fmtDate(sent.date)}`);
   if (mom === 'dn') risks.push('[MED] Health score trending downward');
-  if (c.renewal != null && c.renewal <= 2) risks.push(`[${c.renewal <= 1 ? 'HIGH' : 'MED'}] Renewal in ${fmtRenewalTime(c)}  - needs proactive attention`);
+  if (c.renewal != null && c.renewal <= 2) risks.push(`[${c.renewal <= 1 ? 'HIGH' : 'MED'}] Renewal in ${fmtRenewalTime(c)} - needs proactive attention`);
 
   // Summary
   let summary = '';
@@ -1910,7 +1910,7 @@ function buildQBRText(c) {
   const recentNotes = (c.notes || []).slice(0, 3).map(n => `  • [${fmtDate(n.date)}] ${n.text}`).join('\n');
 
   return `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-QBR MEETING PREP  - ${c.name.toUpperCase()}
+QBR MEETING PREP - ${c.name.toUpperCase()}
 Generated: ${date} · IQcadence CS Health Score
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -1921,7 +1921,7 @@ ACCOUNT SNAPSHOT
   MRR:             ${c.mrr ? '$' + fmtNum(c.mrr) : ' -'}
   Tier:            ${tierMap[c.tier] || c.tier || ' -'}
   Lifecycle:       ${c.lifecycle || ' -'}
-  Renewal:         ${c.renewal != null ? c.renewal + ' months' + (u ? '  - ' + u.label + ' urgency' : '') : ' -'}
+  Renewal:         ${c.renewal != null ? c.renewal + ' months' + (u ? ' - ' + u.label + ' urgency' : '') : ' -'}
 
 EXECUTIVE SUMMARY
   ${summary}
@@ -1933,7 +1933,7 @@ ${agenda.map(a => '  ' + a).join('\n')}
 
 QUESTIONS TO ASK
 ${questions.map(q => '  ? ' + q).join('\n')}
-${recentNotes ? `\nMEETING CONTEXT  - RECENT NOTES\n${recentNotes}` : ''}
+${recentNotes ? `\nMEETING CONTEXT - RECENT NOTES\n${recentNotes}` : ''}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Prepared with IQ Cadence · iqcadence.com
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;

@@ -77,7 +77,7 @@ document.addEventListener('click', e => {
 
 // ─── KEYBOARD SHORTCUTS ──────────────────────────────────────
 document.addEventListener('keydown', e => {
-  // Esc  - close open column filter dropdown or modal
+  // Esc - close open column filter dropdown or modal
   if (e.key === 'Escape') {
     closeColFilter();
     closeAlertFilter();
@@ -87,14 +87,14 @@ document.addEventListener('keydown', e => {
   // Ignore shortcuts when typing in inputs
   if (['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
 
-  // Cmd/Ctrl + K  - jump to customer search
+  // Cmd/Ctrl + K - jump to customer search
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
     e.preventDefault();
     nav('customers');
     setTimeout(() => el('search-input')?.focus(), 50);
     return;
   }
-  // Cmd/Ctrl + Enter  - submit score form if on score view
+  // Cmd/Ctrl + Enter - submit score form if on score view
   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
     const scoreView = document.getElementById('view-score');
     if (scoreView?.classList.contains('active')) {
@@ -102,7 +102,7 @@ document.addEventListener('keydown', e => {
     }
     return;
   }
-  // Number shortcuts for nav (1-7)  - matches sidebar order
+  // Number shortcuts for nav (1-7) - matches sidebar order
   const navMap = { '1':'homebase','2':'alerts','3':'customers','4':'segments','5':'trends','6':'csmperf','7':'calendar' };
   if (!e.metaKey && !e.ctrlKey && !e.altKey && navMap[e.key]) {
     nav(navMap[e.key]);

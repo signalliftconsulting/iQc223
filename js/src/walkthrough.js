@@ -12,7 +12,7 @@ var _WT_TOURS = {
       {
         target: '#mgr-filter-wrap',
         title: 'Manager Filter',
-        body: 'Filter the entire dashboard by CSM. Select one or more managers to see only their accounts across every page  - KPIs, alerts, trends, and more all update instantly.'
+        body: 'Filter the entire dashboard by CSM. Select one or more managers to see only their accounts across every page - KPIs, alerts, trends, and more all update instantly.'
       },
       {
         target: '.hb-welcome',
@@ -647,7 +647,7 @@ function _wtSpotlightPage(page, idx, gen) {
   // Walk up to nearest card/section container so we highlight the whole widget
   target = _wtFindCard(target);
 
-  // Scroll into view  - use instant so rect measurement is accurate
+  // Scroll into view - use instant so rect measurement is accurate
   // step.scroll: 'top' scrolls to top of page, 'bottom' scrolls target into view
   var mainScroll = document.querySelector('.main');
   if (step.scroll === 'top') {

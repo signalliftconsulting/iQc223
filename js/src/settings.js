@@ -57,10 +57,10 @@ function _updateSettingsGuideBadge() {
 
 function _renderSettingsGuide() {
   _renderGuide('settings-guide', 'iqc_settings_guide_dismissed',
-    '<strong>What you can do here</strong>  - Configure how IQcadence scores and monitors your customers across three tabs.<br>' +
+    '<strong>What you can do here</strong> - Configure how IQcadence scores and monitors your customers across three tabs.<br>' +
     '<strong>Config:</strong> Set <strong>signal weights</strong> to control how each metric (logins, adoption, NPS, etc.) impacts the health score. Adjust <strong>status thresholds</strong> to define what counts as Critical, At Risk, Watch, and Healthy. Create <strong>Scoring Profiles</strong> with custom weights for different customer segments (e.g. Enterprise vs SMB).<br>' +
     '<strong>Account:</strong> Manage your CSM list, view data health metrics, export/restore backups, and change your password.<br>' +
-    '<strong>Tip:</strong> Connect your CRM or billing tool in the <strong>Integrations</strong> tab to auto-sync customer data. Use Scoring Profiles to apply different weight sets per customer or segment  - assign them in the Score form.');
+    '<strong>Tip:</strong> Connect your CRM or billing tool in the <strong>Integrations</strong> tab to auto-sync customer data. Use Scoring Profiles to apply different weight sets per customer or segment - assign them in the Score form.');
 }
 
 function renderSettings() {
@@ -79,14 +79,14 @@ function renderSettings() {
   renderRenewalWindows();
   renderMiscThresholds();
 
-  // Weights  - available to ALL tiers (ungated)
+  // Weights - available to ALL tiers (ungated)
   const weightCard = el('weight-rows')?.closest('.card');
   if (weightCard) {
     weightCard.style.opacity = ''; weightCard.style.pointerEvents = '';
     weightCard.querySelector('.upgrade-overlay')?.remove();
   }
 
-  // Scoring Profiles  - gated to Growth tier
+  // Scoring Profiles - gated to Growth tier
   const profileCard = el('profiles-list')?.closest('.card');
   if (profileCard) {
     if (hasFeature('scoring_profiles')) {
@@ -283,7 +283,7 @@ function rescoreAll() {
   renderAlerts();
   if (n > 0) {
     const changedNames = changed.slice(0, 5).map(c => `${c.name} (${c.score})`).join(', ') + (changed.length > 5 ? ` +${changed.length - 5} more` : '');
-    logAudit('customer_scored', null, '', { summary: `Bulk re-score: ${n} updated  - ${changedNames}` });
+    logAudit('customer_scored', null, '', { summary: `Bulk re-score: ${n} updated - ${changedNames}` });
   }
   logConfigChange(`Bulk re-score: ${n} customer${n!==1?'s':''} updated`);
   renderScoreDistribution();
@@ -483,7 +483,7 @@ function previewProfile(idx) {
   if (!p) return;
   editingProfileIdx = idx;
   const isGlobal = p.name === 'Global Weights';
-  // Load profile weights into sliders (preview only  - no save)
+  // Load profile weights into sliders (preview only - no save)
   const keys = ['logins','adoption','tickets','nps','csat','days','growth'];
   keys.forEach(k => {
     const input = el('wr-' + k);
@@ -781,7 +781,7 @@ function addCSM() {
   // Check if already exists
   const exists = customers.some(c => (c.manager || '').trim().toLowerCase() === name.toLowerCase());
   if (exists) { toast(`"${name}" is already a CSM`, 'warn'); return; }
-  // Create a placeholder  - add the CSM name to the manager dropdown by assigning to no one yet
+  // Create a placeholder - add the CSM name to the manager dropdown by assigning to no one yet
   // We store in a lightweight list so the name appears even with 0 accounts
   if (!window._manualCSMs) window._manualCSMs = [];
   if (!window._manualCSMs.includes(name)) window._manualCSMs.push(name);
@@ -806,7 +806,7 @@ function removeCSM(name) {
     refreshMgrDropdown();
     renderCustomers();
     renderHomeBase();
-    toast(`"${name}" removed  - ${affected.length} customer${affected.length !== 1 ? 's' : ''} unassigned`, 'success');
+    toast(`"${name}" removed - ${affected.length} customer${affected.length !== 1 ? 's' : ''} unassigned`, 'success');
   });
 }
 
@@ -896,7 +896,7 @@ function confirmSaveProfile() {
   const isGlobal  = existingName === 'Global Weights';
   const name      = isGlobal ? 'Global Weights' : nameInput.value.trim();
   if (!name) { toast('Enter a profile name', 'error'); return; }
-  // Duplicate name check  - ignore the profile being edited itself
+  // Duplicate name check - ignore the profile being edited itself
   const duplicate = profiles.some((p, i) => p.name.toLowerCase() === name.toLowerCase() && i !== editIdx);
   if (duplicate) { toast(`A profile named "${name}" already exists`, 'error'); return; }
 
@@ -1037,7 +1037,7 @@ function restoreBackup(e) {
         
           renderSettings();
         } catch(err) {
-          toast('Restore finished  - some records may not have synced', 'warn');
+          toast('Restore finished - some records may not have synced', 'warn');
         } finally {
           setLoading(false);
         }

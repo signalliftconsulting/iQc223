@@ -316,7 +316,7 @@ function renderCSMFocus(mgrList) {
   const icTarget = _fi('<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>');
   const icShuffle = _fi('<polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/>');
 
-  // Clickable customer name link  - closes modal, opens detail
+  // Clickable customer name link - closes modal, opens detail
   const _cl = (c) => '<a class="fd-cust-link" onclick="closeModal(\'focus-detail-modal\');openDetail(\'' + escHtml(c.id) + '\')">' + escHtml(c.name) + '</a>';
 
   // ── Gather cross-team data ───────────────────────────────────
@@ -330,7 +330,7 @@ function renderCSMFocus(mgrList) {
   const teamAvgDelta = Math.round(allAccs.reduce((s,c) => s + getDelta7d(c), 0) / allAccs.length * 10) / 10;
 
   // ── Generator 1: Consolidated renewal pipeline ───────────────
-  // One combined insight  - "X at-risk renewals across Y CSMs with $Z MRR"
+  // One combined insight - "X at-risk renewals across Y CSMs with $Z MRR"
   (() => {
     const riskRenewals = allAccs.filter(c => (c.status === 'critical' || c.status === 'risk') && c.renewal != null && c.renewal > 0 && c.renewal <= 3);
     if (!riskRenewals.length) return;
@@ -353,18 +353,18 @@ function renderCSMFocus(mgrList) {
     const detail = `There ${riskRenewals.length === 1 ? 'is' : 'are'} <strong>${riskRenewals.length}</strong> account${riskRenewals.length>1?'s':''} coming up for renewal that ${riskRenewals.length === 1 ? 'is' : 'are'} currently at risk, representing <strong>$${fmtNum(renewMRR)}/mo</strong> in revenue that could churn. The largest is ${_cl(top)} at $${fmtNum(top.mrr||0)}/mo with a health score of ${top.score} and roughly ${topDays} days until renewal.${heaviestCSM ? ` <strong>${escHtml(heaviestCSM[0])}</strong> is carrying the heaviest load with $${fmtNum(heaviestCSM[1])}/mo of at-risk renewal MRR on their plate.` : ''}${_rrUrgency}`;
     items.push({ priority: _rrPri, icon: icCal,
       color: _rrColor, bg: _rrBg,
-      title: `${riskRenewals.length} At-Risk Renewal${riskRenewals.length>1?'s':''}  - $${fmtNum(renewMRR)}/mo`,
-      text: `<strong>${riskRenewals.length}</strong> at-risk renewal${riskRenewals.length>1?'s':''} across ${csmNames.length} CSM${csmNames.length>1?'s':''}  - <strong>$${fmtNum(renewMRR)}/mo</strong> MRR at stake`,
+      title: `${riskRenewals.length} At-Risk Renewal${riskRenewals.length>1?'s':''} - $${fmtNum(renewMRR)}/mo`,
+      text: `<strong>${riskRenewals.length}</strong> at-risk renewal${riskRenewals.length>1?'s':''} across ${csmNames.length} CSM${csmNames.length>1?'s':''} - <strong>$${fmtNum(renewMRR)}/mo</strong> MRR at stake`,
       detail,
       steps: [
-        'Prioritize outreach to the highest-MRR renewal  - ' + _cl(top) + ' ($' + fmtNum(top.mrr||0) + '/mo, ~' + topDays + 'd out)',
+        'Prioritize outreach to the highest-MRR renewal - ' + _cl(top) + ' ($' + fmtNum(top.mrr||0) + '/mo, ~' + topDays + 'd out)',
         heaviestCSM ? 'Coordinate with <strong>' + escHtml(heaviestCSM[0]) + '</strong> who carries the most at-risk renewal exposure' : 'Align CSMs on renewal save strategies',
         'Flag any accounts with a score below 40 for executive sponsor escalation'
       ] });
   })();
 
   // ── Generator 2: Neglected + declining accounts (cross-team) ─
-  // Accounts declining with no recent contact  - the "silent bleed"
+  // Accounts declining with no recent contact - the "silent bleed"
   (() => {
     const neglected = allAccs.filter(c => c.days != null && c.days >= 14 && getDelta7d(c) < -2);
     if (neglected.length < 2) return;
@@ -377,22 +377,22 @@ function renderCSMFocus(mgrList) {
     var _ndColor = _ndSev === 'high' ? 'var(--red)' : 'var(--amber)';
     var _ndBg = _ndSev === 'high' ? 'var(--red-l)' : 'var(--amber-l)';
     var _ndPri = _ndSev === 'high' ? 6 : _ndSev === 'medium' ? 4 : 3;
-    var _ndSuffix = _ndSev === 'high' ? ` This is a systemic issue  - too many accounts are bleeding out unnoticed.` : _ndSev === 'medium' ? ` This pattern needs addressing before more accounts slip into critical.` : ` Worth flagging to prevent this from becoming a larger problem.`;
-    const detail = `These accounts are actively losing health points while no one is reaching out  - a "silent bleed" that often leads to surprise churn. The worst right now: ` + worst.map(c => `${_cl(c)} is down ${Math.abs(getDelta7d(c))} pts this week with ${c.days} days since last contact ($${fmtNum(c.mrr||0)}/mo)`).join('; ') + `. Together they represent <strong>$${fmtNum(ndMRR)}/mo</strong> in MRR that\'s eroding without anyone noticing.${_ndSuffix}`;
+    var _ndSuffix = _ndSev === 'high' ? ` This is a systemic issue - too many accounts are bleeding out unnoticed.` : _ndSev === 'medium' ? ` This pattern needs addressing before more accounts slip into critical.` : ` Worth flagging to prevent this from becoming a larger problem.`;
+    const detail = `These accounts are actively losing health points while no one is reaching out - a "silent bleed" that often leads to surprise churn. The worst right now: ` + worst.map(c => `${_cl(c)} is down ${Math.abs(getDelta7d(c))} pts this week with ${c.days} days since last contact ($${fmtNum(c.mrr||0)}/mo)`).join('; ') + `. Together they represent <strong>$${fmtNum(ndMRR)}/mo</strong> in MRR that\'s eroding without anyone noticing.${_ndSuffix}`;
     items.push({ priority: _ndPri, icon: icPhone,
       color: _ndColor, bg: _ndBg,
       title: `${neglected.length} Neglected & Declining Accounts`,
-      text: `<strong>${neglected.length}</strong> accounts declining with no contact in 14+ days across ${csmsAffected.length} CSM${csmsAffected.length>1?'s':''}  - $${fmtNum(ndMRR)}/mo exposed`,
+      text: `<strong>${neglected.length}</strong> accounts declining with no contact in 14+ days across ${csmsAffected.length} CSM${csmsAffected.length>1?'s':''} - $${fmtNum(ndMRR)}/mo exposed`,
       detail,
       steps: [
-        'Assign same-day outreach for the worst-declining accounts  - start with ' + _cl(worst[0]),
-        'Review contact cadence  - these accounts have gone 14+ days without a touchpoint while declining',
+        'Assign same-day outreach for the worst-declining accounts - start with ' + _cl(worst[0]),
+        'Review contact cadence - these accounts have gone 14+ days without a touchpoint while declining',
         'Set up alerts for accounts that go 10+ days without contact while score is dropping'
       ] });
   })();
 
   // ── Generator 3: CSM performance spread ──────────────────────
-  // Gap between best and worst performing CSM  - flags team disparity
+  // Gap between best and worst performing CSM - flags team disparity
   (() => {
     if (activeMgrs.length < 2) return;
     const sorted = [...activeMgrs].sort((a,b) => b.avgDelta - a.avgDelta);
@@ -405,7 +405,7 @@ function renderCSMFocus(mgrList) {
     var _psColor = _psSev === 'high' ? 'var(--red)' : 'var(--amber)';
     var _psBg = _psSev === 'high' ? 'var(--red-l)' : 'var(--amber-l)';
     var _psPri = _psSev === 'high' ? 5 : _psSev === 'medium' ? 3 : 2;
-    var _psSuffix = _psSev === 'high' ? ` A ${spread}-point gap is unusually wide and likely signals a structural issue  - coaching, workload, or account complexity mismatch.` : ` A ${spread}-point spread usually signals different engagement approaches, workload issues, or account mix problems worth digging into.`;
+    var _psSuffix = _psSev === 'high' ? ` A ${spread}-point gap is unusually wide and likely signals a structural issue - coaching, workload, or account complexity mismatch.` : ` A ${spread}-point spread usually signals different engagement approaches, workload issues, or account mix problems worth digging into.`;
     const detail = `There\'s a significant gap in how CSM portfolios are performing this week. <strong>${escHtml(best.name)}</strong> is trending at <strong>${best.avgDelta > 0 ? '+' : ''}${best.avgDelta} pts/wk</strong> with an avg score of ${best.avgScore}, while <strong>${escHtml(worst.name)}</strong> is at <strong>${worst.avgDelta > 0 ? '+' : ''}${worst.avgDelta} pts/wk</strong> with an avg score of ${worst.avgScore}.${_psSuffix}`;
     items.push({ priority: _psPri, icon: icShuffle,
       color: _psColor, bg: _psBg,
@@ -434,7 +434,7 @@ function renderCSMFocus(mgrList) {
     // Severity: high if pct ≥20 or any critical, medium if pct ≥12, low otherwise
     var _mcSev = (pct >= 20 || highMRR.some(c => c.status === 'critical')) ? 'high' : pct >= 12 ? 'medium' : 'low';
     var _mcPri = _mcSev === 'high' ? 6 : _mcSev === 'medium' ? 4 : 3;
-    var _mcSuffix = _mcSev === 'high' ? ` This is a top-of-house risk  - losing ${highMRR.length === 1 ? 'this account' : 'any of these'} would materially damage the business.` : ` Losing ${highMRR.length === 1 ? 'this account' : 'any of these'} would create a noticeable impact on the overall book of business.`;
+    var _mcSuffix = _mcSev === 'high' ? ` This is a top-of-house risk - losing ${highMRR.length === 1 ? 'this account' : 'any of these'} would materially damage the business.` : ` Losing ${highMRR.length === 1 ? 'this account' : 'any of these'} would create a noticeable impact on the overall book of business.`;
     const detail = `A large share of portfolio revenue is concentrated in ${highMRR.length === 1 ? 'a single account that\'s' : highMRR.length + ' accounts that are'} currently at risk. ${_cl(topAcct)} alone accounts for <strong>${topPct}%</strong> of total MRR with a health score of ${topAcct.score} (${topAcct.status}), managed by ${escHtml(topAcct.manager||'Unassigned')}.${highMRR.length > 1 ? ' Plus ' + (highMRR.length - 1) + ' more high-value account' + (highMRR.length > 2 ? 's' : '') + ' also at risk.' : ''}${_mcSuffix}`;
     items.push({ priority: _mcPri, icon: icAlert,
       color: 'var(--red)', bg: 'var(--red-l)',
@@ -444,12 +444,12 @@ function renderCSMFocus(mgrList) {
       steps: [
         'Assign an executive sponsor to ' + _cl(topAcct) + ' immediately',
         'Build a 30-day save plan with specific adoption and engagement milestones',
-        'Assess pipeline diversification  - single-account exposure above 8% of MRR is high risk'
+        'Assess pipeline diversification - single-account exposure above 8% of MRR is high risk'
       ] });
   })();
 
   // ── Generator 5: Adoption-score disconnect ───────────────────
-  // Accounts with decent scores but dropping adoption  - lagging risk
+  // Accounts with decent scores but dropping adoption - lagging risk
   (() => {
     const disconnected = allAccs.filter(c =>
       c.adoption != null && c.adoption < 25 &&
@@ -465,16 +465,16 @@ function renderCSMFocus(mgrList) {
     var _dcColor = _dcSev === 'high' ? 'var(--red)' : 'var(--amber)';
     var _dcBg = _dcSev === 'high' ? 'var(--red-l)' : 'var(--amber-l)';
     var _dcPri = _dcSev === 'high' ? 5 : _dcSev === 'medium' ? 3 : 2;
-    var _dcSuffix = _dcSev === 'high' ? ` This is a widespread adoption gap  - these accounts will likely drop scores in the next 1–2 cycles without enablement.` : ` This is a leading indicator of future churn  - customers who aren\'t using the product tend to question its value at renewal.`;
+    var _dcSuffix = _dcSev === 'high' ? ` This is a widespread adoption gap - these accounts will likely drop scores in the next 1–2 cycles without enablement.` : ` This is a leading indicator of future churn - customers who aren\'t using the product tend to question its value at renewal.`;
     items.push({ priority: _dcPri, icon: icDown,
       color: _dcColor, bg: _dcBg,
       title: `${disconnected.length} Accounts with Low Adoption Risk`,
-      text: `<strong>${disconnected.length}</strong> accounts look healthy but have adoption under 25%  - potential lagging risk ($${fmtNum(dcMRR)}/mo)`,
-      detail: `These accounts look healthy on the surface  - scores above 60  - but product adoption is under 25%.${_dcSuffix} The most at risk: ` + examples + `. Together they represent <strong>$${fmtNum(dcMRR)}/mo</strong> in MRR that could quietly slip away.`,
+      text: `<strong>${disconnected.length}</strong> accounts look healthy but have adoption under 25% - potential lagging risk ($${fmtNum(dcMRR)}/mo)`,
+      detail: `These accounts look healthy on the surface - scores above 60 - but product adoption is under 25%.${_dcSuffix} The most at risk: ` + examples + `. Together they represent <strong>$${fmtNum(dcMRR)}/mo</strong> in MRR that could quietly slip away.`,
       steps: [
-        'Run adoption deep-dives on the lowest-adoption accounts  - identify unused features',
+        'Run adoption deep-dives on the lowest-adoption accounts - identify unused features',
         'Schedule product training or enablement sessions for these accounts',
-        'Treat these as leading indicators  - scores may drop soon if adoption stays low'
+        'Treat these as leading indicators - scores may drop soon if adoption stays low'
       ] });
   })();
 
@@ -492,12 +492,12 @@ function renderCSMFocus(mgrList) {
     var _wlColor = _wlSev === 'high' ? 'var(--red)' : 'var(--amber)';
     var _wlBg = _wlSev === 'high' ? 'var(--red-l)' : 'var(--amber-l)';
     var _wlPri = _wlSev === 'high' ? 5 : _wlSev === 'medium' ? 3 : 2;
-    var _wlSuffix = _wlSev === 'high' ? ` This CSM is critically overloaded  - immediate redistribution is needed to prevent account losses.` : ` Redistributing some of this load could prevent accounts from slipping through the cracks.`;
+    var _wlSuffix = _wlSev === 'high' ? ` This CSM is critically overloaded - immediate redistribution is needed to prevent account losses.` : ` Redistributing some of this load could prevent accounts from slipping through the cracks.`;
     const detail = `<strong>${escHtml(csm.name)}</strong> is managing <strong>${csm.atRisk} at-risk accounts</strong> worth $${fmtNum(csm.riskMRR)}/mo, while the team average is only ${Math.round(avgRisk)}. When one CSM is stretched too thin across too many problem accounts, response times suffer and at-risk accounts don\'t get the attention they need.${overloaded.length > 1 ? ' <strong>' + escHtml(overloaded[1].name) + '</strong> is also elevated at ' + overloaded[1].atRisk + ' at-risk accounts.' : ''}${_wlSuffix}`;
     items.push({ priority: _wlPri, icon: icAlert,
       color: _wlColor, bg: _wlBg,
       title: `${escHtml(csm.name)} Carrying ${csm.atRisk} At-Risk Accounts`,
-      text: `Risk accounts are unevenly distributed  - <strong>${escHtml(csm.name)}</strong> carries ${Math.round(csm.atRisk / Math.max(1, activeMgrs.reduce((s,m)=>s+m.atRisk,0)) * 100)}% of team's at-risk load`,
+      text: `Risk accounts are unevenly distributed - <strong>${escHtml(csm.name)}</strong> carries ${Math.round(csm.atRisk / Math.max(1, activeMgrs.reduce((s,m)=>s+m.atRisk,0)) * 100)}% of team's at-risk load`,
       detail,
       steps: [
         'Evaluate redistributing 1–2 at-risk accounts to lower-loaded CSMs',
@@ -523,7 +523,7 @@ function renderCSMFocus(mgrList) {
     if (avgContact != null && teamAvgContact != null && avgContact < teamAvgContact - 3) {
       why += ` One likely factor: they\'re making contact every <strong>${avgContact} days</strong> on average, vs <strong>${teamAvgContact} days</strong> team-wide. More frequent touchpoints are clearly correlating with better outcomes.`;
     } else {
-      why += ` Understanding what they\'re doing differently  - whether it\'s talk tracks, timing, or prioritization  - could help lift the rest of the team.`;
+      why += ` Understanding what they\'re doing differently - whether it\'s talk tracks, timing, or prioritization - could help lift the rest of the team.`;
     }
     items.push({ priority: 1, icon: icUp,
       color: 'var(--green)', bg: 'var(--green-l)',
@@ -531,7 +531,7 @@ function renderCSMFocus(mgrList) {
       text: `<strong>${escHtml(best.name)}</strong> is driving the strongest portfolio gains at <strong>+${best.avgDelta} pts/wk</strong>`,
       detail: why,
       steps: [
-        'Document what <strong>' + escHtml(best.name) + '</strong> is doing differently  - contact cadence, talk tracks, etc.',
+        'Document what <strong>' + escHtml(best.name) + '</strong> is doing differently - contact cadence, talk tracks, etc.',
         'Have them present their approach at the next team meeting',
         'Apply their methods to underperforming portfolios as a test'
       ] });
@@ -609,7 +609,7 @@ function renderCSMFocus(mgrList) {
       steps: [
         'Reach out to <strong>' + escHtml(top.manager||'Unassigned') + '</strong> today for a status update on this account',
         'Review the risk signals (' + signalStr + ') and build a specific action plan for each',
-        'Schedule a customer check-in within 48 hours  - don\'t let this one go quiet'
+        'Schedule a customer check-in within 48 hours - don\'t let this one go quiet'
       ] });
   })();
 
@@ -651,13 +651,13 @@ function openFocusDetail(idx) {
     '<div class="fd-section-body">' + it.text + '</div>' +
   '</div>';
 
-  // Why This Matters  - callout card
+  // Why This Matters - callout card
   h += '<div class="fd-callout" style="border-left-color:' + it.color + '">' +
     '<div class="fd-callout-hd">Why This Matters</div>' +
     '<div class="fd-callout-body">' + it.detail + '</div>' +
   '</div>';
 
-  // Next Steps  - numbered cards
+  // Next Steps - numbered cards
   h += '<div class="fd-section">' +
     '<div class="fd-section-hd"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Suggested Next Steps</div>' +
     '<div class="fd-steps-list">' +
@@ -809,7 +809,7 @@ function renderCSMActivity(mgrList) {
   wrap.innerHTML = html;
 }
 
-// Drill into a specific CSM's accounts  - inline expand/collapse
+// Drill into a specific CSM's accounts - inline expand/collapse
 function drillCSM(mgrName) {
   const tbody = el('csm-perf-tbody');
   if (!tbody) return;
@@ -819,7 +819,7 @@ function drillCSM(mgrName) {
   const parentRow = tbody.querySelector(`tr.csm-row[data-csm="${CSS.escape(mgrName)}"]`);
   if (!parentRow) return;
 
-  // Check if already expanded  - toggle off
+  // Check if already expanded - toggle off
   const existingExpand = parentRow.nextElementSibling;
   if (existingExpand && existingExpand.classList.contains('csm-expand-row')) {
     existingExpand.remove();

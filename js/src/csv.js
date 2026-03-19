@@ -23,7 +23,7 @@ async function crmImportPull() {
   if (!platform) { toast('Select a platform first', 'error'); return; }
 
   const connected = _integrationCache[platform]?.status === 'connected';
-  if (!connected) { toast(platform + ' is not connected  - go to Settings → Integrations', 'error'); return; }
+  if (!connected) { toast(platform + ' is not connected - go to Settings → Integrations', 'error'); return; }
 
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-sm"></span> Pulling…'; }
   if (status) status.innerHTML = '<span style="color:var(--muted)">Pulling historical data from ' + platform + '…</span>';
@@ -34,7 +34,7 @@ async function crmImportPull() {
   if (result) {
     if (status) status.innerHTML = typeof buildHistoryResultHTML === 'function' ? buildHistoryResultHTML(result) : `<span style="color:var(--green)">✓ ${result.matched} customers, ${result.totalAdded} snapshots</span>`;
   } else {
-    if (status) status.innerHTML = '<span style="color:var(--red)">Pull failed  - check console for details</span>';
+    if (status) status.innerHTML = '<span style="color:var(--red)">Pull failed - check console for details</span>';
   }
 }
 
@@ -54,8 +54,8 @@ function _updateCsvGuideBadge() {
 function _renderCsvGuide() {
   _renderGuide('csv-guide', 'iqc_csv_guide_dismissed',
     '<strong>How to use CSV Import</strong><br>' +
-    '<strong>No integration?</strong> Upload a full bulksheet with all your customer data  - names, MRR, signals, etc. You can also add customers one at a time via <a href="#" onclick="event.stopPropagation();nav(\'score\')" style="color:var(--teal);font-weight:600">Score a Customer</a>.<br>' +
-    '<strong>Using an integration?</strong> You only need to import customer names here. Keep the other columns blank  - once your integration is connected, run a sync and it will fill in MRR, tickets, NPS, and other metrics automatically for matching customers.<br>' +
+    '<strong>No integration?</strong> Upload a full bulksheet with all your customer data - names, MRR, signals, etc. You can also add customers one at a time via <a href="#" onclick="event.stopPropagation();nav(\'score\')" style="color:var(--teal);font-weight:600">Score a Customer</a>.<br>' +
+    '<strong>Using an integration?</strong> You only need to import customer names here. Keep the other columns blank - once your integration is connected, run a sync and it will fill in MRR, tickets, NPS, and other metrics automatically for matching customers.<br>' +
     '<strong>Historical data:</strong> Put a date in the <strong>date</strong> column (e.g. <code style="font-size:.8em">2025-12-01</code>) to import that row as a historical snapshot. Leave the date blank to update the customer\'s current signals. Great for backfilling trends from other systems or exported data.<br>' +
     '<strong>Tip:</strong> Download the <strong>Template CSV</strong> above to see all supported columns and the expected format.<br>' +
     '<strong>Note:</strong> You can also pull in customers directly from your integration by enabling the <strong>Import new accounts</strong> toggle in <a href="#" onclick="event.stopPropagation();nav(\'settings\');setTimeout(()=>cfgTab(\'api\'),100)" style="color:var(--teal);font-weight:600">Settings → Integrations</a>.');
@@ -313,7 +313,7 @@ function applyMapping() {
     };
   }).filter(r => r.name);
 
-  // Show preview  - count new vs updates vs history
+  // Show preview - count new vs updates vs history
   const today = new Date().toISOString().slice(0,10);
   const _historyCount = parsed.filter(r => r._snapshot_date && r._snapshot_date < today).length;
   const currentRows = parsed.filter(r => !r._snapshot_date || r._snapshot_date >= today);
@@ -539,7 +539,7 @@ async function importCSV() {
     if (historyAdded) parts.push(`${historyAdded} history snapshots`);
     toast(`Done: ${parts.join(', ')}`, 'success');
   } catch(e) {
-    toast('Import finished  - some records may not have synced', 'warn');
+    toast('Import finished - some records may not have synced', 'warn');
   } finally {
     setLoading(false);
     refreshMgrDropdown();

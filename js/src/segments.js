@@ -1273,7 +1273,7 @@ function _buildSegInsights(segments, active, view) {
     }
   });
 
-  // ── 11. Synthesis  - combine related insights on same segment ──
+  // ── 11. Synthesis - combine related insights on same segment ──
   // Look for compound patterns: MRR concentration + poor health in same segment
   var _synthTags = {};
   insights.forEach(function(ins) {
@@ -1422,7 +1422,7 @@ function clearTierFilter() {
   renderCustomers();
 }
 
-// Bulksheet export  - all editable/importable fields (excludes auto-derived: score, status, created)
+// Bulksheet export - all editable/importable fields (excludes auto-derived: score, status, created)
 function exportBulksheet() {
   const filtered = customers.filter(c => passesManagerFilter(c));
   const hdr = 'name,manager,scoring_profile,mrr,arr,tier,lifecycle,logins_30d,feature_adoption_pct,open_tickets,nps,csat,days_since_contact,renewal_date,months_to_renewal,growth_signal,tags,since,next_touch,sentiment,note';
@@ -1668,7 +1668,7 @@ function _buildSegChartSVG(data) {
       .sort((a, b) => a.date.localeCompare(b.date));
     if (pts.length < 2) return;
 
-    // Build xy points for smooth path  - downsample for long ranges
+    // Build xy points for smooth path - downsample for long ranges
     const xyPtsRaw = pts.map(p => ({ x: xScale(dateIdx[p.date]), y: yScaleL(p.avg) }));
     const _maxRPts = rangeDays > 365 ? 90 : rangeDays > 180 ? 120 : 9999;
     const xyPts = _downsampleXY(xyPtsRaw, _maxRPts);
@@ -1693,7 +1693,7 @@ function _buildSegChartSVG(data) {
     const smoothD = _smoothPath(xyPts);
     linesSVG += `<path d="${smoothD}" fill="none" stroke="${line.color}" stroke-width="${line.width}" stroke-linecap="round" opacity="0.9"/>`;
 
-    // No inline labels  - hover tooltip shows exact values for all lines
+    // No inline labels - hover tooltip shows exact values for all lines
   });
 
   // Build tooltip data (Map-based with carry-forward for reliable lookups)
@@ -1854,7 +1854,7 @@ function _buildSegChartAnalysis(data) {
   const metricLabel = cfg.label;
   const halfLabel = rangeDays <= 30 ? Math.round(rangeDays / 2) + 'd' : Math.round(rangeDays / 60) + 'mo';
 
-  // ── 1. Momentum shift  - segment was heading one way but recently reversed ──
+  // ── 1. Momentum shift - segment was heading one way but recently reversed ──
   // This is NOT visible at a glance since the overall delta may look flat
   series.forEach(s => {
     const accel = s.secondHalfDelta - s.firstHalfDelta;
@@ -1875,7 +1875,7 @@ function _buildSegChartAnalysis(data) {
         bg: s.secondHalfDelta > 0 ? 'var(--green-l)' : 'var(--red-l)',
         label: 'Momentum Shift',
         tags: [s.tag],
-        text: `<strong>${escHtml(s.label)}</strong> was ${wasDir} (${f(s.firstHalfDelta)}) in the first half but is now ${nowDir} (${f(s.secondHalfDelta)})  - the overall ${rangeLabel} number masks this recent change in direction.`
+        text: `<strong>${escHtml(s.label)}</strong> was ${wasDir} (${f(s.firstHalfDelta)}) in the first half but is now ${nowDir} (${f(s.secondHalfDelta)}) - the overall ${rangeLabel} number masks this recent change in direction.`
       });
     } else {
       const dir = s.secondHalfDelta > 0 ? 'accelerating upward' : 'accelerating downward';
@@ -1886,7 +1886,7 @@ function _buildSegChartAnalysis(data) {
         bg: s.secondHalfDelta > 0 ? 'var(--green-l)' : 'var(--amber-l)',
         label: 'Accelerating',
         tags: [s.tag],
-        text: `<strong>${escHtml(s.label)}</strong> is ${dir}  - moved ${f(s.secondHalfDelta)} in the recent ${halfLabel} vs ${f(s.firstHalfDelta)} in the prior ${halfLabel}. The pace of change is picking up.`
+        text: `<strong>${escHtml(s.label)}</strong> is ${dir} - moved ${f(s.secondHalfDelta)} in the recent ${halfLabel} vs ${f(s.firstHalfDelta)} in the prior ${halfLabel}. The pace of change is picking up.`
       });
     }
   });
@@ -1906,7 +1906,7 @@ function _buildSegChartAnalysis(data) {
         const sc = scoreSeries.find(ss => ss.label === s.label);
         return sc ? { label: s.label, mDelta: s.delta, sDelta: sc.sDelta } : null;
       }).filter(Boolean);
-      // Look for the outlier: metric went one way, score went the other  - that's the non-obvious one
+      // Look for the outlier: metric went one way, score went the other - that's the non-obvious one
       const outliers = pairs.filter(p => (p.mDelta > 1 && p.sDelta < -1) || (p.mDelta < -1 && p.sDelta > 1));
       if (outliers.length > 0) {
         const ex = outliers.reduce((a, b) => Math.abs(b.mDelta) + Math.abs(b.sDelta) > Math.abs(a.mDelta) + Math.abs(a.sDelta) ? b : a);
@@ -1920,10 +1920,10 @@ function _buildSegChartAnalysis(data) {
           bg: 'var(--amber-l)',
           label: 'Disconnected Signal',
           tags: exSeries ? [exSeries.tag] : [],
-          text: `<strong>${escHtml(ex.label)}</strong>'s ${metricLabel} ${mDir} (${ex.mDelta > 0 ? '+' : ''}${cfg.fmt(ex.mDelta)}) but their Health Score ${sDir} (${ex.sDelta > 0 ? '+' : ''}${Math.round(ex.sDelta)})  - something else is driving score changes in this segment.`
+          text: `<strong>${escHtml(ex.label)}</strong>'s ${metricLabel} ${mDir} (${ex.mDelta > 0 ? '+' : ''}${cfg.fmt(ex.mDelta)}) but their Health Score ${sDir} (${ex.sDelta > 0 ? '+' : ''}${Math.round(ex.sDelta)}) - something else is driving score changes in this segment.`
         });
       } else {
-        // Check for strong positive correlation  - metric and score moving together
+        // Check for strong positive correlation - metric and score moving together
         const sameDir = pairs.filter(p => (p.mDelta > 1 && p.sDelta > 1) || (p.mDelta < -1 && p.sDelta < -1));
         if (sameDir.length >= 2 && sameDir.length === pairs.length) {
           const ex = sameDir.reduce((a, b) => Math.abs(b.mDelta) > Math.abs(a.mDelta) ? b : a);
@@ -1935,14 +1935,14 @@ function _buildSegChartAnalysis(data) {
             bg: 'var(--blue-l,#dbeafe)',
             label: 'Strong Signal',
             tags: exS ? [exS.tag] : [],
-            text: `${metricLabel} changes are tracking Health Score changes across all segments  - this metric appears to be a reliable leading indicator. <strong>${escHtml(ex.label)}</strong> shows the clearest link.`
+            text: `${metricLabel} changes are tracking Health Score changes across all segments - this metric appears to be a reliable leading indicator. <strong>${escHtml(ex.label)}</strong> shows the clearest link.`
           });
         }
       }
     }
   }
 
-  // ── 3. MRR concentration risk  - which segments hold the $ ──
+  // ── 3. MRR concentration risk - which segments hold the $ ──
   // Not visible on the metric chart at all, adds financial context
   if (series.length >= 2) {
     const totalMRR = chartSegs.reduce((s, seg) => s + (seg.totalMRR || seg.custs.reduce((t, c) => t + (c.mrr || 0), 0)), 0);
@@ -1964,10 +1964,10 @@ function _buildSegChartAnalysis(data) {
           bg: 'var(--red-l)',
           label: 'Revenue Exposure',
           tags: [biggest.tag],
-          text: `<strong>${escHtml(biggest.label)}</strong> holds ${biggest.pct}% of segment MRR ($${fmtNum(biggest.mrr)}) and its ${metricLabel} is declining  - this concentrates risk in your highest-value segment.`
+          text: `<strong>${escHtml(biggest.label)}</strong> holds ${biggest.pct}% of segment MRR ($${fmtNum(biggest.mrr)}) and its ${metricLabel} is declining - this concentrates risk in your highest-value segment.`
         });
       }
-      // Flag: small MRR segment outperforming  - possible expansion opportunity
+      // Flag: small MRR segment outperforming - possible expansion opportunity
       // Skip won/upsold stages - they're already expanded by definition
       const wonTags = ['won', 'upsold', 'won / upsold', 'won/upsold'];
       const smallest = segMRR.filter(s => s.pct < 20 && s.delta > 2 && !wonTags.includes((s.tag || '').toLowerCase()));
@@ -1980,13 +1980,13 @@ function _buildSegChartAnalysis(data) {
           bg: 'var(--green-l)',
           label: 'Growth Opportunity',
           tags: [opp.tag],
-          text: `<strong>${escHtml(opp.label)}</strong> is only ${opp.pct}% of MRR but has the strongest ${metricLabel} trajectory  - healthy signals in a small segment could mean expansion potential.`
+          text: `<strong>${escHtml(opp.label)}</strong> is only ${opp.pct}% of MRR but has the strongest ${metricLabel} trajectory - healthy signals in a small segment could mean expansion potential.`
         });
       }
     }
   }
 
-  // ── 4. Lagging risk  - segment with declining customers that others don't have ──
+  // ── 4. Lagging risk - segment with declining customers that others don't have ──
   // Looks at per-customer variance within segments, not segment-level averages
   if (series.length >= 2 && metric === 'score') {
     chartSegs.forEach(seg => {
@@ -2004,13 +2004,13 @@ function _buildSegChartAnalysis(data) {
           bg: 'var(--amber-l)',
           label: 'Hidden Risk',
           tags: [s.tag],
-          text: `<strong>${escHtml(s.label)}</strong> averages ${cfg.fmt(s.endVal)} overall but ${riskPct}% of its accounts (${riskCount}/${seg.custs.length}) are at risk  - the average hides a bimodal distribution of healthy and struggling accounts.`
+          text: `<strong>${escHtml(s.label)}</strong> averages ${cfg.fmt(s.endVal)} overall but ${riskPct}% of its accounts (${riskCount}/${seg.custs.length}) are at risk - the average hides a bimodal distribution of healthy and struggling accounts.`
         });
       }
     });
   }
 
-  // ── 5. Contact gap correlation  - segments with high days-since-contact and declining metric ──
+  // ── 5. Contact gap correlation - segments with high days-since-contact and declining metric ──
   if (series.length >= 2) {
     chartSegs.forEach(seg => {
       const s = series.find(x => x.label === _segLabel(seg));
@@ -2035,13 +2035,13 @@ function _buildSegChartAnalysis(data) {
           bg: 'var(--amber-l)',
           label: 'Engagement Gap',
           tags: [s.tag],
-          text: `<strong>${escHtml(s.label)}</strong> is declining and averages ${avgDays} days since last contact vs ${otherAvg} days for other segments  - the lack of recent outreach may be contributing to the decline.`
+          text: `<strong>${escHtml(s.label)}</strong> is declining and averages ${avgDays} days since last contact vs ${otherAvg} days for other segments - the lack of recent outreach may be contributing to the decline.`
         });
       }
     });
   }
 
-  // ── 6. Drop attribution  - find the worst anomalous drop and decompose what caused it ──
+  // ── 6. Drop attribution - find the worst anomalous drop and decompose what caused it ──
   {
     let worstSeg = null, worstDrop = 0, worstPeakPt = null, worstTroughPt = null, worstPeakIdx = 0, worstTroughIdx = 0;
     series.forEach(s => {
@@ -2101,18 +2101,18 @@ function _buildSegChartAnalysis(data) {
         if (declined.length <= 2 && declined.length > 0 && custDeltas.length > 3) {
           declined.sort((a, b) => a.delta - b.delta);
           if (declined.length === 1) {
-            concentrationNote = ` This was driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv2(declined[0].delta)})  - the remaining ${custDeltas.length - 1} accounts were relatively flat.`;
+            concentrationNote = ` This was driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv2(declined[0].delta)}) - the remaining ${custDeltas.length - 1} accounts were relatively flat.`;
           } else {
-            concentrationNote = ` Driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv2(declined[0].delta)}) and ${_taCustLink(declined[1].name, declined[1].id)} (down ${fv2(declined[1].delta)})  - most of the other ${custDeltas.length - 2} accounts were relatively flat.`;
+            concentrationNote = ` Driven primarily by ${_taCustLink(declined[0].name, declined[0].id)} (down ${fv2(declined[0].delta)}) and ${_taCustLink(declined[1].name, declined[1].id)} (down ${fv2(declined[1].delta)}) - most of the other ${custDeltas.length - 2} accounts were relatively flat.`;
           }
         } else if (pctDeclined >= 60) {
           if (custDeltas.length <= 5) {
             concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts in this segment declined during this period.`;
           } else {
-            concentrationNote = ` This was a broad-based decline  - <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) dropped during this period.`;
+            concentrationNote = ` This was a broad-based decline - <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) dropped during this period.`;
           }
         } else if (pctDeclined >= 30) {
-          concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) declined while ${improved.length} improved  - a split trend worth investigating.`;
+          concentrationNote = ` <strong>${declined.length} of ${custDeltas.length}</strong> accounts (${pctDeclined}%) declined while ${improved.length} improved - a split trend worth investigating.`;
         }
       }
 
@@ -2177,7 +2177,7 @@ function _buildSegChartAnalysis(data) {
           const sp = fn(scorePts, worstPeakPt.date), st = fn(scorePts, worstTroughPt.date);
           const sd = Math.round(st.avg - sp.avg);
           if (sd < -2) text += ` During the same window, Health Score also dropped <strong>${Math.abs(sd)} points</strong>.`;
-          else if (Math.abs(sd) <= 2) text += ` Health Score stayed stable during this window  - other signals offset the impact.`;
+          else if (Math.abs(sd) <= 2) text += ` Health Score stayed stable during this window - other signals offset the impact.`;
         }
         insights.push({
           score: dropAbs + 3, icon: icons.drop, color: 'var(--red)', bg: 'var(--red-l)',
