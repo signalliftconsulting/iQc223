@@ -622,3 +622,144 @@ async function ensureUserProfile(user) {
     updateUserUI(user);
   } catch(e) { /* silent  - non-critical */ }
 }
+
+
+// ─── USAGE ANALYTICS (ADMIN ONLY) ──────────────────────────
+async function loadAnalytics() {
+  if (!isAdmin()) return;
+  const days = parseInt(document.getElementById('analytics-range')?.value || '30', 10);
+  const since = new Date(Date.now() - days * 86400000).toISOString();
+
+  let events = [];
+  try {
+    const { data, error } = await sb.from('webhook_events')
+      .select('event_type, payload, created_at, user_id')
+      .eq('direction', 'inbound')
+      .gte('created_at', since)
+      .order('created_at', { ascending: false })
+      .limit(5000);
+    if (error) throw error;
+    events = data || [];
+  } catch(e) {
+    console.warn('[analytics]', e.message);
+    return;
+  }
+
+  // Parse payloads
+  const parsed = events.map(e => {
+    let p = {};
+    try { p = JSON.parse(e.payload || '{}'); } catch(x) {}
+    return { ...e, p };
+  });
+
+  const pageViews = parsed.filter(e => e.event_type === 'page_view');
+  const sessions = parsed.filter(e => e.event_type === 'session_start');
+  const uniqueUsers = new Set(parsed.map(e => e.user_id));
+  const uniqueSessions = new Set(parsed.map(e => e.p.session).filter(Boolean));
+
+  // ── KPIs ──
+  const kpiEl = document.getElementById('analytics-kpis');
+  if (kpiEl) {
+    kpiEl.innerHTML = [
+      { label: 'Page Views', value: pageViews.length },
+      { label: 'Sessions', value: uniqueSessions.size },
+      { label: 'Unique Users', value: uniqueUsers.size },
+      { label: 'Logins', value: sessions.length },
+    ].map(k => `
+      <div class="kpi-card">
+        <div class="kpi-value">${k.value.toLocaleString()}</div>
+        <div class="kpi-label">${k.label}</div>
+      </div>`).join('');
+  }
+
+  // ── Page views by page (horizontal bars) ──
+  const pageCounts = {};
+  pageViews.forEach(e => {
+    const pg = e.p.page || 'unknown';
+    pageCounts[pg] = (pageCounts[pg] || 0) + 1;
+  });
+  const sortedPages = Object.entries(pageCounts).sort((a,b) => b[1] - a[1]);
+  const maxCount = sortedPages.length ? sortedPages[0][1] : 1;
+  const pagesEl = document.getElementById('analytics-pages');
+  if (pagesEl) {
+    if (!sortedPages.length) {
+      pagesEl.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted)">No page views yet</div>';
+    } else {
+      pagesEl.innerHTML = sortedPages.map(([pg, cnt]) => `
+        <div style="display:flex;align-items:center;gap:10px;padding:4px 0">
+          <div style="width:100px;font-size:var(--fs-sm);color:var(--muted);text-align:right">${pg}</div>
+          <div style="flex:1;background:var(--bg);border-radius:4px;height:22px;overflow:hidden">
+            <div style="width:${(cnt/maxCount*100).toFixed(1)}%;background:var(--blue);height:100%;border-radius:4px;min-width:2px"></div>
+          </div>
+          <div style="width:40px;font-size:var(--fs-sm);font-weight:600">${cnt}</div>
+        </div>`).join('');
+    }
+  }
+
+  // ── DAU chart (simple bar chart by day) ──
+  const dauMap = {};
+  parsed.forEach(e => {
+    const day = e.created_at?.slice(0, 10);
+    if (!day) return;
+    if (!dauMap[day]) dauMap[day] = new Set();
+    dauMap[day].add(e.user_id);
+  });
+  const dauDays = Object.keys(dauMap).sort();
+  const maxDau = dauDays.reduce((m, d) => Math.max(m, dauMap[d].size), 1);
+  const dauEl = document.getElementById('analytics-dau');
+  if (dauEl) {
+    if (!dauDays.length) {
+      dauEl.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted)">No data yet</div>';
+    } else {
+      dauEl.innerHTML = `<div style="display:flex;align-items:flex-end;gap:2px;height:120px;padding:0 4px">` +
+        dauDays.map(d => {
+          const cnt = dauMap[d].size;
+          const pct = (cnt / maxDau * 100).toFixed(1);
+          const label = d.slice(5); // MM-DD
+          return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+            <div style="font-size:10px;color:var(--muted)">${cnt}</div>
+            <div style="width:100%;background:var(--green);border-radius:3px 3px 0 0;height:${pct}%;min-height:2px" title="${d}: ${cnt} users"></div>
+            <div style="font-size:9px;color:var(--muted);transform:rotate(-45deg);white-space:nowrap">${label}</div>
+          </div>`;
+        }).join('') + '</div>';
+    }
+  }
+
+  // ── Recent sessions table ──
+  const sessEl = document.getElementById('analytics-sessions');
+  if (sessEl) {
+    const recent = parsed.slice(0, 100);
+    if (!recent.length) {
+      sessEl.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:24px;color:var(--muted)">No events yet</td></tr>';
+    } else {
+      // Resolve user emails (batch)
+      const userIds = [...new Set(recent.map(e => e.user_id))];
+      let emailMap = {};
+      try {
+        const { data: profiles } = await sb.from('user_profiles')
+          .select('user_id, email')
+          .in('user_id', userIds);
+        (profiles || []).forEach(p => { emailMap[p.user_id] = p.email; });
+      } catch(e) {}
+
+      sessEl.innerHTML = recent.map(e => {
+        const email = emailMap[e.user_id] || e.user_id.slice(0, 8);
+        const page = e.p.page || e.event_type;
+        const ago = _timeAgo(new Date(e.created_at));
+        return `<tr>
+          <td style="font-size:var(--fs-sm)">${escHtml(email)}</td>
+          <td style="font-size:var(--fs-sm)">${escHtml(page)}</td>
+          <td style="font-size:var(--fs-sm);color:var(--muted)">${ago}</td>
+        </tr>`;
+      }).join('');
+    }
+  }
+}
+
+function _timeAgo(date) {
+  const s = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (s < 60)   return s + 's ago';
+  if (s < 3600) return Math.floor(s / 60) + 'm ago';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+  return Math.floor(s / 86400) + 'd ago';
+}

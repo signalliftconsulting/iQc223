@@ -20,6 +20,88 @@ function _maybeShowWelcome() {
   }
 }
 
+// ─── WHAT'S NEW / CHANGELOG ──────────────────────────────────
+const _CHANGELOG = [
+  {
+    version: '2.3',
+    date: '2026-03-19',
+    items: [
+      { type: 'new', text: 'Usage Analytics - admin dashboard tracking page views, sessions, and user activity' },
+      { type: 'new', text: 'Server-side plan enforcement - account and user limits enforced at the database level' },
+      { type: 'new', text: 'Automated R2 backups - daily database snapshots to Cloudflare R2' },
+      { type: 'new', text: 'What\'s New changelog - see what\'s changed right from the sidebar' },
+    ]
+  },
+  {
+    version: '2.2',
+    date: '2026-03-15',
+    items: [
+      { type: 'new', text: 'Revenue Forecasting page with NRR projection, waterfall chart, and risk pipeline' },
+      { type: 'new', text: 'Searchable client inputs in Trends - type to filter instead of scrolling dropdowns' },
+      { type: 'improve', text: 'Trends analysis engine rewrite - statistical analysis with descriptive stats, context-aware insights' },
+      { type: 'improve', text: 'Demo data overhaul - varied trajectories, staggered start dates, realistic mid-range scores' },
+      { type: 'fix', text: 'Analysis numbers now match KPIs exactly across all views' },
+      { type: 'fix', text: 'Admin user creation no longer auto-logs in as the new user' },
+    ]
+  },
+  {
+    version: '2.1',
+    date: '2026-03-05',
+    items: [
+      { type: 'new', text: 'Segments analysis with tabbed insights - view by segments, tiers, or lifecycle stages' },
+      { type: 'new', text: 'Interactive walkthroughs on every page with Tour buttons' },
+      { type: 'new', text: 'Welcome modal for first-time users with "Don\'t show again" option' },
+      { type: 'improve', text: 'Score Settings button on Home Base and Score a Customer for quick access' },
+      { type: 'improve', text: 'Scoring config tab renamed from "Config" for clarity' },
+      { type: 'fix', text: 'Cloudflare deploy fix - removed oversized binary from repo' },
+    ]
+  }
+];
+
+const _CHANGELOG_VERSION = '2.3'; // bump this when adding new entries
+
+function showWhatsNew() {
+  const body = document.getElementById('whatsnew-body');
+  if (!body) return;
+
+  const typeColors = { 'new': '#10b981', improve: '#3b82f6', fix: '#f59e0b' };
+  const typeLabels = { 'new': 'NEW', improve: 'IMPROVED', fix: 'FIXED' };
+
+  body.innerHTML = _CHANGELOG.map(release => `
+    <div style="margin-bottom:18px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-weight:700;font-size:var(--fs-base);color:var(--fg)">v${release.version}</span>
+        <span style="font-size:var(--fs-sm);color:var(--muted)">${release.date}</span>
+      </div>
+      ${release.items.map(item => `
+        <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:5px;padding-left:4px">
+          <span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;color:#fff;background:${typeColors[item.type]};flex-shrink:0;margin-top:2px">${typeLabels[item.type]}</span>
+          <span style="font-size:var(--fs-sm);color:var(--text);line-height:1.5">${item.text}</span>
+        </div>`).join('')}
+    </div>`).join('<div style="border-top:1px solid var(--border);margin:0 0 18px"></div>');
+
+  const modal = document.getElementById('whatsnew-modal');
+  if (modal) modal.style.display = 'flex';
+
+  // Mark this version as seen
+  localStorage.setItem('iqc_changelog_seen', _CHANGELOG_VERSION);
+}
+
+function closeWhatsNew() {
+  const modal = document.getElementById('whatsnew-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function _maybeShowWhatsNew() {
+  const seen = localStorage.getItem('iqc_changelog_seen');
+  if (seen !== _CHANGELOG_VERSION) {
+    // Show after a delay, but not on first ever visit (welcome modal takes priority)
+    if (localStorage.getItem('iqc_welcome_v3')) {
+      setTimeout(showWhatsNew, 2000);
+    }
+  }
+}
+
 // ─── USER-SWITCH GUARD ──────────────────────────────────────
 // Detects when a different user signs in on the same browser and
 // purges stale localStorage + in-memory state from the previous user.
@@ -131,8 +213,9 @@ function _checkUserSwitch(userId) {
       }
       // Resume walkthrough panel if it was active
       if (typeof _wtResume === 'function') _wtResume();
-      // Show welcome modal for first-time users
+      // Show welcome modal for first-time users, or What's New for returning users
       _maybeShowWelcome();
+      _maybeShowWhatsNew();
     }
 
   } else {
@@ -179,6 +262,7 @@ function _checkUserSwitch(userId) {
     hideAuthGate();
     updateUserUI(currentUser);
     _updateAllGuideBadges();
+    if (typeof _trackLogin === 'function') _trackLogin();
     await ensureUserProfile(currentUser); // resolve _userClientId before loading data
     nav('homebase');
     renderSettings();
@@ -237,8 +321,9 @@ function _checkUserSwitch(userId) {
         nav('homebase');
         renderSettings();
       }
-      // Show welcome modal for first-time users
+      // Show welcome modal for first-time users, or What's New for returning users
       _maybeShowWelcome();
+      _maybeShowWhatsNew();
     }
   });
 })();

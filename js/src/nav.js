@@ -1,5 +1,69 @@
+// ─── USAGE ANALYTICS ────────────────────────────────────────
+// Lightweight page-view tracking. Batches writes to webhook_events.
+const _analytics = { queue: [], timer: null, sessionId: null };
+
+function _analyticsSessionId() {
+  if (!_analytics.sessionId) {
+    _analytics.sessionId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+  return _analytics.sessionId;
+}
+
+function _trackEvent(eventType, details) {
+  if (!currentUser) return;
+  _analytics.queue.push({
+    user_id: currentUser.id,
+    direction: 'inbound',
+    event_type: eventType,
+    payload: JSON.stringify({
+      ...details,
+      session: _analyticsSessionId(),
+      ts: new Date().toISOString(),
+      ua: navigator.userAgent.slice(0, 120)
+    }),
+    status: 'success',
+    created_at: new Date().toISOString()
+  });
+  // Auto-flush every 30s
+  if (!_analytics.timer) {
+    _analytics.timer = setTimeout(_flushAnalytics, 30000);
+  }
+}
+
+async function _flushAnalytics() {
+  _analytics.timer = null;
+  if (!_analytics.queue.length || !currentUser) return;
+  const batch = _analytics.queue.splice(0, 50); // max 50 per flush
+  try {
+    await sb.from('webhook_events').insert(batch);
+  } catch(e) {
+    // Silently drop - analytics should never break the app
+    console.debug('[analytics] flush error:', e.message);
+  }
+}
+
+// Flush on page unload
+if (typeof window !== 'undefined') {
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') _flushAnalytics();
+  });
+  window.addEventListener('beforeunload', _flushAnalytics);
+}
+
+function _trackPageView(view) {
+  _trackEvent('page_view', { page: view });
+}
+
+function _trackLogin() {
+  _trackEvent('session_start', { page: 'login' });
+}
+
+function _trackAction(action, detail) {
+  _trackEvent('user_action', { action, ...detail });
+}
+
 // ─── NAVIGATION ─────────────────────────────────────────────
-const VIEWS = ['homebase','alerts','customers','segments','trends','forecast','csmperf','calendar','reports','score','csv','settings','automations','auditlog','users','clients','help'];
+const VIEWS = ['homebase','alerts','customers','segments','trends','forecast','csmperf','calendar','reports','score','csv','settings','automations','auditlog','users','clients','analytics','help'];
 const ADMIN_EMAILS = (_cfg && _cfg.ADMIN_EMAILS) || [];
 
 // ─── COLLAPSIBLE NAV GROUPS ─────────────────────────────────
@@ -113,6 +177,9 @@ function nav(v) {
   // Remember active view for page refresh
   try { localStorage.setItem('iqc_active_view', v); } catch(e) {}
 
+  // Track page view
+  _trackPageView(v);
+
   // Auto-expand the group containing this view
   _autoExpandGroupFor(v);
 
@@ -159,6 +226,7 @@ function nav(v) {
   if (v === 'reports')     { renderReportsGuide(); renderReporting(); }
   if (v === 'automations') { renderAutomationsGuide(); renderAutomations(); }
   if (v === 'users')     { renderUsersGuide(); renderUsers(); }
+  if (v === 'analytics') loadAnalytics();
   if (v === 'score')     renderScoreGuide();
   if (v === 'clients')   renderClients();
 }

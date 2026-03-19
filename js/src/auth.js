@@ -127,7 +127,7 @@ function updateUserUI(user) {
 
     // Show admin nav items  - uses isAdmin() which checks server-fetched role first
     const admin = isAdmin();
-    ['ni-admin-sep','ni-admin-label','ni-clients','ni-users'].forEach(id => {
+    ['ni-admin-sep','ni-admin-label','ni-clients','ni-users','ni-analytics'].forEach(id => {
       const el2 = document.getElementById(id);
       if (el2) el2.style.display = admin ? '' : 'none';
     });
@@ -137,7 +137,7 @@ function updateUserUI(user) {
   } else {
     if (pill)    pill.style.display    = 'none';
     if (signout) signout.style.display = 'none';
-    ['ni-admin-sep','ni-admin-label','ni-clients','ni-users'].forEach(id => {
+    ['ni-admin-sep','ni-admin-label','ni-clients','ni-users','ni-analytics'].forEach(id => {
       const el2 = document.getElementById(id);
       if (el2) el2.style.display = 'none';
     });

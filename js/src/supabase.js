@@ -325,47 +325,63 @@ function toRow(c) {
 // Uses client_id for ownership - all users in the same client see the same customers
 // Active rows (deleted_at IS NULL) → customers[]
 // Soft-deleted rows (deleted_at IS NOT NULL) → trash[]
+// Paginated fetch helper - fetches all rows in batches of 1000
+// to work around PostgREST's default row limit
+async function _fetchAllRows(query) {
+  const PAGE_SIZE = 1000;
+  let all = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await query.range(from, from + PAGE_SIZE - 1);
+    if (error) return { data: null, error };
+    all = all.concat(data || []);
+    if (!data || data.length < PAGE_SIZE) break; // last page
+    from += PAGE_SIZE;
+  }
+  return { data: all, error: null };
+}
+
 async function loadCustomersFromSupabase() {
   let data, error;
 
   if (isAdmin()) {
     // Admin: try client_id first, fall back to loading all
     if (_userClientId) {
-      ({ data, error } = await sb.from('customers')
-        .select('*')
-        .eq('client_id', _userClientId)
-        .order('created_at', { ascending: false }));
+      ({ data, error } = await _fetchAllRows(
+        sb.from('customers').select('*')
+          .eq('client_id', _userClientId)
+          .order('created_at', { ascending: false })));
       if (!error) _dbHasClientId = true;
     }
     // If no client_id set, or client_id query failed (column may not exist yet), load all
     if (!_userClientId || error) {
       if (error) console.warn('client_id query unavailable, using fallback:', error.message);
-      ({ data, error } = await sb.from('customers')
-        .select('*')
-        .order('created_at', { ascending: false }));
+      ({ data, error } = await _fetchAllRows(
+        sb.from('customers').select('*')
+          .order('created_at', { ascending: false })));
     }
   } else if (_userClientId) {
     // Non-admin with client: try client_id first
-    ({ data, error } = await sb.from('customers')
-      .select('*')
-      .eq('client_id', _userClientId)
-      .order('created_at', { ascending: false }));
+    ({ data, error } = await _fetchAllRows(
+      sb.from('customers').select('*')
+        .eq('client_id', _userClientId)
+        .order('created_at', { ascending: false })));
     if (!error) {
       _dbHasClientId = true;
     } else {
       // Fall back to user_id if client_id column doesn't exist yet
       console.warn('client_id query unavailable, falling back to user_id:', error.message);
-      ({ data, error } = await sb.from('customers')
-        .select('*')
-        .eq('user_id', currentUser.id)
-        .order('created_at', { ascending: false }));
+      ({ data, error } = await _fetchAllRows(
+        sb.from('customers').select('*')
+          .eq('user_id', currentUser.id)
+          .order('created_at', { ascending: false })));
     }
   } else {
     // Non-admin without client: fall back to user_id
-    ({ data, error } = await sb.from('customers')
-      .select('*')
-      .eq('user_id', currentUser.id)
-      .order('created_at', { ascending: false }));
+    ({ data, error } = await _fetchAllRows(
+      sb.from('customers').select('*')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false })));
   }
 
   if (error) throw error;
