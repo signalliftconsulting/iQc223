@@ -2840,28 +2840,69 @@ const _DEMO_TRAJECTORIES = {
   }
 };
 
-// Trajectory percentages - realistic SaaS portfolio
-// Enough variety for insights, but not a dumpster fire
-// Target for 75: ~30 healthy, ~15 good-mid, ~12 improving, ~8 watch, ~6 declining, ~4 churned
-const _DEMO_TRAJ_PCTS = [
-  ['stable-healthy',      0.18],  // top performers (75-88)
-  ['good-not-great',      0.12],  // solid middle (60-75)
-  ['seasonal',            0.05],  // healthy with cycles
-  ['improving',           0.08],  // clear upswing
-  ['slow-improve',        0.04],  // grinding upward
-  ['recovered',           0.05],  // bounced back strong
-  ['stable-mid',          0.09],  // watch zone (42-62)
-  ['partial-recovery',    0.04],  // came back but stalled
-  ['onboarding-fast',     0.05],  // new - ramping quickly
-  ['onboarding-slow',     0.03],  // new - struggling to ramp
-  ['volatile',            0.04],  // unpredictable swings
-  ['declining',           0.04],  // sliding down
-  ['slow-decline',        0.04],  // gradual erosion
-  ['stable-low',          0.03],  // struggling (22-38)
-  ['seasonal-declining',  0.03],  // cycles trending down
-  ['churned-early',       0.04],  // lost early on
-  ['churned-late',        0.03],  // lost after long tenure
-];
+// Tier-specific trajectory distributions - each tier has a different health profile
+// Enterprise: healthiest, most stable, lowest churn
+// Mid-Market: mixed, some volatility, moderate churn
+// SMB: most volatile, highest churn, more onboarding issues
+const _DEMO_TRAJ_BY_TIER = {
+  enterprise: [
+    ['stable-healthy',      0.30],
+    ['good-not-great',      0.18],
+    ['seasonal',            0.08],
+    ['improving',           0.10],
+    ['recovered',           0.06],
+    ['stable-mid',          0.06],
+    ['slow-improve',        0.04],
+    ['onboarding-fast',     0.04],
+    ['volatile',            0.02],
+    ['declining',           0.03],
+    ['slow-decline',        0.03],
+    ['partial-recovery',    0.02],
+    ['churned-late',        0.02],
+    ['seasonal-declining',  0.02],
+  ],
+  mid: [
+    ['stable-healthy',      0.16],
+    ['good-not-great',      0.14],
+    ['seasonal',            0.06],
+    ['improving',           0.08],
+    ['slow-improve',        0.05],
+    ['recovered',           0.06],
+    ['stable-mid',          0.10],
+    ['partial-recovery',    0.05],
+    ['onboarding-fast',     0.05],
+    ['volatile',            0.04],
+    ['declining',           0.05],
+    ['slow-decline',        0.04],
+    ['onboarding-slow',     0.03],
+    ['stable-low',          0.02],
+    ['churned-early',       0.03],
+    ['churned-late',        0.02],
+    ['seasonal-declining',  0.02],
+  ],
+  smb: [
+    ['stable-healthy',      0.10],
+    ['good-not-great',      0.10],
+    ['seasonal',            0.04],
+    ['improving',           0.06],
+    ['slow-improve',        0.04],
+    ['recovered',           0.04],
+    ['stable-mid',          0.10],
+    ['partial-recovery',    0.05],
+    ['onboarding-fast',     0.06],
+    ['onboarding-slow',     0.05],
+    ['volatile',            0.06],
+    ['declining',           0.05],
+    ['slow-decline',        0.05],
+    ['stable-low',          0.04],
+    ['seasonal-declining',  0.04],
+    ['churned-early',       0.07],
+    ['churned-late',        0.05],
+  ]
+};
+
+// Flat fallback for legacy/generic use
+const _DEMO_TRAJ_PCTS = _DEMO_TRAJ_BY_TIER.mid;
 function _buildTrajDist(count) {
   const dist = [];
   _DEMO_TRAJ_PCTS.forEach(([key, pct]) => {
@@ -3143,16 +3184,55 @@ function initDemo(count) {
   count = count || 250;
   const now = Date.now();
   const names = _generateDemoNames(count);
-  // Build trajectory list scaled to count, shuffle deterministically
-  const trajList = _buildTrajDist(count);
-  const trajRng = _makeRng(777);
-  for (let i = trajList.length - 1; i > 0; i--) {
-    const j = Math.floor(trajRng() * (i + 1));
-    [trajList[i], trajList[j]] = [trajList[j], trajList[i]];
+  const tierRng = _makeRng(555);
+
+  // Step 1: Assign tiers first (55% SMB, 30% mid, 15% enterprise)
+  const tiers = [];
+  for (let i = 0; i < count; i++) {
+    const r = tierRng();
+    tiers.push(r < 0.55 ? 'smb' : r < 0.85 ? 'mid' : 'enterprise');
   }
+
+  // Step 2: Build per-tier trajectory pools
+  const tierCounts = { smb: 0, mid: 0, enterprise: 0 };
+  tiers.forEach(t => tierCounts[t]++);
+
+  const tierTrajLists = {};
+  for (const t of ['smb', 'mid', 'enterprise']) {
+    const pcts = _DEMO_TRAJ_BY_TIER[t];
+    const list = [];
+    pcts.forEach(([key, pct]) => {
+      const n = Math.max(1, Math.round(tierCounts[t] * pct));
+      for (let i = 0; i < n; i++) list.push(key);
+    });
+    while (list.length > tierCounts[t]) list.pop();
+    while (list.length < tierCounts[t]) list.push('stable-healthy');
+    // Shuffle within tier
+    const rng = _makeRng(t === 'smb' ? 111 : t === 'mid' ? 222 : 333);
+    for (let i = list.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [list[i], list[j]] = [list[j], list[i]];
+    }
+    tierTrajLists[t] = list;
+  }
+
+  // Step 3: Build combined trajectory list matching tier order
+  const tierIdx = { smb: 0, mid: 0, enterprise: 0 };
+  const trajList = tiers.map(t => tierTrajLists[t][tierIdx[t]++]);
+
   // Assign CSMs with uneven book sizes and health bias
   const csmAssignments = _assignCSMs(trajList, count);
   customers = names.map((name, i) => _generateDemoCustomer(name, i, now, trajList, csmAssignments));
+
+  // Override the random tier assignment in _generateDemoCustomer with our pre-assigned tiers
+  customers.forEach((c, i) => {
+    c.tier = tiers[i];
+    const rng = _makeRng(2000 + i * 71);
+    c.mrr = c.tier === 'smb' ? Math.round(_dRand(400, 4000, rng) / 50) * 50
+          : c.tier === 'mid' ? Math.round(_dRand(2500, 22000, rng) / 100) * 100
+          : Math.round(_dRand(12000, 65000, rng) / 500) * 500;
+    c.arr = c.mrr * 12;
+  });
 }
 
 // One-time admin function: push demo data to Supabase for demo@iqcadence.com
