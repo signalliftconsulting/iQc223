@@ -417,32 +417,48 @@ async function adminCreateUser() {
       refresh_token: adminSession.session.refresh_token,
     } : null;
 
-    // Suppress auth listener so it doesn't switch to the new user.
-    // Keep flag on for 3 seconds to catch all async auth events.
+    // Suppress ALL auth listener events during user creation.
+    // signUp() swaps the session to the new user - we must block that entirely.
     window._adminCreatingUser = true;
 
-    const { data: signUpData, error: signUpErr } = await sb.auth.signUp({
-      email, password: pw,
-      options: { emailRedirectTo: window.location.href }
-    });
-    if (signUpErr) { window._adminCreatingUser = false; throw signUpErr; }
+    let signUpData, signUpErr;
+    try {
+      const result = await sb.auth.signUp({
+        email, password: pw,
+        options: { emailRedirectTo: window.location.href }
+      });
+      signUpData = result.data;
+      signUpErr = result.error;
+    } catch(signUpEx) {
+      signUpErr = signUpEx;
+    }
 
-    // Restore admin session immediately so we don't stay signed in as the new user
+    // IMMEDIATELY restore admin session before doing anything else
     if (adminTokens) {
       await sb.auth.setSession(adminTokens);
+      // Force a second restore after a tick to catch any async swaps
+      await new Promise(function(r) { setTimeout(r, 500); });
+      await sb.auth.setSession(adminTokens);
     }
-    // Delay clearing the flag - setSession triggers async SIGNED_IN events
-    setTimeout(function() { window._adminCreatingUser = false; }, 3000);
+
+    // Restore currentUser to admin
+    currentUser = adminSession.session.user;
+
+    if (signUpErr) { window._adminCreatingUser = false; throw signUpErr; }
 
     // If identities is empty, this email already exists in Supabase
     if (signUpData?.user?.identities?.length === 0) {
-      throw new Error(`A user with email "${email}" already exists.`);
+      window._adminCreatingUser = false;
+      throw new Error('A user with email "' + email + '" already exists.');
     }
 
     const newUserId = signUpData?.user?.id;
-    if (!newUserId) throw new Error('Signup succeeded but no user ID returned. Check Supabase Auth settings.');
+    if (!newUserId) {
+      window._adminCreatingUser = false;
+      throw new Error('Signup succeeded but no user ID returned. Check Supabase Auth settings.');
+    }
 
-    const client = adminClients.find(c => c.id === clientId);
+    const client = adminClients.find(function(c) { return c.id === clientId; });
     const { error: profileErr } = await sb.from('user_profiles').upsert({
       user_id:       newUserId,
       email,
@@ -451,16 +467,22 @@ async function adminCreateUser() {
       created_at:    new Date().toISOString()
     }, { onConflict: 'user_id' });
 
-    if (profileErr) throw new Error('User created in Auth but profile save failed: ' + profileErr.message);
+    if (profileErr) {
+      window._adminCreatingUser = false;
+      throw new Error('User created in Auth but profile save failed: ' + profileErr.message);
+    }
 
-    // Ensure currentUser is still the admin (auth events may have swapped it)
+    // Final session restore and flag clear
+    if (adminTokens) await sb.auth.setSession(adminTokens);
     currentUser = adminSession.session.user;
+    // Keep flag on long enough to catch any lingering async auth events
+    setTimeout(function() { window._adminCreatingUser = false; }, 5000);
 
-    el('cu-ok').textContent  = `User "${email}" created! They can log in now with the password you set.`;
+    el('cu-ok').textContent  = 'User "' + email + '" created! They can log in now with the password you set.';
     el('cu-btn').textContent = 'Create User →';
     el('cu-btn').disabled    = false;
-    toast(`User ${email} created`, 'success');
-    setTimeout(() => { closeModal('create-user-modal'); renderUsers(); }, 2000);
+    toast('User ' + email + ' created', 'success');
+    setTimeout(function() { closeModal('create-user-modal'); renderUsers(); }, 2000);
 
   } catch(e) {
     window._adminCreatingUser = false;
