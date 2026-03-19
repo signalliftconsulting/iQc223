@@ -2013,7 +2013,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <div id="customers-guide"></div>
   <div class="card" id="customers-table-card">
     <div class="list-toolbar">
-      <input class="search-box" type="text" placeholder="Search customers…" id="search-input" oninput="renderCustomers()"/>
+      <input class="search-box" type="text" placeholder="Search customers…" id="search-input" oninput="_custPage=0;renderCustomers()"/>
       <button class="fchip fa" id="fc-all"      onclick="setFilter('all')">All</button>
       <button class="fchip"    id="fc-critical" onclick="setFilter('critical')">Critical</button>
       <button class="fchip"    id="fc-risk"     onclick="setFilter('risk')">At Risk</button>
@@ -2045,6 +2045,29 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
         </table>
       </div></div>
       <div id="cust-top-scroll" style="display:none"><div id="cust-top-scroll-inner"></div></div>
+      <!-- Pagination -->
+      <div id="cust-pagination" style="display:none;padding:10px 1.25rem;border-top:1px solid var(--border);align-items:center;justify-content:space-between;gap:12px;font-size:var(--fs-sm)">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="cust-page-info" style="color:var(--muted)"></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <button class="btn btn-sm btn-ghost" id="cust-page-first" onclick="custPageNav('first')" title="First page">&laquo;</button>
+          <button class="btn btn-sm btn-ghost" id="cust-page-prev" onclick="custPageNav('prev')" title="Previous page">&lsaquo;</button>
+          <span id="cust-page-nums" style="display:flex;gap:2px"></span>
+          <button class="btn btn-sm btn-ghost" id="cust-page-next" onclick="custPageNav('next')" title="Next page">&rsaquo;</button>
+          <button class="btn btn-sm btn-ghost" id="cust-page-last" onclick="custPageNav('last')" title="Last page">&raquo;</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <label style="color:var(--muted)" for="cust-page-size">Rows:</label>
+          <select id="cust-page-size" onchange="custPageSizeChange(this.value)" style="padding:3px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--fg);font-size:var(--fs-sm)">
+            <option value="25">25</option>
+            <option value="50" selected>50</option>
+            <option value="100">100</option>
+            <option value="250">250</option>
+            <option value="0">All</option>
+          </select>
+        </div>
+      </div>
     </div>
   </div>
   <!-- Trash view — shown when filterMode === 'trash' -->
@@ -4421,6 +4444,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=634"></script>
+<script src="js/app.js?v=635"></script>
 </body>
 </html>

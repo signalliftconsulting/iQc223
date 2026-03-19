@@ -1,3 +1,70 @@
+// ─── PAGINATION STATE ────────────────────────────────────────
+let _custPage = 0;
+let _custPageSize = parseInt(localStorage.getItem('iqc_page_size') || '50', 10);
+let _custTotalFiltered = 0;
+
+function custPageNav(action) {
+  const totalPages = _custPageSize > 0 ? Math.ceil(_custTotalFiltered / _custPageSize) : 1;
+  if (action === 'first') _custPage = 0;
+  else if (action === 'prev') _custPage = Math.max(0, _custPage - 1);
+  else if (action === 'next') _custPage = Math.min(totalPages - 1, _custPage + 1);
+  else if (action === 'last') _custPage = Math.max(0, totalPages - 1);
+  else if (typeof action === 'number') _custPage = action;
+  renderCustomers();
+}
+
+function custPageSizeChange(val) {
+  _custPageSize = parseInt(val, 10);
+  _custPage = 0;
+  try { localStorage.setItem('iqc_page_size', String(_custPageSize)); } catch(e) {}
+  // Sync the select element
+  const sel = el('cust-page-size');
+  if (sel) sel.value = String(_custPageSize);
+  renderCustomers();
+}
+
+function _renderPagination(totalItems) {
+  const wrap = el('cust-pagination');
+  if (!wrap) return;
+  if (_custPageSize === 0 || totalItems <= 50) {
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = 'flex';
+  const totalPages = Math.ceil(totalItems / _custPageSize);
+  const page = _custPage;
+  const start = page * _custPageSize + 1;
+  const end = Math.min((page + 1) * _custPageSize, totalItems);
+
+  // Info text
+  const info = el('cust-page-info');
+  if (info) info.textContent = start + ' - ' + end + ' of ' + totalItems;
+
+  // Prev/Next state
+  const first = el('cust-page-first');
+  const prev = el('cust-page-prev');
+  const next = el('cust-page-next');
+  const last = el('cust-page-last');
+  if (first) first.disabled = page === 0;
+  if (prev) prev.disabled = page === 0;
+  if (next) next.disabled = page >= totalPages - 1;
+  if (last) last.disabled = page >= totalPages - 1;
+
+  // Page number buttons (show up to 7 pages centered on current)
+  const nums = el('cust-page-nums');
+  if (nums) {
+    const maxBtns = 7;
+    let startPage = Math.max(0, page - Math.floor(maxBtns / 2));
+    let endPage = Math.min(totalPages, startPage + maxBtns);
+    if (endPage - startPage < maxBtns) startPage = Math.max(0, endPage - maxBtns);
+    let html = '';
+    for (let i = startPage; i < endPage; i++) {
+      html += '<button class="btn btn-sm ' + (i === page ? 'btn-primary' : 'btn-ghost') + '" style="min-width:28px;padding:2px 6px" onclick="custPageNav(' + i + ')">' + (i + 1) + '</button>';
+    }
+    nums.innerHTML = html;
+  }
+}
+
 // Returns true if customer passes the active manager filter
 function passesManagerFilter(c) {
   if (mgrFilterAll) return true;                          // "All Managers" checked
@@ -171,6 +238,7 @@ function updateMgrFilterLabel() {
 // ─── CUSTOMERS LIST ─────────────────────────────────────────
 function setFilter(f) {
   filterMode = f;
+  _custPage = 0;            // reset pagination on filter change
   mrrExposureFilter = null; // clear MRR drill-down when switching status chips
   insightFilter = null;     // clear insight drill-down
   _filterTier = null;       // clear tier drill-down
@@ -592,6 +660,9 @@ function renderCustomers() { try { _renderCustomers(); } catch(e) { console.erro
 function _renderCustomers() {
   renderTableHeaders(); // keep sort arrows + filter highlights in sync
   renderFilterPills();  // keep active filter pill bar in sync
+  // Sync page size selector with stored preference
+  const _psSel = el('cust-page-size');
+  if (_psSel && _psSel.value !== String(_custPageSize)) _psSel.value = String(_custPageSize);
   // ── Trash view ──────────────────────────────────────────
   const trashWrap = el('trash-wrap');
   const tableCard = el('customers-table-card');
@@ -643,6 +714,18 @@ function _renderCustomers() {
 
   // Cache visible IDs in display order for shift-click range selection
   _visibleIds = list.map(c => c.id);
+  _custTotalFiltered = list.length;
+
+  // Clamp page if list shrank (e.g. filter changed)
+  const totalPages = _custPageSize > 0 ? Math.ceil(list.length / _custPageSize) : 1;
+  if (_custPage >= totalPages) _custPage = Math.max(0, totalPages - 1);
+
+  // Paginate - only slice if pageSize > 0 and list is large enough
+  let pagedList = list;
+  if (_custPageSize > 0 && list.length > 50) {
+    const start = _custPage * _custPageSize;
+    pagedList = list.slice(start, start + _custPageSize);
+  }
 
   const lbl = el('cust-count-lbl');
   if (lbl) lbl.textContent = `${list.length} customer${list.length!==1?'s':''}`;
@@ -652,6 +735,8 @@ function _renderCustomers() {
   const empty = el('cust-empty');
 
   if (!list.length) {
+    const pgWrap = el('cust-pagination');
+    if (pgWrap) pgWrap.style.display = 'none';
     if (!customers.length || (filterMode !== 'all' && filterMode !== 'churned' && !customers.some(c => c.status === filterMode && c.lifecycle !== 'churned'))) {
       // Truly no customers - show onboarding empty state
       empty.style.display = 'block';
@@ -671,7 +756,7 @@ function _renderCustomers() {
   empty.style.display = 'none';
   table.style.display = '';
 
-  tbody.innerHTML = list.map(c => {
+  tbody.innerHTML = pagedList.map(c => {
     const delta = scoreDelta(c);
     const isSel = selectedIds.has(c.id);
     const cad   = getCadenceStatus(c);
@@ -750,6 +835,9 @@ function _renderCustomers() {
 
   // Sync top scrollbar width and visibility
   _syncTopScrollbar();
+
+  // Render pagination controls
+  _renderPagination(list.length);
 }
 
 // ─── TOP SCROLLBAR SYNC ─────────────────────────────────────
