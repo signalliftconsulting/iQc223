@@ -1054,26 +1054,26 @@ const _DEMO_TRAJECTORIES = {
 };
 
 // Trajectory percentages - realistic SaaS portfolio
-// ~55% healthy/good, ~20% mid/watch, ~15% improving, ~10% at-risk/churned
-// For 75 accounts: ~40 healthy, ~15 mid, ~10 improving, ~10 trouble
+// Enough variety for insights, but not a dumpster fire
+// Target for 75: ~30 healthy, ~15 good-mid, ~12 improving, ~8 watch, ~6 declining, ~4 churned
 const _DEMO_TRAJ_PCTS = [
-  ['stable-healthy',      0.22],  // top performers (75-88) ~16 accounts
-  ['good-not-great',      0.15],  // solid middle (60-75) ~11 accounts
-  ['seasonal',            0.06],  // healthy with cycles ~4 accounts
-  ['improving',           0.08],  // clear upswing ~6 accounts
-  ['slow-improve',        0.05],  // grinding upward ~4 accounts
-  ['recovered',           0.06],  // bounced back strong ~4 accounts
-  ['stable-mid',          0.08],  // watch zone (42-62) ~6 accounts
-  ['onboarding-fast',     0.05],  // new - ramping quickly ~4 accounts
-  ['onboarding-slow',     0.03],  // new - struggling to ramp ~2 accounts
-  ['volatile',            0.03],  // unpredictable swings ~2 accounts
-  ['partial-recovery',    0.03],  // came back but stalled ~2 accounts
-  ['declining',           0.03],  // sliding down ~2 accounts
-  ['slow-decline',        0.03],  // gradual erosion ~2 accounts
-  ['stable-low',          0.02],  // struggling (22-38) ~1-2 accounts
-  ['seasonal-declining',  0.02],  // cycles trending down ~1 account
-  ['churned-early',       0.03],  // lost early on ~2 accounts
-  ['churned-late',        0.03],  // lost after long tenure ~2 accounts
+  ['stable-healthy',      0.18],  // top performers (75-88)
+  ['good-not-great',      0.12],  // solid middle (60-75)
+  ['seasonal',            0.05],  // healthy with cycles
+  ['improving',           0.08],  // clear upswing
+  ['slow-improve',        0.04],  // grinding upward
+  ['recovered',           0.05],  // bounced back strong
+  ['stable-mid',          0.09],  // watch zone (42-62)
+  ['partial-recovery',    0.04],  // came back but stalled
+  ['onboarding-fast',     0.05],  // new - ramping quickly
+  ['onboarding-slow',     0.03],  // new - struggling to ramp
+  ['volatile',            0.04],  // unpredictable swings
+  ['declining',           0.04],  // sliding down
+  ['slow-decline',        0.04],  // gradual erosion
+  ['stable-low',          0.03],  // struggling (22-38)
+  ['seasonal-declining',  0.03],  // cycles trending down
+  ['churned-early',       0.04],  // lost early on
+  ['churned-late',        0.03],  // lost after long tenure
 ];
 function _buildTrajDist(count) {
   const dist = [];
