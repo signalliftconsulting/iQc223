@@ -11,11 +11,11 @@ function closeWelcome() {
   // Only permanently dismiss if "Don't show again" is checked
   const dsa = document.getElementById('welcome-dsa');
   if (dsa && dsa.checked) {
-    localStorage.setItem('iqc_welcome_v2', '1');
+    localStorage.setItem('iqc_welcome_v3', '1');
   }
 }
 function _maybeShowWelcome() {
-  if (!localStorage.getItem('iqc_welcome_v2')) {
+  if (!localStorage.getItem('iqc_welcome_v3')) {
     setTimeout(showWelcome, 1200);
   }
 }
