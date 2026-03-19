@@ -58,8 +58,8 @@ function _fcFmtDollar(v) {
 // ── Waterfall Chart ────────────────────────────────────────
 
 function _fcBuildWaterfall(start, expand, contract, churn, projected) {
-  const W = 960, H = 260;
-  const pad = { top: 35, right: 20, bottom: 50, left: 70 };
+  const W = 960, H = 190;
+  const pad = { top: 28, right: 20, bottom: 40, left: 65 };
   const cW = W - pad.left - pad.right;
   const cH = H - pad.top - pad.bottom;
 

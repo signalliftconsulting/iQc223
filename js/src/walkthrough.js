@@ -227,6 +227,31 @@ var _WT_TOURS = {
       }
     ]
   },
+  forecast: {
+    label: 'Forecast',
+    steps: [
+      {
+        target: '#fc-kpi-row',
+        title: 'Revenue KPIs',
+        body: 'Four key projections for your portfolio. Projected NRR shows whether revenue is growing or shrinking. Expansion, Contraction, and Churn Risk break down the drivers behind that number.'
+      },
+      {
+        target: '#fc-waterfall-wrap',
+        title: 'NRR Waterfall',
+        body: 'Visual flow from your current MRR through each revenue impact. Green bars add revenue (expansion), amber and red bars subtract it (contraction and churn). The final bar shows where you land.'
+      },
+      {
+        target: '#fc-analysis-wrap',
+        title: 'Forecast Analysis',
+        body: 'Key takeaways from the forecast - which accounts drive the most risk, where the biggest expansion opportunities are, and borderline accounts where a touchpoint could change the outcome.'
+      },
+      {
+        target: '#fc-table-wrap',
+        title: 'Forecast Detail',
+        body: 'Every account classified as Expand, Retain, Contract, or Churn based on health score, trajectory, and growth signals. Sort by impact to see the biggest movers. Switch tabs to view breakdowns by CSM, tier, or renewal timeline.'
+      }
+    ]
+  },
   csmperf: {
     label: 'CSM Performance',
     steps: [

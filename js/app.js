@@ -800,6 +800,15 @@ function renderTrendsGuide() {
     '<strong>Tip:</strong> Use the range bar (3d → 2y / YTD) to zoom in on recent changes or see the long-term picture. The prior-period comparison line shows whether things are improving.');
 }
 
+function renderForecastGuide() {
+  return;
+  _renderGuide('forecast-guide', 'iqc_forecast_guide_dismissed',
+    '<strong>What you can do here</strong> - See where your revenue is heading. The forecast classifies every account as Expand, Retain, Contract, or Churn based on health scores and signal trajectories.<br>' +
+    '<strong>NRR Waterfall</strong> shows the flow from current MRR through expansion, contraction, and churn to projected MRR.<br>' +
+    '<strong>Tabs:</strong> Switch between All Customers, By CSM, By Tier, or By Renewal to see breakdowns from different angles.<br>' +
+    '<strong>Tip:</strong> The expansion estimates use your settings from Settings > Expansion Config. Adjust the % or flat amount there to refine projections.');
+}
+
 function renderCsmperfGuide() {
   return;
   _renderGuide('csmperf-guide', 'iqc_csmperf_guide_dismissed',
@@ -1090,6 +1099,31 @@ var _WT_TOURS = {
         title: 'Score Movers',
         body: 'A ranked list of which accounts changed the most during the selected period. Sort by biggest gains or biggest drops to quickly find accounts that need attention or recognition.',
         fallback: '.page-hd'
+      }
+    ]
+  },
+  forecast: {
+    label: 'Forecast',
+    steps: [
+      {
+        target: '#fc-kpi-row',
+        title: 'Revenue KPIs',
+        body: 'Four key projections for your portfolio. Projected NRR shows whether revenue is growing or shrinking. Expansion, Contraction, and Churn Risk break down the drivers behind that number.'
+      },
+      {
+        target: '#fc-waterfall-wrap',
+        title: 'NRR Waterfall',
+        body: 'Visual flow from your current MRR through each revenue impact. Green bars add revenue (expansion), amber and red bars subtract it (contraction and churn). The final bar shows where you land.'
+      },
+      {
+        target: '#fc-analysis-wrap',
+        title: 'Forecast Analysis',
+        body: 'Key takeaways from the forecast - which accounts drive the most risk, where the biggest expansion opportunities are, and borderline accounts where a touchpoint could change the outcome.'
+      },
+      {
+        target: '#fc-table-wrap',
+        title: 'Forecast Detail',
+        body: 'Every account classified as Expand, Retain, Contract, or Churn based on health score, trajectory, and growth signals. Sort by impact to see the biggest movers. Switch tabs to view breakdowns by CSM, tier, or renewal timeline.'
       }
     ]
   },
@@ -22121,8 +22155,8 @@ function _fcFmtDollar(v) {
 // ── Waterfall Chart ────────────────────────────────────────
 
 function _fcBuildWaterfall(start, expand, contract, churn, projected) {
-  const W = 960, H = 260;
-  const pad = { top: 35, right: 20, bottom: 50, left: 70 };
+  const W = 960, H = 190;
+  const pad = { top: 28, right: 20, bottom: 40, left: 65 };
   const cW = W - pad.left - pad.right;
   const cH = H - pad.top - pad.bottom;
 

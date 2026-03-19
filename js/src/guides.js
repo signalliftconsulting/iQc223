@@ -117,6 +117,15 @@ function renderTrendsGuide() {
     '<strong>Tip:</strong> Use the range bar (3d → 2y / YTD) to zoom in on recent changes or see the long-term picture. The prior-period comparison line shows whether things are improving.');
 }
 
+function renderForecastGuide() {
+  return;
+  _renderGuide('forecast-guide', 'iqc_forecast_guide_dismissed',
+    '<strong>What you can do here</strong> - See where your revenue is heading. The forecast classifies every account as Expand, Retain, Contract, or Churn based on health scores and signal trajectories.<br>' +
+    '<strong>NRR Waterfall</strong> shows the flow from current MRR through expansion, contraction, and churn to projected MRR.<br>' +
+    '<strong>Tabs:</strong> Switch between All Customers, By CSM, By Tier, or By Renewal to see breakdowns from different angles.<br>' +
+    '<strong>Tip:</strong> The expansion estimates use your settings from Settings > Expansion Config. Adjust the % or flat amount there to refine projections.');
+}
+
 function renderCsmperfGuide() {
   return;
   _renderGuide('csmperf-guide', 'iqc_csmperf_guide_dismissed',
