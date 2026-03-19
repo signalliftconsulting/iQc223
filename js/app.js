@@ -3815,7 +3815,7 @@ async function authSignUp() {
   const pw2   = el('signup-pw2')?.value;
   if (!email)      { authErr('Please enter your email.'); return; }
   if (!pw)         { authErr('Please choose a password.'); return; }
-  if (pw.length<6) { authErr('Password must be at least 6 characters.'); return; }
+  if (pw.length<8) { authErr('Password must be at least 8 characters.'); return; }
   if (pw !== pw2)  { authErr('Passwords do not match.'); return; }
   authSetBusy(true);
   const { error } = await sb.auth.signUp({ email, password: pw });

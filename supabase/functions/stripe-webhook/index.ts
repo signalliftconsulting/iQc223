@@ -108,13 +108,14 @@ serve(async (req) => {
       throw new Error('Stripe integration not found or disconnected');
     }
 
-    // Verify signature if webhook secret is configured
+    // Verify signature — required, reject if no secret is configured
     const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET') || integration.config?.webhook_secret || '';
-    if (webhookSecret) {
-      const valid = await verifyStripeSignature(rawBody, sigHeader, webhookSecret);
-      if (!valid) {
-        return new Response(JSON.stringify({ error: 'Invalid signature' }), { status: 401 });
-      }
+    if (!webhookSecret) {
+      return new Response(JSON.stringify({ error: 'Webhook secret not configured. Set STRIPE_WEBHOOK_SECRET or configure in integration settings.' }), { status: 500 });
+    }
+    const valid = await verifyStripeSignature(rawBody, sigHeader, webhookSecret);
+    if (!valid) {
+      return new Response(JSON.stringify({ error: 'Invalid signature' }), { status: 401 });
     }
 
     // Parse event
