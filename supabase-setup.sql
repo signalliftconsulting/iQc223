@@ -528,6 +528,118 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
 -- ─────────────────────────────────────────────────────────────────
+-- 10c. SERVER-SIDE PLAN ENFORCEMENT
+-- Prevents bypassing plan limits via browser console or API.
+-- Enforces: account limits, user limits per plan tier.
+-- ─────────────────────────────────────────────────────────────────
+
+-- Helper: get plan tier for a client_id
+CREATE OR REPLACE FUNCTION get_client_plan_tier(p_client_id UUID)
+RETURNS TEXT AS $$
+  SELECT COALESCE(plan_tier, 'starter') FROM clients WHERE id = p_client_id;
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+-- Helper: get plan tier for current user's client
+CREATE OR REPLACE FUNCTION get_my_plan_tier()
+RETURNS TEXT AS $$
+  SELECT COALESCE(c.plan_tier, 'starter')
+  FROM clients c
+  JOIN user_profiles up ON up.client_id = c.id
+  WHERE up.user_id = auth.uid();
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+-- Account limit per plan tier
+CREATE OR REPLACE FUNCTION enforce_account_limit()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_tier TEXT;
+  v_max INTEGER;
+  v_count INTEGER;
+  v_is_admin BOOLEAN;
+BEGIN
+  -- Skip for admins
+  v_is_admin := (current_setting('request.jwt.claims', true)::json ->> 'email')
+    = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']);
+  IF v_is_admin THEN RETURN NEW; END IF;
+
+  -- Skip if no client_id (legacy data)
+  IF NEW.client_id IS NULL THEN RETURN NEW; END IF;
+
+  -- Get plan tier and account limit
+  v_tier := get_client_plan_tier(NEW.client_id);
+  v_max := CASE v_tier
+    WHEN 'starter'    THEN 150
+    WHEN 'team'       THEN 750
+    WHEN 'pro'        THEN 999999
+    WHEN 'enterprise' THEN 999999
+    ELSE 150
+  END;
+
+  -- Count existing non-deleted accounts for this client
+  SELECT COUNT(*) INTO v_count
+  FROM customers
+  WHERE client_id = NEW.client_id AND deleted_at IS NULL;
+
+  IF v_count >= v_max THEN
+    RAISE EXCEPTION 'Account limit reached (% on % plan). Upgrade your plan to add more accounts.', v_max, v_tier;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_enforce_account_limit ON customers;
+CREATE TRIGGER trg_enforce_account_limit
+  BEFORE INSERT ON customers
+  FOR EACH ROW EXECUTE FUNCTION enforce_account_limit();
+
+-- User limit per plan tier
+CREATE OR REPLACE FUNCTION enforce_user_limit()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_tier TEXT;
+  v_max INTEGER;
+  v_count INTEGER;
+  v_is_admin BOOLEAN;
+BEGIN
+  -- Skip for admins
+  v_is_admin := (current_setting('request.jwt.claims', true)::json ->> 'email')
+    = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']);
+  IF v_is_admin THEN RETURN NEW; END IF;
+
+  -- Skip if no client_id
+  IF NEW.client_id IS NULL THEN RETURN NEW; END IF;
+
+  -- Get plan tier and user limit
+  v_tier := get_client_plan_tier(NEW.client_id);
+  v_max := CASE v_tier
+    WHEN 'starter'    THEN 1
+    WHEN 'team'       THEN 5
+    WHEN 'pro'        THEN 15
+    WHEN 'enterprise' THEN 999999
+    ELSE 1
+  END;
+
+  -- Count existing users in this client
+  SELECT COUNT(*) INTO v_count
+  FROM user_profiles
+  WHERE client_id = NEW.client_id;
+
+  IF v_count >= v_max THEN
+    RAISE EXCEPTION 'User limit reached (% on % plan). Upgrade your plan to add more users.', v_max, v_tier;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_enforce_user_limit ON user_profiles;
+CREATE TRIGGER trg_enforce_user_limit
+  BEFORE INSERT ON user_profiles
+  FOR EACH ROW EXECUTE FUNCTION enforce_user_limit();
+
+
+-- ─────────────────────────────────────────────────────────────────
 -- 11. INDEXES
 -- ─────────────────────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_customers_user_id    ON customers(user_id);
