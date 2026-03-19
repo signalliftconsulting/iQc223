@@ -2346,6 +2346,7 @@ async function restoreCustomer(id) {
   try { localStorage.setItem('iqc_customers_cache', JSON.stringify(customers)); } catch(e) {}
   renderTrash();
   renderCustomers();
+  updateAlertBadge();
   logAudit('customer_restored', c.id, c.name, { summary: `Restored from trash - Score: ${c.score}/100, MRR: $${c.mrr||0}` });
   toast(`${c.name} restored`, 'success');
   const { error } = await sb.from('customers').update({ deleted_at: null }).eq('id', id);
@@ -9955,6 +9956,7 @@ function bulkDelete() {
     clearSelection();
     logAudit('bulk_delete', null, '', { summary: `${n} customer${n===1?'':'s'} moved to Trash` });
     toast(`${n} customer${n!==1?'s':''} moved to Trash`, 'warn');
+    updateAlertBadge();
     if (!customers.length) { nav('homebase'); } else { renderCustomers(); }
     setLoading(true);
     await Promise.all(toDelete.map(c => atDelete(c).catch(()=>{}))).finally(() => setLoading(false));
@@ -11606,6 +11608,7 @@ function deleteFromModal() {
     closeModal('detail-modal');
     toast(`${c.name} moved to Trash`, 'warn');
     logAudit('customer_deleted', c.id, c.name, { summary: `Moved to trash - Score: ${c.score}/100, MRR: $${c.mrr||0}, Tier: ${c.tier}` });
+    updateAlertBadge();
     renderCustomers();
     setLoading(true);
     await atDelete(c).catch(()=>{});
@@ -11622,6 +11625,7 @@ function deleteCustomer(id) {
     customers = customers.filter(x => x.id !== id);
     toast(`${c.name} moved to Trash`, 'warn');
     logAudit('customer_deleted', c.id, c.name, { summary: `Moved to trash - Score: ${c.score}/100, MRR: $${c.mrr||0}, Tier: ${c.tier}` });
+    updateAlertBadge();
     if (!customers.length) { nav('homebase'); } else { renderCustomers(); }
     setLoading(true);
     await atDelete(c).catch(()=>{});

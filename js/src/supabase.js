@@ -559,6 +559,7 @@ async function restoreCustomer(id) {
   try { localStorage.setItem('iqc_customers_cache', JSON.stringify(customers)); } catch(e) {}
   renderTrash();
   renderCustomers();
+  updateAlertBadge();
   logAudit('customer_restored', c.id, c.name, { summary: `Restored from trash - Score: ${c.score}/100, MRR: $${c.mrr||0}` });
   toast(`${c.name} restored`, 'success');
   const { error } = await sb.from('customers').update({ deleted_at: null }).eq('id', id);
