@@ -28,6 +28,7 @@ FILES=(
   reports.js
   automations.js
   segments.js
+  forecast.js
   trends.js
   csm.js
   calendar.js

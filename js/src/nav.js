@@ -1,10 +1,10 @@
 // ─── NAVIGATION ─────────────────────────────────────────────
-const VIEWS = ['homebase','alerts','customers','segments','trends','csmperf','calendar','reports','score','csv','settings','automations','auditlog','users','clients','help'];
+const VIEWS = ['homebase','alerts','customers','segments','trends','forecast','csmperf','calendar','reports','score','csv','settings','automations','auditlog','users','clients','help'];
 const ADMIN_EMAILS = (_cfg && _cfg.ADMIN_EMAILS) || [];
 
 // ─── COLLAPSIBLE NAV GROUPS ─────────────────────────────────
 const NAV_GROUPS = {
-  main:     ['alerts','customers','segments','trends','csmperf','calendar'],
+  main:     ['alerts','customers','segments','trends','forecast','csmperf','calendar'],
   automate: ['automations','reports'],
   data:     ['score','csv'],
   config:   ['settings','auditlog']
@@ -150,6 +150,7 @@ function nav(v) {
   if (v === 'customers') { renderCustomersGuide(); renderCustomers(); }
   if (v === 'segments')  { renderSegmentsGuide(); if (!hasFeature('segments')) { el('seg-kpi-row').innerHTML = ''; el('seg-table-wrap').innerHTML = upgradeHTML('segments'); } else renderSegments(); }
   if (v === 'trends')    { renderTrendsGuide(); _trendFirstRender = true; renderTrends(); }
+  if (v === 'forecast')  renderForecast();
   if (v === 'csmperf')   { renderCsmperfGuide(); if (!hasFeature('csm_performance')) { el('csmperf-wrap').innerHTML = upgradeHTML('csm_performance'); el('csmperf-stats').innerHTML = ''; } else renderCSMPerformance(); }
   if (v === 'calendar')  { renderCalendarGuide(); renderCalendar(); }
   if (v === 'settings')  renderSettings();
@@ -194,6 +195,7 @@ function refreshCurrentPage() {
   if (id === 'customers') renderCustomers();
   if (id === 'segments')  renderSegments();
   if (id === 'trends')    renderTrends();
+  if (id === 'forecast')  renderForecast();
   if (id === 'csmperf')   renderCSMPerformance();
   if (id === 'calendar')  renderCalendar();
 }

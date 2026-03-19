@@ -1863,6 +1863,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
     <button class="nav-item" id="ni-alerts" onclick="nav('alerts')">Alerts<span id="alert-badge" class="nav-badge nav-badge-alert" style="display:none"></span><span id="alerts-guide-badge" class="nav-badge" style="display:none">1</span></button>
     <button class="nav-item" id="ni-segments" onclick="nav('segments')">Segments <span id="segments-guide-badge" class="nav-badge" style="display:none">1</span></button>
     <button class="nav-item" id="ni-trends" onclick="nav('trends')">Trends <span id="trends-guide-badge" class="nav-badge" style="display:none">1</span></button>
+    <button class="nav-item" id="ni-forecast" onclick="nav('forecast')">Forecast</button>
     <button class="nav-item" id="ni-csmperf" onclick="nav('csmperf')">CSM Performance <span id="csmperf-guide-badge" class="nav-badge" style="display:none">1</span></button>
     <button class="nav-item" id="ni-reports" onclick="nav('reports')">Reports <span id="reports-guide-badge" class="nav-badge" style="display:none">1</span></button>
     <button class="nav-item" id="ni-calendar" onclick="nav('calendar')">Calendar</button>
@@ -2234,6 +2235,39 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <div class="card" style="margin-top:16px">
     <div class="card-hd-bar" style="background:#7c3aed"><span class="card-hd-bar__title">Score Changes <span class="info-tip tip-below" data-tip="Accounts with the biggest health score changes over the selected period. Click column headers to sort.">ⓘ</span></span></div>
     <div class="card-body" id="trend-movers-wrap" style="max-height:480px;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- ═══════════════ FORECAST ═══════════════ -->
+<div class="view" id="view-forecast">
+  <div class="page-hd">
+    <div><h1><span>Forecast</span></h1><p>Revenue retention projections based on health scores</p></div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="dash-kpi-row" id="fc-kpi-row" style="grid-template-columns:repeat(4,1fr)"></div>
+
+  <!-- Waterfall Chart -->
+  <div class="chart-card" style="margin-bottom:16px">
+    <div style="padding:8px 16px 2px;font-weight:700;font-size:var(--fs-base);color:var(--text)">NRR Waterfall</div>
+    <div style="padding:.8rem 1.25rem" id="fc-waterfall-wrap"></div>
+  </div>
+
+  <!-- Analysis Insights -->
+  <div id="fc-analysis-wrap" style="margin-bottom:16px"></div>
+
+  <!-- Breakdown Tabs -->
+  <div class="dtab-row" style="margin-bottom:12px">
+    <button class="dtab active" id="fc-tab-all" onclick="setFcTab('all')">All Customers</button>
+    <button class="dtab" id="fc-tab-csm" onclick="setFcTab('csm')">By CSM</button>
+    <button class="dtab" id="fc-tab-tier" onclick="setFcTab('tier')">By Tier</button>
+    <button class="dtab" id="fc-tab-renewal" onclick="setFcTab('renewal')">By Renewal</button>
+  </div>
+
+  <!-- Forecast Table -->
+  <div class="card">
+    <div class="card-hd-bar" style="background:#6366f1"><span class="card-hd-bar__title">Forecast Detail</span></div>
+    <div class="card-body" id="fc-table-wrap"></div>
   </div>
 </div>
 
@@ -4372,6 +4406,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=603"></script>
+<script src="js/app.js?v=604"></script>
 </body>
 </html>
