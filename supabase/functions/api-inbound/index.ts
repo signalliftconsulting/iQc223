@@ -694,7 +694,10 @@ serve(async (req) => {
       } catch { /* best-effort logging */ }
     }
 
-    return new Response(JSON.stringify({ error: err.message }), {
+    // Sanitize error: only return known safe messages, never internal details
+    const safeMessages = ['Invalid API key', 'Missing x-api-key header', 'Missing action', 'Unknown action', 'Customer not found', 'Name is required'];
+    const msg = safeMessages.find(m => err.message?.includes(m)) || 'Request failed. Check your parameters and try again.';
+    return new Response(JSON.stringify({ error: msg }), {
       status: 400,
       headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
     });
