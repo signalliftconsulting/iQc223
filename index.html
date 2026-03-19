@@ -2277,10 +2277,16 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <!-- KPI Cards -->
   <div class="dash-kpi-row" id="fc-kpi-row" style="grid-template-columns:repeat(4,1fr)"></div>
 
-  <!-- Waterfall Chart -->
-  <div class="chart-card" style="margin-bottom:16px">
-    <div style="padding:6px 16px 0;font-weight:700;font-size:var(--fs-base);color:var(--text)">NRR Waterfall</div>
-    <div style="padding:4px 1rem 8px" id="fc-waterfall-wrap"></div>
+  <!-- Charts Row -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+    <div class="chart-card">
+      <div style="padding:6px 16px 0;font-weight:700;font-size:var(--fs-base);color:var(--text)">NRR Waterfall</div>
+      <div style="padding:4px 1rem 8px" id="fc-waterfall-wrap"></div>
+    </div>
+    <div class="chart-card">
+      <div style="padding:6px 16px 0;font-weight:700;font-size:var(--fs-base);color:var(--text)">MRR at Risk by Tier</div>
+      <div style="padding:4px 1rem 8px" id="fc-tier-risk-wrap"></div>
+    </div>
   </div>
 
   <!-- Analysis Insights -->
@@ -4503,6 +4509,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=636"></script>
+<script src="js/app.js?v=637"></script>
 </body>
 </html>

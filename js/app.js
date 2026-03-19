@@ -2173,47 +2173,63 @@ function toRow(c) {
 // Uses client_id for ownership - all users in the same client see the same customers
 // Active rows (deleted_at IS NULL) → customers[]
 // Soft-deleted rows (deleted_at IS NOT NULL) → trash[]
+// Paginated fetch helper - fetches all rows in batches of 1000
+// to work around PostgREST's default row limit
+async function _fetchAllRows(query) {
+  const PAGE_SIZE = 1000;
+  let all = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await query.range(from, from + PAGE_SIZE - 1);
+    if (error) return { data: null, error };
+    all = all.concat(data || []);
+    if (!data || data.length < PAGE_SIZE) break; // last page
+    from += PAGE_SIZE;
+  }
+  return { data: all, error: null };
+}
+
 async function loadCustomersFromSupabase() {
   let data, error;
 
   if (isAdmin()) {
     // Admin: try client_id first, fall back to loading all
     if (_userClientId) {
-      ({ data, error } = await sb.from('customers')
-        .select('*')
-        .eq('client_id', _userClientId)
-        .order('created_at', { ascending: false }));
+      ({ data, error } = await _fetchAllRows(
+        sb.from('customers').select('*')
+          .eq('client_id', _userClientId)
+          .order('created_at', { ascending: false })));
       if (!error) _dbHasClientId = true;
     }
     // If no client_id set, or client_id query failed (column may not exist yet), load all
     if (!_userClientId || error) {
       if (error) console.warn('client_id query unavailable, using fallback:', error.message);
-      ({ data, error } = await sb.from('customers')
-        .select('*')
-        .order('created_at', { ascending: false }));
+      ({ data, error } = await _fetchAllRows(
+        sb.from('customers').select('*')
+          .order('created_at', { ascending: false })));
     }
   } else if (_userClientId) {
     // Non-admin with client: try client_id first
-    ({ data, error } = await sb.from('customers')
-      .select('*')
-      .eq('client_id', _userClientId)
-      .order('created_at', { ascending: false }));
+    ({ data, error } = await _fetchAllRows(
+      sb.from('customers').select('*')
+        .eq('client_id', _userClientId)
+        .order('created_at', { ascending: false })));
     if (!error) {
       _dbHasClientId = true;
     } else {
       // Fall back to user_id if client_id column doesn't exist yet
       console.warn('client_id query unavailable, falling back to user_id:', error.message);
-      ({ data, error } = await sb.from('customers')
-        .select('*')
-        .eq('user_id', currentUser.id)
-        .order('created_at', { ascending: false }));
+      ({ data, error } = await _fetchAllRows(
+        sb.from('customers').select('*')
+          .eq('user_id', currentUser.id)
+          .order('created_at', { ascending: false })));
     }
   } else {
     // Non-admin without client: fall back to user_id
-    ({ data, error } = await sb.from('customers')
-      .select('*')
-      .eq('user_id', currentUser.id)
-      .order('created_at', { ascending: false }));
+    ({ data, error } = await _fetchAllRows(
+      sb.from('customers').select('*')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false })));
   }
 
   if (error) throw error;
@@ -3910,7 +3926,7 @@ function updateUserUI(user) {
 
     // Show admin nav items  - uses isAdmin() which checks server-fetched role first
     const admin = isAdmin();
-    ['ni-admin-sep','ni-admin-label','ni-clients','ni-users'].forEach(id => {
+    ['ni-admin-sep','ni-admin-label','ni-clients','ni-users','ni-analytics'].forEach(id => {
       const el2 = document.getElementById(id);
       if (el2) el2.style.display = admin ? '' : 'none';
     });
@@ -3920,7 +3936,7 @@ function updateUserUI(user) {
   } else {
     if (pill)    pill.style.display    = 'none';
     if (signout) signout.style.display = 'none';
-    ['ni-admin-sep','ni-admin-label','ni-clients','ni-users'].forEach(id => {
+    ['ni-admin-sep','ni-admin-label','ni-clients','ni-users','ni-analytics'].forEach(id => {
       const el2 = document.getElementById(id);
       if (el2) el2.style.display = 'none';
     });
@@ -5219,8 +5235,72 @@ function buildCadenceAlerts() {
   return alerts;
 }
 
+// ─── USAGE ANALYTICS ────────────────────────────────────────
+// Lightweight page-view tracking. Batches writes to webhook_events.
+const _analytics = { queue: [], timer: null, sessionId: null };
+
+function _analyticsSessionId() {
+  if (!_analytics.sessionId) {
+    _analytics.sessionId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+  return _analytics.sessionId;
+}
+
+function _trackEvent(eventType, details) {
+  if (!currentUser) return;
+  _analytics.queue.push({
+    user_id: currentUser.id,
+    direction: 'inbound',
+    event_type: eventType,
+    payload: JSON.stringify({
+      ...details,
+      session: _analyticsSessionId(),
+      ts: new Date().toISOString(),
+      ua: navigator.userAgent.slice(0, 120)
+    }),
+    status: 'success',
+    created_at: new Date().toISOString()
+  });
+  // Auto-flush every 30s
+  if (!_analytics.timer) {
+    _analytics.timer = setTimeout(_flushAnalytics, 30000);
+  }
+}
+
+async function _flushAnalytics() {
+  _analytics.timer = null;
+  if (!_analytics.queue.length || !currentUser) return;
+  const batch = _analytics.queue.splice(0, 50); // max 50 per flush
+  try {
+    await sb.from('webhook_events').insert(batch);
+  } catch(e) {
+    // Silently drop - analytics should never break the app
+    console.debug('[analytics] flush error:', e.message);
+  }
+}
+
+// Flush on page unload
+if (typeof window !== 'undefined') {
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') _flushAnalytics();
+  });
+  window.addEventListener('beforeunload', _flushAnalytics);
+}
+
+function _trackPageView(view) {
+  _trackEvent('page_view', { page: view });
+}
+
+function _trackLogin() {
+  _trackEvent('session_start', { page: 'login' });
+}
+
+function _trackAction(action, detail) {
+  _trackEvent('user_action', { action, ...detail });
+}
+
 // ─── NAVIGATION ─────────────────────────────────────────────
-const VIEWS = ['homebase','alerts','customers','segments','trends','forecast','csmperf','calendar','reports','score','csv','settings','automations','auditlog','users','clients','help'];
+const VIEWS = ['homebase','alerts','customers','segments','trends','forecast','csmperf','calendar','reports','score','csv','settings','automations','auditlog','users','clients','analytics','help'];
 const ADMIN_EMAILS = (_cfg && _cfg.ADMIN_EMAILS) || [];
 
 // ─── COLLAPSIBLE NAV GROUPS ─────────────────────────────────
@@ -5334,6 +5414,9 @@ function nav(v) {
   // Remember active view for page refresh
   try { localStorage.setItem('iqc_active_view', v); } catch(e) {}
 
+  // Track page view
+  _trackPageView(v);
+
   // Auto-expand the group containing this view
   _autoExpandGroupFor(v);
 
@@ -5380,6 +5463,7 @@ function nav(v) {
   if (v === 'reports')     { renderReportsGuide(); renderReporting(); }
   if (v === 'automations') { renderAutomationsGuide(); renderAutomations(); }
   if (v === 'users')     { renderUsersGuide(); renderUsers(); }
+  if (v === 'analytics') loadAnalytics();
   if (v === 'score')     renderScoreGuide();
   if (v === 'clients')   renderClients();
 }
@@ -22917,6 +23001,46 @@ function _renderForecast() {
   var wfWrap = el('fc-waterfall-wrap');
   if (wfWrap) wfWrap.innerHTML = _fcBuildWaterfall(startMRR, expandTotal, contractTotal, churnTotal, projectedMRR);
 
+  // ── MRR at Risk by Tier chart ──
+  var tierRiskWrap = el('fc-tier-risk-wrap');
+  if (tierRiskWrap) {
+    var tierData = {};
+    var tierColors = { enterprise: '#6366f1', mid: '#3b82f6', smb: '#f59e0b' };
+    var tierLabels = { enterprise: 'Enterprise', mid: 'Mid-Market', smb: 'SMB' };
+    classified.forEach(function(c) {
+      var t = c.tier || 'mid';
+      if (!tierData[t]) tierData[t] = { retained: 0, atRisk: 0, churn: 0 };
+      var mrr = c.mrr || 0;
+      if (c._fc_class === 'churn') tierData[t].churn += mrr;
+      else if (c._fc_class === 'contraction') tierData[t].atRisk += mrr;
+      else tierData[t].retained += mrr;
+    });
+    var tiers = ['enterprise', 'mid', 'smb'].filter(function(t) { return tierData[t]; });
+    var maxTierMRR = Math.max.apply(null, tiers.map(function(t) { return tierData[t].retained + tierData[t].atRisk + tierData[t].churn; })) || 1;
+
+    tierRiskWrap.innerHTML = '<div style="display:flex;flex-direction:column;gap:12px;padding:8px 0">' +
+      tiers.map(function(t) {
+        var d = tierData[t];
+        var total = d.retained + d.atRisk + d.churn;
+        var retPct = (d.retained / maxTierMRR * 100).toFixed(1);
+        var riskPct = (d.atRisk / maxTierMRR * 100).toFixed(1);
+        var churnPct = (d.churn / maxTierMRR * 100).toFixed(1);
+        return '<div>' +
+          '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:var(--fs-sm);font-weight:600;color:var(--text)">' + tierLabels[t] + '</span><span style="font-size:var(--fs-sm);color:var(--muted)">$' + fmtNum(Math.round(total)) + '</span></div>' +
+          '<div style="display:flex;height:24px;border-radius:6px;overflow:hidden;background:var(--bg)">' +
+            '<div style="width:' + retPct + '%;background:#10b981" title="Retained: $' + fmtNum(Math.round(d.retained)) + '"></div>' +
+            '<div style="width:' + riskPct + '%;background:#f59e0b" title="At Risk: $' + fmtNum(Math.round(d.atRisk)) + '"></div>' +
+            '<div style="width:' + churnPct + '%;background:#dc2626" title="Churn: $' + fmtNum(Math.round(d.churn)) + '"></div>' +
+          '</div>' +
+        '</div>';
+      }).join('') +
+      '<div style="display:flex;gap:16px;justify-content:center;margin-top:4px">' +
+        '<span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)"><span style="width:10px;height:10px;border-radius:2px;background:#10b981;display:inline-block"></span>Retained</span>' +
+        '<span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)"><span style="width:10px;height:10px;border-radius:2px;background:#f59e0b;display:inline-block"></span>At Risk</span>' +
+        '<span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)"><span style="width:10px;height:10px;border-radius:2px;background:#dc2626;display:inline-block"></span>Churn</span>' +
+      '</div></div>';
+  }
+
   // ── Analysis ──
   var analysisWrap = el('fc-analysis-wrap');
   if (analysisWrap) {
@@ -29100,6 +29224,147 @@ async function ensureUserProfile(user) {
   } catch(e) { /* silent  - non-critical */ }
 }
 
+
+// ─── USAGE ANALYTICS (ADMIN ONLY) ──────────────────────────
+async function loadAnalytics() {
+  if (!isAdmin()) return;
+  const days = parseInt(document.getElementById('analytics-range')?.value || '30', 10);
+  const since = new Date(Date.now() - days * 86400000).toISOString();
+
+  let events = [];
+  try {
+    const { data, error } = await sb.from('webhook_events')
+      .select('event_type, payload, created_at, user_id')
+      .eq('direction', 'inbound')
+      .gte('created_at', since)
+      .order('created_at', { ascending: false })
+      .limit(5000);
+    if (error) throw error;
+    events = data || [];
+  } catch(e) {
+    console.warn('[analytics]', e.message);
+    return;
+  }
+
+  // Parse payloads
+  const parsed = events.map(e => {
+    let p = {};
+    try { p = JSON.parse(e.payload || '{}'); } catch(x) {}
+    return { ...e, p };
+  });
+
+  const pageViews = parsed.filter(e => e.event_type === 'page_view');
+  const sessions = parsed.filter(e => e.event_type === 'session_start');
+  const uniqueUsers = new Set(parsed.map(e => e.user_id));
+  const uniqueSessions = new Set(parsed.map(e => e.p.session).filter(Boolean));
+
+  // ── KPIs ──
+  const kpiEl = document.getElementById('analytics-kpis');
+  if (kpiEl) {
+    kpiEl.innerHTML = [
+      { label: 'Page Views', value: pageViews.length },
+      { label: 'Sessions', value: uniqueSessions.size },
+      { label: 'Unique Users', value: uniqueUsers.size },
+      { label: 'Logins', value: sessions.length },
+    ].map(k => `
+      <div class="kpi-card">
+        <div class="kpi-value">${k.value.toLocaleString()}</div>
+        <div class="kpi-label">${k.label}</div>
+      </div>`).join('');
+  }
+
+  // ── Page views by page (horizontal bars) ──
+  const pageCounts = {};
+  pageViews.forEach(e => {
+    const pg = e.p.page || 'unknown';
+    pageCounts[pg] = (pageCounts[pg] || 0) + 1;
+  });
+  const sortedPages = Object.entries(pageCounts).sort((a,b) => b[1] - a[1]);
+  const maxCount = sortedPages.length ? sortedPages[0][1] : 1;
+  const pagesEl = document.getElementById('analytics-pages');
+  if (pagesEl) {
+    if (!sortedPages.length) {
+      pagesEl.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted)">No page views yet</div>';
+    } else {
+      pagesEl.innerHTML = sortedPages.map(([pg, cnt]) => `
+        <div style="display:flex;align-items:center;gap:10px;padding:4px 0">
+          <div style="width:100px;font-size:var(--fs-sm);color:var(--muted);text-align:right">${pg}</div>
+          <div style="flex:1;background:var(--bg);border-radius:4px;height:22px;overflow:hidden">
+            <div style="width:${(cnt/maxCount*100).toFixed(1)}%;background:var(--blue);height:100%;border-radius:4px;min-width:2px"></div>
+          </div>
+          <div style="width:40px;font-size:var(--fs-sm);font-weight:600">${cnt}</div>
+        </div>`).join('');
+    }
+  }
+
+  // ── DAU chart (simple bar chart by day) ──
+  const dauMap = {};
+  parsed.forEach(e => {
+    const day = e.created_at?.slice(0, 10);
+    if (!day) return;
+    if (!dauMap[day]) dauMap[day] = new Set();
+    dauMap[day].add(e.user_id);
+  });
+  const dauDays = Object.keys(dauMap).sort();
+  const maxDau = dauDays.reduce((m, d) => Math.max(m, dauMap[d].size), 1);
+  const dauEl = document.getElementById('analytics-dau');
+  if (dauEl) {
+    if (!dauDays.length) {
+      dauEl.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted)">No data yet</div>';
+    } else {
+      dauEl.innerHTML = `<div style="display:flex;align-items:flex-end;gap:2px;height:120px;padding:0 4px">` +
+        dauDays.map(d => {
+          const cnt = dauMap[d].size;
+          const pct = (cnt / maxDau * 100).toFixed(1);
+          const label = d.slice(5); // MM-DD
+          return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+            <div style="font-size:10px;color:var(--muted)">${cnt}</div>
+            <div style="width:100%;background:var(--green);border-radius:3px 3px 0 0;height:${pct}%;min-height:2px" title="${d}: ${cnt} users"></div>
+            <div style="font-size:9px;color:var(--muted);transform:rotate(-45deg);white-space:nowrap">${label}</div>
+          </div>`;
+        }).join('') + '</div>';
+    }
+  }
+
+  // ── Recent sessions table ──
+  const sessEl = document.getElementById('analytics-sessions');
+  if (sessEl) {
+    const recent = parsed.slice(0, 100);
+    if (!recent.length) {
+      sessEl.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:24px;color:var(--muted)">No events yet</td></tr>';
+    } else {
+      // Resolve user emails (batch)
+      const userIds = [...new Set(recent.map(e => e.user_id))];
+      let emailMap = {};
+      try {
+        const { data: profiles } = await sb.from('user_profiles')
+          .select('user_id, email')
+          .in('user_id', userIds);
+        (profiles || []).forEach(p => { emailMap[p.user_id] = p.email; });
+      } catch(e) {}
+
+      sessEl.innerHTML = recent.map(e => {
+        const email = emailMap[e.user_id] || e.user_id.slice(0, 8);
+        const page = e.p.page || e.event_type;
+        const ago = _timeAgo(new Date(e.created_at));
+        return `<tr>
+          <td style="font-size:var(--fs-sm)">${escHtml(email)}</td>
+          <td style="font-size:var(--fs-sm)">${escHtml(page)}</td>
+          <td style="font-size:var(--fs-sm);color:var(--muted)">${ago}</td>
+        </tr>`;
+      }).join('');
+    }
+  }
+}
+
+function _timeAgo(date) {
+  const s = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (s < 60)   return s + 's ago';
+  if (s < 3600) return Math.floor(s / 60) + 'm ago';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+  return Math.floor(s / 86400) + 'd ago';
+}
+
 // ─── WELCOME MODAL (first-time users) ────────────────────────
 function showWelcome() {
   const m = document.getElementById('welcome-modal');
@@ -29119,6 +29384,88 @@ function closeWelcome() {
 function _maybeShowWelcome() {
   if (!localStorage.getItem('iqc_welcome_v3')) {
     setTimeout(showWelcome, 1200);
+  }
+}
+
+// ─── WHAT'S NEW / CHANGELOG ──────────────────────────────────
+const _CHANGELOG = [
+  {
+    version: '2.3',
+    date: '2026-03-19',
+    items: [
+      { type: 'new', text: 'Usage Analytics - admin dashboard tracking page views, sessions, and user activity' },
+      { type: 'new', text: 'Server-side plan enforcement - account and user limits enforced at the database level' },
+      { type: 'new', text: 'Automated R2 backups - daily database snapshots to Cloudflare R2' },
+      { type: 'new', text: 'What\'s New changelog - see what\'s changed right from the sidebar' },
+    ]
+  },
+  {
+    version: '2.2',
+    date: '2026-03-15',
+    items: [
+      { type: 'new', text: 'Revenue Forecasting page with NRR projection, waterfall chart, and risk pipeline' },
+      { type: 'new', text: 'Searchable client inputs in Trends - type to filter instead of scrolling dropdowns' },
+      { type: 'improve', text: 'Trends analysis engine rewrite - statistical analysis with descriptive stats, context-aware insights' },
+      { type: 'improve', text: 'Demo data overhaul - varied trajectories, staggered start dates, realistic mid-range scores' },
+      { type: 'fix', text: 'Analysis numbers now match KPIs exactly across all views' },
+      { type: 'fix', text: 'Admin user creation no longer auto-logs in as the new user' },
+    ]
+  },
+  {
+    version: '2.1',
+    date: '2026-03-05',
+    items: [
+      { type: 'new', text: 'Segments analysis with tabbed insights - view by segments, tiers, or lifecycle stages' },
+      { type: 'new', text: 'Interactive walkthroughs on every page with Tour buttons' },
+      { type: 'new', text: 'Welcome modal for first-time users with "Don\'t show again" option' },
+      { type: 'improve', text: 'Score Settings button on Home Base and Score a Customer for quick access' },
+      { type: 'improve', text: 'Scoring config tab renamed from "Config" for clarity' },
+      { type: 'fix', text: 'Cloudflare deploy fix - removed oversized binary from repo' },
+    ]
+  }
+];
+
+const _CHANGELOG_VERSION = '2.3'; // bump this when adding new entries
+
+function showWhatsNew() {
+  const body = document.getElementById('whatsnew-body');
+  if (!body) return;
+
+  const typeColors = { 'new': '#10b981', improve: '#3b82f6', fix: '#f59e0b' };
+  const typeLabels = { 'new': 'NEW', improve: 'IMPROVED', fix: 'FIXED' };
+
+  body.innerHTML = _CHANGELOG.map(release => `
+    <div style="margin-bottom:18px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-weight:700;font-size:var(--fs-base);color:var(--fg)">v${release.version}</span>
+        <span style="font-size:var(--fs-sm);color:var(--muted)">${release.date}</span>
+      </div>
+      ${release.items.map(item => `
+        <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:5px;padding-left:4px">
+          <span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;color:#fff;background:${typeColors[item.type]};flex-shrink:0;margin-top:2px">${typeLabels[item.type]}</span>
+          <span style="font-size:var(--fs-sm);color:var(--text);line-height:1.5">${item.text}</span>
+        </div>`).join('')}
+    </div>`).join('<div style="border-top:1px solid var(--border);margin:0 0 18px"></div>');
+
+  const modal = document.getElementById('whatsnew-modal');
+  if (modal) modal.style.display = 'flex';
+
+  // Mark this version as seen
+  localStorage.setItem('iqc_changelog_seen', _CHANGELOG_VERSION);
+}
+
+function closeWhatsNew() {
+  const modal = document.getElementById('whatsnew-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function _maybeShowWhatsNew() {
+  const seen = localStorage.getItem('iqc_changelog_seen');
+  if (seen !== _CHANGELOG_VERSION) {
+    // Show after a delay, but not on first ever visit (welcome modal takes priority)
+    if (localStorage.getItem('iqc_welcome_v3')) {
+      setTimeout(showWhatsNew, 2000);
+    }
   }
 }
 
@@ -29233,8 +29580,9 @@ function _checkUserSwitch(userId) {
       }
       // Resume walkthrough panel if it was active
       if (typeof _wtResume === 'function') _wtResume();
-      // Show welcome modal for first-time users
+      // Show welcome modal for first-time users, or What's New for returning users
       _maybeShowWelcome();
+      _maybeShowWhatsNew();
     }
 
   } else {
@@ -29281,6 +29629,7 @@ function _checkUserSwitch(userId) {
     hideAuthGate();
     updateUserUI(currentUser);
     _updateAllGuideBadges();
+    if (typeof _trackLogin === 'function') _trackLogin();
     await ensureUserProfile(currentUser); // resolve _userClientId before loading data
     nav('homebase');
     renderSettings();
@@ -29339,8 +29688,9 @@ function _checkUserSwitch(userId) {
         nav('homebase');
         renderSettings();
       }
-      // Show welcome modal for first-time users
+      // Show welcome modal for first-time users, or What's New for returning users
       _maybeShowWelcome();
+      _maybeShowWhatsNew();
     }
   });
 })();

@@ -468,6 +468,46 @@ function _renderForecast() {
   var wfWrap = el('fc-waterfall-wrap');
   if (wfWrap) wfWrap.innerHTML = _fcBuildWaterfall(startMRR, expandTotal, contractTotal, churnTotal, projectedMRR);
 
+  // ── MRR at Risk by Tier chart ──
+  var tierRiskWrap = el('fc-tier-risk-wrap');
+  if (tierRiskWrap) {
+    var tierData = {};
+    var tierColors = { enterprise: '#6366f1', mid: '#3b82f6', smb: '#f59e0b' };
+    var tierLabels = { enterprise: 'Enterprise', mid: 'Mid-Market', smb: 'SMB' };
+    classified.forEach(function(c) {
+      var t = c.tier || 'mid';
+      if (!tierData[t]) tierData[t] = { retained: 0, atRisk: 0, churn: 0 };
+      var mrr = c.mrr || 0;
+      if (c._fc_class === 'churn') tierData[t].churn += mrr;
+      else if (c._fc_class === 'contraction') tierData[t].atRisk += mrr;
+      else tierData[t].retained += mrr;
+    });
+    var tiers = ['enterprise', 'mid', 'smb'].filter(function(t) { return tierData[t]; });
+    var maxTierMRR = Math.max.apply(null, tiers.map(function(t) { return tierData[t].retained + tierData[t].atRisk + tierData[t].churn; })) || 1;
+
+    tierRiskWrap.innerHTML = '<div style="display:flex;flex-direction:column;gap:12px;padding:8px 0">' +
+      tiers.map(function(t) {
+        var d = tierData[t];
+        var total = d.retained + d.atRisk + d.churn;
+        var retPct = (d.retained / maxTierMRR * 100).toFixed(1);
+        var riskPct = (d.atRisk / maxTierMRR * 100).toFixed(1);
+        var churnPct = (d.churn / maxTierMRR * 100).toFixed(1);
+        return '<div>' +
+          '<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:var(--fs-sm);font-weight:600;color:var(--text)">' + tierLabels[t] + '</span><span style="font-size:var(--fs-sm);color:var(--muted)">$' + fmtNum(Math.round(total)) + '</span></div>' +
+          '<div style="display:flex;height:24px;border-radius:6px;overflow:hidden;background:var(--bg)">' +
+            '<div style="width:' + retPct + '%;background:#10b981" title="Retained: $' + fmtNum(Math.round(d.retained)) + '"></div>' +
+            '<div style="width:' + riskPct + '%;background:#f59e0b" title="At Risk: $' + fmtNum(Math.round(d.atRisk)) + '"></div>' +
+            '<div style="width:' + churnPct + '%;background:#dc2626" title="Churn: $' + fmtNum(Math.round(d.churn)) + '"></div>' +
+          '</div>' +
+        '</div>';
+      }).join('') +
+      '<div style="display:flex;gap:16px;justify-content:center;margin-top:4px">' +
+        '<span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)"><span style="width:10px;height:10px;border-radius:2px;background:#10b981;display:inline-block"></span>Retained</span>' +
+        '<span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)"><span style="width:10px;height:10px;border-radius:2px;background:#f59e0b;display:inline-block"></span>At Risk</span>' +
+        '<span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)"><span style="width:10px;height:10px;border-radius:2px;background:#dc2626;display:inline-block"></span>Churn</span>' +
+      '</div></div>';
+  }
+
   // ── Analysis ──
   var analysisWrap = el('fc-analysis-wrap');
   if (analysisWrap) {
