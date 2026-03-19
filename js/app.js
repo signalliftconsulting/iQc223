@@ -22600,8 +22600,8 @@ function _fcFmtDollar(v) {
 // ── Waterfall Chart ────────────────────────────────────────
 
 function _fcBuildWaterfall(start, expand, contract, churn, projected) {
-  const W = 960, H = 190;
-  const pad = { top: 28, right: 20, bottom: 40, left: 65 };
+  const W = 960, H = 300;
+  const pad = { top: 32, right: 20, bottom: 44, left: 65 };
   const cW = W - pad.left - pad.right;
   const cH = H - pad.top - pad.bottom;
 
@@ -23015,7 +23015,7 @@ function _renderForecast() {
   if (concWrap) {
     var sorted = classified.slice().sort(function(a, b) { return (b.mrr || 0) - (a.mrr || 0); });
     var totalMRR = sorted.reduce(function(s, c) { return s + (c.mrr || 0); }, 0) || 1;
-    var top10 = sorted.slice(0, 10);
+    var top10 = sorted.slice(0, 5);
     var maxBar = top10.length ? (top10[0].mrr || 0) : 1;
     var statusColors = { critical: '#dc2626', risk: '#f59e0b', watch: '#eab308', healthy: '#10b981', expand: '#6366f1' };
 
@@ -23031,7 +23031,7 @@ function _renderForecast() {
     // Warning banner
     var bannerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;background:color-mix(in srgb, ' + concColor + ' 8%, transparent);border:1px solid color-mix(in srgb, ' + concColor + ' 20%, transparent);margin-bottom:10px">' +
       '<div style="width:8px;height:8px;border-radius:50%;background:' + concColor + ';flex-shrink:0"></div>' +
-      '<span style="font-size:var(--fs-sm);color:var(--text)">' + concLabel + ' - Top 3 accounts = <strong>' + top3Pct + '%</strong> of MRR, Top 10 = <strong>' + top10Pct + '%</strong></span>' +
+      '<span style="font-size:var(--fs-sm);color:var(--text)">' + concLabel + ' - Top 3 accounts = <strong>' + top3Pct + '%</strong> of MRR, Top 5 = <strong>' + top10Pct + '%</strong></span>' +
     '</div>';
 
     // Bars
