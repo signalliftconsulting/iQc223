@@ -62,8 +62,9 @@ async function clientRadioChange(radio) {
   setLoading(true);
   try {
     // Reset in-memory settings to defaults, then load selected client's settings
+    var _uxKeep2 = { iqc_uid:1, iqc_active_view:1, iqc_customers_cache:1, iqc_score_settings_clicked:1, iqc_score_settings_toured:1, iqc_qbr_clicked:1, iqc_welcome_v3:1 };
     Object.keys(localStorage)
-      .filter(k => k.startsWith('iqc_') && k !== 'iqc_uid' && k !== 'iqc_active_view' && k !== 'iqc_customers_cache')
+      .filter(k => k.startsWith('iqc_') && !_uxKeep2[k])
       .forEach(k => localStorage.removeItem(k));
     loadSettings(); // reset to defaults (localStorage now empty for settings keys)
     await loadSettingsFromSupabase(); // load selected client's settings from Supabase

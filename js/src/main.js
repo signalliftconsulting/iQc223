@@ -108,9 +108,10 @@ function _maybeShowWhatsNew() {
 function _checkUserSwitch(userId) {
   const prev = localStorage.getItem('iqc_uid');
   // Purge if: different user detected, OR iqc_uid never set but stale data exists (pre-update)
+  var _uxKeep = { iqc_score_settings_clicked:1, iqc_score_settings_toured:1, iqc_qbr_clicked:1, iqc_welcome_v3:1 };
   if (prev !== userId) {
     Object.keys(localStorage)
-      .filter(k => k.startsWith('iqc_') && k !== 'iqc_uid')
+      .filter(k => k.startsWith('iqc_') && k !== 'iqc_uid' && !_uxKeep[k])
       .forEach(k => localStorage.removeItem(k));
     customers = [];
     trash = [];
