@@ -938,12 +938,12 @@ var _WT_TOURS = {
       {
         target: '#cust-table',
         title: 'Customer Table',
-        body: 'Your full customer list showing health scores, momentum trends, MRR, renewal timelines, signals, and more. Click any column header to sort. Click any row to open a deep-dive with the full signal breakdown, notes, and history.'
+        body: 'Your full customer list showing health scores, momentum trends, MRR, renewal timelines, signals, and more. Click any column header to sort. Click a customer name to open a deep-dive with the full signal breakdown, notes, and history.'
       },
       {
         target: '#filter-pill-bar',
         title: 'Active Filters',
-        body: 'When you click values in the table to filter (like a specific lifecycle stage or risk tier), filter pills appear here. Remove individual filters or clear them all. Stack multiple filters to build targeted customer segments.',
+        body: 'When you click values in the table to filter (like a specific lifecycle stage or risk tier), filter pills appear here. For example, clicking "Active" in the Stage column filters to only active accounts - a pill like "Stage: Active" shows up here. Remove individual filters or stack multiple to build targeted views.',
         fallback: '.list-toolbar'
       },
       {
