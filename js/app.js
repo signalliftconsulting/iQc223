@@ -22557,7 +22557,7 @@ function _renderForecast() {
     </div>
     <div class="dash-kpi-card dash-kpi-red">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${warnIcon}</div><span class="dash-kpi-label">Churn Risk</span></div>
-      <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:#dc2626">$${fmtNum(Math.round(churnTotal))}</div><div class="dash-kpi-sub">Probability-weighted from ${churnCount} account${churnCount !== 1 ? 's' : ''}</div></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:#dc2626">$${fmtNum(Math.round(churnTotal))}</div><div class="dash-kpi-sub">${churnCount} account${churnCount !== 1 ? 's' : ''} at risk of churning</div></div>
     </div>
   `;
 
