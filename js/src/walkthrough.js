@@ -534,7 +534,7 @@ function _wtInjectTourButtons() {
   }
 
   // All other pages with standard .page-hd headers
-  var standardPages = ['settings', 'segments', 'trends', 'csmperf', 'reports', 'score', 'csv', 'automations', 'auditlog', 'calendar'];
+  var standardPages = ['settings', 'segments', 'trends', 'forecast', 'csmperf', 'reports', 'score', 'csv', 'automations', 'auditlog', 'calendar'];
   standardPages.forEach(function(page) {
     if (!_WT_TOURS[page]) return;
     var hd = document.querySelector('#view-' + page + ' > .page-hd');

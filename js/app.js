@@ -1409,7 +1409,7 @@ function _wtInjectTourButtons() {
   }
 
   // All other pages with standard .page-hd headers
-  var standardPages = ['settings', 'segments', 'trends', 'csmperf', 'reports', 'score', 'csv', 'automations', 'auditlog', 'calendar'];
+  var standardPages = ['settings', 'segments', 'trends', 'forecast', 'csmperf', 'reports', 'score', 'csv', 'automations', 'auditlog', 'calendar'];
   standardPages.forEach(function(page) {
     if (!_WT_TOURS[page]) return;
     var hd = document.querySelector('#view-' + page + ' > .page-hd');
@@ -5195,7 +5195,7 @@ function nav(v) {
   if (v === 'customers') { renderCustomersGuide(); renderCustomers(); }
   if (v === 'segments')  { renderSegmentsGuide(); if (!hasFeature('segments')) { el('seg-kpi-row').innerHTML = ''; el('seg-table-wrap').innerHTML = upgradeHTML('segments'); } else renderSegments(); }
   if (v === 'trends')    { renderTrendsGuide(); _trendFirstRender = true; renderTrends(); }
-  if (v === 'forecast')  renderForecast();
+  if (v === 'forecast')  { renderForecastGuide(); renderForecast(); }
   if (v === 'csmperf')   { renderCsmperfGuide(); if (!hasFeature('csm_performance')) { el('csmperf-wrap').innerHTML = upgradeHTML('csm_performance'); el('csmperf-stats').innerHTML = ''; } else renderCSMPerformance(); }
   if (v === 'calendar')  { renderCalendarGuide(); renderCalendar(); }
   if (v === 'settings')  renderSettings();
