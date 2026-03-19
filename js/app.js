@@ -2099,7 +2099,8 @@ function fromRow(row) {
     renewal_date:        row.renewal_date        || '',
     contact_name:        row.contact_name        || '',
     contact_email:       row.contact_email       || '',
-    _client_id:          row.client_id           || null
+    _client_id:          row.client_id           || null,
+    _updated_at:         row.updated_at          || null
   };
 }
 
@@ -2274,16 +2275,42 @@ function _showOverlay(on) {
   }
 }
 
-// save(c) - upsert a single customer
+// save(c) - save a single customer with optimistic locking
+// If c._updated_at is set, we check it hasn't changed since we loaded the record.
+// If another user saved in between, the update returns 0 rows and we throw a conflict error.
 async function save(c) {
   if (!currentUser) return;
   // Always update localStorage cache immediately so UI stays intact
   try { localStorage.setItem('iqc_customers_cache', JSON.stringify(customers)); } catch(e) {}
-  const { error } = await sb.from('customers').upsert(toRow(c), { onConflict: 'id' });
-  if (error) {
-    console.error('Supabase save error:', error.message, error);
-    throw error;
+
+  var row = toRow(c);
+  var isNew = !customers.some(function(x) { return x.id === c.id && x._updated_at; }) && !c._updated_at;
+
+  if (isNew) {
+    // New customer — simple insert/upsert, no conflict possible
+    var { error } = await sb.from('customers').upsert(row, { onConflict: 'id' });
+    if (error) { console.error('Supabase save error:', error.message, error); throw error; }
+  } else if (c._updated_at) {
+    // Existing customer with known version — optimistic lock
+    var { data, error } = await sb.from('customers').update(row).eq('id', c.id).eq('updated_at', c._updated_at).select('updated_at');
+    if (error) { console.error('Supabase save error:', error.message, error); throw error; }
+    if (!data || data.length === 0) {
+      // Conflict: another user/process updated this customer since we loaded it
+      var conflictErr = new Error('CONFLICT');
+      conflictErr.isConflict = true;
+      conflictErr.customerId = c.id;
+      conflictErr.customerName = c.name;
+      throw conflictErr;
+    }
+    // Update our in-memory version stamp
+    c._updated_at = data[0].updated_at;
+  } else {
+    // Existing customer but no _updated_at (old cached data) — save normally, then fetch version
+    var { data, error } = await sb.from('customers').upsert(row, { onConflict: 'id' }).select('updated_at');
+    if (error) { console.error('Supabase save error:', error.message, error); throw error; }
+    if (data && data[0]) c._updated_at = data[0].updated_at;
   }
+
   // Fire webhook triggers on successful save
   checkWebhookTriggers(c);
 }
@@ -9809,12 +9836,20 @@ async function saveInlineNextTouch(custId, val) {
 
   // Persist to Supabase
   const row = toRow(c);
-  const { error } = await sb.from('customers').update({
+  var _ntQuery = sb.from('customers').update({
     next_touch: row.next_touch,
     last_contact_date: row.last_contact_date,
     days: row.days,
     touch_history: row.touch_history
   }).eq('id', c.id);
+  if (c._updated_at) _ntQuery = _ntQuery.eq('updated_at', c._updated_at);
+  const { data: _ntData, error } = await _ntQuery.select('updated_at');
+  if (!error && c._updated_at && (!_ntData || _ntData.length === 0)) {
+    c.next_touch = oldVal;
+    toast(escHtml(c.name) + ' was modified by another user. Refresh to see their changes.', 'warn');
+    return;
+  }
+  if (!error && _ntData && _ntData[0]) c._updated_at = _ntData[0].updated_at;
   if (error) {
     console.warn('Failed to save next_touch:', error.message);
     c.next_touch = oldVal; // rollback
@@ -10579,7 +10614,7 @@ function saveScore() {
         dupe.history.push({ score, date: new Date().toISOString(), signals: buildHistorySnapshot(data) });
         setLoading(true);
         save(dupe).then(() => { setLoading(false); toast('Score updated for ' + dupe.name, 'success'); })
-                  .catch(() => { setLoading(false); toast('Updated locally - sync failed', 'warn'); });
+                  .catch(function(err) { setLoading(false); if (err && err.isConflict) { toast(escHtml(dupe.name) + ' was modified by another user. Refresh to see their changes.', 'warn'); } else { toast('Updated locally - sync failed', 'warn'); } });
         logAudit('customer_scored', dupe.id, dupe.name, { score, status, summary: `Re-scored → ${score}/100 (${status}), MRR: $${dupe.mrr}, Tier: ${dupe.tier}` });
         pendingResult = null;
         resetForm();
@@ -10678,9 +10713,10 @@ function saveDetailsOnly() {
   save(c).then(() => {
     setLoading(false);
     toast('Details saved for ' + c.name, 'success');
-  }).catch(() => {
+  }).catch(function(err) {
     setLoading(false);
-    toast('Saved locally - sync failed', 'warn');
+    if (err && err.isConflict) { toast(escHtml(c.name) + ' was modified by another user. Refresh to see their changes.', 'warn'); }
+    else { toast('Saved locally - sync failed', 'warn'); }
   });
   logAudit('customer_updated', c.id, c.name, { summary: `Details updated (no re-score)` });
   resetForm();
@@ -27163,11 +27199,15 @@ async function calToggleTouchStatus(custId, histIdx, newStatus) {
   if (!c || !c.touch_history || !c.touch_history[histIdx]) return;
   c.touch_history[histIdx].status = newStatus;
   _calSyncNextTouch(c);
-  var { error } = await sb.from('customers').update({
+  var _q1 = sb.from('customers').update({
     touch_history: JSON.stringify(c.touch_history),
     next_touch: c.next_touch,
     next_touch_time: c.next_touch_time
   }).eq('id', c.id);
+  if (c._updated_at) _q1 = _q1.eq('updated_at', c._updated_at);
+  var { data: _d1, error } = await _q1.select('updated_at');
+  if (!error && c._updated_at && (!_d1 || _d1.length === 0)) { toast(escHtml(c.name) + ' was modified by another user. Refresh.', 'warn'); renderCalendar(); return; }
+  if (!error && _d1 && _d1[0]) c._updated_at = _d1[0].updated_at;
   if (error) {
     toast('Failed to update - ' + error.message, 'error');
   }
@@ -27180,11 +27220,15 @@ async function calRemoveTouch(custId, histIdx) {
   if (!confirm('Delete this touch entry for ' + c.name + '?')) return;
   c.touch_history.splice(histIdx, 1);
   _calSyncNextTouch(c);
-  var { error } = await sb.from('customers').update({
+  var _q2 = sb.from('customers').update({
     touch_history: JSON.stringify(c.touch_history),
     next_touch: c.next_touch,
     next_touch_time: c.next_touch_time
   }).eq('id', c.id);
+  if (c._updated_at) _q2 = _q2.eq('updated_at', c._updated_at);
+  var { data: _d2, error } = await _q2.select('updated_at');
+  if (!error && c._updated_at && (!_d2 || _d2.length === 0)) { toast(escHtml(c.name) + ' was modified by another user. Refresh.', 'warn'); renderCalendar(); return; }
+  if (!error && _d2 && _d2[0]) c._updated_at = _d2[0].updated_at;
   if (error) {
     toast('Failed to remove - ' + error.message, 'error');
   }
@@ -27210,11 +27254,15 @@ async function calMarkScheduledMissed(custId) {
     c.touch_history.push({ date: ntDate, status: 'missed', time: c.next_touch_time || '' });
   }
   _calSyncNextTouch(c);
-  var { error } = await sb.from('customers').update({
+  var _q3 = sb.from('customers').update({
     next_touch: c.next_touch,
     next_touch_time: c.next_touch_time,
     touch_history: JSON.stringify(c.touch_history)
   }).eq('id', c.id);
+  if (c._updated_at) _q3 = _q3.eq('updated_at', c._updated_at);
+  var { data: _d3, error } = await _q3.select('updated_at');
+  if (!error && c._updated_at && (!_d3 || _d3.length === 0)) { toast(escHtml(c.name) + ' was modified by another user. Refresh.', 'warn'); renderCalendar(); return; }
+  if (!error && _d3 && _d3[0]) c._updated_at = _d3[0].updated_at;
   if (error) {
     toast('Failed to update - ' + error.message, 'error');
   }
@@ -27236,11 +27284,15 @@ async function calRemoveScheduled(custId) {
     }
   }
   _calSyncNextTouch(c);
-  var { error } = await sb.from('customers').update({
+  var _q4 = sb.from('customers').update({
     next_touch: c.next_touch,
     next_touch_time: c.next_touch_time,
     touch_history: JSON.stringify(c.touch_history)
   }).eq('id', c.id);
+  if (c._updated_at) _q4 = _q4.eq('updated_at', c._updated_at);
+  var { data: _d4, error } = await _q4.select('updated_at');
+  if (!error && c._updated_at && (!_d4 || _d4.length === 0)) { toast(escHtml(c.name) + ' was modified by another user. Refresh.', 'warn'); renderCalendar(); return; }
+  if (!error && _d4 && _d4[0]) c._updated_at = _d4[0].updated_at;
   if (error) {
     toast('Failed to remove - ' + error.message, 'error');
   }

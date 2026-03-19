@@ -861,12 +861,20 @@ async function saveInlineNextTouch(custId, val) {
 
   // Persist to Supabase
   const row = toRow(c);
-  const { error } = await sb.from('customers').update({
+  var _ntQuery = sb.from('customers').update({
     next_touch: row.next_touch,
     last_contact_date: row.last_contact_date,
     days: row.days,
     touch_history: row.touch_history
   }).eq('id', c.id);
+  if (c._updated_at) _ntQuery = _ntQuery.eq('updated_at', c._updated_at);
+  const { data: _ntData, error } = await _ntQuery.select('updated_at');
+  if (!error && c._updated_at && (!_ntData || _ntData.length === 0)) {
+    c.next_touch = oldVal;
+    toast(escHtml(c.name) + ' was modified by another user. Refresh to see their changes.', 'warn');
+    return;
+  }
+  if (!error && _ntData && _ntData[0]) c._updated_at = _ntData[0].updated_at;
   if (error) {
     console.warn('Failed to save next_touch:', error.message);
     c.next_touch = oldVal; // rollback

@@ -251,7 +251,8 @@ function fromRow(row) {
     renewal_date:        row.renewal_date        || '',
     contact_name:        row.contact_name        || '',
     contact_email:       row.contact_email       || '',
-    _client_id:          row.client_id           || null
+    _client_id:          row.client_id           || null,
+    _updated_at:         row.updated_at          || null
   };
 }
 
@@ -426,16 +427,42 @@ function _showOverlay(on) {
   }
 }
 
-// save(c) - upsert a single customer
+// save(c) - save a single customer with optimistic locking
+// If c._updated_at is set, we check it hasn't changed since we loaded the record.
+// If another user saved in between, the update returns 0 rows and we throw a conflict error.
 async function save(c) {
   if (!currentUser) return;
   // Always update localStorage cache immediately so UI stays intact
   try { localStorage.setItem('iqc_customers_cache', JSON.stringify(customers)); } catch(e) {}
-  const { error } = await sb.from('customers').upsert(toRow(c), { onConflict: 'id' });
-  if (error) {
-    console.error('Supabase save error:', error.message, error);
-    throw error;
+
+  var row = toRow(c);
+  var isNew = !customers.some(function(x) { return x.id === c.id && x._updated_at; }) && !c._updated_at;
+
+  if (isNew) {
+    // New customer — simple insert/upsert, no conflict possible
+    var { error } = await sb.from('customers').upsert(row, { onConflict: 'id' });
+    if (error) { console.error('Supabase save error:', error.message, error); throw error; }
+  } else if (c._updated_at) {
+    // Existing customer with known version — optimistic lock
+    var { data, error } = await sb.from('customers').update(row).eq('id', c.id).eq('updated_at', c._updated_at).select('updated_at');
+    if (error) { console.error('Supabase save error:', error.message, error); throw error; }
+    if (!data || data.length === 0) {
+      // Conflict: another user/process updated this customer since we loaded it
+      var conflictErr = new Error('CONFLICT');
+      conflictErr.isConflict = true;
+      conflictErr.customerId = c.id;
+      conflictErr.customerName = c.name;
+      throw conflictErr;
+    }
+    // Update our in-memory version stamp
+    c._updated_at = data[0].updated_at;
+  } else {
+    // Existing customer but no _updated_at (old cached data) — save normally, then fetch version
+    var { data, error } = await sb.from('customers').upsert(row, { onConflict: 'id' }).select('updated_at');
+    if (error) { console.error('Supabase save error:', error.message, error); throw error; }
+    if (data && data[0]) c._updated_at = data[0].updated_at;
   }
+
   // Fire webhook triggers on successful save
   checkWebhookTriggers(c);
 }

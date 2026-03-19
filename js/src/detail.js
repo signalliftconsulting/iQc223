@@ -394,7 +394,7 @@ function saveScore() {
         dupe.history.push({ score, date: new Date().toISOString(), signals: buildHistorySnapshot(data) });
         setLoading(true);
         save(dupe).then(() => { setLoading(false); toast('Score updated for ' + dupe.name, 'success'); })
-                  .catch(() => { setLoading(false); toast('Updated locally - sync failed', 'warn'); });
+                  .catch(function(err) { setLoading(false); if (err && err.isConflict) { toast(escHtml(dupe.name) + ' was modified by another user. Refresh to see their changes.', 'warn'); } else { toast('Updated locally - sync failed', 'warn'); } });
         logAudit('customer_scored', dupe.id, dupe.name, { score, status, summary: `Re-scored → ${score}/100 (${status}), MRR: $${dupe.mrr}, Tier: ${dupe.tier}` });
         pendingResult = null;
         resetForm();
@@ -493,9 +493,10 @@ function saveDetailsOnly() {
   save(c).then(() => {
     setLoading(false);
     toast('Details saved for ' + c.name, 'success');
-  }).catch(() => {
+  }).catch(function(err) {
     setLoading(false);
-    toast('Saved locally - sync failed', 'warn');
+    if (err && err.isConflict) { toast(escHtml(c.name) + ' was modified by another user. Refresh to see their changes.', 'warn'); }
+    else { toast('Saved locally - sync failed', 'warn'); }
   });
   logAudit('customer_updated', c.id, c.name, { summary: `Details updated (no re-score)` });
   resetForm();

@@ -640,11 +640,15 @@ async function calToggleTouchStatus(custId, histIdx, newStatus) {
   if (!c || !c.touch_history || !c.touch_history[histIdx]) return;
   c.touch_history[histIdx].status = newStatus;
   _calSyncNextTouch(c);
-  var { error } = await sb.from('customers').update({
+  var _q1 = sb.from('customers').update({
     touch_history: JSON.stringify(c.touch_history),
     next_touch: c.next_touch,
     next_touch_time: c.next_touch_time
   }).eq('id', c.id);
+  if (c._updated_at) _q1 = _q1.eq('updated_at', c._updated_at);
+  var { data: _d1, error } = await _q1.select('updated_at');
+  if (!error && c._updated_at && (!_d1 || _d1.length === 0)) { toast(escHtml(c.name) + ' was modified by another user. Refresh.', 'warn'); renderCalendar(); return; }
+  if (!error && _d1 && _d1[0]) c._updated_at = _d1[0].updated_at;
   if (error) {
     toast('Failed to update - ' + error.message, 'error');
   }
@@ -657,11 +661,15 @@ async function calRemoveTouch(custId, histIdx) {
   if (!confirm('Delete this touch entry for ' + c.name + '?')) return;
   c.touch_history.splice(histIdx, 1);
   _calSyncNextTouch(c);
-  var { error } = await sb.from('customers').update({
+  var _q2 = sb.from('customers').update({
     touch_history: JSON.stringify(c.touch_history),
     next_touch: c.next_touch,
     next_touch_time: c.next_touch_time
   }).eq('id', c.id);
+  if (c._updated_at) _q2 = _q2.eq('updated_at', c._updated_at);
+  var { data: _d2, error } = await _q2.select('updated_at');
+  if (!error && c._updated_at && (!_d2 || _d2.length === 0)) { toast(escHtml(c.name) + ' was modified by another user. Refresh.', 'warn'); renderCalendar(); return; }
+  if (!error && _d2 && _d2[0]) c._updated_at = _d2[0].updated_at;
   if (error) {
     toast('Failed to remove - ' + error.message, 'error');
   }
@@ -687,11 +695,15 @@ async function calMarkScheduledMissed(custId) {
     c.touch_history.push({ date: ntDate, status: 'missed', time: c.next_touch_time || '' });
   }
   _calSyncNextTouch(c);
-  var { error } = await sb.from('customers').update({
+  var _q3 = sb.from('customers').update({
     next_touch: c.next_touch,
     next_touch_time: c.next_touch_time,
     touch_history: JSON.stringify(c.touch_history)
   }).eq('id', c.id);
+  if (c._updated_at) _q3 = _q3.eq('updated_at', c._updated_at);
+  var { data: _d3, error } = await _q3.select('updated_at');
+  if (!error && c._updated_at && (!_d3 || _d3.length === 0)) { toast(escHtml(c.name) + ' was modified by another user. Refresh.', 'warn'); renderCalendar(); return; }
+  if (!error && _d3 && _d3[0]) c._updated_at = _d3[0].updated_at;
   if (error) {
     toast('Failed to update - ' + error.message, 'error');
   }
@@ -713,11 +725,15 @@ async function calRemoveScheduled(custId) {
     }
   }
   _calSyncNextTouch(c);
-  var { error } = await sb.from('customers').update({
+  var _q4 = sb.from('customers').update({
     next_touch: c.next_touch,
     next_touch_time: c.next_touch_time,
     touch_history: JSON.stringify(c.touch_history)
   }).eq('id', c.id);
+  if (c._updated_at) _q4 = _q4.eq('updated_at', c._updated_at);
+  var { data: _d4, error } = await _q4.select('updated_at');
+  if (!error && c._updated_at && (!_d4 || _d4.length === 0)) { toast(escHtml(c.name) + ' was modified by another user. Refresh.', 'warn'); renderCalendar(); return; }
+  if (!error && _d4 && _d4[0]) c._updated_at = _d4[0].updated_at;
   if (error) {
     toast('Failed to remove - ' + error.message, 'error');
   }
