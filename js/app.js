@@ -12526,8 +12526,8 @@ function _renderSettingsGuide(tab) {
 function goToScoringConfig() {
   nav('settings');
   setTimeout(function() {
-    var sc = document.getElementById('settings-scoring');
-    if (sc) sc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (typeof _wtStartPageTour === 'function') _wtStartPageTour('settings');
   }, 200);
 }
 
