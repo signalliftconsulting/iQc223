@@ -5,3 +5,7 @@ node_modules/
 dist/
 .ds_store
 js/config.js
+supabase.exe
+supabase/.temp/
+*.exe
+js/app.js.bak
