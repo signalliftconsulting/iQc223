@@ -1505,9 +1505,11 @@ function _wtInjectHomebaseTourButton() {
   // Scoring button
   var scoreBtn = document.createElement('button');
   var _shimmerDismissed = localStorage.getItem('iqc_score_settings_clicked');
-  scoreBtn.onclick = function() { localStorage.setItem('iqc_score_settings_clicked','1'); scoreBtn.classList.remove('btn-shimmer'); goToScoringConfig(); };
+  var _scoreBtnNormal = 'background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #6ee7b7;color:#047857;padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px';
+  var _scoreBtnHighlight = 'background:#0d9488;border:1px solid #0f766e;color:#fff;padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px';
+  scoreBtn.onclick = function() { localStorage.setItem('iqc_score_settings_clicked','1'); scoreBtn.classList.remove('btn-shimmer'); scoreBtn.style.cssText = _scoreBtnNormal; goToScoringConfig(); };
   scoreBtn.className = 'wt-tour-btn' + (_shimmerDismissed ? '' : ' btn-shimmer');
-  scoreBtn.style.cssText = 'background:#0d9488;border:1px solid #0f766e;color:#fff;padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px';
+  scoreBtn.style.cssText = _shimmerDismissed ? _scoreBtnNormal : _scoreBtnHighlight;
   scoreBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Score Settings';
   bar.appendChild(scoreBtn);
   bar.appendChild(_wtMakeTourButton('homebase'));
@@ -11105,8 +11107,11 @@ function openDetail(id) {
   // Gate QBR button
   const qbrBtn = el('dm-qbr-btn');
   if (qbrBtn) {
-    if (hasFeature('qbr_prep')) { qbrBtn.style.display = ''; qbrBtn.disabled = false; if (!localStorage.getItem('iqc_qbr_clicked')) qbrBtn.classList.add('btn-shimmer'); }
-    else { qbrBtn.style.display = 'none'; }
+    if (hasFeature('qbr_prep')) {
+      qbrBtn.style.display = ''; qbrBtn.disabled = false;
+      if (!localStorage.getItem('iqc_qbr_clicked')) { qbrBtn.classList.add('btn-shimmer'); qbrBtn.style.cssText = 'background:#7c3aed;color:#fff;border:1px solid #6d28d9'; }
+      else { qbrBtn.style.cssText = ''; }
+    } else { qbrBtn.style.display = 'none'; }
   }
 
   // Alert count badge on Alerts tab
@@ -11913,7 +11918,7 @@ function openQBR() {
   const c = customers.find(x => x.id === detailId);
   if (!c) return;
   localStorage.setItem('iqc_qbr_clicked','1');
-  var _qbrBtn = el('dm-qbr-btn'); if (_qbrBtn) _qbrBtn.classList.remove('btn-shimmer');
+  var _qbrBtn = el('dm-qbr-btn'); if (_qbrBtn) { _qbrBtn.classList.remove('btn-shimmer'); _qbrBtn.style.cssText = ''; }
   if (typeof _wtCompleteIfActive === 'function') _wtCompleteIfActive('qbr-prep');
   logAudit('qbr_opened', c.id, c.name, { summary: 'QBR Prep opened' });
   el('qbr-content').innerHTML = buildQBRHTML(c);
