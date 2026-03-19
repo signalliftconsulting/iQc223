@@ -5567,7 +5567,7 @@ function _gsCardHTML() {
         <div style="display:flex;align-items:center;gap:8px">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           <span style="font-weight:700;font-size:var(--fs-sm);color:var(--text)">Getting Started</span>
-          <button onclick="var b=document.getElementById('gs-banner-body');var open=b.style.display!=='none';b.style.display=open?'none':'block';this.textContent=open?'Hide ↑':'Show ↓'" class="btn btn-outline btn-xs" style="font-size:var(--fs-xs);padding:2px 8px;margin-left:4px">Show ↓</button>
+          <button onclick="var b=document.getElementById('gs-banner-body');var open=b.style.display!=='none';b.style.display=open?'none':'block';this.textContent=open?'Show ↓':'Hide ↑'" class="btn btn-outline btn-xs" style="font-size:var(--fs-xs);padding:2px 8px;margin-left:4px">Show ↓</button>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-xs);color:var(--muted);cursor:pointer;user-select:none">
