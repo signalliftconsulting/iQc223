@@ -7962,7 +7962,7 @@ function _renderAlerts() {
     }).join('');
 
     if (tblList.length) {
-      html += `<div style="overflow-x:auto"><table class="ct" style="display:table;min-width:900px;width:100%">
+      html += `<table class="ct" style="display:table;width:100%">
         <thead><tr>${_thCols}</tr></thead><tbody>` +
         tblList.map(c => {
           const cad = getCadenceStatus(c);
@@ -7989,7 +7989,7 @@ function _renderAlerts() {
             <td style="padding:8px 12px;color:${c.tickets != null && c.tickets > 0 ? '#dc2626' : 'var(--subtle)'};font-weight:${c.tickets != null && c.tickets > 0 ? '700' : '400'}">${c.tickets != null ? c.tickets : 'N/A'}</td>
             <td style="padding:8px 12px;font-size:var(--fs-base);color:var(--subtle)">${c.manager ? escHtml(c.manager) : ' -'}</td>
           </tr>`;
-        }).join('') + '</tbody></table></div>';
+        }).join('') + '</tbody></table>';
     } else {
       html += `<div style="text-align:center;padding:28px;color:var(--muted);font-size:var(--fs-md)">No matching customers</div>`;
     }
@@ -9392,7 +9392,8 @@ function renderFilterPills() {
   }
   // Insight filter pill
   if (insightFilter && insightFilter.ids) {
-    bar.innerHTML = `<span class="filter-pill" style="background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.4)">Insight: ${escHtml(insightFilter.label)}<button class="filter-pill-x" onclick="event.stopPropagation();clearInsightFilter()" title="Remove filter">✕</button></span>` + bar.innerHTML;
+    const _ifCount = insightFilter.ids.size;
+    bar.innerHTML = `<span class="filter-pill" style="background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.4)"><strong>${escHtml(insightFilter.label)}</strong>&nbsp; ${_ifCount} customer${_ifCount !== 1 ? 's' : ''}<button class="filter-pill-x" onclick="event.stopPropagation();clearInsightFilter()" title="Clear filter">&times; Clear filter</button></span>` + bar.innerHTML;
   }
   // Tier filter pill
   if (_filterTier) {

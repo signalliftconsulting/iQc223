@@ -334,7 +334,8 @@ function renderFilterPills() {
   }
   // Insight filter pill
   if (insightFilter && insightFilter.ids) {
-    bar.innerHTML = `<span class="filter-pill" style="background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.4)">Insight: ${escHtml(insightFilter.label)}<button class="filter-pill-x" onclick="event.stopPropagation();clearInsightFilter()" title="Remove filter">✕</button></span>` + bar.innerHTML;
+    const _ifCount = insightFilter.ids.size;
+    bar.innerHTML = `<span class="filter-pill" style="background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.4)"><strong>${escHtml(insightFilter.label)}</strong>&nbsp; ${_ifCount} customer${_ifCount !== 1 ? 's' : ''}<button class="filter-pill-x" onclick="event.stopPropagation();clearInsightFilter()" title="Clear filter">&times; Clear filter</button></span>` + bar.innerHTML;
   }
   // Tier filter pill
   if (_filterTier) {
