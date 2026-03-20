@@ -203,7 +203,8 @@ function _fcBuildAnalysis(classified, startMRR, nrr, expandTotal, contractTotal,
   }
 
   // 3. Actionable - borderline accounts or expansion opportunity
-  const borderline = classified.filter(c => c.fc.cat === 'retain' && (c.score || 0) >= 55 && (c.score || 0) <= 70 && c.renewal && c.renewal <= 90);
+  const borderline = classified.filter(c => c.fc.cat === 'retain' && (c.score || 0) >= 55 && (c.score || 0) <= 70 && c.renewal && c.renewal <= 90)
+    .sort((a, b) => (b.mrr || 0) - (a.mrr || 0));
   if (borderline.length > 0) {
     const blMrr = borderline.reduce((s, c) => s + (c.mrr || 0), 0);
     insights.push({ icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>', iconBg: 'var(--amber-l)', iconColor: 'var(--amber)', accent: 'amber', title: borderline.length + ' borderline accounts with upcoming renewals', detail: `${borderline.length} accounts scoring 55-70 with renewals in the next 90 days ($${fmtNum(blMrr)}/mo). These could tip to contract or strengthen to expand. A proactive touchpoint now could shift the outcome. ` + borderline.slice(0, 2).map(c => `${_taCustLink(c.name, c.id)} (${c.score}, $${fmtNum(c.mrr || 0)}/mo)`).join(', ') + '.' });
