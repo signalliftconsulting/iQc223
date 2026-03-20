@@ -656,12 +656,17 @@ function _wtSpotlightPage(page, idx, gen) {
     try { eval(step.action + '()'); } catch(e) {}
   }
 
-  // After tab switch, wait for reflow so newly-visible pane elements have correct layout
+  // After tab switch, wait for browser to paint newly-visible pane before measuring
   if (step.tab) {
-    setTimeout(function() {
-      if (gen !== undefined && _wtGen !== gen) return;
-      _wtSpotlightTarget(page, idx, step, tour, gen);
-    }, 150);
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        if (gen !== undefined && _wtGen !== gen) return;
+        setTimeout(function() {
+          if (gen !== undefined && _wtGen !== gen) return;
+          _wtSpotlightTarget(page, idx, step, tour, gen);
+        }, 100);
+      });
+    });
     return;
   }
 
@@ -712,6 +717,16 @@ function _wtSpotlightTarget(page, idx, step, tour, gen) {
 
     // Measure target after scroll is complete
     var r = target.getBoundingClientRect();
+
+    // Safety: if target has zero rect (hidden pane not yet painted), retry once
+    if (r.width === 0 && r.height === 0 && !step._retried) {
+      step._retried = true;
+      setTimeout(function() {
+        if (gen !== undefined && _wtGen !== gen) return;
+        _wtSpotlightTarget(page, idx, step, tour, gen);
+      }, 300);
+      return;
+    }
 
     // Create overlay with cutout hole around target
     var overlay = document.createElement('div');
