@@ -22967,17 +22967,22 @@ function _fcBuildAnalysis(classified, startMRR, nrr, expandTotal, contractTotal,
   // 1. NRR Summary
   const nrrRound = Math.round(nrr);
   let nrrTitle, nrrDetail, nrrAccent;
-  if (nrrRound >= 105) {
+  if (nrrRound >= 110) {
     nrrTitle = 'Strong NRR projection at ' + nrrRound + '%';
-    nrrDetail = `Expansion from <strong>${expandAccts.length}</strong> accounts (+$${fmtNum(expandTotal)}/mo) outpaces risk. `;
+    nrrDetail = `Expansion from <strong>${expandAccts.length}</strong> accounts (+$${fmtNum(expandTotal)}/mo) significantly outpaces risk. `;
     nrrDetail += contractAccts.length + churnAccts.length > 0
-      ? `${contractAccts.length + churnAccts.length} accounts pose risk ($${fmtNum(contractTotal + churnTotal)}/mo), but net growth is positive.`
+      ? `${contractAccts.length + churnAccts.length} accounts pose risk ($${fmtNum(contractTotal + churnTotal)}/mo), but net growth is strong.`
       : 'No significant contraction or churn risk detected.';
+    nrrAccent = 'green';
+  } else if (nrrRound >= 100) {
+    nrrTitle = 'NRR projected at ' + nrrRound + '% - slight growth';
+    nrrDetail = `Expansion ($${fmtNum(expandTotal)}/mo from ${expandAccts.length} accounts) edges out risk ($${fmtNum(contractTotal + churnTotal)}/mo from ${contractAccts.length + churnAccts.length} accounts). `;
+    nrrDetail += 'Revenue is growing but the margin is thin. Reducing churn risk would strengthen the position.';
     nrrAccent = 'green';
   } else if (nrrRound >= 95) {
     nrrTitle = 'NRR projected at ' + nrrRound + '% - roughly flat';
     nrrDetail = `Expansion ($${fmtNum(expandTotal)}/mo from ${expandAccts.length} accounts) is being offset by risk ($${fmtNum(contractTotal + churnTotal)}/mo from ${contractAccts.length + churnAccts.length} accounts). `;
-    nrrDetail += 'Focus on converting contract-risk accounts to retain to push NRR above 100%.';
+    nrrDetail += 'Focus on converting at-risk accounts to retain to push NRR above 100%.';
     nrrAccent = 'amber';
   } else {
     nrrTitle = 'NRR projected at ' + nrrRound + '% - revenue declining';
