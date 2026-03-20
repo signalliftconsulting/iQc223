@@ -22993,15 +22993,16 @@ function _fcBuildAnalysis(classified, startMRR, nrr, expandTotal, contractTotal,
     const topRisk = allRisk.slice(0, 3);
     const totalRiskMrr = allRisk.reduce((s, c) => s + (c.mrr || 0), 0);
     const entRisk = allRisk.filter(c => c.tier === 'enterprise');
-    let riskTitle = '$' + fmtNum(Math.round(contractTotal + churnTotal)) + '/mo at risk across ' + allRisk.length + ' accounts';
-    let riskDetail = topRisk.map(c => `${_taCustLink(c.name, c.id)} (score ${c.score}, $${fmtNum(c.mrr || 0)}/mo, ${c.fc.cat})`).join(', ');
-    riskDetail += '. ';
+    let riskTitle = '$' + fmtNum(Math.round(totalRiskMrr)) + '/mo exposed across ' + allRisk.length + ' accounts';
+    let riskDetail = topRisk.map(c => `${_taCustLink(c.name, c.id)} (score ${c.score}, $${fmtNum(c.mrr || 0)}/mo, ${c.fc.cat})`).join(', ') + '. ';
+    const weightedLoss = Math.round(contractTotal + churnTotal);
+    riskDetail += `Probability-weighted impact is $${fmtNum(weightedLoss)}/mo. `;
     if (entRisk.length > 0) {
       const entMrr = entRisk.reduce((s, c) => s + (c.mrr || 0), 0);
       riskDetail += `${entRisk.length} enterprise account${entRisk.length > 1 ? 's' : ''} ($${fmtNum(entMrr)}/mo) in this group - prioritize these.`;
     } else {
-      const recoveryImpact = Math.round((contractTotal + churnTotal) / startMRR * 100);
-      riskDetail += `Recovering these would add ~${recoveryImpact} pts to NRR.`;
+      const recoveryImpact = Math.round(totalRiskMrr / startMRR * 100);
+      riskDetail += `Saving all at-risk accounts would protect ~${recoveryImpact} pts of NRR.`;
     }
     insights.push({ icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>', iconBg: 'var(--red-l)', iconColor: 'var(--red)', accent: 'red', title: riskTitle, detail: riskDetail });
   }
