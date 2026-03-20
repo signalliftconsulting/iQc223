@@ -2288,10 +2288,10 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <div id="forecast-guide"></div>
 
   <!-- KPI Cards -->
-  <div class="dash-kpi-row" id="fc-kpi-row" style="grid-template-columns:repeat(4,1fr)"></div>
+  <div class="dash-kpi-row" id="fc-kpi-row" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))"></div>
 
   <!-- Charts Row -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;margin-bottom:16px">
     <div class="chart-card">
       <div style="padding:6px 16px 0;font-weight:700;font-size:var(--fs-base);color:var(--text)">NRR Waterfall</div>
       <div style="padding:4px 1rem 8px" id="fc-waterfall-wrap"></div>
@@ -4564,6 +4564,6 @@ function declineCookies(){localStorage.setItem('iqc_cookie_consent','declined');
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=662"></script>
+<script src="js/app.js?v=663"></script>
 </body>
 </html>

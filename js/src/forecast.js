@@ -528,7 +528,7 @@ function _renderForecast() {
         '<div style="flex:1;background:var(--bg);border-radius:3px;height:18px;overflow:hidden">' +
           '<div style="width:' + barW + '%;height:100%;border-radius:3px;background:' + (i < 3 ? 'linear-gradient(90deg,' + sColor + ',' + sColor + 'cc)' : sColor + '66') + ';min-width:2px"></div>' +
         '</div>' +
-        '<div style="width:68px;text-align:right;flex-shrink:0"><span style="font-size:12px;font-weight:600;color:var(--text)">$' + fmtNum(Math.round(mrr)) + '</span> <span style="font-size:10px;color:var(--muted)">' + pct + '%</span></div>' +
+        '<div style="text-align:right;flex-shrink:0;white-space:nowrap"><span style="font-size:12px;font-weight:600;color:var(--text)">$' + fmtNum(Math.round(mrr)) + '</span> <span style="font-size:10px;color:var(--muted)">' + pct + '%</span></div>' +
       '</div>';
     }).join('');
 
