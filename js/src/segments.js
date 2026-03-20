@@ -265,7 +265,7 @@ function renderSegments() {
   }
 
   renderSegKPIs(visibleSegments, active);
-  _buildSegInsights(visibleSegments, active, _segView);
+  // Render tables FIRST so _tierData/_stageData are populated before insights
   if (_segView === 'tiers') {
     renderTierTable(active, deltaCache);
   } else if (_segView === 'stage') {
@@ -273,6 +273,9 @@ function renderSegments() {
   } else {
     renderSegTable(visibleSegments);
   }
+  // Now build insights with the freshly-populated view data
+  const insightData = _segView === 'tiers' ? window._tierData : _segView === 'stage' ? window._stageData : visibleSegments;
+  _buildSegInsights(insightData, active, _segView);
   renderSegChart(visibleSegments, active, deltaCache);
 }
 

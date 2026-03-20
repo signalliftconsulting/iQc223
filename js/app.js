@@ -199,7 +199,7 @@ function tierBadgeHTML(tier) {
 }
 
 function upgradeHTML(featureKey) {
-  const needed = PLAN_FEATURES[featureKey] || 'core';
+  const needed = PLAN_FEATURES[featureKey] || 'growth';
   const label  = PLAN_TIER_LABELS[needed] || needed;
   return `<div style="text-align:center;padding:40px 20px;color:var(--muted)">
     <div style="margin-bottom:10px">${appIcon('lock',28)}</div>
@@ -12479,6 +12479,7 @@ function cfgTab(which) {
 // ─── BILLING ──────────────────────────────────────────────
 let _billingInterval = 'monthly';
 
+// Price IDs — set in js/config.js (gitignored) or fall back to empty
 const BILLING_PRICES = (typeof STRIPE_PRICES !== 'undefined') ? STRIPE_PRICES : {};
 
 function setBillingInterval(interval) {
@@ -12500,6 +12501,7 @@ async function renderBillingSection() {
   var color = PLAN_TIER_COLORS[tier] || 'var(--muted)';
   var limits = PLAN_LIMITS[tier] || PLAN_LIMITS.pulse;
 
+  // Fetch client billing info
   var client = null;
   if (_userClientId) {
     try {
@@ -12542,10 +12544,12 @@ async function renderBillingSection() {
         : '<button class="btn btn-sm" style="margin-top:12px;background:var(--green);color:#fff" onclick="scrollToPlanCards()">Choose a Plan</button>') +
     '</div>';
 
+  // Usage card
   var activeAccounts = customers.filter(function(c) { return !c.deleted_at; }).length;
   var accountLimit = limits.accounts === Infinity ? '&infin;' : limits.accounts.toLocaleString();
   var accountPct = limits.accounts === Infinity ? 0 : Math.round(activeAccounts / limits.accounts * 100);
 
+  // Count users (fetch from server)
   var userCount = 1;
   try {
     if (_userClientId) {
@@ -20803,7 +20807,7 @@ function renderSegments() {
   }
 
   renderSegKPIs(visibleSegments, active);
-  _buildSegInsights(visibleSegments, active, _segView);
+  // Render tables FIRST so _tierData/_stageData are populated before insights
   if (_segView === 'tiers') {
     renderTierTable(active, deltaCache);
   } else if (_segView === 'stage') {
@@ -20811,6 +20815,9 @@ function renderSegments() {
   } else {
     renderSegTable(visibleSegments);
   }
+  // Now build insights with the freshly-populated view data
+  const insightData = _segView === 'tiers' ? window._tierData : _segView === 'stage' ? window._stageData : visibleSegments;
+  _buildSegInsights(insightData, active, _segView);
   renderSegChart(visibleSegments, active, deltaCache);
 }
 
@@ -29128,8 +29135,8 @@ function adminUpdateBulkBar() {
   if (countEl) countEl.textContent = selected.length + ' selected';
   // Sync select-all checkbox
   const all = document.querySelectorAll('.client-sel');
-  const selAll2 = document.getElementById('clients-select-all');
-  if (selAll2) selAll2.checked = all.length > 0 && selected.length === all.length;
+  const selAll = document.getElementById('clients-select-all');
+  if (selAll) selAll.checked = all.length > 0 && selected.length === all.length;
 }
 
 async function adminBulkChangePlan() {
@@ -29152,8 +29159,8 @@ async function adminBulkChangePlan() {
 
 function adminClearSelection() {
   document.querySelectorAll('.client-sel').forEach(cb => { cb.checked = false; });
-  const selAll3 = document.getElementById('clients-select-all');
-  if (selAll3) selAll3.checked = false;
+  const selAll = document.getElementById('clients-select-all');
+  if (selAll) selAll.checked = false;
   adminUpdateBulkBar();
 }
 
