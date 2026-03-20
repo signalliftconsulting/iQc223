@@ -22896,7 +22896,7 @@ function _fcBuildWaterfall(start, expand, contract, churn, projected) {
     const val = stepVal * i;
     const y = yScale(val);
     svg += `<line x1="${pad.left}" y1="${y}" x2="${W - pad.right}" y2="${y}" stroke="var(--border)" stroke-width="0.5"/>`;
-    svg += `<text x="${pad.left - 8}" y="${y + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${_fcFmtDollar(val)}</text>`;
+    svg += `<text x="${pad.left - 8}" y="${y + 4}" text-anchor="end" font-size="13" fill="var(--muted)">${_fcFmtDollar(val)}</text>`;
   }
 
   // Baseline
@@ -22946,10 +22946,10 @@ function _fcBuildWaterfall(start, expand, contract, churn, projected) {
     svg += `<rect x="${b.x}" y="${y1}" width="${barW}" height="${h}" rx="4" fill="${b.fill}" opacity="0.85"/>`;
 
     // Dollar label above bar
-    svg += `<text x="${b.x + barW / 2}" y="${y1 - 8}" text-anchor="middle" font-size="12" font-weight="700" fill="${b.fill}">${b.label}</text>`;
+    svg += `<text x="${b.x + barW / 2}" y="${y1 - 8}" text-anchor="middle" font-size="14" font-weight="700" fill="${b.fill}">${b.label}</text>`;
 
     // Category label below
-    svg += `<text x="${b.x + barW / 2}" y="${yScale(0) + 18}" text-anchor="middle" font-size="11" fill="var(--muted)">${b.name}</text>`;
+    svg += `<text x="${b.x + barW / 2}" y="${yScale(0) + 20}" text-anchor="middle" font-size="13" font-weight="500" fill="var(--text)">${b.name}</text>`;
   }
 
   svg += '</svg>';
