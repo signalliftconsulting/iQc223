@@ -9,7 +9,7 @@ function renderReporting() {
 
   const reports = [
     // ── Portfolio & Strategy ──
-    { section:'portfolio', tier:'starter', featureKey:'reports_basic',
+    { section:'portfolio', tier:'core', featureKey:'reports_basic',
       title:'Portfolio Health Summary', desc:'Printable dashboard snapshot with KPI cards, status distribution, segment breakdown, and top at-risk accounts.',
       iconBg:'var(--purple-l)', iconColor:'var(--purple)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
@@ -19,7 +19,7 @@ function renderReporting() {
         { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('portfolio_summary')" }
       ]
     },
-    { section:'portfolio', tier:'starter', featureKey:'reports_basic',
+    { section:'portfolio', tier:'core', featureKey:'reports_basic',
       title:'Weekly Review', desc:'Friday report  - week-over-week trends, portfolio insights, action items, at-risk accounts, and score movers.',
       iconBg:'var(--green-l)', iconColor:'var(--green)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
@@ -30,7 +30,7 @@ function renderReporting() {
         { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('weekly_digest')" }
       ]
     },
-    { section:'portfolio', tier:'starter', featureKey:'reports_basic',
+    { section:'portfolio', tier:'core', featureKey:'reports_basic',
       title:'Trend Report (30/60/90d)', desc:'Overall portfolio health score trend over time with status mix and MRR changes.',
       iconBg:'var(--teal-l)', iconColor:'var(--teal)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
@@ -41,7 +41,7 @@ function renderReporting() {
       ]
     },
     // ── Risk & Renewals ──
-    { section:'risk', tier:'starter', featureKey:'reports_basic',
+    { section:'risk', tier:'core', featureKey:'reports_basic',
       title:'At-Risk Report', desc:'Critical and At Risk customers sorted by MRR, with scores, trends, days since contact, and renewal dates.',
       iconBg:'var(--red-l)', iconColor:'var(--red)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
@@ -51,7 +51,7 @@ function renderReporting() {
         { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('at_risk')" }
       ]
     },
-    { section:'risk', tier:'starter', featureKey:'reports_basic',
+    { section:'risk', tier:'core', featureKey:'reports_basic',
       title:'Churn Risk Report', desc:'Combined risk ranking with estimated revenue impact, scored by health, trend, NPS, engagement, and renewal proximity.',
       iconBg:'var(--red-l)', iconColor:'var(--red)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
@@ -61,7 +61,7 @@ function renderReporting() {
         { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('churn_risk')" }
       ]
     },
-    { section:'risk', tier:'starter', featureKey:'reports_basic',
+    { section:'risk', tier:'core', featureKey:'reports_basic',
       title:'Renewal Forecast Report', desc:'Customers grouped by renewal window (this month, 30/60/90 days) with health status and MRR.',
       iconBg:'var(--amber-l)', iconColor:'var(--amber)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
@@ -72,7 +72,7 @@ function renderReporting() {
       ]
     },
     // ── Team & Segments ──
-    { section:'team', tier:'team', featureKey:'report_segments',
+    { section:'team', tier:'growth', featureKey:'report_segments',
       title:'Segment Analysis Report', desc:'Health breakdown by tier, lifecycle, and tag  - with MRR at risk per segment.',
       iconBg:'var(--purple-l)', iconColor:'var(--purple)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
@@ -82,7 +82,7 @@ function renderReporting() {
         { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('segment_analysis')" }
       ]
     },
-    { section:'team', tier:'pro', featureKey:'report_csmperf',
+    { section:'team', tier:'custom', featureKey:'report_csmperf',
       title:'CSM Performance Report', desc:'Per-manager portfolio metrics  - avg score, risk ratio, MRR managed, contact cadence.',
       iconBg:'var(--blue-l)', iconColor:'var(--blue)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
@@ -93,7 +93,7 @@ function renderReporting() {
       ]
     },
     // ── Exports & Data ──
-    { section:'data', tier:'starter', featureKey:'reports_basic',
+    { section:'data', tier:'core', featureKey:'reports_basic',
       title:'Customer Health Export', desc:'Download all customers as CSV with scores, signals, status, MRR, and tags.',
       iconBg:'var(--blue-l)', iconColor:'var(--blue)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
@@ -103,7 +103,7 @@ function renderReporting() {
         { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('customer_health')" }
       ]
     },
-    { section:'data', tier:'starter', featureKey:'reports_basic',
+    { section:'data', tier:'core', featureKey:'reports_basic',
       title:'Score History Export', desc:'Per-customer score changes over time with all signal snapshots.',
       iconBg:'var(--teal-l)', iconColor:'var(--teal)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',

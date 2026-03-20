@@ -656,6 +656,21 @@ function _wtSpotlightPage(page, idx, gen) {
     try { eval(step.action + '()'); } catch(e) {}
   }
 
+  // After tab switch, wait for reflow so newly-visible pane elements have correct layout
+  if (step.tab) {
+    setTimeout(function() {
+      if (gen !== undefined && _wtGen !== gen) return;
+      _wtSpotlightTarget(page, idx, step, tour, gen);
+    }, 150);
+    return;
+  }
+
+  _wtSpotlightTarget(page, idx, step, tour, gen);
+}
+
+function _wtSpotlightTarget(page, idx, step, tour, gen) {
+  if (gen !== undefined && _wtGen !== gen) return;
+
   var target = document.querySelector(step.target);
 
   // If target not found, try fallback selector

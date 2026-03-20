@@ -89,7 +89,7 @@ async function authSignOut() {
   customers   = [];
   trash       = [];
   // Clear all cached data to prevent leakage to next user (preserve UX flags like shimmer/tour dismissals)
-  var _keepKeys = { iqc_score_settings_clicked:1, iqc_score_settings_toured:1, iqc_qbr_clicked:1, iqc_welcome_v3:1 };
+  var _keepKeys = { iqc_score_settings_clicked:1, iqc_score_settings_toured:1, iqc_qbr_clicked:1, iqc_welcome_v3:1, iqc_cookie_consent:1 };
   Object.keys(localStorage).filter(k => k.startsWith('iqc_') && !_keepKeys[k]).forEach(k => localStorage.removeItem(k));
   // Show login immediately  - don't wait for Supabase
   showAuthGate();

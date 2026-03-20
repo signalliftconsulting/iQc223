@@ -57,6 +57,23 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- Stripe billing columns (iQcadence's own subscriptions, NOT customer data sync)
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clients' AND column_name='stripe_customer_id') THEN
+    ALTER TABLE clients ADD COLUMN stripe_customer_id TEXT DEFAULT '';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clients' AND column_name='stripe_subscription_id') THEN
+    ALTER TABLE clients ADD COLUMN stripe_subscription_id TEXT DEFAULT '';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clients' AND column_name='subscription_status') THEN
+    ALTER TABLE clients ADD COLUMN subscription_status TEXT DEFAULT 'none'
+      CHECK (subscription_status IN ('none','active','past_due','canceled','incomplete'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clients' AND column_name='billing_period_end') THEN
+    ALTER TABLE clients ADD COLUMN billing_period_end TIMESTAMPTZ DEFAULT NULL;
+  END IF;
+END $$;
+
 ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "clients_owner" ON clients
@@ -568,11 +585,18 @@ BEGIN
   -- Get plan tier and account limit
   v_tier := get_client_plan_tier(NEW.client_id);
   v_max := CASE v_tier
-    WHEN 'starter'    THEN 150
-    WHEN 'team'       THEN 750
+    WHEN 'core'       THEN 200
+    WHEN 'growth'     THEN 1000
+    WHEN 'custom'     THEN 999999
+    -- Legacy tier names (pre-migration)
+    WHEN 'pulse'      THEN 200
+    WHEN 'signal'     THEN 1000
+    WHEN 'command'    THEN 999999
+    WHEN 'starter'    THEN 200
+    WHEN 'team'       THEN 1000
     WHEN 'pro'        THEN 999999
     WHEN 'enterprise' THEN 999999
-    ELSE 150
+    ELSE 200
   END;
 
   -- Count existing non-deleted accounts for this client
@@ -613,11 +637,18 @@ BEGIN
   -- Get plan tier and user limit
   v_tier := get_client_plan_tier(NEW.client_id);
   v_max := CASE v_tier
-    WHEN 'starter'    THEN 1
-    WHEN 'team'       THEN 5
-    WHEN 'pro'        THEN 15
+    WHEN 'core'       THEN 3
+    WHEN 'growth'     THEN 10
+    WHEN 'custom'     THEN 999999
+    -- Legacy tier names (pre-migration)
+    WHEN 'pulse'      THEN 3
+    WHEN 'starter'    THEN 3
+    WHEN 'signal'     THEN 10
+    WHEN 'team'       THEN 10
+    WHEN 'pro'        THEN 999999
+    WHEN 'command'    THEN 999999
     WHEN 'enterprise' THEN 999999
-    ELSE 1
+    ELSE 3
   END;
 
   -- Count existing users in this client
@@ -666,6 +697,15 @@ SET client_id = (
   SELECT up.client_id FROM user_profiles up WHERE up.user_id = c.user_id
 )
 WHERE c.client_id IS NULL AND c.user_id IS NOT NULL;
+
+
+-- ─────────────────────────────────────────────────────────────────
+-- 13. Set all clients to Growth tier
+-- Safe to re-run — idempotent.
+-- ─────────────────────────────────────────────────────────────────
+UPDATE clients SET plan_tier = 'growth';
+
+CREATE INDEX IF NOT EXISTS idx_clients_stripe_cust ON clients(stripe_customer_id) WHERE stripe_customer_id != '';
 
 
 -- ─────────────────────────────────────────────────────────────────

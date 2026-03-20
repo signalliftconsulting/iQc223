@@ -165,9 +165,7 @@ function toggleSegView(view) {
   if (stageBtn) stageBtn.classList.toggle('active', view === 'stage');
   const active = window._segActive;
   const dc = window._segDeltaCache;
-  // Rebuild insights with the correct view-specific data
-  const insightData = view === 'tiers' ? window._tierData : view === 'stage' ? window._stageData : window._segData;
-  if (insightData && active) _buildSegInsights(insightData, active, view);
+  // Render tables first so _tierData/_stageData are populated before insights
   if (view === 'segments') {
     const segs = window._segData;
     if (segs) { renderSegTable(segs); renderSegChart(segs, active, dc); }
@@ -176,6 +174,9 @@ function toggleSegView(view) {
   } else {
     if (active) { renderTierTable(active, dc); renderSegChart(window._segData, active, dc); }
   }
+  // Now build insights with the freshly-populated view data
+  const insightData = view === 'tiers' ? window._tierData : view === 'stage' ? window._stageData : window._segData;
+  if (insightData && active) _buildSegInsights(insightData, active, view);
 }
 
 function toggleHideUntagged() {

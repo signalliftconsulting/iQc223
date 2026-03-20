@@ -26,11 +26,28 @@ function custPageSizeChange(val) {
 function _renderPagination(totalItems) {
   const wrap = el('cust-pagination');
   if (!wrap) return;
-  if (_custPageSize === 0 || totalItems <= 50) {
+  if (totalItems === 0) {
     wrap.style.display = 'none';
     return;
   }
   wrap.style.display = 'flex';
+
+  // "All" mode — show info but hide page nav buttons
+  if (_custPageSize === 0) {
+    const info = el('cust-page-info');
+    if (info) info.textContent = '1 - ' + totalItems + ' of ' + totalItems;
+    const nums = el('cust-page-nums');
+    if (nums) nums.innerHTML = '';
+    const first = el('cust-page-first');
+    const prev = el('cust-page-prev');
+    const next = el('cust-page-next');
+    const last = el('cust-page-last');
+    if (first) first.disabled = true;
+    if (prev) prev.disabled = true;
+    if (next) next.disabled = true;
+    if (last) last.disabled = true;
+    return;
+  }
   const totalPages = Math.ceil(totalItems / _custPageSize);
   const page = _custPage;
   const start = page * _custPageSize + 1;

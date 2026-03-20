@@ -1,10 +1,11 @@
 // ─── SETTINGS ───────────────────────────────────────────────
 function cfgTab(which) {
-  ['config','account','api'].forEach(t => {
+  ['config','billing','account','api'].forEach(t => {
     el('cfg-tab-'+t)?.classList.toggle('active', t === which);
     el('cfg-pane-'+t)?.classList.toggle('active', t === which);
   });
   _renderSettingsGuide(which);
+  if (which === 'billing') renderBillingSection();
   if (which === 'account') {
     renderCSMList();
     renderDataHealth();
@@ -16,6 +17,207 @@ function cfgTab(which) {
       return;
     }
     apiSubTab('integrations');
+  }
+}
+
+// ─── BILLING ──────────────────────────────────────────────
+let _billingInterval = 'monthly';
+
+// Price IDs — set in js/config.js (gitignored) or fall back to empty
+const BILLING_PRICES = (typeof STRIPE_PRICES !== 'undefined') ? STRIPE_PRICES : {};
+
+function setBillingInterval(interval) {
+  _billingInterval = interval;
+  el('billing-toggle-monthly')?.classList.toggle('btn-primary', interval === 'monthly');
+  el('billing-toggle-monthly')?.classList.toggle('btn-ghost', interval !== 'monthly');
+  el('billing-toggle-annual')?.classList.toggle('btn-primary', interval === 'annual');
+  el('billing-toggle-annual')?.classList.toggle('btn-ghost', interval !== 'annual');
+  renderBillingPlanCards();
+}
+
+async function renderBillingSection() {
+  var planEl = el('billing-current-plan');
+  var usageEl = el('billing-usage');
+  if (!planEl) return;
+
+  var tier = clientPlanTier || 'growth';
+  var label = PLAN_TIER_LABELS[tier] || tier;
+  var color = PLAN_TIER_COLORS[tier] || 'var(--muted)';
+  var limits = PLAN_LIMITS[tier] || PLAN_LIMITS.pulse;
+
+  // Fetch client billing info
+  var client = null;
+  if (_userClientId) {
+    try {
+      var { data } = await sb.from('clients')
+        .select('stripe_customer_id, stripe_subscription_id, subscription_status, billing_period_end')
+        .eq('id', _userClientId).limit(1);
+      if (data && data.length) client = data[0];
+    } catch(e) {}
+  }
+
+  var status = client?.subscription_status || 'none';
+  var statusMap = {
+    active:   '<span style="color:var(--green);font-weight:700">Active</span>',
+    past_due: '<span style="color:var(--red);font-weight:700">Past Due</span>',
+    canceled: '<span style="color:var(--muted);font-weight:700">Canceled</span>',
+    none:     '<span style="color:var(--amber);font-weight:700">No Subscription</span>',
+    incomplete: '<span style="color:var(--amber);font-weight:700">Incomplete</span>',
+  };
+  var statusBadge = statusMap[status] || status;
+
+  var periodEnd = '';
+  if (client?.billing_period_end) {
+    var d = new Date(client.billing_period_end);
+    periodEnd = '<p style="font-size:12px;color:var(--muted);margin-top:8px">Next billing: ' + d.toLocaleDateString() + '</p>';
+  }
+
+  planEl.innerHTML =
+    '<div class="card-hd"><h2>Current Plan</h2></div>' +
+    '<div style="padding:16px">' +
+      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">' +
+        tierBadgeHTML(tier) + ' ' + statusBadge +
+      '</div>' +
+      '<p style="font-size:var(--fs-base);color:var(--muted)">' +
+        'Up to ' + (limits.users === Infinity ? 'unlimited' : limits.users) + ' users, ' +
+        (limits.accounts === Infinity ? 'unlimited' : limits.accounts.toLocaleString()) + ' accounts' +
+      '</p>' +
+      periodEnd +
+      (client?.stripe_subscription_id
+        ? '<button class="btn btn-sm btn-outline" style="margin-top:12px" onclick="openBillingPortal()">Manage Subscription</button>'
+        : '<button class="btn btn-sm" style="margin-top:12px;background:var(--green);color:#fff" onclick="scrollToPlanCards()">Choose a Plan</button>') +
+    '</div>';
+
+  // Usage card
+  var activeAccounts = customers.filter(function(c) { return !c.deleted_at; }).length;
+  var accountLimit = limits.accounts === Infinity ? '&infin;' : limits.accounts.toLocaleString();
+  var accountPct = limits.accounts === Infinity ? 0 : Math.round(activeAccounts / limits.accounts * 100);
+
+  // Count users (fetch from server)
+  var userCount = 1;
+  try {
+    if (_userClientId) {
+      var { count } = await sb.from('user_profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('client_id', _userClientId);
+      userCount = count || 1;
+    }
+  } catch(e) {}
+  var userLimit = limits.users === Infinity ? '&infin;' : limits.users;
+  var userPct = limits.users === Infinity ? 0 : Math.round(userCount / limits.users * 100);
+
+  function usageBar(pct) {
+    var barColor = pct >= 90 ? 'var(--red)' : pct >= 70 ? 'var(--amber)' : 'var(--green)';
+    return '<div style="height:6px;background:var(--border);border-radius:3px;margin-top:4px"><div style="height:100%;width:' + Math.min(pct,100) + '%;background:' + barColor + ';border-radius:3px"></div></div>';
+  }
+
+  usageEl.innerHTML =
+    '<div class="card-hd"><h2>Usage</h2></div>' +
+    '<div style="padding:16px">' +
+      '<div style="margin-bottom:14px">' +
+        '<div style="display:flex;justify-content:space-between;font-size:13px"><span>Accounts</span><span style="font-weight:600">' + activeAccounts + ' / ' + accountLimit + '</span></div>' +
+        usageBar(accountPct) +
+      '</div>' +
+      '<div>' +
+        '<div style="display:flex;justify-content:space-between;font-size:13px"><span>Users</span><span style="font-weight:600">' + userCount + ' / ' + userLimit + '</span></div>' +
+        usageBar(userPct) +
+      '</div>' +
+    '</div>';
+
+  renderBillingPlanCards();
+}
+
+function renderBillingPlanCards() {
+  var container = el('billing-plan-cards');
+  if (!container) return;
+
+  var interval = _billingInterval;
+  var currentTier = clientPlanTier || 'growth';
+
+  var plans = [
+    {
+      tier: 'core', name: 'Core', color: 'var(--teal)',
+      desc: 'Health monitoring essentials for small teams',
+      features: ['Up to 3 users', 'Up to 200 accounts', 'Health scoring & sparklines', 'Email digest & alerts', 'Renewal pipeline'],
+      priceKey: interval === 'annual' ? 'core_annual' : 'core_monthly',
+    },
+    {
+      tier: 'growth', name: 'Growth', color: 'var(--blue)', popular: true,
+      desc: 'Advanced insights for growing CS teams',
+      features: ['Up to 10 users', 'Up to 1,000 accounts', 'Everything in Core', 'Segments & CSM dashboards', 'Scoring profiles & audit log', 'Custom tags & alert channels'],
+      priceKey: interval === 'annual' ? 'growth_annual' : 'growth_monthly',
+    },
+    {
+      tier: 'custom', name: 'Custom', color: 'var(--purple)',
+      desc: 'Full platform with white-label & automation',
+      features: ['Unlimited users', 'Unlimited accounts', 'Everything in Growth', 'QBR Prep & playbooks', 'Automations & API access', 'White-label & custom branding'],
+      priceKey: interval === 'annual' ? 'custom_annual' : 'custom_monthly',
+    }
+  ];
+
+  container.innerHTML = plans.map(function(p) {
+    var isCurrent = p.tier === currentTier;
+    var priceId = BILLING_PRICES[p.priceKey];
+    var border = p.popular ? 'border:2px solid ' + p.color : 'border:1px solid var(--border)';
+    var badge = p.popular ? '<div style="background:' + p.color + ';color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:0 0 6px 6px;position:absolute;top:0;left:50%;transform:translateX(-50%)">MOST POPULAR</div>' : '';
+
+    return '<div style="' + border + ';border-radius:12px;padding:24px 20px;position:relative;display:flex;flex-direction:column">' +
+      badge +
+      '<div style="text-align:center;margin-bottom:16px">' +
+        '<h3 style="font-size:18px;font-weight:700;color:' + p.color + ';margin-bottom:4px">' + p.name + '</h3>' +
+        '<p style="font-size:12px;color:var(--muted)">' + p.desc + '</p>' +
+      '</div>' +
+      '<ul style="list-style:none;padding:0;margin:0 0 20px;flex:1">' +
+        p.features.map(function(f) {
+          return '<li style="font-size:13px;padding:4px 0;color:var(--text);display:flex;align-items:center;gap:6px">' +
+            '<span style="color:' + p.color + ';font-weight:700">&#10003;</span> ' + f + '</li>';
+        }).join('') +
+      '</ul>' +
+      '<div style="text-align:center">' +
+        (isCurrent
+          ? '<button class="btn btn-sm btn-outline" disabled>Current Plan</button>'
+          : priceId
+            ? '<button class="btn btn-sm" style="background:' + p.color + ';color:#fff;width:100%" onclick="startCheckout(\'' + priceId + '\')">Subscribe</button>'
+            : '<button class="btn btn-sm btn-outline" disabled>Coming Soon</button>') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function scrollToPlanCards() {
+  var plans = el('billing-plans');
+  if (plans) plans.scrollIntoView({ behavior: 'smooth' });
+}
+
+async function startCheckout(priceId) {
+  try {
+    toast('Redirecting to checkout…', 'info');
+    var { data, error } = await sb.functions.invoke('billing-checkout', {
+      body: {
+        price_id: priceId,
+        success_url: window.location.origin + '/?billing=success',
+        cancel_url: window.location.origin + '/?billing=canceled',
+      }
+    });
+    if (error) throw error;
+    if (data?.url) window.location.href = data.url;
+    else if (data?.error) throw new Error(data.error);
+  } catch(e) {
+    toast('Checkout failed: ' + e.message, 'error');
+  }
+}
+
+async function openBillingPortal() {
+  try {
+    toast('Opening billing portal…', 'info');
+    var { data, error } = await sb.functions.invoke('billing-portal', {
+      body: { return_url: window.location.href }
+    });
+    if (error) throw error;
+    if (data?.url) window.location.href = data.url;
+    else if (data?.error) throw new Error(data.error);
+  } catch(e) {
+    toast('Could not open billing portal: ' + e.message, 'error');
   }
 }
 

@@ -108,7 +108,7 @@ function _maybeShowWhatsNew() {
 function _checkUserSwitch(userId) {
   const prev = localStorage.getItem('iqc_uid');
   // Purge if: different user detected, OR iqc_uid never set but stale data exists (pre-update)
-  var _uxKeep = { iqc_score_settings_clicked:1, iqc_score_settings_toured:1, iqc_qbr_clicked:1, iqc_welcome_v3:1 };
+  var _uxKeep = { iqc_score_settings_clicked:1, iqc_score_settings_toured:1, iqc_qbr_clicked:1, iqc_welcome_v3:1, iqc_cookie_consent:1 };
   if (prev !== userId) {
     Object.keys(localStorage)
       .filter(k => k.startsWith('iqc_') && k !== 'iqc_uid' && !_uxKeep[k])
@@ -193,6 +193,16 @@ function _checkUserSwitch(userId) {
       refreshMgrDropdown();
       nav(restoreView);
       renderSettings();
+      // Handle billing redirect
+      var _billingParam = new URLSearchParams(window.location.search).get('billing');
+      if (_billingParam === 'success') {
+        toast('Subscription activated! Welcome to ' + (PLAN_TIER_LABELS[clientPlanTier] || clientPlanTier) + '.', 'success');
+        window.history.replaceState({}, '', window.location.pathname);
+        nav('settings'); setTimeout(function() { cfgTab('billing'); }, 200);
+      } else if (_billingParam === 'canceled') {
+        toast('Checkout canceled', 'warn');
+        window.history.replaceState({}, '', window.location.pathname);
+      }
       // Check and send any due scheduled reports
       if (typeof checkScheduledReports === 'function') setTimeout(checkScheduledReports, 3000);
       // Show/hide topbar Stripe sync button based on integration status

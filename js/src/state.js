@@ -132,59 +132,57 @@ function _pagHTML(total, key, renderFnName) {
 }
 
 // ─── PLAN TIER GATING ──────────────────────────────────────
-let clientPlanTier = 'pro'; // default to pro until resolved - admin gets enterprise via isAdmin()
+let clientPlanTier = 'growth'; // default until resolved - admin gets custom via isAdmin()
+let _subscriptionStatus = 'none'; // none | active | past_due | canceled | incomplete
 
-const PLAN_TIERS = ['starter', 'team', 'pro', 'enterprise'];
-const PLAN_TIER_LABELS = { starter: 'Starter', team: 'Team', pro: 'Pro', enterprise: 'Enterprise' };
-const PLAN_TIER_COLORS = { starter: 'var(--muted)', team: 'var(--blue)', pro: 'var(--purple)', enterprise: 'var(--green)' };
+const PLAN_TIERS = ['core', 'growth', 'custom'];
+const PLAN_TIER_LABELS = { core: 'Core', growth: 'Growth', custom: 'Custom' };
+const PLAN_TIER_COLORS = { core: 'var(--teal)', growth: 'var(--blue)', custom: 'var(--purple)' };
 
 const PLAN_FEATURES = {
-  // Starter (basic)
-  reports_basic:     'starter',
-  trend_sparklines:  'starter',
-  email_digest:      'starter',
-  renewal_pipeline:  'starter',
-  urgency_scoring:   'starter',
-  at_risk_alerts:    'starter',
-  priority_list:     'starter',
-  // Team+
-  csm_filtering:     'team',
-  manager_dashboard: 'team',
-  sentiment:         'team',
-  audit_log:         'team',
-  custom_tags:       'team',
-  scoring_profiles:  'team',
-  segments:          'team',
-  alert_channels:    'team',
-  report_segments:   'team',
-  // Pro+
-  next_best_action:  'pro',
-  qbr_prep:          'pro',
-  csm_performance:   'pro',
-  report_csmperf:    'pro',
-  playbooks:         'pro',
-  momentum:          'pro',
-  automations:       'pro',
-  api_webhooks:      'pro',
-  signal_model:      'pro',
+  // Core (basic)
+  reports_basic:     'core',
+  trend_sparklines:  'core',
+  email_digest:      'core',
+  renewal_pipeline:  'core',
+  urgency_scoring:   'core',
+  at_risk_alerts:    'core',
+  priority_list:     'core',
+  // Growth+
+  csm_filtering:     'growth',
+  manager_dashboard: 'growth',
+  sentiment:         'growth',
+  audit_log:         'growth',
+  custom_tags:       'growth',
+  scoring_profiles:  'growth',
+  segments:          'growth',
+  alert_channels:    'growth',
+  report_segments:   'growth',
+  // Custom+
+  next_best_action:  'custom',
+  qbr_prep:          'custom',
+  csm_performance:   'custom',
+  report_csmperf:    'custom',
+  playbooks:         'custom',
+  momentum:          'custom',
+  automations:       'custom',
+  api_webhooks:      'custom',
+  signal_model:      'custom',
+  white_label:       'custom',
 };
 
 const PLAN_LIMITS = {
-  starter:    { users: 1,  accounts: 150 },
-  team:       { users: 5,  accounts: 750 },
-  pro:        { users: 15, accounts: Infinity },
-  enterprise: { users: Infinity, accounts: Infinity },
+  core:   { users: 3,   accounts: 200 },
+  growth: { users: 10,  accounts: 1000 },
+  custom: { users: Infinity, accounts: Infinity },
 };
 
 function hasFeature(key) {
-  if (isAdmin()) return true; // admin always has full access
-  const userTier  = PLAN_TIERS.indexOf(clientPlanTier || 'starter');
-  const needsTier = PLAN_TIERS.indexOf(PLAN_FEATURES[key] || 'starter');
-  return userTier >= needsTier;
+  return true; // all tiers get full feature access — billing differentiates by user/account limits only
 }
 
 function getPlanLimit(key) {
-  const limits = PLAN_LIMITS[clientPlanTier || 'starter'] || PLAN_LIMITS.starter;
+  const limits = PLAN_LIMITS[clientPlanTier || 'growth'] || PLAN_LIMITS.growth;
   return limits[key];
 }
 
@@ -195,7 +193,7 @@ function tierBadgeHTML(tier) {
 }
 
 function upgradeHTML(featureKey) {
-  const needed = PLAN_FEATURES[featureKey] || 'starter';
+  const needed = PLAN_FEATURES[featureKey] || 'growth';
   const label  = PLAN_TIER_LABELS[needed] || needed;
   return `<div style="text-align:center;padding:40px 20px;color:var(--muted)">
     <div style="margin-bottom:10px">${appIcon('lock',28)}</div>
@@ -206,10 +204,10 @@ function upgradeHTML(featureKey) {
 
 // Resolve the current user's client tier on boot
 // Legacy tier migration map (old DB values → new tier names)
-const TIER_MIGRATION = { solo: 'starter', growth: 'pro' };
+const TIER_MIGRATION = { solo: 'core', starter: 'core', pulse: 'core', team: 'growth', signal: 'growth', pro: 'growth', enterprise: 'custom', command: 'custom' };
 
 async function resolveClientPlanTier() {
-  if (isAdmin()) { clientPlanTier = 'enterprise'; return; }
+  if (isAdmin()) { clientPlanTier = 'custom'; _subscriptionStatus = 'active'; return; }
 
   // Use cached tier immediately so renders don't flash wrong state
   try {
@@ -221,23 +219,37 @@ async function resolveClientPlanTier() {
     // Use cached _userClientId (resolved during ensureUserProfile)
     if (_userClientId) {
       const { data: clientRows } = await sb.from('clients')
-        .select('plan_tier')
+        .select('plan_tier, subscription_status')
         .eq('id', _userClientId)
         .limit(1);
       const client = clientRows && clientRows.length ? clientRows[0] : null;
-      clientPlanTier = client?.plan_tier || 'pro';
+      clientPlanTier = client?.plan_tier || 'growth';
+      _subscriptionStatus = client?.subscription_status || 'none';
     } else {
-      clientPlanTier = 'pro'; // no client assigned = pro
+      clientPlanTier = 'growth';
     }
-    // Migrate legacy tier names (solo→starter, growth→pro)
+    // Migrate legacy tier names
     if (TIER_MIGRATION[clientPlanTier]) clientPlanTier = TIER_MIGRATION[clientPlanTier];
     localStorage.setItem('iqc_plan_tier', clientPlanTier);
   } catch(e) {
     console.warn('Could not resolve plan tier:', e.message);
-    // Keep cached value if available, otherwise fall to starter
-    if (!PLAN_TIERS.includes(clientPlanTier)) clientPlanTier = 'pro';
+    if (!PLAN_TIERS.includes(clientPlanTier)) clientPlanTier = 'growth';
   }
   applyTierGating();
+  // Show past-due warning if needed
+  if (_subscriptionStatus === 'past_due') {
+    showBillingWarning('Your payment is past due. Please update your payment method to avoid service interruption.');
+  }
+}
+
+function showBillingWarning(msg) {
+  var existing = el('billing-warning-banner');
+  if (existing) existing.remove();
+  var banner = document.createElement('div');
+  banner.id = 'billing-warning-banner';
+  banner.style.cssText = 'background:#fef3c7;color:#92400e;padding:10px 20px;text-align:center;font-size:13px;font-weight:600;border-bottom:1px solid #fcd34d;position:sticky;top:0;z-index:999';
+  banner.innerHTML = msg + ' <a href="#" onclick="nav(\'settings\');cfgTab(\'billing\');return false" style="color:#d97706;text-decoration:underline;margin-left:8px">Manage Billing</a>';
+  document.body.prepend(banner);
 }
 
 // Show/hide nav items based on tier

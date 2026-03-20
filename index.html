@@ -449,6 +449,13 @@ svg.sparkline{display:block}
 @keyframes hb-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 @keyframes btn-shimmer{0%{left:-100%}100%{left:100%}}
 .btn-shimmer{position:relative;overflow:hidden}.btn-shimmer::after{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.85) 40%,rgba(255,255,255,.95) 50%,rgba(255,255,255,.85) 60%,transparent 100%);animation:btn-shimmer 2s ease-in-out infinite;pointer-events:none}
+.cookie-banner{position:fixed;bottom:0;left:0;right:0;background:#1e293b;color:#e2e8f0;padding:14px 24px;display:flex;align-items:center;justify-content:center;gap:16px;font-size:13px;z-index:10000;box-shadow:0 -2px 12px rgba(0,0,0,.15);flex-wrap:wrap}
+.cookie-banner a{color:#5eead4;text-decoration:underline}
+.cookie-banner button{padding:6px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none}
+.cookie-btn-accept{background:#0d9488;color:#fff}
+.cookie-btn-accept:hover{background:#0f766e}
+.cookie-btn-decline{background:transparent;color:#94a3b8;border:1px solid #475569!important}
+.cookie-btn-decline:hover{background:#334155}
 .hb-welcome::after{content:'';position:absolute;top:-40px;right:-40px;width:250px;height:250px;background:var(--hb-glow,radial-gradient(circle,rgba(15,118,110,.06) 0%,rgba(20,184,166,.03) 40%,transparent 70%));border-radius:50%;pointer-events:none}
 .hb-welcome-grid{display:grid;grid-template-columns:auto 1fr;gap:32px;align-items:center}
 .hb-welcome-left{min-width:0}
@@ -1746,6 +1753,11 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
 
     <div class="auth-err" id="auth-err"></div>
     <div class="auth-ok"  id="auth-ok"></div>
+    <div style="text-align:center;margin-top:16px;font-size:11px;color:#94a3b8">
+      <a href="https://iqcadence.com/terms" target="_blank" rel="noopener" style="color:#94a3b8;text-decoration:underline">Terms of Service</a>
+      <span style="margin:0 6px">·</span>
+      <a href="https://iqcadence.com/privacy" target="_blank" rel="noopener" style="color:#94a3b8;text-decoration:underline">Privacy Policy</a>
+    </div>
   </div>
 </div>
 
@@ -2533,6 +2545,7 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <!-- Tab bar -->
   <div class="dtab-row" style="margin-bottom:18px">
     <button class="dtab active" id="cfg-tab-config"  onclick="cfgTab('config')">Scoring</button>
+    <button class="dtab"        id="cfg-tab-billing" onclick="cfgTab('billing')">Plan &amp; Billing</button>
     <button class="dtab"        id="cfg-tab-account" onclick="cfgTab('account')">Account</button>
     <button class="dtab"        id="cfg-tab-api"     onclick="cfgTab('api')">Integrations</button>
   </div>
@@ -2825,6 +2838,23 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
     </div>
   </div>
 
+  <!-- Billing tab -->
+  <div class="dtab-pane" id="cfg-pane-billing">
+    <div class="cfg-columns" style="grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">
+      <div class="card" id="billing-current-plan"><div class="card-hd"><h2>Current Plan</h2></div><div style="padding:20px;text-align:center;color:var(--muted)">Loading…</div></div>
+      <div class="card" id="billing-usage"><div class="card-hd"><h2>Usage</h2></div><div style="padding:20px;text-align:center;color:var(--muted)">Loading…</div></div>
+    </div>
+    <div class="card" id="billing-plans">
+      <div class="card-hd"><h2>Available Plans</h2>
+        <div style="display:flex;gap:4px;margin-left:auto" id="billing-interval-toggle">
+          <button class="btn btn-sm btn-primary" id="billing-toggle-monthly" onclick="setBillingInterval('monthly')">Monthly</button>
+          <button class="btn btn-sm btn-ghost" id="billing-toggle-annual" onclick="setBillingInterval('annual')">Annual <span style="color:var(--green);font-weight:700;font-size:11px">(Save ~17%)</span></button>
+        </div>
+      </div>
+      <div id="billing-plan-cards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding:16px"></div>
+    </div>
+  </div>
+
 </div><!-- /settings -->
 
 <!-- ═══════════════ USER MANAGEMENT (ADMIN ONLY) ═══════════════ -->
@@ -2860,9 +2890,20 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
   </div>
   <div class="card">
     <div class="card-hd" style="margin-bottom:12px"><h2>All Clients</h2><span id="clients-count" style="font-size:var(--fs-base);color:var(--muted);margin-left:8px"></span></div>
+    <div id="clients-bulk-bar" style="display:none;padding:10px 16px;margin-bottom:8px;background:var(--blue-l);border-radius:8px;display:none;align-items:center;gap:12px;font-size:var(--fs-sm)">
+      <span id="clients-bulk-count" style="font-weight:600;color:var(--blue)">0 selected</span>
+      <select id="clients-bulk-tier" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:var(--fs-sm)">
+        <option value="core">Core</option>
+        <option value="growth" selected>Growth</option>
+        <option value="custom">Custom</option>
+      </select>
+      <button class="btn btn-xs btn-primary" onclick="adminBulkChangePlan()">Change Plan</button>
+      <button class="btn btn-xs btn-ghost" onclick="adminClearSelection()" style="margin-left:auto">Clear</button>
+    </div>
     <div id="clients-loading" style="text-align:center;padding:32px;color:var(--muted);font-size:.85rem">Loading clients…</div>
     <table class="ct" id="clients-table" style="display:none">
       <thead><tr>
+        <th style="width:32px"><input type="checkbox" id="clients-select-all" onchange="adminToggleSelectAll(this.checked)" style="accent-color:var(--blue);cursor:pointer"/></th>
         <th>Business Name</th>
         <th>Plan</th>
         <th>Users</th>
@@ -3114,10 +3155,9 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       <div class="field" style="margin-bottom:12px">
         <label>Plan Tier</label>
         <select id="cc-tier" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-md);font-family:var(--font);color:var(--text);background:var(--surface)">
-          <option value="starter">Starter — $39/mo</option>
-          <option value="team" selected>Team — $119/mo</option>
-          <option value="pro">Pro — $249/mo</option>
-          <option value="enterprise">Enterprise — $499+/mo</option>
+          <option value="core">Core (3 users, 200 accounts)</option>
+          <option value="growth" selected>Growth (10 users, 1,000 accounts)</option>
+          <option value="custom">Custom (unlimited)</option>
         </select>
       </div>
       <div class="field" style="margin-bottom:12px">
@@ -3146,10 +3186,9 @@ button:focus-visible,a:focus-visible,.btn:focus-visible{outline:2px solid var(--
       <div class="field" style="margin-bottom:12px">
         <label>Plan Tier</label>
         <select id="ec-tier" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-md);font-family:var(--font);color:var(--text);background:var(--surface)">
-          <option value="starter">Starter — $39/mo</option>
-          <option value="team">Team — $119/mo</option>
-          <option value="pro">Pro — $249/mo</option>
-          <option value="enterprise">Enterprise — $499+/mo</option>
+          <option value="core">Core (3 users, 200 accounts)</option>
+          <option value="growth">Growth (10 users, 1,000 accounts)</option>
+          <option value="custom">Custom (unlimited)</option>
         </select>
       </div>
       <div class="field" style="margin-bottom:12px">
@@ -4509,8 +4548,24 @@ Header: Content-Type: application/json
   </div>
 </div>
 
+<!-- Cookie Consent Banner -->
+<div class="cookie-banner" id="cookie-banner" style="display:none">
+  <span>We use cookies to improve your experience. See our <a href="https://iqcadence.com/privacy" target="_blank" rel="noopener">Privacy Policy</a> for details.</span>
+  <button class="cookie-btn-accept" onclick="acceptCookies()">Accept</button>
+  <button class="cookie-btn-decline" onclick="declineCookies()">Decline</button>
+</div>
+<script>
+(function(){
+  if(!localStorage.getItem('iqc_cookie_consent')){
+    document.getElementById('cookie-banner').style.display='';
+  }
+})();
+function acceptCookies(){localStorage.setItem('iqc_cookie_consent','accepted');document.getElementById('cookie-banner').style.display='none';}
+function declineCookies(){localStorage.setItem('iqc_cookie_consent','declined');document.getElementById('cookie-banner').style.display='none';}
+</script>
+
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=651"></script>
+<script src="js/app.js?v=660"></script>
 </body>
 </html>

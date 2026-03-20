@@ -138,59 +138,57 @@ function _pagHTML(total, key, renderFnName) {
 }
 
 // ─── PLAN TIER GATING ──────────────────────────────────────
-let clientPlanTier = 'pro'; // default to pro until resolved - admin gets enterprise via isAdmin()
+let clientPlanTier = 'growth'; // default until resolved - admin gets custom via isAdmin()
+let _subscriptionStatus = 'none'; // none | active | past_due | canceled | incomplete
 
-const PLAN_TIERS = ['starter', 'team', 'pro', 'enterprise'];
-const PLAN_TIER_LABELS = { starter: 'Starter', team: 'Team', pro: 'Pro', enterprise: 'Enterprise' };
-const PLAN_TIER_COLORS = { starter: 'var(--muted)', team: 'var(--blue)', pro: 'var(--purple)', enterprise: 'var(--green)' };
+const PLAN_TIERS = ['core', 'growth', 'custom'];
+const PLAN_TIER_LABELS = { core: 'Core', growth: 'Growth', custom: 'Custom' };
+const PLAN_TIER_COLORS = { core: 'var(--teal)', growth: 'var(--blue)', custom: 'var(--purple)' };
 
 const PLAN_FEATURES = {
-  // Starter (basic)
-  reports_basic:     'starter',
-  trend_sparklines:  'starter',
-  email_digest:      'starter',
-  renewal_pipeline:  'starter',
-  urgency_scoring:   'starter',
-  at_risk_alerts:    'starter',
-  priority_list:     'starter',
-  // Team+
-  csm_filtering:     'team',
-  manager_dashboard: 'team',
-  sentiment:         'team',
-  audit_log:         'team',
-  custom_tags:       'team',
-  scoring_profiles:  'team',
-  segments:          'team',
-  alert_channels:    'team',
-  report_segments:   'team',
-  // Pro+
-  next_best_action:  'pro',
-  qbr_prep:          'pro',
-  csm_performance:   'pro',
-  report_csmperf:    'pro',
-  playbooks:         'pro',
-  momentum:          'pro',
-  automations:       'pro',
-  api_webhooks:      'pro',
-  signal_model:      'pro',
+  // Core (basic)
+  reports_basic:     'core',
+  trend_sparklines:  'core',
+  email_digest:      'core',
+  renewal_pipeline:  'core',
+  urgency_scoring:   'core',
+  at_risk_alerts:    'core',
+  priority_list:     'core',
+  // Growth+
+  csm_filtering:     'growth',
+  manager_dashboard: 'growth',
+  sentiment:         'growth',
+  audit_log:         'growth',
+  custom_tags:       'growth',
+  scoring_profiles:  'growth',
+  segments:          'growth',
+  alert_channels:    'growth',
+  report_segments:   'growth',
+  // Custom+
+  next_best_action:  'custom',
+  qbr_prep:          'custom',
+  csm_performance:   'custom',
+  report_csmperf:    'custom',
+  playbooks:         'custom',
+  momentum:          'custom',
+  automations:       'custom',
+  api_webhooks:      'custom',
+  signal_model:      'custom',
+  white_label:       'custom',
 };
 
 const PLAN_LIMITS = {
-  starter:    { users: 1,  accounts: 150 },
-  team:       { users: 5,  accounts: 750 },
-  pro:        { users: 15, accounts: Infinity },
-  enterprise: { users: Infinity, accounts: Infinity },
+  core:   { users: 3,   accounts: 200 },
+  growth: { users: 10,  accounts: 1000 },
+  custom: { users: Infinity, accounts: Infinity },
 };
 
 function hasFeature(key) {
-  if (isAdmin()) return true; // admin always has full access
-  const userTier  = PLAN_TIERS.indexOf(clientPlanTier || 'starter');
-  const needsTier = PLAN_TIERS.indexOf(PLAN_FEATURES[key] || 'starter');
-  return userTier >= needsTier;
+  return true; // all tiers get full feature access — billing differentiates by user/account limits only
 }
 
 function getPlanLimit(key) {
-  const limits = PLAN_LIMITS[clientPlanTier || 'starter'] || PLAN_LIMITS.starter;
+  const limits = PLAN_LIMITS[clientPlanTier || 'growth'] || PLAN_LIMITS.growth;
   return limits[key];
 }
 
@@ -201,7 +199,7 @@ function tierBadgeHTML(tier) {
 }
 
 function upgradeHTML(featureKey) {
-  const needed = PLAN_FEATURES[featureKey] || 'starter';
+  const needed = PLAN_FEATURES[featureKey] || 'core';
   const label  = PLAN_TIER_LABELS[needed] || needed;
   return `<div style="text-align:center;padding:40px 20px;color:var(--muted)">
     <div style="margin-bottom:10px">${appIcon('lock',28)}</div>
@@ -212,10 +210,10 @@ function upgradeHTML(featureKey) {
 
 // Resolve the current user's client tier on boot
 // Legacy tier migration map (old DB values → new tier names)
-const TIER_MIGRATION = { solo: 'starter', growth: 'pro' };
+const TIER_MIGRATION = { solo: 'core', starter: 'core', pulse: 'core', team: 'growth', signal: 'growth', pro: 'growth', enterprise: 'custom', command: 'custom' };
 
 async function resolveClientPlanTier() {
-  if (isAdmin()) { clientPlanTier = 'enterprise'; return; }
+  if (isAdmin()) { clientPlanTier = 'custom'; _subscriptionStatus = 'active'; return; }
 
   // Use cached tier immediately so renders don't flash wrong state
   try {
@@ -227,23 +225,37 @@ async function resolveClientPlanTier() {
     // Use cached _userClientId (resolved during ensureUserProfile)
     if (_userClientId) {
       const { data: clientRows } = await sb.from('clients')
-        .select('plan_tier')
+        .select('plan_tier, subscription_status')
         .eq('id', _userClientId)
         .limit(1);
       const client = clientRows && clientRows.length ? clientRows[0] : null;
-      clientPlanTier = client?.plan_tier || 'pro';
+      clientPlanTier = client?.plan_tier || 'growth';
+      _subscriptionStatus = client?.subscription_status || 'none';
     } else {
-      clientPlanTier = 'pro'; // no client assigned = pro
+      clientPlanTier = 'growth';
     }
-    // Migrate legacy tier names (solo→starter, growth→pro)
+    // Migrate legacy tier names
     if (TIER_MIGRATION[clientPlanTier]) clientPlanTier = TIER_MIGRATION[clientPlanTier];
     localStorage.setItem('iqc_plan_tier', clientPlanTier);
   } catch(e) {
     console.warn('Could not resolve plan tier:', e.message);
-    // Keep cached value if available, otherwise fall to starter
-    if (!PLAN_TIERS.includes(clientPlanTier)) clientPlanTier = 'pro';
+    if (!PLAN_TIERS.includes(clientPlanTier)) clientPlanTier = 'growth';
   }
   applyTierGating();
+  // Show past-due warning if needed
+  if (_subscriptionStatus === 'past_due') {
+    showBillingWarning('Your payment is past due. Please update your payment method to avoid service interruption.');
+  }
+}
+
+function showBillingWarning(msg) {
+  var existing = el('billing-warning-banner');
+  if (existing) existing.remove();
+  var banner = document.createElement('div');
+  banner.id = 'billing-warning-banner';
+  banner.style.cssText = 'background:#fef3c7;color:#92400e;padding:10px 20px;text-align:center;font-size:13px;font-weight:600;border-bottom:1px solid #fcd34d;position:sticky;top:0;z-index:999';
+  banner.innerHTML = msg + ' <a href="#" onclick="nav(\'settings\');cfgTab(\'billing\');return false" style="color:#d97706;text-decoration:underline;margin-left:8px">Manage Billing</a>';
+  document.body.prepend(banner);
 }
 
 // Show/hide nav items based on tier
@@ -1591,6 +1603,21 @@ function _wtSpotlightPage(page, idx, gen) {
   if (step.action) {
     try { eval(step.action + '()'); } catch(e) {}
   }
+
+  // After tab switch, wait for reflow so newly-visible pane elements have correct layout
+  if (step.tab) {
+    setTimeout(function() {
+      if (gen !== undefined && _wtGen !== gen) return;
+      _wtSpotlightTarget(page, idx, step, tour, gen);
+    }, 150);
+    return;
+  }
+
+  _wtSpotlightTarget(page, idx, step, tour, gen);
+}
+
+function _wtSpotlightTarget(page, idx, step, tour, gen) {
+  if (gen !== undefined && _wtGen !== gen) return;
 
   var target = document.querySelector(step.target);
 
@@ -3891,7 +3918,7 @@ async function authSignOut() {
   customers   = [];
   trash       = [];
   // Clear all cached data to prevent leakage to next user (preserve UX flags like shimmer/tour dismissals)
-  var _keepKeys = { iqc_score_settings_clicked:1, iqc_score_settings_toured:1, iqc_qbr_clicked:1, iqc_welcome_v3:1 };
+  var _keepKeys = { iqc_score_settings_clicked:1, iqc_score_settings_toured:1, iqc_qbr_clicked:1, iqc_welcome_v3:1, iqc_cookie_consent:1 };
   Object.keys(localStorage).filter(k => k.startsWith('iqc_') && !_keepKeys[k]).forEach(k => localStorage.removeItem(k));
   // Show login immediately  - don't wait for Supabase
   showAuthGate();
@@ -9088,11 +9115,28 @@ function custPageSizeChange(val) {
 function _renderPagination(totalItems) {
   const wrap = el('cust-pagination');
   if (!wrap) return;
-  if (_custPageSize === 0 || totalItems <= 50) {
+  if (totalItems === 0) {
     wrap.style.display = 'none';
     return;
   }
   wrap.style.display = 'flex';
+
+  // "All" mode — show info but hide page nav buttons
+  if (_custPageSize === 0) {
+    const info = el('cust-page-info');
+    if (info) info.textContent = '1 - ' + totalItems + ' of ' + totalItems;
+    const nums = el('cust-page-nums');
+    if (nums) nums.innerHTML = '';
+    const first = el('cust-page-first');
+    const prev = el('cust-page-prev');
+    const next = el('cust-page-next');
+    const last = el('cust-page-last');
+    if (first) first.disabled = true;
+    if (prev) prev.disabled = true;
+    if (next) next.disabled = true;
+    if (last) last.disabled = true;
+    return;
+  }
   const totalPages = Math.ceil(totalItems / _custPageSize);
   const page = _custPage;
   const start = page * _custPageSize + 1;
@@ -12397,11 +12441,12 @@ function printQBR() {
 
 // ─── SETTINGS ───────────────────────────────────────────────
 function cfgTab(which) {
-  ['config','account','api'].forEach(t => {
+  ['config','billing','account','api'].forEach(t => {
     el('cfg-tab-'+t)?.classList.toggle('active', t === which);
     el('cfg-pane-'+t)?.classList.toggle('active', t === which);
   });
   _renderSettingsGuide(which);
+  if (which === 'billing') renderBillingSection();
   if (which === 'account') {
     renderCSMList();
     renderDataHealth();
@@ -12413,6 +12458,203 @@ function cfgTab(which) {
       return;
     }
     apiSubTab('integrations');
+  }
+}
+
+// ─── BILLING ──────────────────────────────────────────────
+let _billingInterval = 'monthly';
+
+const BILLING_PRICES = (typeof STRIPE_PRICES !== 'undefined') ? STRIPE_PRICES : {};
+
+function setBillingInterval(interval) {
+  _billingInterval = interval;
+  el('billing-toggle-monthly')?.classList.toggle('btn-primary', interval === 'monthly');
+  el('billing-toggle-monthly')?.classList.toggle('btn-ghost', interval !== 'monthly');
+  el('billing-toggle-annual')?.classList.toggle('btn-primary', interval === 'annual');
+  el('billing-toggle-annual')?.classList.toggle('btn-ghost', interval !== 'annual');
+  renderBillingPlanCards();
+}
+
+async function renderBillingSection() {
+  var planEl = el('billing-current-plan');
+  var usageEl = el('billing-usage');
+  if (!planEl) return;
+
+  var tier = clientPlanTier || 'growth';
+  var label = PLAN_TIER_LABELS[tier] || tier;
+  var color = PLAN_TIER_COLORS[tier] || 'var(--muted)';
+  var limits = PLAN_LIMITS[tier] || PLAN_LIMITS.pulse;
+
+  var client = null;
+  if (_userClientId) {
+    try {
+      var { data } = await sb.from('clients')
+        .select('stripe_customer_id, stripe_subscription_id, subscription_status, billing_period_end')
+        .eq('id', _userClientId).limit(1);
+      if (data && data.length) client = data[0];
+    } catch(e) {}
+  }
+
+  var status = client?.subscription_status || 'none';
+  var statusMap = {
+    active:   '<span style="color:var(--green);font-weight:700">Active</span>',
+    past_due: '<span style="color:var(--red);font-weight:700">Past Due</span>',
+    canceled: '<span style="color:var(--muted);font-weight:700">Canceled</span>',
+    none:     '<span style="color:var(--amber);font-weight:700">No Subscription</span>',
+    incomplete: '<span style="color:var(--amber);font-weight:700">Incomplete</span>',
+  };
+  var statusBadge = statusMap[status] || status;
+
+  var periodEnd = '';
+  if (client?.billing_period_end) {
+    var d = new Date(client.billing_period_end);
+    periodEnd = '<p style="font-size:12px;color:var(--muted);margin-top:8px">Next billing: ' + d.toLocaleDateString() + '</p>';
+  }
+
+  planEl.innerHTML =
+    '<div class="card-hd"><h2>Current Plan</h2></div>' +
+    '<div style="padding:16px">' +
+      '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">' +
+        tierBadgeHTML(tier) + ' ' + statusBadge +
+      '</div>' +
+      '<p style="font-size:var(--fs-base);color:var(--muted)">' +
+        'Up to ' + (limits.users === Infinity ? 'unlimited' : limits.users) + ' users, ' +
+        (limits.accounts === Infinity ? 'unlimited' : limits.accounts.toLocaleString()) + ' accounts' +
+      '</p>' +
+      periodEnd +
+      (client?.stripe_subscription_id
+        ? '<button class="btn btn-sm btn-outline" style="margin-top:12px" onclick="openBillingPortal()">Manage Subscription</button>'
+        : '<button class="btn btn-sm" style="margin-top:12px;background:var(--green);color:#fff" onclick="scrollToPlanCards()">Choose a Plan</button>') +
+    '</div>';
+
+  var activeAccounts = customers.filter(function(c) { return !c.deleted_at; }).length;
+  var accountLimit = limits.accounts === Infinity ? '&infin;' : limits.accounts.toLocaleString();
+  var accountPct = limits.accounts === Infinity ? 0 : Math.round(activeAccounts / limits.accounts * 100);
+
+  var userCount = 1;
+  try {
+    if (_userClientId) {
+      var { count } = await sb.from('user_profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('client_id', _userClientId);
+      userCount = count || 1;
+    }
+  } catch(e) {}
+  var userLimit = limits.users === Infinity ? '&infin;' : limits.users;
+  var userPct = limits.users === Infinity ? 0 : Math.round(userCount / limits.users * 100);
+
+  function usageBar(pct) {
+    var barColor = pct >= 90 ? 'var(--red)' : pct >= 70 ? 'var(--amber)' : 'var(--green)';
+    return '<div style="height:6px;background:var(--border);border-radius:3px;margin-top:4px"><div style="height:100%;width:' + Math.min(pct,100) + '%;background:' + barColor + ';border-radius:3px"></div></div>';
+  }
+
+  usageEl.innerHTML =
+    '<div class="card-hd"><h2>Usage</h2></div>' +
+    '<div style="padding:16px">' +
+      '<div style="margin-bottom:14px">' +
+        '<div style="display:flex;justify-content:space-between;font-size:13px"><span>Accounts</span><span style="font-weight:600">' + activeAccounts + ' / ' + accountLimit + '</span></div>' +
+        usageBar(accountPct) +
+      '</div>' +
+      '<div>' +
+        '<div style="display:flex;justify-content:space-between;font-size:13px"><span>Users</span><span style="font-weight:600">' + userCount + ' / ' + userLimit + '</span></div>' +
+        usageBar(userPct) +
+      '</div>' +
+    '</div>';
+
+  renderBillingPlanCards();
+}
+
+function renderBillingPlanCards() {
+  var container = el('billing-plan-cards');
+  if (!container) return;
+
+  var interval = _billingInterval;
+  var currentTier = clientPlanTier || 'growth';
+
+  var plans = [
+    {
+      tier: 'core', name: 'Core', color: 'var(--teal)',
+      desc: 'Health monitoring essentials for small teams',
+      features: ['Up to 3 users', 'Up to 200 accounts', 'Health scoring & sparklines', 'Email digest & alerts', 'Renewal pipeline'],
+      priceKey: interval === 'annual' ? 'core_annual' : 'core_monthly',
+    },
+    {
+      tier: 'growth', name: 'Growth', color: 'var(--blue)', popular: true,
+      desc: 'Advanced insights for growing CS teams',
+      features: ['Up to 10 users', 'Up to 1,000 accounts', 'Everything in Core', 'Segments & CSM dashboards', 'Scoring profiles & audit log', 'Custom tags & alert channels'],
+      priceKey: interval === 'annual' ? 'growth_annual' : 'growth_monthly',
+    },
+    {
+      tier: 'custom', name: 'Custom', color: 'var(--purple)',
+      desc: 'Full platform with white-label & automation',
+      features: ['Unlimited users', 'Unlimited accounts', 'Everything in Growth', 'QBR Prep & playbooks', 'Automations & API access', 'White-label & custom branding'],
+      priceKey: interval === 'annual' ? 'custom_annual' : 'custom_monthly',
+    }
+  ];
+
+  container.innerHTML = plans.map(function(p) {
+    var isCurrent = p.tier === currentTier;
+    var priceId = BILLING_PRICES[p.priceKey];
+    var border = p.popular ? 'border:2px solid ' + p.color : 'border:1px solid var(--border)';
+    var badge = p.popular ? '<div style="background:' + p.color + ';color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:0 0 6px 6px;position:absolute;top:0;left:50%;transform:translateX(-50%)">MOST POPULAR</div>' : '';
+
+    return '<div style="' + border + ';border-radius:12px;padding:24px 20px;position:relative;display:flex;flex-direction:column">' +
+      badge +
+      '<div style="text-align:center;margin-bottom:16px">' +
+        '<h3 style="font-size:18px;font-weight:700;color:' + p.color + ';margin-bottom:4px">' + p.name + '</h3>' +
+        '<p style="font-size:12px;color:var(--muted)">' + p.desc + '</p>' +
+      '</div>' +
+      '<ul style="list-style:none;padding:0;margin:0 0 20px;flex:1">' +
+        p.features.map(function(f) {
+          return '<li style="font-size:13px;padding:4px 0;color:var(--text);display:flex;align-items:center;gap:6px">' +
+            '<span style="color:' + p.color + ';font-weight:700">&#10003;</span> ' + f + '</li>';
+        }).join('') +
+      '</ul>' +
+      '<div style="text-align:center">' +
+        (isCurrent
+          ? '<button class="btn btn-sm btn-outline" disabled>Current Plan</button>'
+          : priceId
+            ? '<button class="btn btn-sm" style="background:' + p.color + ';color:#fff;width:100%" onclick="startCheckout(\'' + priceId + '\')">Subscribe</button>'
+            : '<button class="btn btn-sm btn-outline" disabled>Coming Soon</button>') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function scrollToPlanCards() {
+  var plans = el('billing-plans');
+  if (plans) plans.scrollIntoView({ behavior: 'smooth' });
+}
+
+async function startCheckout(priceId) {
+  try {
+    toast('Redirecting to checkout…', 'info');
+    var { data, error } = await sb.functions.invoke('billing-checkout', {
+      body: {
+        price_id: priceId,
+        success_url: window.location.origin + '/?billing=success',
+        cancel_url: window.location.origin + '/?billing=canceled',
+      }
+    });
+    if (error) throw error;
+    if (data?.url) window.location.href = data.url;
+    else if (data?.error) throw new Error(data.error);
+  } catch(e) {
+    toast('Checkout failed: ' + e.message, 'error');
+  }
+}
+
+async function openBillingPortal() {
+  try {
+    toast('Opening billing portal…', 'info');
+    var { data, error } = await sb.functions.invoke('billing-portal', {
+      body: { return_url: window.location.href }
+    });
+    if (error) throw error;
+    if (data?.url) window.location.href = data.url;
+    else if (data?.error) throw new Error(data.error);
+  } catch(e) {
+    toast('Could not open billing portal: ' + e.message, 'error');
   }
 }
 
@@ -13681,7 +13923,7 @@ function renderReporting() {
 
   const reports = [
     // ── Portfolio & Strategy ──
-    { section:'portfolio', tier:'starter', featureKey:'reports_basic',
+    { section:'portfolio', tier:'core', featureKey:'reports_basic',
       title:'Portfolio Health Summary', desc:'Printable dashboard snapshot with KPI cards, status distribution, segment breakdown, and top at-risk accounts.',
       iconBg:'var(--purple-l)', iconColor:'var(--purple)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
@@ -13691,7 +13933,7 @@ function renderReporting() {
         { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('portfolio_summary')" }
       ]
     },
-    { section:'portfolio', tier:'starter', featureKey:'reports_basic',
+    { section:'portfolio', tier:'core', featureKey:'reports_basic',
       title:'Weekly Review', desc:'Friday report  - week-over-week trends, portfolio insights, action items, at-risk accounts, and score movers.',
       iconBg:'var(--green-l)', iconColor:'var(--green)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
@@ -13702,7 +13944,7 @@ function renderReporting() {
         { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('weekly_digest')" }
       ]
     },
-    { section:'portfolio', tier:'starter', featureKey:'reports_basic',
+    { section:'portfolio', tier:'core', featureKey:'reports_basic',
       title:'Trend Report (30/60/90d)', desc:'Overall portfolio health score trend over time with status mix and MRR changes.',
       iconBg:'var(--teal-l)', iconColor:'var(--teal)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
@@ -13713,7 +13955,7 @@ function renderReporting() {
       ]
     },
     // ── Risk & Renewals ──
-    { section:'risk', tier:'starter', featureKey:'reports_basic',
+    { section:'risk', tier:'core', featureKey:'reports_basic',
       title:'At-Risk Report', desc:'Critical and At Risk customers sorted by MRR, with scores, trends, days since contact, and renewal dates.',
       iconBg:'var(--red-l)', iconColor:'var(--red)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
@@ -13723,7 +13965,7 @@ function renderReporting() {
         { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('at_risk')" }
       ]
     },
-    { section:'risk', tier:'starter', featureKey:'reports_basic',
+    { section:'risk', tier:'core', featureKey:'reports_basic',
       title:'Churn Risk Report', desc:'Combined risk ranking with estimated revenue impact, scored by health, trend, NPS, engagement, and renewal proximity.',
       iconBg:'var(--red-l)', iconColor:'var(--red)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
@@ -13733,7 +13975,7 @@ function renderReporting() {
         { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('churn_risk')" }
       ]
     },
-    { section:'risk', tier:'starter', featureKey:'reports_basic',
+    { section:'risk', tier:'core', featureKey:'reports_basic',
       title:'Renewal Forecast Report', desc:'Customers grouped by renewal window (this month, 30/60/90 days) with health status and MRR.',
       iconBg:'var(--amber-l)', iconColor:'var(--amber)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
@@ -13744,7 +13986,7 @@ function renderReporting() {
       ]
     },
     // ── Team & Segments ──
-    { section:'team', tier:'team', featureKey:'report_segments',
+    { section:'team', tier:'growth', featureKey:'report_segments',
       title:'Segment Analysis Report', desc:'Health breakdown by tier, lifecycle, and tag  - with MRR at risk per segment.',
       iconBg:'var(--purple-l)', iconColor:'var(--purple)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
@@ -13754,7 +13996,7 @@ function renderReporting() {
         { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('segment_analysis')" }
       ]
     },
-    { section:'team', tier:'pro', featureKey:'report_csmperf',
+    { section:'team', tier:'custom', featureKey:'report_csmperf',
       title:'CSM Performance Report', desc:'Per-manager portfolio metrics  - avg score, risk ratio, MRR managed, contact cadence.',
       iconBg:'var(--blue-l)', iconColor:'var(--blue)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
@@ -13765,7 +14007,7 @@ function renderReporting() {
       ]
     },
     // ── Exports & Data ──
-    { section:'data', tier:'starter', featureKey:'reports_basic',
+    { section:'data', tier:'core', featureKey:'reports_basic',
       title:'Customer Health Export', desc:'Download all customers as CSV with scores, signals, status, MRR, and tags.',
       iconBg:'var(--blue-l)', iconColor:'var(--blue)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
@@ -13775,7 +14017,7 @@ function renderReporting() {
         { label:'Email', cls:'btn-outline', fn:"openReportEmailPanel('customer_health')" }
       ]
     },
-    { section:'data', tier:'starter', featureKey:'reports_basic',
+    { section:'data', tier:'core', featureKey:'reports_basic',
       title:'Score History Export', desc:'Per-customer score changes over time with all signal snapshots.',
       iconBg:'var(--teal-l)', iconColor:'var(--teal)',
       icon:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>',
@@ -20446,9 +20688,7 @@ function toggleSegView(view) {
   if (stageBtn) stageBtn.classList.toggle('active', view === 'stage');
   const active = window._segActive;
   const dc = window._segDeltaCache;
-  // Rebuild insights with the correct view-specific data
-  const insightData = view === 'tiers' ? window._tierData : view === 'stage' ? window._stageData : window._segData;
-  if (insightData && active) _buildSegInsights(insightData, active, view);
+  // Render tables first so _tierData/_stageData are populated before insights
   if (view === 'segments') {
     const segs = window._segData;
     if (segs) { renderSegTable(segs); renderSegChart(segs, active, dc); }
@@ -20457,6 +20697,9 @@ function toggleSegView(view) {
   } else {
     if (active) { renderTierTable(active, dc); renderSegChart(window._segData, active, dc); }
   }
+  // Now build insights with the freshly-populated view data
+  const insightData = view === 'tiers' ? window._tierData : view === 'stage' ? window._stageData : window._segData;
+  if (insightData && active) _buildSegInsights(insightData, active, view);
 }
 
 function toggleHideUntagged() {
@@ -28702,7 +28945,7 @@ async function clientRadioChange(radio) {
   setLoading(true);
   try {
     // Reset in-memory settings to defaults, then load selected client's settings
-    var _uxKeep2 = { iqc_uid:1, iqc_active_view:1, iqc_customers_cache:1, iqc_score_settings_clicked:1, iqc_score_settings_toured:1, iqc_qbr_clicked:1, iqc_welcome_v3:1 };
+    var _uxKeep2 = { iqc_uid:1, iqc_active_view:1, iqc_customers_cache:1, iqc_score_settings_clicked:1, iqc_score_settings_toured:1, iqc_qbr_clicked:1, iqc_welcome_v3:1, iqc_cookie_consent:1 };
     Object.keys(localStorage)
       .filter(k => k.startsWith('iqc_') && !_uxKeep2[k])
       .forEach(k => localStorage.removeItem(k));
@@ -28835,25 +29078,74 @@ async function renderClients() {
     const cc = custCounts[c.id] || 0;
     return `
     <tr>
+      <td><input type="checkbox" class="client-sel" data-cid="${escHtml(c.id)}" onchange="adminUpdateBulkBar()" style="accent-color:var(--blue);cursor:pointer"/></td>
       <td><strong>${escHtml(c.name)}</strong></td>
-      <td>${tierBadgeHTML(c.plan_tier || 'starter')}</td>
+      <td>${tierBadgeHTML(c.plan_tier || 'growth')}</td>
       <td>${userCounts[c.id] || 0}</td>
       <td><strong>${cc}</strong></td>
       <td style="color:var(--muted);font-size:var(--fs-base)">${escHtml(c.notes || ' -')}</td>
       <td>
         <div style="display:flex;gap:4px">
-          <button class="btn btn-xs btn-outline" onclick="openEditClientModal('${escHtml(c.id)}','${escHtml(c.name)}',\`${escHtml(c.notes||'')}\`,'${escHtml(c.plan_tier||'starter')}')">Edit</button>
+          <button class="btn btn-xs btn-outline" onclick="openEditClientModal('${escHtml(c.id)}','${escHtml(c.name)}',\`${escHtml(c.notes||'')}\`,'${escHtml(c.plan_tier||'growth')}')">Edit</button>
           <button class="btn btn-xs btn-danger" onclick="adminDeleteClient('${escHtml(c.id)}','${escHtml(c.name)}')">Remove</button>
         </div>
       </td>
     </tr>`;
   }).join('');
+
+  // Reset bulk bar
+  const selAll = document.getElementById('clients-select-all');
+  if (selAll) selAll.checked = false;
+  adminUpdateBulkBar();
+}
+
+function adminToggleSelectAll(checked) {
+  document.querySelectorAll('.client-sel').forEach(cb => { cb.checked = checked; });
+  adminUpdateBulkBar();
+}
+
+function adminUpdateBulkBar() {
+  const selected = document.querySelectorAll('.client-sel:checked');
+  const bar = document.getElementById('clients-bulk-bar');
+  const countEl = document.getElementById('clients-bulk-count');
+  if (!bar) return;
+  bar.style.display = selected.length > 0 ? 'flex' : 'none';
+  if (countEl) countEl.textContent = selected.length + ' selected';
+  // Sync select-all checkbox
+  const all = document.querySelectorAll('.client-sel');
+  const selAll2 = document.getElementById('clients-select-all');
+  if (selAll2) selAll2.checked = all.length > 0 && selected.length === all.length;
+}
+
+async function adminBulkChangePlan() {
+  const selected = Array.from(document.querySelectorAll('.client-sel:checked'));
+  if (!selected.length) return;
+  const tier = (document.getElementById('clients-bulk-tier') || {}).value || 'growth';
+  const label = PLAN_TIER_LABELS[tier] || tier;
+  const ids = selected.map(cb => cb.dataset.cid);
+
+  try {
+    const { error } = await sb.from('clients').update({ plan_tier: tier }).in('id', ids);
+    if (error) throw error;
+    toast(ids.length + ' client' + (ids.length !== 1 ? 's' : '') + ' changed to ' + label, 'success');
+    adminClearSelection();
+    await renderClients();
+  } catch(e) {
+    toast('Failed to update plans: ' + e.message, 'error');
+  }
+}
+
+function adminClearSelection() {
+  document.querySelectorAll('.client-sel').forEach(cb => { cb.checked = false; });
+  const selAll3 = document.getElementById('clients-select-all');
+  if (selAll3) selAll3.checked = false;
+  adminUpdateBulkBar();
 }
 
 function openCreateClientModal() {
   if (!isAdmin()) return;
   el('cc-name').value  = '';
-  el('cc-tier').value  = 'team';
+  el('cc-tier').value  = 'growth';
   el('cc-notes').value = '';
   el('cc-err').textContent = '';
   el('cc-btn').disabled = false;
@@ -28863,7 +29155,7 @@ function openCreateClientModal() {
 
 async function adminSaveClient() {
   const name      = el('cc-name').value.trim();
-  const plan_tier = el('cc-tier').value || 'team';
+  const plan_tier = el('cc-tier').value || 'growth';
   const notes     = el('cc-notes').value.trim();
   if (!name) { el('cc-err').textContent = 'Business name is required.'; return; }
   el('cc-btn').disabled = true;
@@ -28890,7 +29182,7 @@ function openEditClientModal(id, name, notes, tier) {
   if (!isAdmin()) return;
   el('ec-id').value    = id;
   el('ec-name').value  = name;
-  el('ec-tier').value  = tier || 'starter';
+  el('ec-tier').value  = tier || 'growth';
   el('ec-notes').value = notes;
   el('ec-err').textContent = '';
   el('ec-btn').disabled = false;
@@ -28901,7 +29193,7 @@ function openEditClientModal(id, name, notes, tier) {
 async function adminUpdateClient() {
   const id        = el('ec-id').value;
   const name      = el('ec-name').value.trim();
-  const plan_tier = el('ec-tier').value || 'starter';
+  const plan_tier = el('ec-tier').value || 'growth';
   const notes     = el('ec-notes').value.trim();
   if (!name) { el('ec-err').textContent = 'Business name is required.'; return; }
   el('ec-btn').disabled = true;
@@ -29515,7 +29807,7 @@ function _maybeShowWhatsNew() {
 function _checkUserSwitch(userId) {
   const prev = localStorage.getItem('iqc_uid');
   // Purge if: different user detected, OR iqc_uid never set but stale data exists (pre-update)
-  var _uxKeep = { iqc_score_settings_clicked:1, iqc_score_settings_toured:1, iqc_qbr_clicked:1, iqc_welcome_v3:1 };
+  var _uxKeep = { iqc_score_settings_clicked:1, iqc_score_settings_toured:1, iqc_qbr_clicked:1, iqc_welcome_v3:1, iqc_cookie_consent:1 };
   if (prev !== userId) {
     Object.keys(localStorage)
       .filter(k => k.startsWith('iqc_') && k !== 'iqc_uid' && !_uxKeep[k])
@@ -29600,6 +29892,16 @@ function _checkUserSwitch(userId) {
       refreshMgrDropdown();
       nav(restoreView);
       renderSettings();
+      // Handle billing redirect
+      var _billingParam = new URLSearchParams(window.location.search).get('billing');
+      if (_billingParam === 'success') {
+        toast('Subscription activated! Welcome to ' + (PLAN_TIER_LABELS[clientPlanTier] || clientPlanTier) + '.', 'success');
+        window.history.replaceState({}, '', window.location.pathname);
+        nav('settings'); setTimeout(function() { cfgTab('billing'); }, 200);
+      } else if (_billingParam === 'canceled') {
+        toast('Checkout canceled', 'warn');
+        window.history.replaceState({}, '', window.location.pathname);
+      }
       // Check and send any due scheduled reports
       if (typeof checkScheduledReports === 'function') setTimeout(checkScheduledReports, 3000);
       // Show/hide topbar Stripe sync button based on integration status

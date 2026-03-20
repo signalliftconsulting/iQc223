@@ -62,7 +62,7 @@ async function clientRadioChange(radio) {
   setLoading(true);
   try {
     // Reset in-memory settings to defaults, then load selected client's settings
-    var _uxKeep2 = { iqc_uid:1, iqc_active_view:1, iqc_customers_cache:1, iqc_score_settings_clicked:1, iqc_score_settings_toured:1, iqc_qbr_clicked:1, iqc_welcome_v3:1 };
+    var _uxKeep2 = { iqc_uid:1, iqc_active_view:1, iqc_customers_cache:1, iqc_score_settings_clicked:1, iqc_score_settings_toured:1, iqc_qbr_clicked:1, iqc_welcome_v3:1, iqc_cookie_consent:1 };
     Object.keys(localStorage)
       .filter(k => k.startsWith('iqc_') && !_uxKeep2[k])
       .forEach(k => localStorage.removeItem(k));
@@ -195,25 +195,74 @@ async function renderClients() {
     const cc = custCounts[c.id] || 0;
     return `
     <tr>
+      <td><input type="checkbox" class="client-sel" data-cid="${escHtml(c.id)}" onchange="adminUpdateBulkBar()" style="accent-color:var(--blue);cursor:pointer"/></td>
       <td><strong>${escHtml(c.name)}</strong></td>
-      <td>${tierBadgeHTML(c.plan_tier || 'starter')}</td>
+      <td>${tierBadgeHTML(c.plan_tier || 'growth')}</td>
       <td>${userCounts[c.id] || 0}</td>
       <td><strong>${cc}</strong></td>
       <td style="color:var(--muted);font-size:var(--fs-base)">${escHtml(c.notes || ' -')}</td>
       <td>
         <div style="display:flex;gap:4px">
-          <button class="btn btn-xs btn-outline" onclick="openEditClientModal('${escHtml(c.id)}','${escHtml(c.name)}',\`${escHtml(c.notes||'')}\`,'${escHtml(c.plan_tier||'starter')}')">Edit</button>
+          <button class="btn btn-xs btn-outline" onclick="openEditClientModal('${escHtml(c.id)}','${escHtml(c.name)}',\`${escHtml(c.notes||'')}\`,'${escHtml(c.plan_tier||'growth')}')">Edit</button>
           <button class="btn btn-xs btn-danger" onclick="adminDeleteClient('${escHtml(c.id)}','${escHtml(c.name)}')">Remove</button>
         </div>
       </td>
     </tr>`;
   }).join('');
+
+  // Reset bulk bar
+  const selAll = document.getElementById('clients-select-all');
+  if (selAll) selAll.checked = false;
+  adminUpdateBulkBar();
+}
+
+function adminToggleSelectAll(checked) {
+  document.querySelectorAll('.client-sel').forEach(cb => { cb.checked = checked; });
+  adminUpdateBulkBar();
+}
+
+function adminUpdateBulkBar() {
+  const selected = document.querySelectorAll('.client-sel:checked');
+  const bar = document.getElementById('clients-bulk-bar');
+  const countEl = document.getElementById('clients-bulk-count');
+  if (!bar) return;
+  bar.style.display = selected.length > 0 ? 'flex' : 'none';
+  if (countEl) countEl.textContent = selected.length + ' selected';
+  // Sync select-all checkbox
+  const all = document.querySelectorAll('.client-sel');
+  const selAll = document.getElementById('clients-select-all');
+  if (selAll) selAll.checked = all.length > 0 && selected.length === all.length;
+}
+
+async function adminBulkChangePlan() {
+  const selected = Array.from(document.querySelectorAll('.client-sel:checked'));
+  if (!selected.length) return;
+  const tier = (document.getElementById('clients-bulk-tier') || {}).value || 'growth';
+  const label = PLAN_TIER_LABELS[tier] || tier;
+  const ids = selected.map(cb => cb.dataset.cid);
+
+  try {
+    const { error } = await sb.from('clients').update({ plan_tier: tier }).in('id', ids);
+    if (error) throw error;
+    toast(ids.length + ' client' + (ids.length !== 1 ? 's' : '') + ' changed to ' + label, 'success');
+    adminClearSelection();
+    await renderClients();
+  } catch(e) {
+    toast('Failed to update plans: ' + e.message, 'error');
+  }
+}
+
+function adminClearSelection() {
+  document.querySelectorAll('.client-sel').forEach(cb => { cb.checked = false; });
+  const selAll = document.getElementById('clients-select-all');
+  if (selAll) selAll.checked = false;
+  adminUpdateBulkBar();
 }
 
 function openCreateClientModal() {
   if (!isAdmin()) return;
   el('cc-name').value  = '';
-  el('cc-tier').value  = 'team';
+  el('cc-tier').value  = 'growth';
   el('cc-notes').value = '';
   el('cc-err').textContent = '';
   el('cc-btn').disabled = false;
@@ -223,7 +272,7 @@ function openCreateClientModal() {
 
 async function adminSaveClient() {
   const name      = el('cc-name').value.trim();
-  const plan_tier = el('cc-tier').value || 'team';
+  const plan_tier = el('cc-tier').value || 'growth';
   const notes     = el('cc-notes').value.trim();
   if (!name) { el('cc-err').textContent = 'Business name is required.'; return; }
   el('cc-btn').disabled = true;
@@ -250,7 +299,7 @@ function openEditClientModal(id, name, notes, tier) {
   if (!isAdmin()) return;
   el('ec-id').value    = id;
   el('ec-name').value  = name;
-  el('ec-tier').value  = tier || 'starter';
+  el('ec-tier').value  = tier || 'growth';
   el('ec-notes').value = notes;
   el('ec-err').textContent = '';
   el('ec-btn').disabled = false;
@@ -261,7 +310,7 @@ function openEditClientModal(id, name, notes, tier) {
 async function adminUpdateClient() {
   const id        = el('ec-id').value;
   const name      = el('ec-name').value.trim();
-  const plan_tier = el('ec-tier').value || 'starter';
+  const plan_tier = el('ec-tier').value || 'growth';
   const notes     = el('ec-notes').value.trim();
   if (!name) { el('ec-err').textContent = 'Business name is required.'; return; }
   el('ec-btn').disabled = true;
