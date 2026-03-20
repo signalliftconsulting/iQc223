@@ -10,6 +10,26 @@ function setFcCatFilter(cat) {
   _renderFcTable();
 }
 
+function _fcFilterChipsHTML() {
+  function _chip(key, label, color) {
+    var active = _fcCatFilter === key;
+    var bg = active ? (color || 'var(--text)') : 'transparent';
+    var fg = active ? '#fff' : 'var(--muted)';
+    var bdr = active ? bg : 'var(--border)';
+    return '<button onclick="setFcCatFilter(\'' + key + '\')" style="padding:4px 12px;font-size:var(--fs-sm);font-weight:600;border-radius:100px;border:1.5px solid ' + bdr + ';background:' + bg + ';color:' + fg + ';cursor:pointer;font-family:inherit">' + label + '</button>';
+  }
+  return _chip('all', 'All', 'var(--text)') +
+    _chip('expand', 'Expand', 'var(--green)') +
+    _chip('retain', 'Retain', 'var(--muted)') +
+    _chip('contract', 'Contract', 'var(--amber)') +
+    _chip('churn', 'Churn', 'var(--red)');
+}
+
+function _fcApplyCatFilter(classified) {
+  if (_fcCatFilter === 'all') return classified;
+  return classified.filter(function(c) { return c.fc.cat === _fcCatFilter; });
+}
+
 // ── Classification ─────────────────────────────────────────
 
 function _fcChurnProb(score) {
@@ -272,20 +292,9 @@ function _renderFcTable() {
     return '<th style="cursor:pointer;white-space:nowrap;padding:8px 10px;font-size:var(--fs-sm);color:var(--muted);font-weight:600;text-align:left;border-bottom:2px solid var(--border)" onclick="sortFcTable(\'' + key + '\')">' + label + (_fcSortKey === key ? arrow : '') + '</th>';
   };
 
-  function _fcChip(key, label, color) {
-    var active = _fcCatFilter === key;
-    var bg = active ? (color || 'var(--text)') : 'transparent';
-    var fg = active ? '#fff' : 'var(--muted)';
-    var bdr = active ? bg : 'var(--border)';
-    return '<button onclick="setFcCatFilter(\'' + key + '\')" style="padding:4px 12px;font-size:var(--fs-sm);font-weight:600;border-radius:100px;border:1.5px solid ' + bdr + ';background:' + bg + ';color:' + fg + ';cursor:pointer;font-family:inherit">' + label + '</button>';
-  }
   var html = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">' +
     '<input type="text" placeholder="Search customers..." value="' + escHtml(_fcSearch) + '" oninput="_fcSearch=this.value;_renderFcTable()" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-base);width:220px"/>' +
-    _fcChip('all', 'All', 'var(--text)') +
-    _fcChip('expand', 'Expand', 'var(--green)') +
-    _fcChip('retain', 'Retain', 'var(--muted)') +
-    _fcChip('contract', 'Contract', 'var(--amber)') +
-    _fcChip('churn', 'Churn', 'var(--red)') +
+    _fcFilterChipsHTML() +
   '</div>';
   html += '<div style="max-height:500px;overflow-y:auto"><table class="ct" style="width:100%;border-collapse:collapse">';
   html += '<thead><tr>' + th('name', 'Customer') + th('mrr', 'MRR') + th('score', 'Score') + th('delta30', '\u039430d') + th('renewal', 'Renewal') + th('category', 'Forecast') + th('impact', 'Impact') + '</tr></thead>';
@@ -316,8 +325,9 @@ function _renderFcTable() {
 }
 
 function _renderFcCsm(wrap, classified) {
+  var filtered = _fcApplyCatFilter(classified);
   var groups = {};
-  classified.forEach(function(c) {
+  filtered.forEach(function(c) {
     var mgr = c.manager || 'Unassigned';
     if (!groups[mgr]) groups[mgr] = [];
     groups[mgr].push(c);
@@ -336,7 +346,8 @@ function _renderFcCsm(wrap, classified) {
 
   rows.sort(function(a, b) { return a.nrr - b.nrr; });
 
-  var html = '<table class="ct" style="width:100%;border-collapse:collapse">';
+  var html = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">' + _fcFilterChipsHTML() + '</div>';
+  html += '<table class="ct" style="width:100%;border-collapse:collapse">';
   html += '<thead><tr><th style="padding:8px 10px;text-align:left;font-size:var(--fs-sm);color:var(--muted);border-bottom:2px solid var(--border)">CSM</th><th style="padding:8px 10px;text-align:left;font-size:var(--fs-sm);color:var(--muted);border-bottom:2px solid var(--border)">Book MRR</th><th style="padding:8px 10px;text-align:left;font-size:var(--fs-sm);color:var(--muted);border-bottom:2px solid var(--border)">NRR %</th><th style="padding:8px 10px;text-align:left;font-size:var(--fs-sm);color:var(--muted);border-bottom:2px solid var(--border)">Expansion</th><th style="padding:8px 10px;text-align:left;font-size:var(--fs-sm);color:var(--muted);border-bottom:2px solid var(--border)">Contraction</th><th style="padding:8px 10px;text-align:left;font-size:var(--fs-sm);color:var(--muted);border-bottom:2px solid var(--border)">Churn</th><th style="padding:8px 10px;text-align:left;font-size:var(--fs-sm);color:var(--muted);border-bottom:2px solid var(--border)"># Accounts</th></tr></thead><tbody>';
 
   rows.forEach(function(r) {
@@ -357,11 +368,12 @@ function _renderFcCsm(wrap, classified) {
 }
 
 function _renderFcTier(wrap, classified) {
+  var filtered = _fcApplyCatFilter(classified);
   var tiers = ['enterprise', 'mid', 'smb'];
   var tierLabels = { enterprise: 'Enterprise', mid: 'Mid-Market', smb: 'SMB' };
 
   var rows = tiers.map(function(t) {
-    var accts = classified.filter(function(c) { return c.tier === t; });
+    var accts = filtered.filter(function(c) { return c.tier === t; });
     if (!accts.length) return null;
     var bookMrr = accts.reduce(function(s, c) { return s + (c.mrr || 0); }, 0);
     var exp = accts.filter(function(c) { return c.fc.cat === 'expand'; }).reduce(function(s, c) { return s + c.fc.impact; }, 0);
@@ -372,7 +384,8 @@ function _renderFcTier(wrap, classified) {
     return { tier: tierLabels[t] || t, bookMrr: bookMrr, nrr: nrr, exp: exp, con: con, ch: ch, count: accts.length };
   }).filter(Boolean);
 
-  var html = '<table class="ct" style="width:100%;border-collapse:collapse">';
+  var html = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">' + _fcFilterChipsHTML() + '</div>';
+  html += '<table class="ct" style="width:100%;border-collapse:collapse">';
   html += '<thead><tr><th style="padding:8px 10px;text-align:left;font-size:var(--fs-sm);color:var(--muted);border-bottom:2px solid var(--border)">Tier</th><th style="padding:8px 10px;text-align:left;font-size:var(--fs-sm);color:var(--muted);border-bottom:2px solid var(--border)">Book MRR</th><th style="padding:8px 10px;text-align:left;font-size:var(--fs-sm);color:var(--muted);border-bottom:2px solid var(--border)">NRR %</th><th style="padding:8px 10px;text-align:left;font-size:var(--fs-sm);color:var(--muted);border-bottom:2px solid var(--border)">Expansion</th><th style="padding:8px 10px;text-align:left;font-size:var(--fs-sm);color:var(--muted);border-bottom:2px solid var(--border)">Contraction</th><th style="padding:8px 10px;text-align:left;font-size:var(--fs-sm);color:var(--muted);border-bottom:2px solid var(--border)">Churn</th><th style="padding:8px 10px;text-align:left;font-size:var(--fs-sm);color:var(--muted);border-bottom:2px solid var(--border)"># Accounts</th></tr></thead><tbody>';
 
   rows.forEach(function(r) {
@@ -393,15 +406,16 @@ function _renderFcTier(wrap, classified) {
 }
 
 function _renderFcRenewal(wrap, classified) {
+  var filtered = _fcApplyCatFilter(classified);
   var windows = [
     { label: 'Next 30 Days', min: 0, max: 30 },
     { label: '30-60 Days', min: 31, max: 60 },
     { label: '60-90 Days', min: 61, max: 90 }
   ];
 
-  var html = '';
+  var html = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">' + _fcFilterChipsHTML() + '</div>';
   windows.forEach(function(w) {
-    var accts = classified.filter(function(c) { return c.renewal != null && c.renewal >= w.min && c.renewal <= w.max; });
+    var accts = filtered.filter(function(c) { return c.renewal != null && c.renewal >= w.min && c.renewal <= w.max; });
     if (!accts.length) return;
     accts.sort(function(a, b) { return (a.score || 0) - (b.score || 0); });
 
