@@ -22820,6 +22820,18 @@ function setFcCatFilter(cat) {
   _renderFcTable();
 }
 
+function fcKpiDrill(cat) {
+  _fcCatFilter = cat;
+  _fcTab = 'all';
+  ['all', 'csm', 'tier', 'renewal'].forEach(function(t) {
+    var btn = el('fc-tab-' + t);
+    if (btn) btn.classList.toggle('active', t === 'all');
+  });
+  _renderFcTable();
+  var tableWrap = el('fc-table-wrap');
+  if (tableWrap) tableWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 function _fcFilterChipsHTML() {
   function _chip(key, label, color) {
     var active = _fcCatFilter === key;
@@ -23302,15 +23314,15 @@ function _renderForecast() {
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${nrrIcon}</div><span class="dash-kpi-label">Projected NRR</span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:${nrrColor}">${Math.round(nrr)}%</div><div class="dash-kpi-sub">Net Revenue Retention (90-day)</div></div>
     </div>
-    <div class="dash-kpi-card dash-kpi-green">
+    <div class="dash-kpi-card dash-kpi-green" style="cursor:pointer" onclick="fcKpiDrill('expand')">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${upIcon}</div><span class="dash-kpi-label">Expansion Pipeline</span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:#16a34a">$${fmtNum(expandTotal)}</div><div class="dash-kpi-sub">${expandCount} account${expandCount !== 1 ? 's' : ''} with growth signals</div></div>
     </div>
-    <div class="dash-kpi-card dash-kpi-amber">
+    <div class="dash-kpi-card dash-kpi-amber" style="cursor:pointer" onclick="fcKpiDrill('contract')">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${downIcon}</div><span class="dash-kpi-label">Contraction Risk</span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:#b45309">$${fmtNum(contractTotal)}</div><div class="dash-kpi-sub">${contractCount} account${contractCount !== 1 ? 's' : ''} with declining scores</div></div>
     </div>
-    <div class="dash-kpi-card dash-kpi-red">
+    <div class="dash-kpi-card dash-kpi-red" style="cursor:pointer" onclick="fcKpiDrill('churn')">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${warnIcon}</div><span class="dash-kpi-label">Churn Risk</span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:#dc2626">$${fmtNum(Math.round(churnTotal))}</div><div class="dash-kpi-sub">${churnCount} account${churnCount !== 1 ? 's' : ''} at risk of churning</div></div>
     </div>
