@@ -162,6 +162,7 @@ function openAIMeetingPrep() {
   openModal('qbr-modal');
   var content = el('qbr-content');
   if (!content) return;
+  content.scrollTop = 0;
 
   // Update modal title
   var hd = document.querySelector('#qbr-modal .modal-hd h2');
@@ -1851,7 +1852,9 @@ function openQBR() {
   var _qbrBtn = el('dm-qbr-btn'); if (_qbrBtn) { _qbrBtn.classList.remove('btn-shimmer'); _qbrBtn.style.cssText = ''; }
   if (typeof _wtCompleteIfActive === 'function') _wtCompleteIfActive('qbr-prep');
   logAudit('qbr_opened', c.id, c.name, { summary: 'QBR Prep opened' });
-  el('qbr-content').innerHTML = buildQBRHTML(c);
+  var qbrContent = el('qbr-content');
+  qbrContent.innerHTML = buildQBRHTML(c);
+  qbrContent.scrollTop = 0;
   closeModal('detail-modal');
   openModal('qbr-modal');
 }
