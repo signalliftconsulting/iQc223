@@ -6612,13 +6612,11 @@ function _loadAIFocusList(active) {
     return { name: c.name, score: c.score, status: c.status, mrr: c.mrr || 0, days: c.days, renewal_date: c.renewal_date || '', trend: trend };
   });
 
-  sb.functions.invoke('ai-agent', { body: { prompt_type: 'daily_focus', customers: miniSummaries } }).then(function(res) {
-    if (res.error) throw new Error(res.error.message || 'AI request failed');
-    var data = res.data;
-    if (!data.success) throw new Error(data.error || 'AI returned an error');
-    _aiFocusCache = data.data;
+  _aiCall({ prompt_type: 'daily_focus', customers: miniSummaries }).then(function(body) {
+    if (!body.success) throw new Error(body.error || 'AI returned an error');
+    _aiFocusCache = body.data;
     _aiFocusCacheTime = Date.now();
-    if (el('hb-ai-focus-body')) el('hb-ai-focus-body').innerHTML = _renderAIFocusHTML(data.data);
+    if (el('hb-ai-focus-body')) el('hb-ai-focus-body').innerHTML = _renderAIFocusHTML(body.data);
   }).catch(function(err) {
     console.warn('AI Focus List error:', err);
     if (el('hb-ai-focus-body')) {
@@ -10664,6 +10662,15 @@ function _sanitizeForAI(c) {
   };
 }
 
+// Call AI via Cloudflare Pages Function (fast, no cold start)
+function _aiCall(body) {
+  return fetch('/api/ai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  }).then(function(r) { return r.json(); });
+}
+
 // AI Skeleton loader HTML
 function _aiSkeletonHTML(rows) {
   rows = rows || 4;
@@ -10691,10 +10698,8 @@ function _loadAIInsights(c) {
 
   _trackAICall();
   var custId = c.id;
-  sb.functions.invoke('ai-agent', { body: { prompt_type: 'detail_insights', customer: _sanitizeForAI(c) } }).then(function(res) {
+  _aiCall({ prompt_type: 'detail_insights', customer: _sanitizeForAI(c) }).then(function(body) {
     if (detailId !== custId) return; // user navigated away
-    if (res.error) throw new Error(res.error.message || 'AI request failed');
-    var body = res.data;
     if (!body.success) throw new Error(body.error || 'AI returned an error');
     _aiCacheSet(custId + '_insights', body.data);
     if (el('dm-ai-insights')) el('dm-ai-insights').innerHTML = _renderAIInsightsHTML(body.data);
@@ -10775,9 +10780,7 @@ function openAIMeetingPrep() {
 
   _trackAICall();
   var custId = c.id;
-  sb.functions.invoke('ai-agent', { body: { prompt_type: 'meeting_prep', customer: _sanitizeForAI(c) } }).then(function(res) {
-    if (res.error) throw new Error(res.error.message || 'AI request failed');
-    var body = res.data;
+  _aiCall({ prompt_type: 'meeting_prep', customer: _sanitizeForAI(c) }).then(function(body) {
     if (!body.success) throw new Error(body.error || 'AI returned an error');
     _aiCacheSet(custId + '_meeting', body.data);
     if (el('qbr-content')) el('qbr-content').innerHTML = _renderAIMeetingHTML(body.data);
@@ -10854,10 +10857,8 @@ function _loadAISavePlaybook(c) {
 
   _trackAICall();
   var custId = c.id;
-  sb.functions.invoke('ai-agent', { body: { prompt_type: 'save_playbook', customer: _sanitizeForAI(c) } }).then(function(res) {
+  _aiCall({ prompt_type: 'save_playbook', customer: _sanitizeForAI(c) }).then(function(body) {
     if (detailId !== custId) return;
-    if (res.error) throw new Error(res.error.message || 'AI request failed');
-    var body = res.data;
     if (!body.success) throw new Error(body.error || 'AI returned an error');
     _aiCacheSet(custId + '_playbook', body.data);
     if (el('dm-ai-playbook')) el('dm-ai-playbook').innerHTML = _renderAISavePlaybookHTML(body.data);

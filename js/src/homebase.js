@@ -971,9 +971,7 @@ function _loadAIFocusList(active) {
     return { name: c.name, score: c.score, status: c.status, mrr: c.mrr || 0, days: c.days, renewal_date: c.renewal_date || '', trend: trend };
   });
 
-  sb.functions.invoke('ai-agent', { body: { prompt_type: 'daily_focus', customers: miniSummaries } }).then(function(res) {
-    if (res.error) throw new Error(res.error.message || 'AI request failed');
-    var data = res.data;
+  _aiCall({ prompt_type: 'daily_focus', customers: miniSummaries }).then(function(data) {
     if (!data.success) throw new Error(data.error || 'AI returned an error');
     _aiFocusCache = data.data;
     _aiFocusCacheTime = Date.now();
