@@ -24173,13 +24173,26 @@ function _syncClientDropdowns() {
     var inp = el('trend-client-input-' + s);
     if (!inp) continue;
     var cid = _trendClientOverlays[s];
+    var clearBtn = el('trend-client-clear-' + s);
     if (cid) {
       var c = customers.find(function(x) { return x.id === cid; });
       inp.value = c ? c.name : '';
-    } else if (document.activeElement !== inp) {
-      inp.value = '';
+      if (clearBtn) clearBtn.style.display = '';
+    } else {
+      if (document.activeElement !== inp) inp.value = '';
+      if (clearBtn) clearBtn.style.display = 'none';
     }
   }
+}
+
+function _trendClientClear(slot) {
+  _trendClientOverlays[slot] = undefined;
+  _trendClientOverlays = _trendClientOverlays.filter(Boolean);
+  var inp = el('trend-client-input-' + slot);
+  if (inp) inp.value = '';
+  var clearBtn = el('trend-client-clear-' + slot);
+  if (clearBtn) clearBtn.style.display = 'none';
+  renderTrends();
 }
 
 // Light refresh: only update chart lines, tags, and table row highlights - no scroll jump
