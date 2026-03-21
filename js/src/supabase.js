@@ -155,7 +155,7 @@ async function loadSettingsFromSupabase() {
   if (!cid) return; // no client assigned yet - use defaults
   const { data: settingsRows, error } = await sb.from('settings').select('*').eq('client_id', cid).limit(1);
   const data = settingsRows && settingsRows.length ? settingsRows[0] : null;
-  if (error) { toast('Could not load settings from server', 'error'); return; }
+  if (error) { console.warn('Settings load error:', error.message); return; }
   if (!data) return; // no settings row yet - use defaults
   _settingsUpdatedAt = data.updated_at || null;
   var _parseErr = false;
