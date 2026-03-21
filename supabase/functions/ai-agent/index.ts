@@ -156,8 +156,18 @@ Rules:
 
 // ── Get max_tokens for each prompt type ──
 function getMaxTokens(promptType: string): number {
-  if (promptType === 'daily_focus' || promptType === 'save_playbook') return 1500;
-  return 1024;
+  if (promptType === 'save_playbook') return 1500;
+  if (promptType === 'daily_focus') return 1200;
+  if (promptType === 'meeting_prep') return 1024;
+  return 512; // detail_insights (compact)
+}
+
+// ── Pick model: Haiku for fast/cheap calls, Sonnet for deep analysis ──
+function getModel(promptType: string, configModel?: string): string {
+  if (promptType === 'meeting_prep' || promptType === 'save_playbook') {
+    return configModel || 'claude-sonnet-4-20250514';
+  }
+  return 'claude-haiku-3-20240307'; // fast model for insights + focus list
 }
 
 serve(async (req) => {
@@ -246,7 +256,7 @@ serve(async (req) => {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: integration.config?.model || 'claude-sonnet-4-20250514',
+        model: getModel(prompt_type, integration.config?.model),
         max_tokens: maxTokens,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userPrompt }],

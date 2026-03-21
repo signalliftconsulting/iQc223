@@ -10607,19 +10607,33 @@ function rescoreAllFromToolbar() {
 
 // ─── AI AGENT CACHE + HELPERS ────────────────────────────────
 var _aiCache = {};
-var AI_CACHE_TTL = 5 * 60000; // 5 min
+var AI_CACHE_TTL = 10 * 60000; // 10 min (memory)
+var AI_PERSIST_TTL = 60 * 60000; // 60 min (localStorage)
 var _aiFocusCache = null;
 var _aiFocusCacheTime = 0;
-var AI_FOCUS_CACHE_TTL = 15 * 60000; // 15 min
+var AI_FOCUS_CACHE_TTL = 30 * 60000; // 30 min
 
 function _aiCacheGet(key) {
   var entry = _aiCache[key];
-  if (!entry) return null;
-  if (Date.now() - entry.ts > AI_CACHE_TTL) { delete _aiCache[key]; return null; }
-  return entry.data;
+  if (entry && (Date.now() - entry.ts) <= AI_CACHE_TTL) return entry.data;
+  try {
+    var stored = localStorage.getItem('iqc_ai_' + key);
+    if (stored) {
+      var parsed = JSON.parse(stored);
+      if (parsed.ts && (Date.now() - parsed.ts) <= AI_PERSIST_TTL) {
+        _aiCache[key] = parsed;
+        return parsed.data;
+      }
+      localStorage.removeItem('iqc_ai_' + key);
+    }
+  } catch(e) {}
+  if (entry) delete _aiCache[key];
+  return null;
 }
 function _aiCacheSet(key, data) {
-  _aiCache[key] = { data: data, ts: Date.now() };
+  var entry = { data: data, ts: Date.now() };
+  _aiCache[key] = entry;
+  try { localStorage.setItem('iqc_ai_' + key, JSON.stringify(entry)); } catch(e) {}
 }
 
 // Build a minimal customer payload for AI prompts (strip IDs, keep signals/history)
