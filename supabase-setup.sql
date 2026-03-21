@@ -40,6 +40,23 @@ $$;
 
 
 -- ─────────────────────────────────────────────────────────────────
+-- ADMIN HELPER: checks if the current JWT user has role='admin'
+-- SECURITY DEFINER avoids recursive RLS on user_profiles
+-- ─────────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION public.is_jwt_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = ''
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.user_profiles
+    WHERE user_id = auth.uid() AND role = 'admin'
+  );
+$$;
+
+-- ─────────────────────────────────────────────────────────────────
 -- 1. CLIENTS TABLE
 -- ─────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS clients (
@@ -83,8 +100,8 @@ CREATE POLICY "clients_owner" ON clients
 
 CREATE POLICY "clients_admin" ON clients
   FOR ALL
-  USING      ((auth.jwt() ->> 'email') = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']))
-  WITH CHECK ((auth.jwt() ->> 'email') = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']));
+  USING      (public.is_jwt_admin())
+  WITH CHECK (public.is_jwt_admin());
 
 -- Allow users to READ their own client record (needed for plan tier resolution)
 CREATE POLICY "clients_member_read" ON clients
@@ -134,8 +151,8 @@ CREATE POLICY "profiles_self_update" ON user_profiles
 -- Admin can do everything — identified by JWT email, NOT a table lookup
 CREATE POLICY "profiles_admin_all" ON user_profiles
   FOR ALL
-  USING      ((auth.jwt() ->> 'email') = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']))
-  WITH CHECK ((auth.jwt() ->> 'email') = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']));
+  USING      (public.is_jwt_admin())
+  WITH CHECK (public.is_jwt_admin());
 
 -- Prevent non-admins from escalating their own role
 -- Only admin JWT emails can set role = 'admin'
@@ -143,8 +160,7 @@ CREATE OR REPLACE FUNCTION protect_role_column()
 RETURNS TRIGGER AS $$
 BEGIN
   IF NEW.role IS DISTINCT FROM OLD.role THEN
-    IF NOT ((current_setting('request.jwt.claims', true)::json ->> 'email')
-            = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com'])) THEN
+    IF NOT public.is_jwt_admin() THEN
       NEW.role := OLD.role;  -- silently revert role change for non-admins
     END IF;
   END IF;
@@ -270,8 +286,8 @@ CREATE POLICY "customers_client_member" ON customers
 -- Admin can read/write all customers
 CREATE POLICY "customers_admin" ON customers
   FOR ALL
-  USING      ((auth.jwt() ->> 'email') = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']))
-  WITH CHECK ((auth.jwt() ->> 'email') = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']));
+  USING      (public.is_jwt_admin())
+  WITH CHECK (public.is_jwt_admin());
 
 
 -- ─────────────────────────────────────────────────────────────────
@@ -294,7 +310,7 @@ CREATE POLICY "settings_client_access" ON settings
   FOR ALL
   USING (
     client_id IN (SELECT client_id FROM user_profiles WHERE user_id = auth.uid())
-    OR auth.jwt() ->> 'email' = ANY(ARRAY['ian@iqcadence.com'])
+    OR public.is_jwt_admin()
   );
 
 
@@ -332,8 +348,8 @@ CREATE POLICY "audit_logs_owner" ON audit_logs
 -- Admin can see all audit logs
 CREATE POLICY "audit_logs_admin" ON audit_logs
   FOR ALL
-  USING      ((auth.jwt() ->> 'email') = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']))
-  WITH CHECK ((auth.jwt() ->> 'email') = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']));
+  USING      (public.is_jwt_admin())
+  WITH CHECK (public.is_jwt_admin());
 
 
 -- ─────────────────────────────────────────────────────────────────
@@ -390,8 +406,8 @@ CREATE POLICY "webhook_events_owner" ON webhook_events
 
 CREATE POLICY "webhook_events_admin" ON webhook_events
   FOR ALL
-  USING      ((auth.jwt() ->> 'email') = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']))
-  WITH CHECK ((auth.jwt() ->> 'email') = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']));
+  USING      (public.is_jwt_admin())
+  WITH CHECK (public.is_jwt_admin());
 
 
 -- ─────────────────────────────────────────────────────────────────
@@ -494,8 +510,8 @@ CREATE POLICY "integrations_client_member" ON integrations
 
 CREATE POLICY "integrations_admin" ON integrations
   FOR ALL
-  USING      ((auth.jwt() ->> 'email') = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']))
-  WITH CHECK ((auth.jwt() ->> 'email') = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']));
+  USING      (public.is_jwt_admin())
+  WITH CHECK (public.is_jwt_admin());
 
 
 -- ─────────────────────────────────────────────────────────────────
@@ -575,8 +591,7 @@ DECLARE
   v_is_admin BOOLEAN;
 BEGIN
   -- Skip for admins
-  v_is_admin := (current_setting('request.jwt.claims', true)::json ->> 'email')
-    = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']);
+  v_is_admin := public.is_jwt_admin();
   IF v_is_admin THEN RETURN NEW; END IF;
 
   -- Skip if no client_id (legacy data)
@@ -627,8 +642,7 @@ DECLARE
   v_is_admin BOOLEAN;
 BEGIN
   -- Skip for admins
-  v_is_admin := (current_setting('request.jwt.claims', true)::json ->> 'email')
-    = ANY(ARRAY['signalliftconsulting@gmail.com', 'ian@iqcadence.com']);
+  v_is_admin := public.is_jwt_admin();
   IF v_is_admin THEN RETURN NEW; END IF;
 
   -- Skip if no client_id

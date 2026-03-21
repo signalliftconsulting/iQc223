@@ -1,3 +1,5 @@
+# NOTE: script-src 'unsafe-inline' is required for onclick handlers.
+# Future: migrate to addEventListener to remove unsafe-inline.
 /*
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff

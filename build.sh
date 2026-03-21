@@ -55,4 +55,12 @@ for f in "${FILES[@]}"; do
   echo "" >> "$OUT"
 done
 
-echo "Built $OUT ($(wc -l < "$OUT") lines)"
+echo "Built $OUT ($(wc -l < "$OUT") lines, $(wc -c < "$OUT") bytes)"
+
+# Minify if esbuild is available
+if command -v esbuild &> /dev/null; then
+  esbuild "$OUT" --minify --outfile="${OUT%.js}.min.js" --allow-overwrite
+  echo "Minified ${OUT%.js}.min.js ($(wc -c < "${OUT%.js}.min.js") bytes)"
+else
+  echo "NOTICE: esbuild not found — skipping minification. Install with: npm i -g esbuild"
+fi

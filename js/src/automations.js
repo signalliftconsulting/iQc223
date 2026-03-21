@@ -1937,7 +1937,7 @@ function buildMetricTogglesHTML(platform, integration) {
       <span class="mt-label">${escHtml(m.label)} ${ownerNote}</span>
       <label class="mt-switch">
         <input type="checkbox" ${enabled && !ownedByOther ? 'checked' : ''} ${disabled}
-          onchange="updateMetricToggle('${platform}','${m.key}',this.checked)" />
+          onchange="updateMetricToggle('${escHtml(platform)}','${escHtml(m.key)}',this.checked)" />
         <span class="mt-slider"></span>
       </label>
     </div>`;
@@ -2531,7 +2531,7 @@ function showSyncResultsModal(platform, result) {
       </div>
       <div class="modal-ft">
         <button class="btn btn-ghost btn-sm" onclick="document.getElementById('sync-results-modal').classList.remove('open')">Close</button>
-        <button class="btn btn-sm" onclick="exportSyncResultsCsv('${platform}')">Export CSV</button>
+        <button class="btn btn-sm" onclick="exportSyncResultsCsv('${escHtml(platform)}')">Export CSV</button>
       </div>
     </div>`;
 
@@ -3054,7 +3054,7 @@ function buildHistoryPullHTML(platform) {
           <option value="6mo">6 months</option>
           <option value="1yr">1 year</option>
         </select>
-        <button class="btn btn-sm" id="${id}-btn" onclick="pullHistoryUI('${platform}')">
+        <button class="btn btn-sm" id="${id}-btn" onclick="pullHistoryUI('${escHtml(platform)}')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Pull History
         </button>
       </div>
@@ -3251,7 +3251,7 @@ function renderWebhookConfig() {
           </div>
           <label class="toggle-switch">
             <input type="checkbox" ${cfg.enabled ? 'checked' : ''}
-              onchange="toggleWebhook('${t.key}', this.checked)"/>
+              onchange="toggleWebhook('${escHtml(t.key)}', this.checked)"/>
             <span class="toggle-slider"></span>
           </label>
         </div>
@@ -3259,7 +3259,7 @@ function renderWebhookConfig() {
           <label style="font-size:var(--fs-base);font-weight:600;margin-bottom:4px;display:block">Webhook URL</label>
           <input type="url" id="wh-url-${t.key}" placeholder="https://hooks.zapier.com/hooks/catch/..."
             value="${escHtml(cfg.url || '')}"
-            onchange="updateWebhookUrl('${t.key}', this.value)"
+            onchange="updateWebhookUrl('${escHtml(t.key)}', this.value)"
             style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)"/>
         </div>
         ${t.hasThreshold ? `
@@ -3267,13 +3267,13 @@ function renderWebhookConfig() {
             <label style="font-size:var(--fs-base);font-weight:600;white-space:nowrap">Score Threshold</label>
             <input type="number" id="wh-th-${t.key}" min="1" max="99"
               value="${cfg.threshold || t.defaultThreshold}"
-              onchange="updateWebhookThreshold('${t.key}', +this.value)"
+              onchange="updateWebhookThreshold('${escHtml(t.key)}', +this.value)"
               style="width:80px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)"/>
             <span style="font-size:var(--fs-sm);color:var(--muted)">Fire when score drops below this value</span>
           </div>
         ` : ''}
         <div style="display:flex;gap:8px;align-items:center;margin-top:12px">
-          <button class="btn btn-sm btn-outline" onclick="testWebhook('${t.key}')"
+          <button class="btn btn-sm btn-outline" onclick="testWebhook('${escHtml(t.key)}')"
             ${!cfg.url ? 'disabled title="Enter a webhook URL first"' : ''}>
             ${appIcon('bolt',14)} Test Webhook
           </button>

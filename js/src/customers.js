@@ -297,13 +297,13 @@ function renderTableHeaders() {
     const hasSort      = !!col.sortKey;
     const hasFilter    = !!col.ftype;
     const labelEl = hasSort
-      ? `<button class="col-sort-label" onclick="sortBy('${col.sortKey}')">${col.label}</button>`
+      ? `<button class="col-sort-label" onclick="sortBy('${escHtml(col.sortKey)}')">${col.label}</button>`
       : `<span class="col-sort-label no-sort">${col.label}</span>`;
     const arrowEl = hasSort
       ? `<span class="col-sort-arrow${isActiveSort ? '' : ' idle'}">${sortDir === -1 ? '▼' : '▲'}</span>`
       : '';
     const filterEl = hasFilter
-      ? `<button class="col-filter-btn${filterActive ? ' active' : ''}" onclick="event.stopPropagation();openColFilter('${col.key}',this)" title="Filter ${col.label}">${funnelSVG}</button>`
+      ? `<button class="col-filter-btn${filterActive ? ' active' : ''}" onclick="event.stopPropagation();openColFilter('${escHtml(col.key)}',this)" title="Filter ${col.label}">${funnelSVG}</button>`
       : '';
     th.innerHTML = `<div class="col-th-inner">${labelEl}${arrowEl}${filterEl}</div>`;
     tr.appendChild(th);
@@ -342,7 +342,7 @@ function renderFilterPills() {
     else if (f.type === 'up')      { summary = 'Improving this week'; }
     else if (f.type === 'down')    { summary = 'Declining this week'; }
 
-    return `<span class="filter-pill" onclick="openColFilterFromPill('${key}',this)">${label}: ${summary}<button class="filter-pill-x" onclick="event.stopPropagation();clearColFilter('${key}')" title="Remove filter">✕</button></span>`;
+    return `<span class="filter-pill" onclick="openColFilterFromPill('${escHtml(key)}',this)">${label}: ${summary}<button class="filter-pill-x" onclick="event.stopPropagation();clearColFilter('${escHtml(key)}')" title="Remove filter">✕</button></span>`;
   }).join('');
 
   // MRR Exposure pill
@@ -478,7 +478,7 @@ function buildColFilterMenu(col) {
   return `
     <div class="col-filter-hd">
       <span class="col-filter-title">Filter: ${col.label}</span>
-      <button class="col-filter-clear" onclick="clearColFilter('${col.key}')">Clear</button>
+      <button class="col-filter-clear" onclick="clearColFilter('${escHtml(col.key)}')">Clear</button>
     </div>
     <div class="col-filter-body">${body}</div>`;
 }

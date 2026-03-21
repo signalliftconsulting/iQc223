@@ -761,8 +761,8 @@ function _renderHomeBase() {
     const _toneColors = { red: { bg:'rgba(239,68,68,.07)', border:'var(--red)' }, amber: { bg:'rgba(245,158,11,.07)', border:'var(--amber)' }, green: { bg:'rgba(22,163,74,.07)', border:'var(--green)' } };
     _actionItems.slice(0, 3).forEach(a => {
       const tc = _toneColors[a.tone] || _toneColors.amber;
-      html += `<div class="hb-brief-card" onclick="${a.action.replace(/"/g,'&quot;')}" style="padding:8px 10px;margin-bottom:2px;background:${tc.bg};border-left:3px solid ${tc.border}">
-        <div class="hb-brief-text" style="font-size:var(--fs-sm)">${a.text}</div>
+      html += `<div class="hb-brief-card" onclick="${escHtml(a.action)}" style="padding:8px 10px;margin-bottom:2px;background:${tc.bg};border-left:3px solid ${tc.border}">
+        <div class="hb-brief-text" style="font-size:var(--fs-sm)">${escHtml(a.text)}</div>
         <svg class="hb-brief-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </div>`;
     });
@@ -816,7 +816,7 @@ function _renderHomeBase() {
   </div>`;
 
   // Card 2: Revenue at Risk
-  const _arIds = JSON.stringify(atRisk.map(c => c.id)).replace(/"/g,'&quot;');
+  const _arIds = escHtml(JSON.stringify(atRisk.map(c => c.id)));
   html += `<div class="dash-kpi-card dash-kpi-red" onclick="setInsightFilter('${atRisk.length} at-risk accounts (Critical + Risk)',${_arIds})">
     <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.alert)}<span class="dash-kpi-label">Revenue at Risk <span class="info-tip tip-below" data-tip="Monthly recurring revenue in Critical and Risk accounts. Click to view at-risk accounts.">\u24d8</span></span></div>
     <div class="dash-kpi-body">
@@ -827,7 +827,7 @@ function _renderHomeBase() {
   </div>`;
 
   // Card 3: Upcoming Renewals
-  const _r30Ids = JSON.stringify(renewals30.map(c => c.id)).replace(/"/g,'&quot;');
+  const _r30Ids = escHtml(JSON.stringify(renewals30.map(c => c.id)));
   html += `<div class="dash-kpi-card dash-kpi-teal" onclick="setInsightFilter('${renewals30.length} upcoming renewals (30 days)',${_r30Ids})">
     <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.cal)}<span class="dash-kpi-label">Upcoming Renewals <span class="info-tip tip-below" data-tip="Customer contracts renewing within the next 30 days. Click to view upcoming renewals.">\u24d8</span></span></div>
     <div class="dash-kpi-body">
@@ -1589,7 +1589,7 @@ function _renderInsightCard(ins) {
         <span class="hb-insight-title">${escHtml(ins.title)}</span>
       </div>
       <div class="hb-insight-detail">${escHtml(ins.detail)}</div>
-      ${ins.action ? `<button class="hb-insight-action" onclick="${ins.action.fn.replace(/"/g,'&quot;')}">${ins.action.label} →</button>` : ''}
+      ${ins.action ? `<button class="hb-insight-action" onclick="${escHtml(ins.action.fn)}">${escHtml(ins.action.label)} →</button>` : ''}
     </div>
   </div>`;
 }
@@ -1842,8 +1842,8 @@ function renderRenewalPipeline(active) {
       const riskBadge = r.atRisk ? `<span style="color:${r.color};font-size:var(--fs-xs);font-weight:700">${appIcon('warning',11)} ${r.atRisk} at risk</span>` : '';
       const countText = r.count ? `${r.count} acct${r.count!==1?'s':''}` : `<span style="color:var(--subtle)"> -</span>`;
       const clickable = r.count > 0;
-      const _rIds = JSON.stringify(r.ids).replace(/"/g,'&quot;');
-      return `<div style="border-left:3px solid ${r.color};background:${r.bg};border-radius:6px;padding:9px 12px;${clickable?'cursor:pointer;transition:transform .15s,box-shadow .15s':''}" ${clickable?`onclick="filterRenewalBucket('Renewal ${r.label}',${_rIds})" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,.1)'" onmouseout="this.style.transform='';this.style.boxShadow=''"`:''}>
+      const _rIds = escHtml(JSON.stringify(r.ids));
+      return `<div style="border-left:3px solid ${r.color};background:${r.bg};border-radius:6px;padding:9px 12px;${clickable?'cursor:pointer;transition:transform .15s,box-shadow .15s':''}" ${clickable?`onclick="filterRenewalBucket('Renewal ${escHtml(r.label)}',${_rIds})" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,.1)'" onmouseout="this.style.transform='';this.style.boxShadow=''"`:''}>
         <div style="font-size:var(--fs-xs);font-weight:700;color:${r.color};text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${r.label}</div>
         <div style="font-size:1.05rem;font-weight:800;color:#1e293b;margin-bottom:2px">${r.mrr ? '$'+fmtNum(r.mrr) : ' -'}</div>
         <div style="font-size:var(--fs-sm);color:var(--muted);display:flex;gap:5px;align-items:center;flex-wrap:wrap">${countText}${r.atRisk?' · ':''}${riskBadge}</div>

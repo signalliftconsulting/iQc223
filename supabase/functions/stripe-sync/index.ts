@@ -104,9 +104,20 @@ async function fetchAllSubscriptions(stripeKey: string): Promise<any[]> {
     url += '&expand[]=data.customer&expand[]=data.items.data.price';
     if (startingAfter) url += `&starting_after=${startingAfter}`;
 
-    const resp = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${stripeKey}` }
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    let resp;
+    try {
+      resp = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${stripeKey}` },
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+    } catch(e) {
+      clearTimeout(timeout);
+      if (e.name === 'AbortError') throw new Error('Stripe API timeout after 15s');
+      throw e;
+    }
     if (!resp.ok) {
       const body = await resp.json().catch(() => ({}));
       throw new Error(`Stripe API error: ${body?.error?.message || resp.status}`);
@@ -129,9 +140,20 @@ async function fetchAllProducts(stripeKey: string): Promise<Map<string, any>> {
     let url = 'https://api.stripe.com/v1/products?limit=100&active=true';
     if (startingAfter) url += `&starting_after=${startingAfter}`;
 
-    const resp = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${stripeKey}` }
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    let resp;
+    try {
+      resp = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${stripeKey}` },
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+    } catch(e) {
+      clearTimeout(timeout);
+      if (e.name === 'AbortError') break; // Non-critical — tier detection falls back
+      throw e;
+    }
     if (!resp.ok) break; // Non-critical — tier detection falls back to nickname
     const data = await resp.json();
     for (const p of (data.data || [])) map.set(p.id, p);

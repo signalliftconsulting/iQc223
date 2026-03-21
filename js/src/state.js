@@ -98,6 +98,9 @@ let insightFilter     = null;   // { label: string, ids: Set<string> } - set by 
 // ─── AI INTEGRATION STATE ────────────────────────────────────
 let _aiIntegrationConnected = false; // set true when Anthropic integration is connected
 
+// ─── SETTINGS OPTIMISTIC LOCK ───────────────────────────────
+let _settingsUpdatedAt = null;
+
 // ─── AUTOMATIONS STATE ──────────────────────────────────────
 let automationsCfg    = {};        // { api_key_prefix, webhooks: { type: { url, enabled, threshold? } } }
 let webhookEvents     = [];        // loaded from webhook_events table

@@ -26,20 +26,29 @@ function saveSettings() {
   localStorage.setItem('iqc_quiet_days', String(quietDays));
   localStorage.setItem('iqc_momentum_pts', String(momentumPts));
   localStorage.setItem('iqc_signal_model', JSON.stringify(signalModelCfg));
-  // Sync to Supabase (fire and forget) - keyed by client_id
+  // Sync to Supabase - keyed by client_id, with optimistic locking
   const cid = getEffectiveClientId();
   if (currentUser && cid) {
-    sb.from('settings').upsert({
-      client_id:  cid,
-      user_id:    currentUser.id,
-      weights:    JSON.stringify(weights),
-      thresholds: JSON.stringify(thresholds),
-      profiles:     JSON.stringify(profiles),
-      signal_model: JSON.stringify(signalModelCfg),
-      updated_at:   new Date().toISOString()
-    }, { onConflict: 'client_id' }).then(({error}) => {
-      if (error) console.warn('Settings sync failed:', error.message);
-    });
+    const newTs = new Date().toISOString();
+    const payload = {
+      client_id: cid, user_id: currentUser.id,
+      weights: JSON.stringify(weights), thresholds: JSON.stringify(thresholds),
+      profiles: JSON.stringify(profiles), signal_model: JSON.stringify(signalModelCfg),
+      updated_at: newTs
+    };
+    if (_settingsUpdatedAt) {
+      sb.from('settings').update(payload).eq('client_id', cid).eq('updated_at', _settingsUpdatedAt)
+        .then(({error, count}) => {
+          if (error) { console.warn('Settings sync failed:', error.message); toast('Settings sync failed — saved locally only', 'error'); return; }
+          if (count === 0) { toast('Settings changed by another session — reloading', 'error'); loadSettingsFromSupabase(); return; }
+          _settingsUpdatedAt = newTs;
+        });
+    } else {
+      sb.from('settings').upsert(payload, { onConflict: 'client_id' }).then(({error}) => {
+        if (error) { console.warn('Settings sync failed:', error.message); toast('Settings sync failed — saved locally only', 'error'); return; }
+        _settingsUpdatedAt = newTs;
+      });
+    }
   }
 }
 
@@ -146,12 +155,15 @@ async function loadSettingsFromSupabase() {
   if (!cid) return; // no client assigned yet - use defaults
   const { data: settingsRows, error } = await sb.from('settings').select('*').eq('client_id', cid).limit(1);
   const data = settingsRows && settingsRows.length ? settingsRows[0] : null;
-  if (error || !data) return; // no settings row yet - use defaults
-  try { if (data.weights)    weights    = { ...DEFAULT_WEIGHTS,    ...JSON.parse(data.weights) }; }    catch(e){}
-  try { if (data.thresholds) thresholds = { ...DEFAULT_THRESHOLDS, ...JSON.parse(data.thresholds) }; } catch(e){}
-  try { if (data.profiles)   profiles   = JSON.parse(data.profiles); }  catch(e){}
-  try { if (data.automations) { automationsCfg = JSON.parse(data.automations); migrateAutomationsCfg(); } } catch(e){}
-  try { if (data.signal_model) signalModelCfg = { ...DEFAULT_SIGNAL_MODEL, ...JSON.parse(data.signal_model) }; } catch(e){}
+  if (error) { toast('Could not load settings from server', 'error'); return; }
+  if (!data) return; // no settings row yet - use defaults
+  _settingsUpdatedAt = data.updated_at || null;
+  var _parseErr = false;
+  try { if (data.weights)    weights    = { ...DEFAULT_WEIGHTS,    ...JSON.parse(data.weights) }; }    catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
+  try { if (data.thresholds) thresholds = { ...DEFAULT_THRESHOLDS, ...JSON.parse(data.thresholds) }; } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
+  try { if (data.profiles)   profiles   = JSON.parse(data.profiles); }  catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
+  try { if (data.automations) { automationsCfg = JSON.parse(data.automations); migrateAutomationsCfg(); } } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
+  try { if (data.signal_model) signalModelCfg = { ...DEFAULT_SIGNAL_MODEL, ...JSON.parse(data.signal_model) }; } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
   ensureGlobalWeightsProfile(true); // persist=true → writes clean version back if duplicates found
   // Also update localStorage cache
   localStorage.setItem('iqc_weights',    JSON.stringify(weights));
@@ -283,8 +295,8 @@ function toRow(c) {
     renewal:      c.renewal      || 0,
     growth:    c.growth     || 'none',
     tags:      (c.tags      || []).join(','),
-    notes:     JSON.stringify(c.notes     || []),
-    history:   JSON.stringify(c.history   || []),
+    notes:     JSON.stringify((c.notes || []).slice(-200)),
+    history:   JSON.stringify((c.history || []).slice(-100)),
     sentiment: JSON.stringify(c.sentiment || []),
     manager:         c.manager         || '',
     scoring_profile: c.scoring_profile || '',

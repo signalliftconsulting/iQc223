@@ -1,3 +1,20 @@
+// ─── CACHE PRUNING ───────────────────────────────────────────
+function _pruneAiLocalStorage() {
+  try {
+    for (var i = localStorage.length - 1; i >= 0; i--) {
+      var k = localStorage.key(i);
+      if (k && k.startsWith('iqc_ai_')) {
+        try {
+          var parsed = JSON.parse(localStorage.getItem(k));
+          if (!parsed || !parsed.ts || (Date.now() - parsed.ts) > AI_PERSIST_TTL) {
+            localStorage.removeItem(k);
+          }
+        } catch(e) { localStorage.removeItem(k); }
+      }
+    }
+  } catch(e) {}
+}
+
 // ─── WELCOME MODAL (first-time users) ────────────────────────
 function showWelcome() {
   const m = document.getElementById('welcome-modal');
@@ -177,6 +194,7 @@ function _checkUserSwitch(userId) {
     if (!hasCached) setLoading(true);
     try {
       await loadSettingsFromSupabase();
+      _pruneAiLocalStorage();
       await loadCustomersFromSupabase();
       await resolveClientPlanTier();
       _loadAIUsage();

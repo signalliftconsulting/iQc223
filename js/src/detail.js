@@ -28,6 +28,13 @@ function _aiCacheGet(key) {
 }
 function _aiCacheSet(key, data) {
   var entry = { data: data, ts: Date.now() };
+  // LRU eviction: cap at 50 entries
+  var keys = Object.keys(_aiCache);
+  if (keys.length >= 50) {
+    var oldest = keys.reduce(function(a, b) { return _aiCache[a].ts < _aiCache[b].ts ? a : b; });
+    delete _aiCache[oldest];
+    try { localStorage.removeItem('iqc_ai_' + oldest); } catch(e) {}
+  }
   _aiCache[key] = entry;
   try { localStorage.setItem('iqc_ai_' + key, JSON.stringify(entry)); } catch(e) {}
 }

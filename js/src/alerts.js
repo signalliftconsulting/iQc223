@@ -641,10 +641,10 @@ function _renderAlerts() {
       const filterActive = col.ftype && (col.key in _alertTblFilters);
       const arrow = `<span class="col-sort-arrow${isActiveSort ? '' : ' idle'}">${sd === 1 ? '\u25B2' : '\u25BC'}</span>`;
       const filterBtn = col.ftype
-        ? `<button class="col-filter-btn${filterActive ? ' active' : ''}" onclick="event.stopPropagation();openATFilter('${col.key}',this)" title="Filter ${col.label}">${_funnelSVG}</button>`
+        ? `<button class="col-filter-btn${filterActive ? ' active' : ''}" onclick="event.stopPropagation();openATFilter('${escHtml(col.key)}',this)" title="Filter ${col.label}">${_funnelSVG}</button>`
         : '';
       const pinCls = col.key === 'name' ? ' class="col-pin"' : '';
-      return `<th${pinCls}><div class="col-th-inner"><button class="col-sort-label" onclick="_alertTblSortBy('${col.key}')">${col.label}</button>${arrow}${filterBtn}</div></th>`;
+      return `<th${pinCls}><div class="col-th-inner"><button class="col-sort-label" onclick="_alertTblSortBy('${escHtml(col.key)}')">${col.label}</button>${arrow}${filterBtn}</div></th>`;
     }).join('');
 
     if (tblList.length) {
@@ -792,7 +792,7 @@ function renderAlertPanel(all, active, snz) {
   const kpiRow = el('alert-kpi-row');
   if (kpiRow) {
     const _kpi = (onclick, hdBg, title, badge, label, val, valStyle, change, changeClass, tip) =>
-      `<div class="aw-card" onclick="${onclick}">
+      `<div class="aw-card" onclick="${escHtml(onclick)}">
         <div class="aw-hd" style="background:${hdBg}"><span class="aw-hd-title">${title}${tip ? ' <span class="info-tip tip-below" data-tip="' + tip + '">\u24d8</span>' : ''}</span><span class="aw-hd-badge">${badge}</span></div>
         <div class="aw-body">
           <div class="aw-kpi-label">${label}</div>
@@ -840,7 +840,7 @@ function renderAlertPanel(all, active, snz) {
     if (mrrTotalEl) mrrTotalEl.textContent = mrrStr;
     const mrrRows = rows.map(([label, {color, mrr}]) => {
       const pct = Math.round((mrr / maxMrr) * 100);
-      return `<div class="aw-prog" onclick="filterByMrrBucket('${label}')">
+      return `<div class="aw-prog" onclick="filterByMrrBucket('${escHtml(label)}')">
         <div class="aw-prog-hdr"><span class="aw-prog-name"><span class="dot" style="background:${color}"></span>${label}</span><span class="aw-prog-val" style="color:${color}">$${fmtNum(mrr)}</span></div>
         <div class="aw-prog-track"><div class="aw-prog-fill" style="width:${pct}%;background:${color}"></div></div>
       </div>`;
@@ -888,7 +888,7 @@ function renderAlertPanel(all, active, snz) {
     const insights = [];
     const _iSvg = (d) => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
     // Helper: clickable customer name link (opens detail, stops card click)
-    const _nameLink = (c) => `<strong class="ta-name-link" onclick="event.stopPropagation();openDetail('${c.id}')">${escHtml(c.name)}</strong>`;
+    const _nameLink = (c) => `<strong class="ta-name-link" onclick="event.stopPropagation();openDetail('${escHtml(c.id)}')">${escHtml(c.name)}</strong>`;
 
     // Helper: build unique affected-customer list from alert array
     const uniqueCusts = (alerts) => {
@@ -1144,7 +1144,7 @@ function _buildATFilterMenu(col) {
   }
   return `<div class="col-filter-hd">
     <span class="col-filter-title">Filter: ${col.label}</span>
-    <button class="col-filter-clear" onclick="clearATFilter('${col.key}')">Clear</button>
+    <button class="col-filter-clear" onclick="clearATFilter('${escHtml(col.key)}')">Clear</button>
   </div>
   <div class="col-filter-body">${body}</div>`;
 }

@@ -30,14 +30,24 @@ function getCorsHeaders(req: Request) {
 const HS_BASE = 'https://api.hubapi.com';
 
 async function hsGet(token: string, path: string): Promise<any> {
-  const resp = await fetch(`${HS_BASE}${path}`, {
-    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
-  });
-  if (!resp.ok) {
-    const body = await resp.json().catch(() => ({}));
-    throw new Error(`HubSpot API ${resp.status}: ${body?.message || resp.statusText}`);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const resp = await fetch(`${HS_BASE}${path}`, {
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}));
+      throw new Error(`HubSpot API ${resp.status}: ${body?.message || resp.statusText}`);
+    }
+    return resp.json();
+  } catch(e) {
+    clearTimeout(timeout);
+    if (e.name === 'AbortError') throw new Error(`HubSpot API timeout after 15s: ${path}`);
+    throw e;
   }
-  return resp.json();
 }
 
 // Paginate through a HubSpot CRM search/list endpoint
@@ -228,16 +238,27 @@ async function refreshOAuthToken(serviceClient: any, integration: any, tokenData
     throw new Error('Cannot refresh token — missing client credentials or refresh token');
   }
 
-  const resp = await fetch('https://api.hubapi.com/oauth/v1/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'refresh_token',
-      client_id: clientId,
-      client_secret: clientSecret,
-      refresh_token: tokenData.refresh_token,
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  let resp;
+  try {
+    resp = await fetch('https://api.hubapi.com/oauth/v1/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: tokenData.refresh_token,
+      }),
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+  } catch(e) {
+    clearTimeout(timeout);
+    if (e.name === 'AbortError') throw new Error('HubSpot token refresh timeout after 15s');
+    throw e;
+  }
 
   if (!resp.ok) {
     const err = await resp.text();

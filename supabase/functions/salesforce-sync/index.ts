@@ -37,12 +37,23 @@ async function sfQuery(token: string, instanceUrl: string, soql: string): Promis
   let url = `${instanceUrl}/services/data/v59.0/query?q=${encodeURIComponent(soql)}`;
 
   while (url) {
-    const resp = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    let resp;
+    try {
+      resp = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+    } catch(e) {
+      clearTimeout(timeout);
+      if (e.name === 'AbortError') throw new Error('Salesforce API timeout after 15s');
+      throw e;
+    }
 
     if (resp.status === 401) {
       throw new Error('TOKEN_EXPIRED');
@@ -86,16 +97,27 @@ async function refreshSalesforceToken(
 
   // Use the stored instance_url so token refresh works for any Salesforce org
   const baseUrl = tokenData.instance_url || 'https://login.salesforce.com';
-  const resp = await fetch(`${baseUrl}/services/oauth2/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'refresh_token',
-      client_id: clientId,
-      client_secret: clientSecret,
-      refresh_token: tokenData.refresh_token,
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  let resp;
+  try {
+    resp = await fetch(`${baseUrl}/services/oauth2/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: tokenData.refresh_token,
+      }),
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+  } catch(e) {
+    clearTimeout(timeout);
+    if (e.name === 'AbortError') throw new Error('Salesforce token refresh timeout after 15s');
+    throw e;
+  }
 
   if (!resp.ok) {
     const err = await resp.text();

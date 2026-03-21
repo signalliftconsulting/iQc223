@@ -102,7 +102,10 @@ let _filterManager    = null;   // CSM name filter for customers table (set by w
 let insightFilter     = null;   // { label: string, ids: Set<string> } - set by insight card click-through
 
 // ─── AI INTEGRATION STATE ────────────────────────────────────
-let _aiIntegrationConnected = false; // set true when OpenAI (or Anthropic) integration is connected
+let _aiIntegrationConnected = false; // set true when Anthropic integration is connected
+
+// ─── SETTINGS OPTIMISTIC LOCK ───────────────────────────────
+let _settingsUpdatedAt = null;
 
 // ─── AUTOMATIONS STATE ──────────────────────────────────────
 let automationsCfg    = {};        // { api_key_prefix, webhooks: { type: { url, enabled, threshold? } } }
@@ -1967,20 +1970,29 @@ function saveSettings() {
   localStorage.setItem('iqc_quiet_days', String(quietDays));
   localStorage.setItem('iqc_momentum_pts', String(momentumPts));
   localStorage.setItem('iqc_signal_model', JSON.stringify(signalModelCfg));
-  // Sync to Supabase (fire and forget) - keyed by client_id
+  // Sync to Supabase - keyed by client_id, with optimistic locking
   const cid = getEffectiveClientId();
   if (currentUser && cid) {
-    sb.from('settings').upsert({
-      client_id:  cid,
-      user_id:    currentUser.id,
-      weights:    JSON.stringify(weights),
-      thresholds: JSON.stringify(thresholds),
-      profiles:     JSON.stringify(profiles),
-      signal_model: JSON.stringify(signalModelCfg),
-      updated_at:   new Date().toISOString()
-    }, { onConflict: 'client_id' }).then(({error}) => {
-      if (error) console.warn('Settings sync failed:', error.message);
-    });
+    const newTs = new Date().toISOString();
+    const payload = {
+      client_id: cid, user_id: currentUser.id,
+      weights: JSON.stringify(weights), thresholds: JSON.stringify(thresholds),
+      profiles: JSON.stringify(profiles), signal_model: JSON.stringify(signalModelCfg),
+      updated_at: newTs
+    };
+    if (_settingsUpdatedAt) {
+      sb.from('settings').update(payload).eq('client_id', cid).eq('updated_at', _settingsUpdatedAt)
+        .then(({error, count}) => {
+          if (error) { console.warn('Settings sync failed:', error.message); toast('Settings sync failed — saved locally only', 'error'); return; }
+          if (count === 0) { toast('Settings changed by another session — reloading', 'error'); loadSettingsFromSupabase(); return; }
+          _settingsUpdatedAt = newTs;
+        });
+    } else {
+      sb.from('settings').upsert(payload, { onConflict: 'client_id' }).then(({error}) => {
+        if (error) { console.warn('Settings sync failed:', error.message); toast('Settings sync failed — saved locally only', 'error'); return; }
+        _settingsUpdatedAt = newTs;
+      });
+    }
   }
 }
 
@@ -2087,12 +2099,15 @@ async function loadSettingsFromSupabase() {
   if (!cid) return; // no client assigned yet - use defaults
   const { data: settingsRows, error } = await sb.from('settings').select('*').eq('client_id', cid).limit(1);
   const data = settingsRows && settingsRows.length ? settingsRows[0] : null;
-  if (error || !data) return; // no settings row yet - use defaults
-  try { if (data.weights)    weights    = { ...DEFAULT_WEIGHTS,    ...JSON.parse(data.weights) }; }    catch(e){}
-  try { if (data.thresholds) thresholds = { ...DEFAULT_THRESHOLDS, ...JSON.parse(data.thresholds) }; } catch(e){}
-  try { if (data.profiles)   profiles   = JSON.parse(data.profiles); }  catch(e){}
-  try { if (data.automations) { automationsCfg = JSON.parse(data.automations); migrateAutomationsCfg(); } } catch(e){}
-  try { if (data.signal_model) signalModelCfg = { ...DEFAULT_SIGNAL_MODEL, ...JSON.parse(data.signal_model) }; } catch(e){}
+  if (error) { toast('Could not load settings from server', 'error'); return; }
+  if (!data) return; // no settings row yet - use defaults
+  _settingsUpdatedAt = data.updated_at || null;
+  var _parseErr = false;
+  try { if (data.weights)    weights    = { ...DEFAULT_WEIGHTS,    ...JSON.parse(data.weights) }; }    catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
+  try { if (data.thresholds) thresholds = { ...DEFAULT_THRESHOLDS, ...JSON.parse(data.thresholds) }; } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
+  try { if (data.profiles)   profiles   = JSON.parse(data.profiles); }  catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
+  try { if (data.automations) { automationsCfg = JSON.parse(data.automations); migrateAutomationsCfg(); } } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
+  try { if (data.signal_model) signalModelCfg = { ...DEFAULT_SIGNAL_MODEL, ...JSON.parse(data.signal_model) }; } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
   ensureGlobalWeightsProfile(true); // persist=true → writes clean version back if duplicates found
   // Also update localStorage cache
   localStorage.setItem('iqc_weights',    JSON.stringify(weights));
@@ -2224,8 +2239,8 @@ function toRow(c) {
     renewal:      c.renewal      || 0,
     growth:    c.growth     || 'none',
     tags:      (c.tags      || []).join(','),
-    notes:     JSON.stringify(c.notes     || []),
-    history:   JSON.stringify(c.history   || []),
+    notes:     JSON.stringify((c.notes || []).slice(-200)),
+    history:   JSON.stringify((c.history || []).slice(-100)),
     sentiment: JSON.stringify(c.sentiment || []),
     manager:         c.manager         || '',
     scoring_profile: c.scoring_profile || '',
@@ -6402,8 +6417,8 @@ function _renderHomeBase() {
     const _toneColors = { red: { bg:'rgba(239,68,68,.07)', border:'var(--red)' }, amber: { bg:'rgba(245,158,11,.07)', border:'var(--amber)' }, green: { bg:'rgba(22,163,74,.07)', border:'var(--green)' } };
     _actionItems.slice(0, 3).forEach(a => {
       const tc = _toneColors[a.tone] || _toneColors.amber;
-      html += `<div class="hb-brief-card" onclick="${a.action.replace(/"/g,'&quot;')}" style="padding:8px 10px;margin-bottom:2px;background:${tc.bg};border-left:3px solid ${tc.border}">
-        <div class="hb-brief-text" style="font-size:var(--fs-sm)">${a.text}</div>
+      html += `<div class="hb-brief-card" onclick="${escHtml(a.action)}" style="padding:8px 10px;margin-bottom:2px;background:${tc.bg};border-left:3px solid ${tc.border}">
+        <div class="hb-brief-text" style="font-size:var(--fs-sm)">${escHtml(a.text)}</div>
         <svg class="hb-brief-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </div>`;
     });
@@ -6457,7 +6472,7 @@ function _renderHomeBase() {
   </div>`;
 
   // Card 2: Revenue at Risk
-  const _arIds = JSON.stringify(atRisk.map(c => c.id)).replace(/"/g,'&quot;');
+  const _arIds = escHtml(JSON.stringify(atRisk.map(c => c.id)));
   html += `<div class="dash-kpi-card dash-kpi-red" onclick="setInsightFilter('${atRisk.length} at-risk accounts (Critical + Risk)',${_arIds})">
     <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.alert)}<span class="dash-kpi-label">Revenue at Risk <span class="info-tip tip-below" data-tip="Monthly recurring revenue in Critical and Risk accounts. Click to view at-risk accounts.">\u24d8</span></span></div>
     <div class="dash-kpi-body">
@@ -6468,7 +6483,7 @@ function _renderHomeBase() {
   </div>`;
 
   // Card 3: Upcoming Renewals
-  const _r30Ids = JSON.stringify(renewals30.map(c => c.id)).replace(/"/g,'&quot;');
+  const _r30Ids = escHtml(JSON.stringify(renewals30.map(c => c.id)));
   html += `<div class="dash-kpi-card dash-kpi-teal" onclick="setInsightFilter('${renewals30.length} upcoming renewals (30 days)',${_r30Ids})">
     <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.cal)}<span class="dash-kpi-label">Upcoming Renewals <span class="info-tip tip-below" data-tip="Customer contracts renewing within the next 30 days. Click to view upcoming renewals.">\u24d8</span></span></div>
     <div class="dash-kpi-body">
@@ -6612,11 +6627,11 @@ function _loadAIFocusList(active) {
     return { name: c.name, score: c.score, status: c.status, mrr: c.mrr || 0, days: c.days, renewal_date: c.renewal_date || '', trend: trend };
   });
 
-  _aiCall({ prompt_type: 'daily_focus', customers: miniSummaries }).then(function(body) {
-    if (!body.success) throw new Error(body.error || 'AI returned an error');
-    _aiFocusCache = body.data;
+  _aiCall({ prompt_type: 'daily_focus', customers: miniSummaries }).then(function(data) {
+    if (!data.success) throw new Error(data.error || 'AI returned an error');
+    _aiFocusCache = data.data;
     _aiFocusCacheTime = Date.now();
-    if (el('hb-ai-focus-body')) el('hb-ai-focus-body').innerHTML = _renderAIFocusHTML(body.data);
+    if (el('hb-ai-focus-body')) el('hb-ai-focus-body').innerHTML = _renderAIFocusHTML(data.data);
   }).catch(function(err) {
     console.warn('AI Focus List error:', err);
     if (el('hb-ai-focus-body')) {
@@ -7230,7 +7245,7 @@ function _renderInsightCard(ins) {
         <span class="hb-insight-title">${escHtml(ins.title)}</span>
       </div>
       <div class="hb-insight-detail">${escHtml(ins.detail)}</div>
-      ${ins.action ? `<button class="hb-insight-action" onclick="${ins.action.fn.replace(/"/g,'&quot;')}">${ins.action.label} →</button>` : ''}
+      ${ins.action ? `<button class="hb-insight-action" onclick="${escHtml(ins.action.fn)}">${escHtml(ins.action.label)} →</button>` : ''}
     </div>
   </div>`;
 }
@@ -7483,8 +7498,8 @@ function renderRenewalPipeline(active) {
       const riskBadge = r.atRisk ? `<span style="color:${r.color};font-size:var(--fs-xs);font-weight:700">${appIcon('warning',11)} ${r.atRisk} at risk</span>` : '';
       const countText = r.count ? `${r.count} acct${r.count!==1?'s':''}` : `<span style="color:var(--subtle)"> -</span>`;
       const clickable = r.count > 0;
-      const _rIds = JSON.stringify(r.ids).replace(/"/g,'&quot;');
-      return `<div style="border-left:3px solid ${r.color};background:${r.bg};border-radius:6px;padding:9px 12px;${clickable?'cursor:pointer;transition:transform .15s,box-shadow .15s':''}" ${clickable?`onclick="filterRenewalBucket('Renewal ${r.label}',${_rIds})" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,.1)'" onmouseout="this.style.transform='';this.style.boxShadow=''"`:''}>
+      const _rIds = escHtml(JSON.stringify(r.ids));
+      return `<div style="border-left:3px solid ${r.color};background:${r.bg};border-radius:6px;padding:9px 12px;${clickable?'cursor:pointer;transition:transform .15s,box-shadow .15s':''}" ${clickable?`onclick="filterRenewalBucket('Renewal ${escHtml(r.label)}',${_rIds})" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,.1)'" onmouseout="this.style.transform='';this.style.boxShadow=''"`:''}>
         <div style="font-size:var(--fs-xs);font-weight:700;color:${r.color};text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">${r.label}</div>
         <div style="font-size:1.05rem;font-weight:800;color:#1e293b;margin-bottom:2px">${r.mrr ? '$'+fmtNum(r.mrr) : ' -'}</div>
         <div style="font-size:var(--fs-sm);color:var(--muted);display:flex;gap:5px;align-items:center;flex-wrap:wrap">${countText}${r.atRisk?' · ':''}${riskBadge}</div>
@@ -8155,10 +8170,10 @@ function _renderAlerts() {
       const filterActive = col.ftype && (col.key in _alertTblFilters);
       const arrow = `<span class="col-sort-arrow${isActiveSort ? '' : ' idle'}">${sd === 1 ? '\u25B2' : '\u25BC'}</span>`;
       const filterBtn = col.ftype
-        ? `<button class="col-filter-btn${filterActive ? ' active' : ''}" onclick="event.stopPropagation();openATFilter('${col.key}',this)" title="Filter ${col.label}">${_funnelSVG}</button>`
+        ? `<button class="col-filter-btn${filterActive ? ' active' : ''}" onclick="event.stopPropagation();openATFilter('${escHtml(col.key)}',this)" title="Filter ${col.label}">${_funnelSVG}</button>`
         : '';
       const pinCls = col.key === 'name' ? ' class="col-pin"' : '';
-      return `<th${pinCls}><div class="col-th-inner"><button class="col-sort-label" onclick="_alertTblSortBy('${col.key}')">${col.label}</button>${arrow}${filterBtn}</div></th>`;
+      return `<th${pinCls}><div class="col-th-inner"><button class="col-sort-label" onclick="_alertTblSortBy('${escHtml(col.key)}')">${col.label}</button>${arrow}${filterBtn}</div></th>`;
     }).join('');
 
     if (tblList.length) {
@@ -8306,7 +8321,7 @@ function renderAlertPanel(all, active, snz) {
   const kpiRow = el('alert-kpi-row');
   if (kpiRow) {
     const _kpi = (onclick, hdBg, title, badge, label, val, valStyle, change, changeClass, tip) =>
-      `<div class="aw-card" onclick="${onclick}">
+      `<div class="aw-card" onclick="${escHtml(onclick)}">
         <div class="aw-hd" style="background:${hdBg}"><span class="aw-hd-title">${title}${tip ? ' <span class="info-tip tip-below" data-tip="' + tip + '">\u24d8</span>' : ''}</span><span class="aw-hd-badge">${badge}</span></div>
         <div class="aw-body">
           <div class="aw-kpi-label">${label}</div>
@@ -8354,7 +8369,7 @@ function renderAlertPanel(all, active, snz) {
     if (mrrTotalEl) mrrTotalEl.textContent = mrrStr;
     const mrrRows = rows.map(([label, {color, mrr}]) => {
       const pct = Math.round((mrr / maxMrr) * 100);
-      return `<div class="aw-prog" onclick="filterByMrrBucket('${label}')">
+      return `<div class="aw-prog" onclick="filterByMrrBucket('${escHtml(label)}')">
         <div class="aw-prog-hdr"><span class="aw-prog-name"><span class="dot" style="background:${color}"></span>${label}</span><span class="aw-prog-val" style="color:${color}">$${fmtNum(mrr)}</span></div>
         <div class="aw-prog-track"><div class="aw-prog-fill" style="width:${pct}%;background:${color}"></div></div>
       </div>`;
@@ -8402,7 +8417,7 @@ function renderAlertPanel(all, active, snz) {
     const insights = [];
     const _iSvg = (d) => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
     // Helper: clickable customer name link (opens detail, stops card click)
-    const _nameLink = (c) => `<strong class="ta-name-link" onclick="event.stopPropagation();openDetail('${c.id}')">${escHtml(c.name)}</strong>`;
+    const _nameLink = (c) => `<strong class="ta-name-link" onclick="event.stopPropagation();openDetail('${escHtml(c.id)}')">${escHtml(c.name)}</strong>`;
 
     // Helper: build unique affected-customer list from alert array
     const uniqueCusts = (alerts) => {
@@ -8658,7 +8673,7 @@ function _buildATFilterMenu(col) {
   }
   return `<div class="col-filter-hd">
     <span class="col-filter-title">Filter: ${col.label}</span>
-    <button class="col-filter-clear" onclick="clearATFilter('${col.key}')">Clear</button>
+    <button class="col-filter-clear" onclick="clearATFilter('${escHtml(col.key)}')">Clear</button>
   </div>
   <div class="col-filter-body">${body}</div>`;
 }
@@ -9555,13 +9570,13 @@ function renderTableHeaders() {
     const hasSort      = !!col.sortKey;
     const hasFilter    = !!col.ftype;
     const labelEl = hasSort
-      ? `<button class="col-sort-label" onclick="sortBy('${col.sortKey}')">${col.label}</button>`
+      ? `<button class="col-sort-label" onclick="sortBy('${escHtml(col.sortKey)}')">${col.label}</button>`
       : `<span class="col-sort-label no-sort">${col.label}</span>`;
     const arrowEl = hasSort
       ? `<span class="col-sort-arrow${isActiveSort ? '' : ' idle'}">${sortDir === -1 ? '▼' : '▲'}</span>`
       : '';
     const filterEl = hasFilter
-      ? `<button class="col-filter-btn${filterActive ? ' active' : ''}" onclick="event.stopPropagation();openColFilter('${col.key}',this)" title="Filter ${col.label}">${funnelSVG}</button>`
+      ? `<button class="col-filter-btn${filterActive ? ' active' : ''}" onclick="event.stopPropagation();openColFilter('${escHtml(col.key)}',this)" title="Filter ${col.label}">${funnelSVG}</button>`
       : '';
     th.innerHTML = `<div class="col-th-inner">${labelEl}${arrowEl}${filterEl}</div>`;
     tr.appendChild(th);
@@ -9600,7 +9615,7 @@ function renderFilterPills() {
     else if (f.type === 'up')      { summary = 'Improving this week'; }
     else if (f.type === 'down')    { summary = 'Declining this week'; }
 
-    return `<span class="filter-pill" onclick="openColFilterFromPill('${key}',this)">${label}: ${summary}<button class="filter-pill-x" onclick="event.stopPropagation();clearColFilter('${key}')" title="Remove filter">✕</button></span>`;
+    return `<span class="filter-pill" onclick="openColFilterFromPill('${escHtml(key)}',this)">${label}: ${summary}<button class="filter-pill-x" onclick="event.stopPropagation();clearColFilter('${escHtml(key)}')" title="Remove filter">✕</button></span>`;
   }).join('');
 
   // MRR Exposure pill
@@ -9736,7 +9751,7 @@ function buildColFilterMenu(col) {
   return `
     <div class="col-filter-hd">
       <span class="col-filter-title">Filter: ${col.label}</span>
-      <button class="col-filter-clear" onclick="clearColFilter('${col.key}')">Clear</button>
+      <button class="col-filter-clear" onclick="clearColFilter('${escHtml(col.key)}')">Clear</button>
     </div>
     <div class="col-filter-body">${body}</div>`;
 }
@@ -10615,15 +10630,18 @@ var _aiFocusCache = null;
 var _aiFocusCacheTime = 0;
 var AI_FOCUS_CACHE_TTL = 30 * 60000; // 30 min
 
+// Try localStorage first, then memory cache
 function _aiCacheGet(key) {
+  // Memory cache (fastest)
   var entry = _aiCache[key];
   if (entry && (Date.now() - entry.ts) <= AI_CACHE_TTL) return entry.data;
+  // localStorage fallback (survives refresh)
   try {
     var stored = localStorage.getItem('iqc_ai_' + key);
     if (stored) {
       var parsed = JSON.parse(stored);
       if (parsed.ts && (Date.now() - parsed.ts) <= AI_PERSIST_TTL) {
-        _aiCache[key] = parsed;
+        _aiCache[key] = parsed; // warm memory cache
         return parsed.data;
       }
       localStorage.removeItem('iqc_ai_' + key);
@@ -10634,6 +10652,13 @@ function _aiCacheGet(key) {
 }
 function _aiCacheSet(key, data) {
   var entry = { data: data, ts: Date.now() };
+  // LRU eviction: cap at 50 entries
+  var keys = Object.keys(_aiCache);
+  if (keys.length >= 50) {
+    var oldest = keys.reduce(function(a, b) { return _aiCache[a].ts < _aiCache[b].ts ? a : b; });
+    delete _aiCache[oldest];
+    try { localStorage.removeItem('iqc_ai_' + oldest); } catch(e) {}
+  }
   _aiCache[key] = entry;
   try { localStorage.setItem('iqc_ai_' + key, JSON.stringify(entry)); } catch(e) {}
 }
@@ -10703,7 +10728,7 @@ function _loadAIInsights(c) {
   _trackAICall();
   var custId = c.id;
   _aiCall({ prompt_type: 'detail_insights', customer: _sanitizeForAI(c) }).then(function(body) {
-    if (detailId !== custId) return; // user navigated away
+    if (detailId !== custId) return;
     if (!body.success) throw new Error(body.error || 'AI returned an error');
     _aiCacheSet(custId + '_insights', body.data);
     if (el('dm-ai-insights')) el('dm-ai-insights').innerHTML = _renderAIInsightsHTML(body.data);
@@ -10752,7 +10777,7 @@ function _renderAIInsightsHTML(data) {
 
 // ── AI Meeting Prep ──
 function openAIMeetingPrep() {
-  if (!_aiIntegrationConnected) { toast('Connect your OpenAI API key in Settings → Integrations first.', 'warn'); return; }
+  if (!_aiIntegrationConnected) { toast('Connect your Anthropic API key in Settings → Integrations first.', 'warn'); return; }
   var c = customers.find(function(x) { return x.id === detailId; });
   if (!c) return;
 
@@ -17987,7 +18012,7 @@ async function renderIntegrationsSection() {
   renderAnthropicCard(_integrationCache['openai'] || _integrationCache['anthropic'] || null);
   renderSyncOverview();
 
-  // Set AI integration flag
+  // Set AI integration flag (support both openai and legacy anthropic)
   _aiIntegrationConnected = !!(_integrationCache['openai']?.status === 'connected' || _integrationCache['anthropic']?.status === 'connected');
   // Show/hide AI meeting prep button in detail
   var aiBtn = el('dm-ai-meeting-btn');
@@ -18236,7 +18261,7 @@ function buildMetricTogglesHTML(platform, integration) {
       <span class="mt-label">${escHtml(m.label)} ${ownerNote}</span>
       <label class="mt-switch">
         <input type="checkbox" ${enabled && !ownedByOther ? 'checked' : ''} ${disabled}
-          onchange="updateMetricToggle('${platform}','${m.key}',this.checked)" />
+          onchange="updateMetricToggle('${escHtml(platform)}','${escHtml(m.key)}',this.checked)" />
         <span class="mt-slider"></span>
       </label>
     </div>`;
@@ -18830,7 +18855,7 @@ function showSyncResultsModal(platform, result) {
       </div>
       <div class="modal-ft">
         <button class="btn btn-ghost btn-sm" onclick="document.getElementById('sync-results-modal').classList.remove('open')">Close</button>
-        <button class="btn btn-sm" onclick="exportSyncResultsCsv('${platform}')">Export CSV</button>
+        <button class="btn btn-sm" onclick="exportSyncResultsCsv('${escHtml(platform)}')">Export CSV</button>
       </div>
     </div>`;
 
@@ -19353,7 +19378,7 @@ function buildHistoryPullHTML(platform) {
           <option value="6mo">6 months</option>
           <option value="1yr">1 year</option>
         </select>
-        <button class="btn btn-sm" id="${id}-btn" onclick="pullHistoryUI('${platform}')">
+        <button class="btn btn-sm" id="${id}-btn" onclick="pullHistoryUI('${escHtml(platform)}')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:4px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Pull History
         </button>
       </div>
@@ -19550,7 +19575,7 @@ function renderWebhookConfig() {
           </div>
           <label class="toggle-switch">
             <input type="checkbox" ${cfg.enabled ? 'checked' : ''}
-              onchange="toggleWebhook('${t.key}', this.checked)"/>
+              onchange="toggleWebhook('${escHtml(t.key)}', this.checked)"/>
             <span class="toggle-slider"></span>
           </label>
         </div>
@@ -19558,7 +19583,7 @@ function renderWebhookConfig() {
           <label style="font-size:var(--fs-base);font-weight:600;margin-bottom:4px;display:block">Webhook URL</label>
           <input type="url" id="wh-url-${t.key}" placeholder="https://hooks.zapier.com/hooks/catch/..."
             value="${escHtml(cfg.url || '')}"
-            onchange="updateWebhookUrl('${t.key}', this.value)"
+            onchange="updateWebhookUrl('${escHtml(t.key)}', this.value)"
             style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)"/>
         </div>
         ${t.hasThreshold ? `
@@ -19566,13 +19591,13 @@ function renderWebhookConfig() {
             <label style="font-size:var(--fs-base);font-weight:600;white-space:nowrap">Score Threshold</label>
             <input type="number" id="wh-th-${t.key}" min="1" max="99"
               value="${cfg.threshold || t.defaultThreshold}"
-              onchange="updateWebhookThreshold('${t.key}', +this.value)"
+              onchange="updateWebhookThreshold('${escHtml(t.key)}', +this.value)"
               style="width:80px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)"/>
             <span style="font-size:var(--fs-sm);color:var(--muted)">Fire when score drops below this value</span>
           </div>
         ` : ''}
         <div style="display:flex;gap:8px;align-items:center;margin-top:12px">
-          <button class="btn btn-sm btn-outline" onclick="testWebhook('${t.key}')"
+          <button class="btn btn-sm btn-outline" onclick="testWebhook('${escHtml(t.key)}')"
             ${!cfg.url ? 'disabled title="Enter a webhook URL first"' : ''}>
             ${appIcon('bolt',14)} Test Webhook
           </button>
@@ -30330,6 +30355,23 @@ function _timeAgo(date) {
   return Math.floor(s / 86400) + 'd ago';
 }
 
+// ─── CACHE PRUNING ───────────────────────────────────────────
+function _pruneAiLocalStorage() {
+  try {
+    for (var i = localStorage.length - 1; i >= 0; i--) {
+      var k = localStorage.key(i);
+      if (k && k.startsWith('iqc_ai_')) {
+        try {
+          var parsed = JSON.parse(localStorage.getItem(k));
+          if (!parsed || !parsed.ts || (Date.now() - parsed.ts) > AI_PERSIST_TTL) {
+            localStorage.removeItem(k);
+          }
+        } catch(e) { localStorage.removeItem(k); }
+      }
+    }
+  } catch(e) {}
+}
+
 // ─── WELCOME MODAL (first-time users) ────────────────────────
 function showWelcome() {
   const m = document.getElementById('welcome-modal');
@@ -30509,6 +30551,7 @@ function _checkUserSwitch(userId) {
     if (!hasCached) setLoading(true);
     try {
       await loadSettingsFromSupabase();
+      _pruneAiLocalStorage();
       await loadCustomersFromSupabase();
       await resolveClientPlanTier();
       _loadAIUsage();
