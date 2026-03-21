@@ -6,7 +6,6 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const ALLOWED_ORIGINS = [
   'https://iqcadence.pages.dev',
@@ -25,7 +24,6 @@ function getCorsHeaders(req: Request) {
   };
 }
 
-// ── Build a plain-text summary of a customer for the AI prompt ──
 function buildCustomerSummary(c: Record<string, unknown>): string {
   const lines: string[] = [];
   lines.push(`Customer: ${c.name}`);
@@ -35,7 +33,6 @@ function buildCustomerSummary(c: Record<string, unknown>): string {
   if (c.mrr) lines.push(`MRR: $${c.mrr}, ARR: $${c.arr || (c.mrr as number) * 12}`);
   if (c.manager) lines.push(`CSM: ${c.manager}`);
   if (c.contact_name) lines.push(`Primary Contact: ${c.contact_name}`);
-
   lines.push('--- Signals ---');
   if (c.logins != null) lines.push(`Logins (30d): ${c.logins}`);
   if (c.adoption != null) lines.push(`Feature Adoption: ${c.adoption}%`);
@@ -44,33 +41,27 @@ function buildCustomerSummary(c: Record<string, unknown>): string {
   if (c.csat != null) lines.push(`CSAT: ${c.csat}/5`);
   if (c.days != null) lines.push(`Days Since Contact: ${c.days}`);
   if (c.growth) lines.push(`Growth Signal: ${c.growth}`);
-
   if (c.renewal_date) lines.push(`Renewal Date: ${c.renewal_date}`);
   if (c.billing_interval) lines.push(`Billing: ${c.billing_interval}`);
   if (c.tags && (c.tags as string[]).length) lines.push(`Tags: ${(c.tags as string[]).join(', ')}`);
-
   const history = c.history as Array<{ score: number; date: string }> | undefined;
   if (history?.length) {
     lines.push('--- Score History (recent) ---');
     history.slice(-10).forEach(h => lines.push(`  ${h.date}: ${h.score}`));
   }
-
   const notes = c.notes as Array<{ text: string; date: string }> | undefined;
   if (notes?.length) {
     lines.push('--- Recent Notes ---');
     notes.slice(-5).forEach(n => lines.push(`  [${n.date}] ${n.text}`));
   }
-
   const sentiment = c.sentiment as Array<{ val: string; note?: string; date: string }> | undefined;
   if (sentiment?.length) {
     lines.push('--- Sentiment Log ---');
     sentiment.slice(-5).forEach(s => lines.push(`  [${s.date}] ${s.val}${s.note ? ': ' + s.note : ''}`));
   }
-
   return lines.join('\n');
 }
 
-// ── System prompt shared across all prompt types ──
 const SYSTEM_PROMPT = `You are an expert Customer Success analyst for iQcadence CS Health Score.
 You analyze customer health data and provide actionable insights for Customer Success Managers (CSMs).
 
@@ -83,7 +74,6 @@ NPS: 0-6 = Detractor, 7-8 = Passive, 9-10 = Promoter.
 CSAT: 1-2 = Poor, 3 = Neutral, 4-5 = Good.
 Signals use null when the metric is not tracked for this customer.`;
 
-// ── Build the user prompt based on prompt_type ──
 function buildUserPrompt(promptType: string, data: Record<string, unknown>): string {
   if (promptType === 'detail_insights') {
     const summary = buildCustomerSummary(data.customer as Record<string, unknown>);
@@ -154,17 +144,11 @@ Rules:
   throw new Error(`Unknown prompt_type: ${promptType}`);
 }
 
-// ── Get max_tokens for each prompt type ──
 function getMaxTokens(promptType: string): number {
   if (promptType === 'save_playbook') return 1500;
   if (promptType === 'daily_focus') return 1200;
   if (promptType === 'meeting_prep') return 1024;
-  return 512; // detail_insights (compact)
-}
-
-// ── Pick model ──
-function getModel(_promptType: string, configModel?: string): string {
-  return configModel || 'gpt-4o-mini';
+  return 512;
 }
 
 serve(async (req) => {
@@ -173,72 +157,18 @@ serve(async (req) => {
   }
 
   try {
-    // ── Verify JWT ──
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) throw new Error('Missing authorization');
-
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_ANON_KEY')!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) throw new Error('Unauthorized');
-
-    // Service client for Vault + integrations
-    const serviceClient = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
-
-    // Resolve client_id
-    const { data: profile } = await serviceClient
-      .from('user_profiles')
-      .select('client_id')
-      .eq('user_id', user.id)
-      .single();
-    if (!profile?.client_id) throw new Error('No client found for user');
-    const clientId = profile.client_id;
-
-    // ── Load AI integration (openai or anthropic) ──
-    const { data: integration } = await serviceClient
-      .from('integrations')
-      .select('*')
-      .eq('client_id', clientId)
-      .in('platform', ['openai', 'anthropic'])
-      .eq('status', 'connected')
-      .limit(1)
-      .single();
-
-    if (!integration) {
-      throw new Error('AI not configured. Add your OpenAI API key in Settings → Integrations.');
-    }
-
-    // Read API key from Vault
-    let apiKey = '';
-    if (integration.vault_secret_id) {
-      try {
-        const { data, error } = await serviceClient
-          .rpc('vault_read_secret', { secret_id: integration.vault_secret_id });
-        if (!error && data) apiKey = data;
-      } catch (_) { /* Vault unavailable */ }
-    }
-    // Fallback to config credential
-    if (!apiKey && integration.config?._credential) {
-      apiKey = integration.config._credential;
-    }
-    if (!apiKey) throw new Error('AI API key not found');
+    // ── Get API key from environment (fast — no DB queries) ──
+    const apiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!apiKey) throw new Error('OPENAI_API_KEY not configured. Add it in Edge Function secrets.');
 
     // ── Parse request ──
     const body = await req.json();
     const { prompt_type } = body;
 
     if (!['detail_insights', 'meeting_prep', 'daily_focus', 'save_playbook'].includes(prompt_type)) {
-      throw new Error('Invalid prompt_type. Must be detail_insights, meeting_prep, daily_focus, or save_playbook.');
+      throw new Error('Invalid prompt_type.');
     }
 
-    // Build prompt
     const userPrompt = buildUserPrompt(prompt_type, body);
     const maxTokens = getMaxTokens(prompt_type);
 
@@ -253,7 +183,7 @@ serve(async (req) => {
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: getModel(prompt_type, integration.config?.model),
+        model: 'gpt-4o-mini',
         max_tokens: maxTokens,
         temperature: 0.3,
         response_format: { type: 'json_object' },
@@ -269,7 +199,7 @@ serve(async (req) => {
     if (!aiResp.ok) {
       const errBody = await aiResp.text();
       console.error(`OpenAI API error (${aiResp.status}):`, errBody.substring(0, 500));
-      if (aiResp.status === 401) throw new Error('Invalid OpenAI API key. Please reconnect in Settings → Integrations.');
+      if (aiResp.status === 401) throw new Error('Invalid OpenAI API key.');
       if (aiResp.status === 429) throw new Error('AI rate limit exceeded. Please try again in a moment.');
       throw new Error(`AI service error (${aiResp.status})`);
     }
@@ -277,7 +207,6 @@ serve(async (req) => {
     const aiData = await aiResp.json();
     const rawText = aiData.choices?.[0]?.message?.content || '';
 
-    // Parse JSON — handle possible markdown fences
     let parsed;
     try {
       const jsonStr = rawText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
