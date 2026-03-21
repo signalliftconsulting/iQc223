@@ -10708,7 +10708,7 @@ function _loadAIInsights(c) {
 
 function _renderAIInsightsHTML(data) {
   var html = '<div style="padding:12px 0">';
-  html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' + appIcon('sparkle', 16) + ' <span style="font-weight:700;font-size:var(--fs-base)">AI Insights</span><span style="font-size:var(--fs-2xs);color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Powered by Claude</span></div>';
+  html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' + appIcon('sparkle', 16) + ' <span style="font-weight:700;font-size:var(--fs-base)">AI Insights</span><span style="font-size:var(--fs-2xs);color:var(--muted);text-transform:uppercase;letter-spacing:.04em">AI-Powered</span></div>';
 
   // Compact summary
   if (data.summary) {
