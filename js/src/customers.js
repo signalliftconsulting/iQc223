@@ -833,11 +833,6 @@ function _renderCustomers() {
           const allTags = tags.map(t => escHtml(t)).join(', ');
           return first + `<span class="tag tag-more" title="${allTags}">+${tags.length - 1}</span>`;
         })(c.tags||[])}</td>
-        <td>${(()=>{
-          if (!c.created) return ' -';
-          const d = new Date(c.created);
-          return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-        })()}</td>
         <td>${c.nps != null ? c.nps : '<span style="color:var(--muted)"> -</span>'}</td>
         <td>${c.csat != null ? c.csat : '<span style="color:var(--muted)"> -</span>'}</td>
         <td>${c.logins != null ? c.logins : '<span style="color:var(--muted)"> -</span>'}</td>
@@ -847,6 +842,11 @@ function _renderCustomers() {
           if (g === 'strong') return '<span style="color:#16a34a;font-weight:600">Strong</span>';
           if (g === 'mild') return '<span style="color:#d97706;font-weight:600">Mild</span>';
           return '<span style="color:var(--muted)">None</span>';
+        })()}</td>
+        <td>${(()=>{
+          if (!c.created) return ' -';
+          const d = new Date(c.created);
+          return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
         })()}</td>
       </tr>`;
   }).join('');
