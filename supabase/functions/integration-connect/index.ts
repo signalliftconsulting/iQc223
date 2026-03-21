@@ -76,20 +76,12 @@ async function validateHubSpotToken(token: string): Promise<{ valid: boolean; er
   }
 }
 
-// Validate an OpenAI API key by listing models
-async function validateOpenAIKey(key: string): Promise<{ valid: boolean; error?: string }> {
-  try {
-    const resp = await fetch('https://api.openai.com/v1/models', {
-      headers: { 'Authorization': `Bearer ${key}` },
-    });
-    if (!resp.ok) {
-      if (resp.status === 401) return { valid: false, error: 'Invalid API key' };
-      return { valid: false, error: `OpenAI returned ${resp.status}` };
-    }
-    return { valid: true };
-  } catch (e) {
-    return { valid: false, error: e.message };
+// Validate an OpenAI/AI API key — just check format (actual calls go through Cloudflare Worker)
+async function validateAIKey(key: string): Promise<{ valid: boolean; error?: string }> {
+  if (!key || !key.startsWith('sk-') || key.length < 20) {
+    return { valid: false, error: 'Key must start with sk- and be at least 20 characters' };
   }
+  return { valid: true };
 }
 
 serve(async (req) => {
@@ -160,12 +152,9 @@ serve(async (req) => {
         // Salesforce uses OAuth, not direct credential connect — this path is for manual token entry
         const instanceUrl = body.instance_url || 'https://login.salesforce.com';
         validationResult = await validateSalesforceToken(credential, instanceUrl);
-      } else if (platform === 'anthropic') {
-        validationResult = await validateOpenAIKey(credential);
-        if (validationResult.valid) validationResult.name = 'AI Provider';
-      } else if (platform === 'openai') {
-        validationResult = await validateOpenAIKey(credential);
-        if (validationResult.valid) validationResult.name = 'OpenAI GPT';
+      } else if (platform === 'anthropic' || platform === 'openai') {
+        validationResult = await validateAIKey(credential);
+        if (validationResult.valid) validationResult.name = 'AI Connected';
       } else {
         validationResult = await validateHubSpotToken(credential);
       }
