@@ -162,12 +162,9 @@ function getMaxTokens(promptType: string): number {
   return 512; // detail_insights (compact)
 }
 
-// ── Pick model: Haiku for fast/cheap calls, Sonnet for deep analysis ──
-function getModel(promptType: string, configModel?: string): string {
-  if (promptType === 'meeting_prep' || promptType === 'save_playbook') {
-    return configModel || 'claude-sonnet-4-20250514';
-  }
-  return 'claude-3-5-haiku-20241022'; // fast model for insights + focus list
+// ── Pick model ──
+function getModel(_promptType: string, configModel?: string): string {
+  return configModel || 'claude-sonnet-4-20250514';
 }
 
 serve(async (req) => {
