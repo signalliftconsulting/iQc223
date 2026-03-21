@@ -10739,9 +10739,7 @@ function _renderAIInsightsHTML(data) {
     html += '<span style="flex-shrink:0;margin-top:1px">' + appIcon('bolt', 14) + '</span>';
     html += '<div style="font-size:var(--fs-sm);line-height:1.4"><strong style="color:var(--text)">' + escHtml(top.title) + '</strong> <span style="color:var(--muted)"> — ' + escHtml(top.detail) + '</span></div>';
     html += '</div>';
-    if (data.actions.length > 1) {
-      html += '<div style="font-size:11px;color:var(--muted);margin-top:4px;text-align:right">+ ' + (data.actions.length - 1) + ' more — use <strong>AI Meeting Prep</strong> for full details</div>';
-    }
+    html += '<div style="font-size:11px;color:var(--muted);margin-top:4px;text-align:right">Use <strong>✦ AI Meeting Prep</strong> for talking points &amp; deeper analysis</div>';
   }
 
   html += '</div>';
