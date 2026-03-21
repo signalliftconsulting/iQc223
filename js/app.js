@@ -1970,29 +1970,20 @@ function saveSettings() {
   localStorage.setItem('iqc_quiet_days', String(quietDays));
   localStorage.setItem('iqc_momentum_pts', String(momentumPts));
   localStorage.setItem('iqc_signal_model', JSON.stringify(signalModelCfg));
-  // Sync to Supabase - keyed by client_id, with optimistic locking
+  // Sync to Supabase (fire and forget) - keyed by client_id
   const cid = getEffectiveClientId();
   if (currentUser && cid) {
-    const newTs = new Date().toISOString();
-    const payload = {
-      client_id: cid, user_id: currentUser.id,
-      weights: JSON.stringify(weights), thresholds: JSON.stringify(thresholds),
-      profiles: JSON.stringify(profiles), signal_model: JSON.stringify(signalModelCfg),
-      updated_at: newTs
-    };
-    if (_settingsUpdatedAt) {
-      sb.from('settings').update(payload).eq('client_id', cid).eq('updated_at', _settingsUpdatedAt)
-        .then(({error, count}) => {
-          if (error) { console.warn('Settings sync failed:', error.message); toast('Settings sync failed — saved locally only', 'error'); return; }
-          if (count === 0) { toast('Settings changed by another session — reloading', 'error'); loadSettingsFromSupabase(); return; }
-          _settingsUpdatedAt = newTs;
-        });
-    } else {
-      sb.from('settings').upsert(payload, { onConflict: 'client_id' }).then(({error}) => {
-        if (error) { console.warn('Settings sync failed:', error.message); toast('Settings sync failed — saved locally only', 'error'); return; }
-        _settingsUpdatedAt = newTs;
-      });
-    }
+    sb.from('settings').upsert({
+      client_id:  cid,
+      user_id:    currentUser.id,
+      weights:    JSON.stringify(weights),
+      thresholds: JSON.stringify(thresholds),
+      profiles:     JSON.stringify(profiles),
+      signal_model: JSON.stringify(signalModelCfg),
+      updated_at:   new Date().toISOString()
+    }, { onConflict: 'client_id' }).then(({error}) => {
+      if (error) console.warn('Settings sync failed:', error.message);
+    });
   }
 }
 
