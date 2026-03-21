@@ -60,13 +60,12 @@ function _sanitizeForAI(c) {
   };
 }
 
-// Call AI via Cloudflare Pages Function (fast, no cold start)
+// Call AI via Supabase edge function
 function _aiCall(body) {
-  return fetch('/api/ai', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  }).then(function(r) { return r.json(); });
+  return sb.functions.invoke('ai-agent', { body: body }).then(function(res) {
+    if (res.error) throw new Error(res.error.message || 'AI request failed');
+    return res.data;
+  });
 }
 
 // AI Skeleton loader HTML
