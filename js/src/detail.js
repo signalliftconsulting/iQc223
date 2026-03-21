@@ -1249,6 +1249,7 @@ function renderDetailOverview() {
         ${sentIcon ? `<span style="font-size:var(--fs-md)">${sentIcon}</span> <span style="font-size:var(--fs-sm);color:var(--muted)">${fmtDate(sent.date)}</span>` : '<span style="font-size:var(--fs-sm);color:var(--muted)"> -</span>'}
       </div>
     </div>
+    <div id="dm-ai-insights"></div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 12px;background:var(--bg);border-radius:var(--r);border:1px solid var(--border);flex-wrap:wrap">
       <span class="di-label" style="margin:0;white-space:nowrap">Schedule Next Touch</span>
       <input type="date" id="di-next-touch" class="di-input" value="${c.next_touch||''}" style="width:140px" />
@@ -1258,7 +1259,6 @@ function renderDetailOverview() {
     <div class="bd-title">Signal Breakdown</div>
     ${buildBreakdownHTML(signals, c)}
     ${buildSignalModelInsightsHTML(c)}
-    <div id="dm-ai-insights"></div>
   `;
   // Load AI insights asynchronously (non-blocking)
   _loadAIInsights(c);
