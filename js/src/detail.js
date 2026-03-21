@@ -1223,7 +1223,6 @@ function renderDetailOverview() {
         ${sentIcon ? `<span style="font-size:var(--fs-md)">${sentIcon}</span> <span style="font-size:var(--fs-sm);color:var(--muted)">${fmtDate(sent.date)}</span>` : '<span style="font-size:var(--fs-sm);color:var(--muted)"> -</span>'}
       </div>
     </div>
-    <div class="rec-box" style="margin-bottom:14px"><div class="rec-box__title">Health Assessment</div>${rec}</div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 12px;background:var(--bg);border-radius:var(--r);border:1px solid var(--border);flex-wrap:wrap">
       <span class="di-label" style="margin:0;white-space:nowrap">Schedule Next Touch</span>
       <input type="date" id="di-next-touch" class="di-input" value="${c.next_touch||''}" style="width:140px" />
