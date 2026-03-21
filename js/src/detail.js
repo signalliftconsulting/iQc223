@@ -87,37 +87,35 @@ function _loadAIInsights(c) {
 
 function _renderAIInsightsHTML(data) {
   var html = '<div style="padding:12px 0">';
-  html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">' + appIcon('sparkle', 16) + ' <span style="font-weight:700;font-size:var(--fs-base)">AI Insights</span><span style="font-size:var(--fs-2xs);color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Powered by Claude</span></div>';
+  html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' + appIcon('sparkle', 16) + ' <span style="font-weight:700;font-size:var(--fs-base)">AI Insights</span><span style="font-size:var(--fs-2xs);color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Powered by Claude</span></div>';
 
-  // Summary
+  // Compact summary
   if (data.summary) {
-    html += '<div class="rec-box" style="margin-bottom:10px"><div class="rec-box__title">Summary</div>' + escHtml(data.summary) + '</div>';
+    html += '<div style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:8px;line-height:1.5">' + escHtml(data.summary) + '</div>';
   }
 
-  // Risk factors
+  // Risk factors as compact inline pills
   if (data.risk_factors && data.risk_factors.length) {
-    html += '<div style="margin-bottom:10px"><div style="font-size:var(--fs-sm);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">' + appIcon('warning', 14) + ' Risk Factors</div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">';
     data.risk_factors.forEach(function(rf) {
+      var bg = rf.severity === 'red' ? '#fef2f2' : rf.severity === 'amber' ? '#fffbeb' : '#f0fdf4';
       var col = rf.severity === 'red' ? 'var(--red)' : rf.severity === 'amber' ? 'var(--amber)' : 'var(--green)';
-      html += '<div class="ta-card" style="border-left:3px solid ' + col + ';margin-bottom:6px;padding:8px 12px">';
-      html += '<div style="font-weight:600;font-size:var(--fs-base)">' + escHtml(rf.title) + '</div>';
-      html += '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px">' + escHtml(rf.detail) + '</div>';
-      html += '</div>';
+      var border = rf.severity === 'red' ? '#fecaca' : rf.severity === 'amber' ? '#fde68a' : '#bbf7d0';
+      html += '<span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:100px;background:' + bg + ';color:' + col + ';border:1px solid ' + border + ';white-space:nowrap" title="' + escHtml(rf.detail) + '">' + appIcon('warning', 11) + ' ' + escHtml(rf.title) + '</span>';
     });
     html += '</div>';
   }
 
-  // Actions
+  // Top action as a single callout
   if (data.actions && data.actions.length) {
-    html += '<div><div style="font-size:var(--fs-sm);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">' + appIcon('bolt', 14) + ' Recommended Actions</div>';
-    data.actions.forEach(function(a) {
-      var badge = a.priority === 'high' ? '<span style="background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700;margin-right:6px">HIGH</span>' : a.priority === 'medium' ? '<span style="background:var(--amber);color:#fff;font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700;margin-right:6px">MED</span>' : '<span style="background:var(--green);color:#fff;font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700;margin-right:6px">LOW</span>';
-      html += '<div class="ta-card" style="margin-bottom:6px;padding:8px 12px">';
-      html += '<div style="font-weight:600;font-size:var(--fs-base)">' + badge + escHtml(a.title) + '</div>';
-      html += '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px">' + escHtml(a.detail) + '</div>';
-      html += '</div>';
-    });
+    var top = data.actions[0];
+    html += '<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 12px;background:var(--blue-l, color-mix(in srgb, var(--blue) 8%, transparent));border-radius:var(--r);border:1px solid color-mix(in srgb, var(--blue) 20%, transparent)">';
+    html += '<span style="flex-shrink:0;margin-top:1px">' + appIcon('bolt', 14) + '</span>';
+    html += '<div style="font-size:var(--fs-sm);line-height:1.4"><strong style="color:var(--text)">' + escHtml(top.title) + '</strong> <span style="color:var(--muted)"> — ' + escHtml(top.detail) + '</span></div>';
     html += '</div>';
+    if (data.actions.length > 1) {
+      html += '<div style="font-size:11px;color:var(--muted);margin-top:4px;text-align:right">+ ' + (data.actions.length - 1) + ' more — use <strong>AI Meeting Prep</strong> for full details</div>';
+    }
   }
 
   html += '</div>';
