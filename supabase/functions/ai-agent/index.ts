@@ -164,7 +164,7 @@ function getMaxTokens(promptType: string): number {
 
 // ── Pick model ──
 function getModel(_promptType: string, configModel?: string): string {
-  return configModel || 'claude-3-5-sonnet-20241022';
+  return configModel || 'claude-sonnet-4-20250514';
 }
 
 serve(async (req) => {
