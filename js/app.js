@@ -6582,21 +6582,31 @@ function _loadAIFocusList(active) {
 function _renderAIFocusHTML(data) {
   var html = '';
   if (data.focus_accounts && data.focus_accounts.length) {
-    data.focus_accounts.forEach(function(fa) {
+    html += '<div style="display:flex;flex-direction:column;gap:6px">';
+    data.focus_accounts.forEach(function(fa, idx) {
       var cust = customers.find(function(c) { return c.name === fa.name; });
-      var clickAttr = cust ? ' onclick="openDetail(\'' + cust.id + '\')" style="cursor:pointer"' : '';
-      var urgBadge = fa.urgency === 'high' ? '<span style="background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700">HIGH</span>' : '<span style="background:var(--amber);color:#fff;font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700">MED</span>';
-      html += '<div class="ta-card" style="margin-bottom:8px;padding:10px 14px;transition:background .15s"' + clickAttr + '>';
-      html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">';
-      html += '<span style="font-weight:700;font-size:var(--fs-base)">' + escHtml(fa.name) + '</span> ' + urgBadge;
+      var clickAttr = cust ? ' onclick="openDetail(\'' + cust.id + '\')"' : '';
+      var isHigh = fa.urgency === 'high';
+      var borderCol = isHigh ? 'var(--red)' : 'var(--amber)';
+      var rankBg = isHigh ? 'var(--red)' : 'var(--amber)';
+      var scoreStr = cust ? '<span style="font-size:11px;font-weight:700;color:var(--muted);background:var(--bg);padding:1px 6px;border-radius:3px;border:1px solid var(--border)">' + cust.score + '</span>' : '';
+      var mrrStr = cust && cust.mrr ? '<span style="font-size:11px;color:var(--muted)">$' + fmtNum(cust.mrr) + '</span>' : '';
+      html += '<div style="display:flex;align-items:stretch;border-radius:8px;border:1px solid var(--border);overflow:hidden;cursor:pointer;transition:box-shadow .15s,border-color .15s" onmouseenter="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,.08)\';this.style.borderColor=\'' + borderCol + '44\'" onmouseleave="this.style.boxShadow=\'none\';this.style.borderColor=\'var(--border)\'"' + clickAttr + '>';
+      html += '<div style="width:32px;min-height:100%;display:flex;align-items:center;justify-content:center;background:' + rankBg + ';color:#fff;font-weight:800;font-size:15px;flex-shrink:0">' + (idx + 1) + '</div>';
+      html += '<div style="flex:1;padding:10px 14px;min-width:0">';
+      html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">';
+      html += '<span style="font-weight:700;font-size:var(--fs-base);color:var(--text)">' + escHtml(fa.name) + '</span>';
+      html += scoreStr + ' ' + mrrStr;
       html += '</div>';
-      html += '<div style="font-size:var(--fs-sm);color:var(--muted)">' + escHtml(fa.reason) + '</div>';
-      html += '<div style="font-size:var(--fs-sm);color:var(--blue);margin-top:2px">' + appIcon('bolt', 12) + ' ' + escHtml(fa.action) + '</div>';
+      html += '<div style="font-size:var(--fs-sm);color:var(--muted);line-height:1.4;margin-bottom:4px">' + escHtml(fa.reason) + '</div>';
+      html += '<div style="font-size:var(--fs-sm);font-weight:600;color:var(--blue);display:flex;align-items:center;gap:4px">' + appIcon('bolt', 12) + ' ' + escHtml(fa.action) + '</div>';
+      html += '</div>';
       html += '</div>';
     });
+    html += '</div>';
   }
   if (data.portfolio_note) {
-    html += '<div style="font-size:var(--fs-sm);color:var(--muted);padding:6px 0;border-top:1px solid var(--border);margin-top:4px">' + appIcon('sparkle', 12) + ' ' + escHtml(data.portfolio_note) + '</div>';
+    html += '<div style="display:flex;align-items:flex-start;gap:6px;font-size:var(--fs-sm);color:var(--muted);padding:10px 0 2px;border-top:1px solid var(--border);margin-top:6px;line-height:1.4">' + appIcon('sparkle', 13) + ' ' + escHtml(data.portfolio_note) + '</div>';
   }
   return html;
 }
