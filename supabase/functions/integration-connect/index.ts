@@ -76,27 +76,15 @@ async function validateHubSpotToken(token: string): Promise<{ valid: boolean; er
   }
 }
 
-// Validate an Anthropic API key by calling POST /v1/messages with a minimal request
-async function validateAnthropicKey(key: string): Promise<{ valid: boolean; error?: string }> {
+// Validate an OpenAI API key by listing models
+async function validateOpenAIKey(key: string): Promise<{ valid: boolean; error?: string }> {
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 10,
-        messages: [{ role: 'user', content: 'Say "ok"' }],
-      }),
+    const resp = await fetch('https://api.openai.com/v1/models', {
+      headers: { 'Authorization': `Bearer ${key}` },
     });
     if (!resp.ok) {
-      const body = await resp.json().catch(() => ({}));
       if (resp.status === 401) return { valid: false, error: 'Invalid API key' };
-      if (resp.status === 403) return { valid: false, error: 'API key lacks required permissions' };
-      return { valid: false, error: body?.error?.message || `Anthropic returned ${resp.status}` };
+      return { valid: false, error: `OpenAI returned ${resp.status}` };
     }
     return { valid: true };
   } catch (e) {
@@ -142,8 +130,8 @@ serve(async (req) => {
     const body = await req.json();
     const { platform, action, credential } = body;
 
-    if (!['stripe', 'hubspot', 'salesforce', 'anthropic'].includes(platform)) {
-      throw new Error('Invalid platform. Must be "stripe", "hubspot", "salesforce", or "anthropic".');
+    if (!['stripe', 'hubspot', 'salesforce', 'anthropic', 'openai'].includes(platform)) {
+      throw new Error('Invalid platform. Must be "stripe", "hubspot", "salesforce", "anthropic", or "openai".');
     }
 
     // Default metric toggles per platform
@@ -152,6 +140,7 @@ serve(async (req) => {
       hubspot:    { tickets: true, days: true, contact: true, nps: true, csat: true, lifecycle: true },
       salesforce: { mrr: true, tier: true, renewal: true, tickets: true, days: true, contact: true, lifecycle: true },
       anthropic:  {},
+      openai:     {},
     };
     if (!['connect', 'disconnect'].includes(action)) {
       throw new Error('Invalid action. Must be "connect" or "disconnect".');
@@ -172,8 +161,11 @@ serve(async (req) => {
         const instanceUrl = body.instance_url || 'https://login.salesforce.com';
         validationResult = await validateSalesforceToken(credential, instanceUrl);
       } else if (platform === 'anthropic') {
-        validationResult = await validateAnthropicKey(credential);
-        if (validationResult.valid) validationResult.name = 'Claude AI';
+        validationResult = await validateOpenAIKey(credential);
+        if (validationResult.valid) validationResult.name = 'AI Provider';
+      } else if (platform === 'openai') {
+        validationResult = await validateOpenAIKey(credential);
+        if (validationResult.valid) validationResult.name = 'OpenAI GPT';
       } else {
         validationResult = await validateHubSpotToken(credential);
       }

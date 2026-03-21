@@ -1674,10 +1674,10 @@ async function renderIntegrationsSection() {
     <div class="card" style="max-width:720px;margin-bottom:18px">
       <div class="card-hd">
         <h2>
-          ${appIcon('sparkle', 20).replace('style="', 'style="vertical-align:text-bottom;margin-right:6px;')} Anthropic (Claude AI)
-          <span class="info-tip" data-tip="Connect your Anthropic API key to enable AI-powered features: customer insights, meeting prep, focus lists, and save playbooks. Get your key at console.anthropic.com.">ⓘ</span>
+          ${appIcon('sparkle', 20).replace('style="', 'style="vertical-align:text-bottom;margin-right:6px;')} OpenAI (GPT)
+          <span class="info-tip" data-tip="Connect your OpenAI API key to enable AI-powered features: customer insights, meeting prep, focus lists, and save playbooks. Get your key at platform.openai.com/api-keys.">ⓘ</span>
         </h2>
-        ${(_integrationCache['anthropic']?.status === 'connected') ? '<span style="font-size:var(--fs-sm);color:var(--green);font-weight:700">● Connected</span>' : '<span style="font-size:var(--fs-sm);color:var(--muted)">Not connected</span>'}
+        ${(_integrationCache['openai']?.status === 'connected' || _integrationCache['anthropic']?.status === 'connected') ? '<span style="font-size:var(--fs-sm);color:var(--green);font-weight:700">● Connected</span>' : '<span style="font-size:var(--fs-sm);color:var(--muted)">Not connected</span>'}
       </div>
       <div id="integration-anthropic-body"></div>
     </div>`;
@@ -1685,11 +1685,11 @@ async function renderIntegrationsSection() {
   renderHubSpotCard(hubspotInt);
   renderStripeCard(stripeInt);
   renderSalesforceCard(salesforceInt);
-  renderAnthropicCard(_integrationCache['anthropic'] || null);
+  renderAnthropicCard(_integrationCache['openai'] || _integrationCache['anthropic'] || null);
   renderSyncOverview();
 
-  // Set AI integration flag
-  _aiIntegrationConnected = !!(_integrationCache['anthropic']?.status === 'connected');
+  // Set AI integration flag (support both openai and legacy anthropic)
+  _aiIntegrationConnected = !!(_integrationCache['openai']?.status === 'connected' || _integrationCache['anthropic']?.status === 'connected');
   // Show/hide AI meeting prep button in detail
   var aiBtn = el('dm-ai-meeting-btn');
   if (aiBtn) aiBtn.style.display = _aiIntegrationConnected ? '' : 'none';
@@ -2032,7 +2032,7 @@ async function disconnectStripeUI() {
   });
 }
 
-// ── Anthropic (Claude AI) Card ──
+// ── OpenAI (GPT) Card ──
 function renderAnthropicCard(integration) {
   const body = el('integration-anthropic-body');
   if (!body) return;
@@ -2040,19 +2040,19 @@ function renderAnthropicCard(integration) {
   if (!integration || integration.status !== 'connected') {
     body.innerHTML = `
       <p style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:10px">
-        Enter your Anthropic API key to enable AI-powered features. Your key is stored securely in Supabase Vault and never exposed to the browser.
-        <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" style="color:var(--blue)">Get your API key →</a>
+        Enter your OpenAI API key to enable AI-powered features. Your key is stored securely in Supabase Vault and never exposed to the browser.
+        <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener" style="color:var(--blue)">Get your API key →</a>
       </p>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <input type="password" id="anthropic-key-input" class="form-input" placeholder="sk-ant-..." style="flex:1;min-width:200px;font-family:monospace;font-size:var(--fs-sm)" />
+        <input type="password" id="anthropic-key-input" class="form-input" placeholder="sk-..." style="flex:1;min-width:200px;font-family:monospace;font-size:var(--fs-sm)" />
         <button class="btn btn-primary btn-sm" id="anthropic-connect-btn" onclick="connectAnthropicUI()">Connect</button>
       </div>
       <div id="anthropic-connect-status" style="margin-top:6px;font-size:var(--fs-sm)"></div>`;
   } else {
-    const model = integration.config?.model || 'claude-sonnet-4-20250514';
+    const model = integration.config?.model || 'gpt-4o-mini';
     body.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-        <span style="font-size:var(--fs-sm);color:var(--green);font-weight:600">✓ Connected to Claude AI</span>
+        <span style="font-size:var(--fs-sm);color:var(--green);font-weight:600">✓ Connected to OpenAI</span>
       </div>
       <p style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:10px">Model: <strong>${escHtml(model)}</strong> · AI features are active across customer details, meeting prep, focus lists, and playbooks.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -2066,18 +2066,18 @@ async function connectAnthropicUI() {
   const btn = el('anthropic-connect-btn');
   const status = el('anthropic-connect-status');
   const key = input?.value?.trim();
-  if (!key) { toast('Enter your Anthropic API key', 'error'); return; }
-  if (!key.startsWith('sk-ant-')) {
-    toast('Key should start with sk-ant-', 'error'); return;
+  if (!key) { toast('Enter your OpenAI API key', 'error'); return; }
+  if (!key.startsWith('sk-')) {
+    toast('Key should start with sk-', 'error'); return;
   }
 
   btn.disabled = true;
   btn.textContent = 'Connecting…';
-  status.innerHTML = '<span style="color:var(--muted)">Validating key with Anthropic…</span>';
+  status.innerHTML = '<span style="color:var(--muted)">Validating key with OpenAI…</span>';
 
   try {
-    const result = await connectIntegration('anthropic', key);
-    toast('Anthropic connected! AI features are now active.', 'success');
+    const result = await connectIntegration('openai', key);
+    toast('OpenAI connected! AI features are now active.', 'success');
     input.value = '';
     _aiIntegrationConnected = true;
     renderIntegrationsSection();
@@ -2091,10 +2091,10 @@ async function connectAnthropicUI() {
 }
 
 async function disconnectAnthropicUI() {
-  confirmAction('Disconnect Anthropic? AI features will be disabled.', async () => {
+  confirmAction('Disconnect OpenAI? AI features will be disabled.', async () => {
     try {
-      await disconnectIntegration('anthropic');
-      toast('Anthropic disconnected', 'warn');
+      await disconnectIntegration('openai');
+      toast('OpenAI disconnected', 'warn');
       _aiIntegrationConnected = false;
       renderIntegrationsSection();
     } catch(e) {

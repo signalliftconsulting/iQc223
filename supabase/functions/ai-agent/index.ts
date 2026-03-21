@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════════
 // ai-agent — Supabase Edge Function
-// Proxies Claude API calls for AI-powered customer insights
+// Proxies OpenAI API calls for AI-powered customer insights
 // Supports: detail_insights, meeting_prep, daily_focus, save_playbook
 // Called by: sb.functions.invoke('ai-agent', { body: {...} })
 // ═══════════════════════════════════════════════════════════════
@@ -164,7 +164,7 @@ function getMaxTokens(promptType: string): number {
 
 // ── Pick model ──
 function getModel(_promptType: string, configModel?: string): string {
-  return configModel || 'claude-sonnet-4-20250514';
+  return configModel || 'gpt-4o-mini';
 }
 
 serve(async (req) => {
@@ -201,33 +201,34 @@ serve(async (req) => {
     if (!profile?.client_id) throw new Error('No client found for user');
     const clientId = profile.client_id;
 
-    // ── Load Anthropic integration ──
+    // ── Load AI integration (openai or anthropic) ──
     const { data: integration } = await serviceClient
       .from('integrations')
       .select('*')
       .eq('client_id', clientId)
-      .eq('platform', 'anthropic')
+      .in('platform', ['openai', 'anthropic'])
       .eq('status', 'connected')
+      .limit(1)
       .single();
 
     if (!integration) {
-      throw new Error('AI not configured. Add your Anthropic API key in Settings → Integrations.');
+      throw new Error('AI not configured. Add your OpenAI API key in Settings → Integrations.');
     }
 
     // Read API key from Vault
-    let anthropicKey = '';
+    let apiKey = '';
     if (integration.vault_secret_id) {
       try {
         const { data, error } = await serviceClient
           .rpc('vault_read_secret', { secret_id: integration.vault_secret_id });
-        if (!error && data) anthropicKey = data;
+        if (!error && data) apiKey = data;
       } catch (_) { /* Vault unavailable */ }
     }
     // Fallback to config credential
-    if (!anthropicKey && integration.config?._credential) {
-      anthropicKey = integration.config._credential;
+    if (!apiKey && integration.config?._credential) {
+      apiKey = integration.config._credential;
     }
-    if (!anthropicKey) throw new Error('Anthropic API key not found');
+    if (!apiKey) throw new Error('AI API key not found');
 
     // ── Parse request ──
     const body = await req.json();
@@ -241,37 +242,40 @@ serve(async (req) => {
     const userPrompt = buildUserPrompt(prompt_type, body);
     const maxTokens = getMaxTokens(prompt_type);
 
-    // ── Call Claude API ──
+    // ── Call OpenAI API ──
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 25000);
 
-    const claudeResp = await fetch('https://api.anthropic.com/v1/messages', {
+    const aiResp = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': anthropicKey,
-        'anthropic-version': '2023-06-01',
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: getModel(prompt_type, integration.config?.model),
         max_tokens: maxTokens,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: userPrompt }],
+        temperature: 0.3,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: userPrompt },
+        ],
       }),
       signal: controller.signal,
     });
     clearTimeout(timeout);
 
-    if (!claudeResp.ok) {
-      const errBody = await claudeResp.text();
-      console.error(`Claude API error (${claudeResp.status}):`, errBody.substring(0, 500));
-      if (claudeResp.status === 401) throw new Error('Invalid Anthropic API key. Please reconnect in Settings → Integrations.');
-      if (claudeResp.status === 429) throw new Error('AI rate limit exceeded. Please try again in a moment.');
-      throw new Error(`AI service error (${claudeResp.status})`);
+    if (!aiResp.ok) {
+      const errBody = await aiResp.text();
+      console.error(`OpenAI API error (${aiResp.status}):`, errBody.substring(0, 500));
+      if (aiResp.status === 401) throw new Error('Invalid OpenAI API key. Please reconnect in Settings → Integrations.');
+      if (aiResp.status === 429) throw new Error('AI rate limit exceeded. Please try again in a moment.');
+      throw new Error(`AI service error (${aiResp.status})`);
     }
 
-    const claudeData = await claudeResp.json();
-    const rawText = claudeData.content?.[0]?.text || '';
+    const aiData = await aiResp.json();
+    const rawText = aiData.choices?.[0]?.message?.content || '';
 
     // Parse JSON — handle possible markdown fences
     let parsed;
