@@ -7250,6 +7250,7 @@ const HEAT_COLS = [
   { key:'csat',     label:'CSAT',      ftype:'number', sortFn:"dashHeatSortBy('csat')" },
   { key:'days',     label:'Last Cont.',ftype:'number', sortFn:"dashHeatSortBy('days')" },
   { key:'growth',   label:'Growth',    ftype:'enum',   sortFn:"dashHeatSortBy('growth')", enumVals:['none','mild','strong'] },
+  { key:'created_at', label:'Date Added', ftype:'text', sortFn:"dashHeatSortBy('created_at')" },
 ];
 const _heatCF = makeColFilters('heat', 'hb-filter-portal', HEAT_COLS, function() {
   renderHeatmap(customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c)));
@@ -7264,6 +7265,7 @@ function _heatVal(c, key) {
   if (key === 'csat') return csatNormalized(c.csat);
   if (key === 'days') return c.days != null ? c.days : -1;
   if (key === 'growth') return c.growth || 'none';
+  if (key === 'created_at') return c.created_at || '';
   return 0;
 }
 function dashHeatSortBy(key) {
@@ -7301,6 +7303,7 @@ function renderHeatmap(active) {
       case 'csat':    av = csatNormalized(a.csat); bv = csatNormalized(b.csat); break;
       case 'days':    av = a.days != null ? a.days : -1;     bv = b.days != null ? b.days : -1;     break;
       case 'growth':  av = growOrder[a.growth]||0; bv = growOrder[b.growth]||0; break;
+      case 'created_at': av = a.created_at||''; bv = b.created_at||''; break;
       default:        av = a.score;    bv = b.score;
     }
     if (typeof av === 'string') return av.localeCompare(bv) * dashHeatSort.dir;
@@ -7342,6 +7345,7 @@ function renderHeatmap(active) {
         <td class="${hmColor(csatPct,false)}">${csatDisplay(c.csat)}</td>
         <td class="${hmColor(daysPct,false)}">${c.days != null ? c.days+'d' : '<span style="color:var(--subtle)">N/A</span>'}</td>
         <td class="${hmColor(growPct,false)}">${c.growth}</td>
+        <td style="color:var(--muted);white-space:nowrap">${c.created_at ? new Date(c.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '<span style="color:var(--subtle)">N/A</span>'}</td>
       </tr>`;
     }).join('')}</tbody></table></div>`;
 }
