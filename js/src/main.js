@@ -179,6 +179,7 @@ function _checkUserSwitch(userId) {
       await loadSettingsFromSupabase();
       await loadCustomersFromSupabase();
       await resolveClientPlanTier();
+      _loadAIUsage();
       // Check AI integration status early so homebase Focus List works
       try { var _aiInts = await loadIntegrationStatus('anthropic'); if (_aiInts.length && _aiInts[0].status === 'connected') _aiIntegrationConnected = true; } catch(_e) {}
     } catch(err) {

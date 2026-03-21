@@ -64,8 +64,11 @@ function _loadAIInsights(c) {
   var cached = _aiCacheGet(c.id + '_insights');
   if (cached) { wrap.innerHTML = _renderAIInsightsHTML(cached); return; }
 
+  if (!checkAILimit()) { wrap.style.display = 'none'; return; }
+
   wrap.innerHTML = '<div style="padding:12px 0"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">' + appIcon('sparkle', 16) + ' <span style="font-weight:700;font-size:var(--fs-base)">AI Insights</span><span style="font-size:var(--fs-sm);color:var(--muted)">Analyzing…</span></div>' + _aiSkeletonHTML(6) + '</div>';
 
+  _trackAICall();
   var custId = c.id;
   sb.functions.invoke('ai-agent', { body: { prompt_type: 'detail_insights', customer: _sanitizeForAI(c) } }).then(function(res) {
     if (detailId !== custId) return; // user navigated away
@@ -147,8 +150,11 @@ function openAIMeetingPrep() {
   var cached = _aiCacheGet(c.id + '_meeting');
   if (cached) { content.innerHTML = _renderAIMeetingHTML(cached); return; }
 
+  if (!checkAILimit()) { closeModal('qbr-modal'); openModal('detail-modal'); return; }
+
   content.innerHTML = '<div style="padding:20px 0;text-align:center"><div style="margin-bottom:12px">' + appIcon('sparkle', 24) + '</div><div style="font-weight:600;margin-bottom:8px">Preparing your meeting briefing…</div>' + _aiSkeletonHTML(8) + '</div>';
 
+  _trackAICall();
   var custId = c.id;
   sb.functions.invoke('ai-agent', { body: { prompt_type: 'meeting_prep', customer: _sanitizeForAI(c) } }).then(function(res) {
     if (res.error) throw new Error(res.error.message || 'AI request failed');
@@ -223,8 +229,11 @@ function _loadAISavePlaybook(c) {
   var cached = _aiCacheGet(c.id + '_playbook');
   if (cached) { wrap.innerHTML = _renderAISavePlaybookHTML(cached); return; }
 
+  if (!checkAILimit()) { wrap.style.display = 'none'; return; }
+
   wrap.innerHTML = '<div style="padding:12px 0"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">' + appIcon('sparkle', 16) + ' <span style="font-weight:700;font-size:var(--fs-base)">AI Save Plan</span><span style="font-size:var(--fs-sm);color:var(--muted)">Generating…</span></div>' + _aiSkeletonHTML(8) + '</div>';
 
+  _trackAICall();
   var custId = c.id;
   sb.functions.invoke('ai-agent', { body: { prompt_type: 'save_playbook', customer: _sanitizeForAI(c) } }).then(function(res) {
     if (detailId !== custId) return;

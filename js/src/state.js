@@ -175,10 +175,55 @@ const PLAN_FEATURES = {
 };
 
 const PLAN_LIMITS = {
-  core:   { users: 3,   accounts: 200 },
-  growth: { users: 10,  accounts: 1000 },
-  custom: { users: Infinity, accounts: Infinity },
+  core:   { users: 3,   accounts: 200,  ai_calls: 50 },
+  growth: { users: 10,  accounts: 1000, ai_calls: 500 },
+  custom: { users: Infinity, accounts: Infinity, ai_calls: Infinity },
 };
+
+// ─── AI USAGE TRACKING ──────────────────────────────────────
+let _aiCallCount = 0;
+let _aiCallMonth = '';
+
+function _aiUsageKey() { return 'iqc_ai_usage_' + (_userClientId || 'local'); }
+
+function _loadAIUsage() {
+  try {
+    var stored = JSON.parse(localStorage.getItem(_aiUsageKey()) || '{}');
+    var now = new Date();
+    var curMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    if (stored.month === curMonth) {
+      _aiCallCount = stored.count || 0;
+    } else {
+      _aiCallCount = 0;
+    }
+    _aiCallMonth = curMonth;
+  } catch(e) { _aiCallCount = 0; }
+}
+
+function _trackAICall() {
+  _aiCallCount++;
+  var now = new Date();
+  _aiCallMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  try { localStorage.setItem(_aiUsageKey(), JSON.stringify({ month: _aiCallMonth, count: _aiCallCount })); } catch(e) {}
+}
+
+function checkAILimit() {
+  if (isAdmin()) return true;
+  if (!_aiCallMonth) _loadAIUsage();
+  var limit = getPlanLimit('ai_calls');
+  if (limit === Infinity) return true;
+  if (_aiCallCount >= limit) {
+    toast('AI call limit reached (' + limit + '/month on ' + (PLAN_TIER_LABELS[clientPlanTier] || clientPlanTier) + ' plan). Upgrade for more.', 'warn');
+    return false;
+  }
+  return true;
+}
+
+function getAIUsageInfo() {
+  if (!_aiCallMonth) _loadAIUsage();
+  var limit = getPlanLimit('ai_calls');
+  return { used: _aiCallCount, limit: limit, month: _aiCallMonth };
+}
 
 function hasFeature(key) {
   return true; // all tiers get full feature access — billing differentiates by user/account limits only

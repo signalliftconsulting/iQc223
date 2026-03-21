@@ -181,10 +181,55 @@ const PLAN_FEATURES = {
 };
 
 const PLAN_LIMITS = {
-  core:   { users: 3,   accounts: 200 },
-  growth: { users: 10,  accounts: 1000 },
-  custom: { users: Infinity, accounts: Infinity },
+  core:   { users: 3,   accounts: 200,  ai_calls: 50 },
+  growth: { users: 10,  accounts: 1000, ai_calls: 500 },
+  custom: { users: Infinity, accounts: Infinity, ai_calls: Infinity },
 };
+
+// ─── AI USAGE TRACKING ──────────────────────────────────────
+let _aiCallCount = 0;
+let _aiCallMonth = '';
+
+function _aiUsageKey() { return 'iqc_ai_usage_' + (_userClientId || 'local'); }
+
+function _loadAIUsage() {
+  try {
+    var stored = JSON.parse(localStorage.getItem(_aiUsageKey()) || '{}');
+    var now = new Date();
+    var curMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    if (stored.month === curMonth) {
+      _aiCallCount = stored.count || 0;
+    } else {
+      _aiCallCount = 0;
+    }
+    _aiCallMonth = curMonth;
+  } catch(e) { _aiCallCount = 0; }
+}
+
+function _trackAICall() {
+  _aiCallCount++;
+  var now = new Date();
+  _aiCallMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  try { localStorage.setItem(_aiUsageKey(), JSON.stringify({ month: _aiCallMonth, count: _aiCallCount })); } catch(e) {}
+}
+
+function checkAILimit() {
+  if (isAdmin()) return true;
+  if (!_aiCallMonth) _loadAIUsage();
+  var limit = getPlanLimit('ai_calls');
+  if (limit === Infinity) return true;
+  if (_aiCallCount >= limit) {
+    toast('AI call limit reached (' + limit + '/month on ' + (PLAN_TIER_LABELS[clientPlanTier] || clientPlanTier) + ' plan). Upgrade for more.', 'warn');
+    return false;
+  }
+  return true;
+}
+
+function getAIUsageInfo() {
+  if (!_aiCallMonth) _loadAIUsage();
+  var limit = getPlanLimit('ai_calls');
+  return { used: _aiCallCount, limit: limit, month: _aiCallMonth };
+}
 
 function hasFeature(key) {
   return true; // all tiers get full feature access — billing differentiates by user/account limits only
@@ -6551,9 +6596,12 @@ function _loadAIFocusList(active) {
 
   if (candidates.length < 3) return; // not enough data
 
+  if (!checkAILimit()) return;
+
   card.style.display = '';
   body.innerHTML = _aiSkeletonHTML(5);
 
+  _trackAICall();
   var miniSummaries = candidates.map(function(c) {
     var trend = 'stable';
     if (c.history && c.history.length >= 2) {
@@ -10623,8 +10671,11 @@ function _loadAIInsights(c) {
   var cached = _aiCacheGet(c.id + '_insights');
   if (cached) { wrap.innerHTML = _renderAIInsightsHTML(cached); return; }
 
+  if (!checkAILimit()) { wrap.style.display = 'none'; return; }
+
   wrap.innerHTML = '<div style="padding:12px 0"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">' + appIcon('sparkle', 16) + ' <span style="font-weight:700;font-size:var(--fs-base)">AI Insights</span><span style="font-size:var(--fs-sm);color:var(--muted)">Analyzing…</span></div>' + _aiSkeletonHTML(6) + '</div>';
 
+  _trackAICall();
   var custId = c.id;
   sb.functions.invoke('ai-agent', { body: { prompt_type: 'detail_insights', customer: _sanitizeForAI(c) } }).then(function(res) {
     if (detailId !== custId) return; // user navigated away
@@ -10706,8 +10757,11 @@ function openAIMeetingPrep() {
   var cached = _aiCacheGet(c.id + '_meeting');
   if (cached) { content.innerHTML = _renderAIMeetingHTML(cached); return; }
 
+  if (!checkAILimit()) { closeModal('qbr-modal'); openModal('detail-modal'); return; }
+
   content.innerHTML = '<div style="padding:20px 0;text-align:center"><div style="margin-bottom:12px">' + appIcon('sparkle', 24) + '</div><div style="font-weight:600;margin-bottom:8px">Preparing your meeting briefing…</div>' + _aiSkeletonHTML(8) + '</div>';
 
+  _trackAICall();
   var custId = c.id;
   sb.functions.invoke('ai-agent', { body: { prompt_type: 'meeting_prep', customer: _sanitizeForAI(c) } }).then(function(res) {
     if (res.error) throw new Error(res.error.message || 'AI request failed');
@@ -10782,8 +10836,11 @@ function _loadAISavePlaybook(c) {
   var cached = _aiCacheGet(c.id + '_playbook');
   if (cached) { wrap.innerHTML = _renderAISavePlaybookHTML(cached); return; }
 
+  if (!checkAILimit()) { wrap.style.display = 'none'; return; }
+
   wrap.innerHTML = '<div style="padding:12px 0"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">' + appIcon('sparkle', 16) + ' <span style="font-weight:700;font-size:var(--fs-base)">AI Save Plan</span><span style="font-size:var(--fs-sm);color:var(--muted)">Generating…</span></div>' + _aiSkeletonHTML(8) + '</div>';
 
+  _trackAICall();
   var custId = c.id;
   sb.functions.invoke('ai-agent', { body: { prompt_type: 'save_playbook', customer: _sanitizeForAI(c) } }).then(function(res) {
     if (detailId !== custId) return;
@@ -30423,6 +30480,7 @@ function _checkUserSwitch(userId) {
       await loadSettingsFromSupabase();
       await loadCustomersFromSupabase();
       await resolveClientPlanTier();
+      _loadAIUsage();
       // Check AI integration status early so homebase Focus List works
       try { var _aiInts = await loadIntegrationStatus('anthropic'); if (_aiInts.length && _aiInts[0].status === 'connected') _aiIntegrationConnected = true; } catch(_e) {}
     } catch(err) {

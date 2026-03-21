@@ -955,9 +955,12 @@ function _loadAIFocusList(active) {
 
   if (candidates.length < 3) return; // not enough data
 
+  if (!checkAILimit()) return;
+
   card.style.display = '';
   body.innerHTML = _aiSkeletonHTML(5);
 
+  _trackAICall();
   var miniSummaries = candidates.map(function(c) {
     var trend = 'stable';
     if (c.history && c.history.length >= 2) {
