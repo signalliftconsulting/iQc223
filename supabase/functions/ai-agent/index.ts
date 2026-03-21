@@ -167,7 +167,7 @@ function getModel(promptType: string, configModel?: string): string {
   if (promptType === 'meeting_prep' || promptType === 'save_playbook') {
     return configModel || 'claude-sonnet-4-20250514';
   }
-  return 'claude-haiku-3-20240307'; // fast model for insights + focus list
+  return 'claude-3-haiku-20240307'; // fast model for insights + focus list
 }
 
 serve(async (req) => {
