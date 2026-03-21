@@ -1306,6 +1306,10 @@ td .sparkline{vertical-align:middle}
 .bd-raw{width:90px;text-align:right;font-size:var(--fs-xs);color:var(--muted);flex-shrink:0}
 /* ─── Playbook done state ─── */
 .play-done .play-item__text{opacity:.4;text-decoration:line-through}
+/* ─── AI skeleton loader ─── */
+.ai-loading-skeleton{padding:8px 0}
+.ai-skeleton-line{height:12px;background:linear-gradient(90deg,var(--border) 25%,var(--bg) 50%,var(--border) 75%);background-size:200% 100%;border-radius:4px;margin-bottom:8px;animation:ai-skeleton 1.5s ease-in-out infinite}
+@keyframes ai-skeleton{0%{background-position:200% 0}100%{background-position:-200% 0}}
 /* ─── Next Touch badges ─── */
 .nt-badge{display:inline-block;padding:1px 7px;border-radius:100px;font-size:var(--fs-sm);font-weight:700}
 .nt-overdue{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}
@@ -4331,6 +4335,7 @@ Header: Content-Type: application/json
         Edit &amp; Re-score
       </button>
       <button class="btn btn-outline btn-sm" id="dm-qbr-btn" onclick="openQBR()">QBR Prep</button>
+      <button class="btn btn-outline btn-sm" id="dm-ai-meeting-btn" onclick="openAIMeetingPrep()" style="display:none">✦ AI Meeting Prep</button>
       <button class="btn btn-ghost btn-sm" onclick="printCustomerReport()">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
         Print
@@ -4564,6 +4569,6 @@ function declineCookies(){localStorage.setItem('iqc_cookie_consent','declined');
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script src="js/config.js"></script>
-<script src="js/app.js?v=663"></script>
+<script src="js/app.js?v=664"></script>
 </body>
 </html>

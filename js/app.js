@@ -101,6 +101,9 @@ let _filterStage      = null;   // lifecycle stage filter for customers table (s
 let _filterManager    = null;   // CSM name filter for customers table (set by workload click-through)
 let insightFilter     = null;   // { label: string, ids: Set<string> } - set by insight card click-through
 
+// ─── AI INTEGRATION STATE ────────────────────────────────────
+let _aiIntegrationConnected = false; // set true when Anthropic integration is connected
+
 // ─── AUTOMATIONS STATE ──────────────────────────────────────
 let automationsCfg    = {};        // { api_key_prefix, webhooks: { type: { url, enabled, threshold? } } }
 let webhookEvents     = [];        // loaded from webhook_events table
@@ -6464,6 +6467,12 @@ function _renderHomeBase() {
   html += '<div class="card-body" id="renewal-pipeline-wrap"></div>';
   html += '</div>';
 
+  // ── AI Focus List card (hidden until loaded) ──
+  html += '<div class="card" id="hb-ai-focus" style="display:none;margin-bottom:16px">';
+  html += '<div class="card-hd-bar" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)"><span class="card-hd-bar__title">' + appIcon('sparkle', 14) + ' AI Focus List · Today</span></div>';
+  html += '<div class="card-body" id="hb-ai-focus-body" style="padding:12px"></div>';
+  html += '</div>';
+
   // ── Insights section ──
   html += '<div class="hb-section hb-section-tinted" style="margin-bottom:16px;padding-bottom:8px">';
   html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">';
@@ -6509,8 +6518,87 @@ function _renderHomeBase() {
   if (typeof renderWins === 'function') renderWins(active);
   if (typeof renderDrops === 'function') renderDrops(active);
   if (typeof renderHeatmap === 'function') renderHeatmap(active);
+  // Load AI Focus List (async, non-blocking)
+  _loadAIFocusList(active);
   // Inject tour button for homebase
   if (typeof _wtInjectHomebaseTourButton === 'function') _wtInjectHomebaseTourButton();
+}
+
+// ── AI Focus List ──
+function _loadAIFocusList(active) {
+  if (!_aiIntegrationConnected) return;
+  var card = el('hb-ai-focus');
+  var body = el('hb-ai-focus-body');
+  if (!card || !body) return;
+
+  // Check session cache
+  if (_aiFocusCache && (Date.now() - _aiFocusCacheTime) < AI_FOCUS_CACHE_TTL) {
+    card.style.display = '';
+    body.innerHTML = _renderAIFocusHTML(_aiFocusCache);
+    return;
+  }
+
+  // Build candidate list: sort by score asc, filter critical/risk/watch, max 10
+  var candidates = active.slice().filter(function(c) {
+    return c.status === 'critical' || c.status === 'risk' || c.status === 'watch';
+  }).sort(function(a, b) {
+    // Prefer those with renewal coming up
+    var aRen = a.renewal_date ? Math.max(0, Math.round((new Date(a.renewal_date) - new Date()) / 86400000)) : 999;
+    var bRen = b.renewal_date ? Math.max(0, Math.round((new Date(b.renewal_date) - new Date()) / 86400000)) : 999;
+    if (a.score !== b.score) return a.score - b.score; // worst first
+    return aRen - bRen; // then nearest renewal
+  }).slice(0, 10);
+
+  if (candidates.length < 3) return; // not enough data
+
+  card.style.display = '';
+  body.innerHTML = _aiSkeletonHTML(5);
+
+  var miniSummaries = candidates.map(function(c) {
+    var trend = 'stable';
+    if (c.history && c.history.length >= 2) {
+      var recent = c.history[c.history.length - 1].score;
+      var prev = c.history[Math.max(0, c.history.length - 4)].score;
+      trend = recent > prev ? 'improving' : recent < prev ? 'declining' : 'stable';
+    }
+    return { name: c.name, score: c.score, status: c.status, mrr: c.mrr || 0, days: c.days, renewal_date: c.renewal_date || '', trend: trend };
+  });
+
+  sb.functions.invoke('ai-agent', { body: { prompt_type: 'daily_focus', customers: miniSummaries } }).then(function(res) {
+    if (res.error) throw new Error(res.error.message || 'AI request failed');
+    var data = res.data;
+    if (!data.success) throw new Error(data.error || 'AI returned an error');
+    _aiFocusCache = data.data;
+    _aiFocusCacheTime = Date.now();
+    if (el('hb-ai-focus-body')) el('hb-ai-focus-body').innerHTML = _renderAIFocusHTML(data.data);
+  }).catch(function(err) {
+    console.warn('AI Focus List error:', err);
+    if (el('hb-ai-focus-body')) {
+      el('hb-ai-focus-body').innerHTML = '<div style="font-size:var(--fs-sm);color:var(--muted);padding:8px 0">Focus list unavailable. <a href="#" onclick="event.preventDefault();_aiFocusCache=null;_loadAIFocusList(customers.filter(function(c){return c.lifecycle!==\'churned\'}))" style="color:var(--blue)">Retry</a></div>';
+    }
+  });
+}
+
+function _renderAIFocusHTML(data) {
+  var html = '';
+  if (data.focus_accounts && data.focus_accounts.length) {
+    data.focus_accounts.forEach(function(fa) {
+      var cust = customers.find(function(c) { return c.name === fa.name; });
+      var clickAttr = cust ? ' onclick="openDetail(\'' + cust.id + '\')" style="cursor:pointer"' : '';
+      var urgBadge = fa.urgency === 'high' ? '<span style="background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700">HIGH</span>' : '<span style="background:var(--amber);color:#fff;font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700">MED</span>';
+      html += '<div class="ta-card" style="margin-bottom:8px;padding:10px 14px;transition:background .15s"' + clickAttr + '>';
+      html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">';
+      html += '<span style="font-weight:700;font-size:var(--fs-base)">' + escHtml(fa.name) + '</span> ' + urgBadge;
+      html += '</div>';
+      html += '<div style="font-size:var(--fs-sm);color:var(--muted)">' + escHtml(fa.reason) + '</div>';
+      html += '<div style="font-size:var(--fs-sm);color:var(--blue);margin-top:2px">' + appIcon('bolt', 12) + ' ' + escHtml(fa.action) + '</div>';
+      html += '</div>';
+    });
+  }
+  if (data.portfolio_note) {
+    html += '<div style="font-size:var(--fs-sm);color:var(--muted);padding:6px 0;border-top:1px solid var(--border);margin-top:4px">' + appIcon('sparkle', 12) + ' ' + escHtml(data.portfolio_note) + '</div>';
+  }
+  return html;
 }
 
 // ── Pulse KPI Card (gradient) ──
@@ -10453,6 +10541,226 @@ function rescoreAllFromToolbar() {
 }
 
 
+// ─── AI AGENT CACHE + HELPERS ────────────────────────────────
+var _aiCache = {};
+var AI_CACHE_TTL = 5 * 60000; // 5 min
+var _aiFocusCache = null;
+var _aiFocusCacheTime = 0;
+var AI_FOCUS_CACHE_TTL = 15 * 60000; // 15 min
+
+function _aiCacheGet(key) {
+  var entry = _aiCache[key];
+  if (!entry) return null;
+  if (Date.now() - entry.ts > AI_CACHE_TTL) { delete _aiCache[key]; return null; }
+  return entry.data;
+}
+function _aiCacheSet(key, data) {
+  _aiCache[key] = { data: data, ts: Date.now() };
+}
+
+function _sanitizeForAI(c) {
+  return {
+    name: c.name, score: c.score, status: c.status, tier: c.tier, lifecycle: c.lifecycle,
+    mrr: c.mrr || 0, arr: c.arr || 0, manager: c.manager || '', contact_name: c.contact_name || '',
+    logins: c.logins, adoption: c.adoption, tickets: c.tickets, nps: c.nps, csat: c.csat,
+    days: c.days, growth: c.growth || 'none', renewal_date: c.renewal_date || '',
+    billing_interval: c.billing_interval || '', tags: c.tags || [],
+    history: (c.history || []).slice(-10).map(function(h) { return { score: h.score, date: h.date }; }),
+    notes: (c.notes || []).slice(-5).map(function(n) { return { text: n.text, date: n.date }; }),
+    sentiment: (c.sentiment || []).slice(-5).map(function(s) { return { val: s.val, note: s.note || '', date: s.date }; })
+  };
+}
+
+function _aiSkeletonHTML(rows) {
+  rows = rows || 4;
+  var lines = '';
+  for (var i = 0; i < rows; i++) {
+    var w = 60 + Math.floor(Math.random() * 35);
+    lines += '<div class="ai-skeleton-line" style="width:' + w + '%"></div>';
+  }
+  return '<div class="ai-loading-skeleton">' + lines + '</div>';
+}
+
+function _loadAIInsights(c) {
+  if (!_aiIntegrationConnected) { var d = el('dm-ai-insights'); if (d) d.style.display = 'none'; return; }
+  var wrap = el('dm-ai-insights');
+  if (!wrap) return;
+  wrap.style.display = '';
+  var cached = _aiCacheGet(c.id + '_insights');
+  if (cached) { wrap.innerHTML = _renderAIInsightsHTML(cached); return; }
+  wrap.innerHTML = '<div style="padding:12px 0"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">' + appIcon('sparkle', 16) + ' <span style="font-weight:700;font-size:var(--fs-base)">AI Insights</span><span style="font-size:var(--fs-sm);color:var(--muted)">Analyzing…</span></div>' + _aiSkeletonHTML(6) + '</div>';
+  var custId = c.id;
+  sb.functions.invoke('ai-agent', { body: { prompt_type: 'detail_insights', customer: _sanitizeForAI(c) } }).then(function(res) {
+    if (detailId !== custId) return;
+    if (res.error) throw new Error(res.error.message || 'AI request failed');
+    var body = res.data;
+    if (!body.success) throw new Error(body.error || 'AI returned an error');
+    _aiCacheSet(custId + '_insights', body.data);
+    if (el('dm-ai-insights')) el('dm-ai-insights').innerHTML = _renderAIInsightsHTML(body.data);
+  }).catch(function(err) {
+    console.warn('AI Insights error:', err);
+    if (el('dm-ai-insights') && detailId === custId) {
+      el('dm-ai-insights').innerHTML = '<div style="padding:10px 0;font-size:var(--fs-sm);color:var(--muted)">AI insights unavailable. <a href="#" onclick="event.preventDefault();_loadAIInsights(customers.find(function(x){return x.id===detailId}))" style="color:var(--blue)">Retry</a></div>';
+    }
+  });
+}
+
+function _renderAIInsightsHTML(data) {
+  var html = '<div style="padding:12px 0">';
+  html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">' + appIcon('sparkle', 16) + ' <span style="font-weight:700;font-size:var(--fs-base)">AI Insights</span><span style="font-size:var(--fs-2xs);color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Powered by Claude</span></div>';
+  if (data.summary) {
+    html += '<div class="rec-box" style="margin-bottom:10px"><div class="rec-box__title">Summary</div>' + escHtml(data.summary) + '</div>';
+  }
+  if (data.risk_factors && data.risk_factors.length) {
+    html += '<div style="margin-bottom:10px"><div style="font-size:var(--fs-sm);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">' + appIcon('warning', 14) + ' Risk Factors</div>';
+    data.risk_factors.forEach(function(rf) {
+      var col = rf.severity === 'red' ? 'var(--red)' : rf.severity === 'amber' ? 'var(--amber)' : 'var(--green)';
+      html += '<div class="ta-card" style="border-left:3px solid ' + col + ';margin-bottom:6px;padding:8px 12px">';
+      html += '<div style="font-weight:600;font-size:var(--fs-base)">' + escHtml(rf.title) + '</div>';
+      html += '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px">' + escHtml(rf.detail) + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+  if (data.actions && data.actions.length) {
+    html += '<div><div style="font-size:var(--fs-sm);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">' + appIcon('bolt', 14) + ' Recommended Actions</div>';
+    data.actions.forEach(function(a) {
+      var badge = a.priority === 'high' ? '<span style="background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700;margin-right:6px">HIGH</span>' : a.priority === 'medium' ? '<span style="background:var(--amber);color:#fff;font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700;margin-right:6px">MED</span>' : '<span style="background:var(--green);color:#fff;font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700;margin-right:6px">LOW</span>';
+      html += '<div class="ta-card" style="margin-bottom:6px;padding:8px 12px">';
+      html += '<div style="font-weight:600;font-size:var(--fs-base)">' + badge + escHtml(a.title) + '</div>';
+      html += '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:2px">' + escHtml(a.detail) + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function openAIMeetingPrep() {
+  if (!_aiIntegrationConnected) { toast('Connect your Anthropic API key in Settings → Integrations first.', 'warn'); return; }
+  var c = customers.find(function(x) { return x.id === detailId; });
+  if (!c) return;
+  closeModal('detail-modal');
+  openModal('qbr-modal');
+  var content = el('qbr-content');
+  if (!content) return;
+  var hd = document.querySelector('#qbr-modal .modal-hd h2');
+  if (hd) hd.innerHTML = appIcon('sparkle', 18) + ' AI Meeting Prep — ' + escHtml(c.name);
+  var sub = document.querySelector('#qbr-modal .modal-hd p');
+  if (sub) sub.textContent = 'AI-generated briefing with talking points and risk analysis';
+  var cached = _aiCacheGet(c.id + '_meeting');
+  if (cached) { content.innerHTML = _renderAIMeetingHTML(cached); return; }
+  content.innerHTML = '<div style="padding:20px 0;text-align:center"><div style="margin-bottom:12px">' + appIcon('sparkle', 24) + '</div><div style="font-weight:600;margin-bottom:8px">Preparing your meeting briefing…</div>' + _aiSkeletonHTML(8) + '</div>';
+  var custId = c.id;
+  sb.functions.invoke('ai-agent', { body: { prompt_type: 'meeting_prep', customer: _sanitizeForAI(c) } }).then(function(res) {
+    if (res.error) throw new Error(res.error.message || 'AI request failed');
+    var body = res.data;
+    if (!body.success) throw new Error(body.error || 'AI returned an error');
+    _aiCacheSet(custId + '_meeting', body.data);
+    if (el('qbr-content')) el('qbr-content').innerHTML = _renderAIMeetingHTML(body.data);
+  }).catch(function(err) {
+    console.warn('AI Meeting Prep error:', err);
+    if (el('qbr-content')) {
+      el('qbr-content').innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted)"><p>Meeting prep unavailable: ' + escHtml(err.message) + '</p><button class="btn btn-primary btn-sm" onclick="openAIMeetingPrep()" style="margin-top:10px">Retry</button></div>';
+    }
+  });
+}
+
+function _renderAIMeetingHTML(data) {
+  var html = '';
+  if (data.briefing) {
+    html += '<div class="rec-box" style="margin-bottom:14px"><div class="rec-box__title">Executive Summary</div>' + escHtml(data.briefing) + '</div>';
+  }
+  if (data.talking_points && data.talking_points.length) {
+    html += '<div style="margin-bottom:14px"><div style="font-size:var(--fs-sm);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Talking Points</div>';
+    data.talking_points.forEach(function(tp) {
+      var toneCol = tp.tone === 'positive' ? 'var(--green)' : tp.tone === 'cautious' ? 'var(--amber)' : 'var(--blue)';
+      html += '<div class="ta-card" style="border-left:3px solid ' + toneCol + ';margin-bottom:8px;padding:10px 14px">';
+      html += '<div style="font-weight:600;font-size:var(--fs-base)">' + escHtml(tp.topic) + ' <span style="font-size:10px;color:' + toneCol + ';text-transform:uppercase;font-weight:700;margin-left:6px">' + escHtml(tp.tone) + '</span></div>';
+      html += '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:3px">' + escHtml(tp.detail) + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+  if (data.risks_to_address && data.risks_to_address.length) {
+    html += '<div style="margin-bottom:14px"><div style="font-size:var(--fs-sm);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">' + appIcon('warning', 14) + ' Risks to Address</div>';
+    data.risks_to_address.forEach(function(r) {
+      html += '<div class="ta-card" style="border-left:3px solid var(--red);margin-bottom:8px;padding:10px 14px">';
+      html += '<div style="font-weight:600;font-size:var(--fs-base)">' + escHtml(r.risk) + '</div>';
+      html += '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:3px"><em>Approach:</em> ' + escHtml(r.suggested_approach) + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+  if (data.trends && data.trends.length) {
+    html += '<div><div style="font-size:var(--fs-sm);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">' + appIcon('trendUp', 14) + ' Trends</div>';
+    data.trends.forEach(function(t) {
+      html += '<div class="ta-card" style="margin-bottom:8px;padding:10px 14px">';
+      html += '<div style="font-weight:600;font-size:var(--fs-base)">' + escHtml(t.observation) + '</div>';
+      html += '<div style="font-size:var(--fs-sm);color:var(--muted);margin-top:3px">' + escHtml(t.implication) + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+  return html;
+}
+
+function _loadAISavePlaybook(c) {
+  if (!_aiIntegrationConnected) return;
+  if (c.status !== 'critical' && c.status !== 'risk') return;
+  var wrap = el('dm-ai-playbook');
+  if (!wrap) return;
+  wrap.style.display = '';
+  var cached = _aiCacheGet(c.id + '_playbook');
+  if (cached) { wrap.innerHTML = _renderAISavePlaybookHTML(cached); return; }
+  wrap.innerHTML = '<div style="padding:12px 0"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">' + appIcon('sparkle', 16) + ' <span style="font-weight:700;font-size:var(--fs-base)">AI Save Plan</span><span style="font-size:var(--fs-sm);color:var(--muted)">Generating…</span></div>' + _aiSkeletonHTML(8) + '</div>';
+  var custId = c.id;
+  sb.functions.invoke('ai-agent', { body: { prompt_type: 'save_playbook', customer: _sanitizeForAI(c) } }).then(function(res) {
+    if (detailId !== custId) return;
+    if (res.error) throw new Error(res.error.message || 'AI request failed');
+    var body = res.data;
+    if (!body.success) throw new Error(body.error || 'AI returned an error');
+    _aiCacheSet(custId + '_playbook', body.data);
+    if (el('dm-ai-playbook')) el('dm-ai-playbook').innerHTML = _renderAISavePlaybookHTML(body.data);
+  }).catch(function(err) {
+    console.warn('AI Save Playbook error:', err);
+    if (el('dm-ai-playbook') && detailId === custId) {
+      el('dm-ai-playbook').innerHTML = '<div style="padding:10px 0;font-size:var(--fs-sm);color:var(--muted)">AI save plan unavailable. <a href="#" onclick="event.preventDefault();_loadAISavePlaybook(customers.find(function(x){return x.id===detailId}))" style="color:var(--blue)">Retry</a></div>';
+    }
+  });
+}
+
+function _renderAISavePlaybookHTML(data) {
+  var html = '<div style="padding:12px 0">';
+  html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">' + appIcon('sparkle', 16) + ' <span style="font-weight:700;font-size:var(--fs-base)">AI Save Plan</span><span style="font-size:var(--fs-2xs);color:var(--muted);text-transform:uppercase;letter-spacing:.04em">4-Week Recovery</span>';
+  html += '<button class="btn btn-ghost btn-xs" style="margin-left:auto;font-size:11px" onclick="delete _aiCache[detailId+\'_playbook\'];_loadAISavePlaybook(customers.find(function(x){return x.id===detailId}))">' + appIcon('refresh', 12) + ' Regenerate</button></div>';
+  if (data.diagnosis) {
+    html += '<div class="rec-box" style="margin-bottom:12px;border-left:3px solid var(--red)"><div class="rec-box__title">Diagnosis</div>' + escHtml(data.diagnosis) + '</div>';
+  }
+  if (data.weeks && data.weeks.length) {
+    data.weeks.forEach(function(w) {
+      html += '<div class="ta-card" style="margin-bottom:10px;padding:10px 14px">';
+      html += '<div style="font-weight:700;font-size:var(--fs-base);margin-bottom:6px;color:var(--blue)">Week ' + w.week + ': ' + escHtml(w.theme) + '</div>';
+      if (w.actions && w.actions.length) {
+        w.actions.forEach(function(a) {
+          var ownerBadge = a.owner === 'exec' ? '<span style="background:var(--purple);color:#fff;font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;margin-right:5px">EXEC</span>' : a.owner === 'support' ? '<span style="background:var(--teal);color:#fff;font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;margin-right:5px">SUPPORT</span>' : '<span style="background:var(--blue);color:#fff;font-size:9px;padding:1px 5px;border-radius:3px;font-weight:700;margin-right:5px">CSM</span>';
+          html += '<div style="margin-bottom:5px;padding-left:10px;border-left:2px solid var(--border)">';
+          html += '<div style="font-weight:600;font-size:var(--fs-sm)">' + ownerBadge + escHtml(a.task) + '</div>';
+          html += '<div style="font-size:var(--fs-sm);color:var(--muted)">' + escHtml(a.detail) + '</div>';
+          html += '</div>';
+        });
+      }
+      html += '</div>';
+    });
+  }
+  if (data.success_criteria) {
+    html += '<div style="font-size:var(--fs-sm);color:var(--muted);padding:6px 0;border-top:1px solid var(--border);margin-top:6px">' + appIcon('target', 13) + ' <strong>Success criteria:</strong> ' + escHtml(data.success_criteria) + '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
 // ─── SCORE FORM ─────────────────────────────────────────────
 function rv(key, val) {
   document.getElementById('rv-' + key).textContent = val;
@@ -11174,6 +11482,10 @@ function openDetail(id) {
     } else { qbrBtn.style.display = 'none'; }
   }
 
+  // Show/hide AI Meeting Prep button
+  var aiMeetBtn = el('dm-ai-meeting-btn');
+  if (aiMeetBtn) aiMeetBtn.style.display = _aiIntegrationConnected ? '' : 'none';
+
   // Alert count badge on Alerts tab
   const alertTab = el('dt-alerts');
   if (alertTab) {
@@ -11395,7 +11707,10 @@ function renderDetailOverview() {
     <div class="bd-title">Signal Breakdown</div>
     ${buildBreakdownHTML(signals, c)}
     ${buildSignalModelInsightsHTML(c)}
+    <div id="dm-ai-insights"></div>
   `;
+  // Load AI insights asynchronously (non-blocking)
+  _loadAIInsights(c);
 }
 
 function buildSignalModelInsightsHTML(c) {
@@ -11587,7 +11902,8 @@ function renderDetailPlaybook() {
         <div class="playbook-title" style="margin:0">Action Playbook for ${escHtml(c.name)}</div>
         ${clearLink}
       </div>`;
-  el('dm-playbook').innerHTML = header +
+  var aiPlaybookDiv = '<div id="dm-ai-playbook" style="display:none"></div>';
+  el('dm-playbook').innerHTML = aiPlaybookDiv + header +
     plays.map((p, i) => {
       const ts = checks[playKey(p)];
       const checked = !!ts;
@@ -11604,6 +11920,8 @@ function renderDetailPlaybook() {
         <div class="play-item__text">${p.text}${ageLabel ? '<span style="color:var(--muted);font-size:var(--fs-sm)">' + ageLabel + '</span>' : ''}</div>
       </label>`;
     }).join('');
+  // Load AI save playbook asynchronously (only for at-risk/critical customers)
+  _loadAISavePlaybook(c);
 }
 
 function togglePlayCheck(idx, checked) {
@@ -17492,12 +17810,29 @@ async function renderIntegrationsSection() {
         ${salesforceInt?.status === 'connected' ? '<span style="font-size:var(--fs-sm);color:var(--green);font-weight:700">● Connected</span>' : '<span style="font-size:var(--fs-sm);color:var(--muted)">Not connected</span>'}
       </div>
       <div id="integration-salesforce-body"></div>
+    </div>
+    <div class="card" style="max-width:720px;margin-bottom:18px">
+      <div class="card-hd">
+        <h2>
+          ${appIcon('sparkle', 20).replace('style="', 'style="vertical-align:text-bottom;margin-right:6px;')} Anthropic (Claude AI)
+          <span class="info-tip" data-tip="Connect your Anthropic API key to enable AI-powered features: customer insights, meeting prep, focus lists, and save playbooks. Get your key at console.anthropic.com.">ⓘ</span>
+        </h2>
+        ${(_integrationCache['anthropic']?.status === 'connected') ? '<span style="font-size:var(--fs-sm);color:var(--green);font-weight:700">● Connected</span>' : '<span style="font-size:var(--fs-sm);color:var(--muted)">Not connected</span>'}
+      </div>
+      <div id="integration-anthropic-body"></div>
     </div>`;
 
   renderHubSpotCard(hubspotInt);
   renderStripeCard(stripeInt);
   renderSalesforceCard(salesforceInt);
+  renderAnthropicCard(_integrationCache['anthropic'] || null);
   renderSyncOverview();
+
+  // Set AI integration flag
+  _aiIntegrationConnected = !!(_integrationCache['anthropic']?.status === 'connected');
+  // Show/hide AI meeting prep button in detail
+  var aiBtn = el('dm-ai-meeting-btn');
+  if (aiBtn) aiBtn.style.display = _aiIntegrationConnected ? '' : 'none';
 }
 
 // One-time recovery: restore wiped signals from last good history snapshot
@@ -17830,6 +18165,77 @@ async function disconnectStripeUI() {
     try {
       await disconnectIntegration('stripe');
       toast('Stripe disconnected', 'warn');
+      renderIntegrationsSection();
+    } catch(e) {
+      toast('Disconnect failed: ' + e.message, 'error');
+    }
+  });
+}
+
+// ── Anthropic (Claude AI) Card ──
+function renderAnthropicCard(integration) {
+  const body = el('integration-anthropic-body');
+  if (!body) return;
+
+  if (!integration || integration.status !== 'connected') {
+    body.innerHTML = `
+      <p style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:10px">
+        Enter your Anthropic API key to enable AI-powered features. Your key is stored securely in Supabase Vault and never exposed to the browser.
+        <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" style="color:var(--blue)">Get your API key →</a>
+      </p>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="password" id="anthropic-key-input" class="form-input" placeholder="sk-ant-..." style="flex:1;min-width:200px;font-family:monospace;font-size:var(--fs-sm)" />
+        <button class="btn btn-primary btn-sm" id="anthropic-connect-btn" onclick="connectAnthropicUI()">Connect</button>
+      </div>
+      <div id="anthropic-connect-status" style="margin-top:6px;font-size:var(--fs-sm)"></div>`;
+  } else {
+    const model = integration.config?.model || 'claude-sonnet-4-20250514';
+    body.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span style="font-size:var(--fs-sm);color:var(--green);font-weight:600">✓ Connected to Claude AI</span>
+      </div>
+      <p style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:10px">Model: <strong>${escHtml(model)}</strong> · AI features are active across customer details, meeting prep, focus lists, and playbooks.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-danger" onclick="disconnectAnthropicUI()">Disconnect</button>
+      </div>`;
+  }
+}
+
+async function connectAnthropicUI() {
+  const input = el('anthropic-key-input');
+  const btn = el('anthropic-connect-btn');
+  const status = el('anthropic-connect-status');
+  const key = input?.value?.trim();
+  if (!key) { toast('Enter your Anthropic API key', 'error'); return; }
+  if (!key.startsWith('sk-ant-')) {
+    toast('Key should start with sk-ant-', 'error'); return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Connecting…';
+  status.innerHTML = '<span style="color:var(--muted)">Validating key with Anthropic…</span>';
+
+  try {
+    const result = await connectIntegration('anthropic', key);
+    toast('Anthropic connected! AI features are now active.', 'success');
+    input.value = '';
+    _aiIntegrationConnected = true;
+    renderIntegrationsSection();
+  } catch(e) {
+    status.innerHTML = `<span style="color:var(--red)">${escHtml(e.message)}</span>`;
+    toast('Connection failed: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Connect';
+  }
+}
+
+async function disconnectAnthropicUI() {
+  confirmAction('Disconnect Anthropic? AI features will be disabled.', async () => {
+    try {
+      await disconnectIntegration('anthropic');
+      toast('Anthropic disconnected', 'warn');
+      _aiIntegrationConnected = false;
       renderIntegrationsSection();
     } catch(e) {
       toast('Disconnect failed: ' + e.message, 'error');
@@ -29933,6 +30339,8 @@ function _checkUserSwitch(userId) {
       await loadSettingsFromSupabase();
       await loadCustomersFromSupabase();
       await resolveClientPlanTier();
+      // Check AI integration status early so homebase Focus List works
+      try { var _aiInts = await loadIntegrationStatus('anthropic'); if (_aiInts.length && _aiInts[0].status === 'connected') _aiIntegrationConnected = true; } catch(_e) {}
     } catch(err) {
       console.error('Supabase sync error:', err?.message || err, err);
       if (err?.message?.includes('quota')) {
@@ -30038,6 +30446,8 @@ function _checkUserSwitch(userId) {
       await loadSettingsFromSupabase();
       await loadCustomersFromSupabase();
       await resolveClientPlanTier();
+      // Check AI integration status early so homebase Focus List works
+      try { var _aiInts2 = await loadIntegrationStatus('anthropic'); if (_aiInts2.length && _aiInts2[0].status === 'connected') _aiIntegrationConnected = true; } catch(_e2) {}
     } catch(err) {
       console.error('Supabase sync error:', err?.message || err, err);
       if (err?.message?.includes('quota')) {

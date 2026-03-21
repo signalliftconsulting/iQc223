@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════════
 // integration-connect — Supabase Edge Function
-// Connects / disconnects native integrations (Stripe, HubSpot, Salesforce)
+// Connects / disconnects native integrations (Stripe, HubSpot, Salesforce, Anthropic)
 // Validates credentials, stores in Supabase Vault, manages status
 // Called by: sb.functions.invoke('integration-connect', { body: {...} })
 // ═══════════════════════════════════════════════════════════════
@@ -76,6 +76,34 @@ async function validateHubSpotToken(token: string): Promise<{ valid: boolean; er
   }
 }
 
+// Validate an Anthropic API key by calling POST /v1/messages with a minimal request
+async function validateAnthropicKey(key: string): Promise<{ valid: boolean; error?: string }> {
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 10,
+        messages: [{ role: 'user', content: 'Say "ok"' }],
+      }),
+    });
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}));
+      if (resp.status === 401) return { valid: false, error: 'Invalid API key' };
+      if (resp.status === 403) return { valid: false, error: 'API key lacks required permissions' };
+      return { valid: false, error: body?.error?.message || `Anthropic returned ${resp.status}` };
+    }
+    return { valid: true };
+  } catch (e) {
+    return { valid: false, error: e.message };
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: getCorsHeaders(req) });
@@ -114,8 +142,8 @@ serve(async (req) => {
     const body = await req.json();
     const { platform, action, credential } = body;
 
-    if (!['stripe', 'hubspot', 'salesforce'].includes(platform)) {
-      throw new Error('Invalid platform. Must be "stripe", "hubspot", or "salesforce".');
+    if (!['stripe', 'hubspot', 'salesforce', 'anthropic'].includes(platform)) {
+      throw new Error('Invalid platform. Must be "stripe", "hubspot", "salesforce", or "anthropic".');
     }
 
     // Default metric toggles per platform
@@ -123,6 +151,7 @@ serve(async (req) => {
       stripe:     { mrr: true, arr: true, tier: true, growth: true, renewal: true, billing: true },
       hubspot:    { tickets: true, days: true, contact: true, nps: true, csat: true, lifecycle: true },
       salesforce: { mrr: true, tier: true, renewal: true, tickets: true, days: true, contact: true, lifecycle: true },
+      anthropic:  {},
     };
     if (!['connect', 'disconnect'].includes(action)) {
       throw new Error('Invalid action. Must be "connect" or "disconnect".');
@@ -142,6 +171,9 @@ serve(async (req) => {
         // Salesforce uses OAuth, not direct credential connect — this path is for manual token entry
         const instanceUrl = body.instance_url || 'https://login.salesforce.com';
         validationResult = await validateSalesforceToken(credential, instanceUrl);
+      } else if (platform === 'anthropic') {
+        validationResult = await validateAnthropicKey(credential);
+        if (validationResult.valid) validationResult.name = 'Claude AI';
       } else {
         validationResult = await validateHubSpotToken(credential);
       }

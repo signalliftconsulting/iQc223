@@ -1670,12 +1670,29 @@ async function renderIntegrationsSection() {
         ${salesforceInt?.status === 'connected' ? '<span style="font-size:var(--fs-sm);color:var(--green);font-weight:700">● Connected</span>' : '<span style="font-size:var(--fs-sm);color:var(--muted)">Not connected</span>'}
       </div>
       <div id="integration-salesforce-body"></div>
+    </div>
+    <div class="card" style="max-width:720px;margin-bottom:18px">
+      <div class="card-hd">
+        <h2>
+          ${appIcon('sparkle', 20).replace('style="', 'style="vertical-align:text-bottom;margin-right:6px;')} Anthropic (Claude AI)
+          <span class="info-tip" data-tip="Connect your Anthropic API key to enable AI-powered features: customer insights, meeting prep, focus lists, and save playbooks. Get your key at console.anthropic.com.">ⓘ</span>
+        </h2>
+        ${(_integrationCache['anthropic']?.status === 'connected') ? '<span style="font-size:var(--fs-sm);color:var(--green);font-weight:700">● Connected</span>' : '<span style="font-size:var(--fs-sm);color:var(--muted)">Not connected</span>'}
+      </div>
+      <div id="integration-anthropic-body"></div>
     </div>`;
 
   renderHubSpotCard(hubspotInt);
   renderStripeCard(stripeInt);
   renderSalesforceCard(salesforceInt);
+  renderAnthropicCard(_integrationCache['anthropic'] || null);
   renderSyncOverview();
+
+  // Set AI integration flag
+  _aiIntegrationConnected = !!(_integrationCache['anthropic']?.status === 'connected');
+  // Show/hide AI meeting prep button in detail
+  var aiBtn = el('dm-ai-meeting-btn');
+  if (aiBtn) aiBtn.style.display = _aiIntegrationConnected ? '' : 'none';
 }
 
 // One-time recovery: restore wiped signals from last good history snapshot
@@ -2008,6 +2025,77 @@ async function disconnectStripeUI() {
     try {
       await disconnectIntegration('stripe');
       toast('Stripe disconnected', 'warn');
+      renderIntegrationsSection();
+    } catch(e) {
+      toast('Disconnect failed: ' + e.message, 'error');
+    }
+  });
+}
+
+// ── Anthropic (Claude AI) Card ──
+function renderAnthropicCard(integration) {
+  const body = el('integration-anthropic-body');
+  if (!body) return;
+
+  if (!integration || integration.status !== 'connected') {
+    body.innerHTML = `
+      <p style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:10px">
+        Enter your Anthropic API key to enable AI-powered features. Your key is stored securely in Supabase Vault and never exposed to the browser.
+        <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" style="color:var(--blue)">Get your API key →</a>
+      </p>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="password" id="anthropic-key-input" class="form-input" placeholder="sk-ant-..." style="flex:1;min-width:200px;font-family:monospace;font-size:var(--fs-sm)" />
+        <button class="btn btn-primary btn-sm" id="anthropic-connect-btn" onclick="connectAnthropicUI()">Connect</button>
+      </div>
+      <div id="anthropic-connect-status" style="margin-top:6px;font-size:var(--fs-sm)"></div>`;
+  } else {
+    const model = integration.config?.model || 'claude-sonnet-4-20250514';
+    body.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span style="font-size:var(--fs-sm);color:var(--green);font-weight:600">✓ Connected to Claude AI</span>
+      </div>
+      <p style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:10px">Model: <strong>${escHtml(model)}</strong> · AI features are active across customer details, meeting prep, focus lists, and playbooks.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-danger" onclick="disconnectAnthropicUI()">Disconnect</button>
+      </div>`;
+  }
+}
+
+async function connectAnthropicUI() {
+  const input = el('anthropic-key-input');
+  const btn = el('anthropic-connect-btn');
+  const status = el('anthropic-connect-status');
+  const key = input?.value?.trim();
+  if (!key) { toast('Enter your Anthropic API key', 'error'); return; }
+  if (!key.startsWith('sk-ant-')) {
+    toast('Key should start with sk-ant-', 'error'); return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Connecting…';
+  status.innerHTML = '<span style="color:var(--muted)">Validating key with Anthropic…</span>';
+
+  try {
+    const result = await connectIntegration('anthropic', key);
+    toast('Anthropic connected! AI features are now active.', 'success');
+    input.value = '';
+    _aiIntegrationConnected = true;
+    renderIntegrationsSection();
+  } catch(e) {
+    status.innerHTML = `<span style="color:var(--red)">${escHtml(e.message)}</span>`;
+    toast('Connection failed: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Connect';
+  }
+}
+
+async function disconnectAnthropicUI() {
+  confirmAction('Disconnect Anthropic? AI features will be disabled.', async () => {
+    try {
+      await disconnectIntegration('anthropic');
+      toast('Anthropic disconnected', 'warn');
+      _aiIntegrationConnected = false;
       renderIntegrationsSection();
     } catch(e) {
       toast('Disconnect failed: ' + e.message, 'error');

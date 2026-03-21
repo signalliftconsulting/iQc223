@@ -95,6 +95,9 @@ let _filterStage      = null;   // lifecycle stage filter for customers table (s
 let _filterManager    = null;   // CSM name filter for customers table (set by workload click-through)
 let insightFilter     = null;   // { label: string, ids: Set<string> } - set by insight card click-through
 
+// ─── AI INTEGRATION STATE ────────────────────────────────────
+let _aiIntegrationConnected = false; // set true when Anthropic integration is connected
+
 // ─── AUTOMATIONS STATE ──────────────────────────────────────
 let automationsCfg    = {};        // { api_key_prefix, webhooks: { type: { url, enabled, threshold? } } }
 let webhookEvents     = [];        // loaded from webhook_events table

@@ -871,6 +871,12 @@ function _renderHomeBase() {
   html += '<div class="card-body" id="renewal-pipeline-wrap"></div>';
   html += '</div>';
 
+  // ── AI Focus List card (hidden until loaded) ──
+  html += '<div class="card" id="hb-ai-focus" style="display:none;margin-bottom:16px">';
+  html += '<div class="card-hd-bar" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)"><span class="card-hd-bar__title">' + appIcon('sparkle', 14) + ' AI Focus List · Today</span></div>';
+  html += '<div class="card-body" id="hb-ai-focus-body" style="padding:12px"></div>';
+  html += '</div>';
+
   // ── Insights section ──
   html += '<div class="hb-section hb-section-tinted" style="margin-bottom:16px;padding-bottom:8px">';
   html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">';
@@ -916,8 +922,87 @@ function _renderHomeBase() {
   if (typeof renderWins === 'function') renderWins(active);
   if (typeof renderDrops === 'function') renderDrops(active);
   if (typeof renderHeatmap === 'function') renderHeatmap(active);
+  // Load AI Focus List (async, non-blocking)
+  _loadAIFocusList(active);
   // Inject tour button for homebase
   if (typeof _wtInjectHomebaseTourButton === 'function') _wtInjectHomebaseTourButton();
+}
+
+// ── AI Focus List ──
+function _loadAIFocusList(active) {
+  if (!_aiIntegrationConnected) return;
+  var card = el('hb-ai-focus');
+  var body = el('hb-ai-focus-body');
+  if (!card || !body) return;
+
+  // Check session cache
+  if (_aiFocusCache && (Date.now() - _aiFocusCacheTime) < AI_FOCUS_CACHE_TTL) {
+    card.style.display = '';
+    body.innerHTML = _renderAIFocusHTML(_aiFocusCache);
+    return;
+  }
+
+  // Build candidate list: sort by score asc, filter critical/risk/watch, max 10
+  var candidates = active.slice().filter(function(c) {
+    return c.status === 'critical' || c.status === 'risk' || c.status === 'watch';
+  }).sort(function(a, b) {
+    // Prefer those with renewal coming up
+    var aRen = a.renewal_date ? Math.max(0, Math.round((new Date(a.renewal_date) - new Date()) / 86400000)) : 999;
+    var bRen = b.renewal_date ? Math.max(0, Math.round((new Date(b.renewal_date) - new Date()) / 86400000)) : 999;
+    if (a.score !== b.score) return a.score - b.score; // worst first
+    return aRen - bRen; // then nearest renewal
+  }).slice(0, 10);
+
+  if (candidates.length < 3) return; // not enough data
+
+  card.style.display = '';
+  body.innerHTML = _aiSkeletonHTML(5);
+
+  var miniSummaries = candidates.map(function(c) {
+    var trend = 'stable';
+    if (c.history && c.history.length >= 2) {
+      var recent = c.history[c.history.length - 1].score;
+      var prev = c.history[Math.max(0, c.history.length - 4)].score;
+      trend = recent > prev ? 'improving' : recent < prev ? 'declining' : 'stable';
+    }
+    return { name: c.name, score: c.score, status: c.status, mrr: c.mrr || 0, days: c.days, renewal_date: c.renewal_date || '', trend: trend };
+  });
+
+  sb.functions.invoke('ai-agent', { body: { prompt_type: 'daily_focus', customers: miniSummaries } }).then(function(res) {
+    if (res.error) throw new Error(res.error.message || 'AI request failed');
+    var data = res.data;
+    if (!data.success) throw new Error(data.error || 'AI returned an error');
+    _aiFocusCache = data.data;
+    _aiFocusCacheTime = Date.now();
+    if (el('hb-ai-focus-body')) el('hb-ai-focus-body').innerHTML = _renderAIFocusHTML(data.data);
+  }).catch(function(err) {
+    console.warn('AI Focus List error:', err);
+    if (el('hb-ai-focus-body')) {
+      el('hb-ai-focus-body').innerHTML = '<div style="font-size:var(--fs-sm);color:var(--muted);padding:8px 0">Focus list unavailable. <a href="#" onclick="event.preventDefault();_aiFocusCache=null;_loadAIFocusList(customers.filter(function(c){return c.lifecycle!==\'churned\'}))" style="color:var(--blue)">Retry</a></div>';
+    }
+  });
+}
+
+function _renderAIFocusHTML(data) {
+  var html = '';
+  if (data.focus_accounts && data.focus_accounts.length) {
+    data.focus_accounts.forEach(function(fa) {
+      var cust = customers.find(function(c) { return c.name === fa.name; });
+      var clickAttr = cust ? ' onclick="openDetail(\'' + cust.id + '\')" style="cursor:pointer"' : '';
+      var urgBadge = fa.urgency === 'high' ? '<span style="background:var(--red);color:#fff;font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700">HIGH</span>' : '<span style="background:var(--amber);color:#fff;font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700">MED</span>';
+      html += '<div class="ta-card" style="margin-bottom:8px;padding:10px 14px;transition:background .15s"' + clickAttr + '>';
+      html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">';
+      html += '<span style="font-weight:700;font-size:var(--fs-base)">' + escHtml(fa.name) + '</span> ' + urgBadge;
+      html += '</div>';
+      html += '<div style="font-size:var(--fs-sm);color:var(--muted)">' + escHtml(fa.reason) + '</div>';
+      html += '<div style="font-size:var(--fs-sm);color:var(--blue);margin-top:2px">' + appIcon('bolt', 12) + ' ' + escHtml(fa.action) + '</div>';
+      html += '</div>';
+    });
+  }
+  if (data.portfolio_note) {
+    html += '<div style="font-size:var(--fs-sm);color:var(--muted);padding:6px 0;border-top:1px solid var(--border);margin-top:4px">' + appIcon('sparkle', 12) + ' ' + escHtml(data.portfolio_note) + '</div>';
+  }
+  return html;
 }
 
 // ── Pulse KPI Card (gradient) ──

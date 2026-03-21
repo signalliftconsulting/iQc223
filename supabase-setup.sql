@@ -462,7 +462,7 @@ END $$;
 CREATE TABLE IF NOT EXISTS integrations (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   client_id         UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
-  platform          TEXT NOT NULL CHECK (platform IN ('stripe', 'hubspot')),
+  platform          TEXT NOT NULL CHECK (platform IN ('stripe', 'hubspot', 'salesforce', 'anthropic')),
   vault_secret_id   UUID DEFAULT NULL,
   config            JSONB DEFAULT '{}'::jsonb,
   status            TEXT DEFAULT 'disconnected' CHECK (status IN ('connected', 'disconnected', 'error')),
