@@ -127,6 +127,11 @@ function openAIMeetingPrep() {
   var c = customers.find(function(x) { return x.id === detailId; });
   if (!c) return;
 
+  // Remove shimmer on first click
+  localStorage.setItem('iqc_ai_meeting_clicked', '1');
+  var _meetBtn = el('dm-ai-meeting-btn');
+  if (_meetBtn) { _meetBtn.classList.remove('btn-shimmer'); _meetBtn.style.cssText = ''; }
+
   // Close detail, open QBR modal with loading state
   closeModal('detail-modal');
   openModal('qbr-modal');
@@ -994,9 +999,18 @@ function openDetail(id) {
     } else { qbrBtn.style.display = 'none'; }
   }
 
-  // Show/hide AI Meeting Prep button
+  // Show/hide AI Meeting Prep button + shimmer
   var aiMeetBtn = el('dm-ai-meeting-btn');
-  if (aiMeetBtn) aiMeetBtn.style.display = _aiIntegrationConnected ? '' : 'none';
+  if (aiMeetBtn) {
+    aiMeetBtn.style.display = _aiIntegrationConnected ? '' : 'none';
+    if (_aiIntegrationConnected && !localStorage.getItem('iqc_ai_meeting_clicked')) {
+      aiMeetBtn.classList.add('btn-shimmer');
+      aiMeetBtn.style.cssText = 'background:#0891b2;color:#fff;border:1px solid #0e7490';
+    } else {
+      aiMeetBtn.classList.remove('btn-shimmer');
+      aiMeetBtn.style.cssText = '';
+    }
+  }
 
   // Alert count badge on Alerts tab
   const alertTab = el('dt-alerts');

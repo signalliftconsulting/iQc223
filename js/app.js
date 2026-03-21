@@ -6589,16 +6589,22 @@ function _renderAIFocusHTML(data) {
       var isHigh = fa.urgency === 'high';
       var borderCol = isHigh ? 'var(--red)' : 'var(--amber)';
       var rankBg = isHigh ? 'var(--red)' : 'var(--amber)';
+      // Customer info
       var scoreStr = cust ? '<span style="font-size:11px;font-weight:700;color:var(--muted);background:var(--bg);padding:1px 6px;border-radius:3px;border:1px solid var(--border)">' + cust.score + '</span>' : '';
       var mrrStr = cust && cust.mrr ? '<span style="font-size:11px;color:var(--muted)">$' + fmtNum(cust.mrr) + '</span>' : '';
       html += '<div style="display:flex;align-items:stretch;border-radius:8px;border:1px solid var(--border);overflow:hidden;cursor:pointer;transition:box-shadow .15s,border-color .15s" onmouseenter="this.style.boxShadow=\'0 2px 8px rgba(0,0,0,.08)\';this.style.borderColor=\'' + borderCol + '44\'" onmouseleave="this.style.boxShadow=\'none\';this.style.borderColor=\'var(--border)\'"' + clickAttr + '>';
+      // Rank number
       html += '<div style="width:32px;min-height:100%;display:flex;align-items:center;justify-content:center;background:' + rankBg + ';color:#fff;font-weight:800;font-size:15px;flex-shrink:0">' + (idx + 1) + '</div>';
+      // Content
       html += '<div style="flex:1;padding:10px 14px;min-width:0">';
+      // Row 1: name + badges
       html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">';
       html += '<span style="font-weight:700;font-size:var(--fs-base);color:var(--text)">' + escHtml(fa.name) + '</span>';
       html += scoreStr + ' ' + mrrStr;
       html += '</div>';
+      // Row 2: reason
       html += '<div style="font-size:var(--fs-sm);color:var(--muted);line-height:1.4;margin-bottom:4px">' + escHtml(fa.reason) + '</div>';
+      // Row 3: action
       html += '<div style="font-size:var(--fs-sm);font-weight:600;color:var(--blue);display:flex;align-items:center;gap:4px">' + appIcon('bolt', 12) + ' ' + escHtml(fa.action) + '</div>';
       html += '</div>';
       html += '</div>';
@@ -10568,19 +10574,35 @@ function _aiCacheSet(key, data) {
   _aiCache[key] = { data: data, ts: Date.now() };
 }
 
+// Build a minimal customer payload for AI prompts (strip IDs, keep signals/history)
 function _sanitizeForAI(c) {
   return {
-    name: c.name, score: c.score, status: c.status, tier: c.tier, lifecycle: c.lifecycle,
-    mrr: c.mrr || 0, arr: c.arr || 0, manager: c.manager || '', contact_name: c.contact_name || '',
-    logins: c.logins, adoption: c.adoption, tickets: c.tickets, nps: c.nps, csat: c.csat,
-    days: c.days, growth: c.growth || 'none', renewal_date: c.renewal_date || '',
-    billing_interval: c.billing_interval || '', tags: c.tags || [],
+    name: c.name,
+    score: c.score,
+    status: c.status,
+    tier: c.tier,
+    lifecycle: c.lifecycle,
+    mrr: c.mrr || 0,
+    arr: c.arr || 0,
+    manager: c.manager || '',
+    contact_name: c.contact_name || '',
+    logins: c.logins,
+    adoption: c.adoption,
+    tickets: c.tickets,
+    nps: c.nps,
+    csat: c.csat,
+    days: c.days,
+    growth: c.growth || 'none',
+    renewal_date: c.renewal_date || '',
+    billing_interval: c.billing_interval || '',
+    tags: c.tags || [],
     history: (c.history || []).slice(-10).map(function(h) { return { score: h.score, date: h.date }; }),
     notes: (c.notes || []).slice(-5).map(function(n) { return { text: n.text, date: n.date }; }),
     sentiment: (c.sentiment || []).slice(-5).map(function(s) { return { val: s.val, note: s.note || '', date: s.date }; })
   };
 }
 
+// AI Skeleton loader HTML
 function _aiSkeletonHTML(rows) {
   rows = rows || 4;
   var lines = '';
@@ -10591,17 +10613,21 @@ function _aiSkeletonHTML(rows) {
   return '<div class="ai-loading-skeleton">' + lines + '</div>';
 }
 
+// ── AI Insights (detail overview) ──
 function _loadAIInsights(c) {
   if (!_aiIntegrationConnected) { var d = el('dm-ai-insights'); if (d) d.style.display = 'none'; return; }
   var wrap = el('dm-ai-insights');
   if (!wrap) return;
   wrap.style.display = '';
+
   var cached = _aiCacheGet(c.id + '_insights');
   if (cached) { wrap.innerHTML = _renderAIInsightsHTML(cached); return; }
+
   wrap.innerHTML = '<div style="padding:12px 0"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">' + appIcon('sparkle', 16) + ' <span style="font-weight:700;font-size:var(--fs-base)">AI Insights</span><span style="font-size:var(--fs-sm);color:var(--muted)">Analyzing…</span></div>' + _aiSkeletonHTML(6) + '</div>';
+
   var custId = c.id;
   sb.functions.invoke('ai-agent', { body: { prompt_type: 'detail_insights', customer: _sanitizeForAI(c) } }).then(function(res) {
-    if (detailId !== custId) return;
+    if (detailId !== custId) return; // user navigated away
     if (res.error) throw new Error(res.error.message || 'AI request failed');
     var body = res.data;
     if (!body.success) throw new Error(body.error || 'AI returned an error');
@@ -10618,9 +10644,13 @@ function _loadAIInsights(c) {
 function _renderAIInsightsHTML(data) {
   var html = '<div style="padding:12px 0">';
   html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">' + appIcon('sparkle', 16) + ' <span style="font-weight:700;font-size:var(--fs-base)">AI Insights</span><span style="font-size:var(--fs-2xs);color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Powered by Claude</span></div>';
+
+  // Summary
   if (data.summary) {
     html += '<div class="rec-box" style="margin-bottom:10px"><div class="rec-box__title">Summary</div>' + escHtml(data.summary) + '</div>';
   }
+
+  // Risk factors
   if (data.risk_factors && data.risk_factors.length) {
     html += '<div style="margin-bottom:10px"><div style="font-size:var(--fs-sm);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">' + appIcon('warning', 14) + ' Risk Factors</div>';
     data.risk_factors.forEach(function(rf) {
@@ -10632,6 +10662,8 @@ function _renderAIInsightsHTML(data) {
     });
     html += '</div>';
   }
+
+  // Actions
   if (data.actions && data.actions.length) {
     html += '<div><div style="font-size:var(--fs-sm);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">' + appIcon('bolt', 14) + ' Recommended Actions</div>';
     data.actions.forEach(function(a) {
@@ -10643,25 +10675,39 @@ function _renderAIInsightsHTML(data) {
     });
     html += '</div>';
   }
+
   html += '</div>';
   return html;
 }
 
+// ── AI Meeting Prep ──
 function openAIMeetingPrep() {
   if (!_aiIntegrationConnected) { toast('Connect your Anthropic API key in Settings → Integrations first.', 'warn'); return; }
   var c = customers.find(function(x) { return x.id === detailId; });
   if (!c) return;
+
+  // Remove shimmer on first click
+  localStorage.setItem('iqc_ai_meeting_clicked', '1');
+  var _meetBtn = el('dm-ai-meeting-btn');
+  if (_meetBtn) { _meetBtn.classList.remove('btn-shimmer'); _meetBtn.style.cssText = ''; }
+
+  // Close detail, open QBR modal with loading state
   closeModal('detail-modal');
   openModal('qbr-modal');
   var content = el('qbr-content');
   if (!content) return;
+
+  // Update modal title
   var hd = document.querySelector('#qbr-modal .modal-hd h2');
   if (hd) hd.innerHTML = appIcon('sparkle', 18) + ' AI Meeting Prep — ' + escHtml(c.name);
   var sub = document.querySelector('#qbr-modal .modal-hd p');
   if (sub) sub.textContent = 'AI-generated briefing with talking points and risk analysis';
+
   var cached = _aiCacheGet(c.id + '_meeting');
   if (cached) { content.innerHTML = _renderAIMeetingHTML(cached); return; }
+
   content.innerHTML = '<div style="padding:20px 0;text-align:center"><div style="margin-bottom:12px">' + appIcon('sparkle', 24) + '</div><div style="font-weight:600;margin-bottom:8px">Preparing your meeting briefing…</div>' + _aiSkeletonHTML(8) + '</div>';
+
   var custId = c.id;
   sb.functions.invoke('ai-agent', { body: { prompt_type: 'meeting_prep', customer: _sanitizeForAI(c) } }).then(function(res) {
     if (res.error) throw new Error(res.error.message || 'AI request failed');
@@ -10679,9 +10725,13 @@ function openAIMeetingPrep() {
 
 function _renderAIMeetingHTML(data) {
   var html = '';
+
+  // Briefing
   if (data.briefing) {
     html += '<div class="rec-box" style="margin-bottom:14px"><div class="rec-box__title">Executive Summary</div>' + escHtml(data.briefing) + '</div>';
   }
+
+  // Talking points
   if (data.talking_points && data.talking_points.length) {
     html += '<div style="margin-bottom:14px"><div style="font-size:var(--fs-sm);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">Talking Points</div>';
     data.talking_points.forEach(function(tp) {
@@ -10693,6 +10743,8 @@ function _renderAIMeetingHTML(data) {
     });
     html += '</div>';
   }
+
+  // Risks to address
   if (data.risks_to_address && data.risks_to_address.length) {
     html += '<div style="margin-bottom:14px"><div style="font-size:var(--fs-sm);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">' + appIcon('warning', 14) + ' Risks to Address</div>';
     data.risks_to_address.forEach(function(r) {
@@ -10703,6 +10755,8 @@ function _renderAIMeetingHTML(data) {
     });
     html += '</div>';
   }
+
+  // Trends
   if (data.trends && data.trends.length) {
     html += '<div><div style="font-size:var(--fs-sm);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px">' + appIcon('trendUp', 14) + ' Trends</div>';
     data.trends.forEach(function(t) {
@@ -10713,18 +10767,23 @@ function _renderAIMeetingHTML(data) {
     });
     html += '</div>';
   }
+
   return html;
 }
 
+// ── AI Save Playbook ──
 function _loadAISavePlaybook(c) {
   if (!_aiIntegrationConnected) return;
   if (c.status !== 'critical' && c.status !== 'risk') return;
   var wrap = el('dm-ai-playbook');
   if (!wrap) return;
   wrap.style.display = '';
+
   var cached = _aiCacheGet(c.id + '_playbook');
   if (cached) { wrap.innerHTML = _renderAISavePlaybookHTML(cached); return; }
+
   wrap.innerHTML = '<div style="padding:12px 0"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">' + appIcon('sparkle', 16) + ' <span style="font-weight:700;font-size:var(--fs-base)">AI Save Plan</span><span style="font-size:var(--fs-sm);color:var(--muted)">Generating…</span></div>' + _aiSkeletonHTML(8) + '</div>';
+
   var custId = c.id;
   sb.functions.invoke('ai-agent', { body: { prompt_type: 'save_playbook', customer: _sanitizeForAI(c) } }).then(function(res) {
     if (detailId !== custId) return;
@@ -10745,9 +10804,13 @@ function _renderAISavePlaybookHTML(data) {
   var html = '<div style="padding:12px 0">';
   html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">' + appIcon('sparkle', 16) + ' <span style="font-weight:700;font-size:var(--fs-base)">AI Save Plan</span><span style="font-size:var(--fs-2xs);color:var(--muted);text-transform:uppercase;letter-spacing:.04em">4-Week Recovery</span>';
   html += '<button class="btn btn-ghost btn-xs" style="margin-left:auto;font-size:11px" onclick="delete _aiCache[detailId+\'_playbook\'];_loadAISavePlaybook(customers.find(function(x){return x.id===detailId}))">' + appIcon('refresh', 12) + ' Regenerate</button></div>';
+
+  // Diagnosis
   if (data.diagnosis) {
     html += '<div class="rec-box" style="margin-bottom:12px;border-left:3px solid var(--red)"><div class="rec-box__title">Diagnosis</div>' + escHtml(data.diagnosis) + '</div>';
   }
+
+  // Weekly plan
   if (data.weeks && data.weeks.length) {
     data.weeks.forEach(function(w) {
       html += '<div class="ta-card" style="margin-bottom:10px;padding:10px 14px">';
@@ -10764,9 +10827,12 @@ function _renderAISavePlaybookHTML(data) {
       html += '</div>';
     });
   }
+
+  // Success criteria
   if (data.success_criteria) {
     html += '<div style="font-size:var(--fs-sm);color:var(--muted);padding:6px 0;border-top:1px solid var(--border);margin-top:6px">' + appIcon('target', 13) + ' <strong>Success criteria:</strong> ' + escHtml(data.success_criteria) + '</div>';
   }
+
   html += '</div>';
   return html;
 }
@@ -11492,9 +11558,18 @@ function openDetail(id) {
     } else { qbrBtn.style.display = 'none'; }
   }
 
-  // Show/hide AI Meeting Prep button
+  // Show/hide AI Meeting Prep button + shimmer
   var aiMeetBtn = el('dm-ai-meeting-btn');
-  if (aiMeetBtn) aiMeetBtn.style.display = _aiIntegrationConnected ? '' : 'none';
+  if (aiMeetBtn) {
+    aiMeetBtn.style.display = _aiIntegrationConnected ? '' : 'none';
+    if (_aiIntegrationConnected && !localStorage.getItem('iqc_ai_meeting_clicked')) {
+      aiMeetBtn.classList.add('btn-shimmer');
+      aiMeetBtn.style.cssText = 'background:#0891b2;color:#fff;border:1px solid #0e7490';
+    } else {
+      aiMeetBtn.classList.remove('btn-shimmer');
+      aiMeetBtn.style.cssText = '';
+    }
+  }
 
   // Alert count badge on Alerts tab
   const alertTab = el('dt-alerts');
