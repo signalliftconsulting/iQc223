@@ -761,7 +761,7 @@ function _renderHomeBase() {
     const _toneColors = { red: { bg:'rgba(239,68,68,.07)', border:'var(--red)' }, amber: { bg:'rgba(245,158,11,.07)', border:'var(--amber)' }, green: { bg:'rgba(22,163,74,.07)', border:'var(--green)' } };
     _actionItems.slice(0, 3).forEach(a => {
       const tc = _toneColors[a.tone] || _toneColors.amber;
-      html += `<div class="hb-brief-card" onclick="${escHtml(a.action)}" style="padding:8px 10px;margin-bottom:2px;background:${tc.bg};border-left:3px solid ${tc.border}">
+      html += `<div class="hb-brief-card" onclick="${a.action}" style="padding:8px 10px;margin-bottom:2px;background:${tc.bg};border-left:3px solid ${tc.border}">
         <div class="hb-brief-text" style="font-size:var(--fs-sm)">${escHtml(a.text)}</div>
         <svg class="hb-brief-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </div>`;
@@ -1589,7 +1589,7 @@ function _renderInsightCard(ins) {
         <span class="hb-insight-title">${escHtml(ins.title)}</span>
       </div>
       <div class="hb-insight-detail">${escHtml(ins.detail)}</div>
-      ${ins.action ? `<button class="hb-insight-action" onclick="${escHtml(ins.action.fn)}">${escHtml(ins.action.label)} →</button>` : ''}
+      ${ins.action ? `<button class="hb-insight-action" onclick="${ins.action.fn}">${escHtml(ins.action.label)} →</button>` : ''}
     </div>
   </div>`;
 }

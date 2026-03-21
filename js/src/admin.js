@@ -406,10 +406,10 @@ async function renderUsers() {
           <td style="color:var(--muted);font-size:var(--fs-base)">${fmtDate(p.created_at)}</td>
           <td>
             <div style="display:flex;gap:4px;flex-wrap:nowrap">
-              <button class="btn btn-xs btn-outline" onclick="openEditUserModal('${uid}','${email}','${escHtml(clientId)}')">Edit</button>
+              <button class="btn btn-xs btn-outline" onclick="openEditUserModal('${escHtml(uid)}','${escHtml(email)}','${escHtml(clientId)}')">Edit</button>
               ${isSelf
                 ? '<span style="font-size:var(--fs-sm);color:var(--subtle);padding:2px 4px">Can\'t Delete</span>'
-                : `<button class="btn btn-xs btn-danger" onclick="adminDeleteUser('${uid}','${email}')">Remove</button>`}
+                : `<button class="btn btn-xs btn-danger" onclick="adminDeleteUser('${escHtml(uid)}','${escHtml(email)}')">Remove</button>`}
             </div>
           </td>
         </tr>`;

@@ -525,6 +525,11 @@ CREATE TABLE IF NOT EXISTS api_rate_limits (
   PRIMARY KEY (user_id, window_type)
 );
 
+ALTER TABLE api_rate_limits ENABLE ROW LEVEL SECURITY;
+
+-- Only service role (edge functions) should access rate limits
+-- No user-facing policies needed — all access goes through check_rate_limit() RPC
+
 CREATE OR REPLACE FUNCTION check_rate_limit(
   p_user_id UUID,
   p_window_type TEXT,
