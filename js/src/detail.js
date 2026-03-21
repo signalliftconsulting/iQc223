@@ -60,12 +60,13 @@ function _sanitizeForAI(c) {
   };
 }
 
-// Call AI via Supabase edge function
+// Call AI via Cloudflare Worker (near-zero cold start)
 function _aiCall(body) {
-  return sb.functions.invoke('ai-agent', { body: body }).then(function(res) {
-    if (res.error) throw new Error(res.error.message || 'AI request failed');
-    return res.data;
-  });
+  return fetch('https://iqc-ai.signalliftconsulting.workers.dev', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  }).then(function(r) { return r.json(); });
 }
 
 // AI Skeleton loader HTML
