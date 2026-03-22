@@ -77,6 +77,7 @@ function debounce(fn, ms) {
 
 // Click delegation: data-action="fnName" data-arg="value" [data-stop]
 document.addEventListener('click', function(e) {
+  if (!e.target || !e.target.closest) return;
   var t = e.target.closest('[data-action]');
   if (!t) return;
   if (t.dataset.stop !== undefined) e.stopPropagation();
