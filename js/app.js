@@ -10859,11 +10859,137 @@ function clearSelection() {
   renderCustomers();
 }
 
+// ─── BULK EDIT ───────────────────────────────────────────────
+const BULK_EDIT_FIELDS = {
+  mrr:          { label:'MRR ($)',             type:'number', min:0 },
+  arr:          { label:'ARR ($)',             type:'number', min:0 },
+  logins:       { label:'Logins (30d)',        type:'number', min:0, max:999 },
+  adoption:     { label:'Adoption %',          type:'number', min:0, max:100 },
+  nps:          { label:'NPS Score',           type:'number', min:0, max:10 },
+  csat:         { label:'CSAT Score',          type:'number', min:1, max:5 },
+  tickets:      { label:'Open Tickets',        type:'number', min:0, max:999 },
+  days:         { label:'Days Since Contact',  type:'number', min:0, max:999 },
+  tier:         { label:'Tier',                type:'enum',   values:['smb','mid','enterprise'] },
+  growth:       { label:'Growth Signal',       type:'enum',   values:['none','mild','strong'] },
+  manager:      { label:'Manager',             type:'text' },
+  renewal_date: { label:'Renewal Date',        type:'date' },
+  next_touch:   { label:'Next Touch',          type:'date' },
+};
+
 function bulkEdit() {
-  if (selectedIds.size !== 1) return;
-  const id = [...selectedIds][0];
+  if (!selectedIds.size) return;
+  if (selectedIds.size === 1) {
+    const id = [...selectedIds][0];
+    clearSelection();
+    editCustomer(id);
+    return;
+  }
+  el('bulk-edit-count').textContent = selectedIds.size + ' customers selected';
+  bulkEditFieldChanged(); // init UI
+  openModal('bulk-edit-modal');
+}
+
+function bulkEditFieldChanged() {
+  var field = el('be-field').value;
+  var cfg = BULK_EDIT_FIELDS[field];
+  var opWrap = el('be-op-wrap');
+  var valContainer = el('be-val-container');
+  var valLabel = el('be-val-label');
+
+  if (cfg.type === 'number') {
+    opWrap.style.display = '';
+    valLabel.textContent = 'Value';
+    valContainer.innerHTML = '<input type="number" id="be-val-number" style="width:100%" placeholder="Enter value" min="' + (cfg.min||0) + '"' + (cfg.max ? ' max="' + cfg.max + '"' : '') + '/>';
+  } else if (cfg.type === 'enum') {
+    opWrap.style.display = 'none';
+    valLabel.textContent = 'Set to';
+    valContainer.innerHTML = '<select id="be-val-enum" style="width:100%">' +
+      cfg.values.map(v => '<option value="' + v + '">' + (ENUM_DISPLAY[v] || v) + '</option>').join('') + '</select>';
+  } else if (cfg.type === 'date') {
+    opWrap.style.display = 'none';
+    valLabel.textContent = 'Set to';
+    valContainer.innerHTML = '<input type="date" id="be-val-date" style="width:100%"/>';
+  } else if (cfg.type === 'text') {
+    opWrap.style.display = 'none';
+    valLabel.textContent = 'Set to';
+    valContainer.innerHTML = '<input type="text" id="be-val-text" style="width:100%" placeholder="Enter value" maxlength="100"/>';
+  }
+}
+
+function bulkEditOpChanged() {
+  var op = el('be-op').value;
+  var label = el('be-val-label');
+  if (op === 'set') label.textContent = 'Value';
+  else if (op === 'inc') label.textContent = 'Amount to add';
+  else if (op === 'dec') label.textContent = 'Amount to subtract';
+  else if (op === 'inc_pct') label.textContent = 'Percentage increase';
+  else if (op === 'dec_pct') label.textContent = 'Percentage decrease';
+}
+
+function applyBulkEdit() {
+  var field = el('be-field').value;
+  var cfg = BULK_EDIT_FIELDS[field];
+  var op = cfg.type === 'number' ? el('be-op').value : 'set';
+
+  // Get value
+  var val;
+  if (cfg.type === 'number') {
+    val = parseFloat(el('be-val-number')?.value);
+    if (isNaN(val)) { toast('Please enter a valid number', 'warn'); return; }
+  } else if (cfg.type === 'enum') {
+    val = el('be-val-enum')?.value;
+  } else if (cfg.type === 'date') {
+    val = el('be-val-date')?.value;
+    if (!val) { toast('Please select a date', 'warn'); return; }
+  } else if (cfg.type === 'text') {
+    val = (el('be-val-text')?.value || '').trim();
+    if (!val) { toast('Please enter a value', 'warn'); return; }
+  }
+
+  var changed = [];
+  var signalFields = new Set(['logins','adoption','nps','csat','tickets','days','growth']);
+
+  customers.forEach(c => {
+    if (!selectedIds.has(c.id)) return;
+    var oldVal = c[field];
+
+    if (cfg.type === 'number') {
+      var cur = c[field] || 0;
+      if (op === 'set')     c[field] = val;
+      else if (op === 'inc') c[field] = cur + val;
+      else if (op === 'dec') c[field] = Math.max(cfg.min || 0, cur - val);
+      else if (op === 'inc_pct') c[field] = Math.round(cur * (1 + val / 100));
+      else if (op === 'dec_pct') c[field] = Math.max(cfg.min || 0, Math.round(cur * (1 - val / 100)));
+      // Clamp to max
+      if (cfg.max != null) c[field] = Math.min(c[field], cfg.max);
+      // Sync MRR/ARR
+      if (field === 'mrr') c.arr = c.mrr * 12;
+      if (field === 'arr') c.mrr = Math.round(c.arr / 12);
+    } else {
+      c[field] = val;
+    }
+
+    // Re-score if a signal field changed
+    if (signalFields.has(field)) {
+      var result = calcScore(c);
+      c.score = result.score;
+      c.status = getStatus(c.score);
+    }
+
+    if (c[field] !== oldVal) changed.push(c);
+  });
+
+  closeModal('bulk-edit-modal');
+  var n = changed.length;
+  var opLabel = op === 'set' ? 'set' : op === 'inc' ? 'increased' : op === 'dec' ? 'decreased' : op === 'inc_pct' ? 'increased %' : 'decreased %';
+  logAudit('bulk_edit', null, '', { summary: cfg.label + ' ' + opLabel + ' on ' + n + ' customer' + (n===1?'':'s') });
   clearSelection();
-  editCustomer(id);
+  toast(cfg.label + ' updated on ' + n + ' customer' + (n===1?'':'s'), 'success');
+  renderCustomers();
+  if (changed.length) {
+    setLoading(true);
+    Promise.all(changed.map(c => atUpdate(c).catch(e => console.warn('sync:', e.message)))).finally(() => setLoading(false));
+  }
 }
 
 function bulkRescore() {

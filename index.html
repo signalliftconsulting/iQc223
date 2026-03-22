@@ -4465,7 +4465,60 @@ Header: Content-Type: application/json
   </div>
 </div>
 
-<!-- BACKUP MENU MODAL -->
+<!-- BULK EDIT MODAL -->
+<div class="modal-bg" id="bulk-edit-modal">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-hd"><h2>Bulk Edit</h2><button class="modal-close" data-action="closeModal" data-arg="bulk-edit-modal"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-bd">
+      <div id="bulk-edit-count" style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:12px"></div>
+      <div class="field" style="margin-bottom:12px">
+        <label>Field</label>
+        <select id="be-field" onchange="bulkEditFieldChanged()">
+          <optgroup label="Revenue">
+            <option value="mrr">MRR ($)</option>
+            <option value="arr">ARR ($)</option>
+          </optgroup>
+          <optgroup label="Signals">
+            <option value="logins">Logins (30d)</option>
+            <option value="adoption">Adoption %</option>
+            <option value="nps">NPS Score</option>
+            <option value="csat">CSAT Score</option>
+            <option value="tickets">Open Tickets</option>
+            <option value="days">Days Since Contact</option>
+          </optgroup>
+          <optgroup label="Account">
+            <option value="tier">Tier</option>
+            <option value="growth">Growth Signal</option>
+            <option value="manager">Manager</option>
+            <option value="renewal_date">Renewal Date</option>
+            <option value="next_touch">Next Touch</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:12px" id="be-op-wrap">
+        <label>Operation</label>
+        <select id="be-op" onchange="bulkEditOpChanged()">
+          <option value="set">Set to</option>
+          <option value="inc">Increase by</option>
+          <option value="dec">Decrease by</option>
+          <option value="inc_pct">Increase by %</option>
+          <option value="dec_pct">Decrease by %</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:12px" id="be-val-wrap">
+        <label id="be-val-label">Value</label>
+        <div id="be-val-container">
+          <input type="number" id="be-val-number" style="width:100%" placeholder="Enter value"/>
+        </div>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-ghost btn-sm" data-action="closeModal" data-arg="bulk-edit-modal">Cancel</button>
+      <button class="btn btn-primary btn-sm" data-action="applyBulkEdit">Apply Changes</button>
+    </div>
+  </div>
+</div>
+
 <!-- DATA HEALTH DETAIL MODAL -->
 <div class="modal-bg" id="dh-detail-modal">
   <div class="modal" style="max-width:720px">
