@@ -99,6 +99,33 @@ async function authSignOut() {
   try { await sb.auth.signOut(); } catch(e) { console.warn('Sign out request failed:', e); }
 }
 
+// Auto-register current user's profile on login (so admin can see them)
+// Must be in core bundle — called by main.js during boot before any data loads.
+async function ensureUserProfile(user) {
+  try {
+    const { data: rows } = await sb.from('user_profiles').select('user_id, role, client_id').eq('user_id', user.id).limit(1);
+    const data = rows && rows.length ? rows[0] : null;
+    if (!data) {
+      // Not registered yet  - create profile row
+      await sb.from('user_profiles').insert({
+        user_id:       user.id,
+        email:         user.email,
+        business_name: '',
+        role:          'user',
+        created_at:    new Date().toISOString()
+      });
+      _userRole = 'user';
+      _userClientId = null;
+    } else {
+      // Store the server-fetched role (can't be spoofed from console)
+      _userRole = data.role || 'user';
+      _userClientId = data.client_id || null;
+    }
+    // Re-apply admin UI now that role is confirmed from server
+    updateUserUI(user);
+  } catch(e) { console.warn('ensureUserProfile:', e.message); }
+}
+
 function updateUserUI(user) {
   const pill   = el('user-pill');
   const avatar = el('user-avatar');
@@ -134,7 +161,7 @@ function updateUserUI(user) {
     });
     const cfw = document.getElementById('client-filter-wrap');
     if (cfw) cfw.style.display = admin ? '' : 'none';
-    if (admin) loadAdminClients();
+    if (admin && typeof loadAdminClients === 'function') loadAdminClients();
   } else {
     if (pill)    pill.style.display    = 'none';
     if (signout) signout.style.display = 'none';
