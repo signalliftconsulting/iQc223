@@ -806,26 +806,12 @@ function _renderCustomers() {
   empty.style.display = 'none';
   table.style.display = '';
 
-  // Store page rows for virtual scroll re-renders
-  _vsPageRows = pagedList;
-
-  // Virtual scroll: set tbody height and render only visible rows
-  var totalHeight = pagedList.length * VS_ROW_HEIGHT;
-  tbody.style.height = totalHeight + 'px';
-  tbody.style.position = 'relative';
-  tbody.style.display = 'block';
-  tbody.style.overflow = 'hidden';
-
-  _vsRenderVisible();
-
-  // Bind scroll listener once
-  if (!_vsScrollBound) {
-    var scrollWrap = el('cust-scroll-wrap');
-    if (scrollWrap) {
-      scrollWrap.addEventListener('scroll', _vsOnScroll, { passive: true });
-      _vsScrollBound = true;
-    }
-  }
+  // Simple row rendering (no virtual scroll — pagination handles scale)
+  tbody.style.height = '';
+  tbody.style.position = '';
+  tbody.style.display = '';
+  tbody.style.overflow = '';
+  tbody.innerHTML = pagedList.map(c => _buildRow(c)).join('');
 
   // Sync top scrollbar width and visibility
   _syncTopScrollbar();
@@ -834,11 +820,11 @@ function _renderCustomers() {
   _renderPagination(list.length);
 }
 
-// ─── VIRTUAL SCROLL: row builder ─────────────────────────────
-function _vsBuildRow(c, topPx) {
+// ─── Row builder ─────────────────────────────────────────────
+function _buildRow(c) {
   const isSel = selectedIds.has(c.id);
   const cad   = getCadenceStatus(c);
-  return `<tr class="${isSel?'selected':''}" data-id="${c.id}" style="position:absolute;top:${topPx}px;width:100%;display:flex;align-items:center">
+  return `<tr class="${isSel?'selected':''}" data-id="${c.id}">
         <td class="cb-col"><input type="checkbox" ${isSel?'checked':''} onclick="event.stopPropagation();toggleSelect('${escHtml(c.id)}',this.checked,event)"/></td>
         <td class="col-frozen" style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')"><strong>${escHtml(c.name)}</strong>${(()=>{ if (!c.next_touch) return ''; const ntd = Math.round((new Date(c.next_touch)-new Date())/86400000); return ntd < 0 ? ' <span class="nt-badge nt-overdue" style="font-size:var(--fs-xs);padding:1px 5px">Touch overdue</span>' : ''; })()}</td>
         <td>${c.manager ? escHtml(c.manager) : '<span style="color:var(--muted);font-style:italic"> -</span>'}</td>

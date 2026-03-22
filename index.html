@@ -564,8 +564,7 @@ svg.sparkline{display:block}
 #customers-table-card{padding:0}
 #customers-table-card .list-toolbar{padding:14px 1.25rem 10px}
 #customers-table-card #filter-pill-bar{padding-left:1.25rem;padding-right:1.25rem}
-#cust-tbody{position:relative;overflow:hidden;width:100%;display:block}
-#cust-tbody tr{display:flex;align-items:center}
+#cust-tbody tr{vertical-align:middle}
 .ct thead{position:sticky;top:0;z-index:5}
 .ct th{text-align:left;font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;padding:5px 8px;border-bottom:1px solid #e2e8f0;background:#f8fafc;cursor:pointer;user-select:none;white-space:normal;line-height:1.2;min-width:0;transition:color .13s}
 .ct th:hover{color:#0f766e}
@@ -583,13 +582,13 @@ svg.sparkline{display:block}
 .ct td.col-pin{background:var(--surface);border-right:2px solid #e2e8f0}
 .ct th.col-pin{z-index:6}
 .ct tr:hover td.col-pin{background:var(--row-hover,#f1f5f9)}
-.ct td{padding:5px 8px;border-bottom:1px solid #f1f5f9;vertical-align:middle;line-height:1.3;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.ct td{padding:5px 8px;border-bottom:1px solid #f1f5f9;vertical-align:middle;line-height:1.3}
 .ct tr:last-child td{border-bottom:none}
 .ct tbody tr{transition:background .1s}
 .ct tbody tr:hover{background:#f0fdfa}
 .ct tbody tr:hover td:first-child{border-left:3px solid #14b8a6}
 .ct tbody tr.selected{background:#f0fdfa}
-.ct td.cb-col{width:28px;flex:0 0 28px;padding:4px 0 4px 4px;border-left:3px solid transparent;transition:border-color .1s}
+.ct td.cb-col{width:28px;padding:4px 0 4px 4px;border-left:3px solid transparent;transition:border-color .1s}
 .ct-two-line{display:flex;flex-direction:column;gap:0;line-height:1.2}
 .ct-two-line .ct-sub{font-size:var(--fs-2xs);color:var(--muted)}
 
