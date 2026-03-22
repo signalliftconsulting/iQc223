@@ -4575,15 +4575,7 @@ Header: Content-Type: application/json
   <button class="cookie-btn-accept" data-action="acceptCookies">Accept</button>
   <button class="cookie-btn-decline" data-action="declineCookies">Decline</button>
 </div>
-<script>
-(function(){
-  if(!localStorage.getItem('iqc_cookie_consent')){
-    document.getElementById('cookie-banner').style.display='';
-  }
-})();
-function acceptCookies(){localStorage.setItem('iqc_cookie_consent','accepted');document.getElementById('cookie-banner').style.display='none';}
-function declineCookies(){localStorage.setItem('iqc_cookie_consent','declined');document.getElementById('cookie-banner').style.display='none';}
-</script>
+<script src="js/cookies.js"></script>
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script defer src="js/config.js"></script>
