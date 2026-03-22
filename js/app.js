@@ -11441,6 +11441,25 @@ function openAIMeetingPrep() {
   });
 }
 
+function _downloadAIContent(elementId, filename) {
+  var el2 = document.getElementById(elementId);
+  if (!el2) return;
+  // Extract text from HTML, preserving line breaks
+  var clone = el2.cloneNode(true);
+  // Remove buttons
+  clone.querySelectorAll('button').forEach(function(b) { b.remove(); });
+  var text = clone.innerText || clone.textContent || '';
+  // Clean up excessive whitespace
+  text = text.replace(/\n{3,}/g, '\n\n').trim();
+  var blob = new Blob([text], { type: 'text/plain' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename || 'iqcadence-export.txt';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('Downloaded ' + filename, 'success');
+}
+
 function _renderAIMeetingHTML(data) {
   var html = '';
 
@@ -11522,6 +11541,7 @@ function _loadAISavePlaybook(c) {
 function _renderAISavePlaybookHTML(data) {
   var html = '<div style="padding:12px 0">';
   html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">' + appIcon('sparkle', 16) + ' <span style="font-weight:700;font-size:var(--fs-base)">AI Save Plan</span><span style="font-size:var(--fs-2xs);color:var(--muted);text-transform:uppercase;letter-spacing:.04em">4-Week Recovery</span>';
+  html += '<button class="btn btn-ghost btn-xs" style="font-size:11px" onclick="_downloadAIContent(\'dm-ai-playbook\',\'save-playbook.txt\')">' + appIcon('download', 12) + ' Download</button>';
   html += '<button class="btn btn-ghost btn-xs" style="margin-left:auto;font-size:11px" onclick="delete _aiCache[detailId+\'_playbook\'];_loadAISavePlaybook(customers.find(function(x){return x.id===detailId}))">' + appIcon('refresh', 12) + ' Regenerate</button></div>';
 
   // Diagnosis
