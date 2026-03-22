@@ -51,6 +51,8 @@ serve(async (req) => {
     console.log('Token exchange params:', JSON.stringify({ ...tokenParams, code: code.substring(0, 8) + '...' }));
 
     const basicAuth = btoa(`${clientId}:${clientSecret}`);
+    const tokenCtrl = new AbortController();
+    const tokenTimeout = setTimeout(() => tokenCtrl.abort(), 15000);
     const tokenResp = await fetch('https://api.hubapi.com/oauth/v1/token', {
       method: 'POST',
       headers: {
@@ -58,7 +60,9 @@ serve(async (req) => {
         'Authorization': `Basic ${basicAuth}`,
       },
       body: new URLSearchParams(tokenParams),
+      signal: tokenCtrl.signal,
     });
+    clearTimeout(tokenTimeout);
 
     if (!tokenResp.ok) {
       const err = await tokenResp.text();
@@ -74,9 +78,13 @@ serve(async (req) => {
     let portalName = '';
     let portalId = '';
     try {
+      const infoCtrl = new AbortController();
+      const infoTimeout = setTimeout(() => infoCtrl.abort(), 10000);
       const infoResp = await fetch('https://api.hubapi.com/account-info/v3/details', {
         headers: { 'Authorization': `Bearer ${tokens.access_token}` },
+        signal: infoCtrl.signal,
       });
+      clearTimeout(infoTimeout);
       if (infoResp.ok) {
         const info = await infoResp.json();
         portalName = info.portalId ? `Portal ${info.portalId}` : '';
@@ -89,7 +97,10 @@ serve(async (req) => {
 
     // Also try to get the hub name from access token info
     try {
-      const tokenInfoResp = await fetch(`https://api.hubapi.com/oauth/v1/access-tokens/${tokens.access_token}`);
+      const tiCtrl = new AbortController();
+      const tiTimeout = setTimeout(() => tiCtrl.abort(), 10000);
+      const tokenInfoResp = await fetch(`https://api.hubapi.com/oauth/v1/access-tokens/${tokens.access_token}`, { signal: tiCtrl.signal });
+      clearTimeout(tiTimeout);
       if (tokenInfoResp.ok) {
         const tokenInfo = await tokenInfoResp.json();
         if (tokenInfo.hub_domain) portalName = tokenInfo.hub_domain;

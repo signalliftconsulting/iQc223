@@ -170,7 +170,26 @@ function refreshMgrDropdown() {
 function toggleMgrDropdown() {
   const dd = document.getElementById('mgr-filter-dropdown');
   if (!dd) return;
-  dd.style.display = dd.style.display === 'none' ? '' : 'none';
+  const isOpen = dd.style.display !== 'none';
+  dd.style.display = isOpen ? 'none' : '';
+  const btn = document.getElementById('mgr-filter-btn');
+  if (btn) btn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+  if (!isOpen) {
+    // Focus first checkbox
+    const first = dd.querySelector('input[type=checkbox]');
+    if (first) setTimeout(function() { first.focus(); }, 30);
+    // Attach keyboard handler
+    dd._kbHandler = dd._kbHandler || function(e) { _dropdownKeyNav(e, dd, 'mgr-filter-btn'); };
+    dd.addEventListener('keydown', dd._kbHandler);
+  }
+}
+
+function _dropdownKeyNav(e, dd, btnId) {
+  var items = dd.querySelectorAll('input[type=checkbox], input[type=radio], button');
+  var idx = Array.from(items).indexOf(document.activeElement);
+  if (e.key === 'ArrowDown') { e.preventDefault(); if (idx < items.length - 1) items[idx + 1].focus(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); if (idx > 0) items[idx - 1].focus(); }
+  else if (e.key === 'Escape') { dd.style.display = 'none'; var btn = el(btnId); if (btn) { btn.setAttribute('aria-expanded', 'false'); btn.focus(); } }
 }
 
 // Close dropdown when clicking outside
@@ -291,6 +310,7 @@ function renderTableHeaders() {
   const funnelSVG = `<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>`;
   COL_DEFS.forEach(col => {
     const th = document.createElement('th');
+    th.setAttribute('scope', 'col');
     if (col.key === 'name') th.classList.add('col-frozen');
     const isActiveSort = col.sortKey && sortKey === col.sortKey;
     const filterActive = col.ftype && (col.key in columnFilters);
@@ -674,7 +694,12 @@ function applyColumnFilters(list) {
   });
 }
 
-function renderCustomers() { try { _renderCustomers(); } catch(e) { console.error('renderCustomers error:', e); } }
+var _renderCustTimer = null;
+function renderCustomers(immediate) {
+  if (immediate) { clearTimeout(_renderCustTimer); _renderCustTimer = null; try { _renderCustomers(); } catch(e) { console.error('renderCustomers error:', e); } return; }
+  if (_renderCustTimer) return; // already scheduled
+  _renderCustTimer = setTimeout(function() { _renderCustTimer = null; try { _renderCustomers(); } catch(e) { console.error('renderCustomers error:', e); } }, 16);
+}
 function _renderCustomers() {
   renderTableHeaders(); // keep sort arrows + filter highlights in sync
   renderFilterPills();  // keep active filter pill bar in sync

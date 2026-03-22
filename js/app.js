@@ -234,8 +234,11 @@ function getAIUsageInfo() {
   return { used: _aiCallCount, limit: limit, month: _aiCallMonth };
 }
 
+// Feature gating: all tiers get full feature access — plan enforcement is via
+// server-side triggers (enforce_account_limit, enforce_user_limit) and getPlanLimit().
+// This function exists as a hook for future per-feature gating if needed.
 function hasFeature(key) {
-  return true; // all tiers get full feature access — billing differentiates by user/account limits only
+  return true;
 }
 
 function getPlanLimit(key) {
@@ -485,6 +488,16 @@ let momentumPts = DEFAULT_MOMENTUM_PTS;
 
 // ─── CORE HELPERS ───────────────────────────────────────────
 function el(id) { return document.getElementById(id); }
+
+// Debounce: coalesce rapid calls into a single execution after `ms` delay
+function debounce(fn, ms) {
+  var timer;
+  return function() {
+    var ctx = this, args = arguments;
+    clearTimeout(timer);
+    timer = setTimeout(function() { fn.apply(ctx, args); }, ms);
+  };
+}
 function fmtNum(n) {
   if (n >= 1e6) return (n/1e6).toFixed(1).replace(/\.0$/,'') + 'M';
   if (n >= 1e3) return (n/1e3).toFixed(1).replace(/\.0$/,'') + 'K';
@@ -534,14 +547,40 @@ function toast(msg, type, dur) {
     t.classList.remove('show');
     setTimeout(() => t.remove(), 250);
   }, dur);
+  // Announce to screen readers
+  var live = document.getElementById('a11y-live');
+  if (live) live.textContent = msg;
 }
 
 // ─── MODALS ─────────────────────────────────────────────────
+var _modalFocusStack = [];
+
+function _trapModalFocus(e) {
+  if (e.key !== 'Tab') return;
+  var modal = e.currentTarget.querySelector('.modal') || e.currentTarget;
+  var focusable = modal.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])');
+  if (!focusable.length) return;
+  var first = focusable[0], last = focusable[focusable.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+}
+
 function closeModal(id) {
-  document.getElementById(id).classList.remove('open');
+  var m = document.getElementById(id);
+  m.classList.remove('open');
+  m.removeEventListener('keydown', _trapModalFocus);
+  // Restore focus to element that opened the modal
+  var prev = _modalFocusStack.pop();
+  if (prev && prev.focus) try { prev.focus(); } catch(_) {}
 }
 function openModal(id) {
-  document.getElementById(id).classList.add('open');
+  _modalFocusStack.push(document.activeElement);
+  var m = document.getElementById(id);
+  m.classList.add('open');
+  m.addEventListener('keydown', _trapModalFocus);
+  // Focus first interactive element inside the modal
+  var first = m.querySelector('.modal button, .modal input, .modal textarea, .modal a[href]');
+  if (first) setTimeout(function() { first.focus(); }, 50);
 }
 
 // Close modal on backdrop click
@@ -566,7 +605,8 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     closeColFilter();
     closeAlertFilter();
-    document.querySelectorAll('.modal-bg.open').forEach(m => m.classList.remove('open'));
+    var openModals = document.querySelectorAll('.modal-bg.open');
+    if (openModals.length) { closeModal(openModals[openModals.length - 1].id); }
     return;
   }
   // Ignore shortcuts when typing in inputs
@@ -1647,12 +1687,12 @@ function _wtSpotlightPage(page, idx, gen) {
 
   // Switch to the correct tab if this step specifies one
   if (step.tab) {
-    try { eval(step.tab); } catch(e) {}
+    try { eval(step.tab); } catch(e) { console.warn('Walkthrough tab switch failed:', e); }
   }
 
   // Run a custom action if this step specifies one (e.g. triggering a demo score)
   if (step.action) {
-    try { eval(step.action + '()'); } catch(e) {}
+    try { eval(step.action + '()'); } catch(e) { console.warn('Walkthrough action failed:', e); }
   }
 
   // After tab switch, wait for browser to paint newly-visible pane before measuring
@@ -1959,17 +1999,19 @@ function getEffectiveClientId() {
 
 function saveSettings() {
   // Also keep in localStorage as fast local cache
-  localStorage.setItem('iqc_weights',    JSON.stringify(weights));
-  localStorage.setItem('iqc_thresholds', JSON.stringify(thresholds));
-  localStorage.setItem('iqc_profiles',   JSON.stringify(profiles));
-  localStorage.setItem('iqc_snoozed',    JSON.stringify([...snoozed]));
-  localStorage.setItem('iqc_dismissed',  JSON.stringify([...dismissed]));
-  localStorage.setItem('iqc_expansion',  JSON.stringify(expansionConfig));
-  localStorage.setItem('iqc_cadence',    JSON.stringify(cadenceConfig));
-  localStorage.setItem('iqc_renewal_windows', JSON.stringify(renewalWindows));
-  localStorage.setItem('iqc_quiet_days', String(quietDays));
-  localStorage.setItem('iqc_momentum_pts', String(momentumPts));
-  localStorage.setItem('iqc_signal_model', JSON.stringify(signalModelCfg));
+  try {
+    localStorage.setItem('iqc_weights',    JSON.stringify(weights));
+    localStorage.setItem('iqc_thresholds', JSON.stringify(thresholds));
+    localStorage.setItem('iqc_profiles',   JSON.stringify(profiles));
+    localStorage.setItem('iqc_snoozed',    JSON.stringify([...snoozed]));
+    localStorage.setItem('iqc_dismissed',  JSON.stringify([...dismissed]));
+    localStorage.setItem('iqc_expansion',  JSON.stringify(expansionConfig));
+    localStorage.setItem('iqc_cadence',    JSON.stringify(cadenceConfig));
+    localStorage.setItem('iqc_renewal_windows', JSON.stringify(renewalWindows));
+    localStorage.setItem('iqc_quiet_days', String(quietDays));
+    localStorage.setItem('iqc_momentum_pts', String(momentumPts));
+    localStorage.setItem('iqc_signal_model', JSON.stringify(signalModelCfg));
+  } catch(e) { console.warn('localStorage quota exceeded, settings cached in memory only:', e.message); }
   // Sync to Supabase (fire and forget) - keyed by client_id
   const cid = getEffectiveClientId();
   if (currentUser && cid) {
@@ -5572,6 +5614,8 @@ function nav(v) {
 function toggleMobileNav() {
   const dd = document.getElementById('mobile-nav-dd');
   if (dd) dd.classList.toggle('open');
+  const btn = document.getElementById('mobile-nav-btn');
+  if (btn) btn.setAttribute('aria-expanded', dd && dd.classList.contains('open') ? 'true' : 'false');
 }
 
 function mobileNav(page) {
@@ -5613,6 +5657,8 @@ function toggleBellDd() {
   const open = m.classList.contains('open');
   document.querySelectorAll('.snooze-dd__menu.open').forEach(x => x.classList.remove('open'));
   if (!open) { renderBellDd(); m.classList.add('open'); }
+  const btn = m.closest('.snooze-dd')?.querySelector('button');
+  if (btn) btn.setAttribute('aria-expanded', !open ? 'true' : 'false');
 }
 
 function renderBellDd() {
@@ -7990,7 +8036,7 @@ function updateAlertBadge() {
     if (ab) { if (active.length > 0) { ab.textContent = active.length; ab.style.display = ''; } else ab.style.display = 'none'; }
     const bb = el('bell-badge');
     if (bb) { if (active.length > 0) { bb.textContent = active.length; bb.style.display = ''; } else bb.style.display = 'none'; }
-  } catch(e) {}
+  } catch(e) { console.warn('updateAlertBadge error:', e); }
 }
 
 function renderAlerts() { try { _renderAlerts(); } catch(e) { console.error('renderAlerts error:', e); } }
@@ -9434,7 +9480,26 @@ function refreshMgrDropdown() {
 function toggleMgrDropdown() {
   const dd = document.getElementById('mgr-filter-dropdown');
   if (!dd) return;
-  dd.style.display = dd.style.display === 'none' ? '' : 'none';
+  const isOpen = dd.style.display !== 'none';
+  dd.style.display = isOpen ? 'none' : '';
+  const btn = document.getElementById('mgr-filter-btn');
+  if (btn) btn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+  if (!isOpen) {
+    // Focus first checkbox
+    const first = dd.querySelector('input[type=checkbox]');
+    if (first) setTimeout(function() { first.focus(); }, 30);
+    // Attach keyboard handler
+    dd._kbHandler = dd._kbHandler || function(e) { _dropdownKeyNav(e, dd, 'mgr-filter-btn'); };
+    dd.addEventListener('keydown', dd._kbHandler);
+  }
+}
+
+function _dropdownKeyNav(e, dd, btnId) {
+  var items = dd.querySelectorAll('input[type=checkbox], input[type=radio], button');
+  var idx = Array.from(items).indexOf(document.activeElement);
+  if (e.key === 'ArrowDown') { e.preventDefault(); if (idx < items.length - 1) items[idx + 1].focus(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); if (idx > 0) items[idx - 1].focus(); }
+  else if (e.key === 'Escape') { dd.style.display = 'none'; var btn = el(btnId); if (btn) { btn.setAttribute('aria-expanded', 'false'); btn.focus(); } }
 }
 
 // Close dropdown when clicking outside
@@ -9555,6 +9620,7 @@ function renderTableHeaders() {
   const funnelSVG = `<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>`;
   COL_DEFS.forEach(col => {
     const th = document.createElement('th');
+    th.setAttribute('scope', 'col');
     if (col.key === 'name') th.classList.add('col-frozen');
     const isActiveSort = col.sortKey && sortKey === col.sortKey;
     const filterActive = col.ftype && (col.key in columnFilters);
@@ -9938,7 +10004,12 @@ function applyColumnFilters(list) {
   });
 }
 
-function renderCustomers() { try { _renderCustomers(); } catch(e) { console.error('renderCustomers error:', e); } }
+var _renderCustTimer = null;
+function renderCustomers(immediate) {
+  if (immediate) { clearTimeout(_renderCustTimer); _renderCustTimer = null; try { _renderCustomers(); } catch(e) { console.error('renderCustomers error:', e); } return; }
+  if (_renderCustTimer) return; // already scheduled
+  _renderCustTimer = setTimeout(function() { _renderCustTimer = null; try { _renderCustomers(); } catch(e) { console.error('renderCustomers error:', e); } }, 16);
+}
 function _renderCustomers() {
   renderTableHeaders(); // keep sort arrows + filter highlights in sync
   renderFilterPills();  // keep active filter pill bar in sync
@@ -10684,11 +10755,15 @@ function _sanitizeForAI(c) {
 
 // Call AI via Cloudflare Worker (near-zero cold start)
 function _aiCall(body) {
+  var controller = new AbortController();
+  var timeoutId = setTimeout(function() { controller.abort(); }, 30000);
   return fetch('https://iqc-ai.signalliftconsulting.workers.dev', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  }).then(function(r) { return r.json(); });
+    body: JSON.stringify(body),
+    signal: controller.signal
+  }).then(function(r) { clearTimeout(timeoutId); return r.json(); })
+    .catch(function(err) { clearTimeout(timeoutId); if (err.name === 'AbortError') throw new Error('AI request timed out (30s)'); throw err; });
 }
 
 // AI Skeleton loader HTML
@@ -18055,7 +18130,7 @@ async function recoverWipedSignals() {
 
   if (toSave.length) {
     pauseSync(10000);
-    for (const c of toSave) { try { await save(c); } catch(_) {} }
+    for (const c of toSave) { try { await save(c); } catch(e) { console.warn('Auto-save failed for', c.name, e); } }
     refreshLiveScores();
     refreshMgrDropdown();
     const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
@@ -18102,7 +18177,7 @@ async function postSyncHistoryTrack(preScores, preSignals, syncedNames) {
   }
   if (toSave.length) {
     pauseSync(10000);
-    for (const c of toSave) { try { await save(c); } catch(_) {} }
+    for (const c of toSave) { try { await save(c); } catch(e) { console.warn('Auto-save failed for', c.name, e); } }
   }
   refreshMgrDropdown();
   const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
@@ -18999,7 +19074,7 @@ async function connectHubSpotOAuth() {
   try {
     const { data } = await sb.auth.getSession();
     userId = data?.session?.user?.id || '';
-  } catch(_) {}
+  } catch(e) { console.warn('Failed to get auth session:', e); }
   const clientId = _userClientId || (activeClientId !== '__own__' ? activeClientId : '');
 
   if (!clientId || !userId) {
@@ -23509,7 +23584,7 @@ function _fcBuildWaterfall(start, expand, contract, churn, projected) {
     const val = stepVal * i;
     const y = yScale(val);
     svg += `<line x1="${pad.left}" y1="${y}" x2="${W - pad.right}" y2="${y}" stroke="var(--border)" stroke-width="0.5"/>`;
-    svg += `<text x="${pad.left - 8}" y="${y + 4}" text-anchor="end" font-size="13" fill="var(--muted)">${_fcFmtDollar(val)}</text>`;
+    svg += `<text x="${pad.left - 8}" y="${y + 4}" text-anchor="end" font-size="14" fill="var(--muted)">${_fcFmtDollar(val)}</text>`;
   }
 
   // Baseline
@@ -23562,7 +23637,7 @@ function _fcBuildWaterfall(start, expand, contract, churn, projected) {
     svg += `<text x="${b.x + barW / 2}" y="${y1 - 8}" text-anchor="middle" font-size="14" font-weight="700" fill="${b.fill}">${b.label}</text>`;
 
     // Category label below
-    svg += `<text x="${b.x + barW / 2}" y="${yScale(0) + 20}" text-anchor="middle" font-size="13" font-weight="500" fill="var(--text)">${b.name}</text>`;
+    svg += `<text x="${b.x + barW / 2}" y="${yScale(0) + 22}" text-anchor="middle" font-size="14" font-weight="500" fill="var(--text)">${b.name}</text>`;
   }
 
   svg += '</svg>';
@@ -23947,12 +24022,12 @@ function _renderForecast() {
       return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:' + (i < 9 ? '4' : '0') + 'px">' +
         '<div style="width:110px;display:flex;align-items:center;gap:5px;flex-shrink:0;overflow:hidden">' +
           '<div style="width:7px;height:7px;border-radius:50%;background:' + sColor + ';flex-shrink:0" title="' + (c.status || '') + '"></div>' +
-          '<span style="font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + (c.name || '') + '">' + name + '</span>' +
+          '<span style="font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + (c.name || '') + '">' + name + '</span>' +
         '</div>' +
         '<div style="flex:1;background:var(--bg);border-radius:3px;height:18px;overflow:hidden">' +
           '<div style="width:' + barW + '%;height:100%;border-radius:3px;background:' + (i < 3 ? 'linear-gradient(90deg,' + sColor + ',' + sColor + 'cc)' : sColor + '66') + ';min-width:2px"></div>' +
         '</div>' +
-        '<div style="text-align:right;flex-shrink:0;white-space:nowrap"><span style="font-size:12px;font-weight:600;color:var(--text)">$' + fmtNum(Math.round(mrr)) + '</span> <span style="font-size:10px;color:var(--muted)">' + pct + '%</span></div>' +
+        '<div style="text-align:right;flex-shrink:0;white-space:nowrap"><span style="font-size:13px;font-weight:600;color:var(--text)">$' + fmtNum(Math.round(mrr)) + '</span> <span style="font-size:11px;color:var(--muted)">' + pct + '%</span></div>' +
       '</div>';
     }).join('');
 
@@ -29099,18 +29174,26 @@ function normalizeDate(raw) {
   const s = raw.trim();
   if (!s) return '';
 
+  // Helper: validate a YYYY-MM-DD is an actual calendar date
+  function _validOrEmpty(dateStr) {
+    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return '';
+    const [yy, mm, dd] = dateStr.split('-').map(Number);
+    const dt = new Date(yy, mm - 1, dd);
+    return (dt.getFullYear() === yy && dt.getMonth() === mm - 1 && dt.getDate() === dd) ? dateStr : '';
+  }
+
   // Already ISO YYYY-MM-DD (with optional time portion)
   const isoMatch = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
   if (isoMatch) {
     const [, y, m, d] = isoMatch;
-    return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+    return _validOrEmpty(`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`);
   }
 
   // MM/DD/YYYY or M/D/YYYY or MM-DD-YYYY
   const usMatch = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
   if (usMatch) {
     const [, m, d, y] = usMatch;
-    return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+    return _validOrEmpty(`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`);
   }
 
   // MM/DD/YY or M/D/YY (2-digit year)
@@ -29146,6 +29229,14 @@ function normalizeDate(raw) {
   if (!isNaN(fallback.getTime())) return fallback.toISOString().slice(0,10);
 
   return ''; // unrecognizable
+}
+
+// Validate a YYYY-MM-DD string is an actual calendar date (rejects 2026-13-45 etc.)
+function isValidDate(dateStr) {
+  if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
 }
 
 function showColumnMap() {
@@ -29575,7 +29666,16 @@ function refreshClientSelects() {
 function toggleClientDropdown() {
   const dd = document.getElementById('client-filter-dropdown');
   if (!dd) return;
-  dd.style.display = dd.style.display === 'none' ? '' : 'none';
+  const isOpen = dd.style.display !== 'none';
+  dd.style.display = isOpen ? 'none' : '';
+  const btn = document.getElementById('client-filter-btn');
+  if (btn) btn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+  if (!isOpen) {
+    const first = dd.querySelector('input[type=radio]');
+    if (first) setTimeout(function() { first.focus(); }, 30);
+    dd._kbHandler = dd._kbHandler || function(e) { _dropdownKeyNav(e, dd, 'client-filter-btn'); };
+    dd.addEventListener('keydown', dd._kbHandler);
+  }
 }
 
 document.addEventListener('click', function(e) {
@@ -30269,7 +30369,7 @@ async function loadAnalytics() {
     } else {
       pagesEl.innerHTML = sortedPages.map(([pg, cnt]) => `
         <div style="display:flex;align-items:center;gap:10px;padding:4px 0">
-          <div style="width:100px;font-size:var(--fs-sm);color:var(--muted);text-align:right">${pg}</div>
+          <div style="width:100px;font-size:var(--fs-sm);color:var(--muted);text-align:right">${escHtml(pg)}</div>
           <div style="flex:1;background:var(--bg);border-radius:4px;height:22px;overflow:hidden">
             <div style="width:${(cnt/maxCount*100).toFixed(1)}%;background:var(--blue);height:100%;border-radius:4px;min-width:2px"></div>
           </div>

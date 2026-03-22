@@ -190,6 +190,31 @@ serve(async (req) => {
     // ── SSRF protection: validate webhook target ──
     const validatedUrl = validateWebhookUrl(url);
 
+    // ── Build HMAC signature for webhook payload ──
+    const payloadStr = JSON.stringify(payload);
+    const timestamp = Math.floor(Date.now() / 1000);
+    const signatureHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-IQC-Timestamp': String(timestamp),
+    };
+
+    // Look up user's HMAC secret for signing (if configured)
+    try {
+      const { data: keyRow } = await serviceClient
+        .from('api_keys')
+        .select('hmac_secret')
+        .eq('user_id', user.id)
+        .not('hmac_secret', 'eq', '')
+        .limit(1);
+      if (keyRow?.[0]?.hmac_secret) {
+        const encoder = new TextEncoder();
+        const sigPayload = `${timestamp}.${payloadStr}`;
+        const key = await crypto.subtle.importKey('raw', encoder.encode(keyRow[0].hmac_secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+        const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(sigPayload));
+        signatureHeaders['X-IQC-Signature'] = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
+      }
+    } catch (_) { /* HMAC signing is best-effort; proceed without if it fails */ }
+
     // ── POST to webhook URL with timeout ──
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
@@ -201,8 +226,8 @@ serve(async (req) => {
     try {
       const resp = await fetch(validatedUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        headers: signatureHeaders,
+        body: payloadStr,
         signal: controller.signal
       });
       status_code = resp.status;

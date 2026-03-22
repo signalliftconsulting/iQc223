@@ -93,9 +93,13 @@ serve(async (req) => {
       }
 
       // Fetch subscription details to get the product/tier
+      const subCtrl = new AbortController();
+      const subTimeout = setTimeout(() => subCtrl.abort(), 15000);
       const subResp = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}?expand[]=items.data.price.product`, {
         headers: { 'Authorization': `Bearer ${stripeKey}` },
+        signal: subCtrl.signal,
       });
+      clearTimeout(subTimeout);
       const subscription = await subResp.json();
 
       const product = subscription.items?.data?.[0]?.price?.product;

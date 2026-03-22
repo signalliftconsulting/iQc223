@@ -69,11 +69,15 @@ function _sanitizeForAI(c) {
 
 // Call AI via Cloudflare Worker (near-zero cold start)
 function _aiCall(body) {
+  var controller = new AbortController();
+  var timeoutId = setTimeout(function() { controller.abort(); }, 30000);
   return fetch('https://iqc-ai.signalliftconsulting.workers.dev', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  }).then(function(r) { return r.json(); });
+    body: JSON.stringify(body),
+    signal: controller.signal
+  }).then(function(r) { clearTimeout(timeoutId); return r.json(); })
+    .catch(function(err) { clearTimeout(timeoutId); if (err.name === 'AbortError') throw new Error('AI request timed out (30s)'); throw err; });
 }
 
 // AI Skeleton loader HTML

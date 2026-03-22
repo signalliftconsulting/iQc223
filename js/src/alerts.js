@@ -470,7 +470,7 @@ function updateAlertBadge() {
     if (ab) { if (active.length > 0) { ab.textContent = active.length; ab.style.display = ''; } else ab.style.display = 'none'; }
     const bb = el('bell-badge');
     if (bb) { if (active.length > 0) { bb.textContent = active.length; bb.style.display = ''; } else bb.style.display = 'none'; }
-  } catch(e) {}
+  } catch(e) { console.warn('updateAlertBadge error:', e); }
 }
 
 function renderAlerts() { try { _renderAlerts(); } catch(e) { console.error('renderAlerts error:', e); } }

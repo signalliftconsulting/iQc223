@@ -1740,7 +1740,7 @@ async function recoverWipedSignals() {
 
   if (toSave.length) {
     pauseSync(10000);
-    for (const c of toSave) { try { await save(c); } catch(_) {} }
+    for (const c of toSave) { try { await save(c); } catch(e) { console.warn('Auto-save failed for', c.name, e); } }
     refreshLiveScores();
     refreshMgrDropdown();
     const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
@@ -1787,7 +1787,7 @@ async function postSyncHistoryTrack(preScores, preSignals, syncedNames) {
   }
   if (toSave.length) {
     pauseSync(10000);
-    for (const c of toSave) { try { await save(c); } catch(_) {} }
+    for (const c of toSave) { try { await save(c); } catch(e) { console.warn('Auto-save failed for', c.name, e); } }
   }
   refreshMgrDropdown();
   const active = VIEWS.find(v => document.getElementById('view-'+v)?.classList.contains('active'));
@@ -2684,7 +2684,7 @@ async function connectHubSpotOAuth() {
   try {
     const { data } = await sb.auth.getSession();
     userId = data?.session?.user?.id || '';
-  } catch(_) {}
+  } catch(e) { console.warn('Failed to get auth session:', e); }
   const clientId = _userClientId || (activeClientId !== '__own__' ? activeClientId : '');
 
   if (!clientId || !userId) {

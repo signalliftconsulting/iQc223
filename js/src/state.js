@@ -228,8 +228,11 @@ function getAIUsageInfo() {
   return { used: _aiCallCount, limit: limit, month: _aiCallMonth };
 }
 
+// Feature gating: all tiers get full feature access — plan enforcement is via
+// server-side triggers (enforce_account_limit, enforce_user_limit) and getPlanLimit().
+// This function exists as a hook for future per-feature gating if needed.
 function hasFeature(key) {
-  return true; // all tiers get full feature access — billing differentiates by user/account limits only
+  return true;
 }
 
 function getPlanLimit(key) {

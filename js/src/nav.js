@@ -235,6 +235,8 @@ function nav(v) {
 function toggleMobileNav() {
   const dd = document.getElementById('mobile-nav-dd');
   if (dd) dd.classList.toggle('open');
+  const btn = document.getElementById('mobile-nav-btn');
+  if (btn) btn.setAttribute('aria-expanded', dd && dd.classList.contains('open') ? 'true' : 'false');
 }
 
 function mobileNav(page) {
@@ -276,6 +278,8 @@ function toggleBellDd() {
   const open = m.classList.contains('open');
   document.querySelectorAll('.snooze-dd__menu.open').forEach(x => x.classList.remove('open'));
   if (!open) { renderBellDd(); m.classList.add('open'); }
+  const btn = m.closest('.snooze-dd')?.querySelector('button');
+  if (btn) btn.setAttribute('aria-expanded', !open ? 'true' : 'false');
 }
 
 function renderBellDd() {

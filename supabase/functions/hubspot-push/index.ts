@@ -27,8 +27,15 @@ function getCorsHeaders(req: Request) {
 
 const HS_BASE = 'https://api.hubapi.com';
 
+// Helper: fetch with 15s timeout
+function fetchWithTimeout(url: string, opts: RequestInit = {}, timeoutMs = 15000): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...opts, signal: controller.signal }).finally(() => clearTimeout(id));
+}
+
 async function hsPatch(token: string, path: string, body: any): Promise<any> {
-  const resp = await fetch(`${HS_BASE}${path}`, {
+  const resp = await fetchWithTimeout(`${HS_BASE}${path}`, {
     method: 'PATCH',
     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
@@ -47,7 +54,7 @@ async function refreshOAuthToken(serviceClient: any, integration: any, tokenData
   if (!clientId || !clientSecret || !tokenData.refresh_token) {
     throw new Error('Cannot refresh token — missing credentials or refresh token');
   }
-  const resp = await fetch('https://api.hubapi.com/oauth/v1/token', {
+  const resp = await fetchWithTimeout('https://api.hubapi.com/oauth/v1/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({

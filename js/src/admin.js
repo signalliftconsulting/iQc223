@@ -43,7 +43,16 @@ function refreshClientSelects() {
 function toggleClientDropdown() {
   const dd = document.getElementById('client-filter-dropdown');
   if (!dd) return;
-  dd.style.display = dd.style.display === 'none' ? '' : 'none';
+  const isOpen = dd.style.display !== 'none';
+  dd.style.display = isOpen ? 'none' : '';
+  const btn = document.getElementById('client-filter-btn');
+  if (btn) btn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+  if (!isOpen) {
+    const first = dd.querySelector('input[type=radio]');
+    if (first) setTimeout(function() { first.focus(); }, 30);
+    dd._kbHandler = dd._kbHandler || function(e) { _dropdownKeyNav(e, dd, 'client-filter-btn'); };
+    dd.addEventListener('keydown', dd._kbHandler);
+  }
 }
 
 document.addEventListener('click', function(e) {
@@ -737,7 +746,7 @@ async function loadAnalytics() {
     } else {
       pagesEl.innerHTML = sortedPages.map(([pg, cnt]) => `
         <div style="display:flex;align-items:center;gap:10px;padding:4px 0">
-          <div style="width:100px;font-size:var(--fs-sm);color:var(--muted);text-align:right">${pg}</div>
+          <div style="width:100px;font-size:var(--fs-sm);color:var(--muted);text-align:right">${escHtml(pg)}</div>
           <div style="flex:1;background:var(--bg);border-radius:4px;height:22px;overflow:hidden">
             <div style="width:${(cnt/maxCount*100).toFixed(1)}%;background:var(--blue);height:100%;border-radius:4px;min-width:2px"></div>
           </div>

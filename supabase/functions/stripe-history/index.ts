@@ -56,6 +56,13 @@ async function getStripeKey(serviceClient: any, integration: any): Promise<strin
   throw new Error('No Stripe API key found. Please reconnect your Stripe integration.');
 }
 
+// Helper: fetch with timeout
+function fetchWithTimeout(url: string, opts: RequestInit = {}, timeoutMs = 15000): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...opts, signal: controller.signal }).finally(() => clearTimeout(id));
+}
+
 async function stripeFetchAll(stripeKey: string, path: string, params: Record<string, string> = {}): Promise<any[]> {
   const all: any[] = [];
   let hasMore = true;
@@ -66,7 +73,7 @@ async function stripeFetchAll(stripeKey: string, path: string, params: Record<st
     if (startingAfter) searchParams.set('starting_after', startingAfter);
     const url = `https://api.stripe.com/v1/${path}?${searchParams.toString()}`;
 
-    const resp = await fetch(url, {
+    const resp = await fetchWithTimeout(url, {
       headers: { 'Authorization': `Bearer ${stripeKey}` }
     });
     if (!resp.ok) {

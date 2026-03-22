@@ -648,12 +648,12 @@ function _wtSpotlightPage(page, idx, gen) {
 
   // Switch to the correct tab if this step specifies one
   if (step.tab) {
-    try { eval(step.tab); } catch(e) {}
+    try { eval(step.tab); } catch(e) { console.warn('Walkthrough tab switch failed:', e); }
   }
 
   // Run a custom action if this step specifies one (e.g. triggering a demo score)
   if (step.action) {
-    try { eval(step.action + '()'); } catch(e) {}
+    try { eval(step.action + '()'); } catch(e) { console.warn('Walkthrough action failed:', e); }
   }
 
   // After tab switch, wait for browser to paint newly-visible pane before measuring

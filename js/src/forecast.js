@@ -118,7 +118,7 @@ function _fcBuildWaterfall(start, expand, contract, churn, projected) {
     const val = stepVal * i;
     const y = yScale(val);
     svg += `<line x1="${pad.left}" y1="${y}" x2="${W - pad.right}" y2="${y}" stroke="var(--border)" stroke-width="0.5"/>`;
-    svg += `<text x="${pad.left - 8}" y="${y + 4}" text-anchor="end" font-size="13" fill="var(--muted)">${_fcFmtDollar(val)}</text>`;
+    svg += `<text x="${pad.left - 8}" y="${y + 4}" text-anchor="end" font-size="14" fill="var(--muted)">${_fcFmtDollar(val)}</text>`;
   }
 
   // Baseline
@@ -171,7 +171,7 @@ function _fcBuildWaterfall(start, expand, contract, churn, projected) {
     svg += `<text x="${b.x + barW / 2}" y="${y1 - 8}" text-anchor="middle" font-size="14" font-weight="700" fill="${b.fill}">${b.label}</text>`;
 
     // Category label below
-    svg += `<text x="${b.x + barW / 2}" y="${yScale(0) + 20}" text-anchor="middle" font-size="13" font-weight="500" fill="var(--text)">${b.name}</text>`;
+    svg += `<text x="${b.x + barW / 2}" y="${yScale(0) + 22}" text-anchor="middle" font-size="14" font-weight="500" fill="var(--text)">${b.name}</text>`;
   }
 
   svg += '</svg>';
@@ -556,12 +556,12 @@ function _renderForecast() {
       return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:' + (i < 9 ? '4' : '0') + 'px">' +
         '<div style="width:110px;display:flex;align-items:center;gap:5px;flex-shrink:0;overflow:hidden">' +
           '<div style="width:7px;height:7px;border-radius:50%;background:' + sColor + ';flex-shrink:0" title="' + (c.status || '') + '"></div>' +
-          '<span style="font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + (c.name || '') + '">' + name + '</span>' +
+          '<span style="font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + (c.name || '') + '">' + name + '</span>' +
         '</div>' +
         '<div style="flex:1;background:var(--bg);border-radius:3px;height:18px;overflow:hidden">' +
           '<div style="width:' + barW + '%;height:100%;border-radius:3px;background:' + (i < 3 ? 'linear-gradient(90deg,' + sColor + ',' + sColor + 'cc)' : sColor + '66') + ';min-width:2px"></div>' +
         '</div>' +
-        '<div style="text-align:right;flex-shrink:0;white-space:nowrap"><span style="font-size:12px;font-weight:600;color:var(--text)">$' + fmtNum(Math.round(mrr)) + '</span> <span style="font-size:10px;color:var(--muted)">' + pct + '%</span></div>' +
+        '<div style="text-align:right;flex-shrink:0;white-space:nowrap"><span style="font-size:13px;font-weight:600;color:var(--text)">$' + fmtNum(Math.round(mrr)) + '</span> <span style="font-size:11px;color:var(--muted)">' + pct + '%</span></div>' +
       '</div>';
     }).join('');
 

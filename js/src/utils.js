@@ -61,6 +61,16 @@
 
 // ─── CORE HELPERS ───────────────────────────────────────────
 function el(id) { return document.getElementById(id); }
+
+// Debounce: coalesce rapid calls into a single execution after `ms` delay
+function debounce(fn, ms) {
+  var timer;
+  return function() {
+    var ctx = this, args = arguments;
+    clearTimeout(timer);
+    timer = setTimeout(function() { fn.apply(ctx, args); }, ms);
+  };
+}
 function fmtNum(n) {
   if (n >= 1e6) return (n/1e6).toFixed(1).replace(/\.0$/,'') + 'M';
   if (n >= 1e3) return (n/1e3).toFixed(1).replace(/\.0$/,'') + 'K';
@@ -110,14 +120,40 @@ function toast(msg, type, dur) {
     t.classList.remove('show');
     setTimeout(() => t.remove(), 250);
   }, dur);
+  // Announce to screen readers
+  var live = document.getElementById('a11y-live');
+  if (live) live.textContent = msg;
 }
 
 // ─── MODALS ─────────────────────────────────────────────────
+var _modalFocusStack = [];
+
+function _trapModalFocus(e) {
+  if (e.key !== 'Tab') return;
+  var modal = e.currentTarget.querySelector('.modal') || e.currentTarget;
+  var focusable = modal.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])');
+  if (!focusable.length) return;
+  var first = focusable[0], last = focusable[focusable.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+}
+
 function closeModal(id) {
-  document.getElementById(id).classList.remove('open');
+  var m = document.getElementById(id);
+  m.classList.remove('open');
+  m.removeEventListener('keydown', _trapModalFocus);
+  // Restore focus to element that opened the modal
+  var prev = _modalFocusStack.pop();
+  if (prev && prev.focus) try { prev.focus(); } catch(_) {}
 }
 function openModal(id) {
-  document.getElementById(id).classList.add('open');
+  _modalFocusStack.push(document.activeElement);
+  var m = document.getElementById(id);
+  m.classList.add('open');
+  m.addEventListener('keydown', _trapModalFocus);
+  // Focus first interactive element inside the modal
+  var first = m.querySelector('.modal button, .modal input, .modal textarea, .modal a[href]');
+  if (first) setTimeout(function() { first.focus(); }, 50);
 }
 
 // Close modal on backdrop click
@@ -142,7 +178,9 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     closeColFilter();
     closeAlertFilter();
-    document.querySelectorAll('.modal-bg.open').forEach(m => m.classList.remove('open'));
+    // Close topmost open modal via closeModal (restores focus properly)
+    var openModals = document.querySelectorAll('.modal-bg.open');
+    if (openModals.length) { closeModal(openModals[openModals.length - 1].id); }
     return;
   }
   // Ignore shortcuts when typing in inputs

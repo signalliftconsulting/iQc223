@@ -254,7 +254,10 @@ serve(async (req) => {
 
       if (rlErr) {
         console.error('Rate limit check failed:', rlErr.message);
-        continue; // Fail open: allow the request if rate-limit check errors
+        return new Response(
+          JSON.stringify({ error: 'Service temporarily unavailable. Please try again.' }),
+          { status: 503, headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json', 'Retry-After': '5' } }
+        );
       }
 
       const check = Array.isArray(rl) ? rl[0] : rl;
@@ -481,8 +484,28 @@ serve(async (req) => {
           }
         }
         const { error } = await serviceClient.from('customers').insert(row);
-        if (error) throw error;
-        result = { action: 'created', id: row.id, name: data.name, score: row.score, status: row.status };
+        if (error) {
+          // Handle race condition: unique constraint on (client_id, external_id)
+          if (error.code === '23505' && data.external_id) {
+            // Another request created the same customer concurrently — retry as update
+            const { data: raceRow } = await serviceClient
+              .from('customers').select('*')
+              .eq('client_id', clientId).eq('external_id', data.external_id)
+              .is('deleted_at', null).limit(1);
+            if (raceRow?.length) {
+              const { error: upErr } = await serviceClient
+                .from('customers').update(row).eq('id', raceRow[0].id);
+              if (upErr) throw upErr;
+              result = { action: 'updated', id: raceRow[0].id, name: row.name || raceRow[0].name, score: row.score, status: row.status, note: 'resolved concurrent insert' };
+            } else {
+              throw error;
+            }
+          } else {
+            throw error;
+          }
+        } else {
+          result = { action: 'created', id: row.id, name: data.name, score: row.score, status: row.status };
+        }
       }
 
     // ════════════════════════════════════════════════════════

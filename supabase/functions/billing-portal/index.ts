@@ -73,7 +73,10 @@ serve(async (req) => {
     const { return_url } = await req.json();
 
     // Create portal session
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
     const resp = await fetch('https://api.stripe.com/v1/billing_portal/sessions', {
+      signal: controller.signal,
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${stripeKey}`,
@@ -85,6 +88,7 @@ serve(async (req) => {
       }).toString(),
     });
 
+    clearTimeout(timeoutId);
     const session = await resp.json();
     if (!resp.ok) throw new Error(session?.error?.message || `Stripe ${resp.status}`);
 

@@ -25,10 +25,17 @@ function getCorsHeaders(req: Request) {
   };
 }
 
+// Helper: fetch with 15s timeout
+function fetchWithTimeout(url: string, opts: RequestInit = {}, timeoutMs = 15000): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...opts, signal: controller.signal }).finally(() => clearTimeout(id));
+}
+
 // Validate a Stripe API key by calling GET /v1/account
 async function validateStripeKey(key: string): Promise<{ valid: boolean; name?: string; error?: string }> {
   try {
-    const resp = await fetch('https://api.stripe.com/v1/account', {
+    const resp = await fetchWithTimeout('https://api.stripe.com/v1/account', {
       headers: { 'Authorization': `Bearer ${key}` }
     });
     if (!resp.ok) {
@@ -45,7 +52,7 @@ async function validateStripeKey(key: string): Promise<{ valid: boolean; name?: 
 // Validate a Salesforce token by running a test SOQL query
 async function validateSalesforceToken(token: string, instanceUrl: string): Promise<{ valid: boolean; name?: string; error?: string }> {
   try {
-    const resp = await fetch(`${instanceUrl}/services/data/v59.0/query?q=${encodeURIComponent('SELECT Name FROM Organization LIMIT 1')}`, {
+    const resp = await fetchWithTimeout(`${instanceUrl}/services/data/v59.0/query?q=${encodeURIComponent('SELECT Name FROM Organization LIMIT 1')}`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     if (!resp.ok) {
@@ -63,7 +70,7 @@ async function validateSalesforceToken(token: string, instanceUrl: string): Prom
 // Validate a HubSpot Private App token by calling GET /crm/v3/objects/companies?limit=1
 async function validateHubSpotToken(token: string): Promise<{ valid: boolean; error?: string }> {
   try {
-    const resp = await fetch('https://api.hubapi.com/crm/v3/objects/companies?limit=1', {
+    const resp = await fetchWithTimeout('https://api.hubapi.com/crm/v3/objects/companies?limit=1', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
     if (!resp.ok) {

@@ -168,18 +168,26 @@ function normalizeDate(raw) {
   const s = raw.trim();
   if (!s) return '';
 
+  // Helper: validate a YYYY-MM-DD is an actual calendar date
+  function _validOrEmpty(dateStr) {
+    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return '';
+    const [yy, mm, dd] = dateStr.split('-').map(Number);
+    const dt = new Date(yy, mm - 1, dd);
+    return (dt.getFullYear() === yy && dt.getMonth() === mm - 1 && dt.getDate() === dd) ? dateStr : '';
+  }
+
   // Already ISO YYYY-MM-DD (with optional time portion)
   const isoMatch = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
   if (isoMatch) {
     const [, y, m, d] = isoMatch;
-    return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+    return _validOrEmpty(`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`);
   }
 
   // MM/DD/YYYY or M/D/YYYY or MM-DD-YYYY
   const usMatch = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
   if (usMatch) {
     const [, m, d, y] = usMatch;
-    return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+    return _validOrEmpty(`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`);
   }
 
   // MM/DD/YY or M/D/YY (2-digit year)
@@ -215,6 +223,14 @@ function normalizeDate(raw) {
   if (!isNaN(fallback.getTime())) return fallback.toISOString().slice(0,10);
 
   return ''; // unrecognizable
+}
+
+// Validate a YYYY-MM-DD string is an actual calendar date (rejects 2026-13-45 etc.)
+function isValidDate(dateStr) {
+  if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
 }
 
 function showColumnMap() {

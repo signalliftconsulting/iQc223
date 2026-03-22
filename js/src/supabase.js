@@ -15,17 +15,19 @@ function getEffectiveClientId() {
 
 function saveSettings() {
   // Also keep in localStorage as fast local cache
-  localStorage.setItem('iqc_weights',    JSON.stringify(weights));
-  localStorage.setItem('iqc_thresholds', JSON.stringify(thresholds));
-  localStorage.setItem('iqc_profiles',   JSON.stringify(profiles));
-  localStorage.setItem('iqc_snoozed',    JSON.stringify([...snoozed]));
-  localStorage.setItem('iqc_dismissed',  JSON.stringify([...dismissed]));
-  localStorage.setItem('iqc_expansion',  JSON.stringify(expansionConfig));
-  localStorage.setItem('iqc_cadence',    JSON.stringify(cadenceConfig));
-  localStorage.setItem('iqc_renewal_windows', JSON.stringify(renewalWindows));
-  localStorage.setItem('iqc_quiet_days', String(quietDays));
-  localStorage.setItem('iqc_momentum_pts', String(momentumPts));
-  localStorage.setItem('iqc_signal_model', JSON.stringify(signalModelCfg));
+  try {
+    localStorage.setItem('iqc_weights',    JSON.stringify(weights));
+    localStorage.setItem('iqc_thresholds', JSON.stringify(thresholds));
+    localStorage.setItem('iqc_profiles',   JSON.stringify(profiles));
+    localStorage.setItem('iqc_snoozed',    JSON.stringify([...snoozed]));
+    localStorage.setItem('iqc_dismissed',  JSON.stringify([...dismissed]));
+    localStorage.setItem('iqc_expansion',  JSON.stringify(expansionConfig));
+    localStorage.setItem('iqc_cadence',    JSON.stringify(cadenceConfig));
+    localStorage.setItem('iqc_renewal_windows', JSON.stringify(renewalWindows));
+    localStorage.setItem('iqc_quiet_days', String(quietDays));
+    localStorage.setItem('iqc_momentum_pts', String(momentumPts));
+    localStorage.setItem('iqc_signal_model', JSON.stringify(signalModelCfg));
+  } catch(e) { console.warn('localStorage quota exceeded, settings cached in memory only:', e.message); }
   // Sync to Supabase (fire and forget) - keyed by client_id
   const cid = getEffectiveClientId();
   if (currentUser && cid) {
