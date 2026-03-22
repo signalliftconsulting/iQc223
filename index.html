@@ -1732,7 +1732,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
     </div>
 
     <!-- Login form only — no public sign-up -->
-    <form id="form-login" data-submit="authSignIn" autocomplete="on">
+    <form id="form-login" data-submit="authSignIn" onsubmit="event.preventDefault();authSignIn()" autocomplete="on">
       <div class="auth-field">
         <label for="login-email">Email</label>
         <input class="auth-input" type="email" id="login-email" placeholder="you@company.com" autocomplete="email" required/>
@@ -1747,7 +1747,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
     </form>
 
     <!-- Sign up form — hidden, kept for admin use via JS -->
-    <form id="form-signup" style="display:none" data-submit="authSignUp" autocomplete="on">
+    <form id="form-signup" style="display:none" data-submit="authSignUp" onsubmit="event.preventDefault();authSignUp()" autocomplete="on">
       <div class="auth-field">
         <label for="signup-email">Email</label>
         <input class="auth-input" type="email" id="signup-email" placeholder="you@company.com" autocomplete="email" required/>
@@ -1764,7 +1764,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
     </form>
 
     <!-- Reset form -->
-    <form id="form-reset" style="display:none" data-submit="authReset" autocomplete="on">
+    <form id="form-reset" style="display:none" data-submit="authReset" onsubmit="event.preventDefault();authReset()" autocomplete="on">
       <p style="font-size:var(--fs-base);color:var(--muted);margin-bottom:14px">Enter your email and we'll send a password reset link.</p>
       <div class="auth-field">
         <label for="reset-email">Email</label>
@@ -2427,7 +2427,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
   <div id="score-guide"></div>
   <div class="score-panel">
     <div class="card">
-      <form id="score-form" data-submit="submitForm">
+      <form id="score-form" data-submit="submitForm" onsubmit="submitForm(event)">
         <div class="fg" id="score-fields-wrap">
           <!-- Section: Account -->
           <div class="field full"><label>Company / Customer Name *</label><input type="text" id="f-name" placeholder="Acme Corp" required maxlength="150"/></div>
@@ -4581,6 +4581,6 @@ Header: Content-Type: application/json
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script defer src="js/config.js"></script>
-<script defer src="js/app.js?v=692"></script>
+<script defer src="js/app.js?v=693"></script>
 </body>
 </html>
