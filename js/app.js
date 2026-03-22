@@ -4203,20 +4203,47 @@ async function ensureUserProfile(user) {
     const { data: rows } = await sb.from('user_profiles').select('user_id, role, client_id').eq('user_id', user.id).limit(1);
     const data = rows && rows.length ? rows[0] : null;
     if (!data) {
-      // Not registered yet  - create profile row
+      // Not registered yet — auto-provision a client + profile
+      const { data: newClient } = await sb.from('clients').insert({
+        user_id: user.id,
+        name: user.email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        plan_tier: 'growth'
+      }).select('id').single();
+      const newClientId = newClient ? newClient.id : null;
       await sb.from('user_profiles').insert({
         user_id:       user.id,
         email:         user.email,
         business_name: '',
-        role:          'user',
+        client_id:     newClientId,
+        role:          newClientId ? 'admin' : 'user',
         created_at:    new Date().toISOString()
       });
-      _userRole = 'user';
-      _userClientId = null;
+      _userRole = newClientId ? 'admin' : 'user';
+      _userClientId = newClientId;
     } else {
       // Store the server-fetched role (can't be spoofed from console)
       _userRole = data.role || 'user';
       _userClientId = data.client_id || null;
+      // Auto-provision client if profile exists but has no client
+      if (!_userClientId) {
+        const { data: ownedClient } = await sb.from('clients').select('id').eq('user_id', user.id).limit(1);
+        if (ownedClient && ownedClient.length) {
+          _userClientId = ownedClient[0].id;
+          await sb.from('user_profiles').update({ client_id: _userClientId }).eq('user_id', user.id);
+        } else {
+          // Create a new client for this orphaned user
+          const { data: newClient } = await sb.from('clients').insert({
+            user_id: user.id,
+            name: user.email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+            plan_tier: 'growth'
+          }).select('id').single();
+          if (newClient) {
+            _userClientId = newClient.id;
+            _userRole = 'admin';
+            await sb.from('user_profiles').update({ client_id: _userClientId, role: 'admin' }).eq('user_id', user.id);
+          }
+        }
+      }
     }
     // Re-apply admin UI now that role is confirmed from server
     updateUserUI(user);
