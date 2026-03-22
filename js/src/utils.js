@@ -91,6 +91,8 @@ document.addEventListener('click', function(e) {
 });
 
 // Change delegation: data-change="fnName" [data-arg="value"]
+// With data-arg: passes (arg, element.value) — for multi-param handlers like setTrendMetric(slot, key)
+// Without data-arg: passes element as context (this) + event — preserves original calling convention
 document.addEventListener('change', function(e) {
   if (!e.target || !e.target.closest) return;
   var t = e.target.closest('[data-change]');
@@ -98,8 +100,12 @@ document.addEventListener('change', function(e) {
   var fn = window[t.dataset.change];
   if (typeof fn !== 'function') return;
   var arg = t.dataset.arg;
-  if (arg !== undefined) fn(arg);
-  else fn.call(t, e);
+  if (arg !== undefined) {
+    var val = t.type === 'checkbox' ? t.checked : t.value;
+    fn(arg, val);
+  } else {
+    fn.call(t, e);
+  }
 });
 
 // Input delegation: data-input="fnName" [data-arg="value"]
