@@ -1189,7 +1189,13 @@ function openGuideModal(page) {
     document.body.appendChild(m);
   }
   m.innerHTML = '<div class="modal" style="max-width:560px;max-height:80vh;overflow-y:auto">' +
-    '<div class="modal-hd"><h2>' + appIcon('book', 20) + ' ' + escHtml(title) + ' Guide</h2>' +
+    '<div class="modal-hd" style="gap:10px">' +
+    '<div style="display:flex;align-items:center;gap:10px">' +
+    '<div style="width:32px;height:32px;border-radius:8px;background:#eff6ff;display:flex;align-items:center;justify-content:center;flex-shrink:0">' +
+    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>' +
+    '</div>' +
+    '<h2 style="margin:0;font-size:1rem">' + escHtml(title) + ' Guide</h2>' +
+    '</div>' +
     '<button style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:4px" onclick="document.getElementById(\'guide-modal\').style.display=\'none\'">&times;</button></div>' +
     '<div class="modal-bd" style="font-size:var(--fs-sm);line-height:1.7;color:var(--text)">' + content + '</div></div>';
   m.style.display = 'flex';
@@ -1822,7 +1828,7 @@ function _wtMakeGuideButton(page) {
   if (!_GUIDE_CONTENT || !_GUIDE_CONTENT[page]) return null;
   var btn = document.createElement('button');
   btn.className = 'wt-tour-btn';
-  btn.style.cssText = 'background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-color:#6ee7b7;color:#047857';
+  btn.style.cssText = 'background:#ecfeff;border:1px solid #a5f3fc;color:#0e7490';
   btn.innerHTML =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
     '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>' +
@@ -1831,8 +1837,8 @@ function _wtMakeGuideButton(page) {
     e.stopPropagation();
     openGuideModal(page);
   });
-  btn.addEventListener('mouseover', function() { btn.style.background = 'linear-gradient(135deg,#d1fae5,#a7f3d0)'; btn.style.borderColor = '#34d399'; });
-  btn.addEventListener('mouseout', function() { btn.style.background = 'linear-gradient(135deg,#ecfdf5,#d1fae5)'; btn.style.borderColor = '#6ee7b7'; });
+  btn.addEventListener('mouseover', function() { btn.style.background = '#cffafe'; btn.style.borderColor = '#67e8f9'; });
+  btn.addEventListener('mouseout', function() { btn.style.background = '#ecfeff'; btn.style.borderColor = '#a5f3fc'; });
   return btn;
 }
 
