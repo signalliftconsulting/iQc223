@@ -94,6 +94,7 @@ async function authSignOut() {
   // Show login immediately  - don't wait for Supabase
   showAuthGate();
   authTab('login');
+  authSetBusy(false); // Re-enable sign-in buttons
   toast('Signed out', 'default');
   // Fire-and-forget Supabase sign out (don't block UI on network issues)
   try { await sb.auth.signOut(); } catch(e) { console.warn('Sign out request failed:', e); }
