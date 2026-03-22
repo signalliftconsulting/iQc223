@@ -278,7 +278,7 @@ function _renderGettingStarted(wrap) {
   wrap.innerHTML = `
   <div style="max-width:600px;margin:0 auto;padding:20px 0">
     <div style="text-align:center;margin-bottom:20px">
-      <h1 style="font-size:1.25rem;font-weight:800;color:var(--text);margin-bottom:4px">Welcome to IQcadence</h1>
+      <h1 style="font-size:1.25rem;font-weight:800;color:var(--text);margin-bottom:4px">Welcome to iQcadence</h1>
       <p style="color:var(--muted);font-size:var(--fs-sm)">Get started by adding your customers. Choose the path that fits your setup.</p>
     </div>
     ${_gettingStartedHTML()}
