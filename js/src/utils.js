@@ -92,6 +92,7 @@ document.addEventListener('click', function(e) {
 
 // Change delegation: data-change="fnName" [data-arg="value"]
 document.addEventListener('change', function(e) {
+  if (!e.target || !e.target.closest) return;
   var t = e.target.closest('[data-change]');
   if (!t) return;
   var fn = window[t.dataset.change];
@@ -103,6 +104,7 @@ document.addEventListener('change', function(e) {
 
 // Input delegation: data-input="fnName" [data-arg="value"]
 document.addEventListener('input', function(e) {
+  if (!e.target || !e.target.closest) return;
   var t = e.target.closest('[data-input]');
   if (!t) return;
   var fn = window[t.dataset.input];
@@ -114,6 +116,7 @@ document.addEventListener('input', function(e) {
 
 // Submit delegation: data-submit="fnName"
 document.addEventListener('submit', function(e) {
+  if (!e.target || !e.target.closest) return;
   var form = e.target.closest('[data-submit]');
   if (!form) return;
   e.preventDefault();
@@ -123,6 +126,7 @@ document.addEventListener('submit', function(e) {
 
 // Focus/blur delegation
 document.addEventListener('focus', function(e) {
+  if (!e.target || !e.target.closest) return;
   var t = e.target.closest('[data-focus]');
   if (!t) return;
   var fn = window[t.dataset.focus];
@@ -132,12 +136,14 @@ document.addEventListener('focus', function(e) {
   else fn.call(t, e);
 }, true);
 document.addEventListener('keydown', function(e) {
+  if (!e.target || !e.target.closest) return;
   var t = e.target.closest('[data-keydown]');
   if (!t) return;
   var fn = window[t.dataset.keydown];
   if (typeof fn === 'function') fn(e);
 });
 document.addEventListener('blur', function(e) {
+  if (!e.target || !e.target.closest) return;
   var t = e.target.closest('[data-blur]');
   if (!t) return;
   var fn = window[t.dataset.blur];
@@ -146,18 +152,21 @@ document.addEventListener('blur', function(e) {
 
 // Drag delegation
 document.addEventListener('drop', function(e) {
+  if (!e.target || !e.target.closest) return;
   var t = e.target.closest('[data-drop]');
   if (!t) return;
   var fn = window[t.dataset.drop];
   if (typeof fn === 'function') fn(e);
 });
 document.addEventListener('dragover', function(e) {
+  if (!e.target || !e.target.closest) return;
   var t = e.target.closest('[data-dragover]');
   if (!t) return;
   var fn = window[t.dataset.dragover];
   if (typeof fn === 'function') fn(e);
 });
 document.addEventListener('dragleave', function(e) {
+  if (!e.target || !e.target.closest) return;
   var t = e.target.closest('[data-dragleave]');
   if (!t) return;
   var fn = window[t.dataset.dragleave];
