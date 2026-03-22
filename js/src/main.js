@@ -199,7 +199,7 @@ function _checkUserSwitch(userId) {
       await resolveClientPlanTier();
       _loadAIUsage();
       // Check AI integration status early so homebase Focus List works
-      try { var _aiInts = await loadIntegrationStatus(); _aiInts.forEach(function(i) { if ((i.platform === 'openai' || i.platform === 'anthropic') && i.status === 'connected') _aiIntegrationConnected = true; }); } catch(_e) { console.warn('integration:', _e.message); }
+      // AI is platform-provided — no per-client integration check needed
     } catch(err) {
       console.error('Supabase sync error:', err?.message || err, err);
       if (err?.message?.includes('quota')) {
@@ -306,7 +306,7 @@ function _checkUserSwitch(userId) {
       await loadCustomersFromSupabase();
       await resolveClientPlanTier();
       // Check AI integration status early so homebase Focus List works
-      try { var _aiInts2 = await loadIntegrationStatus(); _aiInts2.forEach(function(i) { if ((i.platform === 'openai' || i.platform === 'anthropic') && i.status === 'connected') _aiIntegrationConnected = true; }); } catch(_e2) { console.warn('integration:', _e2.message); }
+      // AI is platform-provided — no per-client integration check needed
     } catch(err) {
       console.error('Supabase sync error:', err?.message || err, err);
       if (err?.message?.includes('quota')) {

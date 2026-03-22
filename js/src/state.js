@@ -97,7 +97,7 @@ let _filterManager    = null;   // CSM name filter for customers table (set by w
 let insightFilter     = null;   // { label: string, ids: Set<string> } - set by insight card click-through
 
 // ─── AI INTEGRATION STATE ────────────────────────────────────
-let _aiIntegrationConnected = false; // set true when Anthropic integration is connected
+let _aiIntegrationConnected = true; // AI is platform-provided (global API key), no per-client integration needed // set true when Anthropic integration is connected
 
 // ─── SETTINGS OPTIMISTIC LOCK ───────────────────────────────
 let _settingsUpdatedAt = null;

@@ -1674,22 +1674,20 @@ async function renderIntegrationsSection() {
     <div class="card" style="max-width:720px;margin-bottom:18px">
       <div class="card-hd">
         <h2>
-          ${appIcon('sparkle', 20).replace('style="', 'style="vertical-align:text-bottom;margin-right:6px;')} OpenAI (GPT)
-          <span class="info-tip" data-tip="Connect your OpenAI API key to enable AI-powered features: customer insights, meeting prep, focus lists, and save playbooks. Get your key at platform.openai.com/api-keys.">ⓘ</span>
+          ${appIcon('sparkle', 20).replace('style="', 'style="vertical-align:text-bottom;margin-right:6px;')} AI Features
         </h2>
-        ${(_integrationCache['openai']?.status === 'connected' || _integrationCache['anthropic']?.status === 'connected') ? '<span style="font-size:var(--fs-sm);color:var(--green);font-weight:700">● Connected</span>' : '<span style="font-size:var(--fs-sm);color:var(--muted)">Not connected</span>'}
+        <span style="font-size:var(--fs-sm);color:var(--green);font-weight:700">● Active</span>
       </div>
-      <div id="integration-anthropic-body"></div>
+      <div style="padding:14px 18px;font-size:var(--fs-sm);color:var(--muted)">AI-powered insights, meeting prep, focus lists, and save playbooks are included with your plan. No setup required.</div>
     </div>`;
 
   renderHubSpotCard(hubspotInt);
   renderStripeCard(stripeInt);
   renderSalesforceCard(salesforceInt);
-  renderAnthropicCard(_integrationCache['openai'] || _integrationCache['anthropic'] || null);
+  // AI card is now static (platform-provided) — no per-client setup needed
   renderSyncOverview();
 
-  // Set AI integration flag (support both openai and legacy anthropic)
-  _aiIntegrationConnected = !!(_integrationCache['openai']?.status === 'connected' || _integrationCache['anthropic']?.status === 'connected');
+  // AI is platform-provided — always enabled
   // Show/hide AI meeting prep button in detail
   var aiBtn = el('dm-ai-meeting-btn');
   if (aiBtn) aiBtn.style.display = _aiIntegrationConnected ? '' : 'none';
@@ -2079,7 +2077,6 @@ async function connectAnthropicUI() {
     const result = await connectIntegration('openai', key);
     toast('OpenAI connected! AI features are now active.', 'success');
     input.value = '';
-    _aiIntegrationConnected = true;
     renderIntegrationsSection();
   } catch(e) {
     status.innerHTML = `<span style="color:var(--red)">${escHtml(e.message)}</span>`;
@@ -2095,7 +2092,6 @@ async function disconnectAnthropicUI() {
     try {
       await disconnectIntegration('openai');
       toast('OpenAI disconnected', 'warn');
-      _aiIntegrationConnected = false;
       renderIntegrationsSection();
     } catch(e) {
       toast('Disconnect failed: ' + e.message, 'error');
