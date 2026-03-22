@@ -2316,11 +2316,12 @@ function saveSettings() {
   const cid = getEffectiveClientId();
   if (currentUser && cid) {
     sb.from('settings').upsert({
-      client_id:  cid,
-      user_id:    currentUser.id,
-      weights:    JSON.stringify(weights),
-      thresholds: JSON.stringify(thresholds),
+      client_id:    cid,
+      user_id:      currentUser.id,
+      weights:      JSON.stringify(weights),
+      thresholds:   JSON.stringify(thresholds),
       profiles:     JSON.stringify(profiles),
+      automations:  JSON.stringify(automationsCfg),
       signal_model: JSON.stringify(signalModelCfg),
       updated_at:   new Date().toISOString()
     }, { onConflict: 'client_id' }).then(({error}) => {
@@ -6150,8 +6151,13 @@ async function _loadDemoFromCard() {
 }
 
 function _seedDemoAutomations() {
-  // Seed sample alert rules and custom rules so the Automations page isn't empty
+  // Seed sample alert rules and custom rules ONLY if none exist
+  // Preserves any user-created rules
   if (!automationsCfg) automationsCfg = {};
+
+  // Skip if user already has rules configured
+  if (automationsCfg.alert_rules && automationsCfg.alert_rules.length) return;
+  if (automationsCfg.custom_rules && automationsCfg.custom_rules.length) return;
 
   // Alert rules (pre-built alerts) - use correct ALERT_TYPES keys
   automationsCfg.alert_rules = [
