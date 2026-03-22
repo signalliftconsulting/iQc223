@@ -117,7 +117,7 @@ const _GUIDE_CONTENT = {
     '<strong>See where your revenue is heading.</strong> The forecast classifies every account as Expand, Retain, Contract, or Churn based on health scores and signal trajectories.<br><br>' +
     '<strong>NRR Waterfall</strong> shows the flow from current MRR through expansion, contraction, and churn to projected MRR.<br><br>' +
     '<strong>Tabs:</strong> Switch between All Customers, By CSM, By Tier, or By Renewal to see breakdowns from different angles.<br><br>' +
-    '<strong>Tip:</strong> The expansion estimates use your settings from Settings > Expansion Config.',
+    '<strong>Tip:</strong> Adjust expansion estimates in Settings > Scoring under Expansion Estimate.',
   csmperf:
     '<strong>Evaluate each CSM\'s book of business.</strong> The leaderboard ranks managers by performance index, health score, MRR managed, at-risk exposure, contact cadence, and upcoming renewals.<br><br>' +
     '<strong>Click a CSM name</strong> to jump to Customers filtered to their accounts. Click <strong>Expand</strong> to see their per-account breakdown inline.<br><br>' +
@@ -158,9 +158,10 @@ const _GUIDE_CONTENT = {
     '<strong>Remove a user:</strong> Click delete on their row. Their data stays — only their login access is revoked.',
   settings:
     '<strong>Configure your health scoring engine.</strong> Adjust signal weights, set alert thresholds, create scoring profiles, and manage your account.<br><br>' +
-    '<strong>Scoring tab:</strong> Set how much each signal (logins, adoption, NPS, etc.) contributes to the health score. Adjust thresholds for Critical, At Risk, Watch, Healthy, and Expand.<br><br>' +
-    '<strong>Account tab:</strong> Manage your password, CSM list, data health, and backups.<br><br>' +
-    '<strong>Integrations tab:</strong> Connect HubSpot, Salesforce, and Stripe for automatic data sync.',
+    '<strong>Scoring:</strong> Set signal weights, status thresholds, scoring profiles, and expansion estimate settings.<br><br>' +
+    '<strong>Account:</strong> Manage your password, CSM list, data health, and backups.<br><br>' +
+    '<strong>Integrations:</strong> Connect HubSpot, Salesforce, and Stripe for automatic data sync. AI features are included with your plan.<br><br>' +
+    '<strong>Plan & Billing:</strong> View your subscription, plan tier, usage limits, and manage billing.',
 };
 
 const _GUIDE_TITLES = {
@@ -234,7 +235,7 @@ function renderForecastGuide() {
     '<strong>What you can do here</strong> - See where your revenue is heading. The forecast classifies every account as Expand, Retain, Contract, or Churn based on health scores and signal trajectories.<br>' +
     '<strong>NRR Waterfall</strong> shows the flow from current MRR through expansion, contraction, and churn to projected MRR.<br>' +
     '<strong>Tabs:</strong> Switch between All Customers, By CSM, By Tier, or By Renewal to see breakdowns from different angles.<br>' +
-    '<strong>Tip:</strong> The expansion estimates use your settings from Settings > Expansion Config. Adjust the % or flat amount there to refine projections.');
+    '<strong>Tip:</strong> Adjust expansion estimates in Settings > Scoring under Expansion Estimate.');
 }
 
 function renderCsmperfGuide() {

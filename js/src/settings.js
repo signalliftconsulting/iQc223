@@ -311,6 +311,12 @@ function _renderSettingsGuide(tab) {
       '<strong>Data Health:</strong> See how complete your customer data is - missing fields, stale accounts, and signal coverage gaps.<br>' +
       '<strong>Backup & Restore:</strong> Export your full dataset as a JSON backup or restore from a previous export.<br>' +
       '<strong>Password:</strong> Change your account password.';
+  } else if (tab === 'billing') {
+    content =
+      '<strong>Plan & Billing</strong> - View your subscription and manage your plan.<br>' +
+      '<strong>Current Plan:</strong> See your active tier, usage limits (users, accounts, AI calls), and billing period.<br>' +
+      '<strong>Available Plans:</strong> Compare Core, Growth, and Custom tiers. Toggle monthly vs annual billing to see savings.<br>' +
+      '<strong>Tip:</strong> Upgrade or manage your subscription anytime. Changes take effect immediately.';
   } else if (tab === 'api') {
     content =
       '<strong>Integrations</strong> - Connect external tools to auto-sync customer data.<br>' +
