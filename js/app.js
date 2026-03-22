@@ -519,8 +519,9 @@ document.addEventListener('click', function(e) {
 });
 
 // Change delegation: data-change="fnName" [data-arg="value"]
-// With data-arg: passes (arg, element.value) — for multi-param handlers like setTrendMetric(slot, key)
-// Without data-arg: passes element as context (this) + event — preserves original calling convention
+// With data-arg: passes (arg, value) — e.g. setTrendMetric("1", "logins")
+// Without data-arg: passes (value) where value = checked for checkboxes, value for selects/inputs
+// For file inputs: passes (event) so handler can access e.target.files
 document.addEventListener('change', function(e) {
   if (!e.target || !e.target.closest) return;
   var t = e.target.closest('[data-change]');
@@ -528,12 +529,10 @@ document.addEventListener('change', function(e) {
   var fn = window[t.dataset.change];
   if (typeof fn !== 'function') return;
   var arg = t.dataset.arg;
-  if (arg !== undefined) {
-    var val = t.type === 'checkbox' ? t.checked : t.value;
-    fn(arg, val);
-  } else {
-    fn.call(t, e);
-  }
+  if (t.type === 'file') { fn.call(t, e); return; }
+  var val = t.type === 'checkbox' || t.type === 'radio' ? t.checked : t.value;
+  if (arg !== undefined) fn(arg, val);
+  else fn.call(t, val);
 });
 
 // Input delegation: data-input="fnName" [data-arg="value"]
@@ -611,9 +610,8 @@ document.addEventListener('dragleave', function(e) {
 function toggleTbMenu() { var m = el('tb-user-menu'); if (m) { m.classList.toggle('open'); var a = el('tb-avatar'); if (a) a.setAttribute('aria-expanded', m.classList.contains('open')); } }
 function toggleSbMenu() { var m = el('sb-menu'); if (m) { m.classList.toggle('open'); var a = el('sb-avatar'); if (a) a.setAttribute('aria-expanded', m.classList.contains('open')); } }
 function handleCustSearch() { _custPage = 0; renderCustomers(); }
-function handleManagerChange(e) {
-  var sel = e && e.target ? e.target : this;
-  if (sel.value === '__add_new__') { sel.style.display = 'none'; var inp = el('f-manager-new'); if (inp) { inp.style.display = ''; inp.focus(); } }
+function handleManagerChange(val) {
+  if (val === '__add_new__') { this.style.display = 'none'; var inp = el('f-manager-new'); if (inp) { inp.style.display = ''; inp.focus(); } }
 }
 function handleManagerNewBlur() { if (!this.value) { this.style.display = 'none'; var sel = el('f-manager'); if (sel) { sel.style.display = ''; sel.value = ''; } } }
 function handleAlertCustSearch() { renderAlerts(); }
@@ -9739,9 +9737,9 @@ document.addEventListener('click', function(e) {
   if (_openCrFilterKey) closeCrFilter();
 });
 
-function mgrAllToggle(cb) {
+function mgrAllToggle(checked) {
   const cbs = document.querySelectorAll('.mgr-cb');
-  if (cb.checked) {
+  if (checked) {
     mgrFilterAll = true;
     activeManagers.clear();
     cbs.forEach(c => c.checked = true);
@@ -24412,9 +24410,8 @@ function setTrendRange(range) {
   renderTrends();
 }
 
-function setTrendCsmOverlay(mgrOrEvent) {
-  // Called via data-change delegation: this=select element, arg=event
-  _trendCsmOverlay = (typeof mgrOrEvent === 'string' ? mgrOrEvent : this.value) || '';
+function setTrendCsmOverlay(mgr) {
+  _trendCsmOverlay = mgr || '';
   renderTrends();
 }
 
@@ -29929,8 +29926,8 @@ document.addEventListener('click', function(e) {
   }
 });
 
-async function clientRadioChange(radio) {
-  activeClientId = radio.value;
+async function clientRadioChange() {
+  activeClientId = this.value;
   updateClientFilterLabel();
   document.getElementById('client-filter-dropdown').style.display = 'none';
 

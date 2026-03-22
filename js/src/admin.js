@@ -63,8 +63,8 @@ document.addEventListener('click', function(e) {
   }
 });
 
-async function clientRadioChange(radio) {
-  activeClientId = radio.value;
+async function clientRadioChange() {
+  activeClientId = this.value;
   updateClientFilterLabel();
   document.getElementById('client-filter-dropdown').style.display = 'none';
 

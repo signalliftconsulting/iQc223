@@ -114,9 +114,8 @@ function setTrendRange(range) {
   renderTrends();
 }
 
-function setTrendCsmOverlay(mgrOrEvent) {
-  // Called via data-change delegation: this=select element, arg=event
-  _trendCsmOverlay = (typeof mgrOrEvent === 'string' ? mgrOrEvent : this.value) || '';
+function setTrendCsmOverlay(mgr) {
+  _trendCsmOverlay = mgr || '';
   renderTrends();
 }
 

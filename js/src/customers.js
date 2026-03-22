@@ -227,9 +227,9 @@ document.addEventListener('click', function(e) {
   if (_openCrFilterKey) closeCrFilter();
 });
 
-function mgrAllToggle(cb) {
+function mgrAllToggle(checked) {
   const cbs = document.querySelectorAll('.mgr-cb');
-  if (cb.checked) {
+  if (checked) {
     mgrFilterAll = true;
     activeManagers.clear();
     cbs.forEach(c => c.checked = true);
