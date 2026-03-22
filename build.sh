@@ -66,8 +66,7 @@ echo "Built $OUT ($(wc -l < "$OUT") lines, $(wc -c < "$OUT") bytes)"
 
 # ─── Build lazy chunks ───────────────────────────────────────
 mkdir -p "$CHUNKS_DIR"
-# Clean old chunks
-rm -f "$CHUNKS_DIR"/*.js
+# Note: chunks are rebuilt in-place (overwritten), no need to delete first
 
 for entry in "${CHUNK_FILES[@]}"; do
   chunk_name="${entry%%:*}"
