@@ -128,7 +128,8 @@ async function loadAuditLog(forceRefresh) {
     let query = sb.from('audit_logs')
       .select('*');
     if (auditCid) {
-      query = query.eq('client_id', auditCid);
+      // Show logs for this client OR orphaned logs (client_id was null during prior bug)
+      query = query.or('client_id.eq.' + auditCid + ',and(client_id.is.null,user_id.eq.' + currentUser.id + ')');
     } else {
       query = query.eq('user_id', currentUser.id);
     }
