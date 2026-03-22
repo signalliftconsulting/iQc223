@@ -2197,9 +2197,8 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
 
   <!-- Metric + filter controls + date range on one line -->
   <div class="trend-controls" style="flex-wrap:nowrap">
-    <div class="trend-ctrl-group" style="flex-direction:column;align-items:flex-start;gap:2px">
-      <div style="display:flex;align-items:center;gap:6px">
-        <span class="trend-ctrl-label">Metric</span>
+    <div class="trend-ctrl-group" style="align-items:flex-start;gap:6px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
         <select id="trend-metric-1" data-change="setTrendMetric" data-arg="1">
           <option value="score" selected>Health Score</option>
           <option value="logins">Logins</option>
@@ -2212,7 +2211,10 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
           <option value="arr">Total ARR</option>
           <option value="customers"># Customers</option>
         </select>
-        <span class="trend-ctrl-vs">vs</span>
+        <span style="font-size:var(--fs-xs);color:var(--muted);font-style:italic">Primary</span>
+      </div>
+      <span class="trend-ctrl-vs" style="margin-top:4px">vs</span>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
         <select id="trend-metric-2" data-change="setTrendMetric" data-arg="2">
           <option value="" selected>+ Overlay Metric</option>
           <option value="score">Health Score</option>
@@ -2226,8 +2228,8 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
           <option value="arr">Total ARR</option>
           <option value="customers"># Customers</option>
         </select>
+        <span style="font-size:var(--fs-xs);color:var(--muted);font-style:italic">Secondary</span>
       </div>
-      <span style="font-size:var(--fs-xs);color:var(--muted);font-style:italic">Primary metric is used for the main trend line. Secondary adds a comparison overlay.</span>
     </div>
     <div class="trend-ctrl-sep"></div>
     <div class="trend-ctrl-group" style="flex-direction:column;align-items:flex-start;gap:2px">
@@ -2246,7 +2248,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
         <div class="trend-autocomplete" id="trend-client-ac-1"></div>
       </div>
       </div>
-      <span style="font-size:var(--fs-xs);color:var(--muted);font-style:italic">CSM and client overlays are based on the primary metric.</span>
+      <span style="font-size:var(--fs-xs);color:var(--muted);font-style:italic">Based on primary metric</span>
     </div>
     <div class="trend-ctrl-sep"></div>
     <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none;white-space:nowrap;padding:4px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);font-size:var(--fs-sm);color:var(--muted);transition:all .15s" title="Include churned accounts in charts and metrics. Their data stops counting from their churn date." id="trend-churned-label">
