@@ -6131,6 +6131,16 @@ async function _loadDemoFromCard() {
     // 6. Reset all guide banners so new users see them
     if (typeof resetAllGuides === 'function') resetAllGuides();
 
+    // 7. Clear audit log for a fresh demo experience
+    const demoCid = getEffectiveClientId();
+    if (demoCid) {
+      await sb.from('audit_logs').delete().eq('client_id', demoCid);
+    } else {
+      await sb.from('audit_logs').delete().eq('user_id', currentUser.id);
+    }
+    auditLogs = [];
+    auditOffset = 0;
+
     renderHomeBase();
     nav('homebase');
     toast('Demo data loaded - ' + COUNT + ' customers ready to explore!', 'success');
