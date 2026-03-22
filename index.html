@@ -45,8 +45,8 @@ a{color:var(--blue);text-decoration:none}
 .topbar .btn{color:#fff}
 .topbar__brand{display:flex;align-items:center}
 .topbar__nav{display:flex;align-items:center;gap:2px;margin-left:60px}
-.topbar-nav-btn{background:none;border:none;cursor:pointer;padding:4px 5px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;opacity:.35;transition:opacity .15s,background .15s}
-.topbar-nav-btn:not(:disabled){opacity:1;cursor:pointer}.topbar-nav-btn:not(:disabled):hover{background:rgba(255,255,255,.15)}
+.topbar-nav-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);cursor:pointer;padding:5px 7px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;opacity:.4;transition:opacity .15s,background .15s,border-color .15s}
+.topbar-nav-btn:not(:disabled){opacity:1;cursor:pointer;background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3)}.topbar-nav-btn:not(:disabled):hover{background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.4)}
 .topbar-nav-btn:disabled{cursor:default}
 .topbar__center{display:flex;align-items:center;gap:6px;flex:1;justify-content:center}
 .topbar__right{display:flex;align-items:center;gap:6px}
@@ -1792,8 +1792,8 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
   </button>
   <div class="topbar__nav">
-    <button class="topbar-nav-btn" id="nav-back-btn" data-action="navBack" disabled title="Back"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
-    <button class="topbar-nav-btn" id="nav-fwd-btn" data-action="navForward" disabled title="Forward"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <button class="topbar-nav-btn" id="nav-back-btn" data-action="navBack" disabled title="Back"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <button class="topbar-nav-btn" id="nav-fwd-btn" data-action="navForward" disabled title="Forward"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
   </div>
   <div class="topbar__center">
     <!-- Client Filter (admin only) -->
