@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <meta name="color-scheme" content="light"/>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co https://iqc-ai.signalliftconsulting.workers.dev https://www.google-analytics.com; img-src 'self' data:; frame-src 'none'"/>
 <link rel="icon" type="image/png" href="Logo/favicon.png"/>
 <title>IQcadence — CS Health Score</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -561,6 +562,8 @@ svg.sparkline{display:block}
 #customers-table-card{padding:0}
 #customers-table-card .list-toolbar{padding:14px 1.25rem 10px}
 #customers-table-card #filter-pill-bar{padding-left:1.25rem;padding-right:1.25rem}
+#cust-tbody{position:relative;overflow:hidden}
+#cust-tbody tr{display:flex;align-items:center}
 .ct thead{position:sticky;top:0;z-index:5}
 .ct th{text-align:left;font-size:var(--fs-2xs);font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b;padding:5px 8px;border-bottom:1px solid #e2e8f0;background:#f8fafc;cursor:pointer;user-select:none;white-space:normal;line-height:1.2;min-width:0;transition:color .13s}
 .ct th:hover{color:#0f766e}
@@ -1727,7 +1730,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
     </div>
 
     <!-- Login form only — no public sign-up -->
-    <form id="form-login" onsubmit="event.preventDefault();authSignIn()" autocomplete="on">
+    <form id="form-login" data-submit="authSignIn" autocomplete="on">
       <div class="auth-field">
         <label for="login-email">Email</label>
         <input class="auth-input" type="email" id="login-email" placeholder="you@company.com" autocomplete="email" required/>
@@ -1738,11 +1741,11 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
       </div>
       <button class="auth-btn" id="login-btn" type="submit">Sign In →</button>
       <div class="auth-divider">or</div>
-      <span class="auth-link" onclick="authTab('reset')">Forgot your password?</span>
+      <span class="auth-link" data-action="authTab" data-arg="reset">Forgot your password?</span>
     </form>
 
     <!-- Sign up form — hidden, kept for admin use via JS -->
-    <form id="form-signup" style="display:none" onsubmit="event.preventDefault();authSignUp()" autocomplete="on">
+    <form id="form-signup" style="display:none" data-submit="authSignUp" autocomplete="on">
       <div class="auth-field">
         <label for="signup-email">Email</label>
         <input class="auth-input" type="email" id="signup-email" placeholder="you@company.com" autocomplete="email" required/>
@@ -1759,14 +1762,14 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
     </form>
 
     <!-- Reset form -->
-    <form id="form-reset" style="display:none" onsubmit="event.preventDefault();authReset()" autocomplete="on">
+    <form id="form-reset" style="display:none" data-submit="authReset" autocomplete="on">
       <p style="font-size:var(--fs-base);color:var(--muted);margin-bottom:14px">Enter your email and we'll send a password reset link.</p>
       <div class="auth-field">
         <label for="reset-email">Email</label>
         <input class="auth-input" type="email" id="reset-email" placeholder="you@company.com" autocomplete="email" required/>
       </div>
       <button class="auth-btn" id="reset-btn" type="submit">Send Reset Link →</button>
-      <span class="auth-link" onclick="authTab('login')" style="margin-top:8px">← Back to Sign In</span>
+      <span class="auth-link" data-action="authTab" data-arg="login" style="margin-top:8px">← Back to Sign In</span>
     </form>
 
     <div class="auth-err" id="auth-err"></div>
@@ -1784,23 +1787,23 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
   <div class="topbar__brand">
     <img src="Logo/iQcadence_logo.png" alt="IQcadence" style="height:30px;width:auto;display:block;border-radius:6px"/>
   </div>
-  <button id="mobile-nav-btn" onclick="toggleMobileNav()" title="Menu" aria-label="Toggle navigation menu" aria-expanded="false">
+  <button id="mobile-nav-btn" data-action="toggleMobileNav" title="Menu" aria-label="Toggle navigation menu" aria-expanded="false">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
   </button>
   <div class="topbar__nav">
-    <button class="topbar-nav-btn" id="nav-back-btn" onclick="navBack()" disabled title="Back"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
-    <button class="topbar-nav-btn" id="nav-fwd-btn" onclick="navForward()" disabled title="Forward"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+    <button class="topbar-nav-btn" id="nav-back-btn" data-action="navBack" disabled title="Back"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <button class="topbar-nav-btn" id="nav-fwd-btn" data-action="navForward" disabled title="Forward"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>
   </div>
   <div class="topbar__center">
     <!-- Client Filter (admin only) -->
     <div class="mgr-filter" id="client-filter-wrap" style="display:none">
-      <button class="btn btn-sm btn-ghost mgr-filter__btn" id="client-filter-btn" onclick="toggleClientDropdown()" title="View client data" aria-expanded="false" aria-haspopup="true">
+      <button class="btn btn-sm btn-ghost mgr-filter__btn" id="client-filter-btn" data-action="toggleClientDropdown" title="View client data" aria-expanded="false" aria-haspopup="true">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         <span id="client-filter-label">My Data</span> ▾
       </button>
       <div class="mgr-filter__dropdown" id="client-filter-dropdown" role="menu" style="display:none">
         <div class="mgr-filter__item">
-          <label><input type="radio" name="client-radio" id="cr-own" value="__own__" onchange="clientRadioChange(this)" checked> My Data</label>
+          <label><input type="radio" name="client-radio" id="cr-own" value="__own__" data-change="clientRadioChange" checked> My Data</label>
         </div>
         <div class="mgr-filter__sep"></div>
         <div id="client-filter-list"></div>
@@ -1808,13 +1811,13 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
     </div>
     <!-- Manager Filter -->
     <div class="mgr-filter" id="mgr-filter-wrap">
-      <button class="btn btn-sm btn-ghost mgr-filter__btn" id="mgr-filter-btn" onclick="toggleMgrDropdown()" title="Filter by manager" aria-expanded="false" aria-haspopup="true">
+      <button class="btn btn-sm btn-ghost mgr-filter__btn" id="mgr-filter-btn" data-action="toggleMgrDropdown" title="Filter by manager" aria-expanded="false" aria-haspopup="true">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         <span id="mgr-filter-label">All Managers</span> ▾
       </button>
       <div class="mgr-filter__dropdown" id="mgr-filter-dropdown" role="menu" style="display:none">
         <div class="mgr-filter__item">
-          <label><input type="checkbox" id="mgr-all" onchange="mgrAllToggle(this)" checked> All Managers</label>
+          <label><input type="checkbox" id="mgr-all" data-change="mgrAllToggle" checked> All Managers</label>
         </div>
         <div class="mgr-filter__sep"></div>
         <div id="mgr-filter-list"></div>
@@ -1825,20 +1828,20 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
     <!-- Global Customer Search -->
     <div id="topbar-search-wrap">
       <input type="text" id="topbar-search" placeholder="Search customers…" autocomplete="off" aria-label="Search customers"
-             oninput="topbarSearchInput()" onkeydown="topbarSearchKeydown(event)" onblur="topbarSearchBlur()"/>
+             data-input="topbarSearchInput" data-keydown="topbarSearchKeydown" data-blur="topbarSearchBlur"/>
       <div id="topbar-search-results"></div>
     </div>
   </div>
   <div class="topbar__right">
     <!-- Quick Stripe Sync -->
-    <button class="btn btn-sm btn-ghost" id="topbar-sync-details-btn" onclick="showLastSyncResults()" title="View last sync details" style="display:none;padding:6px 8px">
+    <button class="btn btn-sm btn-ghost" id="topbar-sync-details-btn" data-action="showLastSyncResults" title="View last sync details" style="display:none;padding:6px 8px">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
     </button>
-    <button class="btn btn-sm btn-ghost" id="topbar-sync-btn" onclick="topbarSyncStripe()" title="Sync integrations" style="display:none;padding:6px 8px">
+    <button class="btn btn-sm btn-ghost" id="topbar-sync-btn" data-action="topbarSyncStripe" title="Sync integrations" style="display:none;padding:6px 8px">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
     </button>
     <div class="snooze-dd" id="bell-dd-wrap">
-      <button class="btn btn-sm btn-ghost" id="bell-btn" onclick="event.stopPropagation();toggleBellDd()" style="position:relative;padding:6px 8px" title="Notifications" aria-expanded="false" aria-haspopup="true" aria-label="Notifications">
+      <button class="btn btn-sm btn-ghost" id="bell-btn" data-action="toggleBellDd" data-stop style="position:relative;padding:6px 8px" title="Notifications" aria-expanded="false" aria-haspopup="true" aria-label="Notifications">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         <span id="bell-badge" aria-live="polite" aria-label="notification count" style="position:absolute;top:-3px;right:-3px;background:var(--red);color:#fff;font-size:.55rem;font-weight:700;padding:0 4px;border-radius:100px;line-height:1.7;display:none;min-width:14px;text-align:center"></span>
       </button>
@@ -1847,10 +1850,10 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
     <div class="topbar__divider"></div>
     <!-- User avatar + dropdown -->
     <div class="tb-user" id="tb-user-wrap">
-      <div class="tb-avatar" id="tb-avatar" role="button" tabindex="0" aria-expanded="false" aria-haspopup="true" aria-label="User menu" onclick="event.stopPropagation();var m=document.getElementById('tb-user-menu');m.classList.toggle('open');this.setAttribute('aria-expanded',m.classList.contains('open'))">?</div>
+      <div class="tb-avatar" id="tb-avatar" role="button" tabindex="0" aria-expanded="false" aria-haspopup="true" aria-label="User menu" data-action="toggleTbMenu" data-stop>?</div>
       <div class="tb-user-menu" id="tb-user-menu">
-        <button class="tb-menu-item" onclick="document.getElementById('tb-user-menu').classList.remove('open');nav('settings')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
-        <button class="tb-menu-item" onclick="document.getElementById('tb-user-menu').classList.remove('open');authSignOut()" id="signout-btn" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Sign Out</button>
+        <button class="tb-menu-item" data-action="tbMenuNav" data-arg="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
+        <button class="tb-menu-item" data-action="tbMenuSignOut" id="signout-btn" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Sign Out</button>
       </div>
     </div>
   </div>
@@ -1859,28 +1862,28 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
 <div id="mobile-nav-dd">
   <div class="mn-group">
     <div class="mn-label">Main</div>
-    <button class="mn-item" onclick="mobileNav('homebase')">Home Base</button>
-    <button class="mn-item" onclick="mobileNav('customers')">Customers</button>
-    <button class="mn-item" onclick="mobileNav('alerts')">Alerts</button>
-    <button class="mn-item" onclick="mobileNav('segments')">Segments</button>
-    <button class="mn-item" onclick="mobileNav('trends')">Trends</button>
-    <button class="mn-item" onclick="mobileNav('csmperf')">CSM Performance</button>
-    <button class="mn-item" onclick="mobileNav('reports')">Reports</button>
-    <button class="mn-item" onclick="mobileNav('calendar')">Calendar</button>
+    <button class="mn-item" data-action="mobileNav" data-arg="homebase">Home Base</button>
+    <button class="mn-item" data-action="mobileNav" data-arg="customers">Customers</button>
+    <button class="mn-item" data-action="mobileNav" data-arg="alerts">Alerts</button>
+    <button class="mn-item" data-action="mobileNav" data-arg="segments">Segments</button>
+    <button class="mn-item" data-action="mobileNav" data-arg="trends">Trends</button>
+    <button class="mn-item" data-action="mobileNav" data-arg="csmperf">CSM Performance</button>
+    <button class="mn-item" data-action="mobileNav" data-arg="reports">Reports</button>
+    <button class="mn-item" data-action="mobileNav" data-arg="calendar">Calendar</button>
   </div>
   <div class="mn-sep"></div>
   <div class="mn-group">
     <div class="mn-label">Tools</div>
-    <button class="mn-item" onclick="mobileNav('score')">Score a Customer</button>
-    <button class="mn-item" onclick="mobileNav('csv')">CSV Import</button>
-    <button class="mn-item" onclick="mobileNav('automations')">Automations</button>
+    <button class="mn-item" data-action="mobileNav" data-arg="score">Score a Customer</button>
+    <button class="mn-item" data-action="mobileNav" data-arg="csv">CSV Import</button>
+    <button class="mn-item" data-action="mobileNav" data-arg="automations">Automations</button>
   </div>
   <div class="mn-sep"></div>
   <div class="mn-group">
     <div class="mn-label">Settings</div>
-    <button class="mn-item" onclick="mobileNav('settings')">Settings</button>
-    <button class="mn-item" onclick="mobileNav('auditlog')">Audit Log</button>
-    <button class="mn-item" onclick="mobileNav('help')">Help &amp; Guide</button>
+    <button class="mn-item" data-action="mobileNav" data-arg="settings">Settings</button>
+    <button class="mn-item" data-action="mobileNav" data-arg="auditlog">Audit Log</button>
+    <button class="mn-item" data-action="mobileNav" data-arg="help">Help &amp; Guide</button>
   </div>
 </div>
 
@@ -1891,57 +1894,57 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
   <!-- Main -->
   <div class="nav-section">
     <div class="nav-label">Main</div>
-    <button class="nav-item active" id="ni-homebase" onclick="nav('homebase')">Home Base</button>
-    <button class="nav-item" id="ni-customers" onclick="nav('customers')">Customers <span id="customers-guide-badge" class="nav-badge" style="display:none">1</span></button>
-    <button class="nav-item" id="ni-alerts" onclick="nav('alerts')">Alerts<span id="alert-badge" class="nav-badge nav-badge-alert" style="display:none"></span><span id="alerts-guide-badge" class="nav-badge" style="display:none">1</span></button>
-    <button class="nav-item" id="ni-segments" onclick="nav('segments')">Segments <span id="segments-guide-badge" class="nav-badge" style="display:none">1</span></button>
-    <button class="nav-item" id="ni-trends" onclick="nav('trends')">Trends <span id="trends-guide-badge" class="nav-badge" style="display:none">1</span></button>
-    <button class="nav-item" id="ni-forecast" onclick="nav('forecast')">Forecast</button>
-    <button class="nav-item" id="ni-csmperf" onclick="nav('csmperf')">CSM Performance <span id="csmperf-guide-badge" class="nav-badge" style="display:none">1</span></button>
-    <button class="nav-item" id="ni-reports" onclick="nav('reports')">Reports <span id="reports-guide-badge" class="nav-badge" style="display:none">1</span></button>
-    <button class="nav-item" id="ni-calendar" onclick="nav('calendar')">Calendar</button>
+    <button class="nav-item active" id="ni-homebase" data-action="nav" data-arg="homebase">Home Base</button>
+    <button class="nav-item" id="ni-customers" data-action="nav" data-arg="customers">Customers <span id="customers-guide-badge" class="nav-badge" style="display:none">1</span></button>
+    <button class="nav-item" id="ni-alerts" data-action="nav" data-arg="alerts">Alerts<span id="alert-badge" class="nav-badge nav-badge-alert" style="display:none"></span><span id="alerts-guide-badge" class="nav-badge" style="display:none">1</span></button>
+    <button class="nav-item" id="ni-segments" data-action="nav" data-arg="segments">Segments <span id="segments-guide-badge" class="nav-badge" style="display:none">1</span></button>
+    <button class="nav-item" id="ni-trends" data-action="nav" data-arg="trends">Trends <span id="trends-guide-badge" class="nav-badge" style="display:none">1</span></button>
+    <button class="nav-item" id="ni-forecast" data-action="nav" data-arg="forecast">Forecast</button>
+    <button class="nav-item" id="ni-csmperf" data-action="nav" data-arg="csmperf">CSM Performance <span id="csmperf-guide-badge" class="nav-badge" style="display:none">1</span></button>
+    <button class="nav-item" id="ni-reports" data-action="nav" data-arg="reports">Reports <span id="reports-guide-badge" class="nav-badge" style="display:none">1</span></button>
+    <button class="nav-item" id="ni-calendar" data-action="nav" data-arg="calendar">Calendar</button>
   </div>
   <div class="nav-divider"></div>
   <!-- Tools -->
   <div class="nav-section">
     <div class="nav-label">Tools</div>
-    <button class="nav-item" id="ni-score" onclick="nav('score')">Score a Customer <span id="score-guide-badge" class="nav-badge" style="display:none">1</span></button>
-    <button class="nav-item" id="ni-csv" onclick="nav('csv')">CSV Import <span id="csv-guide-badge" class="nav-badge" style="display:none">1</span></button>
-    <button class="nav-item" id="ni-automations" onclick="nav('automations')">Automations <span id="automations-guide-badge" class="nav-badge" style="display:none">1</span></button>
+    <button class="nav-item" id="ni-score" data-action="nav" data-arg="score">Score a Customer <span id="score-guide-badge" class="nav-badge" style="display:none">1</span></button>
+    <button class="nav-item" id="ni-csv" data-action="nav" data-arg="csv">CSV Import <span id="csv-guide-badge" class="nav-badge" style="display:none">1</span></button>
+    <button class="nav-item" id="ni-automations" data-action="nav" data-arg="automations">Automations <span id="automations-guide-badge" class="nav-badge" style="display:none">1</span></button>
   </div>
   <div class="nav-divider"></div>
   <!-- Settings -->
   <div class="nav-section">
     <div class="nav-label">Settings</div>
-    <button class="nav-item" id="ni-settings" onclick="nav('settings')">Settings <span id="settings-guide-badge" class="nav-badge" style="display:none">1</span></button>
-    <button class="nav-item" id="ni-auditlog" onclick="nav('auditlog')">Audit Log <span id="auditlog-guide-badge" class="nav-badge" style="display:none">1</span></button>
-    <button class="nav-item" id="ni-help" onclick="nav('help')">Help &amp; Guide</button>
+    <button class="nav-item" id="ni-settings" data-action="nav" data-arg="settings">Settings <span id="settings-guide-badge" class="nav-badge" style="display:none">1</span></button>
+    <button class="nav-item" id="ni-auditlog" data-action="nav" data-arg="auditlog">Audit Log <span id="auditlog-guide-badge" class="nav-badge" style="display:none">1</span></button>
+    <button class="nav-item" id="ni-help" data-action="nav" data-arg="help">Help &amp; Guide</button>
   </div>
   <!-- Admin only -->
   <div class="nav-divider" id="ni-admin-sep" style="display:none"></div>
   <div class="nav-label" id="ni-admin-label" style="display:none">Admin</div>
-  <button class="nav-item" id="ni-clients" onclick="nav('clients')" style="display:none">Clients</button>
-  <button class="nav-item" id="ni-users" onclick="nav('users')" style="display:none">User Management <span id="users-guide-badge" class="nav-badge" style="display:none">1</span></button>
-  <button class="nav-item" id="ni-analytics" onclick="nav('analytics')" style="display:none">Analytics</button>
+  <button class="nav-item" id="ni-clients" data-action="nav" data-arg="clients" style="display:none">Clients</button>
+  <button class="nav-item" id="ni-users" data-action="nav" data-arg="users" style="display:none">User Management <span id="users-guide-badge" class="nav-badge" style="display:none">1</span></button>
+  <button class="nav-item" id="ni-analytics" data-action="nav" data-arg="analytics" style="display:none">Analytics</button>
   <!-- Hidden nav items for pages still accessible but removed from menu -->
   <!-- User area -->
   <div class="sidebar-bottom" id="sidebar-user">
-    <div class="sb-avatar" id="sb-avatar" role="button" tabindex="0" aria-expanded="false" aria-haspopup="true" aria-label="User menu" onclick="event.stopPropagation();var m=document.getElementById('sb-menu');m.classList.toggle('open');this.setAttribute('aria-expanded',m.classList.contains('open'))">?</div>
+    <div class="sb-avatar" id="sb-avatar" role="button" tabindex="0" aria-expanded="false" aria-haspopup="true" aria-label="User menu" data-action="toggleSbMenu" data-stop>?</div>
     <div>
       <div class="sb-name" id="sb-name"></div>
       <div class="sb-plan" id="sb-plan"></div>
     </div>
     <div class="sb-menu" id="sb-menu">
-      <button class="sb-menu-item" onclick="document.getElementById('sb-menu').classList.remove('open');nav('settings')">
+      <button class="sb-menu-item" data-action="sbMenuNav" data-arg="settings">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         Settings
       </button>
-      <button class="sb-menu-item" onclick="document.getElementById('sb-menu').classList.remove('open');showWhatsNew()">
+      <button class="sb-menu-item" data-action="sbMenuWhatsNew">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
         What's New
       </button>
       <div class="sb-menu-sep"></div>
-      <button class="sb-menu-item" onclick="document.getElementById('sb-menu').classList.remove('open');authSignOut()">
+      <button class="sb-menu-item" data-action="sbMenuSignOut">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         Sign Out
       </button>
@@ -1991,33 +1994,33 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
     <div class="aw-toolbar" id="alert-sticky-bar">
       <div id="alert-view-bar" style="display:flex;align-items:center;gap:8px">
         <div class="alert-view-toggle">
-          <button class="alert-view-btn active" id="alert-view-brief" onclick="setAlertView('briefing')">Briefing</button>
-          <button class="alert-view-btn" id="alert-view-cat" onclick="setAlertView('category')">Category</button>
-          <button class="alert-view-btn" id="alert-view-pri" onclick="setAlertView('priority')">Priority</button>
-          <button class="alert-view-btn" id="alert-view-cust" onclick="setAlertView('customer')">Customer</button>
-          <button class="alert-view-btn" id="alert-view-tbl" onclick="setAlertView('table')">Table</button>
+          <button class="alert-view-btn active" id="alert-view-brief" data-action="setAlertView" data-arg="briefing">Briefing</button>
+          <button class="alert-view-btn" id="alert-view-cat" data-action="setAlertView" data-arg="category">Category</button>
+          <button class="alert-view-btn" id="alert-view-pri" data-action="setAlertView" data-arg="priority">Priority</button>
+          <button class="alert-view-btn" id="alert-view-cust" data-action="setAlertView" data-arg="customer">Customer</button>
+          <button class="alert-view-btn" id="alert-view-tbl" data-action="setAlertView" data-arg="table">Table</button>
         </div>
-        <input type="text" id="alert-cust-search" placeholder="Search customer..." oninput="renderAlerts()" autocomplete="off" style="padding:5px 12px;font-size:var(--fs-base);border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);width:200px;outline:none">
+        <input type="text" id="alert-cust-search" placeholder="Search customer..." data-input="handleAlertCustSearch" autocomplete="off" style="padding:5px 12px;font-size:var(--fs-base);border:1.5px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);width:200px;outline:none">
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <button class="btn btn-sm btn-ghost" id="alerts-select-all-btn" onclick="alertsSelectAll()">Select All</button>
-        <button class="btn btn-sm btn-ghost" id="alerts-view-snoozed-btn" onclick="viewSnoozedAlerts()" style="display:none">View Snoozed</button>
-        <button class="btn btn-sm btn-ghost" onclick="clearSnoozed()">Clear Snoozed</button>
+        <button class="btn btn-sm btn-ghost" id="alerts-select-all-btn" data-action="alertsSelectAll">Select All</button>
+        <button class="btn btn-sm btn-ghost" id="alerts-view-snoozed-btn" data-action="viewSnoozedAlerts" style="display:none">View Snoozed</button>
+        <button class="btn btn-sm btn-ghost" data-action="clearSnoozed">Clear Snoozed</button>
       </div>
     </div>
     <div class="alert-bulk-bar" id="alert-bulk-bar">
       <span id="alert-bulk-count">0 selected</span>
       <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
         <div class="snooze-dd" id="bulk-snooze-dd">
-          <button class="btn btn-sm btn-outline" onclick="event.stopPropagation();toggleBulkSnoozeDd()">Snooze ▾</button>
+          <button class="btn btn-sm btn-outline" data-action="toggleBulkSnoozeDd" data-stop>Snooze ▾</button>
           <div class="snooze-dd__menu" id="bulk-snooze-menu">
-            <button class="snooze-dd__item" onclick="bulkSnooze(1)">Snooze 1 day</button>
-            <button class="snooze-dd__item" onclick="bulkSnooze(7)">Snooze 7 days</button>
-            <button class="snooze-dd__item" onclick="bulkSnooze(30)">Snooze 30 days</button>
+            <button class="snooze-dd__item" data-action="bulkSnooze" data-arg="1">Snooze 1 day</button>
+            <button class="snooze-dd__item" data-action="bulkSnooze" data-arg="7">Snooze 7 days</button>
+            <button class="snooze-dd__item" data-action="bulkSnooze" data-arg="30">Snooze 30 days</button>
           </div>
         </div>
-        <button class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red)" onclick="bulkDismiss()">Dismiss</button>
-        <button class="btn btn-sm btn-ghost" onclick="alertsClearSelection()">&#x2715; Cancel</button>
+        <button class="btn btn-sm btn-outline" style="color:var(--red);border-color:var(--red)" data-action="bulkDismiss">Dismiss</button>
+        <button class="btn btn-sm btn-ghost" data-action="alertsClearSelection">&#x2715; Cancel</button>
       </div>
     </div>
     <div id="alerts-list"><div class="empty-st"><div class="ei"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><h3>All clear!</h3><p>No alerts right now — all accounts are in good shape.</p></div></div>
@@ -2030,52 +2033,52 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
     <div><h1><span>Customers</span></h1><p id="cust-count-lbl">-</p></div>
     <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
       <div class="snooze-dd" id="export-dd-tbl">
-        <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation();toggleExportDd('tbl')">
+        <button class="btn btn-sm btn-ghost" data-action="toggleExportDd" data-arg="tbl" data-stop>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Export ▾
         </button>
         <div class="snooze-dd__menu" id="export-menu-tbl">
-          <button class="snooze-dd__item" onclick="exportCSV();toggleExportDd('tbl')">Export Data</button>
-          <button class="snooze-dd__item" onclick="exportBulksheet();toggleExportDd('tbl')">Export Bulksheet</button>
+          <button class="snooze-dd__item" data-action="exportCSV">Export Data</button>
+          <button class="snooze-dd__item" data-action="exportBulksheet">Export Bulksheet</button>
         </div>
       </div>
       <div class="snooze-dd" id="preset-dd-wrap">
-        <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation();togglePresetDd()" id="preset-dd-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg> Presets ▾</button>
+        <button class="btn btn-sm btn-ghost" data-action="togglePresetDd" data-stop id="preset-dd-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg> Presets ▾</button>
         <div class="snooze-dd__menu" id="preset-dd-menu" style="min-width:210px;right:0;left:auto"></div>
       </div>
-      <button class="btn btn-sm btn-primary" onclick="nav('score')">+ Add Customer</button>
+      <button class="btn btn-sm btn-primary" data-action="nav" data-arg="score">+ Add Customer</button>
     </div>
   </div>
   <div id="customers-guide"></div>
   <div class="card" id="customers-table-card">
     <div class="list-toolbar">
-      <input class="search-box" type="text" placeholder="Search customers…" id="search-input" oninput="_custPage=0;renderCustomers()"/>
-      <button class="fchip fa" id="fc-all"      onclick="setFilter('all')">All</button>
-      <button class="fchip"    id="fc-critical" onclick="setFilter('critical')">Critical</button>
-      <button class="fchip"    id="fc-risk"     onclick="setFilter('risk')">At Risk</button>
-      <button class="fchip"    id="fc-watch"    onclick="setFilter('watch')">Watch</button>
-      <button class="fchip"    id="fc-healthy"  onclick="setFilter('healthy')">Healthy</button>
-      <button class="fchip"    id="fc-expand"   onclick="setFilter('expand')">Expansion</button>
-      <button class="fchip"    id="fc-churned"  onclick="setFilter('churned')">Churned</button>
-      <button class="fchip"    id="fc-trash"   onclick="setFilter('trash')" style="margin-left:auto">🗑 Trash</button>
+      <input class="search-box" type="text" placeholder="Search customers…" id="search-input" data-input="handleCustSearch"/>
+      <button class="fchip fa" id="fc-all"      data-action="setFilter" data-arg="all">All</button>
+      <button class="fchip"    id="fc-critical" data-action="setFilter" data-arg="critical">Critical</button>
+      <button class="fchip"    id="fc-risk"     data-action="setFilter" data-arg="risk">At Risk</button>
+      <button class="fchip"    id="fc-watch"    data-action="setFilter" data-arg="watch">Watch</button>
+      <button class="fchip"    id="fc-healthy"  data-action="setFilter" data-arg="healthy">Healthy</button>
+      <button class="fchip"    id="fc-expand"   data-action="setFilter" data-arg="expand">Expansion</button>
+      <button class="fchip"    id="fc-churned"  data-action="setFilter" data-arg="churned">Churned</button>
+      <button class="fchip"    id="fc-trash"   data-action="setFilter" data-arg="trash" style="margin-left:auto">🗑 Trash</button>
     </div>
     <!-- Active column filter pills -->
     <div id="filter-pill-bar" style="display:none;flex-wrap:wrap;gap:6px;padding:10px 1.25rem 14px;align-items:center"></div>
     <div class="bulk-bar" id="bulk-bar">
       <span class="bulk-bar__count" id="bulk-count">0 selected</span>
-      <button class="btn btn-sm btn-ghost" id="bulk-edit-btn" style="color:#fff;border-color:rgba(255,255,255,.4)" onclick="bulkEdit()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit</button>
-      <button class="btn btn-sm btn-ghost" style="color:#fff;border-color:rgba(255,255,255,.4)" onclick="bulkRescore()">↻ Re-score</button>
-      <button class="btn btn-sm btn-ghost" style="color:#fff;border-color:rgba(255,255,255,.4)" onclick="bulkTag()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> Tag</button>
-      <button class="btn btn-sm btn-ghost" style="color:#fff;border-color:rgba(255,255,255,.4)" onclick="bulkLifecycle()">Set Stage</button>
-      <button class="btn btn-sm btn-ghost" style="color:#fff;border-color:rgba(255,255,255,.4)" onclick="bulkDelete()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Delete</button>
-      <button class="btn btn-sm btn-ghost" style="color:#fff;border-color:rgba(255,255,255,.4)" onclick="clearSelection()">✕ Cancel</button>
+      <button class="btn btn-sm btn-ghost" id="bulk-edit-btn" style="color:#fff;border-color:rgba(255,255,255,.4)" data-action="bulkEdit"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit</button>
+      <button class="btn btn-sm btn-ghost" style="color:#fff;border-color:rgba(255,255,255,.4)" data-action="bulkRescore">↻ Re-score</button>
+      <button class="btn btn-sm btn-ghost" style="color:#fff;border-color:rgba(255,255,255,.4)" data-action="bulkTag"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> Tag</button>
+      <button class="btn btn-sm btn-ghost" style="color:#fff;border-color:rgba(255,255,255,.4)" data-action="bulkLifecycle">Set Stage</button>
+      <button class="btn btn-sm btn-ghost" style="color:#fff;border-color:rgba(255,255,255,.4)" data-action="bulkDelete"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Delete</button>
+      <button class="btn btn-sm btn-ghost" style="color:#fff;border-color:rgba(255,255,255,.4)" data-action="clearSelection">✕ Cancel</button>
     </div>
     <div id="table-wrap">
-      <div class="empty-st" id="cust-empty"><div class="ei"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/></svg></div><h3>No customers yet</h3><p>Score your first customer manually or bulk-import via CSV.</p><div style="display:flex;gap:8px;justify-content:center;margin-top:12px"><button class="btn btn-primary btn-sm" onclick="nav('score')">+ Score a Customer</button><button class="btn btn-outline btn-sm" onclick="nav('csv')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Import CSV</button></div></div>
+      <div class="empty-st" id="cust-empty"><div class="ei"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/></svg></div><h3>No customers yet</h3><p>Score your first customer manually or bulk-import via CSV.</p><div style="display:flex;gap:8px;justify-content:center;margin-top:12px"><button class="btn btn-primary btn-sm" data-action="nav" data-arg="score">+ Score a Customer</button><button class="btn btn-outline btn-sm" data-action="nav" data-arg="csv"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Import CSV</button></div></div>
       <div id="cust-scroll-clip"><div id="cust-scroll-wrap">
         <table class="ct" id="cust-table" style="display:none">
           <thead id="cust-thead"><tr>
-            <th class="cb-col" scope="col"><input type="checkbox" id="select-all" onchange="toggleSelectAll(this.checked)" aria-label="Select all customers"/></th>
+            <th class="cb-col" scope="col"><input type="checkbox" id="select-all" data-change="toggleSelectAll" aria-label="Select all customers"/></th>
           </tr></thead>
           <tbody id="cust-tbody"></tbody>
         </table>
@@ -2087,15 +2090,15 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
           <span id="cust-page-info" style="color:var(--muted)"></span>
         </div>
         <div style="display:flex;align-items:center;gap:6px">
-          <button class="btn btn-sm btn-ghost" id="cust-page-first" onclick="custPageNav('first')" title="First page">&laquo;</button>
-          <button class="btn btn-sm btn-ghost" id="cust-page-prev" onclick="custPageNav('prev')" title="Previous page">&lsaquo;</button>
+          <button class="btn btn-sm btn-ghost" id="cust-page-first" data-action="custPageNav" data-arg="first" title="First page">&laquo;</button>
+          <button class="btn btn-sm btn-ghost" id="cust-page-prev" data-action="custPageNav" data-arg="prev" title="Previous page">&lsaquo;</button>
           <span id="cust-page-nums" style="display:flex;gap:2px"></span>
-          <button class="btn btn-sm btn-ghost" id="cust-page-next" onclick="custPageNav('next')" title="Next page">&rsaquo;</button>
-          <button class="btn btn-sm btn-ghost" id="cust-page-last" onclick="custPageNav('last')" title="Last page">&raquo;</button>
+          <button class="btn btn-sm btn-ghost" id="cust-page-next" data-action="custPageNav" data-arg="next" title="Next page">&rsaquo;</button>
+          <button class="btn btn-sm btn-ghost" id="cust-page-last" data-action="custPageNav" data-arg="last" title="Last page">&raquo;</button>
         </div>
         <div style="display:flex;align-items:center;gap:6px">
           <label style="color:var(--muted)" for="cust-page-size">Rows:</label>
-          <select id="cust-page-size" onchange="custPageSizeChange(this.value)" style="padding:3px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--fg);font-size:var(--fs-sm)">
+          <select id="cust-page-size" data-change="custPageSizeChange" style="padding:3px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--fg);font-size:var(--fs-sm)">
             <option value="25">25</option>
             <option value="50" selected>50</option>
             <option value="100">100</option>
@@ -2123,34 +2126,34 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
     <div class="trend-ctrl-group">
       <span class="trend-ctrl-label">View</span>
       <div class="alert-view-toggle" id="seg-view-toggle">
-        <button class="alert-view-btn active" id="seg-view-segments" onclick="toggleSegView('segments')">Segments</button>
-        <button class="alert-view-btn" id="seg-view-tiers" onclick="toggleSegView('tiers')">Tiers</button>
-        <button class="alert-view-btn" id="seg-view-stage" onclick="toggleSegView('stage')">Stage</button>
+        <button class="alert-view-btn active" id="seg-view-segments" data-action="toggleSegView" data-arg="segments">Segments</button>
+        <button class="alert-view-btn" id="seg-view-tiers" data-action="toggleSegView" data-arg="tiers">Tiers</button>
+        <button class="alert-view-btn" id="seg-view-stage" data-action="toggleSegView" data-arg="stage">Stage</button>
       </div>
     </div>
     <div class="trend-ctrl-sep"></div>
     <div class="trend-ctrl-group">
       <span class="trend-ctrl-label">Metric</span>
-      <select id="seg-chart-metric" onchange="segChartMetricChanged(this.value)"></select>
+      <select id="seg-chart-metric" data-change="segChartMetricChanged"></select>
     </div>
     <div class="trend-ctrl-sep"></div>
     <div class="trend-ctrl-group">
       <span class="trend-ctrl-label">Untagged</span>
       <div class="alert-view-toggle">
-        <button class="alert-view-btn active" id="seg-untag-show" onclick="toggleHideUntagged()">Show</button>
-        <button class="alert-view-btn" id="seg-untag-hide" onclick="toggleHideUntagged()">Hide</button>
+        <button class="alert-view-btn active" id="seg-untag-show" data-action="toggleHideUntagged">Show</button>
+        <button class="alert-view-btn" id="seg-untag-hide" data-action="toggleHideUntagged">Hide</button>
       </div>
     </div>
     <div style="flex:1"></div>
     <div class="dtab-row trend-range-bar" style="margin:0" id="seg-chart-range-row">
-      <button class="dtab" data-range="3d" onclick="setSegChartRange('3d')">3d</button>
-      <button class="dtab" data-range="7d" onclick="setSegChartRange('7d')">7d</button>
-      <button class="dtab" data-range="30d" onclick="setSegChartRange('30d')">30d</button>
-      <button class="dtab active" data-range="90d" onclick="setSegChartRange('90d')">90d</button>
-      <button class="dtab" data-range="6m" onclick="setSegChartRange('6m')">6m</button>
-      <button class="dtab" data-range="1y" onclick="setSegChartRange('1y')">1y</button>
-      <button class="dtab" data-range="2y" onclick="setSegChartRange('2y')">2y</button>
-      <button class="dtab" data-range="ytd" onclick="setSegChartRange('ytd')">YTD</button>
+      <button class="dtab" data-range="3d" data-action="setSegChartRange" data-arg="3d">3d</button>
+      <button class="dtab" data-range="7d" data-action="setSegChartRange" data-arg="7d">7d</button>
+      <button class="dtab" data-range="30d" data-action="setSegChartRange" data-arg="30d">30d</button>
+      <button class="dtab active" data-range="90d" data-action="setSegChartRange" data-arg="90d">90d</button>
+      <button class="dtab" data-range="6m" data-action="setSegChartRange" data-arg="6m">6m</button>
+      <button class="dtab" data-range="1y" data-action="setSegChartRange" data-arg="1y">1y</button>
+      <button class="dtab" data-range="2y" data-action="setSegChartRange" data-arg="2y">2y</button>
+      <button class="dtab" data-range="ytd" data-action="setSegChartRange" data-arg="ytd">YTD</button>
     </div>
   </div>
 
@@ -2166,8 +2169,8 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
   <!-- Tabbed insights: Cross-segment + Analysis -->
   <div style="margin-top:16px">
     <div id="seg-insight-tabs" style="display:flex;align-items:center;gap:0;margin-bottom:0">
-      <button class="dtab active" id="seg-tab-cross" onclick="_switchSegInsightTab('cross')" style="padding:8px 16px;font-size:var(--fs-base);font-weight:700;border-radius:8px 8px 0 0;border:1px solid var(--border);border-bottom:none;background:var(--bg);color:var(--text);cursor:pointer">Insights</button>
-      <button class="dtab" id="seg-tab-analysis" onclick="_switchSegInsightTab('analysis')" style="padding:8px 16px;font-size:var(--fs-base);font-weight:700;border-radius:8px 8px 0 0;border:1px solid var(--border);border-bottom:none;background:transparent;color:var(--muted);cursor:pointer">Analysis</button>
+      <button class="dtab active" id="seg-tab-cross" data-action="_switchSegInsightTab" data-arg="cross" style="padding:8px 16px;font-size:var(--fs-base);font-weight:700;border-radius:8px 8px 0 0;border:1px solid var(--border);border-bottom:none;background:var(--bg);color:var(--text);cursor:pointer">Insights</button>
+      <button class="dtab" id="seg-tab-analysis" data-action="_switchSegInsightTab" data-arg="analysis" style="padding:8px 16px;font-size:var(--fs-base);font-weight:700;border-radius:8px 8px 0 0;border:1px solid var(--border);border-bottom:none;background:transparent;color:var(--muted);cursor:pointer">Analysis</button>
     </div>
     <div style="border:1px solid var(--border);border-radius:0 8px 8px 8px;padding:12px 14px;background:var(--bg)">
       <div id="seg-insights-wrap" class="trend-analysis-wrap" style="min-height:140px"></div>
@@ -2195,7 +2198,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
   <div class="trend-controls" style="flex-wrap:nowrap">
     <div class="trend-ctrl-group">
       <span class="trend-ctrl-label">Metric</span>
-      <select id="trend-metric-1" onchange="setTrendMetric(1,this.value)">
+      <select id="trend-metric-1" data-change="setTrendMetric" data-arg="1">
         <option value="score" selected>Health Score</option>
         <option value="logins">Logins</option>
         <option value="adoption">Adoption %</option>
@@ -2208,7 +2211,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
         <option value="customers"># Customers</option>
       </select>
       <span class="trend-ctrl-vs">vs</span>
-      <select id="trend-metric-2" onchange="setTrendMetric(2,this.value)">
+      <select id="trend-metric-2" data-change="setTrendMetric" data-arg="2">
         <option value="" selected>+ Overlay Metric</option>
         <option value="score">Health Score</option>
         <option value="logins">Logins</option>
@@ -2224,24 +2227,24 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
     </div>
     <div class="trend-ctrl-sep"></div>
     <div class="trend-ctrl-group">
-      <select id="trend-csm-overlay" onchange="setTrendCsmOverlay(this.value)">
+      <select id="trend-csm-overlay" data-change="setTrendCsmOverlay">
         <option value="">No CSM Overlay</option>
       </select>
       <div style="position:relative;flex:0 0 auto" class="trend-client-box">
-        <input type="text" id="trend-client-input-0" placeholder="Client 1" oninput="_trendClientSearch(0)" onfocus="_trendClientSearch(0)" autocomplete="off" style="width:130px;padding:5px 24px 5px 8px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-sm);font-family:inherit;background:var(--bg)">
-        <span id="trend-client-clear-0" onclick="_trendClientClear(0)" style="display:none;position:absolute;right:4px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted);font-size:14px;line-height:1;padding:2px 4px;border-radius:4px;z-index:1" title="Remove client">&times;</span>
+        <input type="text" id="trend-client-input-0" placeholder="Client 1" data-input="_trendClientSearch" data-arg="0" data-focus="_trendClientSearch" autocomplete="off" style="width:130px;padding:5px 24px 5px 8px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-sm);font-family:inherit;background:var(--bg)">
+        <span id="trend-client-clear-0" data-action="_trendClientClear" data-arg="0" style="display:none;position:absolute;right:4px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted);font-size:14px;line-height:1;padding:2px 4px;border-radius:4px;z-index:1" title="Remove client">&times;</span>
         <div class="trend-autocomplete" id="trend-client-ac-0"></div>
       </div>
       <div style="position:relative;flex:0 0 auto" class="trend-client-box">
-        <input type="text" id="trend-client-input-1" placeholder="Client 2" oninput="_trendClientSearch(1)" onfocus="_trendClientSearch(1)" autocomplete="off" style="width:130px;padding:5px 24px 5px 8px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-sm);font-family:inherit;background:var(--bg)">
-        <span id="trend-client-clear-1" onclick="_trendClientClear(1)" style="display:none;position:absolute;right:4px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted);font-size:14px;line-height:1;padding:2px 4px;border-radius:4px;z-index:1" title="Remove client">&times;</span>
+        <input type="text" id="trend-client-input-1" placeholder="Client 2" data-input="_trendClientSearch" data-arg="1" data-focus="_trendClientSearch" autocomplete="off" style="width:130px;padding:5px 24px 5px 8px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-sm);font-family:inherit;background:var(--bg)">
+        <span id="trend-client-clear-1" data-action="_trendClientClear" data-arg="1" style="display:none;position:absolute;right:4px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted);font-size:14px;line-height:1;padding:2px 4px;border-radius:4px;z-index:1" title="Remove client">&times;</span>
         <div class="trend-autocomplete" id="trend-client-ac-1"></div>
       </div>
     </div>
     <div class="trend-ctrl-sep"></div>
     <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none;white-space:nowrap;padding:4px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);font-size:var(--fs-sm);color:var(--muted);transition:all .15s" title="Include churned accounts in charts and metrics. Their data stops counting from their churn date." id="trend-churned-label">
       <span style="position:relative;width:32px;height:18px;flex-shrink:0">
-        <input type="checkbox" id="trend-show-churned" onchange="toggleTrendChurned(this.checked)" style="position:absolute;opacity:0;width:0;height:0">
+        <input type="checkbox" id="trend-show-churned" data-change="toggleTrendChurned" style="position:absolute;opacity:0;width:0;height:0">
         <span style="position:absolute;inset:0;border-radius:9px;background:#cbd5e1;transition:background .2s" id="trend-churned-track"></span>
         <span style="position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .2s" id="trend-churned-thumb"></span>
       </span>
@@ -2249,14 +2252,14 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
     </label>
     <div style="flex:1"></div>
     <div id="trend-range-row" class="dtab-row trend-range-bar" style="margin:0">
-      <button class="dtab" data-range="3d" onclick="setTrendRange('3d')">3d</button>
-      <button class="dtab" data-range="7d" onclick="setTrendRange('7d')">7d</button>
-      <button class="dtab active" data-range="30d" onclick="setTrendRange('30d')">30d</button>
-      <button class="dtab" data-range="90d" onclick="setTrendRange('90d')">90d</button>
-      <button class="dtab" data-range="6m" onclick="setTrendRange('6m')">6m</button>
-      <button class="dtab" data-range="1y" onclick="setTrendRange('1y')">1y</button>
-      <button class="dtab" data-range="2y" onclick="setTrendRange('2y')">2y</button>
-      <button class="dtab" data-range="ytd" onclick="setTrendRange('ytd')">YTD</button>
+      <button class="dtab" data-range="3d" data-action="setTrendRange" data-arg="3d">3d</button>
+      <button class="dtab" data-range="7d" data-action="setTrendRange" data-arg="7d">7d</button>
+      <button class="dtab active" data-range="30d" data-action="setTrendRange" data-arg="30d">30d</button>
+      <button class="dtab" data-range="90d" data-action="setTrendRange" data-arg="90d">90d</button>
+      <button class="dtab" data-range="6m" data-action="setTrendRange" data-arg="6m">6m</button>
+      <button class="dtab" data-range="1y" data-action="setTrendRange" data-arg="1y">1y</button>
+      <button class="dtab" data-range="2y" data-action="setTrendRange" data-arg="2y">2y</button>
+      <button class="dtab" data-range="ytd" data-action="setTrendRange" data-arg="ytd">YTD</button>
     </div>
   </div>
 
@@ -2282,14 +2285,14 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
   <div style="display:flex;align-items:center;gap:12px;margin:16px 0 0">
     <span style="font-size:var(--fs-base);font-weight:700;color:var(--text);letter-spacing:.02em;white-space:nowrap">Date Range</span>
     <div class="dtab-row trend-range-bar" style="margin:0" id="trend-range-row2">
-      <button class="dtab" data-range="3d" onclick="setTrendRange('3d')">3 Days</button>
-      <button class="dtab" data-range="7d" onclick="setTrendRange('7d')">7 Days</button>
-      <button class="dtab active" data-range="30d" onclick="setTrendRange('30d')">30 Days</button>
-      <button class="dtab" data-range="90d" onclick="setTrendRange('90d')">90 Days</button>
-      <button class="dtab" data-range="6m" onclick="setTrendRange('6m')">6 Months</button>
-      <button class="dtab" data-range="1y" onclick="setTrendRange('1y')">1 Year</button>
-      <button class="dtab" data-range="2y" onclick="setTrendRange('2y')">2 Years</button>
-      <button class="dtab" data-range="ytd" onclick="setTrendRange('ytd')">YTD</button>
+      <button class="dtab" data-range="3d" data-action="setTrendRange" data-arg="3d">3 Days</button>
+      <button class="dtab" data-range="7d" data-action="setTrendRange" data-arg="7d">7 Days</button>
+      <button class="dtab active" data-range="30d" data-action="setTrendRange" data-arg="30d">30 Days</button>
+      <button class="dtab" data-range="90d" data-action="setTrendRange" data-arg="90d">90 Days</button>
+      <button class="dtab" data-range="6m" data-action="setTrendRange" data-arg="6m">6 Months</button>
+      <button class="dtab" data-range="1y" data-action="setTrendRange" data-arg="1y">1 Year</button>
+      <button class="dtab" data-range="2y" data-action="setTrendRange" data-arg="2y">2 Years</button>
+      <button class="dtab" data-range="ytd" data-action="setTrendRange" data-arg="ytd">YTD</button>
     </div>
   </div>
 
@@ -2327,10 +2330,10 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
 
   <!-- Breakdown Tabs -->
   <div class="dtab-row" style="margin-bottom:12px">
-    <button class="dtab active" id="fc-tab-all" onclick="setFcTab('all')">All Customers</button>
-    <button class="dtab" id="fc-tab-csm" onclick="setFcTab('csm')">By CSM</button>
-    <button class="dtab" id="fc-tab-tier" onclick="setFcTab('tier')">By Tier</button>
-    <button class="dtab" id="fc-tab-renewal" onclick="setFcTab('renewal')">By Renewal</button>
+    <button class="dtab active" id="fc-tab-all" data-action="setFcTab" data-arg="all">All Customers</button>
+    <button class="dtab" id="fc-tab-csm" data-action="setFcTab" data-arg="csm">By CSM</button>
+    <button class="dtab" id="fc-tab-tier" data-action="setFcTab" data-arg="tier">By Tier</button>
+    <button class="dtab" id="fc-tab-renewal" data-action="setFcTab" data-arg="renewal">By Renewal</button>
   </div>
 
   <!-- Forecast Table -->
@@ -2385,7 +2388,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
       <p>Upcoming renewals, scheduled touches &amp; overdue contacts</p>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
-      <button class="btn btn-sm btn-ghost" onclick="renderCalendar()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Refresh</button>
+      <button class="btn btn-sm btn-ghost" data-action="renderCalendar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Refresh</button>
     </div>
   </div>
   <div id="calendar-guide"></div>
@@ -2399,8 +2402,8 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
   </div>
   <div id="reports-guide"></div>
   <div class="dtab-row" style="margin-bottom:18px">
-    <button class="dtab active" id="rpt-tab-templates" onclick="reportsTab('templates')">Report Templates</button>
-    <button class="dtab" id="rpt-tab-schedules" onclick="reportsTab('schedules')">Scheduled Reports</button>
+    <button class="dtab active" id="rpt-tab-templates" data-action="reportsTab" data-arg="templates">Report Templates</button>
+    <button class="dtab" id="rpt-tab-schedules" data-action="reportsTab" data-arg="schedules">Scheduled Reports</button>
   </div>
   <div class="dtab-pane active" id="rpt-pane-templates">
     <div id="reports-wrap"></div>
@@ -2418,20 +2421,20 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
 
 <!-- ═══════════════ SCORE CUSTOMER ═══════════════ -->
 <div class="view" id="view-score">
-  <div class="page-hd" style="padding-bottom:8px"><div><h1 id="form-title" style="font-size:1.1rem"><span>Score a Customer</span></h1><p style="font-size:var(--fs-sm);margin-top:2px">Fill in the signals below to calculate a health score. <button onclick="goToScoringConfig()" style="display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-sm);background:#0d9488;color:#fff;border:1px solid #0f766e;padding:4px 12px;border-radius:6px;cursor:pointer;font-weight:600;font-family:inherit;vertical-align:middle;margin-left:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Score Settings</button></p></div></div>
+  <div class="page-hd" style="padding-bottom:8px"><div><h1 id="form-title" style="font-size:1.1rem"><span>Score a Customer</span></h1><p style="font-size:var(--fs-sm);margin-top:2px">Fill in the signals below to calculate a health score. <button data-action="goToScoringConfig" style="display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-sm);background:#0d9488;color:#fff;border:1px solid #0f766e;padding:4px 12px;border-radius:6px;cursor:pointer;font-weight:600;font-family:inherit;vertical-align:middle;margin-left:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Score Settings</button></p></div></div>
   <div id="score-guide"></div>
   <div class="score-panel">
     <div class="card">
-      <form id="score-form" onsubmit="submitForm(event)">
+      <form id="score-form" data-submit="submitForm">
         <div class="fg" id="score-fields-wrap">
           <!-- Section: Account -->
           <div class="field full"><label>Company / Customer Name *</label><input type="text" id="f-name" placeholder="Acme Corp" required/></div>
           <div class="field"><label>Contact Name <span style="font-weight:400;color:var(--subtle);font-size:.7rem">optional</span></label><input type="text" id="f-contact-name" placeholder="Jane Smith"/></div>
           <div class="field"><label>Contact Email <span style="font-weight:400;color:var(--subtle);font-size:.7rem">optional</span></label><input type="email" id="f-contact-email" placeholder="jane@acme.com"/></div>
-          <div class="field"><label>Assigned Manager</label><select id="f-manager" onchange="if(this.value==='__add_new__'){this.style.display='none';document.getElementById('f-manager-new').style.display='';document.getElementById('f-manager-new').focus()}"><option value="">- Select -</option></select><input type="text" id="f-manager-new" placeholder="Type new manager name..." style="display:none;width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-base);margin-top:4px" onblur="if(!this.value){this.style.display='none';document.getElementById('f-manager').style.display='';document.getElementById('f-manager').value=''}" /><datalist id="manager-datalist"></datalist></div>
-          <div class="field"><label>Scoring Profile <span style="font-weight:400;color:var(--subtle);font-size:.7rem">optional</span></label><select id="f-profile" onchange="applyProfileSignalState()"><option value="">Global Weights (default)</option></select></div>
-          <div class="field"><label>MRR <span style="font-weight:400;color:var(--subtle);font-size:.7rem">auto from ARR</span></label><input type="number" id="f-mrr" min="0" placeholder="5000" oninput="syncRevenue('mrr')"/></div>
-          <div class="field"><label>ARR <span style="font-weight:400;color:var(--subtle);font-size:.7rem">auto from MRR</span></label><input type="number" id="f-arr" min="0" placeholder="60000" oninput="syncRevenue('arr')"/></div>
+          <div class="field"><label>Assigned Manager</label><select id="f-manager" data-change="handleManagerChange"><option value="">- Select -</option></select><input type="text" id="f-manager-new" placeholder="Type new manager name..." style="display:none;width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-base);margin-top:4px" data-blur="handleManagerNewBlur" /><datalist id="manager-datalist"></datalist></div>
+          <div class="field"><label>Scoring Profile <span style="font-weight:400;color:var(--subtle);font-size:.7rem">optional</span></label><select id="f-profile" data-change="applyProfileSignalState"><option value="">Global Weights (default)</option></select></div>
+          <div class="field"><label>MRR <span style="font-weight:400;color:var(--subtle);font-size:.7rem">auto from ARR</span></label><input type="number" id="f-mrr" min="0" placeholder="5000" data-input="syncMrr"/></div>
+          <div class="field"><label>ARR <span style="font-weight:400;color:var(--subtle);font-size:.7rem">auto from MRR</span></label><input type="number" id="f-arr" min="0" placeholder="60000" data-input="syncArr"/></div>
           <div class="field"><label>Customer Since</label><input type="date" id="f-since"/></div>
           <div class="field"><label>Tier</label><select id="f-tier"><option value="smb">SMB</option><option value="mid" selected>Mid-Market</option><option value="enterprise">Enterprise</option></select></div>
           <div class="field"><label>Lifecycle Stage</label><select id="f-lifecycle"><option value="onboarding">Onboarding</option><option value="active" selected>Active</option><option value="atrisk">At Risk</option><option value="won">Won / Upsold</option><option value="churned">Churned</option></select></div>
@@ -2439,21 +2442,21 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
           <div class="field"><label>Billing Interval</label><select id="f-billing"><option value="">- None -</option><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option><option value="weekly">Weekly</option></select></div>
           <div class="field"><label>Tags <span style="font-weight:400;color:var(--subtle);font-size:.7rem">comma-separated</span></label><input type="text" id="f-tags" placeholder="power-user, renewal-soon"/></div>
           <div class="field"><label>Next Scheduled Touch</label><div style="display:flex;gap:6px"><input type="date" id="f-next-touch" style="flex:1"/><input type="time" id="f-next-touch-time" style="width:100px"/></div></div>
-          <div id="save-details-wrap" style="display:none;justify-content:flex-end;align-items:end"><button type="button" class="btn btn-success" id="save-details-btn" style="padding:10px 18px;font-size:.87rem;white-space:nowrap" onclick="saveDetailsOnly()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Details</button></div>
+          <div id="save-details-wrap" style="display:none;justify-content:flex-end;align-items:end"><button type="button" class="btn btn-success" id="save-details-btn" style="padding:10px 18px;font-size:.87rem;white-space:nowrap" data-action="saveDetailsOnly"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Details</button></div>
           <!-- Section: Signals -->
           <div class="form-section full"><div class="form-section-label">Health Signals</div></div>
           <div class="full signals-grid" id="score-signals-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px 20px;align-items:start">
             <!-- LEFT -->
             <div style="display:flex;flex-direction:column;gap:12px">
-              <div class="field"><label>Login Frequency <span style="font-weight:400;color:var(--subtle);font-size:.7rem">0=never, 30=daily</span></label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-logins-na" onchange="toggleSignalNA('logins')" style="accent-color:var(--blue)"/> N/A</label><input type="range" id="f-logins" min="0" max="30" value="10" oninput="rv('logins',this.value+' days')" style="flex:1"/><span class="rv" id="rv-logins" style="min-width:90px;width:90px;text-align:center">10 days</span></div></div>
-              <div class="field"><label>Feature Adoption <span style="font-weight:400;color:var(--subtle);font-size:.7rem">0–100%</span></label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-adoption-na" onchange="toggleSignalNA('adoption')" style="accent-color:var(--blue)"/> N/A</label><input type="range" id="f-adoption" min="0" max="100" value="50" oninput="rv('adoption',this.value+'%')" style="flex:1"/><span class="rv" id="rv-adoption" style="min-width:90px;width:90px;text-align:center">50%</span></div></div>
-              <div class="field"><label>NPS <span style="font-weight:400;color:var(--subtle);font-size:.7rem">0–10 scale</span></label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-nps-na" onchange="toggleNpsNA()" style="accent-color:var(--blue)"/> N/A</label><input type="range" id="f-nps" min="0" max="10" value="8" oninput="rv('nps-label',npsDisplay(Number(this.value)))" style="flex:1"/><span class="rv" id="rv-nps-label" style="min-width:90px;width:90px;text-align:center">8 - Passive</span></div></div>
-              <div class="field"><label>CSAT <span style="font-weight:400;color:var(--subtle);font-size:.7rem">1–5 scale</span></label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-csat-na" checked onchange="toggleCsatNA()" style="accent-color:var(--blue)"/> N/A</label><input type="range" id="f-csat" min="1" max="5" value="3" disabled oninput="rv('csat-label',csatDisplay(Number(this.value)))" style="flex:1;opacity:.4"/><span class="rv" id="rv-csat-label" style="min-width:90px;width:90px;text-align:center;color:var(--subtle)">N/A</span></div></div>
+              <div class="field"><label>Login Frequency <span style="font-weight:400;color:var(--subtle);font-size:.7rem">0=never, 30=daily</span></label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-logins-na" data-change="toggleSignalNA" data-arg="logins" style="accent-color:var(--blue)"/> N/A</label><input type="range" id="f-logins" min="0" max="30" value="10" data-input="rvLogins" style="flex:1"/><span class="rv" id="rv-logins" style="min-width:90px;width:90px;text-align:center">10 days</span></div></div>
+              <div class="field"><label>Feature Adoption <span style="font-weight:400;color:var(--subtle);font-size:.7rem">0–100%</span></label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-adoption-na" data-change="toggleSignalNA" data-arg="adoption" style="accent-color:var(--blue)"/> N/A</label><input type="range" id="f-adoption" min="0" max="100" value="50" data-input="rvAdoption" style="flex:1"/><span class="rv" id="rv-adoption" style="min-width:90px;width:90px;text-align:center">50%</span></div></div>
+              <div class="field"><label>NPS <span style="font-weight:400;color:var(--subtle);font-size:.7rem">0–10 scale</span></label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-nps-na" data-change="toggleNpsNA" style="accent-color:var(--blue)"/> N/A</label><input type="range" id="f-nps" min="0" max="10" value="8" data-input="rvNps" style="flex:1"/><span class="rv" id="rv-nps-label" style="min-width:90px;width:90px;text-align:center">8 - Passive</span></div></div>
+              <div class="field"><label>CSAT <span style="font-weight:400;color:var(--subtle);font-size:.7rem">1–5 scale</span></label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-csat-na" checked data-change="toggleCsatNA" style="accent-color:var(--blue)"/> N/A</label><input type="range" id="f-csat" min="1" max="5" value="3" disabled data-input="rvCsat" style="flex:1;opacity:.4"/><span class="rv" id="rv-csat-label" style="min-width:90px;width:90px;text-align:center;color:var(--subtle)">N/A</span></div></div>
             </div>
             <!-- RIGHT -->
             <div style="display:flex;flex-direction:column;gap:12px">
-              <div class="field"><label>Days Since Last Contact <span style="font-weight:400;color:var(--subtle);font-size:.7rem">0–90 days</span></label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-days-na" onchange="toggleSignalNA('days')" style="accent-color:var(--blue)"/> N/A</label><input type="range" id="f-days" min="0" max="90" value="7" oninput="rv('days',this.value+'d')" style="flex:1"/><span class="rv" id="rv-days" style="min-width:90px;width:90px;text-align:center">7d</span></div></div>
-              <div class="field"><label>Open Support Tickets <span style="font-weight:400;color:var(--subtle);font-size:.7rem">0–20</span></label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-tickets-na" onchange="toggleSignalNA('tickets')" style="accent-color:var(--blue)"/> N/A</label><input type="range" id="f-tickets" min="0" max="20" value="1" oninput="rv('tickets',this.value)" style="flex:1"/><span class="rv" id="rv-tickets" style="min-width:90px;width:90px;text-align:center">1</span></div></div>
+              <div class="field"><label>Days Since Last Contact <span style="font-weight:400;color:var(--subtle);font-size:.7rem">0–90 days</span></label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-days-na" data-change="toggleSignalNA" data-arg="days" style="accent-color:var(--blue)"/> N/A</label><input type="range" id="f-days" min="0" max="90" value="7" data-input="rvDays" style="flex:1"/><span class="rv" id="rv-days" style="min-width:90px;width:90px;text-align:center">7d</span></div></div>
+              <div class="field"><label>Open Support Tickets <span style="font-weight:400;color:var(--subtle);font-size:.7rem">0–20</span></label><div style="display:flex;gap:8px;align-items:center"><label style="display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);cursor:pointer;white-space:nowrap;min-width:42px"><input type="checkbox" id="f-tickets-na" data-change="toggleSignalNA" data-arg="tickets" style="accent-color:var(--blue)"/> N/A</label><input type="range" id="f-tickets" min="0" max="20" value="1" data-input="rvTickets" style="flex:1"/><span class="rv" id="rv-tickets" style="min-width:90px;width:90px;text-align:center">1</span></div></div>
               <div class="field"><label>Growth Signal</label><select id="f-growth"><option value="na">N/A</option><option value="none">None / Flat</option><option value="mild">Mild (seats/features added)</option><option value="strong">Strong (upgrade conversations)</option></select></div>
             </div>
           </div>
@@ -2487,15 +2490,15 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
         <div id="breakdown-wrap"></div>
         <div class="playbook" id="playbook-wrap"></div>
         <div class="score-submit-bar" style="display:flex;gap:7px;justify-content:center;flex-wrap:wrap">
-          <button class="btn btn-success btn-sm" onclick="saveScore()">
+          <button class="btn btn-success btn-sm" data-action="saveScore">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
             Save to Dashboard
           </button>
-          <button class="btn btn-ghost btn-sm" onclick="printReport()">
+          <button class="btn btn-ghost btn-sm" data-action="printReport">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
             Print Report
           </button>
-          <button class="btn btn-ghost btn-sm" onclick="resetForm()">Score Another</button>
+          <button class="btn btn-ghost btn-sm" data-action="resetForm">Score Another</button>
         </div>
       </div>
     </div>
@@ -2508,13 +2511,13 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
     <div><h1><span>Import / Export</span></h1><p>Bulk-import customers or export filtered data.</p></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <div class="snooze-dd" id="export-dd-csv">
-        <button class="btn btn-sm btn-primary" onclick="event.stopPropagation();toggleExportDd('csv')">
+        <button class="btn btn-sm btn-primary" data-action="toggleExportDd" data-arg="csv" data-stop>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Export ▾
         </button>
         <div class="snooze-dd__menu" id="export-menu-csv">
-          <button class="snooze-dd__item" onclick="exportCSV();toggleExportDd('csv')">Export Data</button>
-          <button class="snooze-dd__item" onclick="exportBulksheet();toggleExportDd('csv')">Export Bulksheet</button>
+          <button class="snooze-dd__item" data-action="exportCSV">Export Data</button>
+          <button class="snooze-dd__item" data-action="exportBulksheet">Export Bulksheet</button>
         </div>
       </div>
     </div>
@@ -2524,32 +2527,32 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
     <div class="tmpl-box">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
         <div><strong>Supported column headers:</strong><p style="font-size:.77rem;margin-top:2px;color:var(--muted)">Or upload any CSV — you can remap columns after upload.</p></div>
-        <button class="btn btn-sm btn-outline" onclick="dlTemplate()">Template CSV</button>
+        <button class="btn btn-sm btn-outline" data-action="dlTemplate">Template CSV</button>
       </div>
       <code>date, name, manager, mrr, arr, logins_30d, feature_adoption_pct, open_tickets, nps, csat, days_since_contact, renewal_date, months_to_renewal, growth_signal, tier, tags, lifecycle, customer_since, next_touch, last_contact_date, scoring_profile, note, sentiment</code>
     </div>
-    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('csv-input').click()" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+    <div class="drop-zone" id="drop-zone" data-action="clickCsvInput" data-drop="handleDrop" data-dragover="handleDragOver" data-dragleave="handleDragLeave">
       <div class="drop-zone__icon">
         <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--subtle)" stroke-width="1.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
       </div>
       <h3 style="font-weight:700">Drop a CSV file here</h3>
       <p style="margin-top:5px;font-size:.83rem">or click to browse your files</p>
-      <input type="file" id="csv-input" accept=".csv" onchange="handleFile(event)"/>
+      <input type="file" id="csv-input" accept=".csv" data-change="handleFile"/>
     </div>
     <div id="csv-map-wrap" style="display:none;margin-top:16px">
       <h3 style="margin-bottom:12px">Map Your Columns</h3>
       <div id="col-map-rows"></div>
       <div style="display:flex;gap:8px;margin-top:12px">
-        <button class="btn btn-ghost btn-sm" onclick="clearCSV()">Clear</button>
-        <button class="btn btn-primary btn-sm" onclick="applyMapping()">Preview & Import</button>
+        <button class="btn btn-ghost btn-sm" data-action="clearCSV">Clear</button>
+        <button class="btn btn-primary btn-sm" data-action="applyMapping">Preview & Import</button>
       </div>
     </div>
     <div id="csv-prev-wrap" style="display:none;margin-top:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:7px">
         <div><strong id="csv-count">0 rows ready</strong><span id="csv-import-breakdown" style="font-size:var(--fs-base);margin-left:10px"></span><p style="font-size:var(--fs-sm);margin-top:1px;color:var(--red)" id="csv-err"></p></div>
         <div style="display:flex;gap:7px">
-          <button class="btn btn-ghost btn-sm" onclick="clearCSV()">Clear</button>
-          <button class="btn btn-primary btn-sm" onclick="importCSV()">Import All</button>
+          <button class="btn btn-ghost btn-sm" data-action="clearCSV">Clear</button>
+          <button class="btn btn-primary btn-sm" data-action="importCSV">Import All</button>
         </div>
       </div>
       <div class="csv-prev" id="csv-prev"></div>
@@ -2563,10 +2566,10 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
 
   <!-- Tab bar -->
   <div class="dtab-row" style="margin-bottom:18px">
-    <button class="dtab active" id="cfg-tab-config"  onclick="cfgTab('config')">Scoring</button>
-    <button class="dtab"        id="cfg-tab-billing" onclick="cfgTab('billing')">Plan &amp; Billing</button>
-    <button class="dtab"        id="cfg-tab-account" onclick="cfgTab('account')">Account</button>
-    <button class="dtab"        id="cfg-tab-api"     onclick="cfgTab('api')">Integrations</button>
+    <button class="dtab active" id="cfg-tab-config"  data-action="cfgTab" data-arg="config">Scoring</button>
+    <button class="dtab"        id="cfg-tab-billing" data-action="cfgTab" data-arg="billing">Plan &amp; Billing</button>
+    <button class="dtab"        id="cfg-tab-account" data-action="cfgTab" data-arg="account">Account</button>
+    <button class="dtab"        id="cfg-tab-api"     data-action="cfgTab" data-arg="api">Integrations</button>
   </div>
 
   <div id="settings-guide"></div>
@@ -2587,16 +2590,16 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
           <p>Proprietary scoring layer that analyzes engagement depth, silent churn patterns, renewal gravity, sentiment trajectory, and 22 more factors to refine health scores beyond simple weighted averages.</p>
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-              <input type="checkbox" id="cfg-sm-enabled" onchange="toggleSignalModel(this.checked)" style="width:18px;height:18px;accent-color:#0f766e"/>
+              <input type="checkbox" id="cfg-sm-enabled" data-change="toggleSignalModel" style="width:18px;height:18px;accent-color:#0f766e"/>
               <span style="font-weight:700;font-size:var(--fs-base)">Enable Signal Model</span>
             </label>
           </div>
           <div id="cfg-sm-sensitivity-wrap" style="display:none">
             <div style="font-size:var(--fs-sm);font-weight:600;margin-bottom:6px;color:var(--subtle)">Sensitivity</div>
             <div style="display:flex;gap:6px;margin-bottom:8px">
-              <button class="btn btn-sm btn-ghost sm-sens-btn" data-sens="conservative" onclick="setSmSensitivity('conservative')">Conservative</button>
-              <button class="btn btn-sm btn-ghost sm-sens-btn" data-sens="balanced" onclick="setSmSensitivity('balanced')">Balanced</button>
-              <button class="btn btn-sm btn-ghost sm-sens-btn" data-sens="aggressive" onclick="setSmSensitivity('aggressive')">Aggressive</button>
+              <button class="btn btn-sm btn-ghost sm-sens-btn" data-sens="conservative" data-action="setSmSensitivity" data-arg="conservative">Conservative</button>
+              <button class="btn btn-sm btn-ghost sm-sens-btn" data-sens="balanced" data-action="setSmSensitivity" data-arg="balanced">Balanced</button>
+              <button class="btn btn-sm btn-ghost sm-sens-btn" data-sens="aggressive" data-action="setSmSensitivity" data-arg="aggressive">Aggressive</button>
             </div>
             <div style="font-size:var(--fs-xs);color:var(--muted)" id="cfg-sm-sens-desc">Max adjustment: &plusmn;10 pts</div>
           </div>
@@ -2624,10 +2627,10 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
           <div class="total-bar" style="height:4px;margin:4px 0"><div class="total-fill" id="total-fill" style="width:100%"></div></div>
           <div style="margin-bottom:6px"><span id="total-label" style="font-size:var(--fs-sm);font-weight:700">Total: 100%</span></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn btn-ghost btn-sm" onclick="resetWeights()">Reset</button>
-            <button class="btn btn-success btn-sm" onclick="saveWeights()">Save Global</button>
-            <button id="btn-update-profile" class="btn btn-amber btn-sm" style="display:none" onclick="updateEditingProfile()">Update Profile</button>
-            <button class="btn btn-outline btn-sm" onclick="saveWeightsAsProfile()">New Profile</button>
+            <button class="btn btn-ghost btn-sm" data-action="resetWeights">Reset</button>
+            <button class="btn btn-success btn-sm" data-action="saveWeights">Save Global</button>
+            <button id="btn-update-profile" class="btn btn-amber btn-sm" style="display:none" data-action="updateEditingProfile">Update Profile</button>
+            <button class="btn btn-outline btn-sm" data-action="saveWeightsAsProfile">New Profile</button>
           </div>
         </div>
         <!-- Column 2: Score Distribution + Scoring Profiles -->
@@ -2648,14 +2651,14 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
           <div class="card">
             <div class="card-hd"><h2>Score Thresholds <span class="info-tip" data-tip="Define score cutoffs for each health band. Changes apply to all accounts on next re-score.">ⓘ</span></h2></div>
             <p>Define what score ranges map to each health band.</p>
-            <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#dc2626"></span>Critical — below</span><input class="threshold-input" type="number" id="th-critical" min="1" max="99" value="25" oninput="updateThresholdLabels()"/><span style="font-size:var(--fs-base);color:var(--muted)">0–<span id="th-critical-max">24</span></span></div>
-            <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#ea580c"></span>At Risk — below</span><input class="threshold-input" type="number" id="th-risk" min="1" max="99" value="50" oninput="updateThresholdLabels()"/><span style="font-size:var(--fs-base);color:var(--muted)"><span id="th-risk-range">25–49</span></span></div>
-            <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:var(--amber)"></span>Watch — below</span><input class="threshold-input" type="number" id="th-watch" min="1" max="99" value="65" oninput="updateThresholdLabels()"/><span style="font-size:var(--fs-base);color:var(--muted)"><span id="th-watch-range">50–64</span></span></div>
-            <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:var(--green)"></span>Healthy — below</span><input class="threshold-input" type="number" id="th-healthy" min="1" max="99" value="80" oninput="updateThresholdLabels()"/><span style="font-size:var(--fs-base);color:var(--muted)"><span id="th-healthy-range">65–79</span></span></div>
+            <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#dc2626"></span>Critical — below</span><input class="threshold-input" type="number" id="th-critical" min="1" max="99" value="25" data-input="rvThresholds"/><span style="font-size:var(--fs-base);color:var(--muted)">0–<span id="th-critical-max">24</span></span></div>
+            <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#ea580c"></span>At Risk — below</span><input class="threshold-input" type="number" id="th-risk" min="1" max="99" value="50" data-input="rvThresholds"/><span style="font-size:var(--fs-base);color:var(--muted)"><span id="th-risk-range">25–49</span></span></div>
+            <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:var(--amber)"></span>Watch — below</span><input class="threshold-input" type="number" id="th-watch" min="1" max="99" value="65" data-input="rvThresholds"/><span style="font-size:var(--fs-base);color:var(--muted)"><span id="th-watch-range">50–64</span></span></div>
+            <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:var(--green)"></span>Healthy — below</span><input class="threshold-input" type="number" id="th-healthy" min="1" max="99" value="80" data-input="rvThresholds"/><span style="font-size:var(--fs-base);color:var(--muted)"><span id="th-healthy-range">65–79</span></span></div>
             <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:var(--teal)"></span>Expansion — above</span><span style="font-size:var(--fs-base);color:var(--muted)">≥ <span id="th-expand-val">80</span></span></div>
             <div style="margin-top:6px;display:flex;gap:8px">
-              <button class="btn btn-ghost btn-sm" onclick="resetThresholds()">Reset</button>
-              <button class="btn btn-success btn-sm" onclick="saveThresholds()">Save Thresholds</button>
+              <button class="btn btn-ghost btn-sm" data-action="resetThresholds">Reset</button>
+              <button class="btn btn-success btn-sm" data-action="saveThresholds">Save Thresholds</button>
             </div>
           </div>
           <div class="card">
@@ -2664,8 +2667,8 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
             <div class="threshold-row"><span class="threshold-label">Quiet after</span><input class="threshold-input" type="number" id="cfg-quiet-days" min="1" max="90" value="14"/><span style="font-size:var(--fs-base);color:var(--muted)">days</span></div>
             <div class="threshold-row"><span class="threshold-label">Momentum ±</span><input class="threshold-input" type="number" id="cfg-momentum-pts" min="1" max="20" value="3"/><span style="font-size:var(--fs-base);color:var(--muted)">pts / 7d</span></div>
             <div style="margin-top:6px;display:flex;gap:8px">
-              <button class="btn btn-ghost btn-sm" onclick="resetMiscThresholds()">Reset</button>
-              <button class="btn btn-success btn-sm" onclick="saveMiscThresholds()">Save</button>
+              <button class="btn btn-ghost btn-sm" data-action="resetMiscThresholds">Reset</button>
+              <button class="btn btn-success btn-sm" data-action="saveMiscThresholds">Save</button>
             </div>
           </div>
         </div>
@@ -2707,8 +2710,8 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
             </tbody>
           </table>
           <div style="margin-top:14px;display:flex;gap:8px">
-            <button class="btn btn-ghost btn-sm" onclick="resetCadence()">Reset</button>
-            <button class="btn btn-success btn-sm" onclick="saveCadence()">Save</button>
+            <button class="btn btn-ghost btn-sm" data-action="resetCadence">Reset</button>
+            <button class="btn btn-success btn-sm" data-action="saveCadence">Save</button>
           </div>
         </div>
         <div class="card">
@@ -2718,15 +2721,15 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
           <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#f59e0b"></span>Warning</span><input class="threshold-input" type="number" id="rw-warning" min="1" max="365" value="30"/><span style="font-size:var(--fs-base);color:var(--muted)">days</span></div>
           <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#3b82f6"></span>Upcoming</span><input class="threshold-input" type="number" id="rw-upcoming" min="1" max="365" value="60"/><span style="font-size:var(--fs-base);color:var(--muted)">days</span></div>
           <div style="margin-top:14px;display:flex;gap:8px">
-            <button class="btn btn-ghost btn-sm" onclick="resetRenewalWindows()">Reset</button>
-            <button class="btn btn-success btn-sm" onclick="saveRenewalWindows()">Save</button>
+            <button class="btn btn-ghost btn-sm" data-action="resetRenewalWindows">Reset</button>
+            <button class="btn btn-success btn-sm" data-action="saveRenewalWindows">Save</button>
           </div>
         </div>
         <div class="card">
           <div class="card-hd"><h2>Expansion Estimate <span class="info-tip" data-tip="Configure how upsell potential is calculated on the Home Base KPI card. Choose a percentage of MRR or a flat dollar amount per account.">ⓘ</span></h2></div>
           <p>How to estimate upsell potential for expansion-ready accounts.</p>
           <div class="threshold-row"><span class="threshold-label">Method</span>
-            <select id="exp-mode" class="threshold-input" style="width:auto;min-width:120px" onchange="toggleExpMode(this.value)">
+            <select id="exp-mode" class="threshold-input" style="width:auto;min-width:120px" data-change="toggleExpMode">
               <option value="pct">% of MRR</option>
               <option value="flat">Flat $/acct</option>
             </select>
@@ -2734,7 +2737,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
           <div class="threshold-row" id="exp-pct-row"><span class="threshold-label">Percentage</span><input class="threshold-input" type="number" id="exp-pct" min="1" max="100" step="1" value="20"/><span style="font-size:var(--fs-base);color:var(--muted)">%</span></div>
           <div class="threshold-row" id="exp-flat-row" style="display:none"><span class="threshold-label">Amount</span><span style="font-size:var(--fs-md);font-weight:600;margin-right:2px">$</span><input class="threshold-input" type="number" id="exp-flat" min="1" step="100" value="5000" style="width:80px"/></div>
           <div style="margin-top:14px">
-            <button class="btn btn-success btn-sm" onclick="saveExpansion()">Save</button>
+            <button class="btn btn-success btn-sm" data-action="saveExpansion">Save</button>
           </div>
         </div>
       </div>
@@ -2754,11 +2757,11 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
         <div class="card-hd"><h2>Quick Actions <span class="info-tip" data-tip="Common config tasks — recalculate scores, back up or restore settings, or reset everything to factory defaults.">ⓘ</span></h2></div>
         <p style="font-size:var(--fs-sm);margin-bottom:6px">Manage your scoring configuration.</p>
         <div class="qa-grid">
-          <button class="qa-btn" onclick="backupExport()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export Backup</button>
-          <button class="qa-btn" onclick="document.getElementById('cfg-import-file').click()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Import Backup</button>
-          <button class="qa-btn" onclick="resetAllDefaults()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>Reset All Defaults</button>
+          <button class="qa-btn" data-action="backupExport"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export Backup</button>
+          <button class="qa-btn" data-action="clickCfgImport"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Import Backup</button>
+          <button class="qa-btn" data-action="resetAllDefaults"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>Reset All Defaults</button>
         </div>
-        <input type="file" id="cfg-import-file" accept=".json" style="display:none" onchange="restoreBackup(event)"/>
+        <input type="file" id="cfg-import-file" accept=".json" style="display:none" data-change="restoreBackup"/>
       </div>
     </div>
     <!-- Row 2: Manage CSMs + Password -->
@@ -2776,8 +2779,8 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
           <div class="field"><label>Confirm New Password</label><input type="password" id="pw-confirm" placeholder="Repeat new password"/></div>
         </div>
         <div style="margin-top:14px;display:flex;gap:8px">
-          <button class="btn btn-success btn-sm" onclick="changePassword()">Update Password</button>
-          <button class="btn btn-danger btn-sm" onclick="authSignOut()">Sign Out</button>
+          <button class="btn btn-success btn-sm" data-action="changePassword">Update Password</button>
+          <button class="btn btn-danger btn-sm" data-action="authSignOut">Sign Out</button>
         </div>
       </div>
     </div>
@@ -2787,8 +2790,8 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
   <div class="dtab-pane" id="cfg-pane-api">
     <!-- Sub-tab bar -->
     <div class="dtab-row" style="margin-bottom:18px">
-      <button class="dtab active" id="api-tab-integrations" onclick="apiSubTab('integrations')">Native Integrations</button>
-      <button class="dtab" id="api-tab-devtools" onclick="apiSubTab('devtools')">API &amp; Webhooks</button>
+      <button class="dtab active" id="api-tab-integrations" data-action="apiSubTab" data-arg="integrations">Native Integrations</button>
+      <button class="dtab" id="api-tab-devtools" data-action="apiSubTab" data-arg="devtools">API &amp; Webhooks</button>
     </div>
 
     <!-- Sub-tab 1: Native Integrations -->
@@ -2820,12 +2823,12 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
         <div class="card-hd">
           <h2>Event Log</h2>
           <div style="display:flex;gap:8px;align-items:center">
-            <select id="auto-log-filter" onchange="_pagState.webhookLog=0;renderWebhookLog()" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)">
+            <select id="auto-log-filter" data-change="handleWebhookFilterChange" style="padding:5px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)">
               <option value="all">All Events</option>
               <option value="outbound">Outbound Only</option>
               <option value="inbound">Inbound Only</option>
             </select>
-            <button class="btn btn-sm btn-ghost" onclick="loadWebhookLog(true)">Refresh</button>
+            <button class="btn btn-sm btn-ghost" data-action="loadWebhookLogRefresh">Refresh</button>
           </div>
         </div>
         <div id="auto-log-loading" style="text-align:center;padding:32px;color:var(--muted);font-size:.85rem">Loading event log…</div>
@@ -2850,7 +2853,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
         </div>
         <div id="auto-log-pag-bot"></div>
         <div id="auto-log-pagination" style="display:none;padding:14px 0 4px;text-align:center">
-          <button class="btn btn-sm btn-ghost" onclick="loadMoreWebhookLog()">Load more from server…</button>
+          <button class="btn btn-sm btn-ghost" data-action="loadMoreWebhookLog">Load more from server…</button>
         </div>
       </div>
     </div>
@@ -2865,8 +2868,8 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
     <div class="card" id="billing-plans">
       <div class="card-hd"><h2>Available Plans</h2>
         <div style="display:flex;gap:4px;margin-left:auto" id="billing-interval-toggle">
-          <button class="btn btn-sm btn-primary" id="billing-toggle-monthly" onclick="setBillingInterval('monthly')">Monthly</button>
-          <button class="btn btn-sm btn-ghost" id="billing-toggle-annual" onclick="setBillingInterval('annual')">Annual <span style="color:var(--green);font-weight:700;font-size:11px">(Save ~17%)</span></button>
+          <button class="btn btn-sm btn-primary" id="billing-toggle-monthly" data-action="setBillingInterval" data-arg="monthly">Monthly</button>
+          <button class="btn btn-sm btn-ghost" id="billing-toggle-annual" data-action="setBillingInterval" data-arg="annual">Annual <span style="color:var(--green);font-weight:700;font-size:11px">(Save ~17%)</span></button>
         </div>
       </div>
       <div id="billing-plan-cards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding:16px"></div>
@@ -2879,7 +2882,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
 <div class="view" id="view-users">
   <div class="page-hd">
     <div><h1><span>User Management</span></h1><p>Create, view, and remove users of this app.</p></div>
-    <button class="btn btn-sm btn-primary" onclick="openCreateUserModal()">+ Create User</button>
+    <button class="btn btn-sm btn-primary" data-action="openCreateUserModal">+ Create User</button>
   </div>
   <div id="users-guide"></div>
 
@@ -2904,7 +2907,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
 <div class="view" id="view-clients">
   <div class="page-hd">
     <div><h1><span>🏢 Clients</span></h1><p>Manage your client businesses. Assign users to clients.</p></div>
-    <button class="btn btn-sm btn-primary" onclick="openCreateClientModal()">+ Add Client</button>
+    <button class="btn btn-sm btn-primary" data-action="openCreateClientModal">+ Add Client</button>
   </div>
   <div class="card">
     <div class="card-hd" style="margin-bottom:12px"><h2>All Clients</h2><span id="clients-count" style="font-size:var(--fs-base);color:var(--muted);margin-left:8px"></span></div>
@@ -2915,13 +2918,13 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
         <option value="growth" selected>Growth</option>
         <option value="custom">Custom</option>
       </select>
-      <button class="btn btn-xs btn-primary" onclick="adminBulkChangePlan()">Change Plan</button>
-      <button class="btn btn-xs btn-ghost" onclick="adminClearSelection()" style="margin-left:auto">Clear</button>
+      <button class="btn btn-xs btn-primary" data-action="adminBulkChangePlan">Change Plan</button>
+      <button class="btn btn-xs btn-ghost" data-action="adminClearSelection" style="margin-left:auto">Clear</button>
     </div>
     <div id="clients-loading" style="text-align:center;padding:32px;color:var(--muted);font-size:.85rem">Loading clients…</div>
     <table class="ct" id="clients-table" style="display:none">
       <thead><tr>
-        <th style="width:32px"><input type="checkbox" id="clients-select-all" onchange="adminToggleSelectAll(this.checked)" style="accent-color:var(--blue);cursor:pointer"/></th>
+        <th style="width:32px"><input type="checkbox" id="clients-select-all" data-change="adminToggleSelectAll" style="accent-color:var(--blue);cursor:pointer"/></th>
         <th>Business Name</th>
         <th>Plan</th>
         <th>Users</th>
@@ -2940,12 +2943,12 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
   <div class="page-hd">
     <div><h1><span>Usage Analytics</span></h1><p>Page views, logins, and user activity across all clients.</p></div>
     <div style="display:flex;gap:8px;align-items:center">
-      <select id="analytics-range" onchange="loadAnalytics()" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:var(--fs-sm)">
+      <select id="analytics-range" data-change="loadAnalytics" style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:var(--fs-sm)">
         <option value="7">Last 7 days</option>
         <option value="30" selected>Last 30 days</option>
         <option value="90">Last 90 days</option>
       </select>
-      <button class="btn btn-sm btn-ghost" onclick="loadAnalytics()">Refresh</button>
+      <button class="btn btn-sm btn-ghost" data-action="loadAnalytics">Refresh</button>
     </div>
   </div>
   <!-- KPIs -->
@@ -2978,14 +2981,14 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
   <div id="auditlog-guide"></div>
   <!-- Audit Log tabs -->
   <div class="dtab-row" style="margin-bottom:16px">
-    <button class="dtab active" id="audit-tab-activity" onclick="auditTab('activity')">Activity Log</button>
-    <button class="dtab" id="audit-tab-config" onclick="auditTab('config')">Config History</button>
-    <button class="dtab" id="audit-tab-errors" onclick="auditTab('errors')" style="display:none">Error Log</button>
+    <button class="dtab active" id="audit-tab-activity" data-action="auditTab" data-arg="activity">Activity Log</button>
+    <button class="dtab" id="audit-tab-config" data-action="auditTab" data-arg="config">Config History</button>
+    <button class="dtab" id="audit-tab-errors" data-action="auditTab" data-arg="errors" style="display:none">Error Log</button>
   </div>
   <!-- Activity Log pane -->
   <div class="dtab-pane active" id="audit-pane-activity">
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
-      <select id="audit-filter-action" onchange="_pagState.auditLog=0;renderAuditLog()" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)">
+      <select id="audit-filter-action" data-change="handleAuditFilterChange" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:var(--fs-base);font-family:var(--font);color:var(--text);background:var(--surface)">
         <option value="all">All Actions</option>
         <optgroup label="Customers">
           <option value="customer_created">Customer Created</option>
@@ -3013,19 +3016,19 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
           <option value="sentiment_logged">Sentiment Logged</option>
         </optgroup>
       </select>
-      <button class="btn btn-sm btn-ghost" onclick="exportAuditLog()">Export CSV</button>
-      <button class="btn btn-sm btn-ghost" onclick="loadAuditLog(true)" title="Refresh">Refresh</button>
+      <button class="btn btn-sm btn-ghost" data-action="exportAuditLog">Export CSV</button>
+      <button class="btn btn-sm btn-ghost" data-action="loadAuditLogRefresh" title="Refresh">Refresh</button>
     </div>
     <div class="card">
       <div id="audit-loading" style="text-align:center;padding:32px;color:var(--muted);font-size:.85rem">Loading audit log…</div>
       <div id="audit-pag-top"></div>
-      <div style="margin-bottom:8px"><input type="text" id="audit-search" placeholder="Search audit log…" oninput="auditSearchFilter(this.value)" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-base);width:220px"/></div>
+      <div style="margin-bottom:8px"><input type="text" id="audit-search" placeholder="Search audit log…" data-input="auditSearchFilter" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-base);width:220px"/></div>
       <table class="ct" id="audit-table" style="display:none">
         <thead><tr>
-          <th style="cursor:pointer;user-select:none" onclick="sortAuditLog('created_at')">Time</th>
-          <th style="cursor:pointer;user-select:none" onclick="sortAuditLog('user_email')">User</th>
-          <th style="cursor:pointer;user-select:none" onclick="sortAuditLog('action')">Action</th>
-          <th style="cursor:pointer;user-select:none" onclick="sortAuditLog('customer_name')">Customer</th>
+          <th style="cursor:pointer;user-select:none" data-action="sortAuditLog" data-arg="created_at">Time</th>
+          <th style="cursor:pointer;user-select:none" data-action="sortAuditLog" data-arg="user_email">User</th>
+          <th style="cursor:pointer;user-select:none" data-action="sortAuditLog" data-arg="action">Action</th>
+          <th style="cursor:pointer;user-select:none" data-action="sortAuditLog" data-arg="customer_name">Customer</th>
           <th>Details</th>
         </tr></thead>
         <tbody id="audit-tbody"></tbody>
@@ -3037,21 +3040,21 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
       </div>
       <div id="audit-pag-bot"></div>
       <div id="audit-pagination" style="display:none;padding:14px 0 4px;text-align:center">
-        <button class="btn btn-sm btn-ghost" id="audit-load-more" onclick="loadMoreAudit()">Load more from server…</button>
+        <button class="btn btn-sm btn-ghost" id="audit-load-more" data-action="loadMoreAudit">Load more from server…</button>
       </div>
     </div>
   </div>
   <!-- Config History pane -->
   <div class="dtab-pane" id="audit-pane-config">
     <div class="card">
-      <div class="card-hd"><h2>Config History <span class="info-tip" data-tip="Recent changes to thresholds, weights, and profiles — a mini audit trail for your scoring setup.">ⓘ</span></h2><button class="btn btn-ghost btn-sm" onclick="exportConfigHistory()">Export CSV</button></div>
+      <div class="card-hd"><h2>Config History <span class="info-tip" data-tip="Recent changes to thresholds, weights, and profiles — a mini audit trail for your scoring setup.">ⓘ</span></h2><button class="btn btn-ghost btn-sm" data-action="exportConfigHistory">Export CSV</button></div>
       <div id="cfg-change-history"></div>
     </div>
   </div>
   <!-- Error Log pane (admin only) -->
   <div class="dtab-pane" id="audit-pane-errors">
     <div class="card">
-      <div class="card-hd"><h2>Client Error Log <span class="info-tip" data-tip="JavaScript errors caught from user browsers. Only visible to admins.">ⓘ</span></h2><button class="btn btn-ghost btn-sm" onclick="refreshErrorLog()">Refresh</button></div>
+      <div class="card-hd"><h2>Client Error Log <span class="info-tip" data-tip="JavaScript errors caught from user browsers. Only visible to admins.">ⓘ</span></h2><button class="btn btn-ghost btn-sm" data-action="refreshErrorLog">Refresh</button></div>
       <div id="error-log-wrap"></div>
     </div>
   </div>
@@ -3069,8 +3072,8 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
 
   <!-- Tab bar -->
   <div class="dtab-row" style="margin-bottom:18px">
-    <button class="dtab active" id="auto-tab-active" onclick="autoTab('active')">Alerts</button>
-    <button class="dtab" id="auto-tab-rules" onclick="autoTab('rules')">Custom Rules</button>
+    <button class="dtab active" id="auto-tab-active" data-action="autoTab" data-arg="active">Alerts</button>
+    <button class="dtab" id="auto-tab-rules" data-action="autoTab" data-arg="rules">Custom Rules</button>
   </div>
 
   <!-- ── Tab 1: Active Alerts ── -->
@@ -3078,7 +3081,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
     <div class="card" style="max-width:100%">
       <div class="card-hd">
         <h2>Active Alerts</h2>
-        <button class="btn btn-sm btn-primary" onclick="openCreateAlertModal()">+ New Alert</button>
+        <button class="btn btn-sm btn-primary" data-action="openCreateAlertModal">+ New Alert</button>
       </div>
       <div id="active-alerts-container"></div>
     </div>
@@ -3089,7 +3092,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
     <div class="card" style="max-width:100%">
       <div class="card-hd">
         <h2>Custom Rules</h2>
-        <button class="btn btn-sm btn-primary" onclick="openRuleBuilder()">+ New Rule</button>
+        <button class="btn btn-sm btn-primary" data-action="openRuleBuilder">+ New Rule</button>
       </div>
       <div id="custom-rules-list"></div>
     </div>
@@ -3098,19 +3101,19 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
 </div><!-- /automations -->
 
 <!-- RULE BUILDER MODAL -->
-<div class="modal-bg" id="rule-builder-modal" role="dialog" aria-modal="true" aria-label="Rule Builder" onclick="if(event.target===this)closeRuleBuilder()">
+<div class="modal-bg" id="rule-builder-modal" role="dialog" aria-modal="true" aria-label="Rule Builder">
   <div class="modal" style="max-width:860px;padding:0;display:flex;flex-direction:column">
     <div class="modal-hd" style="padding:20px 28px 0;margin-bottom:0">
       <h2 id="rule-builder-title">New Custom Rule</h2>
-      <button class="modal-close" onclick="closeRuleBuilder()"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <button class="modal-close" data-action="closeRuleBuilder"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div id="rule-builder-stepper" class="wizard-stepper" style="padding:16px 28px 0">
-      <div class="wizard-step active" data-step="1" onclick="_ruleWizardStep=1;renderRuleBuilderBody()">
+      <div class="wizard-step active" data-step="1" data-action="ruleWizardStep1">
         <div class="wizard-step__circle">1</div>
         <div class="wizard-step__label">Conditions</div>
       </div>
       <div class="wizard-step__line"></div>
-      <div class="wizard-step" data-step="2" onclick="ruleWizardNext()">
+      <div class="wizard-step" data-step="2" data-action="ruleWizardNext">
         <div class="wizard-step__circle">2</div>
         <div class="wizard-step__label">Delivery</div>
       </div>
@@ -3126,26 +3129,26 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
 </div>
 
 <!-- CREATE ALERT MODAL -->
-<div class="modal-bg" id="create-alert-modal" role="dialog" aria-modal="true" aria-label="Create Alert" onclick="if(event.target===this)closeCreateAlertModal()">
+<div class="modal-bg" id="create-alert-modal" role="dialog" aria-modal="true" aria-label="Create Alert">
   <div class="modal" style="max-width:860px;padding:0;display:flex;flex-direction:column">
     <div class="modal-hd" style="padding:20px 28px 0;margin-bottom:0">
       <h2>Create Alert</h2>
-      <button class="modal-close" onclick="closeCreateAlertModal()"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <button class="modal-close" data-action="closeCreateAlertModal"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-bd" style="padding:0;flex:1;overflow-y:auto">
       <div id="alert-wizard" class="wizard-container" style="padding:24px 28px">
         <div class="wizard-stepper">
-          <div class="wizard-step active" data-step="1" onclick="wizardGoToStep(1)">
+          <div class="wizard-step active" data-step="1" data-action="wizardGoToStep" data-arg="1">
             <div class="wizard-step__circle">1</div>
             <div class="wizard-step__label">Alerts & Scope</div>
           </div>
           <div class="wizard-step__line"></div>
-          <div class="wizard-step" data-step="2" onclick="wizardGoToStep(2)">
+          <div class="wizard-step" data-step="2" data-action="wizardGoToStep" data-arg="2">
             <div class="wizard-step__circle">2</div>
             <div class="wizard-step__label">Thresholds</div>
           </div>
           <div class="wizard-step__line"></div>
-          <div class="wizard-step" data-step="3" onclick="wizardGoToStep(3)">
+          <div class="wizard-step" data-step="3" data-action="wizardGoToStep" data-arg="3">
             <div class="wizard-step__circle">3</div>
             <div class="wizard-step__label">Delivery & Schedule</div>
           </div>
@@ -3162,9 +3165,9 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
 </div>
 
 <!-- CREATE CLIENT MODAL -->
-<div class="modal-bg" id="create-client-modal" role="dialog" aria-modal="true" aria-label="Create Client" onclick="if(event.target===this)closeModal('create-client-modal')">
+<div class="modal-bg" id="create-client-modal" role="dialog" aria-modal="true" aria-label="Create Client">
   <div class="modal" style="max-width:400px">
-    <div class="modal-hd"><h2>Add Client</h2><button class="modal-close" onclick="closeModal('create-client-modal')"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-hd"><h2>Add Client</h2><button class="modal-close" data-action="closeModal" data-arg="create-client-modal"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <div class="modal-bd">
       <div class="field" style="margin-bottom:12px">
         <label>Business Name *</label>
@@ -3185,16 +3188,16 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
       <div id="cc-err" style="color:var(--red);font-size:var(--fs-base);min-height:18px"></div>
     </div>
     <div class="modal-ft">
-      <button class="btn btn-ghost btn-sm" onclick="closeModal('create-client-modal')">Cancel</button>
-      <button class="btn btn-primary btn-sm" id="cc-btn" onclick="adminSaveClient()">Add Client →</button>
+      <button class="btn btn-ghost btn-sm" data-action="closeModal" data-arg="create-client-modal">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="cc-btn" data-action="adminSaveClient">Add Client →</button>
     </div>
   </div>
 </div>
 
 <!-- EDIT CLIENT MODAL -->
-<div class="modal-bg" id="edit-client-modal" role="dialog" aria-modal="true" aria-label="Edit Client" onclick="if(event.target===this)closeModal('edit-client-modal')">
+<div class="modal-bg" id="edit-client-modal" role="dialog" aria-modal="true" aria-label="Edit Client">
   <div class="modal" style="max-width:400px">
-    <div class="modal-hd"><h2>Edit Client</h2><button class="modal-close" onclick="closeModal('edit-client-modal')"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-hd"><h2>Edit Client</h2><button class="modal-close" data-action="closeModal" data-arg="edit-client-modal"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <div class="modal-bd">
       <input type="hidden" id="ec-id"/>
       <div class="field" style="margin-bottom:12px">
@@ -3216,16 +3219,16 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
       <div id="ec-err" style="color:var(--red);font-size:var(--fs-base);min-height:18px"></div>
     </div>
     <div class="modal-ft">
-      <button class="btn btn-ghost btn-sm" onclick="closeModal('edit-client-modal')">Cancel</button>
-      <button class="btn btn-primary btn-sm" id="ec-btn" onclick="adminUpdateClient()">Save Changes →</button>
+      <button class="btn btn-ghost btn-sm" data-action="closeModal" data-arg="edit-client-modal">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="ec-btn" data-action="adminUpdateClient">Save Changes →</button>
     </div>
   </div>
 </div>
 
 <!-- CREATE USER MODAL -->
-<div class="modal-bg" id="create-user-modal" role="dialog" aria-modal="true" aria-label="Create User" onclick="if(event.target===this)closeModal('create-user-modal')">
+<div class="modal-bg" id="create-user-modal" role="dialog" aria-modal="true" aria-label="Create User">
   <div class="modal" style="max-width:420px">
-    <div class="modal-hd"><h2>Create New User</h2><button class="modal-close" onclick="closeModal('create-user-modal')"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-hd"><h2>Create New User</h2><button class="modal-close" data-action="closeModal" data-arg="create-user-modal"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <div class="modal-bd">
       <div class="field" style="margin-bottom:12px">
         <label>Email Address *</label>
@@ -3246,16 +3249,16 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
       <div id="cu-ok" style="color:var(--green);font-size:var(--fs-base);min-height:18px"></div>
     </div>
     <div class="modal-ft">
-      <button class="btn btn-ghost btn-sm" onclick="closeModal('create-user-modal')">Cancel</button>
-      <button class="btn btn-primary btn-sm" id="cu-btn" onclick="adminCreateUser()">Create User →</button>
+      <button class="btn btn-ghost btn-sm" data-action="closeModal" data-arg="create-user-modal">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="cu-btn" data-action="adminCreateUser">Create User →</button>
     </div>
   </div>
 </div>
 
 <!-- EDIT USER MODAL -->
-<div class="modal-bg" id="edit-user-modal" role="dialog" aria-modal="true" aria-label="Edit User" onclick="if(event.target===this)closeModal('edit-user-modal')">
+<div class="modal-bg" id="edit-user-modal" role="dialog" aria-modal="true" aria-label="Edit User">
   <div class="modal" style="max-width:420px">
-    <div class="modal-hd"><h2>Edit User</h2><button class="modal-close" onclick="closeModal('edit-user-modal')"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-hd"><h2>Edit User</h2><button class="modal-close" data-action="closeModal" data-arg="edit-user-modal"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <div class="modal-bd">
       <input type="hidden" id="eu-userid"/>
       <div class="field" style="margin-bottom:12px">
@@ -3271,7 +3274,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
       </div>
       <div class="field" style="margin-bottom:12px">
         <label>Password Reset</label>
-        <button class="btn btn-outline btn-sm" id="eu-pw-btn" type="button" onclick="adminSendPasswordReset()" style="width:100%">Send Password Reset Email →</button>
+        <button class="btn btn-outline btn-sm" id="eu-pw-btn" type="button" data-action="adminSendPasswordReset" style="width:100%">Send Password Reset Email →</button>
         <div id="eu-pw-status" style="font-size:var(--fs-sm);color:var(--muted);margin-top:4px">Sends a reset link to the user's email address.</div>
         <input type="hidden" id="eu-pw" value=""/>
       </div>
@@ -3279,8 +3282,8 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
       <div id="eu-ok" style="color:var(--green);font-size:var(--fs-base);min-height:18px"></div>
     </div>
     <div class="modal-ft">
-      <button class="btn btn-ghost btn-sm" onclick="closeModal('edit-user-modal')">Cancel</button>
-      <button class="btn btn-primary btn-sm" id="eu-btn" onclick="adminSaveEdit()">Save Changes →</button>
+      <button class="btn btn-ghost btn-sm" data-action="closeModal" data-arg="edit-user-modal">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="eu-btn" data-action="adminSaveEdit">Save Changes →</button>
     </div>
   </div>
 </div>
@@ -3294,14 +3297,14 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
     </div>
   </div>
 
-  <input type="text" id="help-search" placeholder="Search help topics…" oninput="helpSearch()" autocomplete="off" style="margin-bottom:14px;width:100%;max-width:440px">
+  <input type="text" id="help-search" placeholder="Search help topics…" data-input="helpSearch" autocomplete="off" style="margin-bottom:14px;width:100%;max-width:440px">
 
   <div class="dtab-row" id="help-tab-row" style="margin-bottom:18px">
-    <button class="dtab active" data-htab="overview" onclick="helpTab('overview')">Getting Started</button>
-    <button class="dtab" data-htab="pages" onclick="helpTab('pages')">Pages</button>
-    <button class="dtab" data-htab="scoring" onclick="helpTab('scoring')">Scoring</button>
-    <button class="dtab" data-htab="data" onclick="helpTab('data')">Data & Reports</button>
-    <button class="dtab" data-htab="automation" onclick="helpTab('automation')">Automation</button>
+    <button class="dtab active" data-htab="overview" data-action="helpTab" data-arg="overview">Getting Started</button>
+    <button class="dtab" data-htab="pages" data-action="helpTab" data-arg="pages">Pages</button>
+    <button class="dtab" data-htab="scoring" data-action="helpTab" data-arg="scoring">Scoring</button>
+    <button class="dtab" data-htab="data" data-action="helpTab" data-arg="data">Data & Reports</button>
+    <button class="dtab" data-htab="automation" data-action="helpTab" data-arg="automation">Automation</button>
   </div>
 
   <!-- ── GETTING STARTED TAB ── -->
@@ -3475,20 +3478,20 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
 
     <div style="display:flex;flex-wrap:wrap;gap:6px 8px;margin-bottom:16px;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px">
       <span style="font-size:var(--fs-sm);font-weight:700;color:var(--muted);margin-right:4px;line-height:26px">Jump to:</span>
-      <a href="#hp-homebase" onclick="document.getElementById('hp-homebase').scrollIntoView({behavior:'smooth',block:'start'});return false" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Home Base</a>
-      <a href="#hp-customers" onclick="document.getElementById('hp-customers').scrollIntoView({behavior:'smooth',block:'start'});return false" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Customers</a>
-      <a href="#hp-alerts" onclick="document.getElementById('hp-alerts').scrollIntoView({behavior:'smooth',block:'start'});return false" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Alerts</a>
-      <a href="#hp-segments" onclick="document.getElementById('hp-segments').scrollIntoView({behavior:'smooth',block:'start'});return false" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Segments</a>
-      <a href="#hp-trends" onclick="document.getElementById('hp-trends').scrollIntoView({behavior:'smooth',block:'start'});return false" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Trends</a>
-      <a href="#hp-csm" onclick="document.getElementById('hp-csm').scrollIntoView({behavior:'smooth',block:'start'});return false" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">CSM Performance</a>
-      <a href="#hp-reports" onclick="document.getElementById('hp-reports').scrollIntoView({behavior:'smooth',block:'start'});return false" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Reports</a>
-      <a href="#hp-calendar" onclick="document.getElementById('hp-calendar').scrollIntoView({behavior:'smooth',block:'start'});return false" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Calendar</a>
-      <a href="#hp-score" onclick="document.getElementById('hp-score').scrollIntoView({behavior:'smooth',block:'start'});return false" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Score a Customer</a>
-      <a href="#hp-csv" onclick="document.getElementById('hp-csv').scrollIntoView({behavior:'smooth',block:'start'});return false" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">CSV Import</a>
-      <a href="#hp-automations" onclick="document.getElementById('hp-automations').scrollIntoView({behavior:'smooth',block:'start'});return false" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Automations</a>
-      <a href="#hp-settings" onclick="document.getElementById('hp-settings').scrollIntoView({behavior:'smooth',block:'start'});return false" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Settings</a>
-      <a href="#hp-audit" onclick="document.getElementById('hp-audit').scrollIntoView({behavior:'smooth',block:'start'});return false" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Audit Log</a>
-      <a href="#hp-help" onclick="document.getElementById('hp-help').scrollIntoView({behavior:'smooth',block:'start'});return false" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Help &amp; Guide</a>
+      <a href="#hp-homebase" data-action="helpScrollTo" data-arg="hp-homebase" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Home Base</a>
+      <a href="#hp-customers" data-action="helpScrollTo" data-arg="hp-customers" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Customers</a>
+      <a href="#hp-alerts" data-action="helpScrollTo" data-arg="hp-alerts" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Alerts</a>
+      <a href="#hp-segments" data-action="helpScrollTo" data-arg="hp-segments" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Segments</a>
+      <a href="#hp-trends" data-action="helpScrollTo" data-arg="hp-trends" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Trends</a>
+      <a href="#hp-csm" data-action="helpScrollTo" data-arg="hp-csm" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">CSM Performance</a>
+      <a href="#hp-reports" data-action="helpScrollTo" data-arg="hp-reports" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Reports</a>
+      <a href="#hp-calendar" data-action="helpScrollTo" data-arg="hp-calendar" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Calendar</a>
+      <a href="#hp-score" data-action="helpScrollTo" data-arg="hp-score" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Score a Customer</a>
+      <a href="#hp-csv" data-action="helpScrollTo" data-arg="hp-csv" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">CSV Import</a>
+      <a href="#hp-automations" data-action="helpScrollTo" data-arg="hp-automations" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Automations</a>
+      <a href="#hp-settings" data-action="helpScrollTo" data-arg="hp-settings" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Settings</a>
+      <a href="#hp-audit" data-action="helpScrollTo" data-arg="hp-audit" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Audit Log</a>
+      <a href="#hp-help" data-action="helpScrollTo" data-arg="hp-help" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Help &amp; Guide</a>
     </div>
 
     <!-- 1. HOME BASE -->
@@ -4257,7 +4260,7 @@ Header: Content-Type: application/json
 </div><!-- /shell -->
 
 <!-- WELCOME MODAL (first-time users) -->
-<div id="welcome-modal" style="display:none" onclick="if(event.target===this)closeWelcome()">
+<div id="welcome-modal" style="display:none">
   <div class="modal" style="max-width:540px;text-align:center;padding:32px 28px 24px;border-radius:16px;opacity:1;transform:none">
     <div style="margin-bottom:14px">
       <img src="Logo/iQc-logo.png" alt="iQcadence" style="width:56px;height:56px;margin-bottom:8px;border-radius:14px">
@@ -4309,13 +4312,13 @@ Header: Content-Type: application/json
       <label style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:10px;font-size:var(--fs-sm);color:var(--muted);cursor:pointer;user-select:none">
         <input type="checkbox" id="welcome-dsa" style="accent-color:var(--blue)"> Don't show this again
       </label>
-      <button class="btn btn-primary" onclick="closeWelcome()" style="width:100%;padding:10px 0;font-size:var(--fs-base);border-radius:8px;display:flex;align-items:center;justify-content:center">Get Started →</button>
+      <button class="btn btn-primary" data-action="closeWelcome" style="width:100%;padding:10px 0;font-size:var(--fs-base);border-radius:8px;display:flex;align-items:center;justify-content:center">Get Started →</button>
     </div>
   </div>
 </div>
 
 <!-- WHAT'S NEW MODAL -->
-<div id="whatsnew-modal" class="modal-bg" role="dialog" aria-modal="true" aria-label="What's New" style="display:none" onclick="if(event.target===this)closeWhatsNew()">
+<div id="whatsnew-modal" class="modal-bg" role="dialog" aria-modal="true" aria-label="What's New" style="display:none">
   <div class="modal" style="max-width:500px;padding:28px 24px 20px;border-radius:14px">
     <div class="modal-hd" style="margin-bottom:14px">
       <h2 style="display:flex;align-items:center;gap:8px;font-size:1.1rem">
@@ -4324,11 +4327,11 @@ Header: Content-Type: application/json
         </span>
         What's New
       </h2>
-      <button class="modal-close" onclick="closeWhatsNew()"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <button class="modal-close" data-action="closeWhatsNew"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div id="whatsnew-body" style="max-height:400px;overflow-y:auto;padding-right:4px"></div>
     <div style="text-align:center;margin-top:14px">
-      <button class="btn btn-primary btn-sm" onclick="closeWhatsNew()" style="padding:8px 28px;border-radius:8px">Got it</button>
+      <button class="btn btn-primary btn-sm" data-action="closeWhatsNew" style="padding:8px 28px;border-radius:8px">Got it</button>
     </div>
   </div>
 </div>
@@ -4342,29 +4345,29 @@ Header: Content-Type: application/json
   <div class="modal" style="max-width:620px">
     <div class="modal-hd">
       <div><h2 id="dm-name">-</h2><p id="dm-sub" style="font-size:var(--fs-base);margin-top:1px"></p></div>
-      <button class="modal-close" onclick="closeModal('detail-modal')"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <button class="modal-close" data-action="closeModal" data-arg="detail-modal"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="dm-action-bar">
-      <button class="btn btn-outline btn-sm" onclick="editCustomer()">
+      <button class="btn btn-outline btn-sm" data-action="editCustomer">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         Edit &amp; Re-score
       </button>
-      <button class="btn btn-outline btn-sm" id="dm-qbr-btn" onclick="openQBR()">QBR Prep</button>
-      <button class="btn btn-outline btn-sm" id="dm-ai-meeting-btn" onclick="openAIMeetingPrep()" style="display:none">✦ AI Meeting Prep</button>
-      <button class="btn btn-ghost btn-sm" onclick="printCustomerReport()">
+      <button class="btn btn-outline btn-sm" id="dm-qbr-btn" data-action="openQBR">QBR Prep</button>
+      <button class="btn btn-outline btn-sm" id="dm-ai-meeting-btn" data-action="openAIMeetingPrep" style="display:none">✦ AI Meeting Prep</button>
+      <button class="btn btn-ghost btn-sm" data-action="printCustomerReport">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
         Print
       </button>
-      <button class="btn btn-danger btn-sm" style="margin-left:auto" onclick="deleteFromModal()">Delete</button>
+      <button class="btn btn-danger btn-sm" style="margin-left:auto" data-action="deleteFromModal">Delete</button>
     </div>
     <div class="dm-scroll">
     <div class="dtab-row">
-      <button class="dtab active" id="dt-overview"  onclick="dtab('overview')">Overview</button>
-      <button class="dtab" id="dt-alerts"            onclick="dtab('alerts')">Alerts</button>
-      <button class="dtab" id="dt-playbook"          onclick="dtab('playbook')">Playbook</button>
-      <button class="dtab" id="dt-notes"             onclick="dtab('notes')">Notes</button>
-      <button class="dtab" id="dt-sentiment"         onclick="dtab('sentiment')">Sentiment</button>
-      <button class="dtab" id="dt-history"           onclick="dtab('history')">History</button>
+      <button class="dtab active" id="dt-overview"  data-action="dtab" data-arg="overview">Overview</button>
+      <button class="dtab" id="dt-alerts"            data-action="dtab" data-arg="alerts">Alerts</button>
+      <button class="dtab" id="dt-playbook"          data-action="dtab" data-arg="playbook">Playbook</button>
+      <button class="dtab" id="dt-notes"             data-action="dtab" data-arg="notes">Notes</button>
+      <button class="dtab" id="dt-sentiment"         data-action="dtab" data-arg="sentiment">Sentiment</button>
+      <button class="dtab" id="dt-history"           data-action="dtab" data-arg="history">History</button>
     </div>
     <div class="dtab-pane active" id="dp-overview"><div id="dm-overview"></div></div>
     <div class="dtab-pane" id="dp-alerts"><div id="dm-alerts"></div></div>
@@ -4373,19 +4376,19 @@ Header: Content-Type: application/json
       <div id="dm-notes-list"></div>
       <div style="display:flex;gap:7px;margin-top:10px">
         <textarea id="note-input" style="flex:1;padding:8px 11px;border:1.5px solid var(--border);border-radius:var(--r);font-size:var(--fs-md);font-family:var(--font);resize:vertical;min-height:64px;outline:none" placeholder="Add a note…"></textarea>
-        <button class="btn btn-primary btn-sm" style="align-self:flex-end" onclick="addNote()">Add</button>
+        <button class="btn btn-primary btn-sm" style="align-self:flex-end" data-action="addNote">Add</button>
       </div>
     </div>
     <div class="dtab-pane" id="dp-sentiment">
       <p style="font-size:var(--fs-base);color:var(--muted);margin-bottom:10px">Log a quick vibe check after each call. Builds a sentiment trend over time.</p>
       <div class="sentiment-btns">
-        <button class="sent-btn pos" id="sent-pos" onclick="setSentiment('positive')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><circle cx="9" cy="9" r=".5" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r=".5" fill="currentColor" stroke="none"/></svg><span>Positive</span></button>
-        <button class="sent-btn neu" id="sent-neu" onclick="setSentiment('neutral')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="15" x2="16" y2="15"/><circle cx="9" cy="9" r=".5" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r=".5" fill="currentColor" stroke="none"/></svg><span>Neutral</span></button>
-        <button class="sent-btn neg" id="sent-neg" onclick="setSentiment('negative')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><circle cx="9" cy="9" r=".5" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r=".5" fill="currentColor" stroke="none"/></svg><span>Negative</span></button>
+        <button class="sent-btn pos" id="sent-pos" data-action="setSentiment" data-arg="positive"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><circle cx="9" cy="9" r=".5" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r=".5" fill="currentColor" stroke="none"/></svg><span>Positive</span></button>
+        <button class="sent-btn neu" id="sent-neu" data-action="setSentiment" data-arg="neutral"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="15" x2="16" y2="15"/><circle cx="9" cy="9" r=".5" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r=".5" fill="currentColor" stroke="none"/></svg><span>Neutral</span></button>
+        <button class="sent-btn neg" id="sent-neg" data-action="setSentiment" data-arg="negative"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><circle cx="9" cy="9" r=".5" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r=".5" fill="currentColor" stroke="none"/></svg><span>Negative</span></button>
       </div>
       <div style="display:flex;gap:7px;margin-bottom:12px">
         <input type="text" id="sent-note" placeholder="Optional context (e.g. 'Champion mentioned budget cuts')" style="flex:1;padding:8px 11px;border:1.5px solid var(--border);border-radius:var(--r);font-size:var(--fs-base);font-family:var(--font);outline:none"/>
-        <button class="btn btn-primary btn-sm" onclick="logSentiment()">Log</button>
+        <button class="btn btn-primary btn-sm" data-action="logSentiment">Log</button>
       </div>
       <div id="dm-sentiment-list"></div>
     </div>
@@ -4402,15 +4405,15 @@ Header: Content-Type: application/json
   <div class="modal" style="max-width:720px">
     <div class="modal-hd">
       <div><h2 style="display:flex;align-items:center;gap:8px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>QBR Prep</h2><p style="font-size:var(--fs-base);color:var(--muted);margin-top:2px">Review, copy, or print for your next quarterly business review</p></div>
-      <button class="modal-close" onclick="closeQBR()"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <button class="modal-close" data-action="closeQBR"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div style="display:flex;gap:7px;margin-bottom:14px;flex-wrap:wrap">
-      <button class="btn btn-primary btn-sm" onclick="copyQBR()" style="display:flex;align-items:center;gap:5px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy Plain Text</button>
-      <button class="btn btn-ghost btn-sm" onclick="printQBR()" style="display:flex;align-items:center;gap:5px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Print</button>
+      <button class="btn btn-primary btn-sm" data-action="copyQBR" style="display:flex;align-items:center;gap:5px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy Plain Text</button>
+      <button class="btn btn-ghost btn-sm" data-action="printQBR" style="display:flex;align-items:center;gap:5px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Print</button>
     </div>
     <div id="qbr-content" style="max-height:62vh;overflow-y:auto;padding:2px"></div>
     <div class="modal-ft">
-      <button class="btn btn-ghost btn-sm" onclick="closeQBR()">Close</button>
+      <button class="btn btn-ghost btn-sm" data-action="closeQBR">Close</button>
     </div>
   </div>
 </div>
@@ -4418,10 +4421,10 @@ Header: Content-Type: application/json
 <!-- CONFIRM MODAL -->
 <div class="modal-bg" id="confirm-modal" role="dialog" aria-modal="true" aria-label="Confirm action">
   <div class="modal" style="max-width:340px">
-    <div class="modal-hd"><h2>Are you sure?</h2><button class="modal-close" onclick="closeModal('confirm-modal')"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-hd"><h2>Are you sure?</h2><button class="modal-close" data-action="closeModal" data-arg="confirm-modal"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <p id="confirm-msg"></p>
     <div class="modal-ft">
-      <button class="btn btn-ghost btn-sm" onclick="closeModal('confirm-modal')">Cancel</button>
+      <button class="btn btn-ghost btn-sm" data-action="closeModal" data-arg="confirm-modal">Cancel</button>
       <button class="btn btn-danger btn-sm" id="confirm-ok">Confirm</button>
     </div>
   </div>
@@ -4430,11 +4433,11 @@ Header: Content-Type: application/json
 <!-- BULK TAG MODAL -->
 <div class="modal-bg" id="bulk-tag-modal">
   <div class="modal" style="max-width:360px">
-    <div class="modal-hd"><h2>Bulk Tag</h2><button class="modal-close" onclick="closeModal('bulk-tag-modal')"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-hd"><h2>Bulk Tag</h2><button class="modal-close" data-action="closeModal" data-arg="bulk-tag-modal"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <div class="field"><label>Add tag to all selected customers</label><input type="text" id="bulk-tag-input" placeholder="e.g. renewal-q4"/></div>
     <div class="modal-ft">
-      <button class="btn btn-ghost btn-sm" onclick="closeModal('bulk-tag-modal')">Cancel</button>
-      <button class="btn btn-primary btn-sm" onclick="applyBulkTag()">Apply Tag</button>
+      <button class="btn btn-ghost btn-sm" data-action="closeModal" data-arg="bulk-tag-modal">Cancel</button>
+      <button class="btn btn-primary btn-sm" data-action="applyBulkTag">Apply Tag</button>
     </div>
   </div>
 </div>
@@ -4442,13 +4445,13 @@ Header: Content-Type: application/json
 <!-- BULK LIFECYCLE MODAL -->
 <div class="modal-bg" id="bulk-lifecycle-modal">
   <div class="modal" style="max-width:360px">
-    <div class="modal-hd"><h2>Set Stage</h2><button class="modal-close" onclick="closeModal('bulk-lifecycle-modal')"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-hd"><h2>Set Stage</h2><button class="modal-close" data-action="closeModal" data-arg="bulk-lifecycle-modal"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <div class="field"><label>Set lifecycle stage for all selected</label>
       <select id="bulk-lc-input"><option value="onboarding">Onboarding</option><option value="active">Active</option><option value="atrisk">At Risk</option><option value="won">Won / Upsold</option><option value="churned">Churned</option></select>
     </div>
     <div class="modal-ft">
-      <button class="btn btn-ghost btn-sm" onclick="closeModal('bulk-lifecycle-modal')">Cancel</button>
-      <button class="btn btn-primary btn-sm" onclick="applyBulkLifecycle()">Apply Stage</button>
+      <button class="btn btn-ghost btn-sm" data-action="closeModal" data-arg="bulk-lifecycle-modal">Cancel</button>
+      <button class="btn btn-primary btn-sm" data-action="applyBulkLifecycle">Apply Stage</button>
     </div>
   </div>
 </div>
@@ -4457,40 +4460,40 @@ Header: Content-Type: application/json
 <!-- DATA HEALTH DETAIL MODAL -->
 <div class="modal-bg" id="dh-detail-modal">
   <div class="modal" style="max-width:720px">
-    <div class="modal-hd"><h3 id="dh-detail-title">Stale Accounts</h3><button class="modal-close" onclick="closeModal('dh-detail-modal')"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-hd"><h3 id="dh-detail-title">Stale Accounts</h3><button class="modal-close" data-action="closeModal" data-arg="dh-detail-modal"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <div id="dh-detail-body"></div>
-    <div class="modal-ft"><button class="btn btn-ghost btn-sm" onclick="closeModal('dh-detail-modal')">Close</button></div>
+    <div class="modal-ft"><button class="btn btn-ghost btn-sm" data-action="closeModal" data-arg="dh-detail-modal">Close</button></div>
   </div>
 </div>
 
 <div class="modal-bg" id="backup-modal">
   <div class="modal" style="max-width:400px">
-    <div class="modal-hd"><h2>Backup &amp; Restore</h2><button class="modal-close" onclick="closeModal('backup-modal')"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-hd"><h2>Backup &amp; Restore</h2><button class="modal-close" data-action="closeModal" data-arg="backup-modal"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <div style="display:flex;flex-direction:column;gap:10px">
-      <button class="btn btn-outline" onclick="backupExport()">Export JSON Backup</button>
-      <div style="border:1.5px dashed var(--border);border-radius:var(--r);padding:16px;text-align:center;cursor:pointer" onclick="document.getElementById('restore-input').click()">
+      <button class="btn btn-outline" data-action="backupExport">Export JSON Backup</button>
+      <div style="border:1.5px dashed var(--border);border-radius:var(--r);padding:16px;text-align:center;cursor:pointer" data-action="clickRestoreInput">
         <div style="margin-bottom:6px"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--subtle)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
         <strong style="font-size:.84rem">Restore from JSON Backup</strong>
         <p style="font-size:var(--fs-sm);margin-top:3px">Click to select a .json backup file</p>
-        <input type="file" id="restore-input" accept=".json" style="display:none" onchange="restoreBackup(event)"/>
+        <input type="file" id="restore-input" accept=".json" style="display:none" data-change="restoreBackup"/>
       </div>
     </div>
-    <div class="modal-ft"><button class="btn btn-ghost btn-sm" onclick="closeModal('backup-modal')">Close</button></div>
+    <div class="modal-ft"><button class="btn btn-ghost btn-sm" data-action="closeModal" data-arg="backup-modal">Close</button></div>
   </div>
 </div>
 
 <!-- SAVE / EDIT PROFILE MODAL -->
 <div class="modal-bg" id="profile-modal">
   <div class="modal" style="max-width:460px">
-    <div class="modal-hd"><h2 id="profile-modal-title">Save Scoring Profile</h2><button class="modal-close" onclick="closeModal('profile-modal')"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="modal-hd"><h2 id="profile-modal-title">Save Scoring Profile</h2><button class="modal-close" data-action="closeModal" data-arg="profile-modal"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
     <div class="field" style="margin-bottom:16px"><label>Profile Name</label><input type="text" id="profile-name-input" placeholder="e.g. SMB Weights, Enterprise Focus"/></div>
     <p style="font-size:var(--fs-base);font-weight:600;margin-bottom:10px;color:var(--text)">Signal Weights <span style="font-weight:400;font-size:var(--fs-sm);color:var(--muted)">(must total 100%)</span></p>
     <div id="pm-weight-rows"></div>
     <div class="total-bar" style="margin:8px 0 2px"><div class="total-fill" id="pm-total-fill" style="width:100%"></div></div>
     <div style="margin-bottom:14px"><span id="pm-total-label" style="font-size:var(--fs-sm);font-weight:700">Total: 100% (good)</span></div>
     <div class="modal-ft">
-      <button class="btn btn-ghost btn-sm" onclick="closeModal('profile-modal')">Cancel</button>
-      <button class="btn btn-primary btn-sm" id="profile-confirm-btn" onclick="confirmSaveProfile()">Save Profile</button>
+      <button class="btn btn-ghost btn-sm" data-action="closeModal" data-arg="profile-modal">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="profile-confirm-btn" data-action="confirmSaveProfile">Save Profile</button>
     </div>
   </div>
 </div>
@@ -4506,11 +4509,11 @@ Header: Content-Type: application/json
 <div id="tr-filter-portal" class="col-filter-menu"></div>
 
 <!-- REPORT EMAIL MODAL -->
-<div class="modal-bg" id="report-email-modal" onclick="if(event.target===this)closeModal('report-email-modal')">
+<div class="modal-bg" id="report-email-modal">
   <div class="modal" style="max-width:560px">
     <div class="modal-hd">
       <h2 id="rem-title">Email Report</h2>
-      <button class="modal-close" onclick="closeModal('report-email-modal')"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <button class="modal-close" data-action="closeModal" data-arg="report-email-modal"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-bd" id="rem-body"></div>
   </div>
@@ -4524,44 +4527,44 @@ Header: Content-Type: application/json
         <div id="ram-icon"></div>
         <h2 id="ram-title">Report</h2>
       </div>
-      <button class="modal-close" onclick="closeModal('report-actions-modal')"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <button class="modal-close" data-action="closeModal" data-arg="report-actions-modal"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-bd" id="ram-body"></div>
   </div>
 </div>
 
 <!-- DIGEST MODAL (v86) -->
-<div class="modal-bg" id="digest-modal" onclick="if(event.target===this)closeModal('digest-modal')">
+<div class="modal-bg" id="digest-modal">
   <div class="modal" style="max-width:660px">
     <div class="modal-hd">
       <h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/></svg> Weekly Digest Preview</h2>
-      <button class="modal-close" onclick="closeModal('digest-modal')"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <button class="modal-close" data-action="closeModal" data-arg="digest-modal"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-bd">
       <p style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:12px">This is how your digest email will look. Use "Copy HTML" to paste into your email client, or download as a .html file.</p>
       <div id="digest-preview" style="border:1px solid var(--border);border-radius:8px;padding:20px;background:#fff;font-family:Arial,sans-serif;font-size:13px;line-height:1.5;color:#1e293b;max-height:440px;overflow-y:auto"></div>
     </div>
     <div class="modal-ft">
-      <button class="btn btn-ghost btn-sm" onclick="closeModal('digest-modal')">Close</button>
-      <button class="btn btn-outline btn-sm" onclick="copyDigestHTML()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Copy HTML</button>
-      <button class="btn btn-primary btn-sm" onclick="downloadDigestHTML()">⬇ Download .html</button>
+      <button class="btn btn-ghost btn-sm" data-action="closeModal" data-arg="digest-modal">Close</button>
+      <button class="btn btn-outline btn-sm" data-action="copyDigestHTML"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> Copy HTML</button>
+      <button class="btn btn-primary btn-sm" data-action="downloadDigestHTML">⬇ Download .html</button>
     </div>
   </div>
 </div>
 
 <!-- FOCUS AREA DETAIL MODAL -->
-<div class="modal-bg" id="focus-detail-modal" onclick="if(event.target===this)closeModal('focus-detail-modal')">
+<div class="modal-bg" id="focus-detail-modal">
   <div class="modal fd-modal">
     <div class="fd-banner" id="fd-banner">
       <div class="fd-banner-content">
         <span id="fd-banner-icon"></span>
         <h2 id="fd-title">Focus Area</h2>
       </div>
-      <button class="modal-close" onclick="closeModal('focus-detail-modal')" style="color:inherit;opacity:.6"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <button class="modal-close" data-action="closeModal" data-arg="focus-detail-modal" style="color:inherit;opacity:.6"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-bd" id="fd-body"></div>
     <div class="modal-ft">
-      <button class="btn btn-ghost btn-sm" onclick="closeModal('focus-detail-modal')">Close</button>
+      <button class="btn btn-ghost btn-sm" data-action="closeModal" data-arg="focus-detail-modal">Close</button>
     </div>
   </div>
 </div>
@@ -4569,8 +4572,8 @@ Header: Content-Type: application/json
 <!-- Cookie Consent Banner -->
 <div class="cookie-banner" id="cookie-banner" style="display:none">
   <span>We use cookies to improve your experience. See our <a href="https://iqcadence.com/privacy" target="_blank" rel="noopener">Privacy Policy</a> for details.</span>
-  <button class="cookie-btn-accept" onclick="acceptCookies()">Accept</button>
-  <button class="cookie-btn-decline" onclick="declineCookies()">Decline</button>
+  <button class="cookie-btn-accept" data-action="acceptCookies">Accept</button>
+  <button class="cookie-btn-decline" data-action="declineCookies">Decline</button>
 </div>
 <script>
 (function(){
@@ -4584,6 +4587,6 @@ function declineCookies(){localStorage.setItem('iqc_cookie_consent','declined');
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script defer src="js/config.js"></script>
-<script defer src="js/app.js?v=688"></script>
+<script defer src="js/app.js?v=689"></script>
 </body>
 </html>

@@ -3,6 +3,13 @@ let _custPage = 0;
 let _custPageSize = parseInt(localStorage.getItem('iqc_page_size') || '50', 10);
 let _custTotalFiltered = 0;
 
+// ─── VIRTUAL SCROLL STATE ───────────────────────────────────
+var VS_ROW_HEIGHT = 38;   // pixels per row
+var VS_BUFFER     = 10;   // extra rows above/below viewport
+var _vsPageRows   = [];   // current page's row data (set in _renderCustomers)
+var _vsScrollBound = false;
+var _vsRafId      = null;
+
 function custPageNav(action) {
   const totalPages = _custPageSize > 0 ? Math.ceil(_custTotalFiltered / _custPageSize) : 1;
   if (action === 'first') _custPage = 0;
@@ -799,12 +806,39 @@ function _renderCustomers() {
   empty.style.display = 'none';
   table.style.display = '';
 
-  tbody.innerHTML = pagedList.map(c => {
-    const delta = scoreDelta(c);
-    const isSel = selectedIds.has(c.id);
-    const cad   = getCadenceStatus(c);
-    return `
-      <tr class="${isSel?'selected':''}" data-id="${c.id}">
+  // Store page rows for virtual scroll re-renders
+  _vsPageRows = pagedList;
+
+  // Virtual scroll: set tbody height and render only visible rows
+  var totalHeight = pagedList.length * VS_ROW_HEIGHT;
+  tbody.style.height = totalHeight + 'px';
+  tbody.style.position = 'relative';
+  tbody.style.display = 'block';
+  tbody.style.overflow = 'hidden';
+
+  _vsRenderVisible();
+
+  // Bind scroll listener once
+  if (!_vsScrollBound) {
+    var scrollWrap = el('cust-scroll-wrap');
+    if (scrollWrap) {
+      scrollWrap.addEventListener('scroll', _vsOnScroll, { passive: true });
+      _vsScrollBound = true;
+    }
+  }
+
+  // Sync top scrollbar width and visibility
+  _syncTopScrollbar();
+
+  // Render pagination controls
+  _renderPagination(list.length);
+}
+
+// ─── VIRTUAL SCROLL: row builder ─────────────────────────────
+function _vsBuildRow(c, topPx) {
+  const isSel = selectedIds.has(c.id);
+  const cad   = getCadenceStatus(c);
+  return `<tr class="${isSel?'selected':''}" data-id="${c.id}" style="position:absolute;top:${topPx}px;width:100%;display:flex;align-items:center">
         <td class="cb-col"><input type="checkbox" ${isSel?'checked':''} onclick="event.stopPropagation();toggleSelect('${escHtml(c.id)}',this.checked,event)"/></td>
         <td class="col-frozen" style="cursor:pointer" onclick="openDetail('${escHtml(c.id)}')"><strong>${escHtml(c.name)}</strong>${(()=>{ if (!c.next_touch) return ''; const ntd = Math.round((new Date(c.next_touch)-new Date())/86400000); return ntd < 0 ? ' <span class="nt-badge nt-overdue" style="font-size:var(--fs-xs);padding:1px 5px">Touch overdue</span>' : ''; })()}</td>
         <td>${c.manager ? escHtml(c.manager) : '<span style="color:var(--muted);font-style:italic"> -</span>'}</td>
@@ -874,13 +908,31 @@ function _renderCustomers() {
           return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
         })()}</td>
       </tr>`;
-  }).join('');
+}
 
-  // Sync top scrollbar width and visibility
-  _syncTopScrollbar();
+// ─── VIRTUAL SCROLL: render only visible rows ────────────────
+function _vsRenderVisible() {
+  var tbody = el('cust-tbody');
+  if (!tbody || !_vsPageRows.length) return;
+  var scrollContainer = el('cust-scroll-wrap');
+  var scrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
+  var viewportHeight = scrollContainer ? scrollContainer.clientHeight : 600;
+  var startIdx = Math.max(0, Math.floor(scrollTop / VS_ROW_HEIGHT) - VS_BUFFER);
+  var endIdx = Math.min(_vsPageRows.length, Math.ceil((scrollTop + viewportHeight) / VS_ROW_HEIGHT) + VS_BUFFER);
+  var html = '';
+  for (var i = startIdx; i < endIdx; i++) {
+    html += _vsBuildRow(_vsPageRows[i], i * VS_ROW_HEIGHT);
+  }
+  tbody.innerHTML = html;
+}
 
-  // Render pagination controls
-  _renderPagination(list.length);
+// ─── VIRTUAL SCROLL: throttled scroll handler ────────────────
+function _vsOnScroll() {
+  if (_vsRafId) return;
+  _vsRafId = requestAnimationFrame(function() {
+    _vsRafId = null;
+    _vsRenderVisible();
+  });
 }
 
 // ─── TOP SCROLLBAR SYNC ─────────────────────────────────────

@@ -71,6 +71,149 @@ function debounce(fn, ms) {
     timer = setTimeout(function() { fn.apply(ctx, args); }, ms);
   };
 }
+// ─── EVENT DELEGATION ────────────────────────────────────────
+// Replaces inline handlers (onclick, onchange, etc.) with data-* attributes
+// Enables Content Security Policy without 'unsafe-inline'
+
+// Click delegation: data-action="fnName" data-arg="value" [data-stop]
+document.addEventListener('click', function(e) {
+  var t = e.target.closest('[data-action]');
+  if (!t) return;
+  if (t.dataset.stop !== undefined) e.stopPropagation();
+  var fn = window[t.dataset.action];
+  if (typeof fn !== 'function') return;
+  var arg = t.dataset.arg;
+  var arg2 = t.dataset.arg2;
+  if (arg !== undefined && arg2 !== undefined) fn(arg, arg2);
+  else if (arg !== undefined) fn(arg);
+  else fn(e);
+});
+
+// Change delegation: data-change="fnName" [data-arg="value"]
+document.addEventListener('change', function(e) {
+  var t = e.target.closest('[data-change]');
+  if (!t) return;
+  var fn = window[t.dataset.change];
+  if (typeof fn !== 'function') return;
+  var arg = t.dataset.arg;
+  if (arg !== undefined) fn(arg);
+  else fn.call(t, e);
+});
+
+// Input delegation: data-input="fnName" [data-arg="value"]
+document.addEventListener('input', function(e) {
+  var t = e.target.closest('[data-input]');
+  if (!t) return;
+  var fn = window[t.dataset.input];
+  if (typeof fn !== 'function') return;
+  var arg = t.dataset.arg;
+  if (arg !== undefined) fn.call(t, arg);
+  else fn.call(t, e);
+});
+
+// Submit delegation: data-submit="fnName"
+document.addEventListener('submit', function(e) {
+  var form = e.target.closest('[data-submit]');
+  if (!form) return;
+  e.preventDefault();
+  var fn = window[form.dataset.submit];
+  if (typeof fn === 'function') fn(e);
+});
+
+// Focus/blur delegation
+document.addEventListener('focus', function(e) {
+  var t = e.target.closest('[data-focus]');
+  if (!t) return;
+  var fn = window[t.dataset.focus];
+  if (typeof fn !== 'function') return;
+  var arg = t.dataset.arg;
+  if (arg !== undefined) fn(arg);
+  else fn.call(t, e);
+}, true);
+document.addEventListener('keydown', function(e) {
+  var t = e.target.closest('[data-keydown]');
+  if (!t) return;
+  var fn = window[t.dataset.keydown];
+  if (typeof fn === 'function') fn(e);
+});
+document.addEventListener('blur', function(e) {
+  var t = e.target.closest('[data-blur]');
+  if (!t) return;
+  var fn = window[t.dataset.blur];
+  if (typeof fn === 'function') fn.call(t, e);
+}, true);
+
+// Drag delegation
+document.addEventListener('drop', function(e) {
+  var t = e.target.closest('[data-drop]');
+  if (!t) return;
+  var fn = window[t.dataset.drop];
+  if (typeof fn === 'function') fn(e);
+});
+document.addEventListener('dragover', function(e) {
+  var t = e.target.closest('[data-dragover]');
+  if (!t) return;
+  var fn = window[t.dataset.dragover];
+  if (typeof fn === 'function') fn(e);
+});
+document.addEventListener('dragleave', function(e) {
+  var t = e.target.closest('[data-dragleave]');
+  if (!t) return;
+  var fn = window[t.dataset.dragleave];
+  if (typeof fn === 'function') fn(e);
+});
+
+// ── Named helpers for complex inline handlers ──
+function toggleTbMenu() { var m = el('tb-user-menu'); if (m) { m.classList.toggle('open'); var a = el('tb-avatar'); if (a) a.setAttribute('aria-expanded', m.classList.contains('open')); } }
+function toggleSbMenu() { var m = el('sb-menu'); if (m) { m.classList.toggle('open'); var a = el('sb-avatar'); if (a) a.setAttribute('aria-expanded', m.classList.contains('open')); } }
+function handleCustSearch() { _custPage = 0; renderCustomers(); }
+function handleManagerChange(e) {
+  var sel = e && e.target ? e.target : this;
+  if (sel.value === '__add_new__') { sel.style.display = 'none'; var inp = el('f-manager-new'); if (inp) { inp.style.display = ''; inp.focus(); } }
+}
+function handleManagerNewBlur() { if (!this.value) { this.style.display = 'none'; var sel = el('f-manager'); if (sel) { sel.style.display = ''; sel.value = ''; } } }
+function handleAlertCustSearch() { renderAlerts(); }
+function handleWebhookFilterChange() { _pagState.webhookLog = 0; renderWebhookLog(); }
+function handleAuditFilterChange() { _pagState.auditLog = 0; renderAuditLog(); }
+
+// Range input handlers (score form signals)
+function rvLogins() { rv('logins', this.value + ' days'); }
+function rvAdoption() { rv('adoption', this.value + '%'); }
+function rvNps() { rv('nps-label', npsDisplay(Number(this.value))); }
+function rvCsat() { rv('csat-label', csatDisplay(Number(this.value))); }
+function rvDays() { rv('days', this.value + 'd'); }
+function rvTickets() { rv('tickets', this.value); }
+function rvThresholds() { updateThresholdLabels(); }
+
+// Revenue sync handlers
+function syncMrr() { syncRevenue('mrr'); }
+function syncArr() { syncRevenue('arr'); }
+
+// Sidebar/topbar menu close-then-navigate helpers
+function tbMenuNav(page) { el('tb-user-menu')?.classList.remove('open'); nav(page); }
+function tbMenuSignOut() { el('tb-user-menu')?.classList.remove('open'); authSignOut(); }
+function sbMenuNav(page) { el('sb-menu')?.classList.remove('open'); nav(page); }
+function sbMenuWhatsNew() { el('sb-menu')?.classList.remove('open'); showWhatsNew(); }
+function sbMenuSignOut() { el('sb-menu')?.classList.remove('open'); authSignOut(); }
+
+// File input click triggers
+function clickCsvInput() { el('csv-input')?.click(); }
+function clickCfgImport() { el('cfg-import-file')?.click(); }
+function clickRestoreInput() { el('restore-input')?.click(); }
+
+// Webhook/audit log refresh with force flag
+function loadWebhookLogRefresh() { if (typeof renderWebhookLog === 'function') renderWebhookLog(true); }
+function loadAuditLogRefresh() { if (typeof loadAuditLog === 'function') loadAuditLog(true); }
+
+// Rule wizard step click
+function ruleWizardStep1() { if (typeof _ruleWizardGoTo === 'function') _ruleWizardGoTo(1); }
+
+// Help page smooth scroll
+function helpScrollTo(id) {
+  var target = el(id);
+  if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 function fmtNum(n) {
   if (n >= 1e6) return (n/1e6).toFixed(1).replace(/\.0$/,'') + 'M';
   if (n >= 1e3) return (n/1e3).toFixed(1).replace(/\.0$/,'') + 'K';
@@ -158,9 +301,17 @@ function openModal(id) {
 
 // Close modal on backdrop click
 document.addEventListener('click', e => {
-  if (e.target.classList.contains('modal-bg')) {
-    if (e.target.id === 'qbr-modal' && typeof closeQBR === 'function') { closeQBR(); return; }
-    e.target.classList.remove('open');
+  if (e.target.classList.contains('modal-bg') || (e.target.id === 'welcome-modal' && e.target === e.currentTarget)) {
+    var id = e.target.id;
+    // Custom close handlers for specific modals
+    if (id === 'qbr-modal' && typeof closeQBR === 'function') { closeQBR(); return; }
+    if (id === 'rule-builder-modal' && typeof closeRuleBuilder === 'function') { closeRuleBuilder(); return; }
+    if (id === 'create-alert-modal' && typeof closeCreateAlertModal === 'function') { closeCreateAlertModal(); return; }
+    if (id === 'welcome-modal' && typeof closeWelcome === 'function') { closeWelcome(); return; }
+    if (id === 'whatsnew-modal' && typeof closeWhatsNew === 'function') { closeWhatsNew(); return; }
+    // Default: close by ID
+    closeModal(id);
+    return;
   }
   // Close preset dropdown on outside click
   if (!e.target.closest('#preset-dd-wrap')) {

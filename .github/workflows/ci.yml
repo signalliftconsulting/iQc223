@@ -1,0 +1,55 @@
+name: CI Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint & Validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check JS syntax
+        run: node --check js/app.js
+
+      - name: Check for inline event handlers in index.html
+        run: |
+          HANDLERS=$(grep -c -i -E '\s(onclick|onchange|onsubmit|onload|onerror|onkeyup|onkeydown|onfocus|onblur|onmouseover|onmouseout|oninput)=' index.html || true)
+          if [ "$HANDLERS" -gt 0 ]; then
+            echo "::error::Found $HANDLERS inline event handler(s) in index.html"
+            grep -n -i -E '\s(onclick|onchange|onsubmit|onload|onerror|onkeyup|onkeydown|onfocus|onblur|onmouseover|onmouseout|oninput)=' index.html
+            exit 1
+          else
+            echo "No inline event handlers found — good."
+          fi
+
+      - name: Check for console.log in production code
+        run: |
+          LOGS=$(grep -r -n 'console\.log' js/app.js || true)
+          if [ -n "$LOGS" ]; then
+            echo "::warning::console.log statements found in js/app.js:"
+            echo "$LOGS"
+          else
+            echo "No console.log statements found."
+          fi
+
+      - name: Check app.js cache version note
+        run: |
+          VERSION=$(grep -o 'app\.js?v=[0-9]*' index.html | head -1 || true)
+          if [ -n "$VERSION" ]; then
+            echo "Current cache version: $VERSION"
+            echo "Remember to bump this version when deploying changes to app.js."
+          else
+            echo "::warning::No cache-busted app.js version string found in index.html."
+          fi

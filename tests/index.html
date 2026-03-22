@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SignalLift CS Health — Unit Tests</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 24px;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 16px;
+      color: #f1f5f9;
+    }
+    h1 small {
+      font-weight: 400;
+      color: #94a3b8;
+      font-size: 0.85rem;
+      margin-left: 8px;
+    }
+    #test-summary {
+      padding: 14px 20px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 1.05rem;
+      margin-bottom: 20px;
+    }
+    .summary-pass { background: #065f46; color: #6ee7b7; }
+    .summary-fail { background: #7f1d1d; color: #fca5a5; }
+
+    .suite { margin-bottom: 20px; }
+    .suite-header {
+      font-size: 1rem;
+      padding: 10px 14px;
+      border-radius: 6px 6px 0 0;
+      border-bottom: 1px solid #334155;
+    }
+    .suite-header.all-pass { background: #1e3a2f; color: #6ee7b7; }
+    .suite-header.has-failures { background: #3b1111; color: #fca5a5; }
+
+    .test-row {
+      padding: 6px 14px 6px 20px;
+      font-size: 0.875rem;
+      border-left: 3px solid transparent;
+      background: #1e293b;
+    }
+    .test-row:last-child { border-radius: 0 0 6px 6px; }
+    .test-row.pass { border-left-color: #10b981; }
+    .test-row.fail { border-left-color: #ef4444; background: #2d1b1b; }
+    .test-icon { font-weight: 700; margin-right: 6px; }
+    .test-row.pass .test-icon { color: #10b981; }
+    .test-row.fail .test-icon { color: #ef4444; }
+    .test-name { color: #cbd5e1; }
+    .test-error {
+      margin-top: 4px;
+      padding: 6px 10px;
+      background: #1a1a2e;
+      border-radius: 4px;
+      font-family: 'Fira Code', 'Consolas', monospace;
+      font-size: 0.8rem;
+      color: #fca5a5;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body>
+  <h1>SignalLift CS Health — Tests <small>browser-runnable, zero dependencies</small></h1>
+  <div id="test-summary"></div>
+  <div id="test-results"></div>
+
+  <!--
+    Stub globals that source modules expect but aren't needed for unit tests.
+    These prevent ReferenceErrors when loading the source files.
+  -->
+  <script>
+    // Stub Supabase client so state.js / scoring.js don't crash on load
+    var supabase = { createClient: function() { return { from: function() { return { select: function() { return { eq: function() { return { limit: function() { return Promise.resolve({ data: [] }); } }; } }; } }; } }; } };
+    window.__IQCADENCE_CONFIG__ = {};
+    // Stub globals that modules reference
+    var currentUser = null;
+    var sb = null;
+    var _currentPage = 'tests';
+    function isAdmin() { return false; }
+    function nav() {}
+    function closeColFilter() {}
+    function closeAlertFilter() {}
+    function renderCustomers() {}
+    function renderAlerts() {}
+    function renderWebhookLog() {}
+    function loadAuditLog() {}
+    function updateThresholdLabels() {}
+    function rv() {}
+    function syncRevenue() {}
+    function showWhatsNew() {}
+    function authSignOut() {}
+    function getMomentum() { return 'flat'; }
+    var _integrationCache = {};
+    // Stub toast for test environment
+    function toast() {}
+    // Expose thresholds globally so getStatus() tests work
+    // (state.js uses let which isn't global in script tags)
+    var DEFAULT_THRESHOLDS = { critical: 25, risk: 50, watch: 65, healthy: 90 };
+    var thresholds = { critical: 25, risk: 50, watch: 65, healthy: 90 };
+  </script>
+
+  <!-- Source modules under test -->
+  <script src="../js/src/state.js"></script>
+  <script src="../js/src/utils.js"></script>
+  <script src="../js/src/scoring.js"></script>
+  <script src="../js/src/csv.js"></script>
+  <!-- The settings.js file defines escHtml; load a minimal shim if it wasn't picked up -->
+  <script>
+    if (typeof escHtml === 'undefined') {
+      function escHtml(str) {
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+      }
+    }
+  </script>
+
+  <!-- Test framework -->
+  <script src="runner.js"></script>
+
+  <!-- Test suites -->
+  <script src="test-utils.js"></script>
+  <script src="test-scoring.js"></script>
+  <script src="test-csv.js"></script>
+
+  <!-- Run -->
+  <script>runTests();</script>
+</body>
+</html>
