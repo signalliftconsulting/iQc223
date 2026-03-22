@@ -163,30 +163,6 @@ function _updateNavBtns() {
   if (f) { f.disabled = _navIdx >= _navHistory.length - 1; f.style.opacity = _navIdx >= _navHistory.length - 1 ? '.35' : '1'; }
 }
 
-// ─── Lazy chunk loading ──────────────────────────────────
-var _loadedChunks = {};
-var _viewChunks = {
-  forecast: 'forecast', calendar: 'calendar', trends: 'trends',
-  reports: 'reports', automations: 'automations', segments: 'segments',
-  csmperf: 'csm', auditlog: 'audit', csv: 'csv',
-  clients: 'admin', users: 'admin', analytics: 'admin'
-};
-
-function loadChunk(name) {
-  if (_loadedChunks[name]) return Promise.resolve();
-  return new Promise(function(resolve, reject) {
-    var s = document.createElement('script');
-    s.src = 'js/chunks/' + name + '.js?v=' + APP_BUILD;
-    s.onload = function() { _loadedChunks[name] = true; resolve(); };
-    s.onerror = function() {
-      console.warn('chunk: failed to load', name);
-      // Fallback — try loading from app.js (non-split build)
-      _loadedChunks[name] = true;
-      resolve();
-    };
-    document.head.appendChild(s);
-  });
-}
 
 function nav(v) {
   // ── History tracking ──
@@ -237,17 +213,6 @@ function nav(v) {
   }
 
   updateAlertBadge(); // Always refresh alert badge on any nav
-
-  // Lazy-load chunk if needed, then render
-  var chunk = _viewChunks[v];
-  if (chunk) {
-    loadChunk(chunk).then(function() { _renderView(v); });
-  } else {
-    _renderView(v);
-  }
-}
-
-function _renderView(v) {
   if (v === 'homebase')  renderHomeBase();
   if (v === 'alerts')    { renderAlertsGuide(); renderAlerts(); }
   if (v === 'customers') { renderCustomersGuide(); renderCustomers(); }

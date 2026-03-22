@@ -1,11 +1,3 @@
-// ─── Stubs for lazy-loaded modules (automations.js) ─────────
-// These are overwritten when the chunk loads. Prevents ReferenceError
-// if customers.js runs before automations.js is loaded.
-if (typeof _openAlertFilterKey === 'undefined') var _openAlertFilterKey = null;
-if (typeof _openCrFilterKey === 'undefined') var _openCrFilterKey = null;
-if (typeof closeAlertFilter === 'undefined') var closeAlertFilter = function() {};
-if (typeof closeCrFilter === 'undefined') var closeCrFilter = function() {};
-
 // ─── PAGINATION STATE ────────────────────────────────────────
 let _custPage = 0;
 let _custPageSize = parseInt(localStorage.getItem('iqc_page_size') || '50', 10);
