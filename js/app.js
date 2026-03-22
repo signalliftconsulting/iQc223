@@ -24399,7 +24399,7 @@ const METRIC_CFG = {
 };
 
 function setTrendMetric(slot, key) {
-  if (slot === 1) _trendMetric1 = key || 'score';
+  if (Number(slot) === 1) _trendMetric1 = key || 'score';
   else _trendMetric2 = key || '';
   renderTrends();
 }
@@ -24412,8 +24412,9 @@ function setTrendRange(range) {
   renderTrends();
 }
 
-function setTrendCsmOverlay(mgr) {
-  _trendCsmOverlay = mgr || '';
+function setTrendCsmOverlay(mgrOrEvent) {
+  // Called via data-change delegation: this=select element, arg=event
+  _trendCsmOverlay = (typeof mgrOrEvent === 'string' ? mgrOrEvent : this.value) || '';
   renderTrends();
 }
 
