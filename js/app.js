@@ -8,7 +8,7 @@
    IQcadence - CS Health Score - app.js
    ============================================================ */
 const APP_VERSION = 'v93';
-const APP_BUILD = 691;
+const APP_BUILD = 694;
 console.log('%c IQcadence ' + APP_VERSION + ' loaded ', 'background:#6366f1;color:#fff;font-weight:bold;padding:2px 8px;border-radius:4px');
 
 // ─── UNIFIED ICON SYSTEM ─────────────────────────────────────
@@ -9527,6 +9527,14 @@ function viewSnoozedAlerts() {
   }, 50);
 }
 
+
+// ─── Stubs for lazy-loaded modules (automations.js) ─────────
+// These are overwritten when the chunk loads. Prevents ReferenceError
+// if customers.js runs before automations.js is loaded.
+if (typeof _openAlertFilterKey === 'undefined') var _openAlertFilterKey = null;
+if (typeof _openCrFilterKey === 'undefined') var _openCrFilterKey = null;
+if (typeof closeAlertFilter === 'undefined') var closeAlertFilter = function() {};
+if (typeof closeCrFilter === 'undefined') var closeCrFilter = function() {};
 
 // ─── PAGINATION STATE ────────────────────────────────────────
 let _custPage = 0;
