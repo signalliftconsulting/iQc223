@@ -26,7 +26,7 @@ const _GUIDE_DEFS = [
     if (localStorage.getItem(VER)) return; // already migrated
     _GUIDE_DEFS.forEach(function(g) { localStorage.removeItem(g.key); });
     localStorage.setItem(VER, '1');
-  } catch(e) {}
+  } catch(e) { console.warn('ls:', e.message); }
 })();
 
 // Only settings guide badge is shown; all others are disabled
@@ -45,7 +45,7 @@ function _updateAllGuideBadges() {
 function _renderGuide(id, storageKey, html) {
   const wrap = document.getElementById(id);
   if (!wrap) return;
-  try { if (localStorage.getItem(storageKey) === '1') { wrap.style.display = 'none'; return; } } catch(e) {}
+  try { if (localStorage.getItem(storageKey) === '1') { wrap.style.display = 'none'; return; } } catch(e) { console.warn('ls:', e.message); }
   wrap.style.display = '';
   wrap.innerHTML = `
     <div style="display:flex;gap:10px;align-items:flex-start;padding:12px 14px;background:color-mix(in srgb, var(--teal) 8%, var(--surface));border:1px solid color-mix(in srgb, var(--teal) 25%, var(--border));border-radius:var(--r);margin-bottom:14px">
@@ -63,14 +63,14 @@ function _renderGuide(id, storageKey, html) {
 }
 
 function _guideToggleDsa(storageKey, checked) {
-  try { if (checked) localStorage.setItem(storageKey, '1'); else localStorage.removeItem(storageKey); } catch(e) {}
+  try { if (checked) localStorage.setItem(storageKey, '1'); else localStorage.removeItem(storageKey); } catch(e) { console.warn('ls:', e.message); }
 }
 
 function _dismissGuide(id, storageKey) {
   // If "Don't show again" is checked, persist to localStorage; hide badge permanently
   const cb = document.getElementById(id + '-dsa');
   if (cb && cb.checked) {
-    try { localStorage.setItem(storageKey, '1'); } catch(e) {}
+    try { localStorage.setItem(storageKey, '1'); } catch(e) { console.warn('ls:', e.message); }
   }
   // Always hide the guide banner
   const w = document.getElementById(id); if (w) w.style.display = 'none';

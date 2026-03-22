@@ -1827,7 +1827,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
     <div id="user-pill" style="display:none"><div id="user-avatar"></div><span id="user-email-lbl"></span></div>
     <!-- Global Customer Search -->
     <div id="topbar-search-wrap">
-      <input type="text" id="topbar-search" placeholder="Search customers…" autocomplete="off" aria-label="Search customers"
+      <input type="text" id="topbar-search" placeholder="Search customers…" autocomplete="off" aria-label="Search customers" maxlength="200"
              data-input="topbarSearchInput" data-keydown="topbarSearchKeydown" data-blur="topbarSearchBlur"/>
       <div id="topbar-search-results"></div>
     </div>
@@ -2428,7 +2428,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
       <form id="score-form" data-submit="submitForm">
         <div class="fg" id="score-fields-wrap">
           <!-- Section: Account -->
-          <div class="field full"><label>Company / Customer Name *</label><input type="text" id="f-name" placeholder="Acme Corp" required/></div>
+          <div class="field full"><label>Company / Customer Name *</label><input type="text" id="f-name" placeholder="Acme Corp" required maxlength="150"/></div>
           <div class="field"><label>Contact Name <span style="font-weight:400;color:var(--subtle);font-size:.7rem">optional</span></label><input type="text" id="f-contact-name" placeholder="Jane Smith"/></div>
           <div class="field"><label>Contact Email <span style="font-weight:400;color:var(--subtle);font-size:.7rem">optional</span></label><input type="email" id="f-contact-email" placeholder="jane@acme.com"/></div>
           <div class="field"><label>Assigned Manager</label><select id="f-manager" data-change="handleManagerChange"><option value="">- Select -</option></select><input type="text" id="f-manager-new" placeholder="Type new manager name..." style="display:none;width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-base);margin-top:4px" data-blur="handleManagerNewBlur" /><datalist id="manager-datalist"></datalist></div>
@@ -2440,7 +2440,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
           <div class="field"><label>Lifecycle Stage</label><select id="f-lifecycle"><option value="onboarding">Onboarding</option><option value="active" selected>Active</option><option value="atrisk">At Risk</option><option value="won">Won / Upsold</option><option value="churned">Churned</option></select></div>
           <div class="field"><label>Renewal Date</label><input type="date" id="f-renewal-date"/></div>
           <div class="field"><label>Billing Interval</label><select id="f-billing"><option value="">- None -</option><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option><option value="weekly">Weekly</option></select></div>
-          <div class="field"><label>Tags <span style="font-weight:400;color:var(--subtle);font-size:.7rem">comma-separated</span></label><input type="text" id="f-tags" placeholder="power-user, renewal-soon"/></div>
+          <div class="field"><label>Tags <span style="font-weight:400;color:var(--subtle);font-size:.7rem">comma-separated</span></label><input type="text" id="f-tags" placeholder="power-user, renewal-soon" maxlength="500"/></div>
           <div class="field"><label>Next Scheduled Touch</label><div style="display:flex;gap:6px"><input type="date" id="f-next-touch" style="flex:1"/><input type="time" id="f-next-touch-time" style="width:100px"/></div></div>
           <div id="save-details-wrap" style="display:none;justify-content:flex-end;align-items:end"><button type="button" class="btn btn-success" id="save-details-btn" style="padding:10px 18px;font-size:.87rem;white-space:nowrap" data-action="saveDetailsOnly"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Details</button></div>
           <!-- Section: Signals -->
@@ -2567,9 +2567,9 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
   <!-- Tab bar -->
   <div class="dtab-row" style="margin-bottom:18px">
     <button class="dtab active" id="cfg-tab-config"  data-action="cfgTab" data-arg="config">Scoring</button>
-    <button class="dtab"        id="cfg-tab-billing" data-action="cfgTab" data-arg="billing">Plan &amp; Billing</button>
     <button class="dtab"        id="cfg-tab-account" data-action="cfgTab" data-arg="account">Account</button>
     <button class="dtab"        id="cfg-tab-api"     data-action="cfgTab" data-arg="api">Integrations</button>
+    <button class="dtab"        id="cfg-tab-billing" data-action="cfgTab" data-arg="billing">Plan &amp; Billing</button>
   </div>
 
   <div id="settings-guide"></div>
@@ -2775,7 +2775,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
         <div class="card-hd"><h2>Account</h2></div>
         <p style="font-size:var(--fs-sm);margin-bottom:6px">Signed in as <strong id="settings-email">-</strong></p>
         <div style="display:flex;flex-direction:column;gap:10px;max-width:320px">
-          <div class="field"><label>New Password <span style="font-weight:400;color:var(--subtle)">(leave blank to keep current)</span></label><input type="password" id="pw-new" placeholder="New password (min 6 chars)"/></div>
+          <div class="field"><label>New Password <span style="font-weight:400;color:var(--subtle)">(leave blank to keep current)</span></label><input type="password" id="pw-new" placeholder="New password (min 6 chars)" minlength="6"/></div>
           <div class="field"><label>Confirm New Password</label><input type="password" id="pw-confirm" placeholder="Repeat new password"/></div>
         </div>
         <div style="margin-top:14px;display:flex;gap:8px">
@@ -3171,7 +3171,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
     <div class="modal-bd">
       <div class="field" style="margin-bottom:12px">
         <label>Business Name *</label>
-        <input type="text" id="cc-name" placeholder="Acme Corp" style="width:100%"/>
+        <input type="text" id="cc-name" placeholder="Acme Corp" required maxlength="100" style="width:100%"/>
       </div>
       <div class="field" style="margin-bottom:12px">
         <label>Plan Tier</label>
@@ -3202,7 +3202,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
       <input type="hidden" id="ec-id"/>
       <div class="field" style="margin-bottom:12px">
         <label>Business Name *</label>
-        <input type="text" id="ec-name" placeholder="Acme Corp" style="width:100%"/>
+        <input type="text" id="ec-name" placeholder="Acme Corp" required maxlength="100" style="width:100%"/>
       </div>
       <div class="field" style="margin-bottom:12px">
         <label>Plan Tier</label>
@@ -3232,7 +3232,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
     <div class="modal-bd">
       <div class="field" style="margin-bottom:12px">
         <label>Email Address *</label>
-        <input type="email" id="cu-email" placeholder="user@company.com" style="width:100%"/>
+        <input type="email" id="cu-email" placeholder="user@company.com" required style="width:100%"/>
       </div>
       <div class="field" style="margin-bottom:12px">
         <label>Assign to Client</label>
@@ -3242,7 +3242,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
       </div>
       <div class="field" style="margin-bottom:12px">
         <label>Temporary Password *</label>
-        <input type="text" id="cu-pw" placeholder="Min 8 characters" style="width:100%"/>
+        <input type="password" id="cu-pw" placeholder="Min 8 characters" required minlength="8" style="width:100%"/>
         <div style="font-size:var(--fs-sm);color:var(--muted);margin-top:4px">Share this with the user — they can change it in Settings after logging in.</div>
       </div>
       <div id="cu-err" style="color:var(--red);font-size:var(--fs-base);min-height:18px"></div>
@@ -4434,7 +4434,7 @@ Header: Content-Type: application/json
 <div class="modal-bg" id="bulk-tag-modal">
   <div class="modal" style="max-width:360px">
     <div class="modal-hd"><h2>Bulk Tag</h2><button class="modal-close" data-action="closeModal" data-arg="bulk-tag-modal"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
-    <div class="field"><label>Add tag to all selected customers</label><input type="text" id="bulk-tag-input" placeholder="e.g. renewal-q4"/></div>
+    <div class="field"><label>Add tag to all selected customers</label><input type="text" id="bulk-tag-input" placeholder="e.g. renewal-q4" maxlength="100"/></div>
     <div class="modal-ft">
       <button class="btn btn-ghost btn-sm" data-action="closeModal" data-arg="bulk-tag-modal">Cancel</button>
       <button class="btn btn-primary btn-sm" data-action="applyBulkTag">Apply Tag</button>
@@ -4486,7 +4486,7 @@ Header: Content-Type: application/json
 <div class="modal-bg" id="profile-modal">
   <div class="modal" style="max-width:460px">
     <div class="modal-hd"><h2 id="profile-modal-title">Save Scoring Profile</h2><button class="modal-close" data-action="closeModal" data-arg="profile-modal"><svg viewBox="0 0 24 24" fill="none"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
-    <div class="field" style="margin-bottom:16px"><label>Profile Name</label><input type="text" id="profile-name-input" placeholder="e.g. SMB Weights, Enterprise Focus"/></div>
+    <div class="field" style="margin-bottom:16px"><label>Profile Name</label><input type="text" id="profile-name-input" placeholder="e.g. SMB Weights, Enterprise Focus" required maxlength="50"/></div>
     <p style="font-size:var(--fs-base);font-weight:600;margin-bottom:10px;color:var(--text)">Signal Weights <span style="font-weight:400;font-size:var(--fs-sm);color:var(--muted)">(must total 100%)</span></p>
     <div id="pm-weight-rows"></div>
     <div class="total-bar" style="margin:8px 0 2px"><div class="total-fill" id="pm-total-fill" style="width:100%"></div></div>
@@ -4587,6 +4587,6 @@ function declineCookies(){localStorage.setItem('iqc_cookie_consent','declined');
 
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script defer src="js/config.js"></script>
-<script defer src="js/app.js?v=689"></script>
+<script defer src="js/app.js?v=691"></script>
 </body>
 </html>

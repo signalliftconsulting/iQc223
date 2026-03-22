@@ -279,7 +279,7 @@ function _renderGettingStarted(wrap) {
 
 function _gsCardHTML() {
   const dismissed = false;
-  try { if (localStorage.getItem('iqc_gs_dismissed') === '1') return ''; } catch(e) {}
+  try { if (localStorage.getItem('iqc_gs_dismissed') === '1') return ''; } catch(e) { console.warn('ls:', e.message); }
   return `<div class="card" id="gs-banner" style="margin-bottom:10px;border-left:3px solid var(--teal)">
     <div style="padding:10px 14px">
       <div style="display:flex;align-items:center;justify-content:space-between">
@@ -301,12 +301,12 @@ function _gsCardHTML() {
 }
 
 function dismissGettingStarted(checked) {
-  try { if (checked) localStorage.setItem('iqc_gs_dismissed', '1'); else localStorage.removeItem('iqc_gs_dismissed'); } catch(e) {}
+  try { if (checked) localStorage.setItem('iqc_gs_dismissed', '1'); else localStorage.removeItem('iqc_gs_dismissed'); } catch(e) { console.warn('ls:', e.message); }
   if (checked) { const b = document.getElementById('gs-banner'); if (b) b.remove(); }
 }
 
 function showGettingStarted() {
-  try { localStorage.removeItem('iqc_gs_dismissed'); } catch(e) {}
+  try { localStorage.removeItem('iqc_gs_dismissed'); } catch(e) { console.warn('ls:', e.message); }
   renderHomeBase();
   nav('homebase');
 }

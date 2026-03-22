@@ -546,8 +546,8 @@ async function importCSV() {
   setLoading(true);
   try {
     await Promise.all([
-      ...toCreate.map(c => atCreate(c).catch(()=>{})),
-      ...toUpdate.map(c => atUpdate(c).catch(()=>{}))
+      ...toCreate.map(c => atCreate(c).catch(e => console.warn('sync:', e.message))),
+      ...toUpdate.map(c => atUpdate(c).catch(e => console.warn('sync:', e.message)))
     ]);
     const parts = [];
     if (toCreate.length) parts.push(`${toCreate.length} added`);

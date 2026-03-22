@@ -23,7 +23,7 @@ function custPageNav(action) {
 function custPageSizeChange(val) {
   _custPageSize = parseInt(val, 10);
   _custPage = 0;
-  try { localStorage.setItem('iqc_page_size', String(_custPageSize)); } catch(e) {}
+  try { localStorage.setItem('iqc_page_size', String(_custPageSize)); } catch(e) { console.warn('ls:', e.message); }
   // Sync the select element
   const sel = el('cust-page-size');
   if (sel) sel.value = String(_custPageSize);
@@ -951,7 +951,7 @@ function _syncTopScrollbarNow() {
   // Always show if table is visible; set inner width to match table's full width
   const tw = tbl.offsetWidth;
   const ww = wrap.offsetWidth;
-  console.log('[TopScroll] table offsetWidth=' + tw + ' wrap offsetWidth=' + ww + ' wrap.scrollWidth=' + wrap.scrollWidth + ' wrap.clientWidth=' + wrap.clientWidth);
+  console.debug('[TopScroll] table offsetWidth=' + tw + ' wrap offsetWidth=' + ww + ' wrap.scrollWidth=' + wrap.scrollWidth + ' wrap.clientWidth=' + wrap.clientWidth);
   inner.style.width = tw + 'px';
   if (tw > ww) {
     top.style.display = 'block';
@@ -1002,7 +1002,7 @@ function openInlineNextTouch(custId, tdEl) {
 
   // Auto-focus and open the date picker
   const inp = picker.querySelector('input');
-  setTimeout(() => { inp.focus(); try { inp.showPicker(); } catch(e) {} }, 30);
+  setTimeout(() => { inp.focus(); try { inp.showPicker(); } catch(e) { console.warn('ls:', e.message); } }, 30);
 
   // Close on outside click
   const closeHandler = (e) => {
@@ -1202,7 +1202,7 @@ function bulkRescore() {
     clearSelection();
     toast(`Re-scored ${n} customer${n!==1?'s':''} (${changed.length} changed)`, 'success');
     renderCustomers();
-    changed.forEach(c => save(c).catch(()=>{}));
+    changed.forEach(c => save(c).catch(e => console.warn('sync:', e.message)));
   });
 }
 
@@ -1227,7 +1227,7 @@ function applyBulkTag() {
   clearSelection();
   toast(`Tag "${tag}" added to ${n} customers`, 'success');
   renderCustomers();
-  Promise.all(changed.map(c => atUpdate(c).catch(()=>{}))).catch(()=>{});
+  Promise.all(changed.map(c => atUpdate(c).catch(e => console.warn('sync:', e.message)))).catch(e => console.warn('sync:', e.message));
 }
 
 function bulkLifecycle() {
@@ -1246,7 +1246,7 @@ function applyBulkLifecycle() {
   clearSelection();
   toast(`Stage updated for ${n} customers`, 'success');
   renderCustomers();
-  Promise.all(changed.map(c => atUpdate(c).catch(()=>{}))).catch(()=>{});
+  Promise.all(changed.map(c => atUpdate(c).catch(e => console.warn('sync:', e.message)))).catch(e => console.warn('sync:', e.message));
 }
 
 function bulkDelete() {
@@ -1263,7 +1263,7 @@ function bulkDelete() {
     updateAlertBadge();
     if (!customers.length) { nav('homebase'); } else { renderCustomers(); }
     setLoading(true);
-    await Promise.all(toDelete.map(c => atDelete(c).catch(()=>{}))).finally(() => setLoading(false));
+    await Promise.all(toDelete.map(c => atDelete(c).catch(e => console.warn('sync:', e.message)))).finally(() => setLoading(false));
   });
 }
 
@@ -1420,7 +1420,7 @@ function rescoreAllFromToolbar() {
     toast(`Re-scored ${n} customer${n !== 1 ? 's' : ''}`, 'success');
     if (changed.length) {
       setLoading(true);
-      Promise.all(changed.map(c => atUpdate(c).catch(() => {}))).finally(() => setLoading(false));
+      Promise.all(changed.map(c => atUpdate(c).catch(e => console.warn('sync:', e.message)))).finally(() => setLoading(false));
     }
   });
 }

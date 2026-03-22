@@ -1911,7 +1911,7 @@ async function reconcileMetricOwnership() {
         .eq('platform', u.platform);
       u.integration.config = u.config;
       _integrationCache[u.platform] = u.integration;
-      console.log(`[reconcile] Set conflicting metrics to false on ${u.platform}`);
+      console.debug(`[reconcile] Set conflicting metrics to false on ${u.platform}`);
     } catch (e) {
       console.warn(`[reconcile] Failed to update ${u.platform}:`, e);
     }
@@ -2369,7 +2369,7 @@ async function autoSyncStripe() {
     const result = await syncIntegration('stripe');
     const stats = result.stats || {};
     _lastStripeSyncTime = Date.now();
-    console.log(`[Auto-sync] Stripe: ${stats.customers_matched || 0} customers, ${stats.updated || 0} updated`);
+    console.debug(`[Auto-sync] Stripe: ${stats.customers_matched || 0} customers, ${stats.updated || 0} updated`);
 
     if (stats.updated > 0) {
       const preScores = new Map(customers.map(c => [c.id, c.score]));
@@ -2818,7 +2818,7 @@ async function autoSyncHubSpot() {
     const result = await syncIntegration('hubspot');
     const stats = result.stats || {};
     _lastHubSpotSyncTime = Date.now();
-    console.log(`[Auto-sync] HubSpot: ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated`);
+    console.debug(`[Auto-sync] HubSpot: ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated`);
 
     {
       const preScores = new Map(customers.map(c => [c.id, c.score]));
@@ -3018,7 +3018,7 @@ async function autoSyncSalesforce() {
     const result = await syncIntegration('salesforce');
     const stats = result.stats || {};
     _lastSalesforceSyncTime = Date.now();
-    console.log(`[Auto-sync] Salesforce: ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated`);
+    console.debug(`[Auto-sync] Salesforce: ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated`);
 
     {
       const preScores = new Map(customers.map(c => [c.id, c.score]));
@@ -3576,7 +3576,7 @@ function _saveSnapshots() {
     const obj = {};
     _prevCustomerStates.forEach((v, k) => { obj[k] = v; });
     localStorage.setItem('iqc_trigger_snapshots', JSON.stringify(obj));
-  } catch(e){}
+  } catch(e){ console.warn('ls:', e.message); }
 }
 
 function snapshotCustomerStates() {
@@ -3596,7 +3596,7 @@ function snapshotCustomerStates() {
       _saveSnapshots();
       return;
     }
-  } catch(e){}
+  } catch(e){ console.warn('ls:', e.message); }
   // No persisted data - first run: snapshot current state (won't trigger alerts since prev matches current)
   _prevCustomerStates.clear();
   customers.forEach(c => {
@@ -3678,7 +3678,7 @@ function checkWebhookTriggers(c) {
 
   // ── Cooldown setup ──
   const COOLDOWN_MS = 24 * 60 * 60 * 1000;
-  try { if (!Object.keys(_alertCooldowns).length) { const stored = localStorage.getItem('iqc_alert_cooldowns'); if (stored) _alertCooldowns = JSON.parse(stored); } } catch(e){}
+  try { if (!Object.keys(_alertCooldowns).length) { const stored = localStorage.getItem('iqc_alert_cooldowns'); if (stored) _alertCooldowns = JSON.parse(stored); } } catch(e){ console.warn('ls:', e.message); }
   const now = Date.now();
   Object.keys(_alertCooldowns).forEach(k => { if (now - _alertCooldowns[k] > COOLDOWN_MS) delete _alertCooldowns[k]; });
 
@@ -3741,7 +3741,7 @@ function checkWebhookTriggers(c) {
     }
   }
 
-  try { localStorage.setItem('iqc_alert_cooldowns', JSON.stringify(_alertCooldowns)); } catch(e){}
+  try { localStorage.setItem('iqc_alert_cooldowns', JSON.stringify(_alertCooldowns)); } catch(e){ console.warn('ls:', e.message); }
 
   // Evaluate custom rules
   evaluateCustomRules(c);
@@ -4694,7 +4694,7 @@ function evaluateCustomRules(c) {
 
     if (matches) {
       _alertCooldowns[cdKey] = now;
-      try { localStorage.setItem('iqc_alert_cooldowns', JSON.stringify(_alertCooldowns)); } catch(e) {}
+      try { localStorage.setItem('iqc_alert_cooldowns', JSON.stringify(_alertCooldowns)); } catch(e) { console.warn('ls:', e.message); }
       fireCustomRuleAlert(rule, c);
     }
   });

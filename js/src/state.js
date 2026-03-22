@@ -2,6 +2,7 @@
    IQcadence - CS Health Score - app.js
    ============================================================ */
 const APP_VERSION = 'v93';
+const APP_BUILD = 691;
 console.log('%c IQcadence ' + APP_VERSION + ' loaded ', 'background:#6366f1;color:#fff;font-weight:bold;padding:2px 8px;border-radius:4px');
 
 // ─── UNIFIED ICON SYSTEM ─────────────────────────────────────
@@ -207,7 +208,7 @@ function _trackAICall() {
   _aiCallCount++;
   var now = new Date();
   _aiCallMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-  try { localStorage.setItem(_aiUsageKey(), JSON.stringify({ month: _aiCallMonth, count: _aiCallCount })); } catch(e) {}
+  try { localStorage.setItem(_aiUsageKey(), JSON.stringify({ month: _aiCallMonth, count: _aiCallCount })); } catch(e) { console.warn('ls:', e.message); }
 }
 
 function checkAILimit() {
@@ -267,7 +268,7 @@ async function resolveClientPlanTier() {
   try {
     const cached = localStorage.getItem('iqc_plan_tier');
     if (cached && PLAN_TIERS.includes(cached)) clientPlanTier = cached;
-  } catch(e) {}
+  } catch(e) { console.warn('ls:', e.message); }
 
   try {
     // Use cached _userClientId (resolved during ensureUserProfile)
@@ -302,7 +303,7 @@ function showBillingWarning(msg) {
   var banner = document.createElement('div');
   banner.id = 'billing-warning-banner';
   banner.style.cssText = 'background:#fef3c7;color:#92400e;padding:10px 20px;text-align:center;font-size:13px;font-weight:600;border-bottom:1px solid #fcd34d;position:sticky;top:0;z-index:999';
-  banner.innerHTML = msg + ' <a href="#" onclick="nav(\'settings\');cfgTab(\'billing\');return false" style="color:#d97706;text-decoration:underline;margin-left:8px">Manage Billing</a>';
+  banner.innerHTML = escHtml(msg) + ' <a href="#" data-action="cfgTab" data-arg="billing" style="color:#d97706;text-decoration:underline;margin-left:8px">Manage Billing</a>';
   document.body.prepend(banner);
 }
 

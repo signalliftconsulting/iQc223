@@ -1650,7 +1650,7 @@ async function checkScheduledReports() {
       // Update last_sent
       cfg.last_sent = now.toISOString();
       saveAutomationsCfg();
-      console.log('Scheduled report sent:', def.label, '->', cfg.recipients);
+      console.debug('Scheduled report sent:', def.label, '->', cfg.recipients);
     } catch(err) {
       console.warn('Scheduled report failed:', key, err?.message || err);
     }

@@ -22,7 +22,7 @@ function _aiCacheGet(key) {
       }
       localStorage.removeItem('iqc_ai_' + key);
     }
-  } catch(e) {}
+  } catch(e) { console.warn('ls:', e.message); }
   if (entry) delete _aiCache[key];
   return null;
 }
@@ -33,10 +33,10 @@ function _aiCacheSet(key, data) {
   if (keys.length >= 50) {
     var oldest = keys.reduce(function(a, b) { return _aiCache[a].ts < _aiCache[b].ts ? a : b; });
     delete _aiCache[oldest];
-    try { localStorage.removeItem('iqc_ai_' + oldest); } catch(e) {}
+    try { localStorage.removeItem('iqc_ai_' + oldest); } catch(e) { console.warn('ls:', e.message); }
   }
   _aiCache[key] = entry;
-  try { localStorage.setItem('iqc_ai_' + key, JSON.stringify(entry)); } catch(e) {}
+  try { localStorage.setItem('iqc_ai_' + key, JSON.stringify(entry)); } catch(e) { console.warn('ls:', e.message); }
 }
 
 // Build a minimal customer payload for AI prompts (strip IDs, keep signals/history)
@@ -69,6 +69,8 @@ function _sanitizeForAI(c) {
 
 // Call AI via Cloudflare Worker (near-zero cold start)
 function _aiCall(body) {
+  // Inject client_id for server-side rate limiting
+  if (_userClientId) body.client_id = _userClientId;
   var controller = new AbortController();
   var timeoutId = setTimeout(function() { controller.abort(); }, 30000);
   return fetch('https://iqc-ai.signalliftconsulting.workers.dev', {
@@ -1444,7 +1446,7 @@ function renderDetailPlaybook() {
     }
   });
 
-  if (dirty) { c.playbook_checks = checks; atUpdate(c).catch(() => {}); }
+  if (dirty) { c.playbook_checks = checks; atUpdate(c).catch(e => console.warn('sync:', e.message)); }
 
   const done = Object.keys(checks).length;
   const pct  = plays.length ? Math.round((done / plays.length) * 100) : 0;
@@ -1495,7 +1497,7 @@ function togglePlayCheck(idx, checked) {
   c.playbook_checks = c.playbook_checks || {};
   if (checked) c.playbook_checks[key] = Date.now();   // timestamp instead of true
   else delete c.playbook_checks[key];
-  atUpdate(c).catch(() => {});
+  atUpdate(c).catch(e => console.warn('sync:', e.message));
   renderDetailPlaybook();
 }
 
@@ -1503,7 +1505,7 @@ function clearPlaybookChecks() {
   const c = customers.find(x => x.id === detailId);
   if (!c) return;
   c.playbook_checks = {};
-  atUpdate(c).catch(() => {});
+  atUpdate(c).catch(e => console.warn('sync:', e.message));
   renderDetailPlaybook();
 }
 
@@ -1825,7 +1827,7 @@ function deleteFromModal() {
     logAudit('customer_deleted', c.id, c.name, { summary: `Moved to trash - Score: ${c.score}/100, MRR: $${c.mrr||0}, Tier: ${c.tier}` });
     renderCustomers();
     setLoading(true);
-    await atDelete(c).catch(()=>{});
+    await atDelete(c).catch(e => console.warn('sync:', e.message));
     setLoading(false);
   });
 }
@@ -1842,7 +1844,7 @@ function deleteCustomer(id) {
     updateAlertBadge();
     if (!customers.length) { nav('homebase'); } else { renderCustomers(); }
     setLoading(true);
-    await atDelete(c).catch(()=>{});
+    await atDelete(c).catch(e => console.warn('sync:', e.message));
     setLoading(false);
   });
 }

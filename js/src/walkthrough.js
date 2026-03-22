@@ -439,7 +439,7 @@ function _wtGetPageState(page) {
       var all = JSON.parse(raw);
       return all[page] || null;
     }
-  } catch(e) {}
+  } catch(e) { console.warn('ls:', e.message); }
   return null;
 }
 
@@ -449,7 +449,7 @@ function _wtSavePageState(page, state) {
     var all = raw ? JSON.parse(raw) : {};
     all[page] = state;
     localStorage.setItem(_WT_KEY, JSON.stringify(all));
-  } catch(e) {}
+  } catch(e) { console.warn('ls:', e.message); }
 }
 
 function _wtClearPage(page) {
@@ -460,7 +460,7 @@ function _wtClearPage(page) {
       delete all[page];
       localStorage.setItem(_WT_KEY, JSON.stringify(all));
     }
-  } catch(e) {}
+  } catch(e) { console.warn('ls:', e.message); }
 }
 
 // -- CSS injection ------------------------------------------------------------
@@ -930,7 +930,7 @@ function _wtDemoScore() {
       var form = document.getElementById('score-form');
       if (form) submitForm({ preventDefault: function(){}, target: form });
     }
-  } catch(e) {}
+  } catch(e) { console.warn('ls:', e.message); }
 }
 
 // -- Compatibility stubs for old hooks ----------------------------------------
@@ -938,6 +938,6 @@ function _wtCompleteIfActive(stepId) {}
 function _wtHighlightQBRButton() {}
 function _wtDismiss() { _wtEndPageTour(); }
 function _wtReset() {
-  try { localStorage.removeItem(_WT_KEY); } catch(e) {}
+  try { localStorage.removeItem(_WT_KEY); } catch(e) { console.warn('ls:', e.message); }
   _wtInit();
 }

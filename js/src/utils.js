@@ -42,7 +42,7 @@
       if (typeof sb === 'undefined' || !sb || typeof currentUser === 'undefined' || !currentUser) return;
       batch.forEach(function(evt) {
         evt.user_id = currentUser.id;
-        sb.from('webhook_events').insert(evt).then(function() {}).catch(function() {});
+        sb.from('webhook_events').insert(evt).then(function() {}).catch(function(e) { console.warn('errorLog:', e.message); });
       });
     } catch(e) { /* fail silently */ }
   }
@@ -287,7 +287,7 @@ function closeModal(id) {
   m.removeEventListener('keydown', _trapModalFocus);
   // Restore focus to element that opened the modal
   var prev = _modalFocusStack.pop();
-  if (prev && prev.focus) try { prev.focus(); } catch(_) {}
+  if (prev && prev.focus) try { prev.focus(); } catch(_) { console.warn('ls:', _.message); }
 }
 function openModal(id) {
   _modalFocusStack.push(document.activeElement);

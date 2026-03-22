@@ -21,7 +21,15 @@ jobs:
           node-version: '20'
 
       - name: Check JS syntax
-        run: node --check js/app.js
+        run: |
+          node --check js/app.js
+          node --check tests/runner.js
+          node --check tests/test-csv.js
+          node --check tests/test-scoring.js
+          node --check tests/test-utils.js
+
+      - name: Run unit tests
+        run: node tests/run-node.js
 
       - name: Check for inline event handlers in index.html
         run: |

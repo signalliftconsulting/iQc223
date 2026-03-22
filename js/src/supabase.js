@@ -49,7 +49,7 @@ function loadSettings() {
   try {
     const w = localStorage.getItem('iqc_weights');
     if (w) weights = { ...DEFAULT_WEIGHTS, ...JSON.parse(w) };
-  } catch(e) {}
+  } catch(e) { console.warn('ls: weights', e.message); }
   try {
     const t = localStorage.getItem('iqc_thresholds');
     if (t) {
@@ -62,7 +62,7 @@ function loadSettings() {
         thresholds = { ...DEFAULT_THRESHOLDS, ...stored };
       }
     }
-  } catch(e) {}
+  } catch(e) { console.warn('ls:', e.message); }
   try {
     const p = localStorage.getItem('iqc_profiles');
     if (p) profiles = JSON.parse(p);
@@ -74,7 +74,7 @@ function loadSettings() {
       const parsed = JSON.parse(s);
       snoozed = new Map(Array.isArray(parsed[0]) ? parsed : parsed.map(id => [id, Infinity]));
     }
-  } catch(e) {}
+  } catch(e) { console.warn('ls:', e.message); }
   try {
     const d = localStorage.getItem('iqc_dismissed');
     if (d) {
@@ -86,11 +86,11 @@ function loadSettings() {
         dismissed = new Map(parsed.map(id => [id, null]));
       }
     }
-  } catch(e) {}
+  } catch(e) { console.warn('ls:', e.message); }
   try {
     const ac = localStorage.getItem('iqc_automations');
     if (ac) { automationsCfg = JSON.parse(ac); migrateAutomationsCfg(); }
-  } catch(e) {}
+  } catch(e) { console.warn('ls:', e.message); }
   try {
     const fp = localStorage.getItem('iqc_filter_presets');
     if (fp) {
@@ -100,11 +100,11 @@ function loadSettings() {
         if (p.columnFilters) p.columnFilters = deserializeColumnFilters(p.columnFilters);
       });
     }
-  } catch(e) {}
+  } catch(e) { console.warn('ls:', e.message); }
   try {
     const ex = localStorage.getItem('iqc_expansion');
     if (ex) expansionConfig = { ...DEFAULT_EXPANSION, ...JSON.parse(ex) };
-  } catch(e) {}
+  } catch(e) { console.warn('ls:', e.message); }
   try {
     const cc = localStorage.getItem('iqc_cadence');
     if (cc) {
@@ -113,23 +113,23 @@ function loadSettings() {
         if (parsed[t]) cadenceConfig[t] = { ...DEFAULT_CADENCE[t], ...parsed[t] };
       });
     }
-  } catch(e) {}
+  } catch(e) { console.warn('ls:', e.message); }
   try {
     const rw = localStorage.getItem('iqc_renewal_windows');
     if (rw) renewalWindows = { ...DEFAULT_RENEWAL_WINDOWS, ...JSON.parse(rw) };
-  } catch(e) {}
+  } catch(e) { console.warn('ls:', e.message); }
   try {
     const qd = localStorage.getItem('iqc_quiet_days');
     if (qd) quietDays = parseInt(qd) || DEFAULT_QUIET_DAYS;
-  } catch(e) {}
+  } catch(e) { console.warn('ls:', e.message); }
   try {
     const mp = localStorage.getItem('iqc_momentum_pts');
     if (mp) momentumPts = parseInt(mp) || DEFAULT_MOMENTUM_PTS;
-  } catch(e) {}
+  } catch(e) { console.warn('ls:', e.message); }
   try {
     const sm = localStorage.getItem('iqc_signal_model');
     if (sm) signalModelCfg = { ...DEFAULT_SIGNAL_MODEL, ...JSON.parse(sm) };
-  } catch(e) {}
+  } catch(e) { console.warn('ls:', e.message); }
 }
 
 // Ensure the built-in "Global Weights" profile always exists and stays in sync with weights
@@ -158,10 +158,14 @@ async function loadSettingsFromSupabase() {
   try { if (data.automations) { automationsCfg = JSON.parse(data.automations); migrateAutomationsCfg(); } } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
   try { if (data.signal_model) signalModelCfg = { ...DEFAULT_SIGNAL_MODEL, ...JSON.parse(data.signal_model) }; } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
   ensureGlobalWeightsProfile(true); // persist=true → writes clean version back if duplicates found
-  // Also update localStorage cache
-  localStorage.setItem('iqc_weights',    JSON.stringify(weights));
-  localStorage.setItem('iqc_thresholds', JSON.stringify(thresholds));
-  localStorage.setItem('iqc_profiles',   JSON.stringify(profiles));
+  // Also update localStorage cache so data survives user-switch / sign-out
+  try {
+    localStorage.setItem('iqc_weights',      JSON.stringify(weights));
+    localStorage.setItem('iqc_thresholds',   JSON.stringify(thresholds));
+    localStorage.setItem('iqc_profiles',     JSON.stringify(profiles));
+    localStorage.setItem('iqc_automations',  JSON.stringify(automationsCfg));
+    localStorage.setItem('iqc_signal_model', JSON.stringify(signalModelCfg));
+  } catch(e) { console.warn('ls: settings cache', e.message); }
   // Sync profile dropdown in score form
   refreshProfileDropdown();
 }
@@ -393,7 +397,7 @@ async function loadCustomersFromSupabase() {
   // Detect valid DB columns from first row (so toRow() can skip missing columns)
   if (!_dbColumns && data && data.length) {
     _dbColumns = new Set(Object.keys(data[0]));
-    console.log('DB columns detected:', _dbColumns.size);
+    console.debug('DB columns detected:', _dbColumns.size);
   }
   const all = (data || []).map(fromRow);
   customers = all.filter(c => !c.deleted_at);
@@ -454,7 +458,7 @@ function _showOverlay(on) {
 async function save(c) {
   if (!currentUser) return;
   // Always update localStorage cache immediately so UI stays intact
-  try { localStorage.setItem('iqc_customers_cache', JSON.stringify(customers)); } catch(e) {}
+  try { localStorage.setItem('iqc_customers_cache', JSON.stringify(customers)); } catch(e) { console.warn('ls:', e.message); }
 
   var row = toRow(c);
   var isNew = !customers.some(function(x) { return x.id === c.id && x._updated_at; }) && !c._updated_at;
@@ -604,7 +608,7 @@ async function restoreCustomer(id) {
   c.deleted_at = null;
   customers.unshift(c);
   trash = trash.filter(x => x.id !== id);
-  try { localStorage.setItem('iqc_customers_cache', JSON.stringify(customers)); } catch(e) {}
+  try { localStorage.setItem('iqc_customers_cache', JSON.stringify(customers)); } catch(e) { console.warn('ls:', e.message); }
   renderTrash();
   renderCustomers();
   updateAlertBadge();
@@ -791,7 +795,7 @@ async function syncIntegration(platform) {
         const body = await error.context.json();
         if (body?.error) msg = body.error;
       }
-    } catch(_) {}
+    } catch(_) { console.warn('ls:', _.message); }
     throw new Error(msg);
   }
   if (data && !data.success) throw new Error(data.error || 'Sync failed');

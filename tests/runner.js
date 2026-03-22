@@ -134,9 +134,21 @@ function runTests() {
       var t = suite.tests[j];
       var row = document.createElement('div');
       row.className = 'test-row ' + (t.passed ? 'pass' : 'fail');
-      row.innerHTML = '<span class="test-icon">' + (t.passed ? '&#10003;' : '&#10007;') + '</span> '
-        + '<span class="test-name">' + t.name + '</span>'
-        + (t.error ? '<div class="test-error">' + t.error + '</div>' : '');
+      var icon = document.createElement('span');
+      icon.className = 'test-icon';
+      icon.textContent = t.passed ? '\u2713' : '\u2717';
+      row.appendChild(icon);
+      row.appendChild(document.createTextNode(' '));
+      var nameSpan = document.createElement('span');
+      nameSpan.className = 'test-name';
+      nameSpan.textContent = t.name;
+      row.appendChild(nameSpan);
+      if (t.error) {
+        var errDiv = document.createElement('div');
+        errDiv.className = 'test-error';
+        errDiv.textContent = t.error;
+        row.appendChild(errDiv);
+      }
       suiteDiv.appendChild(row);
     }
 

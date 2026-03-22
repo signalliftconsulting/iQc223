@@ -491,7 +491,7 @@ function refreshLiveScores() {
   });
   // Persist transitioned customers (fire-and-forget)
   if (transitioned.length && typeof save === 'function') {
-    transitioned.forEach(function(c) { save(c).catch(function(){}); });
+    transitioned.forEach(function(c) { save(c).catch(function(e){ console.warn('sync:', e.message); }); });
   }
 }
 

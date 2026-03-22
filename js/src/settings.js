@@ -53,7 +53,7 @@ async function renderBillingSection() {
         .select('stripe_customer_id, stripe_subscription_id, subscription_status, billing_period_end')
         .eq('id', _userClientId).limit(1);
       if (data && data.length) client = data[0];
-    } catch(e) {}
+    } catch(e) { console.warn('ls:', e.message); }
   }
 
   var status = client?.subscription_status || 'none';
@@ -102,7 +102,7 @@ async function renderBillingSection() {
         .eq('client_id', _userClientId);
       userCount = count || 1;
     }
-  } catch(e) {}
+  } catch(e) { console.warn('ls:', e.message); }
   var userLimit = limits.users === Infinity ? '&infin;' : limits.users;
   var userPct = limits.users === Infinity ? 0 : Math.round(userCount / limits.users * 100);
 
@@ -274,7 +274,7 @@ async function renderErrorLog() {
     var html = '<table class="ct"><thead><tr><th>Time</th><th>Error</th><th>Source</th><th>Page</th><th>Version</th></tr></thead><tbody>';
     data.forEach(function(row) {
       var d = {};
-      try { d = typeof row.payload === 'string' ? JSON.parse(row.payload) : (row.payload || {}); } catch(e) {}
+      try { d = typeof row.payload === 'string' ? JSON.parse(row.payload) : (row.payload || {}); } catch(e) { console.warn('ls:', e.message); }
       var time = new Date(row.created_at).toLocaleString();
       var msg = escHtml((row.error_msg || '').substring(0, 120));
       var src = escHtml((d.source || '-') + (d.line ? ':' + d.line : ''));
@@ -566,7 +566,7 @@ function rescoreAll() {
   if (changed.length) {
     pauseSync(120000); // pause silentSync for 2 min while saves complete
     setLoading(true);
-    Promise.all(changed.map(c => atUpdate(c).catch(()=>{}))).finally(() => setLoading(false));
+    Promise.all(changed.map(c => atUpdate(c).catch(e => console.warn('sync:', e.message)))).finally(() => setLoading(false));
   }
 }
 
@@ -1075,7 +1075,7 @@ function removeCSM(name) {
     if (affected.length) {
       pauseSync(120000);
       setLoading(true);
-      Promise.all(affected.map(c => atUpdate(c).catch(() => {}))).finally(() => setLoading(false));
+      Promise.all(affected.map(c => atUpdate(c).catch(e => console.warn('sync:', e.message)))).finally(() => setLoading(false));
     }
     renderCSMList();
     refreshMgrDropdown();
@@ -1243,7 +1243,7 @@ function rescoreByProfile(profileName) {
     renderHomeBase(); renderCustomers(); renderAlerts();
     toast(`Re-scored ${changed.length} customer${changed.length!==1?'s':''} on "${profileName}"`, 'success');
     setLoading(true);
-    Promise.all(changed.map(c => atUpdate(c).catch(()=>{}))).finally(() => setLoading(false));
+    Promise.all(changed.map(c => atUpdate(c).catch(e => console.warn('sync:', e.message)))).finally(() => setLoading(false));
   }
 }
 
@@ -1303,9 +1303,9 @@ function restoreBackup(e) {
         setLoading(true);
         // Delete all existing records then re-create from backup
         try {
-          await Promise.all(customers.map(c => atDelete(c).catch(()=>{})));
+          await Promise.all(customers.map(c => atDelete(c).catch(e => console.warn('sync:', e.message))));
           customers = data.customers.map(c => ({ ...c, _recId: undefined }));
-          await Promise.all(customers.map(c => atCreate(c).catch(()=>{})));
+          await Promise.all(customers.map(c => atCreate(c).catch(e => console.warn('sync:', e.message))));
           toast('Backup restored!', 'success');
           logConfigChange('Backup restored', `From ${fmtDate(data.exported)} (${data.customers.length} customers)`);
           logConfigChange('Backup restored from file');
@@ -1470,6 +1470,6 @@ function rescoreAllWithModel() {
     renderHomeBase(); renderCustomers(); renderAlerts(); renderScoreDistribution();
     toast('Re-scored ' + changed.length + ' customer' + (changed.length !== 1 ? 's' : '') + ' with Signal Model', 'success');
     setLoading(true);
-    Promise.all(changed.map(function(c) { return atUpdate(c).catch(function(){}); })).finally(function() { setLoading(false); });
+    Promise.all(changed.map(function(c) { return atUpdate(c).catch(function(e){ console.warn('sync:', e.message); }); })).finally(function() { setLoading(false); });
   }
 }

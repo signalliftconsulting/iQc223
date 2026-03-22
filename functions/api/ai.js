@@ -2,6 +2,22 @@
 // Proxies OpenAI API calls, keeps API key server-side
 // Near-zero cold start vs Supabase edge functions
 
+const ALLOWED_ORIGINS = [
+  'https://iqcadence.pages.dev',
+  'https://iqcadence.com',
+  'https://www.iqcadence.com',
+  'https://iqc223.com',
+  'https://www.iqc223.com',
+];
+
+function getCorsOrigin(request) {
+  const origin = request.headers.get('Origin') || '';
+  const isAllowed = ALLOWED_ORIGINS.includes(origin)
+    || /^https:\/\/[a-f0-9]+\.iqcadence\.pages\.dev$/.test(origin)
+    || /^http:\/\/localhost(:\d+)?$/.test(origin);
+  return isAllowed ? origin : ALLOWED_ORIGINS[0];
+}
+
 const SYSTEM_PROMPT = `You are an expert Customer Success analyst for iQcadence CS Health Score.
 You analyze customer health data and provide actionable insights for Customer Success Managers (CSMs).
 
@@ -122,13 +138,66 @@ function getMaxTokens(promptType) {
   return 512;
 }
 
+// ─── Server-side rate limiting via Supabase ─────────────────
+const PLAN_AI_LIMITS = { core: 50, growth: 500, custom: Infinity };
+
+async function checkRateLimit(env, clientId) {
+  const supabaseUrl = env.SUPABASE_URL;
+  const supabaseKey = env.SUPABASE_SERVICE_KEY;
+  if (!supabaseUrl || !supabaseKey || !clientId) return { allowed: true };
+
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+  // Count AI calls this month + get plan tier in parallel
+  const [countRes, clientRes] = await Promise.all([
+    fetch(
+      `${supabaseUrl}/rest/v1/webhook_events?select=id&event_type=eq.ai_call&client_id=eq.${clientId}&created_at=gte.${monthStart}`,
+      { headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Prefer': 'count=exact', 'Range': '0-0' } }
+    ),
+    fetch(
+      `${supabaseUrl}/rest/v1/clients?select=plan_tier&id=eq.${clientId}`,
+      { headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}` } }
+    )
+  ]);
+
+  const count = parseInt(countRes.headers.get('content-range')?.split('/')[1] || '0');
+  const client = await clientRes.json();
+  const tier = client?.[0]?.plan_tier || 'core';
+  const limit = PLAN_AI_LIMITS[tier] ?? 50;
+
+  return { allowed: count < limit, count, limit, tier };
+}
+
+async function logAICall(env, clientId, promptType) {
+  const supabaseUrl = env.SUPABASE_URL;
+  const supabaseKey = env.SUPABASE_SERVICE_KEY;
+  if (!supabaseUrl || !supabaseKey) return;
+
+  await fetch(`${supabaseUrl}/rest/v1/webhook_events`, {
+    method: 'POST',
+    headers: {
+      'apikey': supabaseKey,
+      'Authorization': `Bearer ${supabaseKey}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify({
+      direction: 'outbound',
+      event_type: 'ai_call',
+      client_id: clientId,
+      payload: { prompt_type: promptType },
+      status: 'sent'
+    })
+  });
+}
+
 export async function onRequestPost(context) {
   const { env, request } = context;
 
-  // CORS
-  const origin = request.headers.get('Origin') || '';
+  // CORS — validate origin against whitelist
   const corsHeaders = {
-    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Origin': getCorsOrigin(request),
     'Access-Control-Allow-Headers': 'content-type',
     'Content-Type': 'application/json',
   };
@@ -138,7 +207,18 @@ export async function onRequestPost(context) {
     if (!apiKey) throw new Error('OPENAI_API_KEY not configured');
 
     const body = await request.json();
-    const { prompt_type } = body;
+    const { prompt_type, client_id } = body;
+
+    // Server-side rate limiting
+    if (client_id) {
+      const rl = await checkRateLimit(env, client_id);
+      if (!rl.allowed) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: `AI call limit reached (${rl.count}/${rl.limit} this month on ${rl.tier} plan). Upgrade for more.`
+        }), { status: 429, headers: corsHeaders });
+      }
+    }
 
     const userPrompt = buildUserPrompt(prompt_type, body);
     if (!userPrompt) throw new Error('Invalid prompt_type');
@@ -173,20 +253,23 @@ export async function onRequestPost(context) {
     const rawText = aiData.choices?.[0]?.message?.content || '';
     const parsed = JSON.parse(rawText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim());
 
+    // Log successful AI call for rate tracking
+    if (client_id) logAICall(env, client_id, prompt_type).catch(() => {});
+
     return new Response(JSON.stringify({ success: true, data: parsed, prompt_type }), { headers: corsHeaders });
 
   } catch (err) {
     return new Response(JSON.stringify({ success: false, error: err.message }), {
-      status: 400,
+      status: err.message?.includes('limit reached') ? 429 : 400,
       headers: corsHeaders,
     });
   }
 }
 
-export async function onRequestOptions() {
+export async function onRequestOptions(context) {
   return new Response(null, {
     headers: {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': getCorsOrigin(context.request),
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
       'Access-Control-Allow-Headers': 'content-type',
     },

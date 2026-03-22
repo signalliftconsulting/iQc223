@@ -96,7 +96,7 @@ async function clientRadioChange(radio) {
   renderAlerts();
   renderSettings();
   // Reload audit log if viewing audit
-  try { if (localStorage.getItem('iqc_active_view') === 'audit') loadAuditLog(true); } catch(e) {}
+  try { if (localStorage.getItem('iqc_active_view') === 'audit') loadAuditLog(true); } catch(e) { console.warn('ls:', e.message); }
 }
 
 function updateClientFilterLabel() {
@@ -174,7 +174,7 @@ async function renderClients() {
   try {
     const { data } = await sb.from('user_profiles').select('user_id, client_id');
     profiles = data || [];
-  } catch(e) {}
+  } catch(e) { console.warn('ls:', e.message); }
   const userCounts = {};
   profiles.forEach(p => { if (p.client_id) userCounts[p.client_id] = (userCounts[p.client_id]||0)+1; });
 
@@ -707,7 +707,7 @@ async function loadAnalytics() {
   // Parse payloads
   const parsed = events.map(e => {
     let p = {};
-    try { p = JSON.parse(e.payload || '{}'); } catch(x) {}
+    try { p = JSON.parse(e.payload || '{}'); } catch(x) { console.warn('parse:', x.message); }
     return { ...e, p };
   });
 
@@ -799,7 +799,7 @@ async function loadAnalytics() {
           .select('user_id, email')
           .in('user_id', userIds);
         (profiles || []).forEach(p => { emailMap[p.user_id] = p.email; });
-      } catch(e) {}
+      } catch(e) { console.warn('ls:', e.message); }
 
       sessEl.innerHTML = recent.map(e => {
         const email = emailMap[e.user_id] || e.user_id.slice(0, 8);

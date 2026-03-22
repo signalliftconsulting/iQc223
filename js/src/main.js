@@ -12,7 +12,7 @@ function _pruneAiLocalStorage() {
         } catch(e) { localStorage.removeItem(k); }
       }
     }
-  } catch(e) {}
+  } catch(e) { console.warn('ls:', e.message); }
 }
 
 // ─── WELCOME MODAL (first-time users) ────────────────────────
@@ -178,7 +178,7 @@ function _checkUserSwitch(userId) {
         });
         hasCached = true;
       }
-    } catch(e) {}
+    } catch(e) { console.warn('ls:', e.message); }
 
     // Restore last active view (or default to dashboard)
     const savedView = localStorage.getItem('iqc_active_view');
@@ -199,12 +199,12 @@ function _checkUserSwitch(userId) {
       await resolveClientPlanTier();
       _loadAIUsage();
       // Check AI integration status early so homebase Focus List works
-      try { var _aiInts = await loadIntegrationStatus(); _aiInts.forEach(function(i) { if ((i.platform === 'openai' || i.platform === 'anthropic') && i.status === 'connected') _aiIntegrationConnected = true; }); } catch(_e) {}
+      try { var _aiInts = await loadIntegrationStatus(); _aiInts.forEach(function(i) { if ((i.platform === 'openai' || i.platform === 'anthropic') && i.status === 'connected') _aiIntegrationConnected = true; }); } catch(_e) { console.warn('integration:', _e.message); }
     } catch(err) {
       console.error('Supabase sync error:', err?.message || err, err);
       if (err?.message?.includes('quota')) {
         console.warn('[sync] localStorage quota - clearing cache');
-        try { localStorage.removeItem('iqc_customers_cache'); } catch(e2) {}
+        try { localStorage.removeItem('iqc_customers_cache'); } catch(e2) { console.warn('ls:', e2.message); }
       } else {
         toast('Could not reach Supabase - showing cached data', 'warn');
       }
@@ -306,12 +306,12 @@ function _checkUserSwitch(userId) {
       await loadCustomersFromSupabase();
       await resolveClientPlanTier();
       // Check AI integration status early so homebase Focus List works
-      try { var _aiInts2 = await loadIntegrationStatus(); _aiInts2.forEach(function(i) { if ((i.platform === 'openai' || i.platform === 'anthropic') && i.status === 'connected') _aiIntegrationConnected = true; }); } catch(_e2) {}
+      try { var _aiInts2 = await loadIntegrationStatus(); _aiInts2.forEach(function(i) { if ((i.platform === 'openai' || i.platform === 'anthropic') && i.status === 'connected') _aiIntegrationConnected = true; }); } catch(_e2) { console.warn('integration:', _e2.message); }
     } catch(err) {
       console.error('Supabase sync error:', err?.message || err, err);
       if (err?.message?.includes('quota')) {
         console.warn('[sync] localStorage quota - clearing cache');
-        try { localStorage.removeItem('iqc_customers_cache'); } catch(e2) {}
+        try { localStorage.removeItem('iqc_customers_cache'); } catch(e2) { console.warn('ls:', e2.message); }
       } else {
         toast('Could not reach Supabase - showing cached data', 'warn');
       }
@@ -327,7 +327,7 @@ function _checkUserSwitch(userId) {
         window.history.replaceState({}, '', cleanUrl);
         toast('HubSpot connected successfully!', 'success');
         // Refresh integration cache and navigate to settings
-        try { delete _integrationCache['hubspot']; } catch(_) {}
+        try { delete _integrationCache['hubspot']; } catch(_) { console.warn('ls:', _.message); }
         nav('settings');
         renderSettings();
       } else if (urlParams.get('hubspot_error')) {
@@ -341,7 +341,7 @@ function _checkUserSwitch(userId) {
         const cleanUrl = window.location.origin + window.location.pathname;
         window.history.replaceState({}, '', cleanUrl);
         toast('Salesforce connected successfully!', 'success');
-        try { delete _integrationCache['salesforce']; } catch(_) {}
+        try { delete _integrationCache['salesforce']; } catch(_) { console.warn('ls:', _.message); }
         nav('settings');
         renderSettings();
       } else if (urlParams.get('salesforce_error')) {
