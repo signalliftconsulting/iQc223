@@ -820,6 +820,53 @@ function _renderCustomers() {
   _renderPagination(list.length);
 }
 
+// ─── Sparkline (inline SVG) ───────────────────────────────────
+function _sparklineHTML(history) {
+  if (!history || history.length < 2) return '<span style="color:var(--muted)">-</span>';
+  // Last 90 days of score history
+  var now = Date.now();
+  var cutoff = now - 90 * 86400000;
+  var pts = history
+    .filter(function(h) { return h.date && h.score != null; })
+    .map(function(h) { return { t: new Date(h.date).getTime(), s: h.score }; })
+    .filter(function(p) { return p.t >= cutoff; })
+    .sort(function(a, b) { return a.t - b.t; });
+  if (pts.length < 2) return '<span style="color:var(--muted)">-</span>';
+  // Downsample to max 20 points for performance
+  if (pts.length > 20) {
+    var step = (pts.length - 1) / 19;
+    var sampled = [];
+    for (var i = 0; i < 20; i++) sampled.push(pts[Math.round(i * step)]);
+    pts = sampled;
+  }
+  // Normalize Y to data range (makes small changes visible)
+  var scores = pts.map(function(p) { return p.s; });
+  var minS = Math.min.apply(null, scores);
+  var maxS = Math.max.apply(null, scores);
+  var pad = Math.max((maxS - minS) * 0.25, 3); // at least ±3 points padding
+  minS -= pad;
+  maxS += pad;
+  var range = maxS - minS || 1;
+  // Build polyline points (60x20 viewBox)
+  var w = 60, h = 20;
+  var polyPts = pts.map(function(p, i) {
+    var x = (i / (pts.length - 1)) * w;
+    var y = h - ((p.s - minS) / range) * h;
+    return x.toFixed(1) + ',' + y.toFixed(1);
+  }).join(' ');
+  // Fill area points (close the polygon at the bottom)
+  var fillPts = polyPts + ' ' + w + ',' + h + ' 0,' + h;
+  // Color: green=up, red=down, blue=flat
+  var first = pts[0].s, last = pts[pts.length - 1].s;
+  var diff = last - first;
+  var color = diff > 2 ? '#10b981' : diff < -2 ? '#ef4444' : '#3b82f6';
+  var fillColor = diff > 2 ? 'rgba(16,185,129,.12)' : diff < -2 ? 'rgba(239,68,68,.12)' : 'rgba(59,130,246,.12)';
+  return '<svg width="60" height="20" viewBox="0 0 ' + w + ' ' + h + '" style="display:block">' +
+    '<polygon points="' + fillPts + '" fill="' + fillColor + '"/>' +
+    '<polyline points="' + polyPts + '" fill="none" stroke="' + color + '" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '</svg>';
+}
+
 // ─── Row builder ─────────────────────────────────────────────
 function _buildRow(c) {
   const isSel = selectedIds.has(c.id);
@@ -830,6 +877,7 @@ function _buildRow(c) {
         <td>${c.manager ? escHtml(c.manager) : '<span style="color:var(--muted);font-style:italic"> -</span>'}</td>
         <td>${c.scoring_profile && c.scoring_profile !== 'Global Weights' ? `<span class="tag">${escHtml(c.scoring_profile)}</span>` : '<span style="color:var(--muted);font-style:italic;font-size:var(--fs-sm)">Global</span>'}</td>
         <td>${scoreHTML(c)}</td>
+        <td style="padding:2px 4px">${_sparklineHTML(c.history)}</td>
         <td>${momentumHTML(c)}</td>
         <td>${badgeHTML(c.status)}</td>
         <td>${lifecycleBadge(c.lifecycle)}</td>
