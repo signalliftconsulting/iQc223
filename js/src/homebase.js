@@ -117,12 +117,11 @@ async function _loadDemoFromCard() {
     if (typeof resetAllGuides === 'function') resetAllGuides();
 
     // 7. Clear audit log for a fresh demo experience
-    const demoCid = getEffectiveClientId();
-    if (demoCid) {
-      await sb.from('audit_logs').delete().eq('client_id', demoCid);
-    } else {
-      await sb.from('audit_logs').delete().eq('user_id', currentUser.id);
-    }
+    try {
+      // Delete by user_id (matches RLS owner policy)
+      const { error: delErr } = await sb.from('audit_logs').delete().eq('user_id', currentUser.id);
+      if (delErr) console.warn('Audit log clear failed:', delErr.message);
+    } catch(e) { console.warn('Audit log clear:', e.message); }
     auditLogs = [];
     auditOffset = 0;
 
