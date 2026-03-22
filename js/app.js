@@ -1044,8 +1044,8 @@ const _GUIDE_DEFS = [
   } catch(e) { console.warn('ls:', e.message); }
 })();
 
-// All guide badges active
-const _ACTIVE_GUIDES = new Set(_GUIDE_DEFS.map(g => g.id));
+// Guide badges removed from nav — no badges to manage
+const _ACTIVE_GUIDES = new Set();
 
 // Show/hide all guide badges based on localStorage state. Called on boot.
 function _updateAllGuideBadges() {
