@@ -113,6 +113,9 @@ async function _loadDemoFromCard() {
     // 5. Seed demo alert rules and custom rules
     _seedDemoAutomations();
 
+    // 6. Reset all guide banners so new users see them
+    if (typeof resetAllGuides === 'function') resetAllGuides();
+
     renderHomeBase();
     nav('homebase');
     toast('Demo data loaded - ' + COUNT + ' customers ready to explore!', 'success');

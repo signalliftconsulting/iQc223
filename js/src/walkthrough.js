@@ -540,8 +540,6 @@ function _wtInjectTourButtons() {
     alertsHd.style.display = 'flex';
     alertsHd.style.alignItems = 'center';
     alertsHd.style.justifyContent = 'space-between';
-    var alertsGuide = _wtMakeGuideButton('alerts');
-    if (alertsGuide) alertsHd.appendChild(alertsGuide);
     alertsHd.appendChild(_wtMakeTourButton('alerts'));
   }
 
@@ -551,8 +549,6 @@ function _wtInjectTourButtons() {
     var custRight = custHd.querySelector('div:last-child');
     if (custRight) {
       custRight.insertBefore(_wtMakeTourButton('customers'), custRight.firstChild);
-      var custGuide = _wtMakeGuideButton('customers');
-      if (custGuide) custRight.insertBefore(custGuide, custRight.firstChild);
     }
   }
 
@@ -565,17 +561,11 @@ function _wtInjectTourButtons() {
     // Check if header already has a right-side div with buttons
     var rightDiv = hd.querySelector('div:last-child');
     if (rightDiv && rightDiv !== hd.querySelector('div:first-child') && rightDiv.querySelector('button, .dropdown')) {
-      // Insert tour button at the start of existing button group
       rightDiv.insertBefore(_wtMakeTourButton(page), rightDiv.firstChild);
-      var guideBtn = _wtMakeGuideButton(page);
-      if (guideBtn) rightDiv.insertBefore(guideBtn, rightDiv.firstChild);
     } else {
-      // Make header flex and append buttons
       hd.style.display = 'flex';
       hd.style.alignItems = 'center';
       hd.style.justifyContent = 'space-between';
-      var guideBtn2 = _wtMakeGuideButton(page);
-      if (guideBtn2) hd.appendChild(guideBtn2);
       hd.appendChild(_wtMakeTourButton(page));
     }
   });

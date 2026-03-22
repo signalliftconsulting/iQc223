@@ -29,8 +29,8 @@ const _GUIDE_DEFS = [
   } catch(e) { console.warn('ls:', e.message); }
 })();
 
-// Only settings guide badge is shown; all others are disabled
-const _ACTIVE_GUIDES = new Set(['settings-guide']);
+// All guide badges active
+const _ACTIVE_GUIDES = new Set(_GUIDE_DEFS.map(g => g.id));
 
 // Show/hide all guide badges based on localStorage state. Called on boot.
 function _updateAllGuideBadges() {
@@ -49,7 +49,9 @@ function _renderGuide(id, storageKey, html) {
   wrap.style.display = '';
   wrap.innerHTML = `
     <div style="display:flex;gap:10px;align-items:flex-start;padding:12px 14px;background:color-mix(in srgb, var(--teal) 8%, var(--surface));border:1px solid color-mix(in srgb, var(--teal) 25%, var(--border));border-radius:var(--r);margin-bottom:14px">
-      <div style="width:22px;height:22px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs-xs);flex-shrink:0">1</div>
+      <div style="width:28px;height:28px;border-radius:7px;background:#eff6ff;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      </div>
       <div style="flex:1;font-size:var(--fs-sm);color:var(--text);line-height:1.5">
         ${html}
       </div>
@@ -64,6 +66,14 @@ function _renderGuide(id, storageKey, html) {
 
 function _guideToggleDsa(storageKey, checked) {
   try { if (checked) localStorage.setItem(storageKey, '1'); else localStorage.removeItem(storageKey); } catch(e) { console.warn('ls:', e.message); }
+}
+
+// Reset all guide dismissals (called when loading demo data)
+function resetAllGuides() {
+  _GUIDE_DEFS.forEach(function(g) {
+    try { localStorage.removeItem(g.key); } catch(e) {}
+  });
+  _updateAllGuideBadges();
 }
 
 function _dismissGuide(id, storageKey) {
@@ -188,7 +198,6 @@ function openGuideModal(page) {
 }
 
 function renderAlertsGuide() {
-  return;
   _renderGuide('alerts-guide', 'iqc_alerts_guide_dismissed',
     '<strong>What you can do here</strong>  - Your early-warning system. Alerts auto-detect health drops, renewal windows, support spikes, engagement dips, sentiment changes, expansion signals, and more  - 20+ alert types in total.<br>' +
     '<strong>Switch views:</strong> Use the <strong>Briefing</strong> view for a prioritized summary by severity, or switch to <strong>Category</strong>, <strong>Priority</strong>, <strong>Customer</strong>, or <strong>Table</strong> view to slice alerts the way you need.<br>' +
@@ -197,7 +206,6 @@ function renderAlertsGuide() {
 }
 
 function renderCustomersGuide() {
-  return;
   _renderGuide('customers-guide', 'iqc_customers_guide_dismissed',
     '<strong>What you can do here</strong>  - Your full customer portfolio with health scores, MRR, signals, and lifecycle stage. Click any row to open the detail view where you can edit signals, view score history, manage touches, and add notes.<br>' +
     '<strong>Sort &amp; filter:</strong> Click any column header to sort. Use the <strong>Manager</strong> and <strong>Lifecycle</strong> dropdowns to narrow by CSM or stage. Use the search bar to find customers by name.<br>' +
@@ -206,7 +214,6 @@ function renderCustomersGuide() {
 }
 
 function renderSegmentsGuide() {
-  return;
   _renderGuide('segments-guide', 'iqc_segments_guide_dismissed',
     '<strong>What you can do here</strong>  - Compare customer groups side-by-side. Switch between <strong>Segments</strong> (by tag), <strong>Tiers</strong> (SMB / Mid / Enterprise), and <strong>Lifecycle</strong> views to analyze health, MRR, risk, and trends across cohorts.<br>' +
     '<strong>KPI cards</strong> at the top show total segments, accounts, MRR, your highest-risk segment, and your fastest-growing segment at a glance.<br>' +
@@ -215,7 +222,6 @@ function renderSegmentsGuide() {
 }
 
 function renderTrendsGuide() {
-  return;
   _renderGuide('trends-guide', 'iqc_trends_guide_dismissed',
     '<strong>What you can do here</strong>  - Track how your portfolio is changing over time. The chart shows your overall trend line, and you can overlay a <strong>CSM\'s book</strong> or <strong>individual customers</strong> for comparison.<br>' +
     '<strong>Metrics:</strong> Switch between Health Score, Logins, Adoption, Tickets, NPS, CSAT, MRR, ARR, and more. Add a second metric for dual-axis analysis.<br>' +
@@ -224,7 +230,6 @@ function renderTrendsGuide() {
 }
 
 function renderForecastGuide() {
-  return;
   _renderGuide('forecast-guide', 'iqc_forecast_guide_dismissed',
     '<strong>What you can do here</strong> - See where your revenue is heading. The forecast classifies every account as Expand, Retain, Contract, or Churn based on health scores and signal trajectories.<br>' +
     '<strong>NRR Waterfall</strong> shows the flow from current MRR through expansion, contraction, and churn to projected MRR.<br>' +
@@ -233,7 +238,6 @@ function renderForecastGuide() {
 }
 
 function renderCsmperfGuide() {
-  return;
   _renderGuide('csmperf-guide', 'iqc_csmperf_guide_dismissed',
     '<strong>What you can do here</strong>  - Evaluate each CSM\'s book of business. The leaderboard ranks managers by performance index, health score, MRR managed, at-risk exposure, contact cadence, and upcoming renewals.<br>' +
     '<strong>Click a CSM name</strong> to jump to Customers filtered to their accounts. Click <strong>Expand</strong> to see their per-account breakdown inline.<br>' +
@@ -242,7 +246,6 @@ function renderCsmperfGuide() {
 }
 
 function renderCalendarGuide() {
-  return;
   _renderGuide('calendar-guide', 'iqc_calendar_guide_dismissed',
     '<strong>What you can do here</strong>  - See all upcoming renewals, scheduled touches, completed calls, and overdue contacts on one calendar. The <strong>Today\'s Schedule</strong> banner shows what needs attention right now.<br>' +
     '<strong>Click any day</strong> to see its events, log a sentiment (positive / neutral / negative), mark a call completed or missed, or schedule a new touch directly.<br>' +
@@ -251,7 +254,6 @@ function renderCalendarGuide() {
 }
 
 function renderReportsGuide() {
-  return;
   _renderGuide('reports-guide', 'iqc_reports_guide_dismissed',
     '<strong>What you can do here</strong>  - Generate ready-to-share reports for leadership, board meetings, and your own analysis. Choose a template, then print, save as PDF, export CSV, or email directly.<br>' +
     '<strong>Templates:</strong> Portfolio Health Summary, Weekly Review, Trend Report, At-Risk Report, Churn Risk, Renewal Forecast, Segment Analysis, CSM Performance, and full Customer Health Export.<br>' +
@@ -260,7 +262,6 @@ function renderReportsGuide() {
 }
 
 function renderScoreGuide() {
-  return;
   _renderGuide('score-guide', 'iqc_score_guide_dismissed',
     '<strong>What you can do here</strong>  - Add a new customer or re-score an existing one. Fill in account details and health signals, then click <strong>Calculate Health Score</strong> to see the result with a full signal breakdown and recommended playbook.<br>' +
     '<strong>Signals:</strong> Enter logins, adoption %, open tickets, NPS, CSAT, days since contact, and growth signal. Check <strong>N/A</strong> next to any signal you don\'t track  - its weight redistributes automatically.<br>' +
@@ -269,7 +270,6 @@ function renderScoreGuide() {
 }
 
 function renderUsersGuide() {
-  return;
   _renderGuide('users-guide', 'iqc_users_guide_dismissed',
     '<strong>What you can do here</strong>  - Manage who has access to your IQcadence account. Add team members so they can view customers, track health scores, and take action on alerts.<br>' +
     '<strong>Create a user:</strong> Click <strong>+ Create User</strong> above. They\'ll receive a login and share the same customer data, settings, and scoring profiles as your organization.<br>' +
@@ -278,7 +278,6 @@ function renderUsersGuide() {
 }
 
 function renderAuditlogGuide() {
-  return;
   _renderGuide('auditlog-guide', 'iqc_auditlog_guide_dismissed',
     '<strong>What you can do here</strong>  - The Audit Log gives you a complete record of everything that\'s happened in your account. Use it for accountability, debugging, and compliance.<br>' +
     '<strong>Activity Log:</strong> Every customer-facing change  - score updates, stage transitions, edits, and bulk re-scores  - is logged here with who made the change and when.<br>' +
@@ -287,7 +286,6 @@ function renderAuditlogGuide() {
 }
 
 function renderAutomationsGuide() {
-  return;
   _renderGuide('automations-guide', 'iqc_automations_guide_dismissed',
     '<strong>What you can do here</strong>  - Route alerts to <strong>Slack</strong>, <strong>Microsoft Teams</strong>, or <strong>email</strong> so your team never misses a critical change. Toggle built-in rules on/off, or create custom rules with flexible if/then logic.<br>' +
     '<strong>Built-in triggers:</strong> Health drops, churn risk, renewal approaching, NPS change, support spikes, rapid score decline, and more  - each configurable with its own threshold and delivery channel.<br>' +
