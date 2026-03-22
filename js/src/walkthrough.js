@@ -511,6 +511,25 @@ function _wtMakeTourButton(page) {
   return btn;
 }
 
+// -- Guide button creation ----------------------------------------------------
+function _wtMakeGuideButton(page) {
+  if (!_GUIDE_CONTENT || !_GUIDE_CONTENT[page]) return null;
+  var btn = document.createElement('button');
+  btn.className = 'wt-tour-btn';
+  btn.style.cssText = 'background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-color:#6ee7b7;color:#047857';
+  btn.innerHTML =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>' +
+    '</svg>Guide';
+  btn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    openGuideModal(page);
+  });
+  btn.addEventListener('mouseover', function() { btn.style.background = 'linear-gradient(135deg,#d1fae5,#a7f3d0)'; btn.style.borderColor = '#34d399'; });
+  btn.addEventListener('mouseout', function() { btn.style.background = 'linear-gradient(135deg,#ecfdf5,#d1fae5)'; btn.style.borderColor = '#6ee7b7'; });
+  return btn;
+}
+
 // -- Inject tour buttons into page headers ------------------------------------
 function _wtInjectTourButtons() {
   _wtInjectStyles();
@@ -521,6 +540,8 @@ function _wtInjectTourButtons() {
     alertsHd.style.display = 'flex';
     alertsHd.style.alignItems = 'center';
     alertsHd.style.justifyContent = 'space-between';
+    var alertsGuide = _wtMakeGuideButton('alerts');
+    if (alertsGuide) alertsHd.appendChild(alertsGuide);
     alertsHd.appendChild(_wtMakeTourButton('alerts'));
   }
 
@@ -530,6 +551,8 @@ function _wtInjectTourButtons() {
     var custRight = custHd.querySelector('div:last-child');
     if (custRight) {
       custRight.insertBefore(_wtMakeTourButton('customers'), custRight.firstChild);
+      var custGuide = _wtMakeGuideButton('customers');
+      if (custGuide) custRight.insertBefore(custGuide, custRight.firstChild);
     }
   }
 
@@ -544,11 +567,15 @@ function _wtInjectTourButtons() {
     if (rightDiv && rightDiv !== hd.querySelector('div:first-child') && rightDiv.querySelector('button, .dropdown')) {
       // Insert tour button at the start of existing button group
       rightDiv.insertBefore(_wtMakeTourButton(page), rightDiv.firstChild);
+      var guideBtn = _wtMakeGuideButton(page);
+      if (guideBtn) rightDiv.insertBefore(guideBtn, rightDiv.firstChild);
     } else {
-      // Make header flex and append tour button
+      // Make header flex and append buttons
       hd.style.display = 'flex';
       hd.style.alignItems = 'center';
       hd.style.justifyContent = 'space-between';
+      var guideBtn2 = _wtMakeGuideButton(page);
+      if (guideBtn2) hd.appendChild(guideBtn2);
       hd.appendChild(_wtMakeTourButton(page));
     }
   });

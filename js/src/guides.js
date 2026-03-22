@@ -1,5 +1,5 @@
-// ─── PAGE GUIDE BANNERS ─────────────────────────────────────
-// Shared helper for rendering dismissable guide banners on every page.
+// ─── PAGE GUIDE SYSTEM ──────────────────────────────────────
+// Guide content shown in a modal popup via Guide button in page headers.
 
 // All guide definitions: id → storageKey mapping (for badge management)
 const _GUIDE_DEFS = [
@@ -81,8 +81,108 @@ function _dismissGuide(id, storageKey) {
 
 // ─── GUIDE CONTENT PER PAGE ─────────────────────────────────
 
+// ─── GUIDE MODAL POPUP ──────────────────────────────────────
+const _GUIDE_CONTENT = {
+  alerts:
+    '<strong>Your early-warning system.</strong> Alerts auto-detect health drops, renewal windows, support spikes, engagement dips, sentiment changes, expansion signals, and more — 20+ alert types in total.<br><br>' +
+    '<strong>Switch views:</strong> Use the <strong>Briefing</strong> view for a prioritized summary by severity, or switch to <strong>Category</strong>, <strong>Priority</strong>, <strong>Customer</strong>, or <strong>Table</strong> view to slice alerts the way you need.<br><br>' +
+    '<strong>Take action:</strong> Click any alert to open the customer detail. Select multiple alerts with <strong>Shift-click</strong> to bulk snooze, dismiss, tag, or change lifecycle stage.<br><br>' +
+    '<strong>Tip:</strong> Control which alerts fire and where they\'re routed (Slack, Teams, email) in Automations.',
+  customers:
+    '<strong>Your full customer portfolio</strong> with health scores, MRR, signals, and lifecycle stage. Click any row to open the detail view where you can edit signals, view score history, manage touches, and add notes.<br><br>' +
+    '<strong>Sort &amp; filter:</strong> Click any column header to sort. Use the <strong>Manager</strong> and <strong>Lifecycle</strong> dropdowns to narrow by CSM or stage. Use the search bar to find customers by name.<br><br>' +
+    '<strong>Bulk actions:</strong> <strong>Shift-click</strong> to select multiple rows, then apply bulk tag, lifecycle change, or delete.<br><br>' +
+    '<strong>Tip:</strong> Every column — score, MRR, delta, renewal, tickets, NPS — is sortable, so you can quickly find your most at-risk or highest-value accounts.',
+  segments:
+    '<strong>Compare customer groups side-by-side.</strong> Switch between <strong>Segments</strong> (by tag), <strong>Tiers</strong> (SMB / Mid / Enterprise), and <strong>Lifecycle</strong> views to analyze health, MRR, risk, and trends across cohorts.<br><br>' +
+    '<strong>KPI cards</strong> at the top show total segments, accounts, MRR, your highest-risk segment, and your fastest-growing segment.<br><br>' +
+    '<strong>Trend chart:</strong> Select segments to overlay on the health trend chart — toggle 7d, 30d, 90d, 6m, 1y, 2y, or YTD ranges. Click any row to drill into that segment\'s customers.<br><br>' +
+    '<strong>Tip:</strong> Segments are built from tags — add tags in the Score form or detail view and they\'ll automatically appear here.',
+  trends:
+    '<strong>Track how your portfolio is changing over time.</strong> The chart shows your overall trend line, and you can overlay a <strong>CSM\'s book</strong> or <strong>individual customers</strong> for comparison.<br><br>' +
+    '<strong>Metrics:</strong> Switch between Health Score, Logins, Adoption, Tickets, NPS, CSAT, MRR, ARR, and more. Add a second metric for dual-axis analysis.<br><br>' +
+    '<strong>Score Movers table</strong> below the chart lists every customer with their current score, 7-day change, status, and signals — fully sortable and filterable.<br><br>' +
+    '<strong>Tip:</strong> Use the range bar (3d → 2y / YTD) to zoom in on recent changes or see the long-term picture.',
+  forecast:
+    '<strong>See where your revenue is heading.</strong> The forecast classifies every account as Expand, Retain, Contract, or Churn based on health scores and signal trajectories.<br><br>' +
+    '<strong>NRR Waterfall</strong> shows the flow from current MRR through expansion, contraction, and churn to projected MRR.<br><br>' +
+    '<strong>Tabs:</strong> Switch between All Customers, By CSM, By Tier, or By Renewal to see breakdowns from different angles.<br><br>' +
+    '<strong>Tip:</strong> The expansion estimates use your settings from Settings > Expansion Config.',
+  csmperf:
+    '<strong>Evaluate each CSM\'s book of business.</strong> The leaderboard ranks managers by performance index, health score, MRR managed, at-risk exposure, contact cadence, and upcoming renewals.<br><br>' +
+    '<strong>Click a CSM name</strong> to jump to Customers filtered to their accounts. Click <strong>Expand</strong> to see their per-account breakdown inline.<br><br>' +
+    '<strong>Below the leaderboard:</strong> Workload Balance, Focus Areas, Score Movement, and Activity sections give you the full picture.<br><br>' +
+    '<strong>Tip:</strong> Use this for 1:1s, resource rebalancing, and identifying coaching opportunities.',
+  calendar:
+    '<strong>See all upcoming renewals, scheduled touches, completed calls, and overdue contacts on one calendar.</strong> The Today\'s Schedule banner shows what needs attention right now.<br><br>' +
+    '<strong>Click any day</strong> to see its events, log a sentiment, mark a call completed or missed, or schedule a new touch directly.<br><br>' +
+    '<strong>Filter by customer</strong> using the dropdown to focus on one account\'s timeline.<br><br>' +
+    '<strong>Tip:</strong> Set the Next Scheduled Touch date in any customer\'s score form and it appears here automatically.',
+  reports:
+    '<strong>Generate ready-to-share reports</strong> for leadership, board meetings, and your own analysis. Choose a template, then print, save as PDF, export CSV, or email directly.<br><br>' +
+    '<strong>Templates:</strong> Portfolio Health Summary, Weekly Review, Trend Report, At-Risk Report, Churn Risk, Renewal Forecast, Segment Analysis, CSM Performance, and more.<br><br>' +
+    '<strong>Email delivery:</strong> Send any report to stakeholders as a one-time email.<br><br>' +
+    '<strong>Tip:</strong> The Weekly Review includes charts and narrative — ideal for recurring leadership updates.',
+  score:
+    '<strong>Add a new customer or re-score an existing one.</strong> Fill in account details and health signals, then click Calculate Health Score to see the result with a full signal breakdown and recommended playbook.<br><br>' +
+    '<strong>Signals:</strong> Enter logins, adoption %, open tickets, NPS, CSAT, days since contact, and growth signal. Check N/A next to any signal you don\'t track — its weight redistributes automatically.<br><br>' +
+    '<strong>Scoring profiles:</strong> Assign a profile to apply custom weights per customer or segment.<br><br>' +
+    '<strong>Tip:</strong> Bulk-import via CSV Import if you have many accounts to add.',
+  csv:
+    '<strong>Import customers from a CSV file</strong> or sync from your CRM. Map your columns to IQcadence fields, preview the data, then import.<br><br>' +
+    '<strong>Column mapping:</strong> The importer auto-detects common column names. For custom headers, use the dropdown to map each column.<br><br>' +
+    '<strong>CRM sync:</strong> Connect HubSpot or Salesforce in Settings > Integrations for automatic bidirectional sync.',
+  automations:
+    '<strong>Route alerts to Slack, Microsoft Teams, or email</strong> so your team never misses a critical change. Toggle built-in rules on/off, or create custom rules with flexible if/then logic.<br><br>' +
+    '<strong>Built-in triggers:</strong> Health drops, churn risk, renewal approaching, NPS change, support spikes, rapid score decline, and more.<br><br>' +
+    '<strong>Custom rules:</strong> Define any condition combination and route notifications to the right channel using the 3-step wizard.<br><br>' +
+    '<strong>Tip:</strong> Connect your channels in the Advanced tab first (Slack webhook, Teams workflow, or email via Resend).',
+  auditlog:
+    '<strong>A complete record of everything that\'s happened in your account.</strong> Use it for accountability, debugging, and compliance.<br><br>' +
+    '<strong>Activity Log:</strong> Every customer-facing change — score updates, stage transitions, edits, and bulk re-scores — is logged with who made the change and when.<br><br>' +
+    '<strong>Config History:</strong> All settings changes — weight adjustments, threshold edits, profile updates, CSM changes.<br><br>' +
+    '<strong>Tip:</strong> Use the search bar and action filter to quickly find specific changes.',
+  users:
+    '<strong>Manage who has access to your IQcadence account.</strong> Add team members so they can view customers, track health scores, and take action on alerts.<br><br>' +
+    '<strong>Create a user:</strong> Click + Create User. They\'ll share the same customer data, settings, and scoring profiles.<br><br>' +
+    '<strong>Remove a user:</strong> Click delete on their row. Their data stays — only their login access is revoked.',
+  settings:
+    '<strong>Configure your health scoring engine.</strong> Adjust signal weights, set alert thresholds, create scoring profiles, and manage your account.<br><br>' +
+    '<strong>Scoring tab:</strong> Set how much each signal (logins, adoption, NPS, etc.) contributes to the health score. Adjust thresholds for Critical, At Risk, Watch, Healthy, and Expand.<br><br>' +
+    '<strong>Account tab:</strong> Manage your password, CSM list, data health, and backups.<br><br>' +
+    '<strong>Integrations tab:</strong> Connect HubSpot, Salesforce, and Stripe for automatic data sync.',
+};
+
+const _GUIDE_TITLES = {
+  alerts: 'Alerts', customers: 'Customers', segments: 'Segments', trends: 'Trends',
+  forecast: 'Forecast', csmperf: 'CSM Performance', calendar: 'Calendar', reports: 'Reports',
+  score: 'Score a Customer', csv: 'CSV Import', automations: 'Automations', auditlog: 'Audit Log',
+  users: 'Users', settings: 'Settings'
+};
+
+function openGuideModal(page) {
+  var content = _GUIDE_CONTENT[page];
+  if (!content) return;
+  var title = _GUIDE_TITLES[page] || page;
+  // Reuse or create guide modal
+  var m = document.getElementById('guide-modal');
+  if (!m) {
+    m = document.createElement('div');
+    m.id = 'guide-modal';
+    m.className = 'modal-backdrop';
+    m.style.cssText = 'display:none;position:fixed;inset:0;z-index:10000;align-items:center;justify-content:center;background:rgba(15,23,42,.5);backdrop-filter:blur(3px);padding:16px';
+    m.addEventListener('click', function(e) { if (e.target === m) m.style.display = 'none'; });
+    document.body.appendChild(m);
+  }
+  m.innerHTML = '<div class="modal" style="max-width:560px;max-height:80vh;overflow-y:auto">' +
+    '<div class="modal-hd"><h2>' + appIcon('book', 20) + ' ' + escHtml(title) + ' Guide</h2>' +
+    '<button style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:4px" onclick="document.getElementById(\'guide-modal\').style.display=\'none\'">&times;</button></div>' +
+    '<div class="modal-bd" style="font-size:var(--fs-sm);line-height:1.7;color:var(--text)">' + content + '</div></div>';
+  m.style.display = 'flex';
+}
+
 function renderAlertsGuide() {
-  return; // Guide banners removed except Settings
+  return;
   _renderGuide('alerts-guide', 'iqc_alerts_guide_dismissed',
     '<strong>What you can do here</strong>  - Your early-warning system. Alerts auto-detect health drops, renewal windows, support spikes, engagement dips, sentiment changes, expansion signals, and more  - 20+ alert types in total.<br>' +
     '<strong>Switch views:</strong> Use the <strong>Briefing</strong> view for a prioritized summary by severity, or switch to <strong>Category</strong>, <strong>Priority</strong>, <strong>Customer</strong>, or <strong>Table</strong> view to slice alerts the way you need.<br>' +
