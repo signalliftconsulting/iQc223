@@ -1725,10 +1725,9 @@ var _WT_TOURS = {
         body: 'Drag and drop a CSV file here, or click to browse. iQcadence will auto-detect your columns and let you map them to the right fields before importing.'
       },
       {
-        target: '#col-map-rows',
+        target: '#drop-zone',
         title: 'Column Mapping',
-        body: 'After uploading, map each column in your CSV to the matching iQcadence field (name, MRR, score, etc.). Unmapped columns are skipped. The preview table below shows exactly what will be imported.',
-        fallback: '#drop-zone'
+        body: 'Once you upload a CSV, a mapping screen will appear where you match each of your columns to an iQcadence field (name, MRR, score, etc.). Any columns you don\'t map are simply skipped. A preview table lets you verify exactly what will be imported before confirming.'
       }
     ]
   },
