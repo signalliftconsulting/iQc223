@@ -4495,6 +4495,9 @@ async function _ensureUserProfileInner(user) {
             _userClientId = newClient.id;
             await sb.from('user_profiles').update({ client_id: newClient.id }).eq('user_id', user.id);
             console.log('[auth] Auto-provisioned client:', clientName, newClient.id);
+            toast('Account ready! Loading...', 'success');
+            setTimeout(() => location.reload(), 800);
+            return;
           } else {
             console.warn('[auth] Client creation failed:', clientErr?.message);
           }
@@ -4532,7 +4535,10 @@ async function _ensureUserProfileInner(user) {
             _userClientId = _pResult.data.id;
             await sb.from('user_profiles').update({ client_id: _pResult.data.id }).eq('user_id', user.id);
             console.log('[auth] Auto-provisioned client:', _pClientName, _pResult.data.id);
-            toast('Account ready!', 'success');
+            toast('Account ready! Loading...', 'success');
+            // Reload so all data loads with the new client_id
+            setTimeout(() => location.reload(), 800);
+            return;
           } else {
             console.error('[auth] Client creation failed:', _pResult.error?.message);
             toast('Account setup issue — try refreshing', 'warn');
