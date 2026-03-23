@@ -4489,6 +4489,31 @@ async function ensureUserProfile(user) {
       // Store the server-fetched role (can't be spoofed from console)
       _userRole = data.role || 'user';
       _userClientId = data.client_id || null;
+
+      // If profile exists but no client assigned, auto-provision one
+      if (!_userClientId && _userRole !== 'admin') {
+        try {
+          var fullName = (user.user_metadata && user.user_metadata.full_name) || user.email.split('@')[0];
+          var companyName = (user.user_metadata && user.user_metadata.company_name) || '';
+          var clientName = companyName || (fullName + "'s Account");
+          console.log('[auth] Profile exists but no client — provisioning:', clientName);
+          var { data: newClient, error: clientErr } = await sb.from('clients').insert({
+            name:         clientName,
+            user_id:      user.id,
+            plan_tier:    'growth',
+            trial_expires: '2026-04-07T23:59:59Z',
+            created_at:   new Date().toISOString()
+          }).select('id').single();
+
+          if (!clientErr && newClient) {
+            _userClientId = newClient.id;
+            await sb.from('user_profiles').update({ client_id: newClient.id }).eq('user_id', user.id);
+            console.log('[auth] Auto-provisioned client:', clientName, newClient.id);
+          } else {
+            console.warn('[auth] Client creation failed:', clientErr?.message);
+          }
+        } catch(e3) { console.warn('[auth] Late provision error:', e3.message); }
+      }
     }
     // Re-apply admin UI now that role is confirmed from server
     updateUserUI(user);
