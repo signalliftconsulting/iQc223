@@ -1720,6 +1720,8 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
 .skip-link:focus{top:0}
 /* Skeleton shimmer for loading states */
 @keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:.8}}
+@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 .skeleton-bar{background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:800px 100%;animation:shimmer 1.5s infinite linear;border-radius:6px}
 .skeleton-kpi-card{background:#fff;border-radius:8px;border:1px solid #e2e8f0;padding:16px;min-height:140px;display:flex;flex-direction:column;gap:10px}
 .skeleton-kpi-card .sk-icon{width:32px;height:32px;border-radius:8px}
@@ -4738,6 +4740,6 @@ Header: Content-Type: application/json
 (function(){var btn=document.getElementById('mobile-overlay-dismiss');if(btn)btn.addEventListener('click',function(){document.getElementById('mobile-overlay').classList.add('dismissed')});})();
 </script>
 
-<script defer src="js/app.js?v=711"></script>
+<script defer src="js/app.js?v=712"></script>
 </body>
 </html>
