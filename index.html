@@ -2690,15 +2690,11 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
         <div class="card-hd"><h2>Score Distribution <span class="info-tip" data-tip="Live breakdown of accounts across health bands based on current threshold settings. Updates when you save thresholds or weights.">ⓘ</span></h2></div>
         <p>Current spread of accounts across health bands.</p>
         <div id="cfg-score-dist"></div>
-      </div>
-    </div>
-
-    <!-- Scoring Profiles -->
-    <div class="cfg-columns" style="grid-template-columns:1fr">
-      <div class="card">
-        <div class="card-hd"><h2>Scoring Profiles <span class="info-tip" data-tip="Click a profile to load its weights into the editor. Edit, update, or create new profiles from the sliders.">ⓘ</span></h2></div>
-        <p>Click a profile to load its weights into the Signal Weights editor.</p>
-        <div id="profiles-list"></div>
+        <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
+          <div class="card-hd" style="margin-bottom:8px"><h2>Scoring Profiles <span class="info-tip" data-tip="Click a profile to load its weights into the editor. Edit, update, or create new profiles from the sliders.">ⓘ</span></h2></div>
+          <p style="margin-bottom:8px;font-size:var(--fs-sm);color:var(--muted)">Click a profile to load its weights into the Signal Weights editor.</p>
+          <div id="profiles-list"></div>
+        </div>
       </div>
     </div>
 
@@ -4744,6 +4740,6 @@ Header: Content-Type: application/json
 (function(){var btn=document.getElementById('mobile-overlay-dismiss');if(btn)btn.addEventListener('click',function(){document.getElementById('mobile-overlay').classList.add('dismissed')});})();
 </script>
 
-<script defer src="js/app.js?v=709"></script>
+<script defer src="js/app.js?v=710"></script>
 </body>
 </html>
