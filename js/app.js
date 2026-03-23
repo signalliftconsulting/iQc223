@@ -4388,12 +4388,14 @@ async function authSignIn() {
 }
 
 async function authSignUp() {
-  const name  = el('signup-name')?.value.trim();
-  const email = el('signup-email')?.value.trim();
-  const pw    = el('signup-pw')?.value;
-  const pw2   = el('signup-pw2')?.value;
+  const name    = el('signup-name')?.value.trim();
+  const email   = el('signup-email')?.value.trim();
+  const company = el('signup-company')?.value.trim();
+  const pw      = el('signup-pw')?.value;
+  const pw2     = el('signup-pw2')?.value;
   if (!name)       { authErr('Please enter your name.'); return; }
   if (!email)      { authErr('Please enter your email.'); return; }
+  if (!company)    { authErr('Please enter your company name.'); return; }
   if (!pw)         { authErr('Please choose a password.'); return; }
   if (pw.length<8) { authErr('Password must be at least 8 characters.'); return; }
   if (pw !== pw2)  { authErr('Passwords do not match.'); return; }
@@ -4401,7 +4403,7 @@ async function authSignUp() {
   const { error } = await sb.auth.signUp({
     email,
     password: pw,
-    options: { data: { full_name: name } }
+    options: { data: { full_name: name, company_name: company } }
   });
   if (error) { authErr(error.message); return; }
   authOk('Account created! Check your email to confirm, then sign in.');
@@ -4452,10 +4454,11 @@ async function ensureUserProfile(user) {
     if (!data) {
       // Not registered yet — create profile row
       var fullName = (user.user_metadata && user.user_metadata.full_name) || user.email.split('@')[0];
+      var companyName = (user.user_metadata && user.user_metadata.company_name) || '';
       await sb.from('user_profiles').insert({
         user_id:       user.id,
         email:         user.email,
-        business_name: fullName,
+        business_name: companyName || fullName,
         role:          'user',
         created_at:    new Date().toISOString()
       });
@@ -4464,7 +4467,7 @@ async function ensureUserProfile(user) {
 
       // Auto-provision a client account for self-sign-up users
       try {
-        var clientName = fullName + "'s Account";
+        var clientName = companyName || (fullName + "'s Account");
         var { data: newClient, error: clientErr } = await sb.from('clients').insert({
           name:         clientName,
           plan_tier:    'growth',

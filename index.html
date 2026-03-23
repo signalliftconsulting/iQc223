@@ -1763,6 +1763,10 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
         <input class="auth-input" type="email" id="signup-email" placeholder="you@company.com" autocomplete="email" required/>
       </div>
       <div class="auth-field">
+        <label for="signup-company">Company Name</label>
+        <input class="auth-input" type="text" id="signup-company" placeholder="Acme Inc." autocomplete="organization" required/>
+      </div>
+      <div class="auth-field">
         <label for="signup-pw">Password <span style="font-size:var(--fs-sm);color:var(--subtle)">(min 8 chars)</span></label>
         <input class="auth-input" type="password" id="signup-pw" placeholder="Choose a password" autocomplete="new-password" minlength="8" required/>
       </div>
@@ -4725,6 +4729,6 @@ Header: Content-Type: application/json
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script defer src="js/config.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
-<script defer src="js/app.js?v=708"></script>
+<script defer src="js/app.js?v=709"></script>
 </body>
 </html>
