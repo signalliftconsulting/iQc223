@@ -179,8 +179,8 @@ const PLAN_FEATURES = {
   segments:          'growth',
   alert_channels:    'growth',
   report_segments:   'growth',
-  api_webhooks:      'core',
   // Custom+
+  api_webhooks:      'custom',
   next_best_action:  'custom',
   momentum:          'custom',
   signal_model:      'custom',
@@ -14397,6 +14397,11 @@ function apiSubTab(which) {
   if (which === 'integrations') {
     renderIntegrationsSection();
   } else if (which === 'devtools') {
+    if (!hasFeature('api_webhooks')) {
+      var pane = el('api-pane-devtools');
+      if (pane) pane.innerHTML = upgradeHTML('api_webhooks');
+      return;
+    }
     renderWebhookConfig();
     renderApiSection();
     loadWebhookLog();
