@@ -10845,10 +10845,8 @@ function updateBulkBar() {
   if (selectedIds.size > 0) {
     bar.classList.add('show');
     cnt.textContent = `${selectedIds.size} selected`;
-    // Edit only works with exactly 1 selected
-    if (editBtn) {
-      editBtn.style.display = selectedIds.size === 1 ? '' : 'none';
-    }
+    // Edit works for single (score form) and multi (bulk edit modal)
+    if (editBtn) editBtn.style.display = '';
   } else {
     bar.classList.remove('show');
   }
