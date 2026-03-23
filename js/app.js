@@ -6227,12 +6227,16 @@ function refreshCurrentPage() {
 // ─── NOTIFICATION BELL (v86) ───────────────────────────────────
 
 function toggleBellDd() {
-  const m = el('bell-dd-menu');
-  if (!m) return;
-  const open = m.classList.contains('open');
-  document.querySelectorAll('.snooze-dd__menu.open').forEach(x => x.classList.remove('open'));
-  if (!open) { renderBellDd(); m.classList.add('open'); }
-  const btn = m.closest('.snooze-dd')?.querySelector('button');
+  var m = document.getElementById('bell-dd-menu');
+  if (!m) { console.warn('[bell] menu element not found'); return; }
+  var open = m.classList.contains('open');
+  document.querySelectorAll('.snooze-dd__menu.open').forEach(function(x) { x.classList.remove('open'); });
+  if (!open) {
+    try { renderBellDd(); } catch(e) { console.error('[bell] renderBellDd error:', e); m.innerHTML = '<div style="padding:16px;color:var(--muted);text-align:center">Could not load alerts</div>'; }
+    m.classList.add('open');
+  }
+  var btn = m.closest('.snooze-dd');
+  if (btn) btn = btn.querySelector('button');
   if (btn) btn.setAttribute('aria-expanded', !open ? 'true' : 'false');
 }
 
