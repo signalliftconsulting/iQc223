@@ -143,6 +143,7 @@ async function ensureUserProfile(user) {
         var clientName = companyName || (fullName + "'s Account");
         var { data: newClient, error: clientErr } = await sb.from('clients').insert({
           name:         clientName,
+          user_id:      user.id,
           plan_tier:    'growth',
           trial_expires: '2026-04-07T23:59:59Z',
           created_at:   new Date().toISOString()
