@@ -12971,7 +12971,7 @@ function playKey(p) {
 function renderDetailPlaybook() {
   const c = customers.find(x => x.id === detailId);
   if (!c) return;
-  const plays = buildPlaybook(c.score, c);
+  let plays = buildPlaybook(c.score, c);
   const playTypeMap2 = { urgent:'U', engage:'E', coach:'C', adopt:'A', support:'S', expand:'X', renew:'R', ok:'OK' };
   const playClsMap2  = { urgent:'play-urgent', engage:'play-engage', coach:'play-coach', adopt:'play-adopt', support:'play-support', expand:'play-expand', renew:'play-renew', ok:'play-ok' };
 
@@ -13013,10 +13013,14 @@ function renderDetailPlaybook() {
 
   if (dirty) { c.playbook_checks = checks; atUpdate(c).catch(e => console.warn('sync:', e.message)); }
 
-  const done = Object.keys(checks).length;
+  // Filter out removed items
+  const removed = new Set(checks.__removed || []);
+  plays = plays.filter(p => !removed.has(playKey(p)));
+
+  const done = Object.keys(checks).filter(k => plays.some(p => playKey(p) === k)).length;
   const pct  = plays.length ? Math.round((done / plays.length) * 100) : 0;
   const clearLink = done > 0
-    ? `<a href="#" onclick="event.preventDefault();clearPlaybookChecks()" style="font-size:var(--fs-sm);color:var(--muted);text-decoration:underline;white-space:nowrap">Clear completed</a>`
+    ? `<a href="#" onclick="event.preventDefault();clearPlaybookChecks()" style="font-size:var(--fs-sm);color:var(--muted);text-decoration:underline;white-space:nowrap">Remove completed</a>`
     : '';
   const header = plays.length > 1
     ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
@@ -13069,7 +13073,13 @@ function togglePlayCheck(idx, checked) {
 function clearPlaybookChecks() {
   const c = customers.find(x => x.id === detailId);
   if (!c) return;
-  c.playbook_checks = {};
+  // Remove completed items — store removed keys inside playbook_checks.__removed
+  var checks = c.playbook_checks || {};
+  var removed = checks.__removed || [];
+  Object.keys(checks).forEach(function(k) {
+    if (k !== '__removed' && !removed.includes(k)) removed.push(k);
+  });
+  c.playbook_checks = { __removed: removed };
   atUpdate(c).catch(e => console.warn('sync:', e.message));
   renderDetailPlaybook();
 }
