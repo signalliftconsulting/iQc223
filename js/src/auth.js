@@ -73,11 +73,13 @@ async function authSignUp() {
   if (pw.length<8) { authErr('Password must be at least 8 characters.'); return; }
   if (pw !== pw2)  { authErr('Passwords do not match.'); return; }
   authSetBusy(true);
+  window._signUpInProgress = true;
   const { error } = await sb.auth.signUp({
     email,
     password: pw,
     options: { data: { full_name: name, company_name: company } }
   });
+  window._signUpInProgress = false;
   if (error) { authErr(error.message); return; }
   authOk('Account created! Check your email to confirm, then sign in.');
   // Auto-switch to sign in tab after a moment
@@ -120,7 +122,13 @@ async function authSignOut() {
 
 // Auto-register current user's profile on login (so admin can see them)
 // Must be in core bundle — called by main.js during boot before any data loads.
+var _ensureProfileBusy = false;
 async function ensureUserProfile(user) {
+  if (_ensureProfileBusy) return;
+  _ensureProfileBusy = true;
+  try { await _ensureUserProfileInner(user); } finally { _ensureProfileBusy = false; }
+}
+async function _ensureUserProfileInner(user) {
   try {
     const { data: rows } = await sb.from('user_profiles').select('user_id, role, client_id').eq('user_id', user.id).limit(1);
     const data = rows && rows.length ? rows[0] : null;
