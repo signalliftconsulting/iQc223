@@ -2702,11 +2702,10 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
 
   <!-- Thresholds & Operations tab -->
   <div class="dtab-pane" id="cfg-pane-thresholds">
-    <p style="font-size:var(--fs-base);color:var(--muted);margin-bottom:14px">Define score cutoffs for health bands and fine-tune signal detection sensitivity.</p>
-    <div class="cfg-columns" style="grid-template-columns:1fr 1fr">
-      <div class="card">
-        <div class="card-hd"><h2>Score Thresholds <span class="info-tip" data-tip="Define score cutoffs for each health band. Changes apply to all accounts on next re-score.">ⓘ</span></h2></div>
-        <p>Define what score ranges map to each health band.</p>
+    <p style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:10px">Define score cutoffs for health bands, signal sensitivity, and account operation settings.</p>
+    <div class="cfg-columns" style="grid-template-columns:1fr 1fr;gap:12px">
+      <div class="card" style="padding:14px">
+        <div class="card-hd" style="margin-bottom:6px"><h2 style="font-size:var(--fs-md)">Score Thresholds <span class="info-tip" data-tip="Define score cutoffs for each health band. Changes apply to all accounts on next re-score.">ⓘ</span></h2></div>
         <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#dc2626"></span>Critical — below</span><input class="threshold-input" type="number" id="th-critical" min="1" max="99" value="25" data-input="rvThresholds"/><span style="font-size:var(--fs-base);color:var(--muted)">0–<span id="th-critical-max">24</span></span></div>
         <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#ea580c"></span>At Risk — below</span><input class="threshold-input" type="number" id="th-risk" min="1" max="99" value="50" data-input="rvThresholds"/><span style="font-size:var(--fs-base);color:var(--muted)"><span id="th-risk-range">25–49</span></span></div>
         <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:var(--amber)"></span>Watch — below</span><input class="threshold-input" type="number" id="th-watch" min="1" max="99" value="65" data-input="rvThresholds"/><span style="font-size:var(--fs-base);color:var(--muted)"><span id="th-watch-range">50–64</span></span></div>
@@ -2717,9 +2716,8 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
           <button class="btn btn-success btn-sm" data-action="saveThresholds">Save Thresholds</button>
         </div>
       </div>
-      <div class="card">
-        <div class="card-hd"><h2>Signal Thresholds <span class="info-tip" data-tip="Fine-tune sensitivity for quiet account detection and momentum classification.">ⓘ</span></h2></div>
-        <p>Adjust detection sensitivity for account signals.</p>
+      <div class="card" style="padding:14px">
+        <div class="card-hd" style="margin-bottom:6px"><h2 style="font-size:var(--fs-md)">Signal Thresholds <span class="info-tip" data-tip="Fine-tune sensitivity for quiet account detection and momentum classification.">ⓘ</span></h2></div>
         <div class="threshold-row"><span class="threshold-label">Quiet after</span><input class="threshold-input" type="number" id="cfg-quiet-days" min="1" max="90" value="14"/><span style="font-size:var(--fs-base);color:var(--muted)">days</span></div>
         <div class="threshold-row"><span class="threshold-label">Momentum ±</span><input class="threshold-input" type="number" id="cfg-momentum-pts" min="1" max="20" value="3"/><span style="font-size:var(--fs-base);color:var(--muted)">pts / 7d</span></div>
         <div style="margin-top:6px;display:flex;gap:8px">
@@ -2730,15 +2728,15 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
     </div>
 
     <!-- Account Operations -->
-    <div class="cfg-section" id="cfg-acct-ops">
-      <div class="cfg-section-hd">
+    <div class="cfg-section" id="cfg-acct-ops" style="margin-top:10px">
+      <div class="cfg-section-hd" style="margin-bottom:6px">
         <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         Account Operations
       </div>
-      <div class="cfg-columns">
-        <div class="card">
-          <div class="card-hd"><h2>Contact Cadence <span class="info-tip" data-tip="Set how many days without contact triggers a 'Due Soon' warning or 'Overdue' alert, per tier.">ⓘ</span></h2></div>
-          <p>Days since last contact before follow-up is flagged.</p>
+      <div class="cfg-columns" style="gap:12px">
+        <div class="card" style="padding:14px">
+          <div class="card-hd" style="margin-bottom:4px"><h2 style="font-size:var(--fs-md)">Contact Cadence <span class="info-tip" data-tip="Set how many days without contact triggers a 'Due Soon' warning or 'Overdue' alert, per tier.">ⓘ</span></h2></div>
+          <p style="font-size:var(--fs-sm)">Days since last contact before follow-up is flagged.</p>
           <table style="width:100%;font-size:var(--fs-base);border-collapse:collapse">
             <thead><tr>
               <th style="text-align:left;padding:4px 6px;font-weight:700;border-bottom:1px solid var(--border)">Tier</th>
@@ -2753,17 +2751,17 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
           </table>
           <div style="margin-top:14px;display:flex;gap:8px"><button class="btn btn-ghost btn-sm" data-action="resetCadence">Reset</button><button class="btn btn-success btn-sm" data-action="saveCadence">Save</button></div>
         </div>
-        <div class="card">
-          <div class="card-hd"><h2>Renewal Windows <span class="info-tip" data-tip="How far out from a renewal date should alerts appear, and at what urgency level.">ⓘ</span></h2></div>
-          <p>Days before renewal to trigger each alert level.</p>
+        <div class="card" style="padding:14px">
+          <div class="card-hd" style="margin-bottom:4px"><h2 style="font-size:var(--fs-md)">Renewal Windows <span class="info-tip" data-tip="How far out from a renewal date should alerts appear, and at what urgency level.">ⓘ</span></h2></div>
+          <p style="font-size:var(--fs-sm)">Days before renewal to trigger each alert level.</p>
           <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#dc2626"></span>Critical</span><input class="threshold-input" type="number" id="rw-critical" min="1" max="365" value="14"/><span style="font-size:var(--fs-base);color:var(--muted)">days</span></div>
           <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#f59e0b"></span>Warning</span><input class="threshold-input" type="number" id="rw-warning" min="1" max="365" value="30"/><span style="font-size:var(--fs-base);color:var(--muted)">days</span></div>
           <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#3b82f6"></span>Upcoming</span><input class="threshold-input" type="number" id="rw-upcoming" min="1" max="365" value="60"/><span style="font-size:var(--fs-base);color:var(--muted)">days</span></div>
           <div style="margin-top:14px;display:flex;gap:8px"><button class="btn btn-ghost btn-sm" data-action="resetRenewalWindows">Reset</button><button class="btn btn-success btn-sm" data-action="saveRenewalWindows">Save</button></div>
         </div>
-        <div class="card">
-          <div class="card-hd"><h2>Expansion Estimate <span class="info-tip" data-tip="Configure how upsell potential is calculated on the Home Base KPI card.">ⓘ</span></h2></div>
-          <p>How to estimate upsell potential for expansion-ready accounts.</p>
+        <div class="card" style="padding:14px">
+          <div class="card-hd" style="margin-bottom:4px"><h2 style="font-size:var(--fs-md)">Expansion Estimate <span class="info-tip" data-tip="Configure how upsell potential is calculated on the Home Base KPI card.">ⓘ</span></h2></div>
+          <p style="font-size:var(--fs-sm)">How to estimate upsell potential for expansion-ready accounts.</p>
           <div class="threshold-row"><span class="threshold-label">Method</span><select id="exp-mode" class="threshold-input" style="width:auto;min-width:120px" data-change="toggleExpMode"><option value="pct">% of MRR</option><option value="flat">Flat $/acct</option></select></div>
           <div class="threshold-row" id="exp-pct-row"><span class="threshold-label">Percentage</span><input class="threshold-input" type="number" id="exp-pct" min="1" max="100" step="1" value="20"/><span style="font-size:var(--fs-base);color:var(--muted)">%</span></div>
           <div class="threshold-row" id="exp-flat-row" style="display:none"><span class="threshold-label">Amount</span><span style="font-size:var(--fs-md);font-weight:600;margin-right:2px">$</span><input class="threshold-input" type="number" id="exp-flat" min="1" step="100" value="5000" style="width:80px"/></div>
@@ -4740,6 +4738,6 @@ Header: Content-Type: application/json
 (function(){var btn=document.getElementById('mobile-overlay-dismiss');if(btn)btn.addEventListener('click',function(){document.getElementById('mobile-overlay').classList.add('dismissed')});})();
 </script>
 
-<script defer src="js/app.js?v=713"></script>
+<script defer src="js/app.js?v=714"></script>
 </body>
 </html>
