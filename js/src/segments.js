@@ -190,6 +190,13 @@ function renderSegments() {
   const tableWrap = el('seg-table-wrap');
   if (!kpiRow) return;
 
+  // Empty state when no customers loaded
+  if (!customers.length) {
+    kpiRow.innerHTML = '';
+    if (tableWrap) tableWrap.innerHTML = '<div class="empty-state" style="text-align:center;padding:80px 20px;color:#64748b"><div style="font-size:48px;margin-bottom:16px;opacity:.4">\uD83D\uDCCA</div><h3 style="font-size:18px;color:#1e293b;margin-bottom:8px">No data yet</h3><p style="font-size:14px;margin-bottom:20px">Add customers or load demo data to get started.</p><button class="btn btn-sm btn-primary" data-action="nav" data-arg="homebase">Go to Home Base</button></div>';
+    return;
+  }
+
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
 
   // Cache getDelta7d once per customer

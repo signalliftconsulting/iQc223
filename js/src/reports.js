@@ -5,6 +5,12 @@ function renderReporting() {
   const wrap = el('reports-wrap');
   if (!wrap) return;
 
+  // Empty state when no customers loaded
+  if (!customers.length) {
+    wrap.innerHTML = '<div class="empty-state" style="text-align:center;padding:80px 20px;color:#64748b"><div style="font-size:48px;margin-bottom:16px;opacity:.4">\uD83D\uDCCB</div><h3 style="font-size:18px;color:#1e293b;margin-bottom:8px">No data yet</h3><p style="font-size:14px;margin-bottom:20px">Add customers or load demo data to get started.</p><button class="btn btn-sm btn-primary" data-action="nav" data-arg="homebase">Go to Home Base</button></div>';
+    return;
+  }
+
   const lockSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
 
   const reports = [
@@ -1570,7 +1576,7 @@ async function sendReportEmailNow() {
     if (data?.error) throw new Error(data.error);
     toast('Report sent to ' + recipients.split(',').length + ' recipient(s)', 'success');
   } catch(err) {
-    toast('Failed to send: ' + (err.message || 'Unknown error'), 'error');
+    console.error('Failed to send report:', err.message || err); toast('Report could not be sent \u2014 please try again', 'error');
   }
 }
 
@@ -1593,7 +1599,7 @@ async function sendReportEmailTest() {
     if (data?.error) throw new Error(data.error);
     toast('Test report sent to ' + email, 'success');
   } catch(err) {
-    toast('Failed to send test: ' + (err.message || 'Unknown error'), 'error');
+    console.error('Failed to send test:', err.message || err); toast('Test email could not be sent \u2014 please try again', 'error');
   }
 }
 
@@ -1862,7 +1868,7 @@ async function schedSendNow(reportKey) {
     renderScheduledReports();
     toast('Report sent to ' + cfg.recipients.split(',').length + ' recipient(s)', 'success');
   } catch(err) {
-    toast('Failed to send: ' + (err.message || 'Unknown error'), 'error');
+    console.error('Failed to send report:', err.message || err); toast('Report could not be sent \u2014 please try again', 'error');
   }
 }
 
@@ -1882,6 +1888,6 @@ async function schedTestSend(reportKey) {
     if (data?.error) throw new Error(data.error);
     toast('Test report sent to ' + currentUser.email, 'success');
   } catch(err) {
-    toast('Failed to send test: ' + (err.message || 'Unknown error'), 'error');
+    console.error('Failed to send test:', err.message || err); toast('Test email could not be sent \u2014 please try again', 'error');
   }
 }

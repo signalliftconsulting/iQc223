@@ -275,7 +275,7 @@ function _downloadAIContent(elementId, title) {
   }).catch(function(err) {
     document.body.removeChild(container);
     console.warn('PDF generation error:', err);
-    toast('PDF download failed — try again', 'error');
+    toast('PDF download failed \u2014 please try again', 'error');
   });
 }
 
@@ -797,7 +797,7 @@ function saveScore() {
         dupe.history.push({ score, date: new Date().toISOString(), signals: buildHistorySnapshot(data) });
         setLoading(true);
         save(dupe).then(() => { setLoading(false); toast('Score updated for ' + dupe.name, 'success'); })
-                  .catch(function(err) { setLoading(false); if (err && err.isConflict) { toast(escHtml(dupe.name) + ' was modified by another user. Refresh to see their changes.', 'warn'); } else { toast('Updated locally - sync failed', 'warn'); } });
+                  .catch(function(err) { setLoading(false); if (err && err.isConflict) { toast(escHtml(dupe.name) + ' was modified by another user. Refresh to see their changes.', 'warn'); } else { toast('Changes saved locally \u2014 will sync when connection returns', 'warn'); } });
         logAudit('customer_scored', dupe.id, dupe.name, { score, status, summary: `Re-scored → ${score}/100 (${status}), MRR: $${dupe.mrr}, Tier: ${dupe.tier}` });
         pendingResult = null;
         resetForm();
@@ -849,7 +849,7 @@ function saveScore() {
     toast('Saved: ' + cust.name, 'success');
   }).catch(() => {
     setLoading(false);
-    toast('Saved locally - sync failed, check connection', 'warn');
+    toast('Changes saved locally \u2014 will sync when connection returns', 'warn');
   });
   logAudit('customer_created', cust.id, cust.name, { score, status, summary: `New customer - Score: ${score}/100 (${status}), MRR: $${cust.mrr}, Tier: ${cust.tier}, Lifecycle: ${cust.lifecycle}` });
   pendingResult = null;
@@ -899,7 +899,7 @@ function saveDetailsOnly() {
   }).catch(function(err) {
     setLoading(false);
     if (err && err.isConflict) { toast(escHtml(c.name) + ' was modified by another user. Refresh to see their changes.', 'warn'); }
-    else { toast('Saved locally - sync failed', 'warn'); }
+    else { toast('Changes saved locally \u2014 will sync when connection returns', 'warn'); }
   });
   logAudit('customer_updated', c.id, c.name, { summary: `Details updated (no re-score)` });
   resetForm();
@@ -1031,7 +1031,7 @@ function logSentiment() {
   renderDetailSentiment();
   logAudit('sentiment_logged', c.id, c.name, { summary: `Sentiment: ${c.sentiment[0].val}${note ? ' - "' + note.substring(0, 80) + '"' : ''}` });
   save(c).then(() => toast('Sentiment logged', 'success'))
-         .catch(e => { console.error('Sentiment save failed:', e); toast('Saved locally - sync failed', 'warn'); });
+         .catch(e => { console.error('Sentiment save failed:', e); toast('Changes saved locally \u2014 will sync when connection returns', 'warn'); });
 }
 
 function renderDetailSentiment() {
@@ -1456,7 +1456,7 @@ async function saveNextTouch() {
     toast('Next touch saved', 'success');
   } catch (err) {
     console.error('Save failed:', err);
-    toast('Save failed - ' + (err.message || 'unknown error'), 'error');
+    toast('Something went wrong \u2014 please try again', 'error');
   }
 }
 
@@ -1667,7 +1667,7 @@ function addNote() {
   renderDetailNotes();
   logAudit('note_added', c.id, c.name, { summary: `Note: "${text.substring(0, 100)}${text.length > 100 ? '…' : ''}"` });
   save(c).then(() => toast('Note added', 'success'))
-         .catch(e => { console.error('Note save failed:', e); toast('Saved locally - sync failed', 'warn'); });
+         .catch(e => { console.error('Note save failed:', e); toast('Changes saved locally \u2014 will sync when connection returns', 'warn'); });
 }
 
 function deleteNote(idx) {
@@ -1928,7 +1928,7 @@ window.saveScore = function() {
       c.history.push({ score, date: new Date().toISOString(), signals: buildHistorySnapshot(data) });
       setLoading(true);
       save(c).then(() => { setLoading(false); toast('Updated: ' + c.name, 'success'); })
-              .catch(() => { setLoading(false); toast('Updated locally - sync failed', 'warn'); });
+              .catch(() => { setLoading(false); toast('Changes saved locally \u2014 will sync when connection returns', 'warn'); });
       /* Build granular audit diff */
       const after = { name:c.name, manager:c.manager, score, status, mrr:c.mrr, arr:c.arr, tier:c.tier, lifecycle:c.lifecycle, logins:c.logins, adoption:c.adoption, tickets:c.tickets, nps:c.nps, csat:c.csat, days:c.days, growth:c.growth||'none', scoring_profile:c.scoring_profile||'' };
       const changes = Object.keys(after).filter(k => String(before[k]) !== String(after[k])).map(k => `${k}: ${before[k]} → ${after[k]}`);

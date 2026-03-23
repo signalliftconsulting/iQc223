@@ -206,7 +206,7 @@ function _checkUserSwitch(userId) {
         console.warn('[sync] localStorage quota - clearing cache');
         try { localStorage.removeItem('iqc_customers_cache'); } catch(e2) { console.warn('ls:', e2.message); }
       } else {
-        toast('Could not reach Supabase - showing cached data', 'warn');
+        toast('Connection issue \u2014 showing cached data', 'warn');
       }
     } finally {
       setLoading(false);
@@ -320,7 +320,7 @@ function _checkUserSwitch(userId) {
         console.warn('[sync] localStorage quota - clearing cache');
         try { localStorage.removeItem('iqc_customers_cache'); } catch(e2) { console.warn('ls:', e2.message); }
       } else {
-        toast('Could not reach Supabase - showing cached data', 'warn');
+        toast('Connection issue \u2014 showing cached data', 'warn');
       }
     } finally {
       setLoading(false);
@@ -341,7 +341,7 @@ function _checkUserSwitch(userId) {
         const err = urlParams.get('hubspot_error');
         const cleanUrl = window.location.origin + window.location.pathname;
         window.history.replaceState({}, '', cleanUrl);
-        toast('HubSpot connection failed: ' + err, 'error');
+        console.error('HubSpot connection failed:', err); toast('HubSpot connection issue \u2014 please try again', 'error');
         nav('settings');
         renderSettings();
       } else if (urlParams.get('salesforce_connected') === '1') {
@@ -355,7 +355,7 @@ function _checkUserSwitch(userId) {
         const err = urlParams.get('salesforce_error');
         const cleanUrl = window.location.origin + window.location.pathname;
         window.history.replaceState({}, '', cleanUrl);
-        toast('Salesforce connection failed: ' + err, 'error');
+        console.error('Salesforce connection failed:', err); toast('Salesforce connection issue \u2014 please try again', 'error');
         nav('settings');
         renderSettings();
       } else {

@@ -142,7 +142,7 @@ async function loadClientCustomers(clientId, silent) {
     customers = all.filter(c => !c.deleted_at);
     trash     = all.filter(c =>  c.deleted_at);
   } catch(e) {
-    toast('Could not load client data: ' + e.message, 'error');
+    console.error('Could not load client data:', e.message); toast('Could not load client data \u2014 please try again', 'error');
     customers = [];
     trash = [];
   } finally {
@@ -257,7 +257,7 @@ async function adminBulkChangePlan() {
     adminClearSelection();
     await renderClients();
   } catch(e) {
-    toast('Failed to update plans: ' + e.message, 'error');
+    console.error('Failed to update plans:', e.message); toast('Something went wrong \u2014 please try again', 'error');
   }
 }
 
@@ -348,7 +348,7 @@ async function adminDeleteClient(id, name) {
     await loadAdminClients();
     renderClients();
   } catch(e) {
-    toast('Remove failed: ' + e.message, 'error');
+    console.error('Remove failed:', e.message); toast('Something went wrong \u2014 please try again', 'error');
   }
 }
 
@@ -562,7 +562,7 @@ async function adminDeleteUser(userId, email) {
     toast(`User ${email} removed`, 'warn');
     renderUsers();
   } catch(e) {
-    toast('Remove failed: ' + e.message, 'error');
+    console.error('Remove failed:', e.message); toast('Something went wrong \u2014 please try again', 'error');
   }
 }
 

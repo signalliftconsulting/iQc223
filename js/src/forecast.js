@@ -475,6 +475,14 @@ function _renderForecast() {
   var kpiRow = el('fc-kpi-row');
   if (!kpiRow) return;
 
+  // Empty state when no customers loaded
+  if (!customers.length) {
+    kpiRow.innerHTML = '';
+    var _fcWrap = el('fc-waterfall-wrap'); if (_fcWrap) _fcWrap.innerHTML = '<div class="empty-state" style="text-align:center;padding:80px 20px;color:#64748b"><div style="font-size:48px;margin-bottom:16px;opacity:.4">\uD83D\uDCB0</div><h3 style="font-size:18px;color:#1e293b;margin-bottom:8px">No data yet</h3><p style="font-size:14px;margin-bottom:20px">Add customers or load demo data to get started.</p><button class="btn btn-sm btn-primary" data-action="nav" data-arg="homebase">Go to Home Base</button></div>';
+    var _fcTbl = el('fc-table-wrap'); if (_fcTbl) _fcTbl.innerHTML = '';
+    return;
+  }
+
   var pool = customers.filter(function(c) { return c.lifecycle !== 'churned' && passesManagerFilter(c); });
   var classified = pool.map(function(c) { return Object.assign({}, c, { fc: _fcClassify(c) }); });
 

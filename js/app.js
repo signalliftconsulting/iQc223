@@ -2477,9 +2477,9 @@ async function loadSettingsFromSupabase() {
   if (!data) return; // no settings row yet - use defaults
   _settingsUpdatedAt = data.updated_at || null;
   var _parseErr = false;
-  try { if (data.weights)    weights    = { ...DEFAULT_WEIGHTS,    ...JSON.parse(data.weights) }; }    catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
-  try { if (data.thresholds) thresholds = { ...DEFAULT_THRESHOLDS, ...JSON.parse(data.thresholds) }; } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
-  try { if (data.profiles)   profiles   = JSON.parse(data.profiles); }  catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
+  try { if (data.weights)    weights    = { ...DEFAULT_WEIGHTS,    ...JSON.parse(data.weights) }; }    catch(e){ if(!_parseErr){_parseErr=true;toast('Settings reset to defaults \u2014 your data is safe','warn');} }
+  try { if (data.thresholds) thresholds = { ...DEFAULT_THRESHOLDS, ...JSON.parse(data.thresholds) }; } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings reset to defaults \u2014 your data is safe','warn');} }
+  try { if (data.profiles)   profiles   = JSON.parse(data.profiles); }  catch(e){ if(!_parseErr){_parseErr=true;toast('Settings reset to defaults \u2014 your data is safe','warn');} }
   try {
     if (data.automations) {
       var parsed = JSON.parse(data.automations);
@@ -2499,8 +2499,8 @@ async function loadSettingsFromSupabase() {
       automationsCfg = parsed;
       migrateAutomationsCfg();
     }
-  } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
-  try { if (data.signal_model) signalModelCfg = { ...DEFAULT_SIGNAL_MODEL, ...JSON.parse(data.signal_model) }; } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
+  } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings reset to defaults \u2014 your data is safe','warn');} }
+  try { if (data.signal_model) signalModelCfg = { ...DEFAULT_SIGNAL_MODEL, ...JSON.parse(data.signal_model) }; } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings reset to defaults \u2014 your data is safe','warn');} }
   ensureGlobalWeightsProfile(true); // persist=true → writes clean version back if duplicates found
   // Also update localStorage cache so data survives user-switch / sign-out
   try {
@@ -2925,7 +2925,7 @@ async function pullHistoricalData(platform, lookback) {
     return { matched, totalAdded, stats, unmatched };
   } catch (err) {
     console.error('[pullHistoricalData]', err);
-    toast('History pull failed: ' + (err.message || err), 'error');
+    console.error('History pull failed:', err.message || err); toast('Could not import history \u2014 please try again', 'error');
     return null;
   }
 }
@@ -2959,7 +2959,7 @@ async function restoreCustomer(id) {
   logAudit('customer_restored', c.id, c.name, { summary: `Restored from trash - Score: ${c.score}/100, MRR: $${c.mrr||0}` });
   toast(`${c.name} restored`, 'success');
   const { error } = await sb.from('customers').update({ deleted_at: null }).eq('id', id);
-  if (error) toast('Restore sync failed', 'warn');
+  if (error) console.warn('Restore sync failed'); toast('Restored locally \u2014 will sync when connection returns', 'warn');
 }
 
 // hardDeleteCustomer(id) - permanently removes a row (from trash only)
@@ -2973,7 +2973,7 @@ async function hardDeleteCustomer(id) {
     logAudit('customer_hard_deleted', id, cName, { summary: 'Permanently removed from database' });
     toast(`${cName} permanently deleted`, 'warn');
     const { error } = await sb.from('customers').delete().eq('id', id);
-    if (error) { console.warn('hardDelete DB error:', error.message); toast('Permanent delete sync failed', 'warn'); }
+    if (error) { console.warn('hardDelete DB error:', error.message); toast('Changes saved locally \u2014 will sync when connection returns', 'warn'); }
   });
 }
 
@@ -4500,6 +4500,9 @@ async function _ensureUserProfileInner(user) {
           _userClientId = _ecResult.data[0].id;
           await sb.from('user_profiles').update({ client_id: _userClientId }).eq('user_id', user.id);
           console.log('[auth] Found existing client:', _userClientId);
+          toast('Account ready! Loading...', 'success');
+          setTimeout(() => location.reload(), 600);
+          return;
         } else {
           var clientName = companyName || (fullName + "'s Account");
           var { data: newClient, error: clientErr } = await sb.from('clients').insert({
@@ -4515,10 +4518,13 @@ async function _ensureUserProfileInner(user) {
             await sb.from('user_profiles').update({ client_id: newClient.id }).eq('user_id', user.id);
             console.log('[auth] Auto-provisioned client:', clientName, newClient.id);
             toast('Account ready! Loading...', 'success');
-            setTimeout(() => location.reload(), 800);
+            setTimeout(() => location.reload(), 600);
             return;
           } else {
             console.warn('[auth] Client creation failed:', clientErr?.message);
+            toast('Account setup issue \u2014 refreshing...', 'warn');
+            setTimeout(() => location.reload(), 2000);
+            return;
           }
         }
       } catch(e2) { console.warn('[auth] Auto-provision error:', e2.message); }
@@ -4532,10 +4538,13 @@ async function _ensureUserProfileInner(user) {
         // Check if client already exists for this user (prevent duplicates from double-fire)
         var _existCheck = await sb.from('clients').select('id').eq('user_id', user.id).limit(1);
         if (_existCheck.data && _existCheck.data.length) {
-          // Client exists — just link it
+          // Client exists — link it and reload so all data loads with client_id
           _userClientId = _existCheck.data[0].id;
           await sb.from('user_profiles').update({ client_id: _userClientId }).eq('user_id', user.id);
           console.log('[auth] Found existing client for user:', _userClientId);
+          toast('Account ready! Loading...', 'success');
+          setTimeout(() => location.reload(), 600);
+          return;
         } else {
           var _pName = (user.user_metadata && user.user_metadata.full_name) || user.email.split('@')[0];
           var _pCompany = (user.user_metadata && user.user_metadata.company_name) || '';
@@ -4556,11 +4565,12 @@ async function _ensureUserProfileInner(user) {
             console.log('[auth] Auto-provisioned client:', _pClientName, _pResult.data.id);
             toast('Account ready! Loading...', 'success');
             // Reload so all data loads with the new client_id
-            setTimeout(() => location.reload(), 800);
+            setTimeout(() => location.reload(), 600);
             return;
           } else {
             console.error('[auth] Client creation failed:', _pResult.error?.message);
-            toast('Account setup issue — try refreshing', 'warn');
+            toast('Account setup issue \u2014 refreshing...', 'warn');
+            setTimeout(() => location.reload(), 2000);
           }
         }
       }
@@ -6408,7 +6418,7 @@ async function _loadDemoFromCard() {
     if (typeof _wtInit === 'function') _wtInit();
   } catch(e) {
     console.error('Demo seed error:', e);
-    toast('Failed to load demo data: ' + e.message, 'error');
+    console.error('Demo seed error detail:', e.message); toast('Something went wrong loading demo data \u2014 please try again', 'error');
   }
 }
 
@@ -8898,6 +8908,12 @@ function updateAlertBadge() {
 
 function renderAlerts() { try { _renderAlerts(); } catch(e) { console.error('renderAlerts error:', e); } }
 function _renderAlerts() {
+  // Empty state when no customers loaded
+  if (!customers.length) {
+    var _alWrap = el('alerts-list');
+    if (_alWrap) _alWrap.innerHTML = '<div class="empty-state" style="text-align:center;padding:80px 20px;color:#64748b"><div style="font-size:48px;margin-bottom:16px;opacity:.4">\uD83D\uDD14</div><h3 style="font-size:18px;color:#1e293b;margin-bottom:8px">No data yet</h3><p style="font-size:14px;margin-bottom:20px">Add customers or load demo data to get started.</p><button class="btn btn-sm btn-primary" data-action="nav" data-arg="homebase">Go to Home Base</button></div>';
+    return;
+  }
   const all    = buildAlerts();
   const active = all.filter(a => !isSnoozed(a.id) && !isDismissed(a.id));
   const snz    = all.filter(a =>  isSnoozed(a.id));
@@ -12050,7 +12066,7 @@ function _downloadAIContent(elementId, title) {
   }).catch(function(err) {
     document.body.removeChild(container);
     console.warn('PDF generation error:', err);
-    toast('PDF download failed — try again', 'error');
+    toast('PDF download failed \u2014 please try again', 'error');
   });
 }
 
@@ -12572,7 +12588,7 @@ function saveScore() {
         dupe.history.push({ score, date: new Date().toISOString(), signals: buildHistorySnapshot(data) });
         setLoading(true);
         save(dupe).then(() => { setLoading(false); toast('Score updated for ' + dupe.name, 'success'); })
-                  .catch(function(err) { setLoading(false); if (err && err.isConflict) { toast(escHtml(dupe.name) + ' was modified by another user. Refresh to see their changes.', 'warn'); } else { toast('Updated locally - sync failed', 'warn'); } });
+                  .catch(function(err) { setLoading(false); if (err && err.isConflict) { toast(escHtml(dupe.name) + ' was modified by another user. Refresh to see their changes.', 'warn'); } else { toast('Changes saved locally \u2014 will sync when connection returns', 'warn'); } });
         logAudit('customer_scored', dupe.id, dupe.name, { score, status, summary: `Re-scored → ${score}/100 (${status}), MRR: $${dupe.mrr}, Tier: ${dupe.tier}` });
         pendingResult = null;
         resetForm();
@@ -12624,7 +12640,7 @@ function saveScore() {
     toast('Saved: ' + cust.name, 'success');
   }).catch(() => {
     setLoading(false);
-    toast('Saved locally - sync failed, check connection', 'warn');
+    toast('Changes saved locally \u2014 will sync when connection returns', 'warn');
   });
   logAudit('customer_created', cust.id, cust.name, { score, status, summary: `New customer - Score: ${score}/100 (${status}), MRR: $${cust.mrr}, Tier: ${cust.tier}, Lifecycle: ${cust.lifecycle}` });
   pendingResult = null;
@@ -12674,7 +12690,7 @@ function saveDetailsOnly() {
   }).catch(function(err) {
     setLoading(false);
     if (err && err.isConflict) { toast(escHtml(c.name) + ' was modified by another user. Refresh to see their changes.', 'warn'); }
-    else { toast('Saved locally - sync failed', 'warn'); }
+    else { toast('Changes saved locally \u2014 will sync when connection returns', 'warn'); }
   });
   logAudit('customer_updated', c.id, c.name, { summary: `Details updated (no re-score)` });
   resetForm();
@@ -12806,7 +12822,7 @@ function logSentiment() {
   renderDetailSentiment();
   logAudit('sentiment_logged', c.id, c.name, { summary: `Sentiment: ${c.sentiment[0].val}${note ? ' - "' + note.substring(0, 80) + '"' : ''}` });
   save(c).then(() => toast('Sentiment logged', 'success'))
-         .catch(e => { console.error('Sentiment save failed:', e); toast('Saved locally - sync failed', 'warn'); });
+         .catch(e => { console.error('Sentiment save failed:', e); toast('Changes saved locally \u2014 will sync when connection returns', 'warn'); });
 }
 
 function renderDetailSentiment() {
@@ -13231,7 +13247,7 @@ async function saveNextTouch() {
     toast('Next touch saved', 'success');
   } catch (err) {
     console.error('Save failed:', err);
-    toast('Save failed - ' + (err.message || 'unknown error'), 'error');
+    toast('Something went wrong \u2014 please try again', 'error');
   }
 }
 
@@ -13442,7 +13458,7 @@ function addNote() {
   renderDetailNotes();
   logAudit('note_added', c.id, c.name, { summary: `Note: "${text.substring(0, 100)}${text.length > 100 ? '…' : ''}"` });
   save(c).then(() => toast('Note added', 'success'))
-         .catch(e => { console.error('Note save failed:', e); toast('Saved locally - sync failed', 'warn'); });
+         .catch(e => { console.error('Note save failed:', e); toast('Changes saved locally \u2014 will sync when connection returns', 'warn'); });
 }
 
 function deleteNote(idx) {
@@ -13703,7 +13719,7 @@ window.saveScore = function() {
       c.history.push({ score, date: new Date().toISOString(), signals: buildHistorySnapshot(data) });
       setLoading(true);
       save(c).then(() => { setLoading(false); toast('Updated: ' + c.name, 'success'); })
-              .catch(() => { setLoading(false); toast('Updated locally - sync failed', 'warn'); });
+              .catch(() => { setLoading(false); toast('Changes saved locally \u2014 will sync when connection returns', 'warn'); });
       /* Build granular audit diff */
       const after = { name:c.name, manager:c.manager, score, status, mrr:c.mrr, arr:c.arr, tier:c.tier, lifecycle:c.lifecycle, logins:c.logins, adoption:c.adoption, tickets:c.tickets, nps:c.nps, csat:c.csat, days:c.days, growth:c.growth||'none', scoring_profile:c.scoring_profile||'' };
       const changes = Object.keys(after).filter(k => String(before[k]) !== String(after[k])).map(k => `${k}: ${before[k]} → ${after[k]}`);
@@ -14453,7 +14469,7 @@ async function startCheckout(priceId) {
     if (data?.url) window.location.href = data.url;
     else if (data?.error) throw new Error(data.error);
   } catch(e) {
-    toast('Checkout failed: ' + e.message, 'error');
+    console.error('Checkout failed:', e.message); toast('Checkout failed \u2014 please try again', 'error');
   }
 }
 
@@ -14467,7 +14483,7 @@ async function openBillingPortal() {
     if (data?.url) window.location.href = data.url;
     else if (data?.error) throw new Error(data.error);
   } catch(e) {
-    toast('Could not open billing portal: ' + e.message, 'error');
+    console.error('Billing portal error:', e.message); toast('Could not open billing portal \u2014 please try again', 'error');
   }
 }
 
@@ -15626,7 +15642,7 @@ async function changePassword() {
 
   const { error } = await sb.auth.updateUser({ password: next });
   if (error) {
-    toast('Error: ' + error.message, 'error');
+    console.error('Password update error:', error.message); toast('Could not update password \u2014 please try again', 'error');
     return;
   }
 
@@ -15742,6 +15758,12 @@ let _reportDefs = [];
 function renderReporting() {
   const wrap = el('reports-wrap');
   if (!wrap) return;
+
+  // Empty state when no customers loaded
+  if (!customers.length) {
+    wrap.innerHTML = '<div class="empty-state" style="text-align:center;padding:80px 20px;color:#64748b"><div style="font-size:48px;margin-bottom:16px;opacity:.4">\uD83D\uDCCB</div><h3 style="font-size:18px;color:#1e293b;margin-bottom:8px">No data yet</h3><p style="font-size:14px;margin-bottom:20px">Add customers or load demo data to get started.</p><button class="btn btn-sm btn-primary" data-action="nav" data-arg="homebase">Go to Home Base</button></div>';
+    return;
+  }
 
   const lockSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
 
@@ -17308,7 +17330,7 @@ async function sendReportEmailNow() {
     if (data?.error) throw new Error(data.error);
     toast('Report sent to ' + recipients.split(',').length + ' recipient(s)', 'success');
   } catch(err) {
-    toast('Failed to send: ' + (err.message || 'Unknown error'), 'error');
+    console.error('Failed to send report:', err.message || err); toast('Report could not be sent \u2014 please try again', 'error');
   }
 }
 
@@ -17331,7 +17353,7 @@ async function sendReportEmailTest() {
     if (data?.error) throw new Error(data.error);
     toast('Test report sent to ' + email, 'success');
   } catch(err) {
-    toast('Failed to send test: ' + (err.message || 'Unknown error'), 'error');
+    console.error('Failed to send test:', err.message || err); toast('Test email could not be sent \u2014 please try again', 'error');
   }
 }
 
@@ -17600,7 +17622,7 @@ async function schedSendNow(reportKey) {
     renderScheduledReports();
     toast('Report sent to ' + cfg.recipients.split(',').length + ' recipient(s)', 'success');
   } catch(err) {
-    toast('Failed to send: ' + (err.message || 'Unknown error'), 'error');
+    console.error('Failed to send report:', err.message || err); toast('Report could not be sent \u2014 please try again', 'error');
   }
 }
 
@@ -17620,7 +17642,7 @@ async function schedTestSend(reportKey) {
     if (data?.error) throw new Error(data.error);
     toast('Test report sent to ' + currentUser.email, 'success');
   } catch(err) {
-    toast('Failed to send test: ' + (err.message || 'Unknown error'), 'error');
+    console.error('Failed to send test:', err.message || err); toast('Test email could not be sent \u2014 please try again', 'error');
   }
 }
 
@@ -17861,6 +17883,12 @@ function closeCreateAlertModal() {
 
 // ── Main render ──
 function renderAutomations() {
+  // Empty state when no customers loaded
+  if (!customers.length) {
+    var _autoPane = el('auto-pane-active');
+    if (_autoPane) _autoPane.innerHTML = '<div class="empty-state" style="text-align:center;padding:80px 20px;color:#64748b"><div style="font-size:48px;margin-bottom:16px;opacity:.4">\u26A1</div><h3 style="font-size:18px;color:#1e293b;margin-bottom:8px">No data yet</h3><p style="font-size:14px;margin-bottom:20px">Add customers or load demo data to get started.</p><button class="btn btn-sm btn-primary" data-action="nav" data-arg="homebase">Go to Home Base</button></div>';
+    return;
+  }
   // Hide Advanced tab button for users without api_webhooks (Pro+)
   const advBtn = el('auto-tab-advanced');
   if (advBtn) advBtn.style.display = hasFeature('api_webhooks') ? '' : 'none';
@@ -19179,7 +19207,7 @@ async function testChannel(key, connectionIdOverride) {
       toast('Test sent to Slack', 'success');
     } catch (err) {
       if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">✗ ' + escHtml(err.message || 'Failed') + '</span>';
-      toast('Slack test failed: ' + (err.message || 'Unknown'), 'error');
+      console.error('Slack test failed:', err.message || err); toast('Slack test failed \u2014 check your webhook URL', 'error');
     }
 
   } else if (key === 'teams') {
@@ -19196,7 +19224,7 @@ async function testChannel(key, connectionIdOverride) {
       toast('Test sent to Teams', 'success');
     } catch (err) {
       if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">✗ ' + escHtml(err.message || 'Failed') + '</span>';
-      toast('Teams test failed: ' + (err.message || 'Unknown'), 'error');
+      console.error('Teams test failed:', err.message || err); toast('Teams test failed \u2014 check your webhook URL', 'error');
     }
 
   } else if (key === 'email') {
@@ -19208,7 +19236,7 @@ async function testChannel(key, connectionIdOverride) {
       toast('Test email sent', 'success');
     } catch (err) {
       if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">✗ ' + escHtml(err.message || 'Failed') + '</span>';
-      toast('Email test failed: ' + (err.message || 'Unknown'), 'error');
+      console.error('Email test failed:', err.message || err); toast('Email test failed \u2014 please try again', 'error');
     }
   }
 }
@@ -19630,7 +19658,7 @@ async function connectStripeUI() {
     renderIntegrationsSection(); // refresh the card
   } catch(e) {
     status.innerHTML = `<span style="color:var(--red)">${escHtml(e.message)}</span>`;
-    toast('Connection failed: ' + e.message, 'error');
+    console.error('Connection failed:', e.message); toast('Connection failed \u2014 please check your credentials', 'error');
   } finally {
     btn.disabled = false;
     btn.textContent = 'Connect Stripe';
@@ -19644,7 +19672,7 @@ async function disconnectStripeUI() {
       toast('Stripe disconnected', 'warn');
       renderIntegrationsSection();
     } catch(e) {
-      toast('Disconnect failed: ' + e.message, 'error');
+      console.error('Disconnect failed:', e.message); toast('Disconnect failed \u2014 please try again', 'error');
     }
   });
 }
@@ -19699,7 +19727,7 @@ async function connectAnthropicUI() {
     renderIntegrationsSection();
   } catch(e) {
     status.innerHTML = `<span style="color:var(--red)">${escHtml(e.message)}</span>`;
-    toast('Connection failed: ' + e.message, 'error');
+    console.error('Connection failed:', e.message); toast('Connection failed \u2014 please check your credentials', 'error');
   } finally {
     btn.disabled = false;
     btn.textContent = 'Connect';
@@ -19713,7 +19741,7 @@ async function disconnectAnthropicUI() {
       toast('OpenAI disconnected', 'warn');
       renderIntegrationsSection();
     } catch(e) {
-      toast('Disconnect failed: ' + e.message, 'error');
+      console.error('Disconnect failed:', e.message); toast('Disconnect failed \u2014 please try again', 'error');
     }
   });
 }
@@ -19724,7 +19752,7 @@ async function updateSyncOption(platform, key, value) {
   const config = { ...(integration.config || {}) };
   config[key] = value;
   const { error } = await sb.from('integrations').update({ config }).eq('client_id', integration.client_id).eq('platform', platform);
-  if (error) { toast('Failed to save: ' + error.message, 'error'); return; }
+  if (error) { console.error('Failed to save:', error.message); toast('Something went wrong \u2014 please try again', 'error'); return; }
   integration.config = config;
   _integrationCache[platform] = integration;
   toast(value ? 'New accounts will be created during sync' : 'Sync will only update existing accounts', 'success');
@@ -19776,7 +19804,7 @@ async function updateMetricToggle(platform, metric, enabled) {
     if (_integrationCache['hubspot']) renderHubSpotCard(_integrationCache['hubspot']);
     if (_integrationCache['salesforce']) renderSalesforceCard(_integrationCache['salesforce']);
   } catch(e) {
-    toast('Failed to update setting: ' + e.message, 'error');
+    console.error('Failed to update setting:', e.message); toast('Something went wrong \u2014 please try again', 'error');
     // Re-render to revert the toggle visually
     if (platform === 'stripe') renderStripeCard(integration);
     if (platform === 'hubspot') renderHubSpotCard(integration);
@@ -19823,7 +19851,7 @@ async function syncStripeUI() {
     if (statusAfter) statusAfter.innerHTML = `<span style="color:var(--green)">✓ ${stats.customers_matched || 0} customers matched (${stats.total || 0} subscriptions), ${stats.updated || 0} updated</span> <a href="#" onclick="event.preventDefault();showSyncResultsModal('stripe',_lastStripeSyncResult)" style="font-size:var(--fs-sm);margin-left:6px">View Details</a>`;
   } catch(e) {
     status.innerHTML = `<span style="color:var(--red)">✗ ${escHtml(e.message)}</span>`;
-    toast('Sync failed: ' + e.message, 'error');
+    console.error('Sync failed:', e.message); toast('Sync failed \u2014 please check your connection and try again', 'error');
   } finally {
     _stripeSyncInProgress = false;
     btn.disabled = false;
@@ -20345,7 +20373,7 @@ async function disconnectHubSpotUI() {
       toast('HubSpot disconnected', 'warn');
       renderIntegrationsSection();
     } catch(e) {
-      toast('Disconnect failed: ' + e.message, 'error');
+      console.error('Disconnect failed:', e.message); toast('Disconnect failed \u2014 please try again', 'error');
     }
   });
 }
@@ -20390,7 +20418,7 @@ async function syncHubSpotUI() {
     if (statusAfterHS) statusAfterHS.innerHTML = `<span style="color:var(--green)">✓ ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated (${stats.total || 0} companies)</span> <a href="#" onclick="event.preventDefault();showSyncResultsModal('hubspot',_lastHubSpotSyncResult)" style="font-size:var(--fs-sm);margin-left:6px">View Details</a>`;
   } catch(e) {
     status.innerHTML = `<span style="color:var(--red)">✕ ${escHtml(e.message)}</span>`;
-    toast('HubSpot sync failed: ' + e.message, 'error');
+    console.error('HubSpot sync failed:', e.message); toast('HubSpot sync failed \u2014 please try again', 'error');
   } finally {
     _hubspotSyncInProgress = false;
   }
@@ -20412,7 +20440,7 @@ async function updateHubSpotPushToggle(key, enabled) {
     _integrationCache['hubspot'] = integration;
     toast(`HubSpot ${key.replace('_',' ')} ${enabled ? 'enabled' : 'disabled'}`, enabled ? 'success' : 'warn');
   } catch(e) {
-    toast('Failed to update: ' + e.message, 'error');
+    console.error('Failed to update:', e.message); toast('Something went wrong \u2014 please try again', 'error');
     renderHubSpotCard(integration);
   }
 }
@@ -20556,7 +20584,7 @@ async function connectSalesforceOAuth() {
     window.location.href = authUrl;
   } catch(e) {
     if (statusEl) statusEl.innerHTML = `<span style="color:var(--red)">Error: ${escHtml(e.message)}</span>`;
-    toast('Failed to start Salesforce OAuth: ' + e.message, 'error');
+    console.error('Failed to start Salesforce OAuth:', e.message); toast('Could not connect to Salesforce \u2014 please try again', 'error');
   }
 }
 
@@ -20568,7 +20596,7 @@ async function disconnectSalesforceUI() {
     toast('Salesforce disconnected', 'warn');
     renderIntegrationsSection();
   } catch(e) {
-    toast('Failed to disconnect: ' + e.message, 'error');
+    console.error('Failed to disconnect:', e.message); toast('Disconnect failed \u2014 please try again', 'error');
   }
 }
 
@@ -20611,7 +20639,7 @@ async function syncSalesforceUI() {
     if (statusAfterSF) statusAfterSF.innerHTML = `<span style="color:var(--green)">✓ ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated (${stats.total || 0} accounts)</span> <a href="#" onclick="event.preventDefault();showSyncResultsModal('salesforce',_lastSalesforceSyncResult)" style="font-size:var(--fs-sm);margin-left:6px">View Details</a>`;
   } catch(e) {
     if (status) status.innerHTML = `<span style="color:var(--red)">✕ ${escHtml(e.message)}</span>`;
-    toast('Salesforce sync failed: ' + e.message, 'error', 6000);
+    console.error('Salesforce sync failed:', e.message); toast('Salesforce sync failed \u2014 please try again', 'error', 6000);
   } finally {
     _salesforceSyncInProgress = false;
   }
@@ -20957,7 +20985,7 @@ async function testWebhook(key) {
     toast('Test webhook sent', 'success');
   } catch (err) {
     if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">✗ Failed: ' + escHtml(err.message || 'Unknown error') + '</span>';
-    toast('Test webhook failed: ' + (err.message || 'Unknown error'), 'error');
+    console.error('Test webhook failed:', err.message || err); toast('Webhook test failed \u2014 check your URL and try again', 'error');
   }
 }
 
@@ -21011,7 +21039,7 @@ async function generateApiKey() {
   });
 
   if (error) {
-    toast('Failed to save API key: ' + error.message, 'error');
+    console.error('Failed to save API key:', error.message); toast('Something went wrong \u2014 please try again', 'error');
     return;
   }
 
@@ -22612,6 +22640,13 @@ function renderSegments() {
   const kpiRow = el('seg-kpi-row');
   const tableWrap = el('seg-table-wrap');
   if (!kpiRow) return;
+
+  // Empty state when no customers loaded
+  if (!customers.length) {
+    kpiRow.innerHTML = '';
+    if (tableWrap) tableWrap.innerHTML = '<div class="empty-state" style="text-align:center;padding:80px 20px;color:#64748b"><div style="font-size:48px;margin-bottom:16px;opacity:.4">\uD83D\uDCCA</div><h3 style="font-size:18px;color:#1e293b;margin-bottom:8px">No data yet</h3><p style="font-size:14px;margin-bottom:20px">Add customers or load demo data to get started.</p><button class="btn btn-sm btn-primary" data-action="nav" data-arg="homebase">Go to Home Base</button></div>';
+    return;
+  }
 
   const active = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
 
@@ -25166,6 +25201,14 @@ function _renderForecast() {
   var kpiRow = el('fc-kpi-row');
   if (!kpiRow) return;
 
+  // Empty state when no customers loaded
+  if (!customers.length) {
+    kpiRow.innerHTML = '';
+    var _fcWrap = el('fc-waterfall-wrap'); if (_fcWrap) _fcWrap.innerHTML = '<div class="empty-state" style="text-align:center;padding:80px 20px;color:#64748b"><div style="font-size:48px;margin-bottom:16px;opacity:.4">\uD83D\uDCB0</div><h3 style="font-size:18px;color:#1e293b;margin-bottom:8px">No data yet</h3><p style="font-size:14px;margin-bottom:20px">Add customers or load demo data to get started.</p><button class="btn btn-sm btn-primary" data-action="nav" data-arg="homebase">Go to Home Base</button></div>';
+    var _fcTbl = el('fc-table-wrap'); if (_fcTbl) _fcTbl.innerHTML = '';
+    return;
+  }
+
   var pool = customers.filter(function(c) { return c.lifecycle !== 'churned' && passesManagerFilter(c); });
   var classified = pool.map(function(c) { return Object.assign({}, c, { fc: _fcClassify(c) }); });
 
@@ -25689,6 +25732,13 @@ document.addEventListener('click', function(e) {
 });
 
 function renderTrends() {
+  // Empty state when no customers loaded
+  if (!customers.length) {
+    var _twrap = el('trend-chart-wrap');
+    if (_twrap) _twrap.innerHTML = '<div class="empty-state" style="text-align:center;padding:80px 20px;color:#64748b"><div style="font-size:48px;margin-bottom:16px;opacity:.4">\uD83D\uDCC8</div><h3 style="font-size:18px;color:#1e293b;margin-bottom:8px">No data yet</h3><p style="font-size:14px;margin-bottom:20px">Add customers or load demo data to get started.</p><button class="btn btn-sm btn-primary" data-action="nav" data-arg="homebase">Go to Home Base</button></div>';
+    var _tkpi = el('trend-kpi-row'); if (_tkpi) _tkpi.innerHTML = '';
+    return;
+  }
   // Sync churned toggle
   const _churnCb = el('trend-show-churned');
   if (_churnCb) _churnCb.checked = _trendShowChurned;
@@ -28057,6 +28107,13 @@ function renderCSMPerformance() {
   const tableWrap  = el('csmperf-wrap');
   if (!statsWrap || !tableWrap) return;
 
+  // Empty state when no customers loaded
+  if (!customers.length) {
+    statsWrap.innerHTML = '';
+    tableWrap.innerHTML = '<div class="empty-state" style="text-align:center;padding:80px 20px;color:#64748b"><div style="font-size:48px;margin-bottom:16px;opacity:.4">\uD83D\uDC64</div><h3 style="font-size:18px;color:#1e293b;margin-bottom:8px">No data yet</h3><p style="font-size:14px;margin-bottom:20px">Add customers or load demo data to get started.</p><button class="btn btn-sm btn-primary" data-action="nav" data-arg="homebase">Go to Home Base</button></div>';
+    return;
+  }
+
   // Gather all managers
   const mgrs = {};
   active.forEach(c => {
@@ -29013,6 +29070,12 @@ function _renderCalendar() {
   const wrap = el('calendar-wrap');
   if (!wrap) return;
 
+  // Empty state when no customers loaded
+  if (!customers.length) {
+    wrap.innerHTML = '<div class="empty-state" style="text-align:center;padding:80px 20px;color:#64748b"><div style="font-size:48px;margin-bottom:16px;opacity:.4">\uD83D\uDCC5</div><h3 style="font-size:18px;color:#1e293b;margin-bottom:8px">No data yet</h3><p style="font-size:14px;margin-bottom:20px">Add customers or load demo data to get started.</p><button class="btn btn-sm btn-primary" data-action="nav" data-arg="homebase">Go to Home Base</button></div>';
+    return;
+  }
+
   const now = new Date();
   const year = _calYear;
   const month = _calMonth;
@@ -29650,7 +29713,7 @@ async function calToggleTouchStatus(custId, histIdx, newStatus) {
   if (!error && c._updated_at && (!_d1 || _d1.length === 0)) { toast(escHtml(c.name) + ' was modified by another user. Refresh.', 'warn'); renderCalendar(); return; }
   if (!error && _d1 && _d1[0]) c._updated_at = _d1[0].updated_at;
   if (error) {
-    toast('Failed to update - ' + error.message, 'error');
+    console.error('Calendar update failed:', error.message); toast('Something went wrong \u2014 please try again', 'error');
   }
   renderCalendar();
 }
@@ -29671,7 +29734,7 @@ async function calRemoveTouch(custId, histIdx) {
   if (!error && c._updated_at && (!_d2 || _d2.length === 0)) { toast(escHtml(c.name) + ' was modified by another user. Refresh.', 'warn'); renderCalendar(); return; }
   if (!error && _d2 && _d2[0]) c._updated_at = _d2[0].updated_at;
   if (error) {
-    toast('Failed to remove - ' + error.message, 'error');
+    console.error('Calendar remove failed:', error.message); toast('Something went wrong \u2014 please try again', 'error');
   }
   renderCalendar();
 }
@@ -29705,7 +29768,7 @@ async function calMarkScheduledMissed(custId) {
   if (!error && c._updated_at && (!_d3 || _d3.length === 0)) { toast(escHtml(c.name) + ' was modified by another user. Refresh.', 'warn'); renderCalendar(); return; }
   if (!error && _d3 && _d3[0]) c._updated_at = _d3[0].updated_at;
   if (error) {
-    toast('Failed to update - ' + error.message, 'error');
+    console.error('Calendar update failed:', error.message); toast('Something went wrong \u2014 please try again', 'error');
   }
   renderCalendar();
 }
@@ -29735,7 +29798,7 @@ async function calRemoveScheduled(custId) {
   if (!error && c._updated_at && (!_d4 || _d4.length === 0)) { toast(escHtml(c.name) + ' was modified by another user. Refresh.', 'warn'); renderCalendar(); return; }
   if (!error && _d4 && _d4[0]) c._updated_at = _d4[0].updated_at;
   if (error) {
-    toast('Failed to remove - ' + error.message, 'error');
+    console.error('Calendar remove failed:', error.message); toast('Something went wrong \u2014 please try again', 'error');
   }
   renderCalendar();
 }
@@ -29854,7 +29917,7 @@ async function calSaveSchedule(dateStr) {
     toast('Call scheduled for ' + c.name, 'success');
   } catch(e) {
     console.error('Schedule save failed:', e);
-    toast('Saved locally - sync failed', 'warn');
+    toast('Changes saved locally \u2014 will sync when connection returns', 'warn');
   }
 
   _calSchedCustId = '';
@@ -29897,7 +29960,7 @@ async function calSaveSentiment(custId) {
   c.sentiment.unshift({ val: val, note: note, date: new Date().toISOString() });
   logAudit('sentiment_logged', c.id, c.name, { summary: 'Sentiment: ' + val + (note ? ' - "' + note.substring(0, 80) + '"' : '') });
   save(c).then(function() { toast('Sentiment logged', 'success'); })
-         .catch(function(e) { console.error('Sentiment save failed:', e); toast('Saved locally - sync failed', 'warn'); });
+         .catch(function(e) { console.error('Sentiment save failed:', e); toast('Changes saved locally \u2014 will sync when connection returns', 'warn'); });
   _calPendingSentiment[custId] = null;
   var form = el('cal-log-' + custId);
   if (form) form.style.display = 'none';
@@ -30990,7 +31053,7 @@ async function loadClientCustomers(clientId, silent) {
     customers = all.filter(c => !c.deleted_at);
     trash     = all.filter(c =>  c.deleted_at);
   } catch(e) {
-    toast('Could not load client data: ' + e.message, 'error');
+    console.error('Could not load client data:', e.message); toast('Could not load client data \u2014 please try again', 'error');
     customers = [];
     trash = [];
   } finally {
@@ -31105,7 +31168,7 @@ async function adminBulkChangePlan() {
     adminClearSelection();
     await renderClients();
   } catch(e) {
-    toast('Failed to update plans: ' + e.message, 'error');
+    console.error('Failed to update plans:', e.message); toast('Something went wrong \u2014 please try again', 'error');
   }
 }
 
@@ -31196,7 +31259,7 @@ async function adminDeleteClient(id, name) {
     await loadAdminClients();
     renderClients();
   } catch(e) {
-    toast('Remove failed: ' + e.message, 'error');
+    console.error('Remove failed:', e.message); toast('Something went wrong \u2014 please try again', 'error');
   }
 }
 
@@ -31410,7 +31473,7 @@ async function adminDeleteUser(userId, email) {
     toast(`User ${email} removed`, 'warn');
     renderUsers();
   } catch(e) {
-    toast('Remove failed: ' + e.message, 'error');
+    console.error('Remove failed:', e.message); toast('Something went wrong \u2014 please try again', 'error');
   }
 }
 
@@ -31855,7 +31918,7 @@ function _checkUserSwitch(userId) {
         console.warn('[sync] localStorage quota - clearing cache');
         try { localStorage.removeItem('iqc_customers_cache'); } catch(e2) { console.warn('ls:', e2.message); }
       } else {
-        toast('Could not reach Supabase - showing cached data', 'warn');
+        toast('Connection issue \u2014 showing cached data', 'warn');
       }
     } finally {
       setLoading(false);
@@ -31969,7 +32032,7 @@ function _checkUserSwitch(userId) {
         console.warn('[sync] localStorage quota - clearing cache');
         try { localStorage.removeItem('iqc_customers_cache'); } catch(e2) { console.warn('ls:', e2.message); }
       } else {
-        toast('Could not reach Supabase - showing cached data', 'warn');
+        toast('Connection issue \u2014 showing cached data', 'warn');
       }
     } finally {
       setLoading(false);
@@ -31990,7 +32053,7 @@ function _checkUserSwitch(userId) {
         const err = urlParams.get('hubspot_error');
         const cleanUrl = window.location.origin + window.location.pathname;
         window.history.replaceState({}, '', cleanUrl);
-        toast('HubSpot connection failed: ' + err, 'error');
+        console.error('HubSpot connection failed:', err); toast('HubSpot connection issue \u2014 please try again', 'error');
         nav('settings');
         renderSettings();
       } else if (urlParams.get('salesforce_connected') === '1') {
@@ -32004,7 +32067,7 @@ function _checkUserSwitch(userId) {
         const err = urlParams.get('salesforce_error');
         const cleanUrl = window.location.origin + window.location.pathname;
         window.history.replaceState({}, '', cleanUrl);
-        toast('Salesforce connection failed: ' + err, 'error');
+        console.error('Salesforce connection failed:', err); toast('Salesforce connection issue \u2014 please try again', 'error');
         nav('settings');
         renderSettings();
       } else {

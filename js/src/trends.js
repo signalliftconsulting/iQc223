@@ -408,6 +408,13 @@ document.addEventListener('click', function(e) {
 });
 
 function renderTrends() {
+  // Empty state when no customers loaded
+  if (!customers.length) {
+    var _twrap = el('trend-chart-wrap');
+    if (_twrap) _twrap.innerHTML = '<div class="empty-state" style="text-align:center;padding:80px 20px;color:#64748b"><div style="font-size:48px;margin-bottom:16px;opacity:.4">\uD83D\uDCC8</div><h3 style="font-size:18px;color:#1e293b;margin-bottom:8px">No data yet</h3><p style="font-size:14px;margin-bottom:20px">Add customers or load demo data to get started.</p><button class="btn btn-sm btn-primary" data-action="nav" data-arg="homebase">Go to Home Base</button></div>';
+    var _tkpi = el('trend-kpi-row'); if (_tkpi) _tkpi.innerHTML = '';
+    return;
+  }
   // Sync churned toggle
   const _churnCb = el('trend-show-churned');
   if (_churnCb) _churnCb.checked = _trendShowChurned;

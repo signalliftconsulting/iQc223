@@ -207,7 +207,7 @@ async function startCheckout(priceId) {
     if (data?.url) window.location.href = data.url;
     else if (data?.error) throw new Error(data.error);
   } catch(e) {
-    toast('Checkout failed: ' + e.message, 'error');
+    console.error('Checkout failed:', e.message); toast('Checkout failed \u2014 please try again', 'error');
   }
 }
 
@@ -221,7 +221,7 @@ async function openBillingPortal() {
     if (data?.url) window.location.href = data.url;
     else if (data?.error) throw new Error(data.error);
   } catch(e) {
-    toast('Could not open billing portal: ' + e.message, 'error');
+    console.error('Billing portal error:', e.message); toast('Could not open billing portal \u2014 please try again', 'error');
   }
 }
 
@@ -1380,7 +1380,7 @@ async function changePassword() {
 
   const { error } = await sb.auth.updateUser({ password: next });
   if (error) {
-    toast('Error: ' + error.message, 'error');
+    console.error('Password update error:', error.message); toast('Could not update password \u2014 please try again', 'error');
     return;
   }
 

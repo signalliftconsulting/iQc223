@@ -234,6 +234,12 @@ function closeCreateAlertModal() {
 
 // ── Main render ──
 function renderAutomations() {
+  // Empty state when no customers loaded
+  if (!customers.length) {
+    var _autoPane = el('auto-pane-active');
+    if (_autoPane) _autoPane.innerHTML = '<div class="empty-state" style="text-align:center;padding:80px 20px;color:#64748b"><div style="font-size:48px;margin-bottom:16px;opacity:.4">\u26A1</div><h3 style="font-size:18px;color:#1e293b;margin-bottom:8px">No data yet</h3><p style="font-size:14px;margin-bottom:20px">Add customers or load demo data to get started.</p><button class="btn btn-sm btn-primary" data-action="nav" data-arg="homebase">Go to Home Base</button></div>';
+    return;
+  }
   // Hide Advanced tab button for users without api_webhooks (Pro+)
   const advBtn = el('auto-tab-advanced');
   if (advBtn) advBtn.style.display = hasFeature('api_webhooks') ? '' : 'none';
@@ -1552,7 +1558,7 @@ async function testChannel(key, connectionIdOverride) {
       toast('Test sent to Slack', 'success');
     } catch (err) {
       if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">✗ ' + escHtml(err.message || 'Failed') + '</span>';
-      toast('Slack test failed: ' + (err.message || 'Unknown'), 'error');
+      console.error('Slack test failed:', err.message || err); toast('Slack test failed \u2014 check your webhook URL', 'error');
     }
 
   } else if (key === 'teams') {
@@ -1569,7 +1575,7 @@ async function testChannel(key, connectionIdOverride) {
       toast('Test sent to Teams', 'success');
     } catch (err) {
       if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">✗ ' + escHtml(err.message || 'Failed') + '</span>';
-      toast('Teams test failed: ' + (err.message || 'Unknown'), 'error');
+      console.error('Teams test failed:', err.message || err); toast('Teams test failed \u2014 check your webhook URL', 'error');
     }
 
   } else if (key === 'email') {
@@ -1581,7 +1587,7 @@ async function testChannel(key, connectionIdOverride) {
       toast('Test email sent', 'success');
     } catch (err) {
       if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">✗ ' + escHtml(err.message || 'Failed') + '</span>';
-      toast('Email test failed: ' + (err.message || 'Unknown'), 'error');
+      console.error('Email test failed:', err.message || err); toast('Email test failed \u2014 please try again', 'error');
     }
   }
 }
@@ -2003,7 +2009,7 @@ async function connectStripeUI() {
     renderIntegrationsSection(); // refresh the card
   } catch(e) {
     status.innerHTML = `<span style="color:var(--red)">${escHtml(e.message)}</span>`;
-    toast('Connection failed: ' + e.message, 'error');
+    console.error('Connection failed:', e.message); toast('Connection failed \u2014 please check your credentials', 'error');
   } finally {
     btn.disabled = false;
     btn.textContent = 'Connect Stripe';
@@ -2017,7 +2023,7 @@ async function disconnectStripeUI() {
       toast('Stripe disconnected', 'warn');
       renderIntegrationsSection();
     } catch(e) {
-      toast('Disconnect failed: ' + e.message, 'error');
+      console.error('Disconnect failed:', e.message); toast('Disconnect failed \u2014 please try again', 'error');
     }
   });
 }
@@ -2072,7 +2078,7 @@ async function connectAnthropicUI() {
     renderIntegrationsSection();
   } catch(e) {
     status.innerHTML = `<span style="color:var(--red)">${escHtml(e.message)}</span>`;
-    toast('Connection failed: ' + e.message, 'error');
+    console.error('Connection failed:', e.message); toast('Connection failed \u2014 please check your credentials', 'error');
   } finally {
     btn.disabled = false;
     btn.textContent = 'Connect';
@@ -2086,7 +2092,7 @@ async function disconnectAnthropicUI() {
       toast('OpenAI disconnected', 'warn');
       renderIntegrationsSection();
     } catch(e) {
-      toast('Disconnect failed: ' + e.message, 'error');
+      console.error('Disconnect failed:', e.message); toast('Disconnect failed \u2014 please try again', 'error');
     }
   });
 }
@@ -2097,7 +2103,7 @@ async function updateSyncOption(platform, key, value) {
   const config = { ...(integration.config || {}) };
   config[key] = value;
   const { error } = await sb.from('integrations').update({ config }).eq('client_id', integration.client_id).eq('platform', platform);
-  if (error) { toast('Failed to save: ' + error.message, 'error'); return; }
+  if (error) { console.error('Failed to save:', error.message); toast('Something went wrong \u2014 please try again', 'error'); return; }
   integration.config = config;
   _integrationCache[platform] = integration;
   toast(value ? 'New accounts will be created during sync' : 'Sync will only update existing accounts', 'success');
@@ -2149,7 +2155,7 @@ async function updateMetricToggle(platform, metric, enabled) {
     if (_integrationCache['hubspot']) renderHubSpotCard(_integrationCache['hubspot']);
     if (_integrationCache['salesforce']) renderSalesforceCard(_integrationCache['salesforce']);
   } catch(e) {
-    toast('Failed to update setting: ' + e.message, 'error');
+    console.error('Failed to update setting:', e.message); toast('Something went wrong \u2014 please try again', 'error');
     // Re-render to revert the toggle visually
     if (platform === 'stripe') renderStripeCard(integration);
     if (platform === 'hubspot') renderHubSpotCard(integration);
@@ -2196,7 +2202,7 @@ async function syncStripeUI() {
     if (statusAfter) statusAfter.innerHTML = `<span style="color:var(--green)">✓ ${stats.customers_matched || 0} customers matched (${stats.total || 0} subscriptions), ${stats.updated || 0} updated</span> <a href="#" onclick="event.preventDefault();showSyncResultsModal('stripe',_lastStripeSyncResult)" style="font-size:var(--fs-sm);margin-left:6px">View Details</a>`;
   } catch(e) {
     status.innerHTML = `<span style="color:var(--red)">✗ ${escHtml(e.message)}</span>`;
-    toast('Sync failed: ' + e.message, 'error');
+    console.error('Sync failed:', e.message); toast('Sync failed \u2014 please check your connection and try again', 'error');
   } finally {
     _stripeSyncInProgress = false;
     btn.disabled = false;
@@ -2718,7 +2724,7 @@ async function disconnectHubSpotUI() {
       toast('HubSpot disconnected', 'warn');
       renderIntegrationsSection();
     } catch(e) {
-      toast('Disconnect failed: ' + e.message, 'error');
+      console.error('Disconnect failed:', e.message); toast('Disconnect failed \u2014 please try again', 'error');
     }
   });
 }
@@ -2763,7 +2769,7 @@ async function syncHubSpotUI() {
     if (statusAfterHS) statusAfterHS.innerHTML = `<span style="color:var(--green)">✓ ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated (${stats.total || 0} companies)</span> <a href="#" onclick="event.preventDefault();showSyncResultsModal('hubspot',_lastHubSpotSyncResult)" style="font-size:var(--fs-sm);margin-left:6px">View Details</a>`;
   } catch(e) {
     status.innerHTML = `<span style="color:var(--red)">✕ ${escHtml(e.message)}</span>`;
-    toast('HubSpot sync failed: ' + e.message, 'error');
+    console.error('HubSpot sync failed:', e.message); toast('HubSpot sync failed \u2014 please try again', 'error');
   } finally {
     _hubspotSyncInProgress = false;
   }
@@ -2785,7 +2791,7 @@ async function updateHubSpotPushToggle(key, enabled) {
     _integrationCache['hubspot'] = integration;
     toast(`HubSpot ${key.replace('_',' ')} ${enabled ? 'enabled' : 'disabled'}`, enabled ? 'success' : 'warn');
   } catch(e) {
-    toast('Failed to update: ' + e.message, 'error');
+    console.error('Failed to update:', e.message); toast('Something went wrong \u2014 please try again', 'error');
     renderHubSpotCard(integration);
   }
 }
@@ -2929,7 +2935,7 @@ async function connectSalesforceOAuth() {
     window.location.href = authUrl;
   } catch(e) {
     if (statusEl) statusEl.innerHTML = `<span style="color:var(--red)">Error: ${escHtml(e.message)}</span>`;
-    toast('Failed to start Salesforce OAuth: ' + e.message, 'error');
+    console.error('Failed to start Salesforce OAuth:', e.message); toast('Could not connect to Salesforce \u2014 please try again', 'error');
   }
 }
 
@@ -2941,7 +2947,7 @@ async function disconnectSalesforceUI() {
     toast('Salesforce disconnected', 'warn');
     renderIntegrationsSection();
   } catch(e) {
-    toast('Failed to disconnect: ' + e.message, 'error');
+    console.error('Failed to disconnect:', e.message); toast('Disconnect failed \u2014 please try again', 'error');
   }
 }
 
@@ -2984,7 +2990,7 @@ async function syncSalesforceUI() {
     if (statusAfterSF) statusAfterSF.innerHTML = `<span style="color:var(--green)">✓ ${stats.matched || 0} matched, ${stats.created || 0} created, ${stats.updated || 0} updated (${stats.total || 0} accounts)</span> <a href="#" onclick="event.preventDefault();showSyncResultsModal('salesforce',_lastSalesforceSyncResult)" style="font-size:var(--fs-sm);margin-left:6px">View Details</a>`;
   } catch(e) {
     if (status) status.innerHTML = `<span style="color:var(--red)">✕ ${escHtml(e.message)}</span>`;
-    toast('Salesforce sync failed: ' + e.message, 'error', 6000);
+    console.error('Salesforce sync failed:', e.message); toast('Salesforce sync failed \u2014 please try again', 'error', 6000);
   } finally {
     _salesforceSyncInProgress = false;
   }
@@ -3330,7 +3336,7 @@ async function testWebhook(key) {
     toast('Test webhook sent', 'success');
   } catch (err) {
     if (statusEl) statusEl.innerHTML = '<span style="color:var(--red)">✗ Failed: ' + escHtml(err.message || 'Unknown error') + '</span>';
-    toast('Test webhook failed: ' + (err.message || 'Unknown error'), 'error');
+    console.error('Test webhook failed:', err.message || err); toast('Webhook test failed \u2014 check your URL and try again', 'error');
   }
 }
 
@@ -3384,7 +3390,7 @@ async function generateApiKey() {
   });
 
   if (error) {
-    toast('Failed to save API key: ' + error.message, 'error');
+    console.error('Failed to save API key:', error.message); toast('Something went wrong \u2014 please try again', 'error');
     return;
   }
 

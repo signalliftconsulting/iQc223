@@ -13,6 +13,12 @@ function _renderCalendar() {
   const wrap = el('calendar-wrap');
   if (!wrap) return;
 
+  // Empty state when no customers loaded
+  if (!customers.length) {
+    wrap.innerHTML = '<div class="empty-state" style="text-align:center;padding:80px 20px;color:#64748b"><div style="font-size:48px;margin-bottom:16px;opacity:.4">\uD83D\uDCC5</div><h3 style="font-size:18px;color:#1e293b;margin-bottom:8px">No data yet</h3><p style="font-size:14px;margin-bottom:20px">Add customers or load demo data to get started.</p><button class="btn btn-sm btn-primary" data-action="nav" data-arg="homebase">Go to Home Base</button></div>';
+    return;
+  }
+
   const now = new Date();
   const year = _calYear;
   const month = _calMonth;
@@ -650,7 +656,7 @@ async function calToggleTouchStatus(custId, histIdx, newStatus) {
   if (!error && c._updated_at && (!_d1 || _d1.length === 0)) { toast(escHtml(c.name) + ' was modified by another user. Refresh.', 'warn'); renderCalendar(); return; }
   if (!error && _d1 && _d1[0]) c._updated_at = _d1[0].updated_at;
   if (error) {
-    toast('Failed to update - ' + error.message, 'error');
+    console.error('Calendar update failed:', error.message); toast('Something went wrong \u2014 please try again', 'error');
   }
   renderCalendar();
 }
@@ -671,7 +677,7 @@ async function calRemoveTouch(custId, histIdx) {
   if (!error && c._updated_at && (!_d2 || _d2.length === 0)) { toast(escHtml(c.name) + ' was modified by another user. Refresh.', 'warn'); renderCalendar(); return; }
   if (!error && _d2 && _d2[0]) c._updated_at = _d2[0].updated_at;
   if (error) {
-    toast('Failed to remove - ' + error.message, 'error');
+    console.error('Calendar remove failed:', error.message); toast('Something went wrong \u2014 please try again', 'error');
   }
   renderCalendar();
 }
@@ -705,7 +711,7 @@ async function calMarkScheduledMissed(custId) {
   if (!error && c._updated_at && (!_d3 || _d3.length === 0)) { toast(escHtml(c.name) + ' was modified by another user. Refresh.', 'warn'); renderCalendar(); return; }
   if (!error && _d3 && _d3[0]) c._updated_at = _d3[0].updated_at;
   if (error) {
-    toast('Failed to update - ' + error.message, 'error');
+    console.error('Calendar update failed:', error.message); toast('Something went wrong \u2014 please try again', 'error');
   }
   renderCalendar();
 }
@@ -735,7 +741,7 @@ async function calRemoveScheduled(custId) {
   if (!error && c._updated_at && (!_d4 || _d4.length === 0)) { toast(escHtml(c.name) + ' was modified by another user. Refresh.', 'warn'); renderCalendar(); return; }
   if (!error && _d4 && _d4[0]) c._updated_at = _d4[0].updated_at;
   if (error) {
-    toast('Failed to remove - ' + error.message, 'error');
+    console.error('Calendar remove failed:', error.message); toast('Something went wrong \u2014 please try again', 'error');
   }
   renderCalendar();
 }
@@ -854,7 +860,7 @@ async function calSaveSchedule(dateStr) {
     toast('Call scheduled for ' + c.name, 'success');
   } catch(e) {
     console.error('Schedule save failed:', e);
-    toast('Saved locally - sync failed', 'warn');
+    toast('Changes saved locally \u2014 will sync when connection returns', 'warn');
   }
 
   _calSchedCustId = '';
@@ -897,7 +903,7 @@ async function calSaveSentiment(custId) {
   c.sentiment.unshift({ val: val, note: note, date: new Date().toISOString() });
   logAudit('sentiment_logged', c.id, c.name, { summary: 'Sentiment: ' + val + (note ? ' - "' + note.substring(0, 80) + '"' : '') });
   save(c).then(function() { toast('Sentiment logged', 'success'); })
-         .catch(function(e) { console.error('Sentiment save failed:', e); toast('Saved locally - sync failed', 'warn'); });
+         .catch(function(e) { console.error('Sentiment save failed:', e); toast('Changes saved locally \u2014 will sync when connection returns', 'warn'); });
   _calPendingSentiment[custId] = null;
   var form = el('cal-log-' + custId);
   if (form) form.style.display = 'none';

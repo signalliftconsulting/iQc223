@@ -174,6 +174,9 @@ async function _ensureUserProfileInner(user) {
           _userClientId = _ecResult.data[0].id;
           await sb.from('user_profiles').update({ client_id: _userClientId }).eq('user_id', user.id);
           console.log('[auth] Found existing client:', _userClientId);
+          toast('Account ready! Loading...', 'success');
+          setTimeout(() => location.reload(), 600);
+          return;
         } else {
           var clientName = companyName || (fullName + "'s Account");
           var { data: newClient, error: clientErr } = await sb.from('clients').insert({
@@ -189,10 +192,13 @@ async function _ensureUserProfileInner(user) {
             await sb.from('user_profiles').update({ client_id: newClient.id }).eq('user_id', user.id);
             console.log('[auth] Auto-provisioned client:', clientName, newClient.id);
             toast('Account ready! Loading...', 'success');
-            setTimeout(() => location.reload(), 800);
+            setTimeout(() => location.reload(), 600);
             return;
           } else {
             console.warn('[auth] Client creation failed:', clientErr?.message);
+            toast('Account setup issue \u2014 refreshing...', 'warn');
+            setTimeout(() => location.reload(), 2000);
+            return;
           }
         }
       } catch(e2) { console.warn('[auth] Auto-provision error:', e2.message); }
@@ -206,10 +212,13 @@ async function _ensureUserProfileInner(user) {
         // Check if client already exists for this user (prevent duplicates from double-fire)
         var _existCheck = await sb.from('clients').select('id').eq('user_id', user.id).limit(1);
         if (_existCheck.data && _existCheck.data.length) {
-          // Client exists — just link it
+          // Client exists — link it and reload so all data loads with client_id
           _userClientId = _existCheck.data[0].id;
           await sb.from('user_profiles').update({ client_id: _userClientId }).eq('user_id', user.id);
           console.log('[auth] Found existing client for user:', _userClientId);
+          toast('Account ready! Loading...', 'success');
+          setTimeout(() => location.reload(), 600);
+          return;
         } else {
           var _pName = (user.user_metadata && user.user_metadata.full_name) || user.email.split('@')[0];
           var _pCompany = (user.user_metadata && user.user_metadata.company_name) || '';
@@ -230,11 +239,12 @@ async function _ensureUserProfileInner(user) {
             console.log('[auth] Auto-provisioned client:', _pClientName, _pResult.data.id);
             toast('Account ready! Loading...', 'success');
             // Reload so all data loads with the new client_id
-            setTimeout(() => location.reload(), 800);
+            setTimeout(() => location.reload(), 600);
             return;
           } else {
             console.error('[auth] Client creation failed:', _pResult.error?.message);
-            toast('Account setup issue — try refreshing', 'warn');
+            toast('Account setup issue \u2014 refreshing...', 'warn');
+            setTimeout(() => location.reload(), 2000);
           }
         }
       }

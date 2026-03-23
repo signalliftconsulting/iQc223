@@ -183,7 +183,7 @@ async function _loadDemoFromCard() {
     if (typeof _wtInit === 'function') _wtInit();
   } catch(e) {
     console.error('Demo seed error:', e);
-    toast('Failed to load demo data: ' + e.message, 'error');
+    console.error('Demo seed error detail:', e.message); toast('Something went wrong loading demo data \u2014 please try again', 'error');
   }
 }
 

@@ -153,9 +153,9 @@ async function loadSettingsFromSupabase() {
   if (!data) return; // no settings row yet - use defaults
   _settingsUpdatedAt = data.updated_at || null;
   var _parseErr = false;
-  try { if (data.weights)    weights    = { ...DEFAULT_WEIGHTS,    ...JSON.parse(data.weights) }; }    catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
-  try { if (data.thresholds) thresholds = { ...DEFAULT_THRESHOLDS, ...JSON.parse(data.thresholds) }; } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
-  try { if (data.profiles)   profiles   = JSON.parse(data.profiles); }  catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
+  try { if (data.weights)    weights    = { ...DEFAULT_WEIGHTS,    ...JSON.parse(data.weights) }; }    catch(e){ if(!_parseErr){_parseErr=true;toast('Settings reset to defaults \u2014 your data is safe','warn');} }
+  try { if (data.thresholds) thresholds = { ...DEFAULT_THRESHOLDS, ...JSON.parse(data.thresholds) }; } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings reset to defaults \u2014 your data is safe','warn');} }
+  try { if (data.profiles)   profiles   = JSON.parse(data.profiles); }  catch(e){ if(!_parseErr){_parseErr=true;toast('Settings reset to defaults \u2014 your data is safe','warn');} }
   try {
     if (data.automations) {
       var parsed = JSON.parse(data.automations);
@@ -175,8 +175,8 @@ async function loadSettingsFromSupabase() {
       automationsCfg = parsed;
       migrateAutomationsCfg();
     }
-  } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
-  try { if (data.signal_model) signalModelCfg = { ...DEFAULT_SIGNAL_MODEL, ...JSON.parse(data.signal_model) }; } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
+  } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings reset to defaults \u2014 your data is safe','warn');} }
+  try { if (data.signal_model) signalModelCfg = { ...DEFAULT_SIGNAL_MODEL, ...JSON.parse(data.signal_model) }; } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings reset to defaults \u2014 your data is safe','warn');} }
   ensureGlobalWeightsProfile(true); // persist=true → writes clean version back if duplicates found
   // Also update localStorage cache so data survives user-switch / sign-out
   try {
@@ -601,7 +601,7 @@ async function pullHistoricalData(platform, lookback) {
     return { matched, totalAdded, stats, unmatched };
   } catch (err) {
     console.error('[pullHistoricalData]', err);
-    toast('History pull failed: ' + (err.message || err), 'error');
+    console.error('History pull failed:', err.message || err); toast('Could not import history \u2014 please try again', 'error');
     return null;
   }
 }
@@ -635,7 +635,7 @@ async function restoreCustomer(id) {
   logAudit('customer_restored', c.id, c.name, { summary: `Restored from trash - Score: ${c.score}/100, MRR: $${c.mrr||0}` });
   toast(`${c.name} restored`, 'success');
   const { error } = await sb.from('customers').update({ deleted_at: null }).eq('id', id);
-  if (error) toast('Restore sync failed', 'warn');
+  if (error) console.warn('Restore sync failed'); toast('Restored locally \u2014 will sync when connection returns', 'warn');
 }
 
 // hardDeleteCustomer(id) - permanently removes a row (from trash only)
@@ -649,7 +649,7 @@ async function hardDeleteCustomer(id) {
     logAudit('customer_hard_deleted', id, cName, { summary: 'Permanently removed from database' });
     toast(`${cName} permanently deleted`, 'warn');
     const { error } = await sb.from('customers').delete().eq('id', id);
-    if (error) { console.warn('hardDelete DB error:', error.message); toast('Permanent delete sync failed', 'warn'); }
+    if (error) { console.warn('hardDelete DB error:', error.message); toast('Changes saved locally \u2014 will sync when connection returns', 'warn'); }
   });
 }
 

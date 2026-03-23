@@ -475,6 +475,12 @@ function updateAlertBadge() {
 
 function renderAlerts() { try { _renderAlerts(); } catch(e) { console.error('renderAlerts error:', e); } }
 function _renderAlerts() {
+  // Empty state when no customers loaded
+  if (!customers.length) {
+    var _alWrap = el('alerts-list');
+    if (_alWrap) _alWrap.innerHTML = '<div class="empty-state" style="text-align:center;padding:80px 20px;color:#64748b"><div style="font-size:48px;margin-bottom:16px;opacity:.4">\uD83D\uDD14</div><h3 style="font-size:18px;color:#1e293b;margin-bottom:8px">No data yet</h3><p style="font-size:14px;margin-bottom:20px">Add customers or load demo data to get started.</p><button class="btn btn-sm btn-primary" data-action="nav" data-arg="homebase">Go to Home Base</button></div>';
+    return;
+  }
   const all    = buildAlerts();
   const active = all.filter(a => !isSnoozed(a.id) && !isDismissed(a.id));
   const snz    = all.filter(a =>  isSnoozed(a.id));
