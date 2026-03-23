@@ -188,8 +188,8 @@ const PLAN_FEATURES = {
 };
 
 const PLAN_LIMITS = {
-  core:   { users: 3,   accounts: 200,  ai_calls: 1000 },
-  growth: { users: 10,  accounts: 1000, ai_calls: 5000 },
+  core:   { users: 3,   accounts: 150,  ai_calls: 1000 },
+  growth: { users: 5,   accounts: 200,  ai_calls: 5000 },
   custom: { users: Infinity, accounts: Infinity, ai_calls: Infinity },
 };
 
@@ -14487,14 +14487,14 @@ function renderBillingPlanCards() {
       tier: 'core', name: 'Core', color: 'var(--teal)',
       price: '',
       desc: 'Health monitoring essentials for small teams',
-      features: ['3 users', '200 accounts', '1,000 AI calls / month', 'All AI features', 'Segments & Automations', 'Forecasting', 'API & Webhooks'],
+      features: ['3 users', '150 accounts', '1,000 AI calls / month', 'All AI features', 'Segments & Automations', 'Forecasting', 'API & Webhooks'],
       priceKey: interval === 'annual' ? 'core_annual' : 'core_monthly',
     },
     {
       tier: 'growth', name: 'Growth', color: 'var(--blue)', popular: true,
       price: '',
       desc: 'Advanced insights for growing CS teams',
-      features: ['10 users', '1,000 accounts', '5,000 AI calls / month', 'Everything in Core, plus:', 'CSM Performance dashboard', 'Signal Model (proprietary scoring)'],
+      features: ['5 users', '200 accounts', '5,000 AI calls / month', 'Everything in Core, plus:', 'CSM Performance dashboard', 'Signal Model (proprietary scoring)'],
       priceKey: interval === 'annual' ? 'growth_annual' : 'growth_monthly',
     },
     {
