@@ -250,6 +250,7 @@ function _downloadAIContent(elementId, title) {
     // Fallback: open print window
     document.body.removeChild(container);
     var w = window.open('', '_blank', 'width=800,height=600');
+    if (!w) { toast('Popup blocked — please allow popups for this site', 'error'); return; }
     w.document.write('<!DOCTYPE html><html><head><title>' + escHtml(title || 'iQcadence') + '</title>');
     w.document.write('<style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:700px;margin:0 auto;padding:40px 30px;color:#1e293b;font-size:13px;line-height:1.7}</style>');
     w.document.write('</head><body>');

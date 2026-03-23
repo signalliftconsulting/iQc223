@@ -7044,7 +7044,7 @@ function _renderHomeBase() {
     if (_actionItems.length >= 3) break;
     if (item.ids.length > 0 && item.ids.every(id => _mentioned.has(id))) continue;
     item.ids.forEach(id => _mentioned.add(id));
-    _actionItems.push({ text: item.text, action: item.action, tone: item.tone || 'amber' });
+    _actionItems.push({ text: item.text, actionFn: item.actionFn, ids: item.ids, tone: item.tone || 'amber' });
   }
 
   // Portfolio health score (avg across all accounts)
@@ -7123,9 +7123,10 @@ function _renderHomeBase() {
       const _toneColors = { red: { bg:'rgba(239,68,68,.07)', border:'var(--red)' }, amber: { bg:'rgba(245,158,11,.07)', border:'var(--amber)' }, green: { bg:'rgba(22,163,74,.07)', border:'var(--green)' } };
       _actionItems.slice(0, 3).forEach((a, idx) => {
         const tc = _toneColors[a.tone] || _toneColors.amber;
-        html += `<div class="hb-brief-card" data-hb-action="${idx}" style="padding:8px 10px;margin-bottom:2px;background:${tc.bg};border-left:3px solid ${tc.border};cursor:pointer">
+        const clickable = typeof a.actionFn === 'function' || (a.ids && a.ids.length > 0);
+        html += `<div class="hb-brief-card" data-hb-action="${idx}" style="padding:8px 10px;margin-bottom:2px;background:${tc.bg};border-left:3px solid ${tc.border}${clickable ? ';cursor:pointer' : ''}">
           <div class="hb-brief-text" style="font-size:var(--fs-sm)">${escHtml(a.text)}</div>
-          <svg class="hb-brief-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          ${clickable ? '<svg class="hb-brief-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>' : ''}
         </div>`;
       });
     }
@@ -7472,9 +7473,10 @@ function _renderFallbackActions(container) {
   var html = '';
   window._hbActionItems.forEach(function(a, idx) {
     var tc = _toneColors[a.tone] || _toneColors.amber;
-    html += '<div class="hb-brief-card" data-hb-action="' + idx + '" style="padding:8px 10px;margin-bottom:2px;background:' + tc.bg + ';border-left:3px solid ' + tc.border + ';cursor:pointer">';
+    var clickable = typeof a.actionFn === 'function' || (a.ids && a.ids.length > 0);
+    html += '<div class="hb-brief-card" data-hb-action="' + idx + '" style="padding:8px 10px;margin-bottom:2px;background:' + tc.bg + ';border-left:3px solid ' + tc.border + (clickable ? ';cursor:pointer' : '') + '">';
     html += '<div class="hb-brief-text" style="font-size:var(--fs-sm)">' + escHtml(a.text) + '</div>';
-    html += '<svg class="hb-brief-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+    if (clickable) { html += '<svg class="hb-brief-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>'; }
     html += '</div>';
   });
   container.innerHTML = html;
@@ -12023,6 +12025,7 @@ function _downloadAIContent(elementId, title) {
     // Fallback: open print window
     document.body.removeChild(container);
     var w = window.open('', '_blank', 'width=800,height=600');
+    if (!w) { toast('Popup blocked — please allow popups for this site', 'error'); return; }
     w.document.write('<!DOCTYPE html><html><head><title>' + escHtml(title || 'iQcadence') + '</title>');
     w.document.write('<style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:700px;margin:0 auto;padding:40px 30px;color:#1e293b;font-size:13px;line-height:1.7}</style>');
     w.document.write('</head><body>');
@@ -30346,7 +30349,6 @@ const APP_FIELDS = {
   external_id:         { label:'External ID',          required:false },
   stripe_customer_id:  { label:'Stripe Customer ID',   required:false },
   hubspot_company_id:  { label:'HubSpot Company ID',   required:false },
-  renewal_date:        { label:'Renewal Date',          required:false },
   note:                { label:'Note',                  required:false },
   sentiment:           { label:'Sentiment',             required:false },
   history:             { label:'History (JSON)',        required:false }
@@ -30424,7 +30426,7 @@ function normalizeDate(raw) {
   if (shortMatch) {
     const [, m, d, yy] = shortMatch;
     const y = parseInt(yy) > 50 ? '19' + yy : '20' + yy;
-    return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+    return _validOrEmpty(`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`);
   }
 
   // "Jan 15, 2026" / "January 15, 2026" / "15 Jan 2026"

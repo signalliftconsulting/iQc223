@@ -117,7 +117,6 @@ const APP_FIELDS = {
   external_id:         { label:'External ID',          required:false },
   stripe_customer_id:  { label:'Stripe Customer ID',   required:false },
   hubspot_company_id:  { label:'HubSpot Company ID',   required:false },
-  renewal_date:        { label:'Renewal Date',          required:false },
   note:                { label:'Note',                  required:false },
   sentiment:           { label:'Sentiment',             required:false },
   history:             { label:'History (JSON)',        required:false }
@@ -195,7 +194,7 @@ function normalizeDate(raw) {
   if (shortMatch) {
     const [, m, d, yy] = shortMatch;
     const y = parseInt(yy) > 50 ? '19' + yy : '20' + yy;
-    return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+    return _validOrEmpty(`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`);
   }
 
   // "Jan 15, 2026" / "January 15, 2026" / "15 Jan 2026"
