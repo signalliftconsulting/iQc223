@@ -1219,7 +1219,7 @@ const BULK_EDIT_FIELDS = {
   days:         { label:'Days Since Contact',  type:'number', min:0, max:999 },
   tier:         { label:'Tier',                type:'enum',   values:['smb','mid','enterprise'] },
   growth:       { label:'Growth Signal',       type:'enum',   values:['none','mild','strong'] },
-  manager:      { label:'Manager',             type:'text' },
+  manager:      { label:'Manager',             type:'manager' },
   renewal_date: { label:'Renewal Date',        type:'date' },
   next_touch:   { label:'Next Touch',          type:'date' },
 };
@@ -1257,6 +1257,18 @@ function bulkEditFieldChanged() {
     opWrap.style.display = 'none';
     valLabel.textContent = 'Set to';
     valContainer.innerHTML = '<input type="date" id="be-val-date" style="width:100%"/>';
+  } else if (cfg.type === 'manager') {
+    opWrap.style.display = 'none';
+    valLabel.textContent = 'Set to';
+    // Build manager list from existing customers + manual CSMs
+    var mgrs = new Set();
+    customers.forEach(function(c) { if (c.manager) mgrs.add(c.manager); });
+    if (window._manualCSMs) window._manualCSMs.forEach(function(m) { mgrs.add(m); });
+    var opts = '<option value="">- Select -</option>';
+    Array.from(mgrs).sort().forEach(function(m) { opts += '<option value="' + escHtml(m) + '">' + escHtml(m) + '</option>'; });
+    opts += '<option value="__add_new__">+ Add New...</option>';
+    valContainer.innerHTML = '<select id="be-val-manager" style="width:100%" onchange="if(this.value===\'__add_new__\'){this.style.display=\'none\';document.getElementById(\'be-val-manager-new\').style.display=\'\';document.getElementById(\'be-val-manager-new\').focus()}">' + opts + '</select>' +
+      '<input type="text" id="be-val-manager-new" style="display:none;width:100%;margin-top:6px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:var(--fs-base)" placeholder="Type new manager name..." maxlength="100"/>';
   } else if (cfg.type === 'text') {
     opWrap.style.display = 'none';
     valLabel.textContent = 'Set to';
@@ -1289,6 +1301,16 @@ function applyBulkEdit() {
   } else if (cfg.type === 'date') {
     val = el('be-val-date')?.value;
     if (!val) { toast('Please select a date', 'warn'); return; }
+  } else if (cfg.type === 'manager') {
+    var mgrSelect = el('be-val-manager');
+    var mgrNew = el('be-val-manager-new');
+    if (mgrNew && mgrNew.style.display !== 'none' && mgrNew.value.trim()) {
+      val = mgrNew.value.trim();
+    } else if (mgrSelect && mgrSelect.value && mgrSelect.value !== '__add_new__') {
+      val = mgrSelect.value;
+    } else {
+      toast('Please select or enter a manager', 'warn'); return;
+    }
   } else if (cfg.type === 'text') {
     val = (el('be-val-text')?.value || '').trim();
     if (!val) { toast('Please enter a value', 'warn'); return; }
