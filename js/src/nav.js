@@ -296,32 +296,60 @@ function toggleBellDd() {
   if (btn) btn.setAttribute('aria-expanded', !open ? 'true' : 'false');
 }
 
+function _bellTimeAgo(c) {
+  if (!c || !c.updated_at) return '';
+  const diff = Date.now() - new Date(c.updated_at).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins + 'm ago';
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + 'h ago';
+  const days = Math.floor(hrs / 24);
+  return days + 'd ago';
+}
+
 function renderBellDd() {
   const m = el('bell-dd-menu');
   if (!m) return;
   const all = buildAlerts();
   const active = all.filter(a => !isSnoozed(a.id) && !isDismissed(a.id));
   if (!active.length) {
-    m.innerHTML = `<div style="padding:14px 16px;font-size:var(--fs-base);color:var(--muted);text-align:center">${appIcon('check',13)} All clear  - no active alerts</div>`;
+    m.innerHTML = `<div style="padding:18px 16px;font-size:var(--fs-base);color:var(--muted);text-align:center">${appIcon('check',13)} All clear - no active alerts</div>`;
     return;
   }
-  const top5 = active.slice(0, 5);
+  // Sort by severity then take top 5
+  const sevOrder = { red:0, amber:1, blue:2, green:3 };
+  const sorted = [...active].sort((a, b) => (sevOrder[a.type] ?? 9) - (sevOrder[b.type] ?? 9));
+  const top5 = sorted.slice(0, 5);
   const dotColor = { red:'var(--red)', amber:'var(--amber)', blue:'var(--blue)', green:'var(--green)' };
-  let html = top5.map(a => {
+  const catLabel = (a) => { const cat = ALERT_CATS[a.cat]; return cat ? cat.label : a.cat || ''; };
+
+  let html = `<div style="padding:10px 14px 6px;font-size:var(--fs-sm);font-weight:700;color:var(--text);display:flex;align-items:center;justify-content:space-between">
+    <span>Notifications</span>
+    <span style="font-weight:500;font-size:var(--fs-xs);color:var(--muted)">${active.length} active</span>
+  </div>`;
+  html += top5.map(a => {
     const c = customers.find(x => x.id === a.cid);
-    return `<button class="snooze-dd__item" onclick="toggleBellDd();${c ? `openDetail('${escHtml(c.id)}')` : `nav('alerts')`}" style="flex-direction:column;align-items:flex-start;gap:2px;padding:9px 14px">
-      <div style="display:flex;align-items:center;gap:7px;width:100%">
-        <span style="width:7px;height:7px;border-radius:50%;background:${dotColor[a.type]||'var(--muted)'};flex-shrink:0"></span>
-        <span style="font-size:var(--fs-base);color:var(--text);flex:1;text-align:left">${a.msg}</span>
+    const timeAgo = _bellTimeAgo(c);
+    const custName = c ? escHtml(c.name) : 'Unknown';
+    const alertType = catLabel(a);
+    return `<button class="snooze-dd__item" onclick="toggleBellDd();${c ? `openDetail('${escHtml(c.id)}')` : `nav('alerts')`}" style="flex-direction:column;align-items:flex-start;gap:3px;padding:10px 14px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px;width:100%">
+        <span style="width:8px;height:8px;border-radius:50%;background:${dotColor[a.type]||'var(--muted)'};flex-shrink:0"></span>
+        <span style="font-size:var(--fs-base);color:var(--text);font-weight:600;flex:1;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${custName}</span>
+        <span style="font-size:var(--fs-xs);color:var(--muted);flex-shrink:0;white-space:nowrap">${timeAgo}</span>
       </div>
-      ${a.sub ? `<div style="font-size:var(--fs-sm);color:var(--muted);padding-left:14px">${a.sub}</div>` : ''}
+      <div style="padding-left:16px;font-size:var(--fs-sm);color:var(--muted);text-align:left;display:flex;align-items:center;gap:6px">
+        <span style="font-weight:600;color:${dotColor[a.type]||'var(--muted)'}">${alertType}</span>
+        ${a.sub ? `<span style="opacity:.7"> - ${a.sub.replace(/<[^>]*>/g,'').substring(0,50)}</span>` : ''}
+      </div>
     </button>`;
   }).join('');
   if (active.length > 5) {
-    html += `<div style="padding:5px 14px;font-size:var(--fs-sm);color:var(--muted)">+${active.length - 5} more alert${active.length - 5 !== 1 ? 's' : ''}</div>`;
+    html += `<div style="padding:6px 14px;font-size:var(--fs-xs);color:var(--muted);text-align:center">+${active.length - 5} more alert${active.length - 5 !== 1 ? 's' : ''}</div>`;
   }
   html += `<div style="border-top:1px solid var(--border);padding:8px 14px">
-    <button class="snooze-dd__item" onclick="toggleBellDd();nav('alerts')" style="font-size:var(--fs-base);color:var(--blue);font-weight:600;width:100%;justify-content:center">View all alerts →</button>
+    <button class="snooze-dd__item" onclick="toggleBellDd();nav('alerts')" style="font-size:var(--fs-base);color:var(--blue);font-weight:600;width:100%;justify-content:center;gap:4px">View All Alerts <span style="font-size:var(--fs-sm)">&rarr;</span></button>
   </div>`;
   m.innerHTML = html;
 }

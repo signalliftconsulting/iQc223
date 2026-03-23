@@ -1,6 +1,6 @@
 // ─── SETTINGS ───────────────────────────────────────────────
 function cfgTab(which) {
-  ['config','billing','account','api'].forEach(t => {
+  ['config','weights','thresholds','profiles','account','api','apidev','billing'].forEach(t => {
     el('cfg-tab-'+t)?.classList.toggle('active', t === which);
     el('cfg-pane-'+t)?.classList.toggle('active', t === which);
   });
@@ -10,13 +10,27 @@ function cfgTab(which) {
     renderCSMList();
     renderDataHealth();
   }
+  if (which === 'weights') {
+    renderSettings(); // re-render weight sliders
+  }
+  if (which === 'thresholds') {
+    renderSettings(); // re-render threshold values
+  }
+  if (which === 'profiles') {
+    renderSettings(); // re-render profiles list
+  }
   if (which === 'api') {
+    renderIntegrationsSection();
+  }
+  if (which === 'apidev') {
     if (!hasFeature('api_webhooks')) {
-      const pane = el('cfg-pane-api');
+      const pane = el('cfg-pane-apidev');
       if (pane) pane.innerHTML = upgradeHTML('api_webhooks');
       return;
     }
-    apiSubTab('integrations');
+    renderWebhookConfig();
+    renderApiSection();
+    loadWebhookLog();
   }
 }
 

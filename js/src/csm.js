@@ -119,6 +119,16 @@ function renderCSMPerformance() {
   // Dynamic number colors (headers stay static)
   const _csmAvgValColor = overallAvg >= 65 ? '#16a34a' : overallAvg >= 50 ? '#d97706' : '#dc2626';
   const _csmOverdueValColor = totalOverdue > 0 ? '#dc2626' : '#16a34a';
+  const healthyPct = totalAccounts ? Math.round((totalHealthy / totalAccounts) * 100) : 0;
+  const _csmHealthyPctColor = healthyPct >= 70 ? '#16a34a' : healthyPct >= 50 ? '#d97706' : '#dc2626';
+  const _csmAtRiskColor = totalAtRisk > 0 ? '#dc2626' : '#16a34a';
+  const atRiskGradient = totalAtRisk > 0 ? 'dash-kpi-red' : 'dash-kpi-green';
+  const healthyPctGradient = healthyPct >= 70 ? 'dash-kpi-green' : healthyPct >= 50 ? 'dash-kpi-teal' : 'dash-kpi-red';
+
+  const CSM_ICONS_EXTRA = {
+    shield: _si('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>'),
+    heart:  _si('<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>'),
+  };
 
   statsWrap.innerHTML = `
     <div class="dash-kpi-card dash-kpi-blue">
@@ -134,8 +144,16 @@ function renderCSMPerformance() {
       <div class="dash-kpi-body"><div class="dash-kpi-num">$${fmtNum(avgMRRPerCSM)}</div><div class="dash-kpi-sub">$${fmtNum(totalMRR)} total portfolio</div></div>
     </div>
     <div class="dash-kpi-card ${healthScoreGradient}">
-      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.pulse}</div><span class="dash-kpi-label">Avg Health Score <span class="info-tip tip-below" data-tip="Average health score across all managed accounts. Green ≥ 65, amber 50–64, red < 50.">\u24d8</span></span></div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.pulse}</div><span class="dash-kpi-label">Avg Health Score <span class="info-tip tip-below" data-tip="Average health score across all managed accounts. Green >= 65, amber 50-64, red < 50.">\u24d8</span></span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:${_csmAvgValColor}">${overallAvg}</div><div class="dash-kpi-sub">${deltaIcon} ${Math.abs(overallDelta)} pts this week</div></div>
+    </div>
+    <div class="dash-kpi-card ${atRiskGradient}">
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS_EXTRA.shield}</div><span class="dash-kpi-label">At-Risk Accounts <span class="info-tip tip-below" data-tip="Total accounts in critical or at-risk status, with combined MRR exposure.">\u24d8</span></span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:${_csmAtRiskColor}">${totalAtRisk}</div><div class="dash-kpi-sub">$${fmtNum(riskMRRTotal)} MRR at risk</div></div>
+    </div>
+    <div class="dash-kpi-card ${healthyPctGradient}">
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS_EXTRA.heart}</div><span class="dash-kpi-label">Healthy Rate <span class="info-tip tip-below" data-tip="Percentage of accounts in healthy or expansion status. Green >= 70%, amber 50-69%, red < 50%.">\u24d8</span></span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:${_csmHealthyPctColor}">${healthyPct}%</div><div class="dash-kpi-sub">${totalHealthy} of ${totalAccounts} accounts healthy</div></div>
     </div>
     <div class="dash-kpi-card ${overdueGradient}">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.alert}</div><span class="dash-kpi-label">Overdue Contacts <span class="info-tip tip-below" data-tip="Customers not contacted within the required interval. Red when any are overdue.">\u24d8</span></span></div>

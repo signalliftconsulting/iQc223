@@ -92,9 +92,10 @@ function auditSearchFilter(val) {
 function logAudit(action, customerId, customerName, details) {
   if (!currentUser) return;
   const d = { ...(details || {}), user_email: currentUser.email || '' };
+  const cid = getEffectiveClientId();
   const entry = {
     user_id:       currentUser.id,
-    client_id:     getEffectiveClientId(),
+    client_id:     cid,
     action:        action,
     customer_id:   customerId || null,
     customer_name: customerName || '',
@@ -102,7 +103,13 @@ function logAudit(action, customerId, customerName, details) {
     created_at:    new Date().toISOString()
   };
   sb.from('audit_logs').insert(entry).then(({ error }) => {
-    if (error) console.warn('Audit log write failed:', error.message);
+    if (error) {
+      console.warn('[audit] Write failed:', error.message,
+        '| action:', action,
+        '| user:', currentUser.email,
+        '| client_id:', cid,
+        '| hint: Check RLS policy on audit_logs allows insert for this user/client');
+    }
   });
 }
 

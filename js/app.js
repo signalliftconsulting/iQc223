@@ -6236,32 +6236,60 @@ function toggleBellDd() {
   if (btn) btn.setAttribute('aria-expanded', !open ? 'true' : 'false');
 }
 
+function _bellTimeAgo(c) {
+  if (!c || !c.updated_at) return '';
+  const diff = Date.now() - new Date(c.updated_at).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins + 'm ago';
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + 'h ago';
+  const days = Math.floor(hrs / 24);
+  return days + 'd ago';
+}
+
 function renderBellDd() {
   const m = el('bell-dd-menu');
   if (!m) return;
   const all = buildAlerts();
   const active = all.filter(a => !isSnoozed(a.id) && !isDismissed(a.id));
   if (!active.length) {
-    m.innerHTML = `<div style="padding:14px 16px;font-size:var(--fs-base);color:var(--muted);text-align:center">${appIcon('check',13)} All clear  - no active alerts</div>`;
+    m.innerHTML = `<div style="padding:18px 16px;font-size:var(--fs-base);color:var(--muted);text-align:center">${appIcon('check',13)} All clear - no active alerts</div>`;
     return;
   }
-  const top5 = active.slice(0, 5);
+  // Sort by severity then take top 5
+  const sevOrder = { red:0, amber:1, blue:2, green:3 };
+  const sorted = [...active].sort((a, b) => (sevOrder[a.type] ?? 9) - (sevOrder[b.type] ?? 9));
+  const top5 = sorted.slice(0, 5);
   const dotColor = { red:'var(--red)', amber:'var(--amber)', blue:'var(--blue)', green:'var(--green)' };
-  let html = top5.map(a => {
+  const catLabel = (a) => { const cat = ALERT_CATS[a.cat]; return cat ? cat.label : a.cat || ''; };
+
+  let html = `<div style="padding:10px 14px 6px;font-size:var(--fs-sm);font-weight:700;color:var(--text);display:flex;align-items:center;justify-content:space-between">
+    <span>Notifications</span>
+    <span style="font-weight:500;font-size:var(--fs-xs);color:var(--muted)">${active.length} active</span>
+  </div>`;
+  html += top5.map(a => {
     const c = customers.find(x => x.id === a.cid);
-    return `<button class="snooze-dd__item" onclick="toggleBellDd();${c ? `openDetail('${escHtml(c.id)}')` : `nav('alerts')`}" style="flex-direction:column;align-items:flex-start;gap:2px;padding:9px 14px">
-      <div style="display:flex;align-items:center;gap:7px;width:100%">
-        <span style="width:7px;height:7px;border-radius:50%;background:${dotColor[a.type]||'var(--muted)'};flex-shrink:0"></span>
-        <span style="font-size:var(--fs-base);color:var(--text);flex:1;text-align:left">${a.msg}</span>
+    const timeAgo = _bellTimeAgo(c);
+    const custName = c ? escHtml(c.name) : 'Unknown';
+    const alertType = catLabel(a);
+    return `<button class="snooze-dd__item" onclick="toggleBellDd();${c ? `openDetail('${escHtml(c.id)}')` : `nav('alerts')`}" style="flex-direction:column;align-items:flex-start;gap:3px;padding:10px 14px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px;width:100%">
+        <span style="width:8px;height:8px;border-radius:50%;background:${dotColor[a.type]||'var(--muted)'};flex-shrink:0"></span>
+        <span style="font-size:var(--fs-base);color:var(--text);font-weight:600;flex:1;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${custName}</span>
+        <span style="font-size:var(--fs-xs);color:var(--muted);flex-shrink:0;white-space:nowrap">${timeAgo}</span>
       </div>
-      ${a.sub ? `<div style="font-size:var(--fs-sm);color:var(--muted);padding-left:14px">${a.sub}</div>` : ''}
+      <div style="padding-left:16px;font-size:var(--fs-sm);color:var(--muted);text-align:left;display:flex;align-items:center;gap:6px">
+        <span style="font-weight:600;color:${dotColor[a.type]||'var(--muted)'}">${alertType}</span>
+        ${a.sub ? `<span style="opacity:.7"> - ${a.sub.replace(/<[^>]*>/g,'').substring(0,50)}</span>` : ''}
+      </div>
     </button>`;
   }).join('');
   if (active.length > 5) {
-    html += `<div style="padding:5px 14px;font-size:var(--fs-sm);color:var(--muted)">+${active.length - 5} more alert${active.length - 5 !== 1 ? 's' : ''}</div>`;
+    html += `<div style="padding:6px 14px;font-size:var(--fs-xs);color:var(--muted);text-align:center">+${active.length - 5} more alert${active.length - 5 !== 1 ? 's' : ''}</div>`;
   }
   html += `<div style="border-top:1px solid var(--border);padding:8px 14px">
-    <button class="snooze-dd__item" onclick="toggleBellDd();nav('alerts')" style="font-size:var(--fs-base);color:var(--blue);font-weight:600;width:100%;justify-content:center">View all alerts →</button>
+    <button class="snooze-dd__item" onclick="toggleBellDd();nav('alerts')" style="font-size:var(--fs-base);color:var(--blue);font-weight:600;width:100%;justify-content:center;gap:4px">View All Alerts <span style="font-size:var(--fs-sm)">&rarr;</span></button>
   </div>`;
   m.innerHTML = html;
 }
@@ -14295,7 +14323,7 @@ function printQBR() {
 
 // ─── SETTINGS ───────────────────────────────────────────────
 function cfgTab(which) {
-  ['config','billing','account','api'].forEach(t => {
+  ['config','weights','thresholds','profiles','account','api','apidev','billing'].forEach(t => {
     el('cfg-tab-'+t)?.classList.toggle('active', t === which);
     el('cfg-pane-'+t)?.classList.toggle('active', t === which);
   });
@@ -14305,13 +14333,27 @@ function cfgTab(which) {
     renderCSMList();
     renderDataHealth();
   }
+  if (which === 'weights') {
+    renderSettings(); // re-render weight sliders
+  }
+  if (which === 'thresholds') {
+    renderSettings(); // re-render threshold values
+  }
+  if (which === 'profiles') {
+    renderSettings(); // re-render profiles list
+  }
   if (which === 'api') {
+    renderIntegrationsSection();
+  }
+  if (which === 'apidev') {
     if (!hasFeature('api_webhooks')) {
-      const pane = el('cfg-pane-api');
+      const pane = el('cfg-pane-apidev');
       if (pane) pane.innerHTML = upgradeHTML('api_webhooks');
       return;
     }
-    apiSubTab('integrations');
+    renderWebhookConfig();
+    renderApiSection();
+    loadWebhookLog();
   }
 }
 
@@ -28245,6 +28287,16 @@ function renderCSMPerformance() {
   // Dynamic number colors (headers stay static)
   const _csmAvgValColor = overallAvg >= 65 ? '#16a34a' : overallAvg >= 50 ? '#d97706' : '#dc2626';
   const _csmOverdueValColor = totalOverdue > 0 ? '#dc2626' : '#16a34a';
+  const healthyPct = totalAccounts ? Math.round((totalHealthy / totalAccounts) * 100) : 0;
+  const _csmHealthyPctColor = healthyPct >= 70 ? '#16a34a' : healthyPct >= 50 ? '#d97706' : '#dc2626';
+  const _csmAtRiskColor = totalAtRisk > 0 ? '#dc2626' : '#16a34a';
+  const atRiskGradient = totalAtRisk > 0 ? 'dash-kpi-red' : 'dash-kpi-green';
+  const healthyPctGradient = healthyPct >= 70 ? 'dash-kpi-green' : healthyPct >= 50 ? 'dash-kpi-teal' : 'dash-kpi-red';
+
+  const CSM_ICONS_EXTRA = {
+    shield: _si('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>'),
+    heart:  _si('<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>'),
+  };
 
   statsWrap.innerHTML = `
     <div class="dash-kpi-card dash-kpi-blue">
@@ -28260,8 +28312,16 @@ function renderCSMPerformance() {
       <div class="dash-kpi-body"><div class="dash-kpi-num">$${fmtNum(avgMRRPerCSM)}</div><div class="dash-kpi-sub">$${fmtNum(totalMRR)} total portfolio</div></div>
     </div>
     <div class="dash-kpi-card ${healthScoreGradient}">
-      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.pulse}</div><span class="dash-kpi-label">Avg Health Score <span class="info-tip tip-below" data-tip="Average health score across all managed accounts. Green ≥ 65, amber 50–64, red < 50.">\u24d8</span></span></div>
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.pulse}</div><span class="dash-kpi-label">Avg Health Score <span class="info-tip tip-below" data-tip="Average health score across all managed accounts. Green >= 65, amber 50-64, red < 50.">\u24d8</span></span></div>
       <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:${_csmAvgValColor}">${overallAvg}</div><div class="dash-kpi-sub">${deltaIcon} ${Math.abs(overallDelta)} pts this week</div></div>
+    </div>
+    <div class="dash-kpi-card ${atRiskGradient}">
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS_EXTRA.shield}</div><span class="dash-kpi-label">At-Risk Accounts <span class="info-tip tip-below" data-tip="Total accounts in critical or at-risk status, with combined MRR exposure.">\u24d8</span></span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:${_csmAtRiskColor}">${totalAtRisk}</div><div class="dash-kpi-sub">$${fmtNum(riskMRRTotal)} MRR at risk</div></div>
+    </div>
+    <div class="dash-kpi-card ${healthyPctGradient}">
+      <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS_EXTRA.heart}</div><span class="dash-kpi-label">Healthy Rate <span class="info-tip tip-below" data-tip="Percentage of accounts in healthy or expansion status. Green >= 70%, amber 50-69%, red < 50%.">\u24d8</span></span></div>
+      <div class="dash-kpi-body"><div class="dash-kpi-num" style="color:${_csmHealthyPctColor}">${healthyPct}%</div><div class="dash-kpi-sub">${totalHealthy} of ${totalAccounts} accounts healthy</div></div>
     </div>
     <div class="dash-kpi-card ${overdueGradient}">
       <div class="dash-kpi-hd"><div class="dash-kpi-icon">${CSM_ICONS.alert}</div><span class="dash-kpi-label">Overdue Contacts <span class="info-tip tip-below" data-tip="Customers not contacted within the required interval. Red when any are overdue.">\u24d8</span></span></div>
@@ -30107,9 +30167,10 @@ function auditSearchFilter(val) {
 function logAudit(action, customerId, customerName, details) {
   if (!currentUser) return;
   const d = { ...(details || {}), user_email: currentUser.email || '' };
+  const cid = getEffectiveClientId();
   const entry = {
     user_id:       currentUser.id,
-    client_id:     getEffectiveClientId(),
+    client_id:     cid,
     action:        action,
     customer_id:   customerId || null,
     customer_name: customerName || '',
@@ -30117,7 +30178,13 @@ function logAudit(action, customerId, customerName, details) {
     created_at:    new Date().toISOString()
   };
   sb.from('audit_logs').insert(entry).then(({ error }) => {
-    if (error) console.warn('Audit log write failed:', error.message);
+    if (error) {
+      console.warn('[audit] Write failed:', error.message,
+        '| action:', action,
+        '| user:', currentUser.email,
+        '| client_id:', cid,
+        '| hint: Check RLS policy on audit_logs allows insert for this user/client');
+    }
   });
 }
 
