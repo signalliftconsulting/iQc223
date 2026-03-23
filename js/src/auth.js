@@ -140,22 +140,29 @@ async function ensureUserProfile(user) {
 
       // Auto-provision a client account for self-sign-up users
       try {
-        var clientName = companyName || (fullName + "'s Account");
-        var { data: newClient, error: clientErr } = await sb.from('clients').insert({
-          name:         clientName,
-          user_id:      user.id,
-          plan_tier:    'growth',
-          trial_expires: '2026-04-07T23:59:59Z',
-          created_at:   new Date().toISOString()
-        }).select('id').single();
-
-        if (!clientErr && newClient) {
-          _userClientId = newClient.id;
-          // Assign user to the new client
-          await sb.from('user_profiles').update({ client_id: newClient.id }).eq('user_id', user.id);
-          console.log('[auth] Auto-provisioned client:', clientName, newClient.id);
+        // Check if client already exists (prevent duplicates)
+        var _ecResult = await sb.from('clients').select('id').eq('user_id', user.id).limit(1);
+        if (_ecResult.data && _ecResult.data.length) {
+          _userClientId = _ecResult.data[0].id;
+          await sb.from('user_profiles').update({ client_id: _userClientId }).eq('user_id', user.id);
+          console.log('[auth] Found existing client:', _userClientId);
         } else {
-          console.warn('[auth] Client creation failed:', clientErr?.message);
+          var clientName = companyName || (fullName + "'s Account");
+          var { data: newClient, error: clientErr } = await sb.from('clients').insert({
+            name:         clientName,
+            user_id:      user.id,
+            plan_tier:    'growth',
+            trial_expires: '2026-04-07T23:59:59Z',
+            created_at:   new Date().toISOString()
+          }).select('id').single();
+
+          if (!clientErr && newClient) {
+            _userClientId = newClient.id;
+            await sb.from('user_profiles').update({ client_id: newClient.id }).eq('user_id', user.id);
+            console.log('[auth] Auto-provisioned client:', clientName, newClient.id);
+          } else {
+            console.warn('[auth] Client creation failed:', clientErr?.message);
+          }
         }
       } catch(e2) { console.warn('[auth] Auto-provision error:', e2.message); }
     } else {
@@ -165,29 +172,36 @@ async function ensureUserProfile(user) {
 
       // If profile exists but no client assigned, auto-provision one
       if (!_userClientId && _userRole !== 'admin') {
-        var _pName = (user.user_metadata && user.user_metadata.full_name) || user.email.split('@')[0];
-        var _pCompany = (user.user_metadata && user.user_metadata.company_name) || '';
-        var _pClientName = _pCompany || (_pName + "'s Account");
-        console.log('[auth] Profile exists but no client — provisioning:', _pClientName);
-        toast('Setting up your account...', 'default');
-        var _pResult = await sb.from('clients').insert({
-          name:         _pClientName,
-          user_id:      user.id,
-          plan_tier:    'growth',
-          trial_expires: '2026-04-07T23:59:59Z',
-          created_at:   new Date().toISOString()
-        }).select('id').single();
-
-        console.log('[auth] Client insert result:', JSON.stringify(_pResult));
-        if (!_pResult.error && _pResult.data) {
-          _userClientId = _pResult.data.id;
-          var _pUpdate = await sb.from('user_profiles').update({ client_id: _pResult.data.id }).eq('user_id', user.id);
-          console.log('[auth] Profile update result:', JSON.stringify(_pUpdate));
-          console.log('[auth] Auto-provisioned client:', _pClientName, _pResult.data.id);
-          toast('Account ready!', 'success');
+        // Check if client already exists for this user (prevent duplicates from double-fire)
+        var _existCheck = await sb.from('clients').select('id').eq('user_id', user.id).limit(1);
+        if (_existCheck.data && _existCheck.data.length) {
+          // Client exists — just link it
+          _userClientId = _existCheck.data[0].id;
+          await sb.from('user_profiles').update({ client_id: _userClientId }).eq('user_id', user.id);
+          console.log('[auth] Found existing client for user:', _userClientId);
         } else {
-          console.error('[auth] Client creation failed:', _pResult.error?.message, _pResult.error);
-          toast('Account setup issue — try refreshing', 'warn');
+          var _pName = (user.user_metadata && user.user_metadata.full_name) || user.email.split('@')[0];
+          var _pCompany = (user.user_metadata && user.user_metadata.company_name) || '';
+          var _pClientName = _pCompany || (_pName + "'s Account");
+          console.log('[auth] Provisioning new client:', _pClientName);
+          toast('Setting up your account...', 'default');
+          var _pResult = await sb.from('clients').insert({
+            name:         _pClientName,
+            user_id:      user.id,
+            plan_tier:    'growth',
+            trial_expires: '2026-04-07T23:59:59Z',
+            created_at:   new Date().toISOString()
+          }).select('id').single();
+
+          if (!_pResult.error && _pResult.data) {
+            _userClientId = _pResult.data.id;
+            await sb.from('user_profiles').update({ client_id: _pResult.data.id }).eq('user_id', user.id);
+            console.log('[auth] Auto-provisioned client:', _pClientName, _pResult.data.id);
+            toast('Account ready!', 'success');
+          } else {
+            console.error('[auth] Client creation failed:', _pResult.error?.message);
+            toast('Account setup issue — try refreshing', 'warn');
+          }
         }
       }
     }
