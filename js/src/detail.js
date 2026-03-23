@@ -300,7 +300,7 @@ function _renderAIMeetingHTML(data) {
 // ── AI Save Playbook ──
 function _loadAISavePlaybook(c) {
   if (!_aiIntegrationConnected) return;
-  if (c.status !== 'critical' && c.status !== 'risk') return;
+  if (c.status !== 'critical' && c.status !== 'risk' && c.status !== 'watch') return;
   var wrap = el('dm-ai-playbook');
   if (!wrap) return;
   wrap.style.display = '';
@@ -328,8 +328,12 @@ function _loadAISavePlaybook(c) {
 }
 
 function _renderAISavePlaybookHTML(data) {
+  var c = customers.find(function(x) { return x.id === detailId; });
+  var isWatch = c && c.status === 'watch';
+  var planTitle = isWatch ? 'AI Prevention Plan' : 'AI Save Plan';
+  var planSub = isWatch ? '4-Week Prevention' : '4-Week Recovery';
   var html = '<div style="padding:12px 0">';
-  html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">' + appIcon('sparkle', 16) + ' <span style="font-weight:700;font-size:var(--fs-base)">AI Save Plan</span><span style="font-size:var(--fs-2xs);color:var(--muted);text-transform:uppercase;letter-spacing:.04em">4-Week Recovery</span>';
+  html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">' + appIcon('sparkle', 16) + ' <span style="font-weight:700;font-size:var(--fs-base)">' + planTitle + '</span><span style="font-size:var(--fs-2xs);color:var(--muted);text-transform:uppercase;letter-spacing:.04em">' + planSub + '</span>';
   html += '<button class="btn btn-ghost btn-xs" style="font-size:11px" onclick="_downloadAIContent(\'dm-ai-playbook\',\'save-playbook.txt\')">' + appIcon('download', 12) + ' Download</button>';
   html += '<button class="btn btn-ghost btn-xs" style="margin-left:auto;font-size:11px" onclick="delete _aiCache[detailId+\'_playbook\'];_loadAISavePlaybook(customers.find(function(x){return x.id===detailId}))">' + appIcon('refresh', 12) + ' Regenerate</button></div>';
 

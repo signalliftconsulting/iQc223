@@ -149,7 +149,12 @@ Rules:
   }
 
   if (promptType === 'save_playbook') {
-    return `Create a tailored 4-week recovery plan for this customer based on their SPECIFIC situation:
+    const isWatch = data.customer && data.customer.status === 'watch';
+    const planType = isWatch ? 'prevention' : 'recovery';
+    const planDesc = isWatch
+      ? 'Create a tailored 4-week prevention plan to stop this Watch account from declining further. Focus on early intervention — the goal is to move them back to Healthy, not recover from crisis.'
+      : 'Create a tailored 4-week recovery plan for this at-risk customer based on their SPECIFIC situation.';
+    return `${planDesc}
 ${buildCustomerSummary(data.customer)}
 
 Response schema:
