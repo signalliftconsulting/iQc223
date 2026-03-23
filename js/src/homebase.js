@@ -1564,7 +1564,7 @@ function _insightContactImpact(active, now, cutoff) {
   const contactedDelta   = Math.round(contacted.reduce((s,c) => s + _getDeltaPeriod(c, cutoff), 0) / contacted.length * 10) / 10;
   const uncontactedDelta = Math.round(uncontacted.reduce((s,c) => s + _getDeltaPeriod(c, cutoff), 0) / uncontacted.length * 10) / 10;
 
-  const gap = contactedDelta - uncontactedDelta; // positive = contacted are doing better
+  const gap = Math.round((contactedDelta - uncontactedDelta) * 10) / 10; // positive = contacted are doing better
   if (Math.abs(gap) < 2) return null;
 
   const outreachHelps = gap > 0;
