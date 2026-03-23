@@ -78,7 +78,8 @@ Rules:
 - 2-4 recommended actions, ordered by priority (high first)
 - Summary should be conversational and reference specific data points
 - If signals are null/missing, note the data gap as a risk factor
-- Be specific — mention actual numbers, dates, and thresholds`;
+- Be specific — mention actual numbers, dates, and thresholds
+- IMPORTANT: If renewal date is within 90 days, this MUST be mentioned in the summary and should appear as a risk factor (amber if healthy, red if at-risk). Upcoming renewals are always relevant context.`;
   }
 
   if (promptType === 'meeting_prep') {
