@@ -378,7 +378,7 @@ function _renderGettingStarted(wrap) {
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
       </div>
       <h2 style="font-size:18px;font-weight:700;margin:0 0 6px">Try it now with demo data</h2>
-      <p style="font-size:14px;opacity:.85;margin:0 0 16px;line-height:1.5">Load 75 realistic customers with 2+ years of history, AI insights, health scores, and trends. Explore every feature instantly.</p>
+      <p style="font-size:14px;opacity:.85;margin:0 0 16px;line-height:1.5">Load 75 customers with 2+ years of history, health scores, insights, and trends. Explore every feature instantly.</p>
       <button class="btn" onclick="event.stopPropagation();_loadDemoFromCard()" style="background:#fff;color:#7c3aed;font-weight:700;padding:10px 28px;border-radius:8px;font-size:14px;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.1)">Load Demo Data →</button>
     </div>
     <div style="text-align:center;margin-bottom:16px;font-size:var(--fs-sm);color:var(--muted)">— or add your own customers —</div>
