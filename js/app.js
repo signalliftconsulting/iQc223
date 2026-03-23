@@ -4442,20 +4442,23 @@ async function authSignUp() {
     password: pw,
     options: { data: { full_name: name, company_name: company } }
   });
-  window._signUpInProgress = false;
-  if (error) { authErr(error.message); return; }
+  if (error) { window._signUpInProgress = false; authErr(error.message); return; }
 
-  // Sign out immediately — user must verify email before accessing app
+  // Sign out immediately BEFORE clearing flag — prevents onAuthStateChange from running ensureUserProfile
   await sb.auth.signOut();
+  window._signUpInProgress = false;
 
   // Send confirmation email via our edge function
   try {
+    console.log('[auth] Sending confirmation email to', email);
     const emailRes = await fetch('https://qctiyigznbztxcowehnl.supabase.co/functions/v1/send-auth-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, name, type: 'signup' })
     });
-    if (!emailRes.ok) console.warn('[auth] Confirmation email send failed');
+    const emailResult = await emailRes.json();
+    console.log('[auth] Email response:', emailRes.status, emailResult);
+    if (!emailRes.ok) console.warn('[auth] Confirmation email send failed:', emailResult);
   } catch(e) { console.warn('[auth] Confirmation email error:', e.message); }
 
   authOk('Account created! Check your email to confirm, then sign in.');
@@ -31966,15 +31969,10 @@ function _checkUserSwitch(userId) {
       return;
     }
 
-    // Skip profile setup during sign-up (user not confirmed yet)
-    if (window._signUpInProgress) return;
-    // Also skip if user email is not confirmed (signed up but hasn't clicked confirm link)
-    if (currentUser.email_confirmed_at === null || currentUser.email_confirmed_at === undefined) {
-      // Check user_metadata — if they have company_name, they just signed up
-      if (currentUser.user_metadata?.company_name && !currentUser.email_confirmed_at) {
-        console.log('[auth] Unconfirmed sign-up user — skipping profile setup');
-        return;
-      }
+    // Skip everything during sign-up flow — user must verify email first
+    if (window._signUpInProgress) {
+      console.log('[auth] Sign-up in progress — skipping onAuthStateChange');
+      return;
     }
 
     // Fresh sign-in only (no existing data loaded)

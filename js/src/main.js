@@ -289,15 +289,10 @@ function _checkUserSwitch(userId) {
       return;
     }
 
-    // Skip profile setup during sign-up (user not confirmed yet)
-    if (window._signUpInProgress) return;
-    // Also skip if user email is not confirmed (signed up but hasn't clicked confirm link)
-    if (currentUser.email_confirmed_at === null || currentUser.email_confirmed_at === undefined) {
-      // Check user_metadata — if they have company_name, they just signed up
-      if (currentUser.user_metadata?.company_name && !currentUser.email_confirmed_at) {
-        console.log('[auth] Unconfirmed sign-up user — skipping profile setup');
-        return;
-      }
+    // Skip everything during sign-up flow — user must verify email first
+    if (window._signUpInProgress) {
+      console.log('[auth] Sign-up in progress — skipping onAuthStateChange');
+      return;
     }
 
     // Fresh sign-in only (no existing data loaded)
