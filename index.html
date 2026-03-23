@@ -2702,7 +2702,12 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
 
   <!-- Thresholds & Operations tab -->
   <div class="dtab-pane" id="cfg-pane-thresholds">
-    <p style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:10px">Define score cutoffs for health bands, signal sensitivity, and account operation settings.</p>
+    <div class="cfg-section">
+      <div class="cfg-section-hd" style="margin-bottom:6px">
+        <svg viewBox="0 0 24 24"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+        Scoring Thresholds
+      </div>
+    </div>
     <div style="display:flex;gap:12px;flex-wrap:wrap">
       <div class="card" style="padding:12px;flex:1;min-width:220px;max-width:320px">
         <div class="card-hd" style="margin-bottom:4px"><h2 style="font-size:var(--fs-md)">Score Thresholds</h2></div>
@@ -4733,6 +4738,6 @@ Header: Content-Type: application/json
 (function(){var btn=document.getElementById('mobile-overlay-dismiss');if(btn)btn.addEventListener('click',function(){document.getElementById('mobile-overlay').classList.add('dismissed')});})();
 </script>
 
-<script defer src="js/app.js?v=721"></script>
+<script defer src="js/app.js?v=722"></script>
 </body>
 </html>
