@@ -13027,8 +13027,9 @@ function renderDetailPlaybook() {
   const clearLink = done > 0
     ? `<a href="#" onclick="event.preventDefault();clearPlaybookChecks()" style="font-size:var(--fs-sm);color:var(--muted);text-decoration:underline;white-space:nowrap">Remove completed</a>`
     : '';
+  const removedCount = (checks.__removed || []).length;
   const resetLink = hasRemoved
-    ? `<a href="#" onclick="event.preventDefault();resetPlaybook()" style="font-size:var(--fs-sm);color:var(--muted);text-decoration:underline;white-space:nowrap">Reset playbook</a>`
+    ? `<a href="#" onclick="event.preventDefault();resetPlaybook()" style="font-size:var(--fs-sm);color:var(--muted);text-decoration:underline;white-space:nowrap">Reset playbook (${removedCount})</a>`
     : '';
   const header = plays.length > 1
     ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
