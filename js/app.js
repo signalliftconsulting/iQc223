@@ -7187,27 +7187,35 @@ function _aiActionToFilter(text) {
   return null;
 }
 
+// Store AI action filters for click handling
+var _aiActionFilters = [];
+
 function _renderAIActionItems(container, items) {
   if (!items || !items.length) return;
+  _aiActionFilters = [];
   var _toneColors = { red: { bg:'rgba(239,68,68,.07)', border:'var(--red)' }, amber: { bg:'rgba(245,158,11,.07)', border:'var(--amber)' }, green: { bg:'rgba(22,163,74,.07)', border:'var(--green)' } };
   var html = '';
-  items.slice(0, 4).forEach(function(a) {
+  items.slice(0, 4).forEach(function(a, idx) {
     var tc = _toneColors[a.tone] || _toneColors.amber;
     var filter = _aiActionToFilter(a.text);
-    var clickAttr = '';
-    if (filter) {
-      clickAttr = ' onclick="setInsightFilter(\'' + escHtml(filter.label) + '\',' + JSON.stringify(filter.ids) + ')" style="padding:8px 10px;margin-bottom:2px;background:' + tc.bg + ';border-left:3px solid ' + tc.border + ';cursor:pointer"';
-    } else {
-      clickAttr = ' style="padding:8px 10px;margin-bottom:2px;background:' + tc.bg + ';border-left:3px solid ' + tc.border + '"';
-    }
-    html += '<div class="hb-brief-card"' + clickAttr + '>';
+    _aiActionFilters.push(filter);
+    var clickable = !!filter;
+    html += '<div class="hb-brief-card" data-ai-action="' + idx + '" style="padding:8px 10px;margin-bottom:2px;background:' + tc.bg + ';border-left:3px solid ' + tc.border + (clickable ? ';cursor:pointer' : '') + '">';
     html += '<div class="hb-brief-text" style="font-size:var(--fs-sm)">' + escHtml(a.text) + '</div>';
-    if (filter) {
+    if (clickable) {
       html += '<svg class="hb-brief-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
     }
     html += '</div>';
   });
   container.innerHTML = html;
+  // Attach click handlers via delegation
+  container.querySelectorAll('[data-ai-action]').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var idx = parseInt(this.getAttribute('data-ai-action'));
+      var f = _aiActionFilters[idx];
+      if (f && f.ids && f.ids.length) setInsightFilter(f.label, f.ids);
+    });
+  });
 }
 
 // ── Pulse KPI Card (gradient) ──
