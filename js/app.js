@@ -167,20 +167,20 @@ const PLAN_FEATURES = {
   automations:       'core',
   sentiment:         'core',
   audit_log:         'core',
+  forecasting:       'core',
+  custom_tags:       'core',
+  scoring_profiles:  'core',
+  segments:          'core',
+  alert_channels:    'core',
+  report_segments:   'core',
+  api_webhooks:      'core',
   // Growth+
   csm_filtering:     'growth',
   manager_dashboard: 'growth',
   csm_dashboard:     'growth',
   csm_performance:   'growth',
   report_csmperf:    'growth',
-  forecasting:       'growth',
-  custom_tags:       'growth',
-  scoring_profiles:  'growth',
-  segments:          'growth',
-  alert_channels:    'growth',
-  report_segments:   'growth',
   signal_model:      'growth',
-  api_webhooks:      'core',
   // Custom+
   next_best_action:  'custom',
   momentum:          'custom',
@@ -188,7 +188,7 @@ const PLAN_FEATURES = {
 };
 
 const PLAN_LIMITS = {
-  core:   { users: 3,   accounts: 200,  ai_calls: 500 },
+  core:   { users: 3,   accounts: 200,  ai_calls: 1000 },
   growth: { users: 10,  accounts: 1000, ai_calls: 5000 },
   custom: { users: Infinity, accounts: Infinity, ai_calls: Infinity },
 };
@@ -14487,21 +14487,21 @@ function renderBillingPlanCards() {
       tier: 'core', name: 'Core', color: 'var(--teal)',
       price: '',
       desc: 'Health monitoring essentials for small teams',
-      features: ['3 users', '200 accounts', '500 AI calls / month', 'All AI features'],
+      features: ['3 users', '200 accounts', '1,000 AI calls / month', 'All AI features', 'Segments & Automations', 'Forecasting', 'API & Webhooks'],
       priceKey: interval === 'annual' ? 'core_annual' : 'core_monthly',
     },
     {
       tier: 'growth', name: 'Growth', color: 'var(--blue)', popular: true,
       price: '',
       desc: 'Advanced insights for growing CS teams',
-      features: ['10 users', '1,000 accounts', '5,000 AI calls / month', 'All AI features', 'CSM Dashboard', 'Forecasting'],
+      features: ['10 users', '1,000 accounts', '5,000 AI calls / month', 'Everything in Core, plus:', 'CSM Performance dashboard', 'Signal Model (proprietary scoring)'],
       priceKey: interval === 'annual' ? 'growth_annual' : 'growth_monthly',
     },
     {
       tier: 'custom', name: 'Custom', color: 'var(--purple)',
       price: '',
       desc: 'Full platform with white-label & custom UI',
-      features: ['Unlimited users', 'Unlimited accounts', 'Unlimited AI calls', 'All AI features', 'CSM Dashboard', 'Forecasting', 'White-label / Custom UI'],
+      features: ['Unlimited users & accounts', 'Unlimited AI calls', 'Everything in Growth, plus:', 'White-label branding', 'Custom UI modifications', 'Priority support', 'Onboarding assistance'],
       priceKey: interval === 'annual' ? 'custom_annual' : 'custom_monthly',
     }
   ];

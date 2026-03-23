@@ -159,21 +159,21 @@ function renderBillingPlanCards() {
       tier: 'core', name: 'Core', color: 'var(--teal)',
       price: '',
       desc: 'Health monitoring essentials for small teams',
-      features: ['3 users', '200 accounts', '500 AI calls / month', 'All AI features'],
+      features: ['3 users', '200 accounts', '1,000 AI calls / month', 'All AI features', 'Segments & Automations', 'Forecasting', 'API & Webhooks'],
       priceKey: interval === 'annual' ? 'core_annual' : 'core_monthly',
     },
     {
       tier: 'growth', name: 'Growth', color: 'var(--blue)', popular: true,
       price: '',
       desc: 'Advanced insights for growing CS teams',
-      features: ['10 users', '1,000 accounts', '5,000 AI calls / month', 'All AI features', 'CSM Dashboard', 'Forecasting'],
+      features: ['10 users', '1,000 accounts', '5,000 AI calls / month', 'Everything in Core, plus:', 'CSM Performance dashboard', 'Signal Model (proprietary scoring)'],
       priceKey: interval === 'annual' ? 'growth_annual' : 'growth_monthly',
     },
     {
       tier: 'custom', name: 'Custom', color: 'var(--purple)',
       price: '',
       desc: 'Full platform with white-label & custom UI',
-      features: ['Unlimited users', 'Unlimited accounts', 'Unlimited AI calls', 'All AI features', 'CSM Dashboard', 'Forecasting', 'White-label / Custom UI'],
+      features: ['Unlimited users & accounts', 'Unlimited AI calls', 'Everything in Growth, plus:', 'White-label branding', 'Custom UI modifications', 'Priority support', 'Onboarding assistance'],
       priceKey: interval === 'annual' ? 'custom_annual' : 'custom_monthly',
     }
   ];

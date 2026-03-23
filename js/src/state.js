@@ -161,20 +161,20 @@ const PLAN_FEATURES = {
   automations:       'core',
   sentiment:         'core',
   audit_log:         'core',
+  forecasting:       'core',
+  custom_tags:       'core',
+  scoring_profiles:  'core',
+  segments:          'core',
+  alert_channels:    'core',
+  report_segments:   'core',
+  api_webhooks:      'core',
   // Growth+
   csm_filtering:     'growth',
   manager_dashboard: 'growth',
   csm_dashboard:     'growth',
   csm_performance:   'growth',
   report_csmperf:    'growth',
-  forecasting:       'growth',
-  custom_tags:       'growth',
-  scoring_profiles:  'growth',
-  segments:          'growth',
-  alert_channels:    'growth',
-  report_segments:   'growth',
   signal_model:      'growth',
-  api_webhooks:      'core',
   // Custom+
   next_best_action:  'custom',
   momentum:          'custom',
@@ -182,7 +182,7 @@ const PLAN_FEATURES = {
 };
 
 const PLAN_LIMITS = {
-  core:   { users: 3,   accounts: 200,  ai_calls: 500 },
+  core:   { users: 3,   accounts: 200,  ai_calls: 1000 },
   growth: { users: 10,  accounts: 1000, ai_calls: 5000 },
   custom: { users: Infinity, accounts: Infinity, ai_calls: Infinity },
 };
