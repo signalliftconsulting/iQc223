@@ -4492,27 +4492,30 @@ async function ensureUserProfile(user) {
 
       // If profile exists but no client assigned, auto-provision one
       if (!_userClientId && _userRole !== 'admin') {
-        try {
-          var fullName = (user.user_metadata && user.user_metadata.full_name) || user.email.split('@')[0];
-          var companyName = (user.user_metadata && user.user_metadata.company_name) || '';
-          var clientName = companyName || (fullName + "'s Account");
-          console.log('[auth] Profile exists but no client — provisioning:', clientName);
-          var { data: newClient, error: clientErr } = await sb.from('clients').insert({
-            name:         clientName,
-            user_id:      user.id,
-            plan_tier:    'growth',
-            trial_expires: '2026-04-07T23:59:59Z',
-            created_at:   new Date().toISOString()
-          }).select('id').single();
+        var _pName = (user.user_metadata && user.user_metadata.full_name) || user.email.split('@')[0];
+        var _pCompany = (user.user_metadata && user.user_metadata.company_name) || '';
+        var _pClientName = _pCompany || (_pName + "'s Account");
+        console.log('[auth] Profile exists but no client — provisioning:', _pClientName);
+        toast('Setting up your account...', 'default');
+        var _pResult = await sb.from('clients').insert({
+          name:         _pClientName,
+          user_id:      user.id,
+          plan_tier:    'growth',
+          trial_expires: '2026-04-07T23:59:59Z',
+          created_at:   new Date().toISOString()
+        }).select('id').single();
 
-          if (!clientErr && newClient) {
-            _userClientId = newClient.id;
-            await sb.from('user_profiles').update({ client_id: newClient.id }).eq('user_id', user.id);
-            console.log('[auth] Auto-provisioned client:', clientName, newClient.id);
-          } else {
-            console.warn('[auth] Client creation failed:', clientErr?.message);
-          }
-        } catch(e3) { console.warn('[auth] Late provision error:', e3.message); }
+        console.log('[auth] Client insert result:', JSON.stringify(_pResult));
+        if (!_pResult.error && _pResult.data) {
+          _userClientId = _pResult.data.id;
+          var _pUpdate = await sb.from('user_profiles').update({ client_id: _pResult.data.id }).eq('user_id', user.id);
+          console.log('[auth] Profile update result:', JSON.stringify(_pUpdate));
+          console.log('[auth] Auto-provisioned client:', _pClientName, _pResult.data.id);
+          toast('Account ready!', 'success');
+        } else {
+          console.error('[auth] Client creation failed:', _pResult.error?.message, _pResult.error);
+          toast('Account setup issue — try refreshing', 'warn');
+        }
       }
     }
     // Re-apply admin UI now that role is confirmed from server
