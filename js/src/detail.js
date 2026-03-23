@@ -330,7 +330,7 @@ function _loadAISavePlaybook(c) {
 function _renderAISavePlaybookHTML(data) {
   var c = customers.find(function(x) { return x.id === detailId; });
   var isWatch = c && c.status === 'watch';
-  var planTitle = isWatch ? 'AI Prevention Plan' : 'AI Save Plan';
+  var planTitle = isWatch ? 'Prevention Plan' : 'Save Plan';
   var planSub = isWatch ? '4-Week Prevention' : '4-Week Recovery';
   var html = '<div style="padding:12px 0">';
   html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">' + appIcon('sparkle', 16) + ' <span style="font-weight:700;font-size:var(--fs-base)">' + planTitle + '</span><span style="font-size:var(--fs-2xs);color:var(--muted);text-transform:uppercase;letter-spacing:.04em">' + planSub + '</span>';
