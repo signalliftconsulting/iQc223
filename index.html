@@ -1731,7 +1731,12 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
       <img src="Logo/iQcadence_logo.png" alt="IQcadence" style="width:100%;height:auto;display:block;border-radius:16px"/>
     </div>
 
-    <!-- Login form only — no public sign-up -->
+    <!-- Auth tabs -->
+    <div style="display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--border)">
+      <button type="button" id="tab-login" class="auth-tab active" data-action="authTab" data-arg="login" style="flex:1;padding:8px 0;font-size:var(--fs-base);font-weight:600;border:none;background:none;cursor:pointer;color:var(--text);border-bottom:2px solid var(--teal);margin-bottom:-2px;font-family:inherit">Sign In</button>
+      <button type="button" id="tab-signup" class="auth-tab" data-action="authTab" data-arg="signup" style="flex:1;padding:8px 0;font-size:var(--fs-base);font-weight:600;border:none;background:none;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;font-family:inherit">Sign Up</button>
+    </div>
+
     <form id="form-login" data-submit="authSignIn" onsubmit="event.preventDefault();authSignIn()" autocomplete="on">
       <div class="auth-field">
         <label for="login-email">Email</label>
@@ -1746,21 +1751,27 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
       <span class="auth-link" data-action="authTab" data-arg="reset">Forgot your password?</span>
     </form>
 
-    <!-- Sign up form — hidden, kept for admin use via JS -->
+    <!-- Sign up form -->
     <form id="form-signup" style="display:none" data-submit="authSignUp" onsubmit="event.preventDefault();authSignUp()" autocomplete="on">
+      <p style="font-size:var(--fs-sm);color:var(--muted);margin-bottom:12px;text-align:center">Try iQcadence free with full Growth-tier access.</p>
+      <div class="auth-field">
+        <label for="signup-name">Full Name</label>
+        <input class="auth-input" type="text" id="signup-name" placeholder="Jane Smith" autocomplete="name" required/>
+      </div>
       <div class="auth-field">
         <label for="signup-email">Email</label>
         <input class="auth-input" type="email" id="signup-email" placeholder="you@company.com" autocomplete="email" required/>
       </div>
       <div class="auth-field">
-        <label for="signup-pw">Password <span style="font-size:var(--fs-sm);color:var(--subtle)">(min 6 chars)</span></label>
-        <input class="auth-input" type="password" id="signup-pw" placeholder="Choose a password" autocomplete="new-password" minlength="6" required/>
+        <label for="signup-pw">Password <span style="font-size:var(--fs-sm);color:var(--subtle)">(min 8 chars)</span></label>
+        <input class="auth-input" type="password" id="signup-pw" placeholder="Choose a password" autocomplete="new-password" minlength="8" required/>
       </div>
       <div class="auth-field">
         <label for="signup-pw2">Confirm Password</label>
-        <input class="auth-input" type="password" id="signup-pw2" placeholder="Repeat password" autocomplete="new-password" minlength="6" required/>
+        <input class="auth-input" type="password" id="signup-pw2" placeholder="Repeat password" autocomplete="new-password" minlength="8" required/>
       </div>
       <button class="auth-btn" id="signup-btn" type="submit">Create Account →</button>
+      <div style="font-size:var(--fs-xs);color:var(--subtle);text-align:center;margin-top:8px">By signing up you agree to our <a href="https://iqcadence.com/terms" target="_blank" rel="noopener" style="color:var(--blue)">Terms</a> and <a href="https://iqcadence.com/privacy" target="_blank" rel="noopener" style="color:var(--blue)">Privacy Policy</a>.</div>
     </form>
 
     <!-- Reset form -->
@@ -4714,6 +4725,6 @@ Header: Content-Type: application/json
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script defer src="js/config.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
-<script defer src="js/app.js?v=701"></script>
+<script defer src="js/app.js?v=702"></script>
 </body>
 </html>

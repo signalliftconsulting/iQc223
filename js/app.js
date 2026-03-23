@@ -147,6 +147,7 @@ function _pagHTML(total, key, renderFnName) {
 // ─── PLAN TIER GATING ──────────────────────────────────────
 let clientPlanTier = 'growth'; // default until resolved - admin gets custom via isAdmin()
 let _subscriptionStatus = 'none'; // none | active | past_due | canceled | incomplete
+let _trialExpires = null; // ISO date string or null (null = no trial, paying customer)
 
 const PLAN_TIERS = ['core', 'growth', 'custom'];
 const PLAN_TIER_LABELS = { core: 'Core', growth: 'Growth', custom: 'Custom' };
@@ -298,12 +299,13 @@ async function resolveClientPlanTier() {
     // Use cached _userClientId (resolved during ensureUserProfile)
     if (_userClientId) {
       const { data: clientRows } = await sb.from('clients')
-        .select('plan_tier, subscription_status')
+        .select('plan_tier, subscription_status, trial_expires')
         .eq('id', _userClientId)
         .limit(1);
       const client = clientRows && clientRows.length ? clientRows[0] : null;
       clientPlanTier = client?.plan_tier || 'growth';
       _subscriptionStatus = client?.subscription_status || 'none';
+      _trialExpires = client?.trial_expires || null;
     } else {
       clientPlanTier = 'growth';
     }
@@ -318,6 +320,33 @@ async function resolveClientPlanTier() {
   // Show past-due warning if needed
   if (_subscriptionStatus === 'past_due') {
     showBillingWarning('Your payment is past due. Please update your payment method to avoid service interruption.');
+  }
+  // Check trial expiration
+  _checkTrialExpiration();
+}
+
+function _checkTrialExpiration() {
+  if (!_trialExpires || isAdmin()) return;
+  var expiry = new Date(_trialExpires);
+  var now = new Date();
+  var daysLeft = Math.ceil((expiry - now) / 86400000);
+
+  if (daysLeft <= 0) {
+    // Trial expired — block access
+    var overlay = document.createElement('div');
+    overlay.id = 'trial-expired-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center';
+    overlay.innerHTML = '<div style="background:#fff;border-radius:12px;padding:40px;max-width:440px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.2)">' +
+      '<div style="width:48px;height:48px;background:#fef2f2;border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>' +
+      '<h2 style="margin:0 0 8px;font-size:20px;color:#0f172a">Trial Access Expired</h2>' +
+      '<p style="font-size:14px;color:#64748b;line-height:1.6;margin:0 0 20px">Your trial access ended on ' + expiry.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) + '. Contact us to continue using iQcadence.</p>' +
+      '<a href="mailto:support@iqcadence.com" style="display:inline-block;background:#0f766e;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">Contact Us</a>' +
+      '<div style="margin-top:12px"><a href="#" onclick="event.preventDefault();authSignOut()" style="font-size:13px;color:#64748b">Sign Out</a></div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+  } else if (daysLeft <= 7) {
+    // Trial expiring soon — show warning banner
+    showBillingWarning('Your trial access expires in ' + daysLeft + ' day' + (daysLeft !== 1 ? 's' : '') + '. Contact us to upgrade your plan.');
   }
 }
 
@@ -4315,8 +4344,16 @@ function authTab(tab) {
   ['login','signup','reset'].forEach(t => {
     document.getElementById('form-'+t).style.display  = t===tab ? 'block' : 'none';
     const btn = document.getElementById('tab-'+t);
-    if (btn) btn.classList.toggle('active', t===tab);
+    if (btn) {
+      btn.style.color = t===tab ? 'var(--text)' : 'var(--muted)';
+      btn.style.borderBottomColor = t===tab ? 'var(--teal)' : 'transparent';
+    }
   });
+  // Hide/show tabs bar (reset form shows back link instead)
+  var tabBar = document.querySelector('.auth-card > div:first-child');
+  if (tabBar && tabBar.querySelector('#tab-login')) {
+    tabBar.style.display = tab === 'reset' ? 'none' : 'flex';
+  }
   document.getElementById('auth-err').textContent = '';
   document.getElementById('auth-ok').textContent  = '';
 }
@@ -4351,17 +4388,25 @@ async function authSignIn() {
 }
 
 async function authSignUp() {
+  const name  = el('signup-name')?.value.trim();
   const email = el('signup-email')?.value.trim();
   const pw    = el('signup-pw')?.value;
   const pw2   = el('signup-pw2')?.value;
+  if (!name)       { authErr('Please enter your name.'); return; }
   if (!email)      { authErr('Please enter your email.'); return; }
   if (!pw)         { authErr('Please choose a password.'); return; }
   if (pw.length<8) { authErr('Password must be at least 8 characters.'); return; }
   if (pw !== pw2)  { authErr('Passwords do not match.'); return; }
   authSetBusy(true);
-  const { error } = await sb.auth.signUp({ email, password: pw });
+  const { error } = await sb.auth.signUp({
+    email,
+    password: pw,
+    options: { data: { full_name: name } }
+  });
   if (error) { authErr(error.message); return; }
   authOk('Account created! Check your email to confirm, then sign in.');
+  // Auto-switch to sign in tab after a moment
+  setTimeout(function() { authTab('login'); }, 4000);
 }
 
 async function authReset() {
@@ -4405,16 +4450,37 @@ async function ensureUserProfile(user) {
     const { data: rows } = await sb.from('user_profiles').select('user_id, role, client_id').eq('user_id', user.id).limit(1);
     const data = rows && rows.length ? rows[0] : null;
     if (!data) {
-      // Not registered yet  - create profile row
+      // Not registered yet — create profile row
+      var fullName = (user.user_metadata && user.user_metadata.full_name) || user.email.split('@')[0];
       await sb.from('user_profiles').insert({
         user_id:       user.id,
         email:         user.email,
-        business_name: '',
+        business_name: fullName,
         role:          'user',
         created_at:    new Date().toISOString()
       });
       _userRole = 'user';
       _userClientId = null;
+
+      // Auto-provision a client account for self-sign-up users
+      try {
+        var clientName = fullName + "'s Account";
+        var { data: newClient, error: clientErr } = await sb.from('clients').insert({
+          name:         clientName,
+          plan_tier:    'growth',
+          trial_expires: '2026-04-07T23:59:59Z',
+          created_at:   new Date().toISOString()
+        }).select('id').single();
+
+        if (!clientErr && newClient) {
+          _userClientId = newClient.id;
+          // Assign user to the new client
+          await sb.from('user_profiles').update({ client_id: newClient.id }).eq('user_id', user.id);
+          console.log('[auth] Auto-provisioned client:', clientName, newClient.id);
+        } else {
+          console.warn('[auth] Client creation failed:', clientErr?.message);
+        }
+      } catch(e2) { console.warn('[auth] Auto-provision error:', e2.message); }
     } else {
       // Store the server-fetched role (can't be spoofed from console)
       _userRole = data.role || 'user';
@@ -4422,7 +4488,7 @@ async function ensureUserProfile(user) {
     }
     // Re-apply admin UI now that role is confirmed from server
     updateUserUI(user);
-  } catch(e) { /* silent  - non-critical */ }
+  } catch(e) { console.warn('[auth] ensureUserProfile error:', e.message); }
 }
 
 function updateUserUI(user) {

@@ -141,6 +141,7 @@ function _pagHTML(total, key, renderFnName) {
 // ─── PLAN TIER GATING ──────────────────────────────────────
 let clientPlanTier = 'growth'; // default until resolved - admin gets custom via isAdmin()
 let _subscriptionStatus = 'none'; // none | active | past_due | canceled | incomplete
+let _trialExpires = null; // ISO date string or null (null = no trial, paying customer)
 
 const PLAN_TIERS = ['core', 'growth', 'custom'];
 const PLAN_TIER_LABELS = { core: 'Core', growth: 'Growth', custom: 'Custom' };
@@ -292,12 +293,13 @@ async function resolveClientPlanTier() {
     // Use cached _userClientId (resolved during ensureUserProfile)
     if (_userClientId) {
       const { data: clientRows } = await sb.from('clients')
-        .select('plan_tier, subscription_status')
+        .select('plan_tier, subscription_status, trial_expires')
         .eq('id', _userClientId)
         .limit(1);
       const client = clientRows && clientRows.length ? clientRows[0] : null;
       clientPlanTier = client?.plan_tier || 'growth';
       _subscriptionStatus = client?.subscription_status || 'none';
+      _trialExpires = client?.trial_expires || null;
     } else {
       clientPlanTier = 'growth';
     }
@@ -312,6 +314,33 @@ async function resolveClientPlanTier() {
   // Show past-due warning if needed
   if (_subscriptionStatus === 'past_due') {
     showBillingWarning('Your payment is past due. Please update your payment method to avoid service interruption.');
+  }
+  // Check trial expiration
+  _checkTrialExpiration();
+}
+
+function _checkTrialExpiration() {
+  if (!_trialExpires || isAdmin()) return;
+  var expiry = new Date(_trialExpires);
+  var now = new Date();
+  var daysLeft = Math.ceil((expiry - now) / 86400000);
+
+  if (daysLeft <= 0) {
+    // Trial expired — block access
+    var overlay = document.createElement('div');
+    overlay.id = 'trial-expired-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center';
+    overlay.innerHTML = '<div style="background:#fff;border-radius:12px;padding:40px;max-width:440px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.2)">' +
+      '<div style="width:48px;height:48px;background:#fef2f2;border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>' +
+      '<h2 style="margin:0 0 8px;font-size:20px;color:#0f172a">Trial Access Expired</h2>' +
+      '<p style="font-size:14px;color:#64748b;line-height:1.6;margin:0 0 20px">Your trial access ended on ' + expiry.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) + '. Contact us to continue using iQcadence.</p>' +
+      '<a href="mailto:support@iqcadence.com" style="display:inline-block;background:#0f766e;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">Contact Us</a>' +
+      '<div style="margin-top:12px"><a href="#" onclick="event.preventDefault();authSignOut()" style="font-size:13px;color:#64748b">Sign Out</a></div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+  } else if (daysLeft <= 7) {
+    // Trial expiring soon — show warning banner
+    showBillingWarning('Your trial access expires in ' + daysLeft + ' day' + (daysLeft !== 1 ? 's' : '') + '. Contact us to upgrade your plan.');
   }
 }
 
