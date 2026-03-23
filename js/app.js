@@ -4460,11 +4460,7 @@ async function authSignUp() {
     } catch(e) { console.warn('[auth] Profile create error:', e.message); }
   }
 
-  // Sign out immediately BEFORE clearing flag — prevents onAuthStateChange from running ensureUserProfile
-  await sb.auth.signOut();
-  window._signUpInProgress = false;
-
-  // Send confirmation email via our edge function
+  // Send confirmation email BEFORE signing out (sign-out resets page and kills pending fetches)
   try {
     console.log('[auth] Sending confirmation email to', email);
     const emailRes = await fetch('https://qctiyigznbztxcowehnl.supabase.co/functions/v1/send-auth-email', {
@@ -4476,6 +4472,10 @@ async function authSignUp() {
     console.log('[auth] Email response:', emailRes.status, emailResult);
     if (!emailRes.ok) console.warn('[auth] Confirmation email send failed:', emailResult);
   } catch(e) { console.warn('[auth] Confirmation email error:', e.message); }
+
+  // Now sign out — user must verify email before accessing app
+  await sb.auth.signOut();
+  window._signUpInProgress = false;
 
   authOk('Account created! Check your email to confirm, then sign in.');
   setTimeout(function() { authTab('login'); }, 4000);
