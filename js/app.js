@@ -12929,23 +12929,27 @@ function renderDetailOverview() {
         ${(()=>{
           if (c.last_contact_date) {
             const [y,m,d] = c.last_contact_date.split('-').map(Number);
-            const lcd = new Date(y, m-1, d); // local date, no timezone shift
+            const lcd = new Date(y, m-1, d);
             const daysAgo = Math.max(0, Math.floor((Date.now() - lcd.getTime()) / 86400000));
-            return `<span style="font-size:var(--fs-base);font-weight:600">${lcd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span> <span style="font-size:var(--fs-sm);color:var(--muted)">(${daysAgo}d ago)</span>`;
+            return `<div style="font-size:var(--fs-base);font-weight:600">${lcd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div><div style="font-size:var(--fs-sm);color:var(--muted)">${daysAgo}d ago</div>`;
           }
-          if (c.days != null) return `<span style="font-size:var(--fs-base);font-weight:600">${c.days}d ago</span>`;
+          if (c.days != null) return `<div style="font-size:var(--fs-base);font-weight:600">${c.days}d ago</div>`;
           return '<span style="font-size:var(--fs-sm);color:var(--muted)"> -</span>';
         })()}
       </div>
       <div>
         <div class="sig-label">Next Touch</div>
         ${(()=>{
-          if (!c.next_touch) return '<span style="font-size:var(--fs-sm);color:var(--muted)">Not scheduled</span>';
+          if (!c.next_touch) return '<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:2px"><input type="date" id="di-next-touch" class="di-input" style="width:120px;font-size:var(--fs-xs);padding:2px 4px" /><input type="time" id="di-next-touch-time" class="di-input" style="width:80px;font-size:var(--fs-xs);padding:2px 4px" /><button class="btn btn-primary btn-xs" onclick="saveNextTouch()" style="padding:2px 8px;font-size:var(--fs-xs)">Set</button></div>';
           const ntDays = Math.round((new Date(c.next_touch) - new Date()) / 86400000);
           const tDisp = c.next_touch_time ? ' at ' + fmtTime12(c.next_touch_time) : '';
-          if (ntDays < 0)  return `<span class="nt-badge nt-overdue">Overdue ${Math.abs(ntDays)}d${tDisp}</span>`;
-          if (ntDays === 0) return `<span class="nt-badge nt-today">Today${tDisp}</span>`;
-          return `<span class="nt-badge nt-ok">in ${ntDays}d${tDisp}</span>`;
+          const ntDate = new Date(c.next_touch);
+          const ntDateStr = ntDate.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+          let badge, sub;
+          if (ntDays < 0) { badge = `<span class="nt-badge nt-overdue">Overdue</span>`; sub = `${ntDateStr} (${Math.abs(ntDays)}d ago)`; }
+          else if (ntDays === 0) { badge = `<span class="nt-badge nt-today">Today${tDisp}</span>`; sub = ntDateStr; }
+          else { badge = `<span class="nt-badge nt-ok">in ${ntDays}d${tDisp}</span>`; sub = ntDateStr; }
+          return `<div>${badge}</div><div style="font-size:var(--fs-xs);color:var(--muted);margin-top:1px">${sub} <a href="#" onclick="event.preventDefault();this.parentElement.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:2px\\'><input type=date id=di-next-touch class=di-input style=\\'width:120px;font-size:11px;padding:2px 4px\\' value=${c.next_touch} /><input type=time id=di-next-touch-time class=di-input style=\\'width:80px;font-size:11px;padding:2px 4px\\' value=${c.next_touch_time||''} /><button class=\\'btn btn-primary btn-xs\\' onclick=saveNextTouch() style=\\'padding:2px 8px;font-size:11px\\'>Save</button></div>'" style="font-size:var(--fs-xs);color:var(--blue)">edit</a></div>`;
         })()}
       </div>
       <div>
@@ -12958,24 +12962,18 @@ function renderDetailOverview() {
             const dateStr = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
             const color = days <= 0 ? '#dc2626' : days <= 30 ? '#ea580c' : days <= 90 ? '#d97706' : 'var(--muted)';
             const label = days < 0 ? 'Overdue' : days === 0 ? 'Today' : `${days}d left`;
-            return `<span style="font-weight:700;color:${color}">${label}</span> <span style="font-size:var(--fs-sm);color:var(--muted);margin-left:4px">${dateStr}</span>`;
+            return `<div style="font-weight:700;color:${color}">${label}</div><div style="font-size:var(--fs-sm);color:var(--muted)">${dateStr}</div>`;
           }
-          if (c.renewal != null && c.renewal > 0) return urgencyHTML(c) + ` <span style="font-size:var(--fs-sm);color:var(--muted);margin-left:4px">(${c.renewal}mo)</span>`;
+          if (c.renewal != null && c.renewal > 0) return urgencyHTML(c) + `<div style="font-size:var(--fs-sm);color:var(--muted)">${c.renewal}mo</div>`;
           return '<span style="font-size:var(--fs-sm);color:var(--muted)"> -</span>';
         })()}
       </div>
       <div>
         <div class="sig-label">Last Vibe</div>
-        ${sentIcon ? `<span style="font-size:var(--fs-md)">${sentIcon}</span> <span style="font-size:var(--fs-sm);color:var(--muted)">${fmtDate(sent.date)}</span>` : '<span style="font-size:var(--fs-sm);color:var(--muted)"> -</span>'}
+        ${sentIcon ? `<div style="font-size:var(--fs-md)">${sentIcon}</div><div style="font-size:var(--fs-sm);color:var(--muted)">${fmtDate(sent.date)}</div>` : '<span style="font-size:var(--fs-sm);color:var(--muted)"> -</span>'}
       </div>
     </div>
     <div id="dm-ai-insights"></div>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 12px;background:var(--bg);border-radius:var(--r);border:1px solid var(--border);flex-wrap:wrap">
-      <span class="di-label" style="margin:0;white-space:nowrap">Schedule Next Touch</span>
-      <input type="date" id="di-next-touch" class="di-input" value="${c.next_touch||''}" style="width:140px" />
-      <input type="time" id="di-next-touch-time" class="di-input" value="${c.next_touch_time||''}" style="width:100px" />
-      <button class="btn btn-primary btn-sm" onclick="saveNextTouch()" style="gap:4px">${appIcon('save',14)} Save</button>
-    </div>
     <div class="bd-title">Signal Breakdown</div>
     ${buildBreakdownHTML(signals, c)}
     ${buildSignalModelInsightsHTML(c)}
