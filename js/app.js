@@ -19211,15 +19211,7 @@ async function renderIntegrationsSection() {
       </div>
       <div id="integration-salesforce-body"></div>
     </div>
-    <div class="card" style="max-width:720px;margin-bottom:18px">
-      <div class="card-hd">
-        <h2>
-          ${appIcon('sparkle', 20).replace('style="', 'style="vertical-align:text-bottom;margin-right:6px;')} AI Features
-        </h2>
-        <span style="font-size:var(--fs-sm);color:var(--green);font-weight:700">● Active</span>
-      </div>
-      <div style="padding:14px 18px;font-size:var(--fs-sm);color:var(--muted)">AI-powered insights, meeting prep, focus lists, and save playbooks are included with your plan. No setup required.</div>
-    </div>`;
+    `;
 
   renderHubSpotCard(hubspotInt);
   renderStripeCard(stripeInt);
