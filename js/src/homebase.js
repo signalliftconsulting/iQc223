@@ -1112,14 +1112,82 @@ function _loadAIPortfolioOverview(stats) {
   });
 }
 
+function _aiActionToFilter(text) {
+  var t = (text || '').toLowerCase();
+  var active = customers.filter(function(c) { return c.lifecycle !== 'churned'; });
+  // Match keywords to customer filters
+  if (t.match(/at.risk|critical/)) {
+    var ids = active.filter(function(c) { return c.status === 'critical' || c.status === 'risk'; }).map(function(c) { return c.id; });
+    if (ids.length) return { label: 'At-Risk Accounts', ids: ids };
+  }
+  if (t.match(/silent.declin|previously.healthy|off.the.radar/)) {
+    var withHist = active.filter(function(c) { return c.history && c.history.length >= 2; });
+    var ids = withHist.filter(function(c) {
+      var prev = c.history[Math.max(0, c.history.length - 8)];
+      var cur = c.history[c.history.length - 1];
+      return prev && prev.score >= 65 && cur.score < prev.score - 5;
+    }).map(function(c) { return c.id; });
+    if (ids.length) return { label: 'Silent Decliners', ids: ids };
+  }
+  if (t.match(/renewal|renew/)) {
+    var now = new Date();
+    var ids = active.filter(function(c) {
+      if (!c.renewal_date) return c.renewal != null && c.renewal >= 0 && c.renewal <= 2;
+      var diff = (new Date(c.renewal_date) - now) / 86400000;
+      return diff >= 0 && diff <= 60;
+    }).map(function(c) { return c.id; });
+    if (ids.length) return { label: 'Upcoming Renewals', ids: ids };
+  }
+  if (t.match(/adoption/)) {
+    var ids = active.filter(function(c) { return c.adoption != null && c.adoption < 30; }).map(function(c) { return c.id; });
+    if (ids.length) return { label: 'Low Adoption', ids: ids };
+  }
+  if (t.match(/contact|outreach|reach out|engage/)) {
+    var ids = active.filter(function(c) { return c.days != null && c.days >= 30; }).map(function(c) { return c.id; });
+    if (ids.length) return { label: 'No Recent Contact', ids: ids };
+  }
+  if (t.match(/declin|drop|falling/)) {
+    var withHist = active.filter(function(c) { return c.history && c.history.length >= 2; });
+    var ids = withHist.filter(function(c) {
+      var recent = c.history[c.history.length - 1].score;
+      var prev = c.history[Math.max(0, c.history.length - 4)].score;
+      return recent < prev - 2;
+    }).map(function(c) { return c.id; });
+    if (ids.length) return { label: 'Declining Accounts', ids: ids };
+  }
+  if (t.match(/expan|upsell|growth/)) {
+    var ids = active.filter(function(c) { return c.status === 'expand'; }).map(function(c) { return c.id; });
+    if (ids.length) return { label: 'Expansion Opportunities', ids: ids };
+  }
+  if (t.match(/ticket|support/)) {
+    var ids = active.filter(function(c) { return c.tickets != null && c.tickets >= 5; }).map(function(c) { return c.id; });
+    if (ids.length) return { label: 'High Ticket Volume', ids: ids };
+  }
+  if (t.match(/nps|detract/)) {
+    var ids = active.filter(function(c) { return c.nps != null && c.nps <= 6; }).map(function(c) { return c.id; });
+    if (ids.length) return { label: 'NPS Detractors', ids: ids };
+  }
+  return null;
+}
+
 function _renderAIActionItems(container, items) {
   if (!items || !items.length) return;
   var _toneColors = { red: { bg:'rgba(239,68,68,.07)', border:'var(--red)' }, amber: { bg:'rgba(245,158,11,.07)', border:'var(--amber)' }, green: { bg:'rgba(22,163,74,.07)', border:'var(--green)' } };
   var html = '';
   items.slice(0, 4).forEach(function(a) {
     var tc = _toneColors[a.tone] || _toneColors.amber;
-    html += '<div class="hb-brief-card" style="padding:8px 10px;margin-bottom:2px;background:' + tc.bg + ';border-left:3px solid ' + tc.border + '">';
+    var filter = _aiActionToFilter(a.text);
+    var clickAttr = '';
+    if (filter) {
+      clickAttr = ' onclick="setInsightFilter(\'' + escHtml(filter.label) + '\',' + JSON.stringify(filter.ids) + ')" style="padding:8px 10px;margin-bottom:2px;background:' + tc.bg + ';border-left:3px solid ' + tc.border + ';cursor:pointer"';
+    } else {
+      clickAttr = ' style="padding:8px 10px;margin-bottom:2px;background:' + tc.bg + ';border-left:3px solid ' + tc.border + '"';
+    }
+    html += '<div class="hb-brief-card"' + clickAttr + '>';
     html += '<div class="hb-brief-text" style="font-size:var(--fs-sm)">' + escHtml(a.text) + '</div>';
+    if (filter) {
+      html += '<svg class="hb-brief-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+    }
     html += '</div>';
   });
   container.innerHTML = html;
