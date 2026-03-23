@@ -4,7 +4,7 @@ node_modules/
 .wrangler/
 dist/
 .ds_store
-js/config.js
+js/config.local.js
 supabase.exe
 supabase/.temp/
 *.exe

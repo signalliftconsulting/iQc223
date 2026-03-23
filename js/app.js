@@ -6079,6 +6079,15 @@ document.addEventListener('click', function(e) {
     if (f && f.ids && f.ids.length) setInsightFilter(f.label, f.ids);
     return;
   }
+
+  // KPI card filters (Revenue at Risk, Upcoming Renewals)
+  var kpiCard = e.target.closest('[data-kpi-filter]');
+  if (kpiCard) {
+    var key = kpiCard.getAttribute('data-kpi-filter');
+    var kf = window._hbKpiFilters && window._hbKpiFilters[key];
+    if (kf && kf.ids && kf.ids.length) setInsightFilter(kf.label, kf.ids);
+    return;
+  }
 });
 
 function setInsightFilter(label, ids) {
@@ -6945,8 +6954,9 @@ function _renderHomeBase() {
   </div>`;
 
   // Card 2: Revenue at Risk
-  const _arIds = escHtml(JSON.stringify(atRisk.map(c => c.id)));
-  html += `<div class="dash-kpi-card dash-kpi-red" onclick="setInsightFilter('${atRisk.length} at-risk accounts (Critical + Risk)',${_arIds})">
+  window._hbKpiFilters = window._hbKpiFilters || {};
+  window._hbKpiFilters.atRisk = { label: atRisk.length + ' at-risk accounts (Critical + Risk)', ids: atRisk.map(c => c.id) };
+  html += `<div class="dash-kpi-card dash-kpi-red" data-kpi-filter="atRisk">
     <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.alert)}<span class="dash-kpi-label">Revenue at Risk <span class="info-tip tip-below" data-tip="Monthly recurring revenue in Critical and Risk accounts. Click to view at-risk accounts.">\u24d8</span></span></div>
     <div class="dash-kpi-body">
       <div class="dash-kpi-num" style="color:${_hbRiskValColor}">$${fmtNum(atRiskMRR)}</div>
@@ -6956,8 +6966,8 @@ function _renderHomeBase() {
   </div>`;
 
   // Card 3: Upcoming Renewals
-  const _r30Ids = escHtml(JSON.stringify(renewals30.map(c => c.id)));
-  html += `<div class="dash-kpi-card dash-kpi-teal" onclick="setInsightFilter('${renewals30.length} upcoming renewals (30 days)',${_r30Ids})">
+  window._hbKpiFilters.renewals = { label: renewals30.length + ' upcoming renewals (30 days)', ids: renewals30.map(c => c.id) };
+  html += `<div class="dash-kpi-card dash-kpi-teal" data-kpi-filter="renewals">
     <div class="dash-kpi-hd">${_kpiIcon(_kpiSvg.cal)}<span class="dash-kpi-label">Upcoming Renewals <span class="info-tip tip-below" data-tip="Customer contracts renewing within the next 30 days. Click to view upcoming renewals.">\u24d8</span></span></div>
     <div class="dash-kpi-body">
       <div class="dash-kpi-num"${_hbRenewValColor ? ` style="color:${_hbRenewValColor}"` : ''}>${renewals30.length}</div>
@@ -7002,7 +7012,7 @@ function _renderHomeBase() {
 
   // ── AI Focus List card (hidden until loaded) ──
   html += '<div class="card" id="hb-ai-focus" style="display:none;margin-bottom:16px">';
-  html += '<div class="card-hd-bar" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)"><span class="card-hd-bar__title">' + appIcon('sparkle', 14) + ' AI Focus List · Today</span></div>';
+  html += '<div class="card-hd-bar" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)"><span class="card-hd-bar__title">' + appIcon('sparkle', 14) + ' Accounts to Focus On · Today</span></div>';
   html += '<div class="card-body" id="hb-ai-focus-body" style="padding:12px"></div>';
   html += '</div>';
 
