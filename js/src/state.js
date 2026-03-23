@@ -147,7 +147,7 @@ const PLAN_TIER_LABELS = { core: 'Core', growth: 'Growth', custom: 'Custom' };
 const PLAN_TIER_COLORS = { core: 'var(--teal)', growth: 'var(--blue)', custom: 'var(--purple)' };
 
 const PLAN_FEATURES = {
-  // Core (basic)
+  // Core (all tiers)
   reports_basic:     'core',
   trend_sparklines:  'core',
   email_digest:      'core',
@@ -155,6 +155,11 @@ const PLAN_FEATURES = {
   urgency_scoring:   'core',
   at_risk_alerts:    'core',
   priority_list:     'core',
+  qbr_prep:          'core',
+  playbooks:         'core',
+  automations:       'core',
+  sentiment:         'core',
+  audit_log:         'core',
   // Growth+
   csm_filtering:     'growth',
   manager_dashboard: 'growth',
@@ -162,8 +167,6 @@ const PLAN_FEATURES = {
   csm_performance:   'growth',
   report_csmperf:    'growth',
   forecasting:       'growth',
-  sentiment:         'growth',
-  audit_log:         'growth',
   custom_tags:       'growth',
   scoring_profiles:  'growth',
   segments:          'growth',
@@ -171,10 +174,7 @@ const PLAN_FEATURES = {
   report_segments:   'growth',
   // Custom+
   next_best_action:  'custom',
-  qbr_prep:          'custom',
-  playbooks:         'custom',
   momentum:          'custom',
-  automations:       'custom',
   api_webhooks:      'custom',
   signal_model:      'custom',
   white_label:       'custom',
