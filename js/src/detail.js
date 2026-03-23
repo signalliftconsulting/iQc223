@@ -752,6 +752,8 @@ function saveScore() {
         dupe.tags              = data.tags;
         dupe.billing_interval  = data.billing_interval || dupe.billing_interval || '';
         dupe.scoring_profile   = data.profile || '';
+        // Clear removed playbook items on re-score
+        if (dupe.playbook_checks && dupe.playbook_checks.__removed) delete dupe.playbook_checks.__removed;
         applyAutoStage(dupe);
         if (data.note) {
           dupe.notes = dupe.notes || [];
@@ -1504,8 +1506,12 @@ function renderDetailPlaybook() {
 
   const done = Object.keys(checks).filter(k => plays.some(p => playKey(p) === k)).length;
   const pct  = plays.length ? Math.round((done / plays.length) * 100) : 0;
+  const hasRemoved = (checks.__removed || []).length > 0;
   const clearLink = done > 0
     ? `<a href="#" onclick="event.preventDefault();clearPlaybookChecks()" style="font-size:var(--fs-sm);color:var(--muted);text-decoration:underline;white-space:nowrap">Remove completed</a>`
+    : '';
+  const resetLink = hasRemoved
+    ? `<a href="#" onclick="event.preventDefault();resetPlaybook()" style="font-size:var(--fs-sm);color:var(--muted);text-decoration:underline;white-space:nowrap">Reset playbook</a>`
     : '';
   const header = plays.length > 1
     ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
@@ -1514,11 +1520,11 @@ function renderDetailPlaybook() {
         <div style="width:60px;height:5px;background:var(--border);border-radius:3px;overflow:hidden">
           <div style="width:${pct}%;height:100%;background:var(--green);border-radius:3px"></div>
         </div>
-        ${clearLink}
+        ${clearLink}${resetLink}
       </div>`
     : `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
         <div class="playbook-title" style="margin:0">Action Playbook for ${escHtml(c.name)}</div>
-        ${clearLink}
+        ${clearLink}${resetLink}
       </div>`;
   var aiPlaybookDiv = '<div id="dm-ai-playbook" style="display:none"></div>';
   el('dm-playbook').innerHTML = aiPlaybookDiv + header +
@@ -1556,6 +1562,15 @@ function togglePlayCheck(idx, checked) {
   else delete c.playbook_checks[key];
   atUpdate(c).catch(e => console.warn('sync:', e.message));
   renderDetailPlaybook();
+}
+
+function resetPlaybook() {
+  const c = customers.find(x => x.id === detailId);
+  if (!c) return;
+  c.playbook_checks = {};
+  atUpdate(c).catch(e => console.warn('sync:', e.message));
+  renderDetailPlaybook();
+  toast('Playbook reset — all items restored', 'success');
 }
 
 function clearPlaybookChecks() {
