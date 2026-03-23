@@ -352,36 +352,31 @@ function _gettingStartedHTML() {
       { title:'Adjust weights and review', desc:'Fine-tune your <a href="#" onclick="event.stopPropagation();nav(\'settings\')" style="color:var(--teal);font-weight:600">scoring weights</a> to match what matters for your business. Check your dashboard to see health scores and insights.' }
     ],
     '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();nav(\'csv\')">Import CSV →</button><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();nav(\'score\')">+ Score Manually</button>'
-  ) + card(
-    `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
-    'linear-gradient(135deg,#8b5cf6,#7c3aed)',
-    'No data yet? Try a demo',
-    'Load 75 realistic demo customers with 2+ years of history so you can explore every feature',
-    [
-      { title:'One-click demo data', desc:'Click <strong>Load Demo Data</strong> below to generate 75 sample customers with realistic health scores, MRR, signals, score history, and trends.' },
-      { title:'Explore the platform', desc:'Browse <a href="#" onclick="event.stopPropagation();nav(\'alerts\')" style="color:var(--teal);font-weight:600">Alerts</a>, <a href="#" onclick="event.stopPropagation();nav(\'trends\')" style="color:var(--teal);font-weight:600">Trends</a>, <a href="#" onclick="event.stopPropagation();nav(\'segments\')" style="color:var(--teal);font-weight:600">Segments</a>, and <a href="#" onclick="event.stopPropagation();nav(\'csmperf\')" style="color:var(--teal);font-weight:600">CSM Performance</a> to see what IQcadence looks like with a full portfolio.' },
-      { title:'Replace with your own data anytime', desc:'When you\'re ready, delete the demo accounts and import your real customers via CSV or integration. Your settings and configuration will be preserved.' }
-    ],
-    '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();_loadDemoFromCard()">Load Demo Data →</button>'
-  );
+  ) + `<div class="card" style="margin-bottom:8px;border:2px solid #8b5cf6;background:linear-gradient(135deg,#faf5ff,#f3e8ff);cursor:pointer" onclick="this.querySelector('.gs-detail').style.display=this.querySelector('.gs-detail').style.display==='none'?'block':'none'">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px">
+        <div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:var(--fs-sm);color:#7c3aed">No data yet? Try a demo</div>
+          <div style="font-size:var(--fs-xs);color:var(--muted);line-height:1.3">Load 75 demo customers with 2+ years of history so you can explore every feature</div>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="gs-detail" style="display:none;padding:0 14px 12px;border-top:1px solid #e9d5ff;padding-top:10px">
+        <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px">${si(1)}<div style="font-size:var(--fs-sm);line-height:1.4"><strong>One-click demo data</strong> - <span style="color:var(--muted)">Click <strong>Load Demo Data</strong> below to generate 75 sample customers with health scores, MRR, signals, score history, and trends.</span></div></div>
+        <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px">${si(2)}<div style="font-size:var(--fs-sm);line-height:1.4"><strong>Explore the platform</strong> - <span style="color:var(--muted)">Browse Alerts, Trends, Segments, and CSM Performance to see what iQcadence looks like with a full portfolio.</span></div></div>
+        <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:8px">${si(3)}<div style="font-size:var(--fs-sm);line-height:1.4"><strong>Replace with your own data anytime</strong> - <span style="color:var(--muted)">When you're ready, delete the demo accounts and import your real customers via CSV or integration.</span></div></div>
+        <div style="display:flex;gap:6px;margin-top:2px"><button class="btn btn-primary btn-sm" onclick="event.stopPropagation();_loadDemoFromCard()" style="background:#7c3aed;border-color:#6d28d9">Load Demo Data →</button></div>
+      </div>
+    </div>`;
 }
 
 function _renderGettingStarted(wrap) {
   wrap.innerHTML = `
   <div style="max-width:600px;margin:0 auto;padding:20px 0">
-    <div style="text-align:center;margin-bottom:24px">
+    <div style="text-align:center;margin-bottom:20px">
       <h1 style="font-size:1.25rem;font-weight:800;color:var(--text);margin-bottom:4px">Welcome to iQcadence</h1>
       <p style="color:var(--muted);font-size:var(--fs-sm)">Get started by adding your customers. Choose the path that fits your setup.</p>
     </div>
-    <div style="background:linear-gradient(135deg,#7c3aed,#6d28d9);border-radius:12px;padding:24px;text-align:center;margin-bottom:20px;color:#fff;box-shadow:0 4px 16px rgba(124,58,237,.25)">
-      <div style="width:48px;height:48px;background:rgba(255,255,255,.15);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-      </div>
-      <h2 style="font-size:18px;font-weight:700;margin:0 0 6px">Try it now with demo data</h2>
-      <p style="font-size:14px;opacity:.85;margin:0 0 16px;line-height:1.5">Load 75 customers with 2+ years of history, health scores, insights, and trends. Explore every feature instantly.</p>
-      <button class="btn" onclick="event.stopPropagation();_loadDemoFromCard()" style="background:#fff;color:#7c3aed;font-weight:700;padding:10px 28px;border-radius:8px;font-size:14px;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.1)">Load Demo Data →</button>
-    </div>
-    <div style="text-align:center;margin-bottom:16px;font-size:var(--fs-sm);color:var(--muted)">— or add your own customers —</div>
     ${_gettingStartedHTML()}
   </div>`;
 }
