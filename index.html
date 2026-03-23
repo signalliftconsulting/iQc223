@@ -3495,12 +3495,14 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
       <a href="#hp-csm" data-action="helpScrollTo" data-arg="hp-csm" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">CSM Performance</a>
       <a href="#hp-reports" data-action="helpScrollTo" data-arg="hp-reports" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Reports</a>
       <a href="#hp-calendar" data-action="helpScrollTo" data-arg="hp-calendar" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Calendar</a>
+      <a href="#hp-forecast" data-action="helpScrollTo" data-arg="hp-forecast" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Forecast</a>
       <a href="#hp-score" data-action="helpScrollTo" data-arg="hp-score" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Score a Customer</a>
       <a href="#hp-csv" data-action="helpScrollTo" data-arg="hp-csv" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">CSV Import</a>
       <a href="#hp-automations" data-action="helpScrollTo" data-arg="hp-automations" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Automations</a>
       <a href="#hp-settings" data-action="helpScrollTo" data-arg="hp-settings" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Settings</a>
       <a href="#hp-audit" data-action="helpScrollTo" data-arg="hp-audit" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Audit Log</a>
       <a href="#hp-help" data-action="helpScrollTo" data-arg="hp-help" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">Help &amp; Guide</a>
+      <a href="#hp-ai" data-action="helpScrollTo" data-arg="hp-ai" class="btn btn-ghost btn-sm" style="font-size:var(--fs-xs);padding:3px 10px">AI Features</a>
     </div>
 
     <!-- 1. HOME BASE -->
@@ -3552,12 +3554,13 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
         <li><strong>Column filters</strong> — Click the funnel icon on any column header to filter by specific values or ranges.</li>
         <li><strong>Sort</strong> — Click any column header to sort ascending/descending.</li>
         <li><strong>Select rows</strong> — Click a row to select it; hold Shift and click another row to multi-select a range.</li>
-        <li><strong>Bulk actions</strong> — With rows selected, use the bulk action bar to re-score, assign tags, change lifecycle, or delete.</li>
+        <li><strong>Bulk actions</strong> — With rows selected, use the bulk action bar to re-score, assign tags, change lifecycle, or delete. The <strong>bulk edit modal</strong> lets you update metrics across multiple customers at once — set values to a specific number or increase/decrease by percentage. Assign managers via dropdown (choose from existing managers or add a new one). Bulk re-score, tag assignment, and lifecycle changes are also available.</li>
         <li><strong>Open details</strong> — Click any customer name to open the detail modal.</li>
       </ol>
       <div class="help-sub">Key Features</div>
       <ul>
         <li><strong>Frozen Name Column</strong> — The customer name column stays visible as you scroll horizontally through other columns</li>
+        <li><strong>Sparkline Trend Column</strong> — Each customer row includes a sparkline showing the 90-day score history at a glance, so you can spot trends without opening the detail modal</li>
         <li><strong>Export Options</strong> — CSV data export (all columns) or Bulksheet export (editable fields for round-trip editing)</li>
       </ul>
       <div class="help-sub">Detail Modal (7 Tabs)</div>
@@ -3763,7 +3766,38 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
       </ul>
     </div>
 
-    <!-- 9. SCORE A CUSTOMER -->
+    <!-- 9. FORECAST -->
+    <div class="help-card" id="hp-forecast" data-accent="emerald" data-keywords="forecast revenue nrr waterfall expand retain contract churn account classification csm tier renewal drill-down projection">
+      <div class="help-hd">
+        <div class="help-hd-icon" style="background:#ecfdf5;color:#10b981"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
+        <div><h3>Forecast</h3><p>Revenue forecast with account classification and NRR waterfall</p></div>
+      </div>
+      <p><strong>What it is:</strong> A revenue forecasting view that classifies every account into expansion, retention, contraction, or churn categories and visualizes net revenue retention.</p>
+      <p><strong>Why it exists:</strong> Helps you project future revenue by combining health scores, renewal dates, and growth signals into a clear forecast. Identifies where revenue is growing and where it is at risk.</p>
+      <div class="help-sub">Account Classification</div>
+      <table class="help-table">
+        <thead><tr><th>Category</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Expand</strong></td><td>Accounts showing strong growth signals and high health — likely to increase MRR</td></tr>
+          <tr><td><strong>Retain</strong></td><td>Stable accounts expected to renew at current MRR</td></tr>
+          <tr><td><strong>Contract</strong></td><td>Accounts with declining signals that may reduce spend</td></tr>
+          <tr><td><strong>Churn</strong></td><td>High-risk accounts likely to cancel</td></tr>
+        </tbody>
+      </table>
+      <div class="help-sub">NRR Waterfall Chart</div>
+      <p>A waterfall visualization showing starting MRR, expansion, contraction, and churn contributions to arrive at projected ending MRR. Gives a clear picture of net revenue retention drivers.</p>
+      <div class="help-sub">4 Tabs</div>
+      <ul>
+        <li><strong>All</strong> — Full portfolio forecast across every account</li>
+        <li><strong>By CSM</strong> — Forecast broken down by customer success manager</li>
+        <li><strong>By Tier</strong> — Forecast grouped by account tier (SMB, Mid-Market, Enterprise)</li>
+        <li><strong>By Renewal</strong> — Forecast organized by upcoming renewal periods</li>
+      </ul>
+      <div class="help-sub">Drill-Down</div>
+      <p>Click any classification group or individual account row to drill down into the underlying accounts, their scores, MRR, and the signals driving their forecast classification.</p>
+    </div>
+
+    <!-- 10. SCORE A CUSTOMER -->
     <div class="help-card" id="hp-score" data-accent="green" data-keywords="score customer form signals enter save manual add new compact layout two column duplicate prevention mrr arr auto-calc sliders logins adoption tickets nps csat days contact growth dropdown renewal lifecycle manager tags next touch score ring">
       <div class="help-hd">
         <div class="help-hd-icon" style="background:#ecfdf5;color:#10b981"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div>
@@ -3889,6 +3923,13 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
         <li><strong>Field Mapping</strong> — Map external fields to iQcadence customer fields</li>
         <li><strong>Pull History Button</strong> — One-click historical data backfill from the CRM with configurable lookback periods</li>
         <li><strong>API &amp; Webhooks</strong> — Sub-tab for API key management, webhook configuration, and developer documentation</li>
+        <li><strong>AI</strong> — All AI features are platform-provided and require no separate API key or third-party integration. See the AI Features section and Plan &amp; Billing for usage limits</li>
+      </ul>
+      <div class="help-sub">Plan &amp; Billing Tab</div>
+      <ul>
+        <li><strong>Current Plan</strong> — View your active plan tier (Core, Growth, or Custom) and included features</li>
+        <li><strong>AI Usage Tracking</strong> — Monitor AI calls used vs. your plan's monthly limit (Core: 50, Growth: 500, Custom: unlimited)</li>
+        <li><strong>Feature Comparison</strong> — Side-by-side comparison of what each plan tier includes to help evaluate upgrades</li>
       </ul>
     </div>
 
@@ -3933,6 +3974,38 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
       </ul>
       <div class="help-sub">Interactive Tours</div>
       <p>Several pages include guided interactive tours accessible from the page header. These tours walk you through the page's key features step-by-step with highlighted elements and explanatory tooltips.</p>
+    </div>
+
+    <!-- 16. AI FEATURES -->
+    <div class="help-card" id="hp-ai" data-accent="violet" data-keywords="ai artificial intelligence meeting prep save playbook qbr focus list portfolio overview detail insights briefing recovery plan rate limit core growth custom">
+      <div class="help-hd">
+        <div class="help-hd-icon" style="background:#f5f3ff;color:#8b5cf6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z"/><path d="M16 14H8a4 4 0 0 0-4 4v2h16v-2a4 4 0 0 0-4-4z"/><circle cx="12" cy="6" r="1"/></svg></div>
+        <div><h3>AI Features</h3><p>AI-powered insights, meeting prep, save playbooks, and more</p></div>
+      </div>
+      <p><strong>What it is:</strong> A suite of AI-powered features built into the platform that generate actionable insights, meeting preparation, and recovery plans based on your customer data.</p>
+      <p><strong>Why it exists:</strong> Turns raw customer signals into executive-ready narratives, prioritized action lists, and tailored strategies — saving hours of manual analysis and ensuring nothing falls through the cracks.</p>
+      <div class="help-sub">AI Portfolio Overview</div>
+      <p>An AI-generated executive briefing displayed on the Home Base page. Summarizes overall portfolio health, highlights key trends, and surfaces prioritized action items across your entire book of business.</p>
+      <div class="help-sub">AI Focus List ("Accounts to Focus On - Today")</div>
+      <p>Each day, the AI selects the <strong>5 most urgent accounts</strong> that need your attention. For each account, it provides the reason it was flagged and recommended next steps. Displayed on the Home Base page.</p>
+      <div class="help-sub">AI Detail Insights</div>
+      <p>Available in the customer detail modal. Generates per-customer risk factors, recommended actions, and a health narrative based on the account's current signals and history.</p>
+      <div class="help-sub">AI Meeting Prep</div>
+      <p>Accessible from the customer detail modal action bar. Generates talking points, risk analysis, and trend summaries to prepare you for customer meetings. Includes signal-specific context so you walk in fully informed.</p>
+      <div class="help-sub">AI Save Playbook</div>
+      <p>Generates a tailored <strong>4-week recovery plan</strong> for at-risk customers. Each week includes specific actions tied to that customer's signals — not generic advice but targeted steps based on their actual data.</p>
+      <div class="help-sub">AI QBR Prep</div>
+      <p>Generates a quarterly business review document with a health summary, signal trend analysis, key events, and recommended talking points. Accessible from the customer detail modal via the QBR Prep button. Includes Print option for hard copies.</p>
+      <div class="help-sub">Platform AI &amp; Rate Limits</div>
+      <p>All AI features use the platform's built-in AI — no per-client API key is needed. AI calls are rate-limited based on your plan tier:</p>
+      <table class="help-table">
+        <thead><tr><th>Plan</th><th>AI Calls / Month</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Core</strong></td><td>50</td></tr>
+          <tr><td><strong>Growth</strong></td><td>500</td></tr>
+          <tr><td><strong>Custom</strong></td><td>Unlimited</td></tr>
+        </tbody>
+      </table>
     </div>
 
   </div>
