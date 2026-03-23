@@ -2716,7 +2716,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
           <button class="btn btn-success btn-sm" data-action="saveThresholds" style="padding:5px 12px">Save</button>
         </div>
       </div>
-      <div class="card" style="padding:12px;flex:1;min-width:180px;max-width:280px">
+      <div class="card" style="padding:12px;flex:1;min-width:220px;max-width:340px">
         <div class="card-hd" style="margin-bottom:4px"><h2 style="font-size:var(--fs-md)">Signal Thresholds</h2></div>
         <div class="threshold-row" style="padding:2px 0"><span class="threshold-label">Quiet after</span><input class="threshold-input" type="number" id="cfg-quiet-days" min="1" max="90" value="14" style="width:68px"/><span style="font-size:var(--fs-sm);color:var(--muted)">days</span></div>
         <div class="threshold-row" style="padding:2px 0"><span class="threshold-label">Momentum ±</span><input class="threshold-input" type="number" id="cfg-momentum-pts" min="1" max="20" value="3" style="width:68px"/><span style="font-size:var(--fs-sm);color:var(--muted)">pts / 7d</span></div>
@@ -2725,7 +2725,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
           <button class="btn btn-success btn-sm" data-action="saveMiscThresholds" style="padding:5px 12px">Save</button>
         </div>
       </div>
-      <div class="card" style="padding:12px;flex:1;min-width:180px;max-width:280px">
+      <div class="card" style="padding:12px;flex:1;min-width:220px;max-width:340px">
         <div class="card-hd" style="margin-bottom:4px"><h2 style="font-size:var(--fs-md)">Expansion Estimate</h2></div>
         <div class="threshold-row" style="padding:2px 0"><span class="threshold-label">Method</span><select id="exp-mode" class="threshold-input" style="width:auto;min-width:120px" data-change="toggleExpMode"><option value="pct">% of MRR</option><option value="flat">Flat $/acct</option></select></div>
         <div class="threshold-row" style="padding:2px 0" id="exp-pct-row"><span class="threshold-label">Percentage</span><input class="threshold-input" type="number" id="exp-pct" min="1" max="100" step="1" value="20" style="width:68px"/><span style="font-size:var(--fs-sm);color:var(--muted)">%</span></div>
@@ -4733,6 +4733,6 @@ Header: Content-Type: application/json
 (function(){var btn=document.getElementById('mobile-overlay-dismiss');if(btn)btn.addEventListener('click',function(){document.getElementById('mobile-overlay').classList.add('dismissed')});})();
 </script>
 
-<script defer src="js/app.js?v=719"></script>
+<script defer src="js/app.js?v=720"></script>
 </body>
 </html>
