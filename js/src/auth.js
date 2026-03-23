@@ -115,7 +115,29 @@ async function authSignUp() {
     password: pw,
     options: { data: { full_name: name, company_name: company } }
   });
-  if (error) { window._signUpInProgress = false; authErr(error.message); return; }
+  if (error) {
+    // Supabase may return 500/429 because its internal email send fails (rate limited)
+    // but the user might still have been created. Check for specific fatal errors.
+    const msg = error.message || '';
+    if (msg.includes('already registered') || msg.includes('duplicate')) {
+      window._signUpInProgress = false;
+      authErr('This email is already registered. Try signing in.');
+      return;
+    }
+    if (msg.includes('rate') || msg.includes('429') || msg.includes('Too many')) {
+      // Rate limited — wait and retry
+      window._signUpInProgress = false;
+      authErr('Too many sign-up attempts. Please wait a few minutes and try again.');
+      return;
+    }
+    // For other errors (like email send failures), try to continue if we got a user ID
+    if (!signUpData?.user?.id) {
+      window._signUpInProgress = false;
+      authErr(error.message);
+      return;
+    }
+    console.warn('[auth] signUp returned error but user was created:', msg);
+  }
 
   // Create the user profile row immediately (needed for email verification token)
   const userId = signUpData?.user?.id;
