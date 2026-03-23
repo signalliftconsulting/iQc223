@@ -137,21 +137,21 @@ function renderBillingPlanCards() {
   var plans = [
     {
       tier: 'core', name: 'Core', color: 'var(--teal)',
-      price: '$99',
+      price: '',
       desc: 'Health monitoring essentials for small teams',
       features: ['3 users', '200 accounts', '500 AI calls / month', 'All AI features'],
       priceKey: interval === 'annual' ? 'core_annual' : 'core_monthly',
     },
     {
       tier: 'growth', name: 'Growth', color: 'var(--blue)', popular: true,
-      price: '$179',
+      price: '',
       desc: 'Advanced insights for growing CS teams',
       features: ['10 users', '1,000 accounts', '5,000 AI calls / month', 'All AI features', 'CSM Dashboard', 'Forecasting'],
       priceKey: interval === 'annual' ? 'growth_annual' : 'growth_monthly',
     },
     {
       tier: 'custom', name: 'Custom', color: 'var(--purple)',
-      price: '$399',
+      price: '',
       desc: 'Full platform with white-label & custom UI',
       features: ['Unlimited users', 'Unlimited accounts', 'Unlimited AI calls', 'All AI features', 'CSM Dashboard', 'Forecasting', 'White-label / Custom UI'],
       priceKey: interval === 'annual' ? 'custom_annual' : 'custom_monthly',

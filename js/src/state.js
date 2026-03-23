@@ -173,10 +173,10 @@ const PLAN_FEATURES = {
   segments:          'growth',
   alert_channels:    'growth',
   report_segments:   'growth',
+  api_webhooks:      'core',
   // Custom+
   next_best_action:  'custom',
   momentum:          'custom',
-  api_webhooks:      'custom',
   signal_model:      'custom',
   white_label:       'custom',
 };
