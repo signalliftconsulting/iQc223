@@ -762,16 +762,16 @@ svg.sparkline{display:block}
 .cfg-stack{display:flex;flex-direction:column;gap:8px}
 @media(max-width:1200px){.cfg-columns{grid-template-columns:1fr 1fr}}
 @media(max-width:700px){.cfg-columns{grid-template-columns:1fr}}
-#cfg-pane-config{}
+#cfg-pane-scoring{}
 .cfg-section{margin-bottom:14px}
 .cfg-section:last-child{margin-bottom:0}
 .cfg-section-hd{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#0f766e;margin:0 0 8px;padding:5px 10px;background:#ccfbf1;border-left:3px solid #0f766e;border-radius:4px;display:flex;align-items:center;gap:8px}
 .cfg-section-hd svg{width:14px;height:14px;stroke:#0f766e;stroke-width:2;fill:none;flex-shrink:0}
 .cfg-columns .card p,.cfg-stack .card p{font-size:var(--fs-sm);margin-bottom:4px}
-#cfg-pane-config .threshold-row{margin-bottom:2px!important;gap:6px!important;padding:0!important}
-#cfg-pane-config .threshold-label{min-width:140px;font-size:var(--fs-sm)}
-#cfg-pane-config .card p{margin-bottom:3px!important}
-#cfg-pane-config .total-bar{height:3px!important;margin:3px 0!important}
+#cfg-pane-scoring.threshold-row{margin-bottom:2px!important;gap:6px!important;padding:0!important}
+#cfg-pane-scoring.threshold-label{min-width:140px;font-size:var(--fs-sm)}
+#cfg-pane-scoring.card p{margin-bottom:3px!important}
+#cfg-pane-scoring.total-bar{height:3px!important;margin:3px 0!important}
 #view-settings .card-hd{padding:8px 12px;font-size:var(--fs-sm)}
 #view-settings .card-hd h2{font-size:var(--fs-sm)}
 #view-settings .card-hd~*{padding:10px 12px}
@@ -2622,10 +2622,8 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
 
   <!-- Tab bar -->
   <div class="dtab-row" style="margin-bottom:18px;flex-wrap:wrap;gap:4px">
-    <button class="dtab active" id="cfg-tab-config"  data-action="cfgTab" data-arg="config">Scoring Configuration</button>
-    <button class="dtab"        id="cfg-tab-weights" data-action="cfgTab" data-arg="weights">Signal Weights</button>
-    <button class="dtab"        id="cfg-tab-thresholds" data-action="cfgTab" data-arg="thresholds">Status Thresholds</button>
-    <button class="dtab"        id="cfg-tab-profiles" data-action="cfgTab" data-arg="profiles">Scoring Profiles</button>
+    <button class="dtab active" id="cfg-tab-scoring"  data-action="cfgTab" data-arg="scoring">Scoring</button>
+    <button class="dtab"        id="cfg-tab-thresholds" data-action="cfgTab" data-arg="thresholds">Thresholds &amp; Operations</button>
     <button class="dtab"        id="cfg-tab-account" data-action="cfgTab" data-arg="account">Account</button>
     <button class="dtab"        id="cfg-tab-api"     data-action="cfgTab" data-arg="api">Integrations</button>
     <button class="dtab"        id="cfg-tab-apidev"  data-action="cfgTab" data-arg="apidev">API &amp; Webhooks</button>
@@ -2634,8 +2632,8 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
 
   <div id="settings-guide"></div>
 
-  <!-- Scoring Configuration tab -->
-  <div class="dtab-pane active" id="cfg-pane-config">
+  <!-- Scoring tab (Signal Model + Weights + Profiles) -->
+  <div class="dtab-pane active" id="cfg-pane-scoring">
 
     <!-- SECTION 0: iQcadence Signal Model -->
     <div class="cfg-section" id="cfg-sm-section">
@@ -2671,79 +2669,9 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
       </div>
     </div>
 
-    <!-- Account Operations (cadence, renewals, expansion) -->
-    <div class="cfg-section" id="cfg-acct-ops">
-      <div class="cfg-section-hd">
-        <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        Account Operations
-      </div>
-      <div class="cfg-columns">
-        <div class="card">
-          <div class="card-hd"><h2>Contact Cadence <span class="info-tip" data-tip="Set how many days without contact triggers a 'Due Soon' warning or 'Overdue' alert, per tier. These drive cadence alerts and the contact status indicator.">ⓘ</span></h2></div>
-          <p>Days since last contact before follow-up is flagged.</p>
-          <table style="width:100%;font-size:var(--fs-base);border-collapse:collapse">
-            <thead><tr>
-              <th style="text-align:left;padding:4px 6px;font-weight:700;border-bottom:1px solid var(--border)">Tier</th>
-              <th style="text-align:center;padding:4px 6px;font-weight:700;border-bottom:1px solid var(--border)">Due Soon</th>
-              <th style="text-align:center;padding:4px 6px;font-weight:700;border-bottom:1px solid var(--border)">Overdue</th>
-            </tr></thead>
-            <tbody>
-              <tr>
-                <td style="padding:6px"><span class="tier-pill tier-pill-ent">Enterprise</span></td>
-                <td style="text-align:center;padding:6px"><input class="threshold-input" type="number" id="cad-enterprise-warn" min="1" max="365" value="14"/></td>
-                <td style="text-align:center;padding:6px"><input class="threshold-input" type="number" id="cad-enterprise-overdue" min="1" max="365" value="30"/></td>
-              </tr>
-              <tr>
-                <td style="padding:6px"><span class="tier-pill tier-pill-mid">Mid-Market</span></td>
-                <td style="text-align:center;padding:6px"><input class="threshold-input" type="number" id="cad-mid-warn" min="1" max="365" value="21"/></td>
-                <td style="text-align:center;padding:6px"><input class="threshold-input" type="number" id="cad-mid-overdue" min="1" max="365" value="45"/></td>
-              </tr>
-              <tr>
-                <td style="padding:6px"><span class="tier-pill tier-pill-smb">SMB</span></td>
-                <td style="text-align:center;padding:6px"><input class="threshold-input" type="number" id="cad-smb-warn" min="1" max="365" value="30"/></td>
-                <td style="text-align:center;padding:6px"><input class="threshold-input" type="number" id="cad-smb-overdue" min="1" max="365" value="60"/></td>
-              </tr>
-            </tbody>
-          </table>
-          <div style="margin-top:14px;display:flex;gap:8px">
-            <button class="btn btn-ghost btn-sm" data-action="resetCadence">Reset</button>
-            <button class="btn btn-success btn-sm" data-action="saveCadence">Save</button>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-hd"><h2>Renewal Windows <span class="info-tip" data-tip="How far out from a renewal date should alerts appear, and at what urgency level.">ⓘ</span></h2></div>
-          <p>Days before renewal to trigger each alert level.</p>
-          <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#dc2626"></span>Critical</span><input class="threshold-input" type="number" id="rw-critical" min="1" max="365" value="14"/><span style="font-size:var(--fs-base);color:var(--muted)">days</span></div>
-          <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#f59e0b"></span>Warning</span><input class="threshold-input" type="number" id="rw-warning" min="1" max="365" value="30"/><span style="font-size:var(--fs-base);color:var(--muted)">days</span></div>
-          <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#3b82f6"></span>Upcoming</span><input class="threshold-input" type="number" id="rw-upcoming" min="1" max="365" value="60"/><span style="font-size:var(--fs-base);color:var(--muted)">days</span></div>
-          <div style="margin-top:14px;display:flex;gap:8px">
-            <button class="btn btn-ghost btn-sm" data-action="resetRenewalWindows">Reset</button>
-            <button class="btn btn-success btn-sm" data-action="saveRenewalWindows">Save</button>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-hd"><h2>Expansion Estimate <span class="info-tip" data-tip="Configure how upsell potential is calculated on the Home Base KPI card. Choose a percentage of MRR or a flat dollar amount per account.">ⓘ</span></h2></div>
-          <p>How to estimate upsell potential for expansion-ready accounts.</p>
-          <div class="threshold-row"><span class="threshold-label">Method</span>
-            <select id="exp-mode" class="threshold-input" style="width:auto;min-width:120px" data-change="toggleExpMode">
-              <option value="pct">% of MRR</option>
-              <option value="flat">Flat $/acct</option>
-            </select>
-          </div>
-          <div class="threshold-row" id="exp-pct-row"><span class="threshold-label">Percentage</span><input class="threshold-input" type="number" id="exp-pct" min="1" max="100" step="1" value="20"/><span style="font-size:var(--fs-base);color:var(--muted)">%</span></div>
-          <div class="threshold-row" id="exp-flat-row" style="display:none"><span class="threshold-label">Amount</span><span style="font-size:var(--fs-md);font-weight:600;margin-right:2px">$</span><input class="threshold-input" type="number" id="exp-flat" min="1" step="100" value="5000" style="width:80px"/></div>
-          <div style="margin-top:14px">
-            <button class="btn btn-success btn-sm" data-action="saveExpansion">Save</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
   </div>
 
-  <!-- Signal Weights tab -->
-  <div class="dtab-pane" id="cfg-pane-weights">
-    <p style="font-size:var(--fs-base);color:var(--muted);margin-bottom:14px">Control how much each signal contributes to the overall health score. Weights must total 100%.</p>
+    <!-- Signal Weights -->
     <div class="cfg-columns" id="settings-scoring" style="grid-template-columns:1fr 1fr">
       <div class="card">
         <div class="card-hd"><h2>Signal Weights <span class="info-tip" data-tip="Control how much each signal contributes to the health score. Click a profile on the right to load its weights here.">ⓘ</span></h2></div>
@@ -2764,9 +2692,19 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
         <div id="cfg-score-dist"></div>
       </div>
     </div>
+
+    <!-- Scoring Profiles -->
+    <div class="cfg-columns" style="grid-template-columns:1fr">
+      <div class="card">
+        <div class="card-hd"><h2>Scoring Profiles <span class="info-tip" data-tip="Click a profile to load its weights into the editor. Edit, update, or create new profiles from the sliders.">ⓘ</span></h2></div>
+        <p>Click a profile to load its weights into the Signal Weights editor.</p>
+        <div id="profiles-list"></div>
+      </div>
+    </div>
+
   </div>
 
-  <!-- Status Thresholds tab -->
+  <!-- Thresholds & Operations tab -->
   <div class="dtab-pane" id="cfg-pane-thresholds">
     <p style="font-size:var(--fs-base);color:var(--muted);margin-bottom:14px">Define score cutoffs for health bands and fine-tune signal detection sensitivity.</p>
     <div class="cfg-columns" style="grid-template-columns:1fr 1fr">
@@ -2794,16 +2732,47 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Scoring Profiles tab -->
-  <div class="dtab-pane" id="cfg-pane-profiles">
-    <p style="font-size:var(--fs-base);color:var(--muted);margin-bottom:14px">Save and load different weight configurations. Click a profile to apply its weights.</p>
-    <div class="cfg-columns" style="grid-template-columns:1fr">
-      <div class="card">
-        <div class="card-hd"><h2>Scoring Profiles <span class="info-tip" data-tip="Click a profile to load its weights into the editor. Edit, update, or create new profiles from the sliders.">ⓘ</span></h2></div>
-        <p>Click a profile to load its weights into the Signal Weights editor.</p>
-        <div id="profiles-list"></div>
+    <!-- Account Operations -->
+    <div class="cfg-section" id="cfg-acct-ops">
+      <div class="cfg-section-hd">
+        <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Account Operations
+      </div>
+      <div class="cfg-columns">
+        <div class="card">
+          <div class="card-hd"><h2>Contact Cadence <span class="info-tip" data-tip="Set how many days without contact triggers a 'Due Soon' warning or 'Overdue' alert, per tier.">ⓘ</span></h2></div>
+          <p>Days since last contact before follow-up is flagged.</p>
+          <table style="width:100%;font-size:var(--fs-base);border-collapse:collapse">
+            <thead><tr>
+              <th style="text-align:left;padding:4px 6px;font-weight:700;border-bottom:1px solid var(--border)">Tier</th>
+              <th style="text-align:center;padding:4px 6px;font-weight:700;border-bottom:1px solid var(--border)">Due Soon</th>
+              <th style="text-align:center;padding:4px 6px;font-weight:700;border-bottom:1px solid var(--border)">Overdue</th>
+            </tr></thead>
+            <tbody>
+              <tr><td style="padding:6px"><span class="tier-pill tier-pill-ent">Enterprise</span></td><td style="text-align:center;padding:6px"><input class="threshold-input" type="number" id="cad-enterprise-warn" min="1" max="365" value="14"/></td><td style="text-align:center;padding:6px"><input class="threshold-input" type="number" id="cad-enterprise-overdue" min="1" max="365" value="30"/></td></tr>
+              <tr><td style="padding:6px"><span class="tier-pill tier-pill-mid">Mid-Market</span></td><td style="text-align:center;padding:6px"><input class="threshold-input" type="number" id="cad-mid-warn" min="1" max="365" value="21"/></td><td style="text-align:center;padding:6px"><input class="threshold-input" type="number" id="cad-mid-overdue" min="1" max="365" value="45"/></td></tr>
+              <tr><td style="padding:6px"><span class="tier-pill tier-pill-smb">SMB</span></td><td style="text-align:center;padding:6px"><input class="threshold-input" type="number" id="cad-smb-warn" min="1" max="365" value="30"/></td><td style="text-align:center;padding:6px"><input class="threshold-input" type="number" id="cad-smb-overdue" min="1" max="365" value="60"/></td></tr>
+            </tbody>
+          </table>
+          <div style="margin-top:14px;display:flex;gap:8px"><button class="btn btn-ghost btn-sm" data-action="resetCadence">Reset</button><button class="btn btn-success btn-sm" data-action="saveCadence">Save</button></div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><h2>Renewal Windows <span class="info-tip" data-tip="How far out from a renewal date should alerts appear, and at what urgency level.">ⓘ</span></h2></div>
+          <p>Days before renewal to trigger each alert level.</p>
+          <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#dc2626"></span>Critical</span><input class="threshold-input" type="number" id="rw-critical" min="1" max="365" value="14"/><span style="font-size:var(--fs-base);color:var(--muted)">days</span></div>
+          <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#f59e0b"></span>Warning</span><input class="threshold-input" type="number" id="rw-warning" min="1" max="365" value="30"/><span style="font-size:var(--fs-base);color:var(--muted)">days</span></div>
+          <div class="threshold-row"><span class="threshold-label"><span class="th-dot" style="background:#3b82f6"></span>Upcoming</span><input class="threshold-input" type="number" id="rw-upcoming" min="1" max="365" value="60"/><span style="font-size:var(--fs-base);color:var(--muted)">days</span></div>
+          <div style="margin-top:14px;display:flex;gap:8px"><button class="btn btn-ghost btn-sm" data-action="resetRenewalWindows">Reset</button><button class="btn btn-success btn-sm" data-action="saveRenewalWindows">Save</button></div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><h2>Expansion Estimate <span class="info-tip" data-tip="Configure how upsell potential is calculated on the Home Base KPI card.">ⓘ</span></h2></div>
+          <p>How to estimate upsell potential for expansion-ready accounts.</p>
+          <div class="threshold-row"><span class="threshold-label">Method</span><select id="exp-mode" class="threshold-input" style="width:auto;min-width:120px" data-change="toggleExpMode"><option value="pct">% of MRR</option><option value="flat">Flat $/acct</option></select></div>
+          <div class="threshold-row" id="exp-pct-row"><span class="threshold-label">Percentage</span><input class="threshold-input" type="number" id="exp-pct" min="1" max="100" step="1" value="20"/><span style="font-size:var(--fs-base);color:var(--muted)">%</span></div>
+          <div class="threshold-row" id="exp-flat-row" style="display:none"><span class="threshold-label">Amount</span><span style="font-size:var(--fs-md);font-weight:600;margin-right:2px">$</span><input class="threshold-input" type="number" id="exp-flat" min="1" step="100" value="5000" style="width:80px"/></div>
+          <div style="margin-top:14px"><button class="btn btn-success btn-sm" data-action="saveExpansion">Save</button></div>
+        </div>
       </div>
     </div>
   </div>
@@ -4775,6 +4744,6 @@ Header: Content-Type: application/json
 (function(){var btn=document.getElementById('mobile-overlay-dismiss');if(btn)btn.addEventListener('click',function(){document.getElementById('mobile-overlay').classList.add('dismissed')});})();
 </script>
 
-<script defer src="js/app.js?v=707"></script>
+<script defer src="js/app.js?v=708"></script>
 </body>
 </html>

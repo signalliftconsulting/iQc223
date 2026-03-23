@@ -14323,7 +14323,11 @@ function printQBR() {
 
 // ─── SETTINGS ───────────────────────────────────────────────
 function cfgTab(which) {
-  ['config','weights','thresholds','profiles','account','api','apidev','billing'].forEach(t => {
+  // Map old tab names to new ones for backwards compatibility
+  if (which === 'config') which = 'scoring';
+  if (which === 'weights') which = 'scoring';
+  if (which === 'profiles') which = 'scoring';
+  ['scoring','thresholds','account','api','apidev','billing'].forEach(t => {
     el('cfg-tab-'+t)?.classList.toggle('active', t === which);
     el('cfg-pane-'+t)?.classList.toggle('active', t === which);
   });
@@ -14333,14 +14337,16 @@ function cfgTab(which) {
     renderCSMList();
     renderDataHealth();
   }
-  if (which === 'weights') {
+  if (which === 'scoring') {
     _renderWeightsPane();
+    _renderProfilesPane();
+    renderSignalModelSettings();
   }
   if (which === 'thresholds') {
     _renderThresholdsPane();
-  }
-  if (which === 'profiles') {
-    _renderProfilesPane();
+    renderExpansionSettings();
+    renderCadenceSettings();
+    renderRenewalWindows();
   }
   if (which === 'api') {
     renderIntegrationsSection();
@@ -14732,21 +14738,8 @@ function _renderProfilesPane() {
 }
 
 function renderSettings() {
-  // Always reset to Config tab on navigation
-  cfgTab('config');
-
-  // Render config pane content
-  renderExpansionSettings();
-  renderCadenceSettings();
-  renderRenewalWindows();
-  renderSignalModelSettings();
-
-  // Pre-render other panes so data is ready when tabs are clicked
-  _renderWeightsPane();
-  _renderThresholdsPane();
-  _renderProfilesPane();
-  renderCSMList();
-  renderDataHealth();
+  // Always reset to Scoring tab on navigation
+  cfgTab('scoring');
 }
 
 // Populate the per-customer profile dropdown in the score form
