@@ -6,6 +6,43 @@
 let _hbPeriodDays = 7; // comparison period: 7, 14, or 30
 var _hbInsightActions = []; // stores insight card action functions for click delegation
 
+// Global delegated click handler for homebase interactive elements
+document.addEventListener('click', function(e) {
+  if (!e.target || !e.target.closest) return;
+
+  // Insight card action buttons
+  var insBtn = e.target.closest('[data-insight-action]');
+  if (insBtn) {
+    e.stopPropagation();
+    var idx = parseInt(insBtn.getAttribute('data-insight-action'));
+    var fn = _hbInsightActions[idx];
+    if (fn) { try { new Function(fn)(); } catch(err) { console.warn('Insight action error:', err); } }
+    return;
+  }
+
+  // Hardcoded/fallback action items
+  var actCard = e.target.closest('[data-hb-action]');
+  if (actCard) {
+    var idx = parseInt(actCard.getAttribute('data-hb-action'));
+    var item = window._hbActionItems && window._hbActionItems[idx];
+    if (item && item.ids && item.ids.length) {
+      setInsightFilter(item.text.substring(0, 40), item.ids);
+    } else if (item && item.action) {
+      try { new Function(item.action)(); } catch(e2) { console.warn('Action error:', e2); }
+    }
+    return;
+  }
+
+  // AI action items
+  var aiCard = e.target.closest('[data-ai-action]');
+  if (aiCard) {
+    var idx = parseInt(aiCard.getAttribute('data-ai-action'));
+    var f = _aiActionFilters[idx];
+    if (f && f.ids && f.ids.length) setInsightFilter(f.label, f.ids);
+    return;
+  }
+});
+
 function setInsightFilter(label, ids) {
   if (!ids || !ids.length) return;
   insightFilter = { label: label, ids: new Set(ids) };
@@ -964,28 +1001,7 @@ function _renderHomeBase() {
 
   wrap.innerHTML = _gsCardHTML() + html;
 
-  // ── Attach click handlers for action items ──
-  wrap.querySelectorAll('[data-hb-action]').forEach(function(card) {
-    card.addEventListener('click', function() {
-      var idx = parseInt(this.getAttribute('data-hb-action'));
-      var item = window._hbActionItems && window._hbActionItems[idx];
-      if (item && item.ids && item.ids.length) {
-        setInsightFilter(item.text.substring(0, 40), item.ids);
-      } else if (item && item.action) {
-        try { new Function(item.action)(); } catch(e) { console.warn('Action error:', e); }
-      }
-    });
-  });
-
-  // ── Attach click handlers for insight card actions ──
-  wrap.querySelectorAll('[data-insight-action]').forEach(function(btn) {
-    btn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      var idx = parseInt(this.getAttribute('data-insight-action'));
-      var fn = _hbInsightActions[idx];
-      if (fn) { try { new Function(fn)(); } catch(err) { console.warn('Insight action error:', err); } }
-    });
-  });
+  // Click handlers are delegated via the global homebase click listener below
 
   // ── Render moved Dashboard widgets into their containers ──
   if (typeof renderRenewalPipeline === 'function') {
@@ -1183,17 +1199,7 @@ function _renderFallbackActions(container) {
     html += '</div>';
   });
   container.innerHTML = html;
-  container.querySelectorAll('[data-hb-action]').forEach(function(card) {
-    card.addEventListener('click', function() {
-      var idx = parseInt(this.getAttribute('data-hb-action'));
-      var item = window._hbActionItems && window._hbActionItems[idx];
-      if (item && item.ids && item.ids.length) {
-        setInsightFilter(item.text.substring(0, 40), item.ids);
-      } else if (item && item.action) {
-        try { new Function(item.action)(); } catch(e) { console.warn('Action error:', e); }
-      }
-    });
-  });
+  // Click handling delegated via global homebase click listener
 }
 
 function _aiActionToFilter(text) {
@@ -1275,14 +1281,7 @@ function _renderAIActionItems(container, items) {
     html += '</div>';
   });
   container.innerHTML = html;
-  // Attach click handlers via delegation
-  container.querySelectorAll('[data-ai-action]').forEach(function(el) {
-    el.addEventListener('click', function() {
-      var idx = parseInt(this.getAttribute('data-ai-action'));
-      var f = _aiActionFilters[idx];
-      if (f && f.ids && f.ids.length) setInsightFilter(f.label, f.ids);
-    });
-  });
+  // Click handling delegated via global homebase click listener
 }
 
 // ── Pulse KPI Card (gradient) ──
