@@ -289,9 +289,20 @@ function _checkUserSwitch(userId) {
       return;
     }
 
-    // Skip everything during sign-up flow — user must verify email first
+    // Skip everything during sign-up flow
     if (window._signUpInProgress) {
       console.log('[auth] Sign-up in progress — skipping onAuthStateChange');
+      return;
+    }
+
+    // Check if email is verified before allowing access
+    var _verifyCheck = await sb.from('user_profiles').select('email_verified').eq('user_id', currentUser.id).single();
+    if (_verifyCheck.data && _verifyCheck.data.email_verified === false) {
+      console.log('[auth] Unverified user — signing out');
+      await sb.auth.signOut();
+      showAuthGate();
+      authTab('login');
+      authErr('Please confirm your email before signing in.');
       return;
     }
 
