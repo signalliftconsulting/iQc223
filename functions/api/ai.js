@@ -93,7 +93,9 @@ Rules:
 - 1-3 risks (empty array if genuinely healthy)
 - 1-3 trends based on score history and signal changes
 - Tone should be professional — these are talking points for a real meeting
-- Include specific conversation starters the CSM can use verbatim`;
+- Include specific conversation starters the CSM can use verbatim
+- CRITICAL: Never reference internal metrics directly in talking points (no NPS scores, CSAT numbers, login counts, adoption percentages, health scores, or ticket counts). These are internal signals — the CSM knows them, but should never quote them to the customer. Instead, frame observations naturally: "We noticed your team's usage has dipped recently" not "Your logins were 7 this month." Use the data to inform the conversation, not to recite numbers.
+- Risks and trends sections ARE internal-facing (CSM eyes only) — those CAN reference specific metrics and numbers`;
   }
 
   if (promptType === 'daily_focus') {
