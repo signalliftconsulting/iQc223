@@ -16,9 +16,9 @@ console.log('%c IQcadence ' + APP_VERSION + ' loaded ', 'background:#6366f1;colo
 // Usage: appIcon('check', 16) → <svg ...>
 const APP_ICONS = {
   /* Sentiment */
-  sentPositive: '<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><circle cx="9" cy="9" r=".5" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r=".5" fill="currentColor" stroke="none"/>',
-  sentNeutral:  '<circle cx="12" cy="12" r="10"/><line x1="8" y1="15" x2="16" y2="15"/><circle cx="9" cy="9" r=".5" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r=".5" fill="currentColor" stroke="none"/>',
-  sentNegative: '<circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><circle cx="9" cy="9" r=".5" fill="currentColor" stroke="none"/><circle cx="15" cy="9" r=".5" fill="currentColor" stroke="none"/>',
+  sentPositive: '<circle cx="12" cy="12" r="10" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/><path d="M8 14s1.5 2 4 2 4-2 4-2" stroke="#16a34a" stroke-width="2" fill="none"/><circle cx="9" cy="9.5" r="1.2" fill="#16a34a" stroke="none"/><circle cx="15" cy="9.5" r="1.2" fill="#16a34a" stroke="none"/>',
+  sentNeutral:  '<circle cx="12" cy="12" r="10" fill="#fef9c3" stroke="#ca8a04" stroke-width="1.5"/><line x1="8" y1="15" x2="16" y2="15" stroke="#ca8a04" stroke-width="2"/><circle cx="9" cy="9.5" r="1.2" fill="#ca8a04" stroke="none"/><circle cx="15" cy="9.5" r="1.2" fill="#ca8a04" stroke="none"/>',
+  sentNegative: '<circle cx="12" cy="12" r="10" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/><path d="M16 16s-1.5-2-4-2-4 2-4 2" stroke="#dc2626" stroke-width="2" fill="none"/><circle cx="9" cy="9.5" r="1.2" fill="#dc2626" stroke="none"/><circle cx="15" cy="9.5" r="1.2" fill="#dc2626" stroke="none"/>',
   /* Validation */
   check:       '<polyline points="20 6 9 17 4 12"/>',
   checkCircle: '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
