@@ -7105,6 +7105,9 @@ function _loadAIPortfolioOverview(stats) {
 
   if (!checkAILimit()) return;
 
+  // Save fallback text before replacing with skeleton
+  var fallbackHTML = blurbEl.innerHTML;
+
   // Show loading skeleton
   blurbEl.innerHTML = '<div style="display:flex;flex-direction:column;gap:6px"><div style="height:14px;background:var(--border);border-radius:4px;width:95%;animation:pulse 1.5s infinite"></div><div style="height:14px;background:var(--border);border-radius:4px;width:80%;animation:pulse 1.5s infinite"></div><div style="height:14px;background:var(--border);border-radius:4px;width:60%;animation:pulse 1.5s infinite"></div></div>';
 
@@ -7114,14 +7117,15 @@ function _loadAIPortfolioOverview(stats) {
     _aiPortfolioCache = data.data;
     _aiPortfolioCacheTime = Date.now();
     if (el('hb-portfolio-blurb')) {
-      el('hb-portfolio-blurb').innerHTML = escHtml(data.data.overview || '');
+      el('hb-portfolio-blurb').innerHTML = escHtml(data.data.overview || fallbackHTML);
     }
     if (el('hb-portfolio-actions') && data.data.action_items) {
       _renderAIActionItems(el('hb-portfolio-actions'), data.data.action_items);
     }
   }).catch(function(err) {
     console.warn('AI Portfolio Overview error:', err);
-    // fallback text stays as-is (the hardcoded blurb is already rendered)
+    // Restore fallback text since skeleton replaced it
+    if (el('hb-portfolio-blurb')) el('hb-portfolio-blurb').innerHTML = fallbackHTML;
   });
 }
 
