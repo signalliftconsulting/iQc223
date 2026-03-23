@@ -149,18 +149,23 @@ Rules:
   }
 
   if (promptType === 'save_playbook') {
-    return `This customer is at risk. Create a 4-week save plan:
+    return `Create a tailored 4-week recovery plan for this customer based on their SPECIFIC situation:
 ${buildCustomerSummary(data.customer)}
 
 Response schema:
-{"diagnosis":"2-3 sentence root cause analysis of why this account is at risk","weeks":[{"week":1,"theme":"week theme","actions":[{"task":"action item","detail":"how to do it","owner":"csm|support|exec"}]}],"success_criteria":"how to measure if the save plan is working after 4 weeks"}
+{"diagnosis":"2-3 sentence root cause analysis — what is SPECIFICALLY wrong with THIS customer based on their signals","weeks":[{"week":1,"theme":"week theme","actions":[{"task":"action item","detail":"how to do it — reference specific metrics/signals from this customer","owner":"csm|support|exec"}]}],"success_criteria":"measurable targets tied to this customer's specific weak signals"}
 
 Rules:
-- Diagnosis should identify the 1-2 root causes, not just list symptoms
-- 4 weeks, each with a clear theme and 2-3 actions
-- Actions should escalate: week 1 = assess/connect, week 2 = address issues, week 3 = demonstrate value, week 4 = secure commitment
-- Owner: "csm" for CSM tasks, "support" for technical/support tasks, "exec" for executive sponsor involvement
-- Success criteria should be measurable (score target, engagement metric, etc.)`;
+- Diagnosis MUST reference specific signals from the data (e.g. "adoption at 15% with 8 open tickets suggests onboarding failure" not "the customer is at risk")
+- Each week's theme must be different and specific to what's wrong — do NOT use generic themes like "assess" or "demonstrate value"
+- Actions must be concrete and reference this customer's actual numbers. "Schedule training on underused features" is better than "demonstrate value"
+- If logins are low, actions should address WHY (onboarding gaps, champion loss, competing tool)
+- If NPS/CSAT is low but usage is high, focus on frustration sources (bugs, support gaps, missing features)
+- If days since contact is high, week 1 should prioritize re-engagement with a specific reason to reach out
+- If renewal is upcoming, escalate urgency and involve exec sponsor earlier
+- Owner: "csm" for relationship/engagement tasks, "support" for technical/product issues, "exec" for executive alignment or escalation
+- Success criteria should name specific metric targets for THIS customer (e.g. "adoption above 40%" not just "improved engagement")
+- Do NOT produce generic playbooks — every plan should feel unique to the customer's data`;
   }
 
   return null;
