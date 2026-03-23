@@ -5,6 +5,8 @@ var AI_PERSIST_TTL = 60 * 60000; // 60 min (localStorage)
 var _aiFocusCache = null;
 var _aiFocusCacheTime = 0;
 var AI_FOCUS_CACHE_TTL = 30 * 60000; // 30 min
+var _aiPortfolioCache = null;
+var _aiPortfolioCacheTime = 0;
 
 // Try localStorage first, then memory cache
 function _aiCacheGet(key) {

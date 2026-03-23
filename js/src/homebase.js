@@ -769,12 +769,13 @@ function _renderHomeBase() {
   html += '</div>'; // close flex row
   html += '</div>';
 
-  // Right column: portfolio overview blurb + action items
+  // Right column: AI portfolio overview + action items
   html += '<div class="hb-welcome-right">';
-  html += `<div style="font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.10em;color:#0f766e;margin-bottom:6px">Portfolio Overview</div>`;
-  html += `<div style="font-size:var(--fs-base);color:var(--fg);line-height:1.55;margin-bottom:10px">${_portfolioBlurb}</div>`;
+  html += `<div style="display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.10em;color:#0f766e;margin-bottom:6px">${appIcon('sparkle', 13)} Portfolio Overview</div>`;
+  html += `<div id="hb-portfolio-blurb" style="font-size:var(--fs-base);color:var(--fg);line-height:1.55;margin-bottom:10px">${_portfolioBlurb}</div>`;
+  html += `<div style="font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.10em;color:#0f766e;margin-bottom:6px">Action Items</div>`;
+  html += '<div id="hb-portfolio-actions">';
   if (_actionItems.length) {
-    html += `<div style="font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.10em;color:#0f766e;margin-bottom:6px">Action Items</div>`;
     const _toneColors = { red: { bg:'rgba(239,68,68,.07)', border:'var(--red)' }, amber: { bg:'rgba(245,158,11,.07)', border:'var(--amber)' }, green: { bg:'rgba(22,163,74,.07)', border:'var(--green)' } };
     _actionItems.slice(0, 3).forEach(a => {
       const tc = _toneColors[a.tone] || _toneColors.amber;
@@ -784,6 +785,7 @@ function _renderHomeBase() {
       </div>`;
     });
   }
+  html += '</div>';
   html += '</div>';
 
   html += '</div>'; // close grid
@@ -941,6 +943,37 @@ function _renderHomeBase() {
   if (typeof renderHeatmap === 'function') renderHeatmap(active);
   // Load AI Focus List (async, non-blocking)
   _loadAIFocusList(active);
+  // Load AI Portfolio Overview (async, non-blocking)
+  {
+    const sdMRR = silentDecliners.reduce((s,c) => s + (c.mrr || 0), 0);
+    const _weakSig = (() => {
+      if (atRisk.length < 2) return '';
+      const sw = { logins:0, adoption:0, tickets:0, nps:0, csat:0, days:0 };
+      const sl = { logins:'login activity', adoption:'adoption', tickets:'ticket volume', nps:'NPS', csat:'CSAT', days:'contact recency' };
+      atRisk.forEach(c => {
+        if (c.logins != null && c.logins < 5) sw.logins++;
+        if (c.adoption != null && c.adoption < 30) sw.adoption++;
+        if (c.tickets != null && c.tickets >= 5) sw.tickets++;
+        if (c.nps != null && c.nps <= 6) sw.nps++;
+        if (c.csat != null && c.csat < 3) sw.csat++;
+        if (c.days != null && c.days >= 30) sw.days++;
+      });
+      const top = Object.entries(sw).sort((a,b) => b[1] - a[1])[0];
+      return top[1] >= 2 ? sl[top[0]] + ' (' + Math.round(top[1] / atRisk.length * 100) + '% of at-risk)' : '';
+    })();
+    _loadAIPortfolioOverview({
+      total, critical: critical.length, risk: risk.length, watch: watch.length,
+      healthy: healthy.length, expand: expand.length,
+      avgScore, avgDelta, periodDays: _hbPeriodDays,
+      improving, declining, stable: total - improving - declining,
+      atRiskMRR, totalMRR,
+      renewals30: renewals30.length, renewalMRR: renewMRR,
+      renewalsAtRisk: renewalsAtRisk.length,
+      silentDecliners: silentDecliners.length, silentDeclinerMRR: sdMRR,
+      overnightDrops: _dodBriefing ? _dodBriefing.droppers : 0,
+      weakestSignal: _weakSig
+    });
+  }
   // Inject tour button for homebase
   if (typeof _wtInjectHomebaseTourButton === 'function') _wtInjectHomebaseTourButton();
 }
@@ -1037,6 +1070,55 @@ function _renderAIFocusHTML(data) {
     html += '<div style="display:flex;align-items:flex-start;gap:6px;font-size:var(--fs-sm);color:var(--muted);padding:10px 0 2px;border-top:1px solid var(--border);margin-top:6px;line-height:1.4">' + appIcon('sparkle', 13) + ' ' + escHtml(data.portfolio_note) + '</div>';
   }
   return html;
+}
+
+// ── AI Portfolio Overview ──
+function _loadAIPortfolioOverview(stats) {
+  if (!_aiIntegrationConnected) return;
+  var blurbEl = el('hb-portfolio-blurb');
+  var actionsEl = el('hb-portfolio-actions');
+  if (!blurbEl) return;
+
+  // Check session cache
+  if (_aiPortfolioCache && (Date.now() - _aiPortfolioCacheTime) < AI_FOCUS_CACHE_TTL) {
+    blurbEl.innerHTML = escHtml(_aiPortfolioCache.overview);
+    if (actionsEl && _aiPortfolioCache.action_items) _renderAIActionItems(actionsEl, _aiPortfolioCache.action_items);
+    return;
+  }
+
+  if (!checkAILimit()) return;
+
+  // Show loading skeleton
+  blurbEl.innerHTML = '<div style="display:flex;flex-direction:column;gap:6px"><div style="height:14px;background:var(--border);border-radius:4px;width:95%;animation:pulse 1.5s infinite"></div><div style="height:14px;background:var(--border);border-radius:4px;width:80%;animation:pulse 1.5s infinite"></div><div style="height:14px;background:var(--border);border-radius:4px;width:60%;animation:pulse 1.5s infinite"></div></div>';
+
+  _trackAICall();
+  _aiCall({ prompt_type: 'portfolio_overview', stats: stats }).then(function(data) {
+    if (!data.success) throw new Error(data.error || 'AI returned an error');
+    _aiPortfolioCache = data.data;
+    _aiPortfolioCacheTime = Date.now();
+    if (el('hb-portfolio-blurb')) {
+      el('hb-portfolio-blurb').innerHTML = escHtml(data.data.overview || '');
+    }
+    if (el('hb-portfolio-actions') && data.data.action_items) {
+      _renderAIActionItems(el('hb-portfolio-actions'), data.data.action_items);
+    }
+  }).catch(function(err) {
+    console.warn('AI Portfolio Overview error:', err);
+    // fallback text stays as-is (the hardcoded blurb is already rendered)
+  });
+}
+
+function _renderAIActionItems(container, items) {
+  if (!items || !items.length) return;
+  var _toneColors = { red: { bg:'rgba(239,68,68,.07)', border:'var(--red)' }, amber: { bg:'rgba(245,158,11,.07)', border:'var(--amber)' }, green: { bg:'rgba(22,163,74,.07)', border:'var(--green)' } };
+  var html = '';
+  items.slice(0, 4).forEach(function(a) {
+    var tc = _toneColors[a.tone] || _toneColors.amber;
+    html += '<div class="hb-brief-card" style="padding:8px 10px;margin-bottom:2px;background:' + tc.bg + ';border-left:3px solid ' + tc.border + '">';
+    html += '<div class="hb-brief-text" style="font-size:var(--fs-sm)">' + escHtml(a.text) + '</div>';
+    html += '</div>';
+  });
+  container.innerHTML = html;
 }
 
 // ── Pulse KPI Card (gradient) ──

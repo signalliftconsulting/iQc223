@@ -113,6 +113,38 @@ Rules:
 - Portfolio note should identify a pattern or theme across the accounts`;
   }
 
+  if (promptType === 'portfolio_overview') {
+    const stats = data.stats || {};
+    return `Analyze this CS portfolio and write a concise 2-4 sentence executive briefing. Be specific — reference actual numbers, patterns, and risks.
+
+Portfolio Stats:
+- Total accounts: ${stats.total || 0}
+- Health distribution: ${stats.critical || 0} Critical, ${stats.risk || 0} Risk, ${stats.watch || 0} Watch, ${stats.healthy || 0} Healthy, ${stats.expand || 0} Expand
+- Average score: ${stats.avgScore || 0}
+- Score trend (${stats.periodDays || 7}d): ${stats.avgDelta > 0 ? '+' : ''}${stats.avgDelta || 0} pts
+- Improving accounts: ${stats.improving || 0}, Declining: ${stats.declining || 0}, Stable: ${stats.stable || 0}
+- MRR at risk: $${stats.atRiskMRR || 0}
+- Total MRR: $${stats.totalMRR || 0}
+- Renewals in 30 days: ${stats.renewals30 || 0} ($${stats.renewalMRR || 0} MRR)
+- At-risk renewals: ${stats.renewalsAtRisk || 0}
+- Silent decliners (previously healthy, now declining): ${stats.silentDecliners || 0} ($${stats.silentDeclinerMRR || 0} MRR)
+- Overnight drops (5+ pts): ${stats.overnightDrops || 0}
+${stats.weakestSignal ? '- Weakest signal in at-risk accounts: ' + stats.weakestSignal : ''}
+${stats.tierDivergence ? '- Tier divergence: ' + stats.tierDivergence : ''}
+${stats.contactImpact ? '- Contact impact: ' + stats.contactImpact : ''}
+
+Response schema:
+{"overview":"2-4 sentence portfolio briefing highlighting the most important patterns and risks","action_items":[{"text":"verb-first action item","tone":"red|amber|green"}]}
+
+Rules:
+- Overview should read like a daily briefing from a VP of CS — strategic, specific, and actionable
+- Do NOT restate numbers without context — explain what they mean
+- Highlight the most surprising or actionable pattern first
+- 2-4 action items, ordered by urgency
+- Action item text should start with a verb (Investigate, Schedule, Review, etc.)
+- Tone: red = urgent/critical, amber = important/watch, green = opportunity`;
+  }
+
   if (promptType === 'save_playbook') {
     return `This customer is at risk. Create a 4-week save plan:
 ${buildCustomerSummary(data.customer)}
@@ -132,6 +164,7 @@ Rules:
 }
 
 function getMaxTokens(promptType) {
+  if (promptType === 'portfolio_overview') return 600;
   if (promptType === 'save_playbook') return 1500;
   if (promptType === 'daily_focus') return 1200;
   if (promptType === 'meeting_prep') return 1024;
