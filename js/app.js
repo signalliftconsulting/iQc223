@@ -6195,8 +6195,11 @@ async function _loadDemoFromCard() {
     rescoreAll();
     if (typeof refreshMgrDropdown === 'function') refreshMgrDropdown();
 
-    // 5. Seed demo alert rules and custom rules
+    // 5. Seed demo alert rules, custom rules, and scoring profiles
     _seedDemoAutomations();
+    _seedDemoProfiles();
+    // Re-score after profiles are assigned so Non-SaaS customers use correct weights
+    rescoreAll();
 
     // 6. Reset all guide banners so new users see them
     if (typeof resetAllGuides === 'function') resetAllGuides();
@@ -6302,6 +6305,36 @@ function _seedDemoAutomations() {
     try { localStorage.setItem('iqc_automations', JSON.stringify(automationsCfg)); } catch(e) {}
     console.log('[demo] Seeded ' + automationsCfg.alert_rules.length + ' alert rules + ' + automationsCfg.custom_rules.length + ' custom rules');
   }
+}
+
+function _seedDemoProfiles() {
+  // Add Non-SaaS scoring profile if it doesn't exist
+  var nonSaasProfile = { name: 'Non-SaaS', weights: { logins: 0, adoption: 0, tickets: 30, nps: 25, csat: 15, days: 20, growth: 10 } };
+  var exists = profiles.some(function(p) { return p.name === 'Non-SaaS'; });
+  if (!exists) {
+    profiles.push(nonSaasProfile);
+  } else {
+    // Update existing
+    var p = profiles.find(function(p) { return p.name === 'Non-SaaS'; });
+    if (p) p.weights = nonSaasProfile.weights;
+  }
+
+  // Assign ~15% of customers to Non-SaaS profile (consulting, services, non-tech accounts)
+  var assigned = 0;
+  customers.forEach(function(c, i) {
+    // Pick every ~7th customer, prefer mid-market tier
+    if (i % 7 === 3 || (c.tier === 'mid' && i % 5 === 2)) {
+      c.scoring_profile = 'Non-SaaS';
+      // Zero out logins and adoption since they're not tracked for Non-SaaS
+      c.logins = null;
+      c.adoption = null;
+      assigned++;
+    }
+  });
+
+  // Save profiles to settings
+  if (typeof saveSettings === 'function') saveSettings();
+  console.log('[demo] Added Non-SaaS scoring profile, assigned to ' + assigned + ' customers');
 }
 
 function _gsStepIcon(n) { return `<div style="width:22px;height:22px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs-xs);flex-shrink:0">${n}</div>`; }
