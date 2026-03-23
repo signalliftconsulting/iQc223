@@ -117,6 +117,22 @@ async function authSignUp() {
   });
   if (error) { window._signUpInProgress = false; authErr(error.message); return; }
 
+  // Create the user profile row immediately (needed for email verification token)
+  const userId = signUpData?.user?.id;
+  if (userId) {
+    try {
+      await sb.from('user_profiles').upsert({
+        user_id: userId,
+        email: email,
+        display_name: name,
+        business_name: company,
+        role: 'owner',
+        email_verified: false
+      }, { onConflict: 'user_id' });
+      console.log('[auth] Created profile for', email);
+    } catch(e) { console.warn('[auth] Profile create error:', e.message); }
+  }
+
   // Sign out immediately BEFORE clearing flag — prevents onAuthStateChange from running ensureUserProfile
   await sb.auth.signOut();
   window._signUpInProgress = false;
