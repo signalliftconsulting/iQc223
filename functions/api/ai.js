@@ -308,3 +308,14 @@ export async function onRequestOptions(context) {
     },
   });
 }
+
+// ─── Standalone Worker compatibility ─────────────────────────
+// Allows deploying this file as a Cloudflare Worker (not just Pages Function)
+export default {
+  async fetch(request, env) {
+    const context = { request, env };
+    if (request.method === 'OPTIONS') return onRequestOptions(context);
+    if (request.method === 'POST') return onRequestPost(context);
+    return new Response('Method not allowed', { status: 405 });
+  }
+};
