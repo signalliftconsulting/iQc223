@@ -185,7 +185,7 @@ function getMaxTokens(promptType) {
 }
 
 // ─── Server-side rate limiting via Supabase ─────────────────
-const PLAN_AI_LIMITS = { core: 50, growth: 500, custom: Infinity };
+const PLAN_AI_LIMITS = { core: 500, growth: 5000, custom: Infinity };
 
 async function checkRateLimit(env, clientId) {
   const supabaseUrl = env.SUPABASE_URL;
@@ -210,7 +210,7 @@ async function checkRateLimit(env, clientId) {
   const count = parseInt(countRes.headers.get('content-range')?.split('/')[1] || '0');
   const client = await clientRes.json();
   const tier = client?.[0]?.plan_tier || 'core';
-  const limit = PLAN_AI_LIMITS[tier] ?? 50;
+  const limit = PLAN_AI_LIMITS[tier] ?? 500;
 
   return { allowed: count < limit, count, limit, tier };
 }

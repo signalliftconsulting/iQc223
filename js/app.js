@@ -185,8 +185,8 @@ const PLAN_FEATURES = {
 };
 
 const PLAN_LIMITS = {
-  core:   { users: 3,   accounts: 200,  ai_calls: 50 },
-  growth: { users: 10,  accounts: 1000, ai_calls: 500 },
+  core:   { users: 3,   accounts: 200,  ai_calls: 500 },
+  growth: { users: 10,  accounts: 1000, ai_calls: 5000 },
   custom: { users: Infinity, accounts: Infinity, ai_calls: Infinity },
 };
 
