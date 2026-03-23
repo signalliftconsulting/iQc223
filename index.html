@@ -2536,16 +2536,10 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
   <div class="page-hd">
     <div><h1><span>Import / Export</span></h1><p>Bulk-import customers or export filtered data.</p></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <div class="snooze-dd" id="export-dd-csv">
-        <button class="btn btn-sm btn-primary" data-action="toggleExportDd" data-arg="csv" data-stop>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Export ▾
-        </button>
-        <div class="snooze-dd__menu" id="export-menu-csv">
-          <button class="snooze-dd__item" data-action="exportCSV">Export Data</button>
-          <button class="snooze-dd__item" data-action="exportBulksheet">Export Bulksheet</button>
-        </div>
-      </div>
+      <button class="btn btn-sm btn-primary" data-action="exportBulksheet">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export All Customers
+      </button>
     </div>
   </div>
   <div id="csv-guide"></div>
