@@ -14334,13 +14334,13 @@ function cfgTab(which) {
     renderDataHealth();
   }
   if (which === 'weights') {
-    renderSettings(); // re-render weight sliders
+    _renderWeightsPane();
   }
   if (which === 'thresholds') {
-    renderSettings(); // re-render threshold values
+    _renderThresholdsPane();
   }
   if (which === 'profiles') {
-    renderSettings(); // re-render profiles list
+    _renderProfilesPane();
   }
   if (which === 'api') {
     renderIntegrationsSection();
@@ -14691,29 +14691,26 @@ function goToScoringConfig() {
   }, 200);
 }
 
-function renderSettings() {
-  // Always reset to Config tab on navigation (also renders the tab-specific guide)
-  cfgTab('config');
-
-  // Thresholds (available to all tiers)
-  el('th-critical').value = thresholds.critical;
-  el('th-risk').value     = thresholds.risk;
-  el('th-watch').value    = thresholds.watch;
-  el('th-healthy').value  = thresholds.healthy;
-  updateThresholdLabels();
-  renderExpansionSettings();
-  renderCadenceSettings();
-  renderRenewalWindows();
-  renderMiscThresholds();
-
-  // Weights - available to ALL tiers (ungated)
+function _renderWeightsPane() {
   const weightCard = el('weight-rows')?.closest('.card');
   if (weightCard) {
     weightCard.style.opacity = ''; weightCard.style.pointerEvents = '';
     weightCard.querySelector('.upgrade-overlay')?.remove();
   }
+  renderWeightRows();
+  renderScoreDistribution();
+}
 
-  // Scoring Profiles - gated to Growth tier
+function _renderThresholdsPane() {
+  el('th-critical').value = thresholds.critical;
+  el('th-risk').value     = thresholds.risk;
+  el('th-watch').value    = thresholds.watch;
+  el('th-healthy').value  = thresholds.healthy;
+  updateThresholdLabels();
+  renderMiscThresholds();
+}
+
+function _renderProfilesPane() {
   const profileCard = el('profiles-list')?.closest('.card');
   if (profileCard) {
     if (hasFeature('scoring_profiles')) {
@@ -14730,14 +14727,26 @@ function renderSettings() {
       }
     }
   }
-
-  renderWeightRows();
   renderProfiles();
   refreshProfileDropdown();
-  renderCSMList();
-  renderScoreDistribution();
-  renderDataHealth();
+}
+
+function renderSettings() {
+  // Always reset to Config tab on navigation
+  cfgTab('config');
+
+  // Render config pane content
+  renderExpansionSettings();
+  renderCadenceSettings();
+  renderRenewalWindows();
   renderSignalModelSettings();
+
+  // Pre-render other panes so data is ready when tabs are clicked
+  _renderWeightsPane();
+  _renderThresholdsPane();
+  _renderProfilesPane();
+  renderCSMList();
+  renderDataHealth();
 }
 
 // Populate the per-customer profile dropdown in the score form
