@@ -57,7 +57,43 @@ async function authSignIn() {
   authSetBusy(true);
   const { error } = await sb.auth.signInWithPassword({ email, password: pw });
   if (error) { authErr(error.message); return; }
+
+  // Check if email is verified
+  const { data: profile } = await sb.from('user_profiles').select('email_verified').eq('email', email).single();
+  if (profile && profile.email_verified === false) {
+    await sb.auth.signOut();
+    authErr('Please confirm your email before signing in.');
+    // Show resend link
+    var errEl = document.getElementById('auth-err');
+    if (errEl) {
+      errEl.innerHTML = 'Please confirm your email before signing in. <a href="#" id="resend-confirm-link" style="color:var(--teal);text-decoration:underline">Resend confirmation</a>';
+      document.getElementById('resend-confirm-link')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        _resendConfirmation(email);
+      });
+    }
+    return;
+  }
   // onAuthStateChange will handle the rest
+}
+
+async function _resendConfirmation(email) {
+  try {
+    var errEl = document.getElementById('auth-err');
+    if (errEl) errEl.innerHTML = 'Sending confirmation email...';
+    const res = await fetch('https://qctiyigznbztxcowehnl.supabase.co/functions/v1/send-auth-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, type: 'resend' })
+    });
+    if (res.ok) {
+      authOk('Confirmation email sent! Check your inbox.');
+    } else {
+      authErr('Failed to send email. Try again later.');
+    }
+  } catch(e) {
+    authErr('Failed to send email. Try again later.');
+  }
 }
 
 async function authSignUp() {
@@ -74,15 +110,28 @@ async function authSignUp() {
   if (pw !== pw2)  { authErr('Passwords do not match.'); return; }
   authSetBusy(true);
   window._signUpInProgress = true;
-  const { error } = await sb.auth.signUp({
+  const { data: signUpData, error } = await sb.auth.signUp({
     email,
     password: pw,
     options: { data: { full_name: name, company_name: company } }
   });
   window._signUpInProgress = false;
   if (error) { authErr(error.message); return; }
+
+  // Sign out immediately — user must verify email before accessing app
+  await sb.auth.signOut();
+
+  // Send confirmation email via our edge function
+  try {
+    const emailRes = await fetch('https://qctiyigznbztxcowehnl.supabase.co/functions/v1/send-auth-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, name, type: 'signup' })
+    });
+    if (!emailRes.ok) console.warn('[auth] Confirmation email send failed');
+  } catch(e) { console.warn('[auth] Confirmation email error:', e.message); }
+
   authOk('Account created! Check your email to confirm, then sign in.');
-  // Auto-switch to sign in tab after a moment
   setTimeout(function() { authTab('login'); }, 4000);
 }
 
