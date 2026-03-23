@@ -42,13 +42,23 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     const sb = createClient(supabaseUrl, serviceKey);
 
-    const { error: updateErr } = await sb
-      .from("user_profiles")
-      .update({ verification_token: token })
-      .eq("email", email);
+    // Try to store token — retry if profile doesn't exist yet (race condition with sign-up)
+    let tokenStored = false;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const { error: updateErr, count } = await sb
+        .from("user_profiles")
+        .update({ verification_token: token })
+        .eq("email", email);
 
-    if (updateErr) {
-      console.error("Token store error:", updateErr.message);
+      if (!updateErr) {
+        tokenStored = true;
+        break;
+      }
+      console.log(`Token store attempt ${attempt + 1} failed, retrying in 1s...`);
+      await new Promise(r => setTimeout(r, 1000));
+    }
+    if (!tokenStored) {
+      console.error("Failed to store verification token after 5 attempts");
     }
 
     // Build verification URL
