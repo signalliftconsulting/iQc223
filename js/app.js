@@ -13656,7 +13656,7 @@ let _returnToPage = '';
 let _returnToDetail = '';
 
 function editCustomer(id) {
-  const cid = id || detailId;
+  const cid = (typeof id === 'string' ? id : null) || detailId;
   if (!cid) return;
   const c = customers.find(x => x.id === cid);
   if (!c) return;
