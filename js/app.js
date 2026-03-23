@@ -6792,11 +6792,13 @@ function _renderHomeBase() {
   html += `<div id="hb-portfolio-blurb" style="font-size:var(--fs-base);color:var(--fg);line-height:1.55;margin-bottom:10px">${_portfolioBlurb}</div>`;
   html += `<div style="font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.10em;color:#0f766e;margin-bottom:6px">Action Items</div>`;
   html += '<div id="hb-portfolio-actions">';
+  // Store action items for click delegation (avoids quote-breaking in onclick attrs)
+  window._hbActionItems = _actionItems.slice(0, 3);
   if (_actionItems.length) {
     const _toneColors = { red: { bg:'rgba(239,68,68,.07)', border:'var(--red)' }, amber: { bg:'rgba(245,158,11,.07)', border:'var(--amber)' }, green: { bg:'rgba(22,163,74,.07)', border:'var(--green)' } };
-    _actionItems.slice(0, 3).forEach(a => {
+    _actionItems.slice(0, 3).forEach((a, idx) => {
       const tc = _toneColors[a.tone] || _toneColors.amber;
-      html += `<div class="hb-brief-card" onclick="${a.action}" style="padding:8px 10px;margin-bottom:2px;background:${tc.bg};border-left:3px solid ${tc.border}">
+      html += `<div class="hb-brief-card" data-hb-action="${idx}" style="padding:8px 10px;margin-bottom:2px;background:${tc.bg};border-left:3px solid ${tc.border};cursor:pointer">
         <div class="hb-brief-text" style="font-size:var(--fs-sm)">${escHtml(a.text)}</div>
         <svg class="hb-brief-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </div>`;
@@ -6949,6 +6951,19 @@ function _renderHomeBase() {
   html += '</div>';
 
   wrap.innerHTML = _gsCardHTML() + html;
+
+  // ── Attach click handlers for action items ──
+  wrap.querySelectorAll('[data-hb-action]').forEach(function(card) {
+    card.addEventListener('click', function() {
+      var idx = parseInt(this.getAttribute('data-hb-action'));
+      var item = window._hbActionItems && window._hbActionItems[idx];
+      if (item && item.ids && item.ids.length) {
+        setInsightFilter(item.text.substring(0, 40), item.ids);
+      } else if (item && item.action) {
+        try { new Function(item.action)(); } catch(e) { console.warn('Action error:', e); }
+      }
+    });
+  });
 
   // ── Render moved Dashboard widgets into their containers ──
   if (typeof renderRenewalPipeline === 'function') {
