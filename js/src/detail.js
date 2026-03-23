@@ -107,7 +107,7 @@ function _loadAIInsights(c) {
 
   if (!checkAILimit()) { wrap.style.display = 'none'; return; }
 
-  wrap.innerHTML = '<div style="padding:12px 0"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">' + appIcon('sparkle', 16) + ' <span style="font-weight:700;font-size:var(--fs-base)">AI Insights</span><span style="font-size:var(--fs-sm);color:var(--muted)">Analyzing…</span></div>' + _aiSkeletonHTML(6) + '</div>';
+  wrap.innerHTML = '<div style="padding:12px 0"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">' + appIcon('sparkle', 16) + ' <span style="font-weight:700;font-size:var(--fs-base)">Insights</span><span style="font-size:var(--fs-sm);color:var(--muted)">Analyzing…</span></div>' + _aiSkeletonHTML(6) + '</div>';
 
   _trackAICall();
   var custId = c.id;
@@ -119,14 +119,14 @@ function _loadAIInsights(c) {
   }).catch(function(err) {
     console.warn('AI Insights error:', err);
     if (el('dm-ai-insights') && detailId === custId) {
-      el('dm-ai-insights').innerHTML = '<div style="padding:10px 0;font-size:var(--fs-sm);color:var(--muted)">AI insights unavailable. <a href="#" onclick="event.preventDefault();_loadAIInsights(customers.find(function(x){return x.id===detailId}))" style="color:var(--blue)">Retry</a></div>';
+      el('dm-ai-insights').innerHTML = '<div style="padding:10px 0;font-size:var(--fs-sm);color:var(--muted)">Insights unavailable. <a href="#" onclick="event.preventDefault();_loadAIInsights(customers.find(function(x){return x.id===detailId}))" style="color:var(--blue)">Retry</a></div>';
     }
   });
 }
 
 function _renderAIInsightsHTML(data) {
   var html = '<div style="padding:12px 0">';
-  html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' + appIcon('sparkle', 16) + ' <span style="font-weight:700;font-size:var(--fs-base)">AI Insights</span><span style="font-size:var(--fs-2xs);color:var(--muted);text-transform:uppercase;letter-spacing:.04em">AI-Powered</span></div>';
+  html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' + appIcon('sparkle', 16) + ' <span style="font-weight:700;font-size:var(--fs-base)">Insights</span><span style="font-size:var(--fs-2xs);color:var(--muted);text-transform:uppercase;letter-spacing:.04em">AI-Powered</span></div>';
 
   // Compact summary
   if (data.summary) {
@@ -152,7 +152,7 @@ function _renderAIInsightsHTML(data) {
     html += '<span style="flex-shrink:0;margin-top:1px">' + appIcon('bolt', 14) + '</span>';
     html += '<div style="font-size:var(--fs-sm);line-height:1.4"><strong style="color:var(--text)">' + escHtml(top.title) + '</strong> <span style="color:var(--muted)"> — ' + escHtml(top.detail) + '</span></div>';
     html += '</div>';
-    html += '<div style="font-size:11px;color:var(--muted);margin-top:4px;text-align:right">Use <strong>✦ AI Meeting Prep</strong> for talking points &amp; deeper analysis</div>';
+    html += '<div style="font-size:11px;color:var(--muted);margin-top:4px;text-align:right">Use <strong>✦ Meeting Prep</strong> for talking points &amp; deeper analysis</div>';
   }
 
   html += '</div>';
@@ -179,9 +179,9 @@ function openAIMeetingPrep() {
 
   // Update modal title
   var hd = document.querySelector('#qbr-modal .modal-hd h2');
-  if (hd) hd.innerHTML = appIcon('sparkle', 18) + ' AI Meeting Prep — ' + escHtml(c.name);
+  if (hd) hd.innerHTML = appIcon('sparkle', 18) + ' Meeting Prep — ' + escHtml(c.name);
   var sub = document.querySelector('#qbr-modal .modal-hd p');
-  if (sub) sub.textContent = 'AI-generated briefing with talking points and risk analysis';
+  if (sub) sub.textContent = 'Briefing with talking points and risk analysis';
 
   var cached = _aiCacheGet(c.id + '_meeting');
   if (cached) { content.innerHTML = _renderAIMeetingHTML(cached); return; }
@@ -339,7 +339,7 @@ function _loadAISavePlaybook(c) {
 
   if (!checkAILimit()) { wrap.style.display = 'none'; return; }
 
-  wrap.innerHTML = '<div style="padding:12px 0"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">' + appIcon('sparkle', 16) + ' <span style="font-weight:700;font-size:var(--fs-base)">AI Save Plan</span><span style="font-size:var(--fs-sm);color:var(--muted)">Generating…</span></div>' + _aiSkeletonHTML(8) + '</div>';
+  wrap.innerHTML = '<div style="padding:12px 0"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">' + appIcon('sparkle', 16) + ' <span style="font-weight:700;font-size:var(--fs-base)">Save Plan</span><span style="font-size:var(--fs-sm);color:var(--muted)">Generating…</span></div>' + _aiSkeletonHTML(8) + '</div>';
 
   _trackAICall();
   var custId = c.id;
@@ -351,7 +351,7 @@ function _loadAISavePlaybook(c) {
   }).catch(function(err) {
     console.warn('AI Save Playbook error:', err);
     if (el('dm-ai-playbook') && detailId === custId) {
-      el('dm-ai-playbook').innerHTML = '<div style="padding:10px 0;font-size:var(--fs-sm);color:var(--muted)">AI save plan unavailable. <a href="#" onclick="event.preventDefault();_loadAISavePlaybook(customers.find(function(x){return x.id===detailId}))" style="color:var(--blue)">Retry</a></div>';
+      el('dm-ai-playbook').innerHTML = '<div style="padding:10px 0;font-size:var(--fs-sm);color:var(--muted)">Save plan unavailable. <a href="#" onclick="event.preventDefault();_loadAISavePlaybook(customers.find(function(x){return x.id===detailId}))" style="color:var(--blue)">Retry</a></div>';
     }
   });
 }
