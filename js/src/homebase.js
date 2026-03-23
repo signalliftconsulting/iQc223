@@ -4,6 +4,7 @@
 // Home Base = "Here's what the data is telling you" (narrative, pattern-based).
 
 let _hbPeriodDays = 7; // comparison period: 7, 14, or 30
+var _hbInsightActions = []; // stores insight card action functions for click delegation
 
 function setInsightFilter(label, ids) {
   if (!ids || !ids.length) return;
@@ -937,6 +938,7 @@ function _renderHomeBase() {
   </select>`;
   html += '</div></div>';
 
+  _hbInsightActions = [];
   if (!insights.length) {
     html += `<div class="hb-empty">${_hbSvg.chartEmpty}<p>Portfolio data is building - insights will appear as you score more customers and history accumulates.</p></div>`;
   } else {
@@ -972,6 +974,16 @@ function _renderHomeBase() {
       } else if (item && item.action) {
         try { new Function(item.action)(); } catch(e) { console.warn('Action error:', e); }
       }
+    });
+  });
+
+  // ── Attach click handlers for insight card actions ──
+  wrap.querySelectorAll('[data-insight-action]').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var idx = parseInt(this.getAttribute('data-insight-action'));
+      var fn = _hbInsightActions[idx];
+      if (fn) { try { new Function(fn)(); } catch(err) { console.warn('Insight action error:', err); } }
     });
   });
 
@@ -1832,6 +1844,13 @@ function _renderInsightCard(ins) {
   // Priority class for background tinting
   const pClass = ins.priority <= 1 ? ' hb-p1' : ins.priority <= 2 ? ' hb-p2' : '';
 
+  let actionBtn = '';
+  if (ins.action) {
+    const actionIdx = _hbInsightActions.length;
+    _hbInsightActions.push(ins.action.fn);
+    actionBtn = `<button class="hb-insight-action" data-insight-action="${actionIdx}">${escHtml(ins.action.label)} →</button>`;
+  }
+
   return `<div class="hb-insight-card hb-cat-${catClass}${pClass}">
     <div class="hb-insight-icon ic-${catClass}">${iconSvg}</div>
     <div class="hb-insight-body">
@@ -1840,7 +1859,7 @@ function _renderInsightCard(ins) {
         <span class="hb-insight-title">${escHtml(ins.title)}</span>
       </div>
       <div class="hb-insight-detail">${escHtml(ins.detail)}</div>
-      ${ins.action ? `<button class="hb-insight-action" onclick="${ins.action.fn}">${escHtml(ins.action.label)} →</button>` : ''}
+      ${actionBtn}
     </div>
   </div>`;
 }
