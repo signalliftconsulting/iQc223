@@ -263,6 +263,14 @@ function _checkUserSwitch(userId) {
     // Suppress auth events during admin user creation (signUp swaps session temporarily)
     if (window._adminCreatingUser) return;
 
+    // PASSWORD_RECOVERY - user clicked reset link in email
+    if (event === 'PASSWORD_RECOVERY') {
+      currentUser = session?.user || null;
+      showAuthGate();
+      authTab('newpass');
+      return;
+    }
+
     // TOKEN_REFRESHED fires silently when returning to the tab - don't reload
     if (event === 'TOKEN_REFRESHED') {
       currentUser = session?.user || null;

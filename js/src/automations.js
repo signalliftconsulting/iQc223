@@ -3167,7 +3167,13 @@ function topbarSearchInput() {
   }
 
   const matches = customers
-    .filter(c => c.name.toLowerCase().includes(q) || (c.tags || []).some(t => t.toLowerCase().includes(q)))
+    .filter(c => c.name.toLowerCase().includes(q)
+      || (c.manager || '').toLowerCase().includes(q)
+      || String(c.mrr || '').includes(q)
+      || (c.tags || []).some(t => t.toLowerCase().includes(q))
+      || (c.status || '').toLowerCase().includes(q)
+      || (c.tier || '').toLowerCase().includes(q)
+    )
     .slice(0, 8);
 
   if (matches.length === 0) {

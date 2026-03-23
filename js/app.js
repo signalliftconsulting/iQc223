@@ -823,9 +823,15 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     closeColFilter();
     closeAlertFilter();
+    // Close welcome modal if visible (uses inline display, not .open class)
+    var _wm = document.getElementById('welcome-modal');
+    if (_wm && _wm.style.display !== 'none' && _wm.style.display !== '') {
+      if (typeof closeWelcome === 'function') closeWelcome();
+      return;
+    }
     // Close topmost open modal via closeModal (restores focus properly)
     var openModals = document.querySelectorAll('.modal-bg.open');
-    if (openModals.length) { closeModal(openModals[openModals.length - 1].id); }
+    if (openModals.length) { closeModal(openModals[openModals.length - 1].id); return; }
     return;
   }
   // Ignore shortcuts when typing in inputs
@@ -4340,25 +4346,26 @@ function hideAuthGate() {
 }
 
 function authTab(tab) {
-  ['login','signup','reset'].forEach(t => {
-    document.getElementById('form-'+t).style.display  = t===tab ? 'block' : 'none';
+  ['login','signup','reset','newpass'].forEach(t => {
+    var form = document.getElementById('form-'+t);
+    if (form) form.style.display = t===tab ? 'block' : 'none';
     const btn = document.getElementById('tab-'+t);
     if (btn) {
       btn.style.color = t===tab ? 'var(--text)' : 'var(--muted)';
       btn.style.borderBottomColor = t===tab ? 'var(--teal)' : 'transparent';
     }
   });
-  // Hide/show tabs bar (reset form shows back link instead)
+  // Hide/show tabs bar (reset and newpass forms show back link instead)
   var tabBar = document.querySelector('.auth-card > div:first-child');
   if (tabBar && tabBar.querySelector('#tab-login')) {
-    tabBar.style.display = tab === 'reset' ? 'none' : 'flex';
+    tabBar.style.display = (tab === 'reset' || tab === 'newpass') ? 'none' : 'flex';
   }
   document.getElementById('auth-err').textContent = '';
   document.getElementById('auth-ok').textContent  = '';
 }
 
 function authSetBusy(busy) {
-  ['login-btn','signup-btn','reset-btn'].forEach(id => {
+  ['login-btn','signup-btn','reset-btn','newpass-btn'].forEach(id => {
     const b = document.getElementById(id);
     if (b) b.disabled = busy;
   });
@@ -4437,10 +4444,23 @@ async function authReset() {
   if (!email) { authErr('Please enter your email address.'); return; }
   authSetBusy(true);
   const { error } = await sb.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.href
+    redirectTo: 'https://iqc223.com'
   });
   if (error) { authErr(error.message); return; }
-  authOk('Reset link sent! Check your email.');
+  authOk('Check your email for a reset link.');
+}
+
+async function authSetNewPassword() {
+  const pw  = el('newpass-pw')?.value;
+  const pw2 = el('newpass-pw2')?.value;
+  if (!pw)         { authErr('Please enter a new password.'); return; }
+  if (pw.length<8) { authErr('Password must be at least 8 characters.'); return; }
+  if (pw !== pw2)  { authErr('Passwords do not match.'); return; }
+  authSetBusy(true);
+  const { error } = await sb.auth.updateUser({ password: pw });
+  if (error) { authErr(error.message); return; }
+  authOk('Password updated! Redirecting to sign in...');
+  setTimeout(function() { authTab('login'); }, 2000);
 }
 
 async function authSignOut() {
@@ -6131,6 +6151,19 @@ function nav(v) {
       setTimeout(() => openDetail(rid), 80);
     }
   }
+
+  // Dynamic page title
+  const _pageTitles = {
+    homebase:'Home Base | iQcadence', customers:'Customers | iQcadence',
+    alerts:'Alerts | iQcadence', segments:'Segments | iQcadence',
+    trends:'Trends | iQcadence', forecast:'Forecast | iQcadence',
+    csmperf:'CSM Performance | iQcadence', reports:'Reports | iQcadence',
+    calendar:'Calendar | iQcadence', score:'Score a Customer | iQcadence',
+    csv:'Import / Export | iQcadence', automations:'Automations | iQcadence',
+    settings:'Settings | iQcadence', auditlog:'Audit Log | iQcadence',
+    help:'Help & Guide | iQcadence'
+  };
+  document.title = _pageTitles[v] || 'iQcadence';
 
   updateAlertBadge(); // Always refresh alert badge on any nav
   if (v === 'homebase')  renderHomeBase();
@@ -20816,7 +20849,13 @@ function topbarSearchInput() {
   }
 
   const matches = customers
-    .filter(c => c.name.toLowerCase().includes(q) || (c.tags || []).some(t => t.toLowerCase().includes(q)))
+    .filter(c => c.name.toLowerCase().includes(q)
+      || (c.manager || '').toLowerCase().includes(q)
+      || String(c.mrr || '').includes(q)
+      || (c.tags || []).some(t => t.toLowerCase().includes(q))
+      || (c.status || '').toLowerCase().includes(q)
+      || (c.tier || '').toLowerCase().includes(q)
+    )
     .slice(0, 8);
 
   if (matches.length === 0) {
@@ -31974,6 +32013,14 @@ function _checkUserSwitch(userId) {
 
     // Suppress auth events during admin user creation (signUp swaps session temporarily)
     if (window._adminCreatingUser) return;
+
+    // PASSWORD_RECOVERY - user clicked reset link in email
+    if (event === 'PASSWORD_RECOVERY') {
+      currentUser = session?.user || null;
+      showAuthGate();
+      authTab('newpass');
+      return;
+    }
 
     // TOKEN_REFRESHED fires silently when returning to the tab - don't reload
     if (event === 'TOKEN_REFRESHED') {

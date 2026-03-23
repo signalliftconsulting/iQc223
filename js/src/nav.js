@@ -212,6 +212,19 @@ function nav(v) {
     }
   }
 
+  // Dynamic page title
+  const _pageTitles = {
+    homebase:'Home Base | iQcadence', customers:'Customers | iQcadence',
+    alerts:'Alerts | iQcadence', segments:'Segments | iQcadence',
+    trends:'Trends | iQcadence', forecast:'Forecast | iQcadence',
+    csmperf:'CSM Performance | iQcadence', reports:'Reports | iQcadence',
+    calendar:'Calendar | iQcadence', score:'Score a Customer | iQcadence',
+    csv:'Import / Export | iQcadence', automations:'Automations | iQcadence',
+    settings:'Settings | iQcadence', auditlog:'Audit Log | iQcadence',
+    help:'Help & Guide | iQcadence'
+  };
+  document.title = _pageTitles[v] || 'iQcadence';
+
   updateAlertBadge(); // Always refresh alert badge on any nav
   if (v === 'homebase')  renderHomeBase();
   if (v === 'alerts')    { renderAlertsGuide(); renderAlerts(); }

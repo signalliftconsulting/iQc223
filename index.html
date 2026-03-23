@@ -1811,6 +1811,20 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
       <span class="auth-link" data-action="authTab" data-arg="login" style="margin-top:8px">← Back to Sign In</span>
     </form>
 
+    <!-- Set new password form (shown after clicking reset link in email) -->
+    <form id="form-newpass" style="display:none" onsubmit="event.preventDefault();authSetNewPassword()" autocomplete="on">
+      <p style="font-size:var(--fs-base);color:var(--muted);margin-bottom:14px">Enter your new password below.</p>
+      <div class="auth-field">
+        <label for="newpass-pw">New Password <span style="font-size:var(--fs-sm);color:var(--subtle)">(min 8 chars)</span></label>
+        <input class="auth-input" type="password" id="newpass-pw" placeholder="New password" autocomplete="new-password" minlength="8" required/>
+      </div>
+      <div class="auth-field">
+        <label for="newpass-pw2">Confirm Password</label>
+        <input class="auth-input" type="password" id="newpass-pw2" placeholder="Repeat new password" autocomplete="new-password" minlength="8" required/>
+      </div>
+      <button class="auth-btn" id="newpass-btn" type="submit">Set New Password →</button>
+    </form>
+
     <div class="auth-err" id="auth-err"></div>
     <div class="auth-ok"  id="auth-ok"></div>
     <div style="text-align:center;margin-top:16px;font-size:11px;color:#94a3b8">
@@ -4745,6 +4759,22 @@ Header: Content-Type: application/json
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script defer src="js/config.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js"></script>
-<script defer src="js/app.js?v=702"></script>
+<!-- MOBILE OVERLAY -->
+<div id="mobile-overlay">
+  <div style="text-align:center;max-width:320px">
+    <img src="Logo/iQcadence_logo.png" alt="iQcadence" style="width:120px;height:auto;border-radius:16px;margin-bottom:24px"/>
+    <p style="color:#fff;font-size:16px;line-height:1.6;margin-bottom:24px">iQcadence is optimized for desktop. Please visit on a laptop or desktop for the best experience.</p>
+    <button id="mobile-overlay-dismiss" style="background:#fff;color:#0891b2;border:none;padding:10px 28px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font)">Continue Anyway</button>
+  </div>
+</div>
+<style>
+#mobile-overlay{display:none;position:fixed;inset:0;z-index:99999;background:#0891b2;align-items:center;justify-content:center;padding:24px}
+@media(max-width:767px){#mobile-overlay:not(.dismissed){display:flex}}
+</style>
+<script>
+(function(){var btn=document.getElementById('mobile-overlay-dismiss');if(btn)btn.addEventListener('click',function(){document.getElementById('mobile-overlay').classList.add('dismissed')});})();
+</script>
+
+<script defer src="js/app.js?v=703"></script>
 </body>
 </html>

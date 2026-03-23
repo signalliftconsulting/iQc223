@@ -14,25 +14,26 @@ function hideAuthGate() {
 }
 
 function authTab(tab) {
-  ['login','signup','reset'].forEach(t => {
-    document.getElementById('form-'+t).style.display  = t===tab ? 'block' : 'none';
+  ['login','signup','reset','newpass'].forEach(t => {
+    var form = document.getElementById('form-'+t);
+    if (form) form.style.display = t===tab ? 'block' : 'none';
     const btn = document.getElementById('tab-'+t);
     if (btn) {
       btn.style.color = t===tab ? 'var(--text)' : 'var(--muted)';
       btn.style.borderBottomColor = t===tab ? 'var(--teal)' : 'transparent';
     }
   });
-  // Hide/show tabs bar (reset form shows back link instead)
+  // Hide/show tabs bar (reset and newpass forms show back link instead)
   var tabBar = document.querySelector('.auth-card > div:first-child');
   if (tabBar && tabBar.querySelector('#tab-login')) {
-    tabBar.style.display = tab === 'reset' ? 'none' : 'flex';
+    tabBar.style.display = (tab === 'reset' || tab === 'newpass') ? 'none' : 'flex';
   }
   document.getElementById('auth-err').textContent = '';
   document.getElementById('auth-ok').textContent  = '';
 }
 
 function authSetBusy(busy) {
-  ['login-btn','signup-btn','reset-btn'].forEach(id => {
+  ['login-btn','signup-btn','reset-btn','newpass-btn'].forEach(id => {
     const b = document.getElementById(id);
     if (b) b.disabled = busy;
   });
@@ -111,10 +112,23 @@ async function authReset() {
   if (!email) { authErr('Please enter your email address.'); return; }
   authSetBusy(true);
   const { error } = await sb.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.href
+    redirectTo: 'https://iqc223.com'
   });
   if (error) { authErr(error.message); return; }
-  authOk('Reset link sent! Check your email.');
+  authOk('Check your email for a reset link.');
+}
+
+async function authSetNewPassword() {
+  const pw  = el('newpass-pw')?.value;
+  const pw2 = el('newpass-pw2')?.value;
+  if (!pw)         { authErr('Please enter a new password.'); return; }
+  if (pw.length<8) { authErr('Password must be at least 8 characters.'); return; }
+  if (pw !== pw2)  { authErr('Passwords do not match.'); return; }
+  authSetBusy(true);
+  const { error } = await sb.auth.updateUser({ password: pw });
+  if (error) { authErr(error.message); return; }
+  authOk('Password updated! Redirecting to sign in...');
+  setTimeout(function() { authTab('login'); }, 2000);
 }
 
 async function authSignOut() {

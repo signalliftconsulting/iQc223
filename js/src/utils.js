@@ -343,9 +343,15 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     closeColFilter();
     closeAlertFilter();
+    // Close welcome modal if visible (uses inline display, not .open class)
+    var _wm = document.getElementById('welcome-modal');
+    if (_wm && _wm.style.display !== 'none' && _wm.style.display !== '') {
+      if (typeof closeWelcome === 'function') closeWelcome();
+      return;
+    }
     // Close topmost open modal via closeModal (restores focus properly)
     var openModals = document.querySelectorAll('.modal-bg.open');
-    if (openModals.length) { closeModal(openModals[openModals.length - 1].id); }
+    if (openModals.length) { closeModal(openModals[openModals.length - 1].id); return; }
     return;
   }
   // Ignore shortcuts when typing in inputs
