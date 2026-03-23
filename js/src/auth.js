@@ -81,15 +81,11 @@ async function _resendConfirmation(email) {
   try {
     var errEl = document.getElementById('auth-err');
     if (errEl) errEl.innerHTML = 'Sending confirmation email...';
-    const res = await fetch('https://qctiyigznbztxcowehnl.supabase.co/functions/v1/send-auth-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, type: 'resend' })
-    });
-    if (res.ok) {
+    const { error } = await sb.auth.resend({ type: 'signup', email });
+    if (!error) {
       authOk('Confirmation email sent! Check your inbox.');
     } else {
-      authErr('Failed to send email. Try again later.');
+      authErr(error.message || 'Failed to send email. Try again later.');
     }
   } catch(e) {
     authErr('Failed to send email. Try again later.');
@@ -110,70 +106,28 @@ async function authSignUp() {
   if (pw !== pw2)  { authErr('Passwords do not match.'); return; }
   authSetBusy(true);
   window._signUpInProgress = true;
-  const { data: signUpData, error } = await sb.auth.signUp({
+  const { error } = await sb.auth.signUp({
     email,
     password: pw,
     options: { data: { full_name: name, company_name: company } }
   });
+  window._signUpInProgress = false;
   if (error) {
-    // Supabase may return 500/429 because its internal email send fails (rate limited)
-    // but the user might still have been created. Check for specific fatal errors.
     const msg = error.message || '';
     if (msg.includes('already registered') || msg.includes('duplicate')) {
-      window._signUpInProgress = false;
       authErr('This email is already registered. Try signing in.');
-      return;
-    }
-    if (msg.includes('rate') || msg.includes('429') || msg.includes('Too many')) {
-      // Rate limited — wait and retry
-      window._signUpInProgress = false;
+    } else if (msg.includes('rate') || msg.includes('429') || msg.includes('Too many')) {
       authErr('Too many sign-up attempts. Please wait a few minutes and try again.');
-      return;
-    }
-    // For other errors (like email send failures), try to continue if we got a user ID
-    if (!signUpData?.user?.id) {
-      window._signUpInProgress = false;
+    } else {
       authErr(error.message);
-      return;
     }
-    console.warn('[auth] signUp returned error but user was created:', msg);
+    return;
   }
-
-  // Create the user profile row immediately (needed for email verification token)
-  const userId = signUpData?.user?.id;
-  if (userId) {
-    try {
-      await sb.from('user_profiles').upsert({
-        user_id: userId,
-        email: email,
-        display_name: name,
-        business_name: company,
-        role: 'owner',
-        email_verified: false
-      }, { onConflict: 'user_id' });
-      console.log('[auth] Created profile for', email);
-    } catch(e) { console.warn('[auth] Profile create error:', e.message); }
-  }
-
-  // Send confirmation email BEFORE signing out (sign-out resets page and kills pending fetches)
-  try {
-    console.log('[auth] Sending confirmation email to', email);
-    const emailRes = await fetch('https://qctiyigznbztxcowehnl.supabase.co/functions/v1/send-auth-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, name, type: 'signup' })
-    });
-    const emailResult = await emailRes.json();
-    console.log('[auth] Email response:', emailRes.status, emailResult);
-    if (!emailRes.ok) console.warn('[auth] Confirmation email send failed:', emailResult);
-  } catch(e) { console.warn('[auth] Confirmation email error:', e.message); }
-
-  // Now sign out — user must verify email before accessing app
-  await sb.auth.signOut();
-  window._signUpInProgress = false;
-
+  // Supabase sends confirmation email via Custom SMTP (Resend)
+  // User must click confirm link before they can sign in
   authOk('Account created! Check your email to confirm, then sign in.');
   setTimeout(function() { authTab('login'); }, 4000);
+}
 }
 
 async function authReset() {
