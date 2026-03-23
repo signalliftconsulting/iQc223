@@ -12937,10 +12937,10 @@ function renderDetailOverview() {
           return '<span style="font-size:var(--fs-sm);color:var(--muted)"> -</span>';
         })()}
       </div>
-      <div>
+      <div style="position:relative">
         <div class="sig-label">Next Touch</div>
         ${(()=>{
-          if (!c.next_touch) return '<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:2px"><input type="date" id="di-next-touch" class="di-input" style="width:120px;font-size:var(--fs-xs);padding:2px 4px" /><input type="time" id="di-next-touch-time" class="di-input" style="width:80px;font-size:var(--fs-xs);padding:2px 4px" /><button class="btn btn-primary btn-xs" onclick="saveNextTouch()" style="padding:2px 8px;font-size:var(--fs-xs)">Set</button></div>';
+          if (!c.next_touch) return `<a href="#" onclick="event.preventDefault();_openNextTouchPopover()" style="font-size:var(--fs-sm);color:var(--blue)">Schedule</a>`;
           const ntDays = Math.round((new Date(c.next_touch) - new Date()) / 86400000);
           const tDisp = c.next_touch_time ? ' at ' + fmtTime12(c.next_touch_time) : '';
           const ntDate = new Date(c.next_touch);
@@ -12949,8 +12949,19 @@ function renderDetailOverview() {
           if (ntDays < 0) { badge = `<span class="nt-badge nt-overdue">Overdue</span>`; sub = `${ntDateStr} (${Math.abs(ntDays)}d ago)`; }
           else if (ntDays === 0) { badge = `<span class="nt-badge nt-today">Today${tDisp}</span>`; sub = ntDateStr; }
           else { badge = `<span class="nt-badge nt-ok">in ${ntDays}d${tDisp}</span>`; sub = ntDateStr; }
-          return `<div>${badge}</div><div style="font-size:var(--fs-xs);color:var(--muted);margin-top:1px">${sub} <a href="#" onclick="event.preventDefault();this.parentElement.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-top:2px\\'><input type=date id=di-next-touch class=di-input style=\\'width:120px;font-size:11px;padding:2px 4px\\' value=${c.next_touch} /><input type=time id=di-next-touch-time class=di-input style=\\'width:80px;font-size:11px;padding:2px 4px\\' value=${c.next_touch_time||''} /><button class=\\'btn btn-primary btn-xs\\' onclick=saveNextTouch() style=\\'padding:2px 8px;font-size:11px\\'>Save</button></div>'" style="font-size:var(--fs-xs);color:var(--blue)">edit</a></div>`;
+          return `<div>${badge}</div><div style="font-size:var(--fs-xs);color:var(--muted);margin-top:1px">${sub} <a href="#" onclick="event.preventDefault();_openNextTouchPopover()" style="font-size:var(--fs-xs);color:var(--blue)">edit</a></div>`;
         })()}
+        <div id="nt-popover" style="display:none;position:absolute;top:100%;left:0;z-index:100;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);padding:12px;min-width:200px;margin-top:4px">
+          <div style="font-size:var(--fs-sm);font-weight:600;margin-bottom:8px">Schedule Next Touch</div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <input type="date" id="di-next-touch" class="di-input" value="${c.next_touch||''}" style="width:100%;font-size:var(--fs-sm);padding:5px 8px" />
+            <input type="time" id="di-next-touch-time" class="di-input" value="${c.next_touch_time||''}" style="width:100%;font-size:var(--fs-sm);padding:5px 8px" />
+            <div style="display:flex;gap:6px;margin-top:2px">
+              <button class="btn btn-primary btn-sm" onclick="saveNextTouch();_closeNextTouchPopover()" style="flex:1;font-size:var(--fs-sm)">Save</button>
+              <button class="btn btn-ghost btn-sm" onclick="_closeNextTouchPopover()" style="font-size:var(--fs-sm)">Cancel</button>
+            </div>
+          </div>
+        </div>
       </div>
       <div>
         <div class="sig-label">Renewal</div>
@@ -13008,6 +13019,15 @@ function buildSignalModelInsightsHTML(c) {
       'Base: ' + sm.baseScore + ' \u2192 Adjusted: ' + sm.adjustedScore +
       ' (' + sm.sensitivity + ', ' + sm.factors.length + ' factor' + (sm.factors.length !== 1 ? 's' : '') + ' fired)' +
     '</div>' + factorRows + '</div>';
+}
+
+function _openNextTouchPopover() {
+  var pop = document.getElementById('nt-popover');
+  if (pop) pop.style.display = pop.style.display === 'none' ? '' : 'none';
+}
+function _closeNextTouchPopover() {
+  var pop = document.getElementById('nt-popover');
+  if (pop) pop.style.display = 'none';
 }
 
 async function saveNextTouch() {
