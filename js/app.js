@@ -2430,7 +2430,26 @@ async function loadSettingsFromSupabase() {
   try { if (data.weights)    weights    = { ...DEFAULT_WEIGHTS,    ...JSON.parse(data.weights) }; }    catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
   try { if (data.thresholds) thresholds = { ...DEFAULT_THRESHOLDS, ...JSON.parse(data.thresholds) }; } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
   try { if (data.profiles)   profiles   = JSON.parse(data.profiles); }  catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
-  try { if (data.automations) { automationsCfg = JSON.parse(data.automations); migrateAutomationsCfg(); } } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
+  try {
+    if (data.automations) {
+      var parsed = JSON.parse(data.automations);
+      // If Supabase has empty automations but localStorage has rules, prefer localStorage
+      if ((!parsed.alert_rules || !parsed.alert_rules.length) && (!parsed.custom_rules || !parsed.custom_rules.length)) {
+        try {
+          var lsAuto = localStorage.getItem('iqc_automations');
+          if (lsAuto) {
+            var lsParsed = JSON.parse(lsAuto);
+            if ((lsParsed.alert_rules && lsParsed.alert_rules.length) || (lsParsed.custom_rules && lsParsed.custom_rules.length)) {
+              parsed = lsParsed;
+              console.log('[settings] Supabase automations empty, using localStorage backup');
+            }
+          }
+        } catch(e2) {}
+      }
+      automationsCfg = parsed;
+      migrateAutomationsCfg();
+    }
+  } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
   try { if (data.signal_model) signalModelCfg = { ...DEFAULT_SIGNAL_MODEL, ...JSON.parse(data.signal_model) }; } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
   ensureGlobalWeightsProfile(true); // persist=true → writes clean version back if duplicates found
   // Also update localStorage cache so data survives user-switch / sign-out
@@ -6193,13 +6212,9 @@ async function _loadDemoFromCard() {
 }
 
 function _seedDemoAutomations() {
-  // Seed sample alert rules and custom rules ONLY if none exist
-  // Preserves any user-created rules
+  // Seed sample alert rules and custom rules for demo experience
+  // Always re-seed on demo load to ensure they're present
   if (!automationsCfg) automationsCfg = {};
-
-  // Skip if user already has rules configured
-  if (automationsCfg.alert_rules && automationsCfg.alert_rules.length) return;
-  if (automationsCfg.custom_rules && automationsCfg.custom_rules.length) return;
 
   // Alert rules (pre-built alerts) - use correct ALERT_TYPES keys
   automationsCfg.alert_rules = [
@@ -6272,7 +6287,12 @@ function _seedDemoAutomations() {
     }
   ];
 
-  if (typeof saveAutomationsCfg === 'function') saveAutomationsCfg();
+  if (typeof saveAutomationsCfg === 'function') {
+    saveAutomationsCfg();
+    // Also save to localStorage as backup in case Supabase upsert fails
+    try { localStorage.setItem('iqc_automations', JSON.stringify(automationsCfg)); } catch(e) {}
+    console.log('[demo] Seeded ' + automationsCfg.alert_rules.length + ' alert rules + ' + automationsCfg.custom_rules.length + ' custom rules');
+  }
 }
 
 function _gsStepIcon(n) { return `<div style="width:22px;height:22px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs-xs);flex-shrink:0">${n}</div>`; }

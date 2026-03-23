@@ -176,13 +176,9 @@ async function _loadDemoFromCard() {
 }
 
 function _seedDemoAutomations() {
-  // Seed sample alert rules and custom rules ONLY if none exist
-  // Preserves any user-created rules
+  // Seed sample alert rules and custom rules for demo experience
+  // Always re-seed on demo load to ensure they're present
   if (!automationsCfg) automationsCfg = {};
-
-  // Skip if user already has rules configured
-  if (automationsCfg.alert_rules && automationsCfg.alert_rules.length) return;
-  if (automationsCfg.custom_rules && automationsCfg.custom_rules.length) return;
 
   // Alert rules (pre-built alerts) - use correct ALERT_TYPES keys
   automationsCfg.alert_rules = [
@@ -255,7 +251,12 @@ function _seedDemoAutomations() {
     }
   ];
 
-  if (typeof saveAutomationsCfg === 'function') saveAutomationsCfg();
+  if (typeof saveAutomationsCfg === 'function') {
+    saveAutomationsCfg();
+    // Also save to localStorage as backup in case Supabase upsert fails
+    try { localStorage.setItem('iqc_automations', JSON.stringify(automationsCfg)); } catch(e) {}
+    console.log('[demo] Seeded ' + automationsCfg.alert_rules.length + ' alert rules + ' + automationsCfg.custom_rules.length + ' custom rules');
+  }
 }
 
 function _gsStepIcon(n) { return `<div style="width:22px;height:22px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs-xs);flex-shrink:0">${n}</div>`; }

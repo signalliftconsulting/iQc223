@@ -156,7 +156,26 @@ async function loadSettingsFromSupabase() {
   try { if (data.weights)    weights    = { ...DEFAULT_WEIGHTS,    ...JSON.parse(data.weights) }; }    catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
   try { if (data.thresholds) thresholds = { ...DEFAULT_THRESHOLDS, ...JSON.parse(data.thresholds) }; } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
   try { if (data.profiles)   profiles   = JSON.parse(data.profiles); }  catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
-  try { if (data.automations) { automationsCfg = JSON.parse(data.automations); migrateAutomationsCfg(); } } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
+  try {
+    if (data.automations) {
+      var parsed = JSON.parse(data.automations);
+      // If Supabase has empty automations but localStorage has rules, prefer localStorage
+      if ((!parsed.alert_rules || !parsed.alert_rules.length) && (!parsed.custom_rules || !parsed.custom_rules.length)) {
+        try {
+          var lsAuto = localStorage.getItem('iqc_automations');
+          if (lsAuto) {
+            var lsParsed = JSON.parse(lsAuto);
+            if ((lsParsed.alert_rules && lsParsed.alert_rules.length) || (lsParsed.custom_rules && lsParsed.custom_rules.length)) {
+              parsed = lsParsed;
+              console.log('[settings] Supabase automations empty, using localStorage backup');
+            }
+          }
+        } catch(e2) {}
+      }
+      automationsCfg = parsed;
+      migrateAutomationsCfg();
+    }
+  } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
   try { if (data.signal_model) signalModelCfg = { ...DEFAULT_SIGNAL_MODEL, ...JSON.parse(data.signal_model) }; } catch(e){ if(!_parseErr){_parseErr=true;toast('Settings data corrupted — using defaults','error');} }
   ensureGlobalWeightsProfile(true); // persist=true → writes clean version back if duplicates found
   // Also update localStorage cache so data survives user-switch / sign-out
