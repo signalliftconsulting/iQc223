@@ -15,8 +15,10 @@ document.addEventListener('click', function(e) {
   if (insBtn) {
     e.stopPropagation();
     var idx = parseInt(insBtn.getAttribute('data-insight-action'));
-    var fn = _hbInsightActions[idx];
-    if (fn) { try { new Function(fn)(); } catch(err) { console.warn('Insight action error:', err); } }
+    var action = _hbInsightActions[idx];
+    if (action && typeof action === 'function') {
+      try { action(); } catch(err) { console.warn('Insight action error:', err); }
+    }
     return;
   }
 
@@ -25,10 +27,10 @@ document.addEventListener('click', function(e) {
   if (actCard) {
     var idx = parseInt(actCard.getAttribute('data-hb-action'));
     var item = window._hbActionItems && window._hbActionItems[idx];
-    if (item && item.ids && item.ids.length) {
+    if (item && typeof item.actionFn === 'function') {
+      try { item.actionFn(); } catch(e2) { console.warn('Action error:', e2); }
+    } else if (item && item.ids && item.ids.length) {
       setInsightFilter(item.text.substring(0, 40), item.ids);
-    } else if (item && item.action) {
-      try { new Function(item.action)(); } catch(e2) { console.warn('Action error:', e2); }
     }
     return;
   }
@@ -669,7 +671,7 @@ function _renderHomeBase() {
   if (_dodBriefing && _dodBriefing.avgDelta <= -2) {
     const d = _dodBriefing;
     const reasonHint = d.reasons.length ? ` \u2014 ${d.reasons.slice(0,2).join(' and ')}` : '';
-    _actionPool.push({ urgency: 90 + Math.abs(d.avgDelta) * 2, tone: 'red', text: `Investigate the overnight score drop across ${d.total} accounts${reasonHint}.`, action: "setTrendRange('3d');nav('trends')", ids: [] });
+    _actionPool.push({ urgency: 90 + Math.abs(d.avgDelta) * 2, tone: 'red', text: `Investigate the overnight score drop across ${d.total} accounts${reasonHint}.`, actionFn: function() { setTrendRange('3d'); nav('trends'); }, ids: [] });
   }
 
   // 2. Renewal + no contact → Schedule EBR
@@ -680,9 +682,10 @@ function _renderHomeBase() {
       if (gapRenewal.length === 1) {
         const c = gapRenewal[0];
         const rd = c.renewal_date ? Math.max(1, Math.round((new Date(c.renewal_date) - now) / 86400000)) : Math.round((c.renewal || 1) * 30);
-        _actionPool.push({ urgency: 85 + (c.mrr||0) / 1000, tone: 'amber', text: `Schedule an EBR with ${c.name} ($${fmtNum(c.mrr||0)}/mo) \u2014 renewal in ${rd} days with no contact in 30+.`, action: `openDetail('${c.id}')`, ids: [c.id] });
+        _actionPool.push({ urgency: 85 + (c.mrr||0) / 1000, tone: 'amber', text: `Schedule an EBR with ${c.name} ($${fmtNum(c.mrr||0)}/mo) \u2014 renewal in ${rd} days with no contact in 30+.`, actionFn: function() { openDetail(c.id); }, ids: [c.id] });
       } else {
-        _actionPool.push({ urgency: 85 + gapMRR / 1000, tone: 'amber', text: `Schedule EBRs for ${gapRenewal.length} accounts ($${fmtNum(gapMRR)} MRR) renewing soon with no contact in 30+ days.`, action: `setInsightFilter('Renewal + no contact',${_ids(gapRenewal)})`, ids: gapRenewal.map(c => c.id) });
+        const gapIds = gapRenewal.map(c => c.id);
+        _actionPool.push({ urgency: 85 + gapMRR / 1000, tone: 'amber', text: `Schedule EBRs for ${gapRenewal.length} accounts ($${fmtNum(gapMRR)} MRR) renewing soon with no contact in 30+ days.`, actionFn: function() { setInsightFilter('Renewal + no contact', gapIds); }, ids: gapIds });
       }
     }
   }
@@ -693,9 +696,10 @@ function _renderHomeBase() {
     if (unreached.length > 0) {
       const gapMRR = unreached.reduce((s,c) => s + (c.mrr||0), 0);
       if (unreached.length === 1) {
-        _actionPool.push({ urgency: 60 + (unreached[0].mrr||0) / 1000, tone: 'amber', text: `Reach out to ${unreached[0].name} ($${fmtNum(unreached[0].mrr||0)}/mo) \u2014 no contact in ${unreached[0].days || '30+'} days.`, action: `openDetail('${unreached[0].id}')`, ids: [unreached[0].id] });
+        _actionPool.push({ urgency: 60 + (unreached[0].mrr||0) / 1000, tone: 'amber', text: `Reach out to ${unreached[0].name} ($${fmtNum(unreached[0].mrr||0)}/mo) \u2014 no contact in ${unreached[0].days || '30+'} days.`, actionFn: function() { openDetail(unreached[0].id); }, ids: [unreached[0].id] });
       } else {
-        _actionPool.push({ urgency: 60 + gapMRR / 2000, tone: 'amber', text: `Reach out to ${unreached.length} high-value accounts ($${fmtNum(gapMRR)} MRR) with no contact in 30+ days.`, action: `setInsightFilter('No contact 30d+',${_ids(unreached)})`, ids: unreached.map(c => c.id) });
+        const unrIds = unreached.map(c => c.id);
+        _actionPool.push({ urgency: 60 + gapMRR / 2000, tone: 'amber', text: `Reach out to ${unreached.length} high-value accounts ($${fmtNum(gapMRR)} MRR) with no contact in 30+ days.`, actionFn: function() { setInsightFilter('No contact 30d+', unrIds); }, ids: unrIds });
       }
     }
   }
@@ -716,7 +720,7 @@ function _renderHomeBase() {
     } else {
       ctx = `at-risk with $${fmtNum(biggestRisk.mrr)}/mo`;
     }
-    _actionPool.push({ urgency: 70 + (biggestRisk.mrr||0) / 1000 + boost, tone: 'red', text: `Call ${biggestRisk.name} today \u2014 ${ctx} and $${fmtNum(biggestRisk.mrr)}/mo at stake.`, action: `openDetail('${biggestRisk.id}')`, ids: [biggestRisk.id] });
+    _actionPool.push({ urgency: 70 + (biggestRisk.mrr||0) / 1000 + boost, tone: 'red', text: `Call ${biggestRisk.name} today \u2014 ${ctx} and $${fmtNum(biggestRisk.mrr)}/mo at stake.`, actionFn: function() { openDetail(biggestRisk.id); }, ids: [biggestRisk.id] });
   }
 
   // 5. Silent decliners → Review
@@ -724,9 +728,10 @@ function _renderHomeBase() {
     const sd = silentDecliners;
     if (sd.length >= 2) {
       const sdMRR = sd.reduce((s,c) => s + (c.mrr||0), 0);
-      _actionPool.push({ urgency: 65 + sdMRR / 1000 + sd.length * 3, tone: 'red', text: `Review ${sd.length} accounts that were healthy but started declining \u2014 $${fmtNum(sdMRR)} MRR at risk before they escalate.`, action: `setInsightFilter('Declining from healthy',${_ids(sd)})`, ids: sd.map(c => c.id) });
+      const sdIds = sd.map(c => c.id);
+      _actionPool.push({ urgency: 65 + sdMRR / 1000 + sd.length * 3, tone: 'red', text: `Review ${sd.length} accounts that were healthy but started declining \u2014 $${fmtNum(sdMRR)} MRR at risk before they escalate.`, actionFn: function() { setInsightFilter('Declining from healthy', sdIds); }, ids: sdIds });
     } else if (sd.length === 1) {
-      _actionPool.push({ urgency: 55 + (sd[0].mrr||0) / 1000, tone: 'amber', text: `Check in with ${sd[0].name} \u2014 was healthy but now declining. Early intervention prevents escalation.`, action: `openDetail('${sd[0].id}')`, ids: [sd[0].id] });
+      _actionPool.push({ urgency: 55 + (sd[0].mrr||0) / 1000, tone: 'amber', text: `Check in with ${sd[0].name} \u2014 was healthy but now declining. Early intervention prevents escalation.`, actionFn: function() { openDetail(sd[0].id); }, ids: [sd[0].id] });
     }
   }
 
@@ -745,7 +750,8 @@ function _renderHomeBase() {
       const pct = Math.round(tVal.dec / tVal.n * 100);
       if (pct >= 40) {
         const tierDecAccts = active.filter(c => (c.tier || 'Unknown') === tName && withHist.includes(c) && getDeltaPeriod(c) < -2);
-        _actionPool.push({ urgency: 50 + tVal.dec * 5, tone: 'red', text: `Investigate the decline across your ${tName} accounts \u2014 ${tVal.dec} of ${tVal.n} dropped this period.`, action: `setInsightFilter('Declining ${tName}',${_ids(tierDecAccts)})`, ids: tierDecAccts.map(c => c.id) });
+        const tdIds = tierDecAccts.map(c => c.id);
+        _actionPool.push({ urgency: 50 + tVal.dec * 5, tone: 'red', text: `Investigate the decline across your ${tName} accounts \u2014 ${tVal.dec} of ${tVal.n} dropped this period.`, actionFn: function() { setInsightFilter('Declining ' + tName, tdIds); }, ids: tdIds });
       }
     }
   }
@@ -755,7 +761,7 @@ function _renderHomeBase() {
     const topExp = expand.filter(c => c.score >= 80 && (c.mrr||0) >= 3000).sort((a,b) => (b.mrr||0) - (a.mrr||0));
     if (topExp.length >= 1) {
       const t = topExp[0];
-      _actionPool.push({ urgency: 30 + (t.mrr||0) / 1000, tone: 'green', text: `Explore expansion with ${t.name} \u2014 score of ${t.score} with $${fmtNum(t.mrr)}/mo and strong engagement.`, action: `openDetail('${t.id}')`, ids: [t.id] });
+      _actionPool.push({ urgency: 30 + (t.mrr||0) / 1000, tone: 'green', text: `Explore expansion with ${t.name} \u2014 score of ${t.score} with $${fmtNum(t.mrr)}/mo and strong engagement.`, actionFn: function() { openDetail(t.id); }, ids: [t.id] });
     }
   }
 
@@ -1388,7 +1394,7 @@ function _insightTierDivergence(active) {
     priority: 2,
     title: `${worst.label} tier underperforming at ${worst.riskPct}% at-risk`,
     detail: `${worst.label} has ${worst.riskPct}% at-risk accounts vs ${best.riskPct}% for ${best.label} - a ${gap}pt gap. Consider a tier-specific engagement strategy.`,
-    action: { label: 'View Segments', fn: "nav('segments')" }
+    action: { label: 'View Segments', fn: function() { nav('segments'); } }
   };
 }
 
@@ -1422,7 +1428,7 @@ function _insightRiskConcentration(active) {
     priority: 2,
     title: `At-risk MRR concentrated with ${managers.slice(0,2).length} CSMs`,
     detail: `${topPct}% of at-risk MRR ($${fmtNum(topMgrMRR)}) sits with ${topNames}. Consider rebalancing or targeted support.`,
-    action: { label: 'View CSM Performance', fn: "nav('csmperf')" }
+    action: { label: 'View CSM Performance', fn: function() { nav('csmperf'); } }
   };
 }
 
@@ -1443,14 +1449,14 @@ function _insightEmergingRisk(active) {
   });
 
   if (earlyWarning.length < 2) return null;
-  const ewIds = JSON.stringify(earlyWarning.map(c => c.id));
+  const ewIdArr = earlyWarning.map(c => c.id);
 
   return {
     category: 'Risk',
     priority: 2,
     title: `${earlyWarning.length} healthy accounts showing early warning signals`,
     detail: `These accounts are scored healthy but have 2+ concerning metrics (low logins, low adoption, high tickets, or NPS detractor). They may be at risk of decline.`,
-    action: { label: 'View Customers', fn: `setInsightFilter('${earlyWarning.length} accounts with early warnings',${ewIds})` }
+    action: { label: 'View Customers', fn: function() { setInsightFilter(earlyWarning.length + ' accounts with early warnings', ewIdArr); } }
   };
 }
 
@@ -1473,7 +1479,7 @@ function _insightMrrAtRiskDelta(active, now, cutoff) {
   if (Math.abs(delta) < 1000) return null;
 
   const increased = delta > 0;
-  const arIds = JSON.stringify(atRisk.map(c => c.id));
+  const arIdArr = atRisk.map(c => c.id);
   return {
     category: 'Risk',
     priority: increased ? 1 : 4,
@@ -1483,7 +1489,7 @@ function _insightMrrAtRiskDelta(active, now, cutoff) {
     detail: increased
       ? `Revenue exposure grew from $${fmtNum(prevMRR)} to $${fmtNum(currentMRR)}. New accounts entered the risk zone - review before they escalate.`
       : `Revenue exposure shrank from $${fmtNum(prevMRR)} to $${fmtNum(currentMRR)}. Recovery efforts are paying off.`,
-    action: { label: 'View Customers', fn: `setInsightFilter('${atRisk.length} at-risk accounts',${arIds})` }
+    action: { label: 'View Customers', fn: function() { setInsightFilter(atRisk.length + ' at-risk accounts', arIdArr); } }
   };
 }
 
@@ -1501,14 +1507,14 @@ function _insightRenewalReadiness(active, now) {
   const gap = overallAvg - avgRenewScore;
 
   if (gap < 5) return null;
-  const rrIds = JSON.stringify(next30.map(c => c.id));
+  const rrIdArr = next30.map(c => c.id);
 
   return {
     category: 'Renewal',
     priority: gap > 15 ? 1 : 2,
     title: `Upcoming renewals score ${avgRenewScore} vs portfolio avg ${overallAvg}`,
     detail: `${next30.length} accounts renewing in the next 30 days have an average score ${gap} points below your portfolio average. Proactive outreach recommended.`,
-    action: { label: 'View Customers', fn: `setInsightFilter('${next30.length} upcoming renewals',${rrIds})` }
+    action: { label: 'View Customers', fn: function() { setInsightFilter(next30.length + ' upcoming renewals', rrIdArr); } }
   };
 }
 
@@ -1547,7 +1553,7 @@ function _insightRenewalVelocity(active, now, cutoff) {
     priority: gap > 8 ? 1 : 2,
     title: `Renewal cohort declining ${Math.abs(renewAvgDelta)} pts vs portfolio ${portfolioAvgDelta > 0 ? '+' : ''}${portfolioAvgDelta}`,
     detail: `${next60.length} accounts renewing in the next 60 days are losing health ${gap} pts faster than your portfolio average. ${decliningRenewals.length} are actively declining - $${fmtNum(renewMRR)} MRR at stake. Set up alerts to catch further drops early.`,
-    action: { label: 'Review Alerts', fn: "nav('alerts')" }
+    action: { label: 'Review Alerts', fn: function() { nav('alerts'); } }
   };
 }
 
@@ -1573,7 +1579,7 @@ function _insightContactImpact(active, now, cutoff) {
   const neglectedDecliners = uncontacted
     .filter(c => _getDeltaPeriod(c, cutoff) < -2)
     .sort((a,b) => (b.mrr || 0) - (a.mrr || 0));
-  const ndIds = JSON.stringify(neglectedDecliners.map(c => c.id));
+  const ndIdArr = neglectedDecliners.map(c => c.id);
 
   if (outreachHelps) {
     return {
@@ -1582,8 +1588,8 @@ function _insightContactImpact(active, now, cutoff) {
       title: `Contacted accounts trending ${contactedDelta > 0 ? '+' : ''}${contactedDelta} pts vs ${uncontactedDelta > 0 ? '+' : ''}${uncontactedDelta} for uncontacted`,
       detail: `Accounts with recent CSM contact (≤14 days) are outperforming uncontacted ones by ${gap} pts this period. ${neglectedDecliners.length} uncontacted account${neglectedDecliners.length !== 1 ? 's are' : ' is'} actively declining - outreach could reverse the trend.`,
       action: neglectedDecliners.length
-        ? { label: 'View Declining Uncontacted', fn: `setInsightFilter('${neglectedDecliners.length} declining uncontacted',${ndIds})` }
-        : { label: 'View Customers', fn: "nav('customers')" }
+        ? { label: 'View Declining Uncontacted', fn: function() { setInsightFilter(neglectedDecliners.length + ' declining uncontacted', ndIdArr); } }
+        : { label: 'View Customers', fn: function() { nav('customers'); } }
     };
   } else {
     // Unusual: uncontacted are doing better - maybe over-contact or wrong accounts contacted
@@ -1592,7 +1598,7 @@ function _insightContactImpact(active, now, cutoff) {
       priority: 3,
       title: `Uncontacted accounts outperforming contacted ones by ${Math.abs(gap)} pts`,
       detail: `Contacted accounts averaged ${contactedDelta > 0 ? '+' : ''}${contactedDelta} pts vs ${uncontactedDelta > 0 ? '+' : ''}${uncontactedDelta} for uncontacted. This may indicate outreach is focused on the wrong accounts or low-touch accounts are self-sufficient.`,
-      action: { label: 'Review Book', fn: "nav('customers')" }
+      action: { label: 'Review Book', fn: function() { nav('customers'); } }
     };
   }
 }
@@ -1626,7 +1632,7 @@ function _insightSignalDivergence(active) {
   const frustrated = divergent.filter(c => c._divergeType === 'frustration');
   const disengaging = divergent.filter(c => c._divergeType === 'disengaging');
   const frustratedMRR = frustrated.reduce((s,c) => s + (c.mrr || 0), 0);
-  const divIds = JSON.stringify(divergent.map(c => c.id));
+  const divIdArr = divergent.map(c => c.id);
 
   // Clean up temp property
   divergent.forEach(c => delete c._divergeType);
@@ -1648,7 +1654,7 @@ function _insightSignalDivergence(active) {
     priority: frustrated.length >= 2 ? 2 : 3,
     title,
     detail,
-    action: { label: 'View Divergent Accounts', fn: `setInsightFilter('${divergent.length} signal-divergent accounts',${divIds})` }
+    action: { label: 'View Divergent Accounts', fn: function() { setInsightFilter(divergent.length + ' signal-divergent accounts', divIdArr); } }
   };
 }
 
@@ -1668,14 +1674,14 @@ function _insightAdoptionCorrelation(active) {
   if (riskRate <= overallRiskRate + 10) return null;
 
   const multiplier = (riskRate / Math.max(overallRiskRate, 1)).toFixed(1);
-  const laIds = JSON.stringify(lowAdoption.map(c => c.id));
+  const laIdArr = lowAdoption.map(c => c.id);
 
   return {
     category: 'Engagement',
     priority: 3,
     title: `Low adoption accounts are ${multiplier}x more likely to be at-risk`,
     detail: `${lowAdoption.length} accounts with <30% adoption have a ${riskRate}% at-risk rate vs ${overallRiskRate}% overall. Driving adoption could prevent future churn.`,
-    action: { label: 'View Customers', fn: `setInsightFilter('${lowAdoption.length} low-adoption accounts',${laIds})` }
+    action: { label: 'View Customers', fn: function() { setInsightFilter(lowAdoption.length + ' low-adoption accounts', laIdArr); } }
   };
 }
 
@@ -1742,7 +1748,7 @@ function _insightRenewalClustering(active, now) {
     priority: peakPct >= 50 ? 2 : 3,
     title: `${peakPct}% of renewals clustered in ${windowLabel}`,
     detail: `${peakCount} of ${withRenewal.length} upcoming renewals ($${fmtNum(peakMRR)} MRR) fall in a single 2-week window. ${clusterPct > peakPct ? `Including the adjacent window, ${clusterPct}% ($${fmtNum(clusterMRR)} MRR) land in a 4-week span. ` : ''}Clustering creates attention-dilution risk - plan outreach cadence now.`,
-    action: { label: 'View Calendar', fn: "nav('calendar')" }
+    action: { label: 'View Calendar', fn: function() { nav('calendar'); } }
   };
 }
 
@@ -1800,8 +1806,8 @@ function _insightDayOverDay(active) {
     title,
     detail,
     action: ids.length
-      ? { label: 'View Affected Accounts', fn: `setInsightFilter('DoD significant drops',${JSON.stringify(ids)})` }
-      : { label: 'View 1-Day Trend', fn: "setTrendRange('3d');nav('trends')" }
+      ? { label: 'View Affected Accounts', fn: function() { setInsightFilter('DoD significant drops', ids); } }
+      : { label: 'View 1-Day Trend', fn: function() { setTrendRange('3d'); nav('trends'); } }
   };
 }
 
@@ -1821,7 +1827,7 @@ function _insightQuietAccounts(active) {
     priority: quiet.length >= 3 ? 1 : 2,
     title: `${quiet.length} account${quiet.length !== 1 ? 's' : ''} have gone completely quiet`,
     detail: `Zero logins, zero tickets, and no CSM contact for ${QUIET_THRESHOLD_DAYS}+ days. Total MRR at risk: $${fmtNum(totalMRR)}. Top: ${topNames}${moreStr}.`,
-    action: { label: 'View Quiet Accounts', fn: `setInsightFilter('${quiet.length} quiet accounts',${JSON.stringify(quietIds)})` }
+    action: { label: 'View Quiet Accounts', fn: function() { setInsightFilter(quiet.length + ' quiet accounts', quietIds); } }
   };
 }
 
