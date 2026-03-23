@@ -4384,39 +4384,7 @@ async function authSignIn() {
   authSetBusy(true);
   const { error } = await sb.auth.signInWithPassword({ email, password: pw });
   if (error) { authErr(error.message); return; }
-
-  // Check if email is verified
-  const { data: profile } = await sb.from('user_profiles').select('email_verified').eq('email', email).single();
-  if (profile && profile.email_verified === false) {
-    await sb.auth.signOut();
-    authErr('Please confirm your email before signing in.');
-    // Show resend link
-    var errEl = document.getElementById('auth-err');
-    if (errEl) {
-      errEl.innerHTML = 'Please confirm your email before signing in. <a href="#" id="resend-confirm-link" style="color:var(--teal);text-decoration:underline">Resend confirmation</a>';
-      document.getElementById('resend-confirm-link')?.addEventListener('click', function(e) {
-        e.preventDefault();
-        _resendConfirmation(email);
-      });
-    }
-    return;
-  }
   // onAuthStateChange will handle the rest
-}
-
-async function _resendConfirmation(email) {
-  try {
-    var errEl = document.getElementById('auth-err');
-    if (errEl) errEl.innerHTML = 'Sending confirmation email...';
-    const { error } = await sb.auth.resend({ type: 'signup', email });
-    if (!error) {
-      authOk('Confirmation email sent! Check your inbox.');
-    } else {
-      authErr(error.message || 'Failed to send email. Try again later.');
-    }
-  } catch(e) {
-    authErr('Failed to send email. Try again later.');
-  }
 }
 
 async function authSignUp() {
@@ -4432,13 +4400,11 @@ async function authSignUp() {
   if (pw.length<8) { authErr('Password must be at least 8 characters.'); return; }
   if (pw !== pw2)  { authErr('Passwords do not match.'); return; }
   authSetBusy(true);
-  window._signUpInProgress = true;
   const { error } = await sb.auth.signUp({
     email,
     password: pw,
     options: { data: { full_name: name, company_name: company } }
   });
-  window._signUpInProgress = false;
   if (error) {
     const msg = error.message || '';
     if (msg.includes('already registered') || msg.includes('duplicate')) {
@@ -4465,7 +4431,6 @@ async function authSignUp() {
   // User must click confirm link before they can sign in
   authOk('Account created! Check your email to confirm, then sign in.');
   setTimeout(function() { authTab('login'); }, 4000);
-}
 }
 
 async function authReset() {
@@ -31969,23 +31934,6 @@ function _checkUserSwitch(userId) {
     const prevUid = localStorage.getItem('iqc_uid');
     if (customers.length > 0 && prevUid === currentUser.id) {
       silentSync();
-      return;
-    }
-
-    // Skip everything during sign-up flow
-    if (window._signUpInProgress) {
-      console.log('[auth] Sign-up in progress — skipping onAuthStateChange');
-      return;
-    }
-
-    // Check if email is verified before allowing access
-    var _verifyCheck = await sb.from('user_profiles').select('email_verified').eq('user_id', currentUser.id).single();
-    if (_verifyCheck.data && _verifyCheck.data.email_verified === false) {
-      console.log('[auth] Unverified user — signing out');
-      await sb.auth.signOut();
-      showAuthGate();
-      authTab('login');
-      authErr('Please confirm your email before signing in.');
       return;
     }
 
