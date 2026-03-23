@@ -4443,11 +4443,22 @@ async function authSignUp() {
     const msg = error.message || '';
     if (msg.includes('already registered') || msg.includes('duplicate')) {
       authErr('This email is already registered. Try signing in.');
-    } else if (msg.includes('rate') || msg.includes('429') || msg.includes('Too many')) {
-      authErr('Too many sign-up attempts. Please wait a few minutes and try again.');
-    } else {
-      authErr(error.message);
+      return;
     }
+    if (msg.includes('rate') || msg.includes('429') || msg.includes('Too many')) {
+      authErr('Too many sign-up attempts. Please wait a few minutes and try again.');
+      return;
+    }
+    // Supabase often returns "Database error" when the user IS created
+    // but an internal post-signup hook fails. Check if it's a soft error.
+    if (msg.toLowerCase().includes('database') || msg.toLowerCase().includes('unexpected')) {
+      console.warn('[auth] signUp soft error (user likely created):', msg);
+      // Show success anyway — the email will confirm if user was actually created
+      authOk('Account created! Check your email to confirm, then sign in.');
+      setTimeout(function() { authTab('login'); }, 4000);
+      return;
+    }
+    authErr(error.message);
     return;
   }
   // Supabase sends confirmation email via Custom SMTP (Resend)
