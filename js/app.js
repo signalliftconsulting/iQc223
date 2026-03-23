@@ -6515,10 +6515,19 @@ function _gettingStartedHTML() {
 function _renderGettingStarted(wrap) {
   wrap.innerHTML = `
   <div style="max-width:600px;margin:0 auto;padding:20px 0">
-    <div style="text-align:center;margin-bottom:20px">
+    <div style="text-align:center;margin-bottom:24px">
       <h1 style="font-size:1.25rem;font-weight:800;color:var(--text);margin-bottom:4px">Welcome to iQcadence</h1>
       <p style="color:var(--muted);font-size:var(--fs-sm)">Get started by adding your customers. Choose the path that fits your setup.</p>
     </div>
+    <div style="background:linear-gradient(135deg,#7c3aed,#6d28d9);border-radius:12px;padding:24px;text-align:center;margin-bottom:20px;color:#fff;box-shadow:0 4px 16px rgba(124,58,237,.25)">
+      <div style="width:48px;height:48px;background:rgba(255,255,255,.15);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      </div>
+      <h2 style="font-size:18px;font-weight:700;margin:0 0 6px">Try it now with demo data</h2>
+      <p style="font-size:14px;opacity:.85;margin:0 0 16px;line-height:1.5">Load 75 realistic customers with 2+ years of history, AI insights, health scores, and trends. Explore every feature instantly.</p>
+      <button class="btn" onclick="event.stopPropagation();_loadDemoFromCard()" style="background:#fff;color:#7c3aed;font-weight:700;padding:10px 28px;border-radius:8px;font-size:14px;border:none;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.1)">Load Demo Data →</button>
+    </div>
+    <div style="text-align:center;margin-bottom:16px;font-size:var(--fs-sm);color:var(--muted)">— or add your own customers —</div>
     ${_gettingStartedHTML()}
   </div>`;
 }
