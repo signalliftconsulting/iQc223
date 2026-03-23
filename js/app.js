@@ -3695,8 +3695,29 @@ function _generateDemoCustomer(name, index, now, trajList, csmAssignments) {
     }
   }
 
+  // Past meetings / touch history (~60% of active customers get 2-5 past touches)
+  const touch_history = [];
+  if (lifecycle !== 'churned' && rng() < 0.60) {
+    const touchTypes = ['call', 'meeting', 'email', 'qbr', 'check-in'];
+    const touchCount = 2 + Math.floor(rng() * 4); // 2-5 past touches
+    for (let t = 0; t < touchCount; t++) {
+      const daysAgo = 7 + Math.floor(rng() * 120); // 7-127 days ago
+      const tDate = new Date(now - daysAgo * 86400000);
+      const tType = touchTypes[Math.floor(rng() * touchTypes.length)];
+      const hr = 8 + Math.floor(rng() * 10);
+      const mn = [0, 15, 30, 45][Math.floor(rng() * 4)];
+      const tTime = String(hr).padStart(2, '0') + ':' + String(mn).padStart(2, '0');
+      touch_history.push({
+        date: tDate.toISOString().slice(0, 10),
+        time: tTime,
+        type: tType,
+        note: ''
+      });
+    }
+    touch_history.sort(function(a, b) { return a.date.localeCompare(b.date); });
+  }
+
   // Last contact date
-  let last_contact_date = '';
   if (lifecycle !== 'churned' && lastSig.days != null && lastSig.days > 0 && rng() < 0.60) {
     const lcd = new Date(now);
     lcd.setDate(lcd.getDate() - lastSig.days);
@@ -3735,6 +3756,7 @@ function _generateDemoCustomer(name, index, now, trajList, csmAssignments) {
     next_touch,
     next_touch_time,
     playbook_checks: {},
+    touch_history,
     last_contact_date
   };
 }
