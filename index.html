@@ -40,6 +40,8 @@ p{line-height:1.65;color:var(--muted)}
 a{color:var(--blue);text-decoration:none}
 
 /* TOPBAR */
+.topbar,.sidebar,.views{visibility:hidden}
+body.authed .topbar,body.authed .sidebar,body.authed .views{visibility:visible}
 .topbar{background:#12918b;border-bottom:none;padding:0 20px;height:48px;display:flex;align-items:center;justify-content:flex-end;position:sticky;top:0;z-index:50;box-shadow:0 1px 3px rgba(0,0,0,.1);color:#fff}
 .topbar svg{stroke:#fff}
 .topbar .btn{color:#fff}
@@ -4723,6 +4725,6 @@ Header: Content-Type: application/json
 <!-- config.js is gitignored — provides ADMIN_EMAILS locally. 404s silently in production. -->
 <script defer src="js/config.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js"></script>
-<script defer src="js/app.js?v=700"></script>
+<script defer src="js/app.js?v=701"></script>
 </body>
 </html>

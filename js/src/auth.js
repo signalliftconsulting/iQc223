@@ -2,15 +2,15 @@
 function showAuthGate() {
   document.getElementById('auth-gate').style.display = 'flex';
   document.querySelector('.shell')?.style.setProperty('display','none');
-  document.querySelector('.topbar')?.style.setProperty('visibility','hidden');
   document.querySelector('.footer')?.style.setProperty('display','none');
+  document.body.classList.remove('authed');
 }
 
 function hideAuthGate() {
   document.getElementById('auth-gate').style.display = 'none';
   document.querySelector('.shell')?.style.removeProperty('display');
-  document.querySelector('.topbar')?.style.removeProperty('visibility');
   document.querySelector('.footer')?.style.removeProperty('display');
+  document.body.classList.add('authed');
 }
 
 function authTab(tab) {
