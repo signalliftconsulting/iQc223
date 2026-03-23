@@ -164,6 +164,10 @@ const PLAN_FEATURES = {
   // Growth+
   csm_filtering:     'growth',
   manager_dashboard: 'growth',
+  csm_dashboard:     'growth',
+  csm_performance:   'growth',
+  report_csmperf:    'growth',
+  forecasting:       'growth',
   sentiment:         'growth',
   audit_log:         'growth',
   custom_tags:       'growth',
@@ -174,8 +178,6 @@ const PLAN_FEATURES = {
   // Custom+
   next_best_action:  'custom',
   qbr_prep:          'custom',
-  csm_performance:   'custom',
-  report_csmperf:    'custom',
   playbooks:         'custom',
   momentum:          'custom',
   automations:       'custom',
@@ -235,11 +237,15 @@ function getAIUsageInfo() {
   return { used: _aiCallCount, limit: limit, month: _aiCallMonth };
 }
 
-// Feature gating: all tiers get full feature access — plan enforcement is via
-// server-side triggers (enforce_account_limit, enforce_user_limit) and getPlanLimit().
-// This function exists as a hook for future per-feature gating if needed.
+// Feature gating: checks PLAN_FEATURES to see if the current tier includes the feature.
+// AI features are ungated (all tiers). Admin always has full access.
 function hasFeature(key) {
-  return true;
+  if (isAdmin()) return true;
+  var needed = PLAN_FEATURES[key];
+  if (!needed) return true; // unknown key = ungated
+  var tierIdx = PLAN_TIERS.indexOf(clientPlanTier || 'core');
+  var neededIdx = PLAN_TIERS.indexOf(needed);
+  return tierIdx >= neededIdx;
 }
 
 function getPlanLimit(key) {
@@ -256,10 +262,22 @@ function tierBadgeHTML(tier) {
 function upgradeHTML(featureKey) {
   const needed = PLAN_FEATURES[featureKey] || 'growth';
   const label  = PLAN_TIER_LABELS[needed] || needed;
-  return `<div style="text-align:center;padding:40px 20px;color:var(--muted)">
-    <div style="margin-bottom:10px">${appIcon('lock',28)}</div>
-    <h3 style="margin-bottom:6px;color:var(--text)">Upgrade to ${label}</h3>
-    <p style="font-size:var(--fs-md);max-width:360px;margin:0 auto">This feature requires the ${label} plan or higher. Contact your admin to upgrade.</p>
+  const color  = PLAN_TIER_COLORS[needed] || 'var(--blue)';
+  // Feature highlights for Growth tier upgrade prompt
+  const growthHighlights = [
+    '10 users &amp; 1,000 accounts',
+    '5,000 AI calls / month',
+    'CSM Performance Dashboard',
+    'Revenue Forecasting',
+    'Segments, Scoring Profiles &amp; Audit Log'
+  ];
+  const highlightsHTML = needed === 'growth' ? `<ul style="list-style:none;padding:0;margin:16px auto 0;max-width:300px;text-align:left">${growthHighlights.map(function(h){return '<li style="font-size:var(--fs-base);padding:3px 0;color:var(--text);display:flex;align-items:center;gap:6px"><span style="color:'+color+';font-weight:700">&#10003;</span> '+h+'</li>';}).join('')}</ul>` : '';
+  return `<div style="text-align:center;padding:48px 20px;color:var(--muted)">
+    <div style="margin-bottom:12px">${appIcon('lock',32)}</div>
+    <h3 style="margin-bottom:6px;color:var(--text);font-size:18px">Upgrade to ${label}</h3>
+    <p style="font-size:var(--fs-md);max-width:400px;margin:0 auto;line-height:1.5">This feature is available on the <strong style="color:${color}">${label}</strong> plan and above.</p>
+    ${highlightsHTML}
+    <div style="margin-top:20px"><button class="btn btn-sm" style="background:${color};color:#fff;padding:8px 24px" onclick="nav('settings');setTimeout(function(){cfgTab('billing')},100)">View Plans &amp; Upgrade</button></div>
   </div>`;
 }
 
@@ -321,12 +339,16 @@ function applyTierGating() {
     'ni-segments':    'segments',
     'ni-automations': 'alert_channels',
     'ni-csmperf':     'csm_performance',
+    'ni-forecast':    'forecasting',
     'ni-auditlog':    'audit_log',
   };
 
   Object.entries(gatedNav).forEach(([navId, featureKey]) => {
     const btn = document.getElementById(navId);
     if (btn) btn.style.display = hasFeature(featureKey) ? '' : 'none';
+    // Also gate mobile nav counterpart (mn- prefix)
+    const mobileBtn = document.getElementById(navId.replace('ni-', 'mn-'));
+    if (mobileBtn) mobileBtn.style.display = hasFeature(featureKey) ? '' : 'none';
   });
 }
 
@@ -5961,7 +5983,7 @@ function nav(v) {
   if (v === 'customers') { renderCustomersGuide(); renderCustomers(); }
   if (v === 'segments')  { renderSegmentsGuide(); if (!hasFeature('segments')) { el('seg-kpi-row').innerHTML = ''; el('seg-table-wrap').innerHTML = upgradeHTML('segments'); } else renderSegments(); }
   if (v === 'trends')    { renderTrendsGuide(); _trendFirstRender = true; renderTrends(); }
-  if (v === 'forecast')  { renderForecastGuide(); renderForecast(); }
+  if (v === 'forecast')  { renderForecastGuide(); if (!hasFeature('forecasting')) { el('fc-kpi-row').innerHTML = ''; el('fc-table-wrap').innerHTML = upgradeHTML('forecasting'); } else renderForecast(); }
   if (v === 'csmperf')   { renderCsmperfGuide(); if (!hasFeature('csm_performance')) { el('csmperf-wrap').innerHTML = upgradeHTML('csm_performance'); el('csmperf-stats').innerHTML = ''; } else renderCSMPerformance(); }
   if (v === 'calendar')  { renderCalendarGuide(); renderCalendar(); }
   if (v === 'settings')  renderSettings();
@@ -14162,20 +14184,23 @@ function renderBillingPlanCards() {
   var plans = [
     {
       tier: 'core', name: 'Core', color: 'var(--teal)',
+      price: '$99',
       desc: 'Health monitoring essentials for small teams',
-      features: ['Up to 3 users', 'Up to 200 accounts', 'Health scoring & sparklines', 'Email digest & alerts', 'Renewal pipeline'],
+      features: ['3 users', '200 accounts', '500 AI calls / month', 'All AI features'],
       priceKey: interval === 'annual' ? 'core_annual' : 'core_monthly',
     },
     {
       tier: 'growth', name: 'Growth', color: 'var(--blue)', popular: true,
+      price: '$179',
       desc: 'Advanced insights for growing CS teams',
-      features: ['Up to 10 users', 'Up to 1,000 accounts', 'Everything in Core', 'Segments & CSM dashboards', 'Scoring profiles & audit log', 'Custom tags & alert channels'],
+      features: ['10 users', '1,000 accounts', '5,000 AI calls / month', 'All AI features', 'CSM Dashboard', 'Forecasting'],
       priceKey: interval === 'annual' ? 'growth_annual' : 'growth_monthly',
     },
     {
       tier: 'custom', name: 'Custom', color: 'var(--purple)',
-      desc: 'Full platform with white-label & automation',
-      features: ['Unlimited users', 'Unlimited accounts', 'Everything in Growth', 'QBR Prep & playbooks', 'Automations & API access', 'White-label & custom branding'],
+      price: '$399',
+      desc: 'Full platform with white-label & custom UI',
+      features: ['Unlimited users', 'Unlimited accounts', 'Unlimited AI calls', 'All AI features', 'CSM Dashboard', 'Forecasting', 'White-label / Custom UI'],
       priceKey: interval === 'annual' ? 'custom_annual' : 'custom_monthly',
     }
   ];
@@ -14190,6 +14215,7 @@ function renderBillingPlanCards() {
       badge +
       '<div style="text-align:center;margin-bottom:16px">' +
         '<h3 style="font-size:18px;font-weight:700;color:' + p.color + ';margin-bottom:4px">' + p.name + '</h3>' +
+        (p.price ? '<div style="font-size:24px;font-weight:800;color:var(--text);margin:4px 0">' + p.price + '<span style="font-size:13px;font-weight:400;color:var(--muted)">/mo</span></div>' : '') +
         '<p style="font-size:12px;color:var(--muted)">' + p.desc + '</p>' +
       '</div>' +
       '<ul style="list-style:none;padding:0;margin:0 0 20px;flex:1">' +

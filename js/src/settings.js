@@ -137,20 +137,23 @@ function renderBillingPlanCards() {
   var plans = [
     {
       tier: 'core', name: 'Core', color: 'var(--teal)',
+      price: '$99',
       desc: 'Health monitoring essentials for small teams',
-      features: ['Up to 3 users', 'Up to 200 accounts', 'Health scoring & sparklines', 'Email digest & alerts', 'Renewal pipeline'],
+      features: ['3 users', '200 accounts', '500 AI calls / month', 'All AI features'],
       priceKey: interval === 'annual' ? 'core_annual' : 'core_monthly',
     },
     {
       tier: 'growth', name: 'Growth', color: 'var(--blue)', popular: true,
+      price: '$179',
       desc: 'Advanced insights for growing CS teams',
-      features: ['Up to 10 users', 'Up to 1,000 accounts', 'Everything in Core', 'Segments & CSM dashboards', 'Scoring profiles & audit log', 'Custom tags & alert channels'],
+      features: ['10 users', '1,000 accounts', '5,000 AI calls / month', 'All AI features', 'CSM Dashboard', 'Forecasting'],
       priceKey: interval === 'annual' ? 'growth_annual' : 'growth_monthly',
     },
     {
       tier: 'custom', name: 'Custom', color: 'var(--purple)',
-      desc: 'Full platform with white-label & automation',
-      features: ['Unlimited users', 'Unlimited accounts', 'Everything in Growth', 'QBR Prep & playbooks', 'Automations & API access', 'White-label & custom branding'],
+      price: '$399',
+      desc: 'Full platform with white-label & custom UI',
+      features: ['Unlimited users', 'Unlimited accounts', 'Unlimited AI calls', 'All AI features', 'CSM Dashboard', 'Forecasting', 'White-label / Custom UI'],
       priceKey: interval === 'annual' ? 'custom_annual' : 'custom_monthly',
     }
   ];
@@ -165,6 +168,7 @@ function renderBillingPlanCards() {
       badge +
       '<div style="text-align:center;margin-bottom:16px">' +
         '<h3 style="font-size:18px;font-weight:700;color:' + p.color + ';margin-bottom:4px">' + p.name + '</h3>' +
+        (p.price ? '<div style="font-size:24px;font-weight:800;color:var(--text);margin:4px 0">' + p.price + '<span style="font-size:13px;font-weight:400;color:var(--muted)">/mo</span></div>' : '') +
         '<p style="font-size:12px;color:var(--muted)">' + p.desc + '</p>' +
       '</div>' +
       '<ul style="list-style:none;padding:0;margin:0 0 20px;flex:1">' +

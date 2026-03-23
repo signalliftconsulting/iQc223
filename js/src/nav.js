@@ -218,7 +218,7 @@ function nav(v) {
   if (v === 'customers') { renderCustomersGuide(); renderCustomers(); }
   if (v === 'segments')  { renderSegmentsGuide(); if (!hasFeature('segments')) { el('seg-kpi-row').innerHTML = ''; el('seg-table-wrap').innerHTML = upgradeHTML('segments'); } else renderSegments(); }
   if (v === 'trends')    { renderTrendsGuide(); _trendFirstRender = true; renderTrends(); }
-  if (v === 'forecast')  { renderForecastGuide(); renderForecast(); }
+  if (v === 'forecast')  { renderForecastGuide(); if (!hasFeature('forecasting')) { el('fc-kpi-row').innerHTML = ''; el('fc-table-wrap').innerHTML = upgradeHTML('forecasting'); } else renderForecast(); }
   if (v === 'csmperf')   { renderCsmperfGuide(); if (!hasFeature('csm_performance')) { el('csmperf-wrap').innerHTML = upgradeHTML('csm_performance'); el('csmperf-stats').innerHTML = ''; } else renderCSMPerformance(); }
   if (v === 'calendar')  { renderCalendarGuide(); renderCalendar(); }
   if (v === 'settings')  renderSettings();
