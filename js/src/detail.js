@@ -1481,14 +1481,16 @@ function renderDetailPlaybook() {
     if (checks[k] === true) { checks[k] = now; dirty = true; }
   });
 
-  // Prune stale keys (play no longer in playbook)
+  // Prune stale keys (play no longer in playbook) — preserve __removed
   const validKeys = new Set(plays.map(playKey));
   Object.keys(checks).forEach(k => {
+    if (k === '__removed') return;
     if (!validKeys.has(k)) { delete checks[k]; dirty = true; }
   });
 
-  // Auto-reset items older than 30 days
+  // Auto-reset items older than 30 days — preserve __removed
   Object.keys(checks).forEach(k => {
+    if (k === '__removed') return;
     if (typeof checks[k] === 'number' && (now - checks[k]) >= RESET_MS) {
       delete checks[k]; dirty = true;
     }
@@ -1543,7 +1545,10 @@ function renderDetailPlaybook() {
 function togglePlayCheck(idx, checked) {
   const c = customers.find(x => x.id === detailId);
   if (!c) return;
-  const plays = buildPlaybook(c.score, c);
+  let plays = buildPlaybook(c.score, c);
+  // Filter out removed items to match rendered indices
+  const removed = new Set((c.playbook_checks || {}).__removed || []);
+  plays = plays.filter(p => !removed.has(playKey(p)));
   if (!plays[idx]) return;
   const key = playKey(plays[idx]);
   c.playbook_checks = c.playbook_checks || {};
