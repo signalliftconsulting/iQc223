@@ -290,6 +290,13 @@ function _checkUserSwitch(userId) {
     }
 
     // Fresh sign-in only (no existing data loaded)
+    // Block unconfirmed users (sign-up triggers SIGNED_IN briefly)
+    if (!currentUser.email_confirmed_at && !currentUser.confirmed_at) {
+      console.log('[auth] Unconfirmed user — ignoring SIGNED_IN event');
+      await sb.auth.signOut();
+      showAuthGate();
+      return;
+    }
     _checkUserSwitch(currentUser.id);
     hideAuthGate();
     updateUserUI(currentUser);
