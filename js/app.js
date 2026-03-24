@@ -7272,19 +7272,8 @@ function _renderHomeBase() {
   html += `<div style="font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.10em;color:#0f766e;margin-bottom:6px">Action Items</div>`;
   html += '<div id="hb-portfolio-actions">';
 
-  if (_aiHasCache && _aiPortfolioCache.action_items) {
-    // Render cached AI action items (will have click handlers attached after innerHTML set)
-    window._hbActionItems = [];
-    _aiPortfolioCache.action_items.slice(0, 4).forEach(function(a, idx) {
-      var filter = _aiActionToFilter(a.text);
-      window._hbActionItems.push(filter ? { text: a.text, ids: filter.ids, action: null, tone: a.tone } : { text: a.text, action: null, tone: a.tone });
-    });
-    // Will be rendered by _renderAIActionItems after innerHTML
-  } else if (_aiIntegrationConnected) {
-    html += _actionSkeleton;
-    window._hbActionItems = _actionItems.slice(0, 3);
-  } else {
-    // No AI  -  show hardcoded action items
+  // Always use local action items — they're more specific (reference actual customer names, MRR, days)
+  {
     window._hbActionItems = _actionItems.slice(0, 3);
     if (_actionItems.length) {
       const _toneColors = { red: { bg:'rgba(239,68,68,.07)', border:'var(--red)' }, amber: { bg:'rgba(245,158,11,.07)', border:'var(--amber)' }, green: { bg:'rgba(22,163,74,.07)', border:'var(--green)' } };
@@ -7619,9 +7608,7 @@ function _loadAIPortfolioOverview(stats) {
     if (el('hb-portfolio-blurb')) {
       el('hb-portfolio-blurb').innerHTML = escHtml(data.data.overview || '');
     }
-    if (el('hb-portfolio-actions') && data.data.action_items) {
-      _renderAIActionItems(el('hb-portfolio-actions'), data.data.action_items);
-    }
+    // Action items are always local (not AI) — no need to update them here
   }).catch(function(err) {
     console.warn('AI Portfolio Overview error:', err);
     // Restore fallback text since skeleton is showing
@@ -7630,7 +7617,6 @@ function _loadAIPortfolioOverview(stats) {
       var fb = blurb.getAttribute('data-fallback');
       blurb.innerHTML = fb || 'Portfolio overview unavailable.';
     }
-    _renderFallbackActions(el('hb-portfolio-actions'));
   });
 }
 
