@@ -246,7 +246,7 @@ function mgrAllToggle(checked) {
     cbs.forEach(c => c.checked = false);
   }
   updateMgrFilterLabel();
-  renderHomeBase(); renderCustomers(); renderAlerts(); renderSegments(); renderCSMPerformance(); renderTrends(); renderCalendar();
+  renderHomeBase(); renderCustomers(); renderAlerts(); renderSegments(); renderCSMPerformance(); renderTrends(); _renderForecast(); renderCalendar(); renderReporting();
 }
 
 function mgrCbChange() {
@@ -267,7 +267,7 @@ function mgrCbChange() {
     if (allCb) allCb.checked = false;
   }
   updateMgrFilterLabel();
-  renderHomeBase(); renderCustomers(); renderAlerts(); renderSegments(); renderCSMPerformance(); renderTrends(); renderCalendar();
+  renderHomeBase(); renderCustomers(); renderAlerts(); renderSegments(); renderCSMPerformance(); renderTrends(); _renderForecast(); renderCalendar(); renderReporting();
 }
 
 function updateMgrFilterLabel() {
