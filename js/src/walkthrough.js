@@ -679,12 +679,13 @@ function _wtSpotlightPage(page, idx, gen) {
     try {
       new Function(step.tab)();
     } catch(e) {
-      // Fallback: try direct cfgTab call
+      // Fallback: parse function calls from the tab string and execute directly
       try {
-        var m = step.tab.match(/cfgTab\('(\w+)'\)/);
-        if (m) cfgTab(m[1]);
-        var m2 = step.tab.match(/apiSubTab\('(\w+)'\)/);
-        if (m2 && typeof apiSubTab === 'function') apiSubTab(m2[1]);
+        var calls = step.tab.match(/(\w+)\('([^']*)'\)/g) || [];
+        calls.forEach(function(call) {
+          var parts = call.match(/(\w+)\('([^']*)'\)/);
+          if (parts && typeof window[parts[1]] === 'function') window[parts[1]](parts[2]);
+        });
       } catch(e2) { console.warn('Walkthrough tab switch failed:', e2); }
     }
   }
