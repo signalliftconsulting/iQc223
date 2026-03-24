@@ -125,11 +125,11 @@ Portfolio Stats:
 - Health distribution: ${stats.critical || 0} Critical, ${stats.risk || 0} Risk, ${stats.watch || 0} Watch, ${stats.healthy || 0} Healthy, ${stats.expand || 0} Expand
 - Average score: ${stats.avgScore || 0}
 - Score trend (${stats.periodDays || 7}d): ${stats.avgDelta > 0 ? '+' : ''}${stats.avgDelta || 0} pts
-- Improving accounts: ${stats.improving || 0}, Declining: ${stats.declining || 0}, Stable: ${stats.stable || 0}
-- MRR at risk: $${stats.atRiskMRR || 0}
+- Improving accounts: ${stats.improving || 0}, Declining: ${stats.declining || 0} ($${stats.decliningMRR || 0} MRR), Stable: ${stats.stable || 0}
+- MRR at risk (Critical + Risk accounts): $${stats.atRiskMRR || 0}
 - Total MRR: $${stats.totalMRR || 0}
 - Renewals in 30 days: ${stats.renewals30 || 0} ($${stats.renewalMRR || 0} MRR)
-- At-risk renewals: ${stats.renewalsAtRisk || 0}
+- At-risk renewals: ${stats.renewalsAtRisk || 0} ($${stats.renewalAtRiskMRR || 0} MRR)
 - Silent decliners (previously healthy, now declining): ${stats.silentDecliners || 0} ($${stats.silentDeclinerMRR || 0} MRR)
 - Overnight drops (5+ pts): ${stats.overnightDrops || 0}
 ${stats.weakestSignal ? '- Weakest signal in at-risk accounts: ' + stats.weakestSignal : ''}

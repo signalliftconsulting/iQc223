@@ -520,8 +520,12 @@ function _renderHomeBase() {
 
   const healthyCount = active.filter(c => c.status === 'healthy' || c.status === 'expand').length;
   const healthyPct = total ? Math.round(healthyCount / total * 100) : 0;
-  const improving = withHist.filter(c => getDeltaPeriod(c) > 2).length;
-  const declining = withHist.filter(c => getDeltaPeriod(c) < -2).length;
+  const improvingAccts = withHist.filter(c => getDeltaPeriod(c) > 2);
+  const decliningAccts = withHist.filter(c => getDeltaPeriod(c) < -2);
+  const improving = improvingAccts.length;
+  const declining = decliningAccts.length;
+  const decliningMRR = decliningAccts.reduce((s, c) => s + (c.mrr || 0), 0);
+  const renewalAtRiskMRR = renewals30.filter(c => c.status === 'critical' || c.status === 'risk').reduce((s, c) => s + (c.mrr || 0), 0);
   const mgrLabel = mgrFilterAll ? '' : (activeManagers.size === 1 ? ` for ${[...activeManagers][0]}` : ` across ${activeManagers.size} managers`);
 
   // ── Deep-signal analysis for briefing ──
@@ -1101,10 +1105,10 @@ function _renderHomeBase() {
       total, critical: critical.length, risk: risk.length, watch: watch.length,
       healthy: healthy.length, expand: expand.length,
       avgScore, avgDelta, periodDays: _hbPeriodDays,
-      improving, declining, stable: total - improving - declining,
+      improving, declining, decliningMRR, stable: total - improving - declining,
       atRiskMRR, totalMRR,
       renewals30: renewals30.length, renewalMRR: renewMRR,
-      renewalsAtRisk: renewalsAtRisk.length,
+      renewalsAtRisk: renewalsAtRisk.length, renewalAtRiskMRR,
       silentDecliners: silentDecliners.length, silentDeclinerMRR: sdMRR,
       overnightDrops: _dodBriefing ? _dodBriefing.droppers : 0,
       weakestSignal: _weakSig
