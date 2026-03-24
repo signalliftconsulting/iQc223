@@ -370,42 +370,61 @@ function renderBellDd() {
   if (!m) return;
   const all = buildAlerts();
   const active = all.filter(a => !isSnoozed(a.id) && !isDismissed(a.id));
-  // Show only Act Now alerts (red severity)
-  const actNow = active.filter(a => a.type === 'red');
-  if (!actNow.length) {
+  // Build Act Now list: same logic as briefing (critical/risk health OR big drops)
+  const now = new Date();
+  const actNowCids = new Set();
+  active.forEach(a => {
+    const c = customers.find(x => x.id === a.cid);
+    if (!c) return;
+    const hasCritRisk = a.cat === 'health' && (c.status === 'critical' || c.status === 'risk');
+    const hist = c.score_history || [];
+    let bigDrop = false;
+    if (hist.length >= 2) {
+      const delta = hist[hist.length - 1].score - hist[hist.length - 2].score;
+      if (delta <= -10) bigDrop = true;
+    }
+    if (hasCritRisk || bigDrop) actNowCids.add(c.id);
+  });
+  // Get unique customers for Act Now
+  const actNowCustomers = [...actNowCids].map(id => customers.find(c => c.id === id)).filter(Boolean)
+    .sort((a, b) => (a.score || 100) - (b.score || 100));
+  if (!actNowCustomers.length) {
     m.innerHTML = `<div style="padding:18px 16px;font-size:var(--fs-base);color:var(--muted);text-align:center">${appIcon('check',13)} All clear - no urgent alerts</div>
     <div style="border-top:1px solid var(--border);padding:8px 14px">
       <button class="snooze-dd__item" onclick="toggleBellDd();nav('alerts')" style="font-size:var(--fs-base);color:var(--blue);font-weight:600;width:100%;justify-content:center;gap:4px">View All Alerts (${active.length}) <span style="font-size:var(--fs-sm)">&rarr;</span></button>
     </div>`;
     return;
   }
-  const top5 = actNow.slice(0, 6);
-  const dotColor = { red:'var(--red)', amber:'var(--amber)', blue:'var(--blue)', green:'var(--green)' };
-  const catLabel = (a) => { const cat = ALERT_CATS[a.cat]; return cat ? cat.label : a.cat || ''; };
+  const top5 = actNowCustomers.slice(0, 6);
+  const statusColor = { critical:'var(--red)', risk:'var(--red)', watch:'var(--amber)', healthy:'var(--green)', expand:'var(--blue)' };
 
   let html = `<div style="padding:10px 14px 6px;font-size:var(--fs-sm);font-weight:700;color:var(--text);display:flex;align-items:center;justify-content:space-between">
     <span>Act Now</span>
-    <span style="font-weight:500;font-size:var(--fs-xs);color:var(--muted)">${actNow.length} urgent</span>
+    <span style="font-weight:500;font-size:var(--fs-xs);color:var(--muted)">${actNowCustomers.length} account${actNowCustomers.length !== 1 ? 's' : ''}</span>
   </div>`;
-  html += top5.map(a => {
-    const c = customers.find(x => x.id === a.cid);
-    const timeAgo = _bellTimeAgo(c);
-    const custName = c ? escHtml(c.name) : 'Unknown';
-    const alertType = catLabel(a);
-    return `<button class="snooze-dd__item" onclick="toggleBellDd();${c ? `openDetail('${escHtml(c.id)}')` : `nav('alerts')`}" style="flex-direction:column;align-items:flex-start;gap:3px;padding:10px 14px;border-bottom:1px solid var(--border)">
+  html += top5.map(c => {
+    const scoreColor = (c.score || 0) < 25 ? 'var(--red)' : (c.score || 0) < 50 ? '#ea580c' : (c.score || 0) < 65 ? 'var(--amber)' : 'var(--green)';
+    const hist = c.score_history || [];
+    let delta = '';
+    if (hist.length >= 2) {
+      const d = hist[hist.length - 1].score - hist[hist.length - 2].score;
+      if (d !== 0) delta = `<span style="color:${d < 0 ? 'var(--red)' : 'var(--green)'};font-size:var(--fs-xs)">${d > 0 ? '+' : ''}${d}</span>`;
+    }
+    const mrrStr = c.mrr ? '$' + fmtNum(c.mrr) : '';
+    return `<button class="snooze-dd__item" onclick="toggleBellDd();openDetail('${escHtml(c.id)}')" style="flex-direction:column;align-items:flex-start;gap:3px;padding:10px 14px;border-bottom:1px solid var(--border)">
       <div style="display:flex;align-items:center;gap:8px;width:100%">
-        <span style="width:8px;height:8px;border-radius:50%;background:${dotColor[a.type]||'var(--muted)'};flex-shrink:0"></span>
-        <span style="font-size:var(--fs-base);color:var(--text);font-weight:600;flex:1;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${custName}</span>
-        <span style="font-size:var(--fs-xs);color:var(--muted);flex-shrink:0;white-space:nowrap">${timeAgo}</span>
+        <span style="font-size:var(--fs-sm);font-weight:700;color:${scoreColor};min-width:24px">${c.score || '-'}</span>
+        <span style="font-size:var(--fs-base);color:var(--text);font-weight:600;flex:1;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(c.name)}</span>
+        ${mrrStr ? `<span style="font-size:var(--fs-xs);color:var(--muted);flex-shrink:0">${mrrStr}</span>` : ''}
       </div>
-      <div style="padding-left:16px;font-size:var(--fs-sm);color:var(--muted);text-align:left;display:flex;align-items:center;gap:6px">
-        <span style="font-weight:600;color:${dotColor[a.type]||'var(--muted)'}">${alertType}</span>
-        ${a.sub ? `<span style="opacity:.7"> - ${a.sub.replace(/<[^>]*>/g,'').substring(0,50)}</span>` : ''}
+      <div style="padding-left:32px;font-size:var(--fs-sm);color:var(--muted);text-align:left">
+        <span style="color:${statusColor[c.status] || 'var(--muted)'};font-weight:600;text-transform:capitalize">${c.status || 'unknown'}</span>
+        ${delta ? ' ' + delta : ''}
       </div>
     </button>`;
   }).join('');
-  if (active.length > 5) {
-    html += `<div style="padding:6px 14px;font-size:var(--fs-xs);color:var(--muted);text-align:center">+${active.length - 5} more alert${active.length - 5 !== 1 ? 's' : ''}</div>`;
+  if (actNowCustomers.length > 6) {
+    html += `<div style="padding:6px 14px;font-size:var(--fs-xs);color:var(--muted);text-align:center">+${actNowCustomers.length - 6} more</div>`;
   }
   html += `<div style="border-top:1px solid var(--border);padding:8px 14px">
     <button class="snooze-dd__item" onclick="toggleBellDd();nav('alerts')" style="font-size:var(--fs-base);color:var(--blue);font-weight:600;width:100%;justify-content:center;gap:4px">View All Alerts <span style="font-size:var(--fs-sm)">&rarr;</span></button>
