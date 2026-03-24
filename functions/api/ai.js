@@ -137,15 +137,27 @@ ${stats.tierDivergence ? '- Tier divergence: ' + stats.tierDivergence : ''}
 ${stats.contactImpact ? '- Contact impact: ' + stats.contactImpact : ''}
 
 Response schema:
-{"overview":"2-4 sentence portfolio briefing highlighting the most important patterns and risks","action_items":[{"text":"verb-first action item","tone":"red|amber|green"}]}
+{"overview":"2-4 sentence portfolio briefing highlighting the most important patterns and risks","action_items":[{"text":"verb-first action item with specific numbers and account details","tone":"red|amber|green"}]}
 
-Rules:
-- Overview should read like a daily briefing from a VP of CS — strategic, specific, and actionable
-- Do NOT restate numbers without context — explain what they mean
+Rules for overview:
+- Read like a daily briefing from a VP of CS - strategic, specific, and actionable
+- Do NOT restate numbers without context - explain what they mean
 - Highlight the most surprising or actionable pattern first
-- 2-4 action items, ordered by urgency
-- Action item text should start with a verb (Investigate, Schedule, Review, etc.)
-- Tone: red = urgent/critical, amber = important/watch, green = opportunity`;
+- If the portfolio is mostly healthy, lead with what could go wrong next, not what's going well
+
+Rules for action items (CRITICAL - these must be specific and distinct):
+- Exactly 3 action items, each addressing a DIFFERENT aspect of the portfolio
+- Each item MUST include specific numbers (dollar amounts, account counts, days, percentages)
+- Each item MUST be a concrete next step, not generic advice
+- BAD: "Investigate adoption issues in at-risk accounts" (too vague)
+- GOOD: "Call the 4 at-risk accounts ($28K MRR) this week - adoption under 20% is the common thread"
+- BAD: "Monitor upcoming renewals closely" (not actionable)
+- GOOD: "Prep renewal strategy for the 3 accounts renewing in 30 days - 1 is at-risk with $8.5K MRR"
+- BAD: "Review strategies for engaging expanding accounts" (generic)
+- GOOD: "Send expansion proposals to the top 3 Expand accounts - $15K upsell potential at 20% of MRR"
+- The 3 items should cover different topics: e.g. one about risk, one about renewals or contact gaps, one about growth/expansion
+- Tone: red = urgent/needs action today, amber = important/this week, green = opportunity to capture
+- Do NOT repeat the same accounts or themes across items`;
   }
 
   if (promptType === 'save_playbook') {
