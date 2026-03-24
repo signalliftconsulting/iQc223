@@ -1813,6 +1813,7 @@ function editCustomer(id) {
   _returnToDetail = c.id;
   closeModal('detail-modal');
   nav('score');
+  window.scrollTo(0, 0);
   document.getElementById('form-title').textContent = 'Re-score: ' + c.name;
   document.getElementById('score-form').dataset.editId = c.id;
   if (el('save-details-wrap')) el('save-details-wrap').style.display = 'flex';
