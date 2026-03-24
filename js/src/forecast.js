@@ -198,8 +198,13 @@ function _fcBuildAnalysis(classified, startMRR, nrr, expandTotal, contractTotal,
     nrrAccent = 'green';
   } else if (nrrRound >= 100) {
     nrrTitle = 'NRR projected at ' + nrrRound + '% - slight growth';
-    nrrDetail = `Expansion ($${fmtNum(expandTotal)}/mo from ${expandAccts.length} accounts) edges out risk ($${fmtNum(contractTotal + churnTotal)}/mo from ${contractAccts.length + churnAccts.length} accounts). `;
-    nrrDetail += 'Revenue is growing but the margin is thin. Reducing churn risk would strengthen the position.';
+    var _riskCount = contractAccts.length + churnAccts.length;
+    var _riskMRR = contractTotal + churnTotal;
+    if (_riskCount > 0) {
+      nrrDetail = `Expansion ($${fmtNum(expandTotal)}/mo from ${expandAccts.length} accounts) edges out risk ($${fmtNum(_riskMRR)}/mo from ${_riskCount} accounts). Revenue is growing but the margin is thin. Reducing churn risk would strengthen the position.`;
+    } else {
+      nrrDetail = `Expansion of $${fmtNum(expandTotal)}/mo from ${expandAccts.length} accounts with no significant contraction or churn risk detected. The portfolio is in a healthy growth position.`;
+    }
     nrrAccent = 'green';
   } else if (nrrRound >= 95) {
     nrrTitle = 'NRR projected at ' + nrrRound + '% - roughly flat';
