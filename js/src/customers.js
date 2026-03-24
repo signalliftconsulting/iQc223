@@ -117,6 +117,13 @@ function refreshMgrDropdown() {
   const wrap = document.getElementById('mgr-filter-wrap');
   if (!wrap) return;
 
+  // Hide manager filter for tiers without csm_filtering
+  if (!hasFeature('csm_filtering')) {
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = '';
+
   // If no managers at all, clear the dropdown and hide the filter list
   if (managers.length === 0) {
     const dl = document.getElementById('manager-datalist');

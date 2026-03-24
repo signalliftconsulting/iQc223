@@ -10366,6 +10366,13 @@ function refreshMgrDropdown() {
   const wrap = document.getElementById('mgr-filter-wrap');
   if (!wrap) return;
 
+  // Hide manager filter for tiers without csm_filtering
+  if (!hasFeature('csm_filtering')) {
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = '';
+
   // If no managers at all, clear the dropdown and hide the filter list
   if (managers.length === 0) {
     const dl = document.getElementById('manager-datalist');
@@ -14494,7 +14501,7 @@ function renderBillingPlanCards() {
       tier: 'growth', name: 'Growth', color: 'var(--blue)', popular: true,
       price: '',
       desc: 'Advanced insights for growing CS teams',
-      features: ['5 users', '300 accounts', '5,000 AI calls / month', 'Everything in Core, plus:', 'CSM Performance dashboard', 'Signal Model (proprietary scoring)'],
+      features: ['5 users', '300 accounts', '5,000 AI calls / month', 'Everything in Core, plus:', 'CSM Performance dashboard & leaderboard', 'Signal Model (proprietary scoring)', 'Manager filtering across all views'],
       priceKey: interval === 'annual' ? 'growth_annual' : 'growth_monthly',
     },
     {
