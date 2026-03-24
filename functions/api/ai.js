@@ -83,22 +83,21 @@ function buildUserPrompt(promptType, data) {
 ${buildCustomerSummary(data.customer)}
 
 Response schema:
-{"risk_factors":[{"title":"2-4 word label","detail":"1 sentence max","severity":"red|amber|green"}],"actions":[{"title":"2-4 word label","detail":"1 sentence - what to do and by when","priority":"high|medium|low"}],"summary":"2-3 SHORT sentences"}
+{"risk_factors":[{"title":"2-4 word label","detail":"1-2 sentences explaining what this means and why it matters","severity":"red|amber|green"}],"actions":[{"title":"2-4 word label","detail":"1-2 sentences with a specific next step the CSM can take this week","priority":"high|medium|low"}],"summary":"3-4 sentence health narrative that tells a story about this account"}
 
 Here is an example of GOOD output for a different customer (do NOT reuse this text):
-{"risk_factors":[{"title":"Adoption flatlined","detail":"28% adoption for 3 months straight means they found a few features and stopped exploring.","severity":"amber"},{"title":"Score jumped 18 pts","detail":"Went from 52 to 70 since last month. Something clicked.","severity":"green"}],"actions":[{"title":"Ask what changed","detail":"On the next call, find out what drove the score jump so you can replicate it across other accounts.","priority":"high"}],"summary":"Score shot up 18 pts but NPS is still a 6. The usage is improving but the customer isn't feeling it yet. That disconnect means there's probably a support or product issue underneath."}
+{"risk_factors":[{"title":"Adoption stalled at 28%","detail":"They found a few features and stopped exploring. Three months at the same level suggests they don't see value beyond their initial use case. Training or a feature walkthrough could unlock the rest.","severity":"amber"},{"title":"Score climbed 18 pts","detail":"Jumped from 52 to 70 in a month. Whatever changed in the last few weeks is working - worth finding out what it was so you can replicate it.","severity":"green"}],"actions":[{"title":"Find the catalyst","detail":"On the next call, ask what changed recently that improved their experience. If it was a specific feature or a support interaction, document it as a playbook for similar accounts.","priority":"high"},{"title":"Push adoption further","detail":"Send a personalized feature guide covering the 72% of features they haven't touched. Focus on the 2-3 most relevant to their use case.","priority":"medium"}],"summary":"Score shot up 18 pts but NPS is still a 6 - usage is improving but the customer isn't feeling it yet. That gap usually means there's a product friction or support issue they haven't raised. The 1 open ticket could be the clue. With adoption stuck at 28%, they're only scratching the surface of what the product can do for them."}
 
 Rules:
-- Keep it SHORT. No filler words. Write like you're texting a colleague, not writing a report.
-- 2-4 risk factors, 1-2 actions max
-- Connect signals: if score improved but NPS didn't, say why that's weird. If adoption is high but CSAT is low, say what that means.
-- If score improved 10+ pts, include a green risk factor and mention it in summary
-- Actions: what specifically to do and by when. "Ask about X on next call" not "engage to understand concerns"
-- Contact under 14 days = normal, don't mention it. 21+ days = amber, 30+ = red.
+- 2-4 risk factors with substantive detail explaining the "so what" and "why it matters"
+- 1-2 actions that are specific, actionable this week, and tied to the customer's actual signals
+- Summary should tell a STORY about this account - connect the dots between signals, explain what's really going on underneath the numbers
+- If score improved 10+ pts, include a green risk factor and explain what likely drove it
+- Connect signals to each other: if score improved but NPS didn't, explain the disconnect. If adoption is high but CSAT is low, explain what that combination means.
+- Contact under 14 days = normal, don't flag. 21+ days = amber, 30+ = red.
 - Renewals over 90 days away = ignore completely
-- No "we/our/us". No corporate buzzwords. No "positive engagement" or "maintaining momentum" or "reinforcing value".
-- Write in third person
-- IMPORTANT: Only mention the renewal date if it is within 90 days. If it says "do NOT mention" in the renewal data, completely ignore the renewal.
+- No "we/our/us". No corporate buzzwords like "positive engagement", "maintaining momentum", "reinforcing value", "capitalize on", "ensure satisfaction"
+- Write in third person. Be direct and specific, but give enough detail to be useful.
 - Format dates readably (e.g. "April 8, 2026" not "2026-04-08")`;
   }
 
