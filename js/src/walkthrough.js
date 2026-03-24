@@ -105,8 +105,14 @@ var _WT_TOURS = {
       },
       {
         target: '#cfg-score-dist',
-        title: 'Score Distribution & Profiles',
-        body: 'See how your accounts spread across health bands. Below the distribution, manage Scoring Profiles to save and load different weight configurations for different customer segments (e.g. Non-SaaS).',
+        title: 'Score Distribution',
+        body: 'See how your accounts spread across health bands in real time. This updates automatically when you change weights or thresholds.',
+        tab: "cfgTab('scoring')"
+      },
+      {
+        target: '#profiles-list',
+        title: 'Scoring Profiles',
+        body: 'Save different weight configurations for different customer segments. For example, create a "Non-SaaS" profile that turns off logins and adoption, then assign it to consulting or services accounts. Click a profile to load its weights into the editor above, or use "Save as New Profile" to capture your current slider settings.',
         tab: "cfgTab('scoring')"
       },
       {
