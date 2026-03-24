@@ -812,13 +812,23 @@ function _renderHomeBase() {
     }
   }
 
-  // Sort by urgency, deduplicate, take top 4
+  // Sort by urgency, deduplicate by tone + significant ID overlap, take top 3
   _actionPool.sort((a,b) => b.urgency - a.urgency);
   const _actionItems = [];
+  const _usedTones = [];
   for (const item of _actionPool) {
     if (_actionItems.length >= 3) break;
+    // Skip if all IDs already mentioned
     if (item.ids.length > 0 && item.ids.every(id => _mentioned.has(id))) continue;
+    // Skip if >50% of IDs overlap with already mentioned (prevents near-duplicate items)
+    if (item.ids.length > 0) {
+      var overlap = item.ids.filter(id => _mentioned.has(id)).length;
+      if (overlap > item.ids.length * 0.5) continue;
+    }
+    // Prefer variety - skip if we already have 2 items of the same tone
+    if (_usedTones.filter(t => t === item.tone).length >= 2) continue;
     item.ids.forEach(id => _mentioned.add(id));
+    _usedTones.push(item.tone);
     _actionItems.push({ text: item.text, actionFn: item.actionFn, ids: item.ids, tone: item.tone || 'amber' });
   }
 
