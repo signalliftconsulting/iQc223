@@ -2036,7 +2036,7 @@ function renderWins(active) {
   active.forEach(c => {
     if (!c.history || c.history.length < 2) return;
     const delta = getDelta7d(c);
-    if (delta > 0) wins.push({ c, delta, newScore: c.score });
+    if (delta > 3) wins.push({ c, delta, newScore: c.score });
   });
 
   if (!wins.length) {
@@ -2080,7 +2080,7 @@ function renderDrops(active) {
   active.forEach(c => {
     if (!c.history || c.history.length < 2) return;
     const delta = getDelta7d(c);
-    if (delta < 0) drops.push({ c, delta, newScore: c.score });
+    if (delta < -3) drops.push({ c, delta, newScore: c.score });
   });
 
   if (!drops.length) {
