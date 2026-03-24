@@ -816,7 +816,7 @@ function buildPlaybook(score, data) {
     if (npsIsDetractor(data.nps))
       plays.push({ type:'urgent', text:`<strong>Executive recovery call:</strong> NPS detractor (${npsDisplay(data.nps)}) - don't wait. Escalate to leadership and reach out personally: <em>"I wanted to call you directly because your feedback matters a lot to us. Can you help me understand what's fallen short? I want to make this right."</em>` });
     else if (npsIsPromoter(data.nps) && status === 'expand')
-      plays.push({ type:'expand', text:`<strong>Leverage the promoter:</strong> NPS ${npsDisplay(data.nps)} + strong health = referral opportunity. Ask: <em>"We love having you as a customer - would you be open to a quick case study or intro to a peer who might benefit from [product]? I'll make it easy for you."</em>` });
+      plays.push({ type:'expand', text:`<strong>Promoter with strong health:</strong> NPS ${npsDisplay(data.nps)} and expanding. This is the right time to ask about a case study or referral - they're clearly getting value.` });
   }
 
   // ── CSAT ────────────────────────────────────────────────
@@ -824,7 +824,7 @@ function buildPlaybook(score, data) {
     if (csatIsPoor(data.csat))
       plays.push({ type:'urgent', text:`<strong>CSAT recovery needed:</strong> CSAT is ${csatDisplay(data.csat)} - satisfaction is critically low. Reach out today: <em>"I saw your recent feedback and I want to personally make sure we address what's not working. Can we get 20 minutes this week?"</em>` });
     else if (csatIsGood(data.csat) && status === 'expand')
-      plays.push({ type:'expand', text:`<strong>High CSAT - referral ready:</strong> CSAT ${csatDisplay(data.csat)} indicates strong satisfaction. Ask: <em>"You've had such a great experience - would you be open to sharing your story or introducing a peer?"</em>` });
+      plays.push({ type:'expand', text:`<strong>High CSAT - expansion ready:</strong> CSAT ${csatDisplay(data.csat)} shows strong satisfaction. Good candidate for case study, referral, or expanding to other teams.` });
   }
 
   // ── Days since contact ───────────────────────────────────
@@ -847,11 +847,11 @@ function buildPlaybook(score, data) {
 
   // ── Renewal ──────────────────────────────────────────────
   if (data.renewal === 0)
-    plays.push({ type:'renew', text:`<strong>Renewal NOW:</strong> Contract is at renewal - get this closed immediately. If health is strong, make it easy: <em>"Everything looks great on your account - I'd love to lock in your renewal and talk about what's coming next year."</em>` });
+    plays.push({ type:'renew', text:`<strong>Renewal NOW:</strong> Contract is at renewal. If health is strong, this should be a quick close. If not, lead with a value review before the renewal conversation.` });
   else if (data.renewal != null && data.renewal <= 1)
-    plays.push({ type:'renew', text:`<strong>Renewal urgency:</strong> ${fmtRenewalTime(data)} to renewal. Schedule the contract review call this week - lead with value: <em>"Before we talk paperwork, I want to make sure you've seen the ROI you were expecting. Let's walk through your results together."</em>` });
+    plays.push({ type:'renew', text:`<strong>Renewal urgency:</strong> ${fmtRenewalTime(data)} to renewal. Schedule the contract review this week. Lead with a value review - walk through their results and ROI before discussing the paperwork.` });
   else if (data.renewal != null && data.renewal <= 3 && status !== 'risk' && status !== 'critical')
-    plays.push({ type:'renew', text:`<strong>Renewal prep:</strong> ${fmtRenewalTime(data)} to renewal. Start the conversation now while sentiment is positive: <em>"Renewal is coming up - I'd love to get ahead of it and make sure everything is lined up on your end."</em>` });
+    plays.push({ type:'renew', text:`<strong>Renewal prep:</strong> ${fmtRenewalTime(data)} to renewal. Start the renewal conversation now while sentiment is positive. Get ahead of procurement timelines.` });
 
   // ── Growth signal ────────────────────────────────────────
   if (signalOn(data,'growth')) {
@@ -1151,9 +1151,9 @@ function buildNextBestAction(c) {
   }
 
   if (status === 'expand')
-    return { level:'expand', action:'Ask for a referral or case study', talk:`Happy, healthy customer - great time to ask: "You've had such a great experience - would you be open to a quick intro to a peer who might benefit? I'll make it easy for you."` };
+    return { level:'expand', action:'Explore expansion or case study', talk:`Strong account with high satisfaction. Good time to discuss expanding usage to other teams or departments, or ask if they'd participate in a case study.` };
 
-  return { level:'ok', action:'Send a value-add touchpoint', talk:`Account is healthy - maintain momentum. Send something useful: a relevant tip, case study, or product update. Close with: "Anything you'd like to cover on our next call?"` };
+  return { level:'ok', action:'Send a value-add touchpoint', talk:`Account is healthy. Send something useful: a relevant tip, product update, or industry insight. Keep the relationship warm without being pushy.` };
 }
 
 // ─── MOMENTUM ────────────────────────────────────────────────
