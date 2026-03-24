@@ -25297,7 +25297,7 @@ function _renderFcTable() {
   if (!wrap) return;
 
   var pool = customers.filter(function(c) { return c.lifecycle !== 'churned' && passesManagerFilter(c); });
-  var classified = pool.map(function(c) { return Object.assign({}, c, { fc: _fcClassify(c), delta30: _getDeltaNd(c, 30) }); });
+  var classified = pool.map(function(c) { return Object.assign({}, c, { fc: _fcClassify(c), delta7: getDelta7d(c), delta30: _getDeltaNd(c, 30) }); });
 
   if (_fcTab === 'csm') return _renderFcCsm(wrap, classified);
   if (_fcTab === 'tier') return _renderFcTier(wrap, classified);
@@ -25315,6 +25315,7 @@ function _renderFcTable() {
     if (_fcSortKey === 'name') { va = (a.name || '').toLowerCase(); vb = (b.name || '').toLowerCase(); return _fcSortDir * (va < vb ? -1 : va > vb ? 1 : 0); }
     if (_fcSortKey === 'mrr') { va = a.mrr || 0; vb = b.mrr || 0; }
     else if (_fcSortKey === 'score') { va = a.score || 0; vb = b.score || 0; }
+    else if (_fcSortKey === 'delta7') { va = a.delta7 || 0; vb = b.delta7 || 0; }
     else if (_fcSortKey === 'delta30') { va = a.delta30 || 0; vb = b.delta30 || 0; }
     else if (_fcSortKey === 'renewal') { va = a.renewal || 999; vb = b.renewal || 999; }
     else if (_fcSortKey === 'category') { var o = { churn: 0, contract: 1, retain: 2, expand: 3 }; va = o[a.fc.cat] || 2; vb = o[b.fc.cat] || 2; }
@@ -25336,12 +25337,14 @@ function _renderFcTable() {
     _fcFilterChipsHTML() +
   '</div>';
   html += '<div style="max-height:500px;overflow-y:auto"><table class="ct" style="width:100%;border-collapse:collapse">';
-  html += '<thead><tr>' + th('name', 'Customer') + th('mrr', 'MRR') + th('score', 'Score') + th('delta30', '\u039430d') + th('renewal', 'Renewal') + th('category', 'Forecast') + th('impact', 'Impact') + '</tr></thead>';
+  html += '<thead><tr>' + th('name', 'Customer') + th('mrr', 'MRR') + th('score', 'Score') + th('delta7', '\u03947d') + th('delta30', '\u039430d') + th('renewal', 'Renewal') + th('category', 'Forecast') + th('impact', 'Impact') + '</tr></thead>';
   html += '<tbody>';
 
   list.forEach(function(c) {
     var bg = catColors[c.fc.cat] || '';
     var border = catBorders[c.fc.cat] || 'transparent';
+    var d7 = c.delta7;
+    var d7Str = d7 === null ? '-' : (d7 > 0 ? '<span style="color:var(--green)">+' + Math.round(d7) + '</span>' : d7 < 0 ? '<span style="color:var(--red)">' + Math.round(d7) + '</span>' : '0');
     var d = c.delta30;
     var dStr = d === null ? '-' : (d > 0 ? '<span style="color:var(--green)">+' + Math.round(d) + '</span>' : d < 0 ? '<span style="color:var(--red)">' + Math.round(d) + '</span>' : '0');
     var ren = c.renewal != null ? c.renewal + 'd' : '-';
@@ -25352,6 +25355,7 @@ function _renderFcTable() {
     html += '<td style="padding:7px 10px;font-weight:600"><a href="#" onclick="event.preventDefault();openDetail(\'' + escHtml(c.id) + '\')" style="color:var(--blue);text-decoration:none">' + escHtml(c.name) + '</a></td>';
     html += '<td style="padding:7px 10px">$' + fmtNum(c.mrr || 0) + '</td>';
     html += '<td style="padding:7px 10px">' + (c.score || 0) + '</td>';
+    html += '<td style="padding:7px 10px">' + d7Str + '</td>';
     html += '<td style="padding:7px 10px">' + dStr + '</td>';
     html += '<td style="padding:7px 10px">' + ren + '</td>';
     html += '<td style="padding:7px 10px">' + (catLabels[c.fc.cat] || '') + '</td>';
