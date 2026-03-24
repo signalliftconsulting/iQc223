@@ -14911,19 +14911,18 @@ function saveWeightsAsProfile() {
   const keys = ['logins','adoption','tickets','nps','csat','days','growth'];
   const total = keys.reduce((s,k) => s + parseInt(el('wr-'+k)?.value||0), 0);
   if (total !== 100) { toast('Weights must total 100% first', 'error'); return; }
-  const sliderWeights = {};
-  keys.forEach(k => { sliderWeights[k] = parseInt(el('wr-'+k).value); });
-  // Open profile modal in "new" mode, pre-filled with current slider values
-  const nameInput = el('profile-name-input');
-  nameInput.value = '';
-  nameInput.readOnly = false;
-  nameInput.style.opacity = '';
-  nameInput.style.cursor  = '';
-  el('profile-modal').dataset.editIdx = '-1';
-  if (el('profile-modal-title')) el('profile-modal-title').textContent = 'New Scoring Profile';
-  if (el('profile-confirm-btn')) el('profile-confirm-btn').textContent = 'Save Profile';
-  renderProfileModalWeights(sliderWeights);
-  openModal('profile-modal');
+  var name = prompt('Profile name:');
+  if (!name || !name.trim()) return;
+  name = name.trim();
+  if (name.toLowerCase() === 'global weights') { toast('Cannot use that name', 'warn'); return; }
+  if (profiles.some(p => p.name.toLowerCase() === name.toLowerCase())) { toast('A profile with that name already exists', 'warn'); return; }
+  var w = {};
+  keys.forEach(k => { w[k] = parseInt(el('wr-'+k).value); });
+  profiles.push({ name: name, weights: w });
+  saveSettings();
+  renderProfiles();
+  refreshProfileDropdown();
+  toast('Profile "' + name + '" saved with current weights', 'success');
 }
 
 function rescoreAll() {
