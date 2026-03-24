@@ -876,7 +876,7 @@ function _renderHomeBase() {
 
   // Right column: AI portfolio overview + action items
   html += '<div class="hb-welcome-right">';
-  html += `<div style="display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.10em;color:#0f766e;margin-bottom:6px">${appIcon('sparkle', 13)} Portfolio Overview</div>`;
+  html += `<div style="display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.10em;color:#0f766e;margin-bottom:6px">${appIcon('chart', 13)} Portfolio Overview</div>`;
 
   // If AI is available and no cache yet, show skeleton; otherwise show cached AI or fallback
   const _aiHasCache = _aiPortfolioCache && (Date.now() - _aiPortfolioCacheTime) < AI_FOCUS_CACHE_TTL;
@@ -884,13 +884,8 @@ function _renderHomeBase() {
   const _aiSkeleton = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span>' + _aiSpinner + '</span><span style="font-size:var(--fs-sm);color:var(--muted);font-style:italic">Generating portfolio insights...</span></div><div style="display:flex;flex-direction:column;gap:6px"><div style="height:14px;background:var(--border);border-radius:4px;width:95%;animation:pulse 1.5s infinite"></div><div style="height:14px;background:var(--border);border-radius:4px;width:80%;animation:pulse 1.5s infinite"></div><div style="height:14px;background:var(--border);border-radius:4px;width:60%;animation:pulse 1.5s infinite"></div></div>';
   const _actionSkeleton = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span>' + _aiSpinner + '</span><span style="font-size:var(--fs-sm);color:var(--muted);font-style:italic">Preparing action items...</span></div><div style="display:flex;flex-direction:column;gap:4px"><div style="height:36px;background:var(--border);border-radius:8px;width:100%;animation:pulse 1.5s infinite"></div><div style="height:36px;background:var(--border);border-radius:8px;width:90%;animation:pulse 1.5s infinite"></div><div style="height:36px;background:var(--border);border-radius:8px;width:95%;animation:pulse 1.5s infinite"></div></div>';
 
-  if (_aiHasCache) {
-    html += `<div id="hb-portfolio-blurb" style="font-size:var(--fs-base);color:var(--fg);line-height:1.55;margin-bottom:10px">${escHtml(_aiPortfolioCache.overview || '')}</div>`;
-  } else if (_aiIntegrationConnected) {
-    html += `<div id="hb-portfolio-blurb" style="font-size:var(--fs-base);color:var(--fg);line-height:1.55;margin-bottom:10px" data-fallback="${escHtml(_portfolioBlurb)}">${_aiSkeleton}</div>`;
-  } else {
-    html += `<div id="hb-portfolio-blurb" style="font-size:var(--fs-base);color:var(--fg);line-height:1.55;margin-bottom:10px">${_portfolioBlurb}</div>`;
-  }
+  // Portfolio overview is always local — more accurate and instant than AI-generated summaries
+  html += `<div id="hb-portfolio-blurb" style="font-size:var(--fs-base);color:var(--fg);line-height:1.55;margin-bottom:10px">${_portfolioBlurb}</div>`;
 
   html += `<div style="font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.10em;color:#0f766e;margin-bottom:6px">Action Items</div>`;
   html += '<div id="hb-portfolio-actions">';
@@ -1090,18 +1085,7 @@ function _renderHomeBase() {
       const top = Object.entries(sw).sort((a,b) => b[1] - a[1])[0];
       return top[1] >= 2 ? sl[top[0]] + ' (' + Math.round(top[1] / atRisk.length * 100) + '% of at-risk)' : '';
     })();
-    _loadAIPortfolioOverview({
-      total, critical: critical.length, risk: risk.length, watch: watch.length,
-      healthy: healthy.length, expand: expand.length,
-      avgScore, avgDelta, periodDays: _hbPeriodDays,
-      improving, declining, decliningMRR, stable: total - improving - declining,
-      atRiskMRR, totalMRR,
-      renewals30: renewals30.length, renewalMRR: renewMRR,
-      renewalsAtRisk: renewalsAtRisk.length, renewalAtRiskMRR,
-      silentDecliners: silentDecliners.length, silentDeclinerMRR: sdMRR,
-      overnightDrops: _dodBriefing ? _dodBriefing.droppers : 0,
-      weakestSignal: _weakSig
-    });
+    // Portfolio overview is now local-only (no AI call) — more accurate and instant
   }
   // Inject tour button for homebase
   if (typeof _wtInjectHomebaseTourButton === 'function') _wtInjectHomebaseTourButton();
