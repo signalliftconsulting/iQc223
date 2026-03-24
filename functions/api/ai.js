@@ -148,6 +148,7 @@ Response schema:
 
 Rules for overview:
 - Read like a daily briefing from a VP of CS - strategic, specific, and actionable
+- Write in third person. Do NOT use "we", "our", or "us" - use "the portfolio", "your accounts", or reference specific segments directly
 - Do NOT restate numbers without context - explain what they mean
 - Highlight the most surprising or actionable pattern first
 - If the portfolio is mostly healthy, lead with what could go wrong next, not what's going well
