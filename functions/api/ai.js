@@ -65,7 +65,7 @@ function buildCustomerSummary(c) {
   return lines.join('\n');
 }
 
-function fmtDollar(n) { return (n || 0).toLocaleString('en-US'); }
+function fmtDollar(n) { return String(n || 0).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
 
 function buildUserPrompt(promptType, data) {
   if (promptType === 'detail_insights') {

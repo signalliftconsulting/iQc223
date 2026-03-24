@@ -7653,11 +7653,7 @@ function _renderFallbackActions(container) {
 function _aiActionToFilter(text) {
   var t = (text || '').toLowerCase();
   var active = customers.filter(function(c) { return c.lifecycle !== 'churned'; });
-  // Match keywords to customer filters
-  if (t.match(/at.risk|critical/)) {
-    var ids = active.filter(function(c) { return c.status === 'critical' || c.status === 'risk'; }).map(function(c) { return c.id; });
-    if (ids.length) return { label: 'At-Risk Accounts', ids: ids };
-  }
+  // Match keywords to customer filters — check specific patterns BEFORE broad ones
   if (t.match(/silent.declin|previously.healthy|off.the.radar/)) {
     var withHist = active.filter(function(c) { return c.history && c.history.length >= 2; });
     var ids = withHist.filter(function(c) {
@@ -7667,6 +7663,10 @@ function _aiActionToFilter(text) {
     }).map(function(c) { return c.id; });
     if (ids.length) return { label: 'Silent Decliners', ids: ids };
   }
+  if (t.match(/at.risk|critical/)) {
+    var ids = active.filter(function(c) { return c.status === 'critical' || c.status === 'risk'; }).map(function(c) { return c.id; });
+    if (ids.length) return { label: 'At-Risk Accounts', ids: ids };
+  }
   if (t.match(/renewal|renew/)) {
     var now = new Date();
     var ids = active.filter(function(c) {
@@ -7675,6 +7675,15 @@ function _aiActionToFilter(text) {
       return diff >= 0 && diff <= 60;
     }).map(function(c) { return c.id; });
     if (ids.length) return { label: 'Upcoming Renewals', ids: ids };
+  }
+  if (t.match(/declining|decline|down/)) {
+    var withHist = active.filter(function(c) { return c.history && c.history.length >= 2; });
+    var ids = withHist.filter(function(c) {
+      var recent = c.history[c.history.length - 1];
+      var older = c.history[Math.max(0, c.history.length - 8)];
+      return recent && older && recent.score < older.score - 2;
+    }).map(function(c) { return c.id; });
+    if (ids.length) return { label: 'Declining Accounts', ids: ids };
   }
   if (t.match(/adoption/)) {
     var ids = active.filter(function(c) { return c.adoption != null && c.adoption < 30; }).map(function(c) { return c.id; });
