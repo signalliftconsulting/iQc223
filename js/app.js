@@ -14703,7 +14703,7 @@ function renderBillingPlanCards() {
       tier: 'custom', name: 'Custom', color: 'var(--purple)',
       price: '',
       desc: 'Full platform with white-label & custom UI',
-      features: ['Unlimited users & accounts', 'Unlimited AI calls', 'Everything in Growth, plus:', 'White-label branding', 'Custom UI modifications', 'Priority support', 'Onboarding assistance'],
+      features: ['Unlimited users & accounts', 'Unlimited AI calls', 'Everything in Growth, plus:', 'White-label branding', 'Custom UI modifications', 'Priority support', 'Dedicated onboarding'],
       priceKey: interval === 'annual' ? 'custom_annual' : 'custom_monthly',
     }
   ];
