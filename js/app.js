@@ -6560,7 +6560,7 @@ async function _loadDemoFromCard() {
     if (typeof _wtInit === 'function') _wtInit();
   } catch(e) {
     console.error('Demo seed error:', e);
-    console.error('Demo seed error detail:', e.message); toast('Something went wrong loading demo data \u2014 please try again', 'error');
+    console.error('Demo seed error detail:', e.message); toast('Something went wrong loading demo data -please try again', 'error');
   }
 }
 
@@ -6988,7 +6988,7 @@ function _renderHomeBase() {
       const pct = Math.round(topCnt / atRisk.length * 100);
       if (pct >= 40) {
         const desc = topSig === 'tickets' ? 'elevated tickets' : topSig === 'days' ? 'no recent contact' : 'low ' + sigLbl[topSig];
-        _overviewCandidates.push({ score: pct + topCnt * 2, text: `${sigLbl[topSig].charAt(0).toUpperCase() + sigLbl[topSig].slice(1)} is the weakest signal across your at-risk accounts \u2014 ${pct}% have ${desc}.` });
+        _overviewCandidates.push({ score: pct + topCnt * 2, text: `${sigLbl[topSig].charAt(0).toUpperCase() + sigLbl[topSig].slice(1)} is the weakest signal across your at-risk accounts -${pct}% have ${desc}.` });
       }
     }
   }
@@ -7046,9 +7046,9 @@ function _renderHomeBase() {
       const gap = cDelta - uDelta;
       if (Math.abs(gap) >= 3) {
         if (gap > 0) {
-          _overviewCandidates.push({ score: Math.abs(gap) * 5 + 15, text: `Recent outreach is making a difference \u2014 contacted accounts are trending ${cDelta > 0 ? '+' : ''}${cDelta} pts vs ${uDelta > 0 ? '+' : ''}${uDelta} for uncontacted.` });
+          _overviewCandidates.push({ score: Math.abs(gap) * 5 + 15, text: `Recent outreach is making a difference -contacted accounts are trending ${cDelta > 0 ? '+' : ''}${cDelta} pts vs ${uDelta > 0 ? '+' : ''}${uDelta} for uncontacted.` });
         } else {
-          _overviewCandidates.push({ score: Math.abs(gap) * 5 + 10, text: `Uncontacted accounts are actually outperforming contacted ones by ${Math.abs(gap)} pts \u2014 outreach may be focused on the wrong accounts.` });
+          _overviewCandidates.push({ score: Math.abs(gap) * 5 + 10, text: `Uncontacted accounts are actually outperforming contacted ones by ${Math.abs(gap)} pts -outreach may be focused on the wrong accounts.` });
         }
       }
     }
@@ -7098,7 +7098,7 @@ function _renderHomeBase() {
   // 1. Overnight drops → Investigate
   if (_dodBriefing && _dodBriefing.avgDelta <= -2) {
     const d = _dodBriefing;
-    const reasonHint = d.reasons.length ? ` \u2014 ${d.reasons.slice(0,2).join(' and ')}` : '';
+    const reasonHint = d.reasons.length ? ` -${d.reasons.slice(0,2).join(' and ')}` : '';
     _actionPool.push({ urgency: 90 + Math.abs(d.avgDelta) * 2, tone: 'red', text: `Investigate the overnight score drop across ${d.total} accounts${reasonHint}.`, actionFn: function() { setTrendRange('3d'); nav('trends'); }, ids: [] });
   }
 
@@ -7110,7 +7110,7 @@ function _renderHomeBase() {
       if (gapRenewal.length === 1) {
         const c = gapRenewal[0];
         const rd = c.renewal_date ? Math.max(1, Math.round((new Date(c.renewal_date) - now) / 86400000)) : Math.round((c.renewal || 1) * 30);
-        _actionPool.push({ urgency: 85 + (c.mrr||0) / 1000, tone: 'amber', text: `Schedule an EBR with ${c.name} ($${fmtNum(c.mrr||0)}/mo) \u2014 renewal in ${rd} days with no contact in 30+.`, actionFn: function() { openDetail(c.id); }, ids: [c.id] });
+        _actionPool.push({ urgency: 85 + (c.mrr||0) / 1000, tone: 'amber', text: `Schedule an EBR with ${c.name} ($${fmtNum(c.mrr||0)}/mo) -renewal in ${rd} days with no contact in 30+.`, actionFn: function() { openDetail(c.id); }, ids: [c.id] });
       } else {
         const gapIds = gapRenewal.map(c => c.id);
         _actionPool.push({ urgency: 85 + gapMRR / 1000, tone: 'amber', text: `Schedule EBRs for ${gapRenewal.length} accounts ($${fmtNum(gapMRR)} MRR) renewing soon with no contact in 30+ days.`, actionFn: function() { setInsightFilter('Renewal + no contact', gapIds); }, ids: gapIds });
@@ -7124,7 +7124,7 @@ function _renderHomeBase() {
     if (unreached.length > 0) {
       const gapMRR = unreached.reduce((s,c) => s + (c.mrr||0), 0);
       if (unreached.length === 1) {
-        _actionPool.push({ urgency: 60 + (unreached[0].mrr||0) / 1000, tone: 'amber', text: `Reach out to ${unreached[0].name} ($${fmtNum(unreached[0].mrr||0)}/mo) \u2014 no contact in ${unreached[0].days || '30+'} days.`, actionFn: function() { openDetail(unreached[0].id); }, ids: [unreached[0].id] });
+        _actionPool.push({ urgency: 60 + (unreached[0].mrr||0) / 1000, tone: 'amber', text: `Reach out to ${unreached[0].name} ($${fmtNum(unreached[0].mrr||0)}/mo) -no contact in ${unreached[0].days || '30+'} days.`, actionFn: function() { openDetail(unreached[0].id); }, ids: [unreached[0].id] });
       } else {
         const unrIds = unreached.map(c => c.id);
         _actionPool.push({ urgency: 60 + gapMRR / 2000, tone: 'amber', text: `Reach out to ${unreached.length} high-value accounts ($${fmtNum(gapMRR)} MRR) with no contact in 30+ days.`, actionFn: function() { setInsightFilter('No contact 30d+', unrIds); }, ids: unrIds });
@@ -7148,7 +7148,7 @@ function _renderHomeBase() {
     } else {
       ctx = `at-risk with $${fmtNum(biggestRisk.mrr)}/mo`;
     }
-    _actionPool.push({ urgency: 70 + (biggestRisk.mrr||0) / 1000 + boost, tone: 'red', text: `Call ${biggestRisk.name} today \u2014 ${ctx} and $${fmtNum(biggestRisk.mrr)}/mo at stake.`, actionFn: function() { openDetail(biggestRisk.id); }, ids: [biggestRisk.id] });
+    _actionPool.push({ urgency: 70 + (biggestRisk.mrr||0) / 1000 + boost, tone: 'red', text: `Call ${biggestRisk.name} today -${ctx} and $${fmtNum(biggestRisk.mrr)}/mo at stake.`, actionFn: function() { openDetail(biggestRisk.id); }, ids: [biggestRisk.id] });
   }
 
   // 5. Silent decliners → Review
@@ -7157,9 +7157,9 @@ function _renderHomeBase() {
     if (sd.length >= 2) {
       const sdMRR = sd.reduce((s,c) => s + (c.mrr||0), 0);
       const sdIds = sd.map(c => c.id);
-      _actionPool.push({ urgency: 65 + sdMRR / 1000 + sd.length * 3, tone: 'red', text: `Review ${sd.length} accounts that were healthy but started declining \u2014 $${fmtNum(sdMRR)} MRR at risk before they escalate.`, actionFn: function() { setInsightFilter('Declining from healthy', sdIds); }, ids: sdIds });
+      _actionPool.push({ urgency: 65 + sdMRR / 1000 + sd.length * 3, tone: 'red', text: `Review ${sd.length} accounts that were healthy but started declining -$${fmtNum(sdMRR)} MRR at risk before they escalate.`, actionFn: function() { setInsightFilter('Declining from healthy', sdIds); }, ids: sdIds });
     } else if (sd.length === 1) {
-      _actionPool.push({ urgency: 55 + (sd[0].mrr||0) / 1000, tone: 'amber', text: `Check in with ${sd[0].name} \u2014 was healthy but now declining. Early intervention prevents escalation.`, actionFn: function() { openDetail(sd[0].id); }, ids: [sd[0].id] });
+      _actionPool.push({ urgency: 55 + (sd[0].mrr||0) / 1000, tone: 'amber', text: `Check in with ${sd[0].name} -was healthy but now declining. Early intervention prevents escalation.`, actionFn: function() { openDetail(sd[0].id); }, ids: [sd[0].id] });
     }
   }
 
@@ -7179,7 +7179,7 @@ function _renderHomeBase() {
       if (pct >= 40) {
         const tierDecAccts = active.filter(c => (c.tier || 'Unknown') === tName && withHist.includes(c) && getDeltaPeriod(c) < -2);
         const tdIds = tierDecAccts.map(c => c.id);
-        _actionPool.push({ urgency: 50 + tVal.dec * 5, tone: 'red', text: `Investigate the decline across your ${tName} accounts \u2014 ${tVal.dec} of ${tVal.n} dropped this period.`, actionFn: function() { setInsightFilter('Declining ' + tName, tdIds); }, ids: tdIds });
+        _actionPool.push({ urgency: 50 + tVal.dec * 5, tone: 'red', text: `Investigate the decline across your ${tName} accounts -${tVal.dec} of ${tVal.n} dropped this period.`, actionFn: function() { setInsightFilter('Declining ' + tName, tdIds); }, ids: tdIds });
       }
     }
   }
@@ -7189,7 +7189,7 @@ function _renderHomeBase() {
     const topExp = expand.filter(c => c.score >= 80 && (c.mrr||0) >= 3000).sort((a,b) => (b.mrr||0) - (a.mrr||0));
     if (topExp.length >= 1) {
       const t = topExp[0];
-      _actionPool.push({ urgency: 30 + (t.mrr||0) / 1000, tone: 'green', text: `Explore expansion with ${t.name} \u2014 score of ${t.score} with $${fmtNum(t.mrr)}/mo and strong engagement.`, actionFn: function() { openDetail(t.id); }, ids: [t.id] });
+      _actionPool.push({ urgency: 30 + (t.mrr||0) / 1000, tone: 'green', text: `Explore expansion with ${t.name} -score of ${t.score} with $${fmtNum(t.mrr)}/mo and strong engagement.`, actionFn: function() { openDetail(t.id); }, ids: [t.id] });
     }
   }
 
@@ -8225,7 +8225,7 @@ function _insightDayOverDay(active) {
   );
 
   const title = dodDroppers.length >= 2
-    ? `Significant overnight drop \u2014 ${dodDroppers.length} account${dodDroppers.length !== 1 ? 's' : ''} fell 8+ pts`
+    ? `Significant overnight drop -${dodDroppers.length} account${dodDroppers.length !== 1 ? 's' : ''} fell 8+ pts`
     : `Portfolio dropped ${Math.abs(avgDoD)} pts day-over-day`;
 
   const detail = detailParts.length
