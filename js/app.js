@@ -14494,14 +14494,14 @@ function renderBillingPlanCards() {
       tier: 'core', name: 'Core', color: 'var(--teal)',
       price: '',
       desc: 'Health monitoring essentials for small teams',
-      features: ['3 users', '150 accounts', '1,000 AI calls / month', 'All AI features', 'Segments & Automations', 'Forecasting', 'API & Webhooks'],
+      features: ['Up to 3 users', 'Up to 150 accounts', '1,000 AI calls / month', 'Health scoring with custom weights', 'AI insights, meeting prep & playbooks', 'Alerts, segments & automations', 'Forecasting & trend analysis', 'Reports with scheduled delivery', 'Integrations, API & webhooks', 'Calendar & touch tracking'],
       priceKey: interval === 'annual' ? 'core_annual' : 'core_monthly',
     },
     {
       tier: 'growth', name: 'Growth', color: 'var(--blue)', popular: true,
       price: '',
       desc: 'Advanced insights for growing CS teams',
-      features: ['5 users', '300 accounts', '5,000 AI calls / month', 'Everything in Core, plus:', 'CSM Performance dashboard & leaderboard', 'Signal Model (proprietary scoring)', 'Manager filtering across all views'],
+      features: ['Up to 5 users', 'Up to 300 accounts', '5,000 AI calls / month', 'Everything in Core, plus:', 'CSM Performance dashboard & leaderboard', 'Signal Model (proprietary scoring)', 'Manager filtering across all views'],
       priceKey: interval === 'annual' ? 'growth_annual' : 'growth_monthly',
     },
     {
