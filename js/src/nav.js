@@ -330,7 +330,7 @@ function renderBellDd() {
 
   let html = `<div style="padding:10px 14px 6px;font-size:var(--fs-sm);font-weight:700;color:var(--text);display:flex;align-items:center;justify-content:space-between">
     <span>Notifications</span>
-    <span style="font-weight:500;font-size:var(--fs-xs);color:var(--muted)">${active.length} active</span>
+    <span style="font-weight:500;font-size:var(--fs-xs);color:var(--muted)">${new Set(active.map(a => a.cid)).size} accounts</span>
   </div>`;
   html += top5.map(a => {
     const c = customers.find(x => x.id === a.cid);
