@@ -10145,8 +10145,12 @@ function toggleSnoozeDd(aid) {
 }
 
 // Close snooze dropdowns when clicking outside
-document.addEventListener('click', () => {
-  document.querySelectorAll('.snooze-dd__menu.open').forEach(m => m.classList.remove('open'));
+document.addEventListener('click', (e) => {
+  document.querySelectorAll('.snooze-dd__menu.open').forEach(m => {
+    // Don't close if click was inside the dropdown's wrapper
+    if (m.closest('.snooze-dd') && m.closest('.snooze-dd').contains(e.target)) return;
+    m.classList.remove('open');
+  });
 });
 
 // Sticky bar shadow when scrolled
