@@ -928,7 +928,7 @@ function renderAlertPanel(all, active, snz) {
     }
 
     // SVG area chart
-    const W = 700, H = 100, PAD = 24;
+    const W = 700, H = 200, PAD = 24;
     const maxVal = Math.max(1, ...dataPoints.map(d => d.total));
     const xStep = (W - PAD * 2) / (dataPoints.length - 1 || 1);
     const yScale = (v) => H - PAD - ((v / maxVal) * (H - PAD * 2));
@@ -956,7 +956,7 @@ function renderAlertPanel(all, active, snz) {
         <span style="font-size:var(--fs-sm);color:${trendColor};font-weight:600">${trendLabel}</span>
         <span style="font-size:var(--fs-xs);color:var(--muted)">Critical + At Risk + Watch accounts over 30 days</span>
       </div>
-      <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;max-height:120px">
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">
         <!-- Grid lines -->
         <line x1="${PAD}" y1="${yScale(maxVal)}" x2="${W - PAD}" y2="${yScale(maxVal)}" stroke="var(--border)" stroke-dasharray="3,3"/>
         <line x1="${PAD}" y1="${yScale(maxVal / 2)}" x2="${W - PAD}" y2="${yScale(maxVal / 2)}" stroke="var(--border)" stroke-dasharray="3,3"/>
