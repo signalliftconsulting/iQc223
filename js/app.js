@@ -9495,7 +9495,7 @@ function renderAlertPanel(all, active, snz) {
     }
 
     // SVG area chart
-    const W = 700, H = 200, PAD = 24;
+    const W = 700, H = 200, PAD = 30;
     const maxVal = Math.max(1, ...dataPoints.map(d => d.total));
     const xStep = (W - PAD * 2) / (dataPoints.length - 1 || 1);
     const yScale = (v) => H - PAD - ((v / maxVal) * (H - PAD * 2));
@@ -9529,18 +9529,18 @@ function renderAlertPanel(all, active, snz) {
         <line x1="${PAD}" y1="${yScale(maxVal / 2)}" x2="${W - PAD}" y2="${yScale(maxVal / 2)}" stroke="var(--border)" stroke-dasharray="3,3"/>
         <line x1="${PAD}" y1="${H - PAD}" x2="${W - PAD}" y2="${H - PAD}" stroke="var(--border)"/>
         <!-- Y labels -->
-        <text x="${PAD - 4}" y="${yScale(maxVal) + 4}" text-anchor="end" fill="var(--muted)" font-size="9">${maxVal}</text>
-        <text x="${PAD - 4}" y="${yScale(Math.round(maxVal / 2)) + 4}" text-anchor="end" fill="var(--muted)" font-size="9">${Math.round(maxVal / 2)}</text>
-        <text x="${PAD - 4}" y="${H - PAD + 4}" text-anchor="end" fill="var(--muted)" font-size="9">0</text>
+        <text x="${PAD - 4}" y="${yScale(maxVal) + 4}" text-anchor="end" fill="var(--muted)" font-size="13">${maxVal}</text>
+        <text x="${PAD - 4}" y="${yScale(Math.round(maxVal / 2)) + 4}" text-anchor="end" fill="var(--muted)" font-size="13">${Math.round(maxVal / 2)}</text>
+        <text x="${PAD - 4}" y="${H - PAD + 4}" text-anchor="end" fill="var(--muted)" font-size="13">0</text>
         <!-- Areas (stacked) -->
         <path d="${makeArea('total')}" fill="rgba(234,179,8,.12)" stroke="none"/>
         <path d="${makePath('total')}" fill="none" stroke="#d97706" stroke-width="1.5"/>
         <path d="${makeArea('critical')}" fill="rgba(220,38,38,.15)" stroke="none"/>
         <path d="${makePath('critical')}" fill="none" stroke="#dc2626" stroke-width="1.5"/>
         <!-- X labels -->
-        <text x="${PAD}" y="${H - 4}" fill="var(--muted)" font-size="9">${fmtDate(firstDate)}</text>
-        <text x="${PAD + (dataPoints.length / 2) * xStep}" y="${H - 4}" text-anchor="middle" fill="var(--muted)" font-size="9">${fmtDate(midDate)}</text>
-        <text x="${W - PAD}" y="${H - 4}" text-anchor="end" fill="var(--muted)" font-size="9">${fmtDate(lastDate)}</text>
+        <text x="${PAD}" y="${H - 4}" fill="var(--muted)" font-size="13">${fmtDate(firstDate)}</text>
+        <text x="${PAD + (dataPoints.length / 2) * xStep}" y="${H - 4}" text-anchor="middle" fill="var(--muted)" font-size="13">${fmtDate(midDate)}</text>
+        <text x="${W - PAD}" y="${H - 4}" text-anchor="end" fill="var(--muted)" font-size="13">${fmtDate(lastDate)}</text>
       </svg>
       <div style="display:flex;gap:16px;margin-top:4px;font-size:var(--fs-xs);color:var(--muted)">
         <span><span style="display:inline-block;width:10px;height:3px;background:#dc2626;border-radius:2px;vertical-align:middle;margin-right:4px"></span>Critical</span>
