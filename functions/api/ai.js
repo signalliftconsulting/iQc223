@@ -83,22 +83,21 @@ function buildUserPrompt(promptType, data) {
 ${buildCustomerSummary(data.customer)}
 
 Response schema:
-{"risk_factors":[{"title":"short label","detail":"1-2 sentence explanation","severity":"red|amber|green"}],"actions":[{"title":"short label","detail":"1-2 sentence with specific next step","priority":"high|medium|low"}],"summary":"2-3 sentence health narrative"}
+{"risk_factors":[{"title":"2-4 word label","detail":"1 sentence max","severity":"red|amber|green"}],"actions":[{"title":"2-4 word label","detail":"1 sentence - what to do and by when","priority":"high|medium|low"}],"summary":"2-3 SHORT sentences"}
+
+Here is an example of GOOD output for a different customer (do NOT reuse this text):
+{"risk_factors":[{"title":"Adoption flatlined","detail":"28% adoption for 3 months straight means they found a few features and stopped exploring.","severity":"amber"},{"title":"Score jumped 18 pts","detail":"Went from 52 to 70 since last month. Something clicked.","severity":"green"}],"actions":[{"title":"Ask what changed","detail":"On the next call, find out what drove the score jump so you can replicate it across other accounts.","priority":"high"}],"summary":"Score shot up 18 pts but NPS is still a 6. The usage is improving but the customer isn't feeling it yet. That disconnect means there's probably a support or product issue underneath."}
 
 Rules:
-- 2-4 risk factors, ordered by severity (red first)
-- 1-2 recommended actions, ordered by priority (high first)
-- Summary should read like a CSM's internal notes - direct, specific, no corporate fluff
-- Do NOT use phrases like "it's crucial to", "may affect", "address concerns", "maintaining momentum", "reinforcing value", "ensuring satisfaction" - these are empty filler
-- Do NOT copy any text from these rules into your response. Write original analysis unique to THIS customer's specific situation.
-- Connect signals to each other and explain the likely cause. If NPS is low AND adoption is low, say what that combination means. If score improved but NPS is still bad, explain the disconnect.
-- Actions must be a specific task a CSM can complete THIS week with a clear outcome - not a vague goal
-- Each action title and detail must be unique to this customer's data. Never use generic titles like "Address NPS Concerns" or "Improve Engagement"
-- IMPORTANT: Look at the score history. If the score has improved significantly (10+ pts over recent entries), call this out as a positive trend in the summary. Acknowledge what's working - e.g. "Score climbed from 52 to 74 over the past month - whatever changed in engagement is working. Keep the momentum going." Improvements are just as important as risks.
-- Risk factors can include GREEN severity items for positive trends (title: "Score Trending Up", detail: explanation of the improvement)
-- If signals are null/missing, note the data gap as a risk factor
-- Days Since Contact: under 14 days is NORMAL and should NOT be flagged as a risk. Only flag contact gaps of 21+ days as amber, 30+ days as red. Do not mention last contact if it was recent (under 14 days).
-- Write in third person - do NOT use "we", "our", or "us"
+- Keep it SHORT. No filler words. Write like you're texting a colleague, not writing a report.
+- 2-4 risk factors, 1-2 actions max
+- Connect signals: if score improved but NPS didn't, say why that's weird. If adoption is high but CSAT is low, say what that means.
+- If score improved 10+ pts, include a green risk factor and mention it in summary
+- Actions: what specifically to do and by when. "Ask about X on next call" not "engage to understand concerns"
+- Contact under 14 days = normal, don't mention it. 21+ days = amber, 30+ = red.
+- Renewals over 90 days away = ignore completely
+- No "we/our/us". No corporate buzzwords. No "positive engagement" or "maintaining momentum" or "reinforcing value".
+- Write in third person
 - IMPORTANT: Only mention the renewal date if it is within 90 days. If it says "do NOT mention" in the renewal data, completely ignore the renewal.
 - Format dates readably (e.g. "April 8, 2026" not "2026-04-08")`;
   }
@@ -313,7 +312,7 @@ export async function onRequestPost(context) {
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         max_tokens: maxTokens,
-        temperature: 0.3,
+        temperature: 0.5,
         response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
