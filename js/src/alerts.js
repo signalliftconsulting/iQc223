@@ -466,8 +466,8 @@ function updateAlertBadge() {
   try {
     const all    = buildAlerts();
     const active = all.filter(a => !isSnoozed(a.id) && !isDismissed(a.id));
-    const _critCount = active.filter(a => a.cat === 'health' && a.type === 'red').length;
-    const _badgeCount = _critCount > 0 ? _critCount : active.length;
+    const _affectedSet = new Set(active.map(a => a.cid));
+    const _badgeCount = _affectedSet.size;
     const ab = el('alert-badge');
     if (ab) { if (_badgeCount > 0) { ab.textContent = _badgeCount; ab.style.display = ''; } else ab.style.display = 'none'; }
     const bb = el('bell-badge');
@@ -490,9 +490,9 @@ function _renderAlerts() {
   _cachedSnoozed = snz;
   const list   = el('alerts-list');
 
-  // Update sidebar badge + topbar bell badge  -  show critical/risk count (not all alerts)
-  const _critCount = active.filter(a => a.cat === 'health' && a.type === 'red').length;
-  const _badgeCount = _critCount > 0 ? _critCount : active.length;
+  // Update sidebar badge + topbar bell badge  -  show affected account count
+  const _affectedSet2 = new Set(active.map(a => a.cid));
+  const _badgeCount = _affectedSet2.size;
   const ab = el('alert-badge');
   if (ab) { if (_badgeCount > 0) { ab.textContent = _badgeCount; ab.style.display = ''; } else ab.style.display = 'none'; }
   const bb = el('bell-badge');
