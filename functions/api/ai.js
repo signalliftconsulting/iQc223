@@ -47,7 +47,11 @@ function buildCustomerSummary(c) {
   if (c.csat != null) lines.push(`CSAT: ${c.csat}/5`);
   if (c.days != null) lines.push(`Days Since Contact: ${c.days}`);
   if (c.growth) lines.push(`Growth Signal: ${c.growth}`);
-  if (c.renewal_date) lines.push(`Renewal Date: ${c.renewal_date}`);
+  if (c.renewal_date) {
+    const daysUntil = Math.round((new Date(c.renewal_date) - new Date()) / 86400000);
+    lines.push(`Renewal Date: ${c.renewal_date} (${daysUntil > 0 ? daysUntil + ' days away' : 'past due'})`);
+    if (daysUntil > 90) lines.push(`NOTE: Renewal is ${daysUntil} days away - do NOT mention it in analysis`);
+  }
   if (c.billing_interval) lines.push(`Billing: ${c.billing_interval}`);
   if (c.tags && c.tags.length) lines.push(`Tags: ${c.tags.join(', ')}`);
   if (c.history && c.history.length) {
@@ -80,8 +84,9 @@ Rules:
 - 2-4 recommended actions, ordered by priority (high first)
 - Summary should be conversational and reference specific data points
 - If signals are null/missing, note the data gap as a risk factor
-- Be specific — mention actual numbers, dates, and thresholds
-- IMPORTANT: If renewal date is within 90 days, this MUST be mentioned in the summary and should appear as a risk factor (amber if healthy, red if at-risk). Upcoming renewals are always relevant context.`;
+- Be specific - mention actual numbers, dates, and thresholds
+- IMPORTANT: Only mention the renewal date if it is within 90 days. If the renewal is more than 90 days away, do NOT mention it at all - it is not relevant context. Renewals 6+ months out are not urgent and should be completely ignored in the summary and risk factors.
+- Format dates in a readable way (e.g. "April 8, 2026" not "2026-04-08")`;
   }
 
   if (promptType === 'meeting_prep') {
