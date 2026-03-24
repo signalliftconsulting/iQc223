@@ -23,7 +23,42 @@ Deno.serve(async (req) => {
   };
 
   try {
-    const { email, name, type } = await req.json();
+    const { email, name, type, support_data } = await req.json();
+
+    // Handle support messages
+    if (type === "support" && support_data) {
+      const supportHtml = `<div style="max-width:600px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1e293b">
+        <div style="background:#0f766e;color:#fff;padding:16px 20px;border-radius:8px 8px 0 0">
+          <h2 style="margin:0;font-size:18px">Support Request - ${support_data.category || "General"}</h2>
+        </div>
+        <div style="padding:20px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px">
+          <p><strong>From:</strong> ${support_data.from_name || "Unknown"} (${support_data.from || "no email"})</p>
+          <p><strong>Category:</strong> ${support_data.category || "Other"}</p>
+          <p><strong>Subject:</strong> ${support_data.subject || "No subject"}</p>
+          <p><strong>Plan:</strong> ${support_data.plan || "unknown"}</p>
+          <p><strong>Client ID:</strong> ${support_data.client_id || "none"}</p>
+          <hr style="border:none;border-top:1px solid #e2e8f0;margin:16px 0"/>
+          <p style="white-space:pre-wrap">${support_data.message || "No message"}</p>
+          <hr style="border:none;border-top:1px solid #e2e8f0;margin:16px 0"/>
+          <p style="font-size:12px;color:#94a3b8">Sent at ${support_data.timestamp || new Date().toISOString()}</p>
+        </div>
+      </div>`;
+
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${RESEND_API_KEY}` },
+        body: JSON.stringify({
+          from: "iQcadence Support <noreply@iqcadence.com>",
+          to: ["support@iqcadence.com"],
+          reply_to: support_data.from || undefined,
+          subject: `[Support] ${support_data.category || "General"}: ${support_data.subject || "No subject"}`,
+          html: supportHtml,
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok) { console.error("Resend error:", result); return new Response(JSON.stringify({ error: "Send failed" }), { status: 500, headers: corsHeaders }); }
+      return new Response(JSON.stringify({ success: true }), { status: 200, headers: corsHeaders });
+    }
 
     if (!email) {
       return new Response(JSON.stringify({ error: "Missing email" }), {

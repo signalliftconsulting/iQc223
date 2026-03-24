@@ -286,6 +286,59 @@ function refreshCurrentPage() {
 
 // ─── NOTIFICATION BELL (v86) ───────────────────────────────────
 
+// ─── SUPPORT MODAL ─────────────────────────────────────────
+function openSupportModal() {
+  // Close user menu
+  var menu = el('tb-user-menu');
+  if (menu) menu.classList.remove('open');
+  // Reset form
+  var cat = el('support-category'); if (cat) cat.value = 'product_request';
+  var subj = el('support-subject'); if (subj) subj.value = '';
+  var msg = el('support-message'); if (msg) msg.value = '';
+  openModal('support-modal');
+}
+
+function sendSupportMessage() {
+  var category = el('support-category')?.value || 'other';
+  var subject = (el('support-subject')?.value || '').trim();
+  var message = (el('support-message')?.value || '').trim();
+  if (!subject) { toast('Please enter a subject', 'warn'); return; }
+  if (!message) { toast('Please enter a message', 'warn'); return; }
+  var userEmail = currentUser?.email || 'unknown';
+  var userName = currentUser?.user_metadata?.full_name || userEmail.split('@')[0];
+  var catLabels = { product_request:'Product Request', ui_issue:'UI Issue / Bug', account_help:'Account Help', billing:'Billing Question', integration:'Integration Support', other:'Other' };
+  // Send via Resend edge function
+  fetch('https://qctiyigznbztxcowehnl.supabase.co/functions/v1/send-auth-email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: 'support@iqcadence.com',
+      name: userName,
+      type: 'support',
+      support_data: {
+        from: userEmail,
+        from_name: userName,
+        category: catLabels[category] || category,
+        subject: subject,
+        message: message,
+        client_id: _userClientId || '',
+        plan: clientPlanTier || '',
+        url: window.location.href,
+        timestamp: new Date().toISOString()
+      }
+    })
+  }).then(function(r) {
+    if (r.ok) {
+      toast('Message sent - we will get back to you soon!', 'success');
+      closeModal('support-modal');
+    } else {
+      toast('Could not send message - please email support@iqcadence.com directly', 'error');
+    }
+  }).catch(function() {
+    toast('Could not send message - please email support@iqcadence.com directly', 'error');
+  });
+}
+
 function toggleBellDd() {
   var m = document.getElementById('bell-dd-menu');
   if (!m) { console.warn('[bell] menu element not found'); return; }
