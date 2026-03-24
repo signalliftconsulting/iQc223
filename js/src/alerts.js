@@ -951,10 +951,11 @@ function renderAlertPanel(all, active, snz) {
     const lastDate = dataPoints[dataPoints.length - 1].date;
     const fmtDate = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
+    const curVal = dataPoints[dataPoints.length - 1].total;
     trendWrap.innerHTML = `
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
         <span style="font-size:var(--fs-sm);color:${trendColor};font-weight:600">${trendLabel}</span>
-        <span style="font-size:var(--fs-xs);color:var(--muted)">Critical + At Risk + Watch accounts over 30 days</span>
+        <span style="font-size:var(--fs-xs);color:var(--muted)">At-risk accounts over 30 days (currently ${curVal})</span>
       </div>
       <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">
         <!-- Grid lines -->
@@ -965,20 +966,14 @@ function renderAlertPanel(all, active, snz) {
         <text x="${PAD - 4}" y="${yScale(maxVal) + 4}" text-anchor="end" fill="var(--muted)" font-size="13">${maxVal}</text>
         <text x="${PAD - 4}" y="${yScale(Math.round(maxVal / 2)) + 4}" text-anchor="end" fill="var(--muted)" font-size="13">${Math.round(maxVal / 2)}</text>
         <text x="${PAD - 4}" y="${H - PAD + 4}" text-anchor="end" fill="var(--muted)" font-size="13">0</text>
-        <!-- Areas (stacked) -->
-        <path d="${makeArea('total')}" fill="rgba(234,179,8,.12)" stroke="none"/>
-        <path d="${makePath('total')}" fill="none" stroke="#d97706" stroke-width="1.5"/>
-        <path d="${makeArea('critical')}" fill="rgba(220,38,38,.15)" stroke="none"/>
-        <path d="${makePath('critical')}" fill="none" stroke="#dc2626" stroke-width="1.5"/>
+        <!-- Area + line (single: total at-risk) -->
+        <path d="${makeArea('total')}" fill="rgba(220,38,38,.1)" stroke="none"/>
+        <path d="${makePath('total')}" fill="none" stroke="#dc2626" stroke-width="2"/>
         <!-- X labels -->
         <text x="${PAD}" y="${H - 4}" fill="var(--muted)" font-size="13">${fmtDate(firstDate)}</text>
         <text x="${PAD + (dataPoints.length / 2) * xStep}" y="${H - 4}" text-anchor="middle" fill="var(--muted)" font-size="13">${fmtDate(midDate)}</text>
         <text x="${W - PAD}" y="${H - 4}" text-anchor="end" fill="var(--muted)" font-size="13">${fmtDate(lastDate)}</text>
-      </svg>
-      <div style="display:flex;gap:16px;margin-top:4px;font-size:var(--fs-xs);color:var(--muted)">
-        <span><span style="display:inline-block;width:10px;height:3px;background:#dc2626;border-radius:2px;vertical-align:middle;margin-right:4px"></span>Critical</span>
-        <span><span style="display:inline-block;width:10px;height:3px;background:#d97706;border-radius:2px;vertical-align:middle;margin-right:4px"></span>Total at risk</span>
-      </div>`;
+      </svg>`;
   }
 
   // Insights - surface actionable patterns across alerts
