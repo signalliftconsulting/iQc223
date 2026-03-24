@@ -889,6 +889,96 @@ function renderAlertPanel(all, active, snz) {
     stageWrap.innerHTML = stageRows || '<div class="alerts-detail-empty">No active alerts</div>';
   }
 
+  // ── Risk Trend Chart (30d, based on score history) ──
+  const trendWrap = el('alert-trend-wrap');
+  if (trendWrap) {
+    const activeCustomers = customers.filter(c => c.lifecycle !== 'churned' && passesManagerFilter(c));
+    const thresholds = window._settings && window._settings.thresholds || {};
+    const critThresh = thresholds.critical || 25;
+    const riskThresh = thresholds.risk || 50;
+    const watchThresh = thresholds.watch || 65;
+
+    // Build daily snapshots for past 30 days
+    const days = 30;
+    const now = new Date(); now.setHours(0,0,0,0);
+    const dataPoints = [];
+
+    for (let i = days - 1; i >= 0; i--) {
+      const day = new Date(now); day.setDate(day.getDate() - i);
+      const dayStr = day.toISOString().slice(0, 10);
+      let critCount = 0, riskCount = 0, watchCount = 0;
+
+      activeCustomers.forEach(c => {
+        if (!c.history || c.history.length === 0) return;
+        // Find score on this day (or closest before)
+        let score = c.score; // default to current
+        for (let h = c.history.length - 1; h >= 0; h--) {
+          const hDate = (c.history[h].date || '').slice(0, 10);
+          if (hDate <= dayStr) { score = c.history[h].score; break; }
+          if (h === 0) score = c.history[0].score; // oldest available
+        }
+        if (score < critThresh) critCount++;
+        else if (score < riskThresh) riskCount++;
+        else if (score < watchThresh) watchCount++;
+      });
+
+      dataPoints.push({ date: day, critical: critCount, risk: riskCount, watch: watchCount, total: critCount + riskCount + watchCount });
+    }
+
+    // SVG area chart
+    const W = 700, H = 100, PAD = 24;
+    const maxVal = Math.max(1, ...dataPoints.map(d => d.total));
+    const xStep = (W - PAD * 2) / (dataPoints.length - 1 || 1);
+    const yScale = (v) => H - PAD - ((v / maxVal) * (H - PAD * 2));
+
+    const makePath = (key) => dataPoints.map((d, i) => `${i === 0 ? 'M' : 'L'}${PAD + i * xStep},${yScale(d[key])}`).join(' ');
+    const makeArea = (key) => makePath(key) + ` L${PAD + (dataPoints.length - 1) * xStep},${H - PAD} L${PAD},${H - PAD} Z`;
+
+    // Trend direction
+    const first5 = dataPoints.slice(0, 5).reduce((s, d) => s + d.total, 0) / 5;
+    const last5 = dataPoints.slice(-5).reduce((s, d) => s + d.total, 0) / 5;
+    const trendDir = last5 < first5 - 1 ? 'improving' : last5 > first5 + 1 ? 'worsening' : 'stable';
+    const trendColor = trendDir === 'improving' ? '#16a34a' : trendDir === 'worsening' ? '#dc2626' : '#64748b';
+    const trendLabel = trendDir === 'improving' ? '\u2193 Improving' : trendDir === 'worsening' ? '\u2191 Worsening' : '\u2194 Stable';
+    const trendBadge = el('alert-trend-badge');
+    if (trendBadge) trendBadge.textContent = trendLabel;
+
+    // Date labels
+    const firstDate = dataPoints[0].date;
+    const midDate = dataPoints[Math.floor(dataPoints.length / 2)].date;
+    const lastDate = dataPoints[dataPoints.length - 1].date;
+    const fmtDate = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+    trendWrap.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+        <span style="font-size:var(--fs-sm);color:${trendColor};font-weight:600">${trendLabel}</span>
+        <span style="font-size:var(--fs-xs);color:var(--muted)">Critical + At Risk + Watch accounts over 30 days</span>
+      </div>
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;max-height:120px">
+        <!-- Grid lines -->
+        <line x1="${PAD}" y1="${yScale(maxVal)}" x2="${W - PAD}" y2="${yScale(maxVal)}" stroke="var(--border)" stroke-dasharray="3,3"/>
+        <line x1="${PAD}" y1="${yScale(maxVal / 2)}" x2="${W - PAD}" y2="${yScale(maxVal / 2)}" stroke="var(--border)" stroke-dasharray="3,3"/>
+        <line x1="${PAD}" y1="${H - PAD}" x2="${W - PAD}" y2="${H - PAD}" stroke="var(--border)"/>
+        <!-- Y labels -->
+        <text x="${PAD - 4}" y="${yScale(maxVal) + 4}" text-anchor="end" fill="var(--muted)" font-size="9">${maxVal}</text>
+        <text x="${PAD - 4}" y="${yScale(Math.round(maxVal / 2)) + 4}" text-anchor="end" fill="var(--muted)" font-size="9">${Math.round(maxVal / 2)}</text>
+        <text x="${PAD - 4}" y="${H - PAD + 4}" text-anchor="end" fill="var(--muted)" font-size="9">0</text>
+        <!-- Areas (stacked) -->
+        <path d="${makeArea('total')}" fill="rgba(234,179,8,.12)" stroke="none"/>
+        <path d="${makePath('total')}" fill="none" stroke="#d97706" stroke-width="1.5"/>
+        <path d="${makeArea('critical')}" fill="rgba(220,38,38,.15)" stroke="none"/>
+        <path d="${makePath('critical')}" fill="none" stroke="#dc2626" stroke-width="1.5"/>
+        <!-- X labels -->
+        <text x="${PAD}" y="${H - 4}" fill="var(--muted)" font-size="9">${fmtDate(firstDate)}</text>
+        <text x="${PAD + (dataPoints.length / 2) * xStep}" y="${H - 4}" text-anchor="middle" fill="var(--muted)" font-size="9">${fmtDate(midDate)}</text>
+        <text x="${W - PAD}" y="${H - 4}" text-anchor="end" fill="var(--muted)" font-size="9">${fmtDate(lastDate)}</text>
+      </svg>
+      <div style="display:flex;gap:16px;margin-top:4px;font-size:var(--fs-xs);color:var(--muted)">
+        <span><span style="display:inline-block;width:10px;height:3px;background:#dc2626;border-radius:2px;vertical-align:middle;margin-right:4px"></span>Critical</span>
+        <span><span style="display:inline-block;width:10px;height:3px;background:#d97706;border-radius:2px;vertical-align:middle;margin-right:4px"></span>Total at risk</span>
+      </div>`;
+  }
+
   // Insights - surface actionable patterns across alerts
   const insWrap = el('alert-insights-row');
   if (insWrap) {

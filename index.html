@@ -2030,6 +2030,12 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
   <div style="font-size:var(--fs-sm);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:12px 0 6px" id="pulse-studio-label">Pulse Studio</div>
   <div class="aw-insights-row" id="alert-insights-row"></div>
 
+  <!-- Alert Trend Chart -->
+  <div class="aw-card" style="margin-bottom:12px">
+    <div class="aw-hd" style="background:#334155"><span class="aw-hd-title">Risk Trend <span class="info-tip tip-below" data-tip="Historical view of at-risk and critical accounts over the past 30 days, based on score history. Shows whether your portfolio risk is improving or getting worse.">ⓘ</span></span><span class="aw-hd-badge" id="alert-trend-badge">30d</span></div>
+    <div class="aw-body" id="alert-trend-wrap" style="padding:12px 16px;min-height:120px"></div>
+  </div>
+
   <!-- Detail cards row: MRR, Category, Stage -->
   <div class="aw-detail-row">
     <div class="aw-card">
@@ -4777,6 +4783,6 @@ Header: Content-Type: application/json
 (function(){var btn=document.getElementById('mobile-overlay-dismiss');if(btn)btn.addEventListener('click',function(){document.getElementById('mobile-overlay').classList.add('dismissed')});})();
 </script>
 
-<script defer src="js/app.js?v=762"></script>
+<script defer src="js/app.js?v=763"></script>
 </body>
 </html>
