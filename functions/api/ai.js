@@ -148,13 +148,15 @@ Rules for overview:
 - If the portfolio is mostly healthy, lead with what could go wrong next, not what's going well
 
 Rules for action items (CRITICAL - these must be specific and distinct):
-- Exactly 3 action items, each addressing a DIFFERENT aspect of the portfolio
+- Exactly 3 action items: 2 action items about risks/issues (tone red or amber) + 1 positive win or opportunity (tone green)
+- Each addresses a DIFFERENT aspect of the portfolio
 - Use ONLY the numbers from the Portfolio Stats above. Do NOT invent or estimate numbers that are not in the data.
 - Each item MUST be a concrete next step, not generic advice
 - BAD examples (too vague): "Investigate adoption issues in at-risk accounts", "Monitor upcoming renewals closely", "Review strategies for engaging expanding accounts"
 - GOOD pattern: Start with a verb, reference the actual count and MRR from the stats, and give a specific action for THIS week
-- The 3 items MUST cover 3 different topics from this list: at-risk accounts, upcoming renewals, declining accounts, silent decliners, uncontacted accounts, expansion opportunities, overnight drops
-- Tone: red = urgent/needs action today, amber = important/this week, green = opportunity to capture
+- The 3 items MUST cover 3 different topics from this list: at-risk accounts, upcoming renewals, declining accounts, silent decliners, uncontacted accounts, expansion opportunities, overnight drops, improving accounts
+- The green item should highlight something positive: expansion potential, improving accounts, strong engagement, or a win worth celebrating
+- Tone: red = urgent/needs action today, amber = important/this week, green = positive win or opportunity
 - Do NOT repeat the same accounts or themes across items
 - NEVER fabricate per-account MRR breakdowns or percentages that are not in the stats`;
   }
