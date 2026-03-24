@@ -2686,19 +2686,17 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
           <button class="btn btn-outline btn-sm" data-action="saveWeightsAsProfile">New Profile</button>
         </div>
       </div>
-      <div class="card">
-        <div class="card-hd"><h2>Score Distribution <span class="info-tip" data-tip="Live breakdown of accounts across health bands based on current threshold settings. Updates when you save thresholds or weights.">ⓘ</span></h2></div>
-        <p>Current spread of accounts across health bands.</p>
-        <div id="cfg-score-dist"></div>
-      </div>
-    </div>
-
-    <!-- Scoring Profiles -->
-    <div class="cfg-columns" style="grid-template-columns:1fr;margin-top:14px">
-      <div class="card">
-        <div class="card-hd"><h2>Scoring Profiles <span class="info-tip" data-tip="Save and load different weight configurations. Click a profile to load its weights into the Signal Weights editor.">ⓘ</span></h2></div>
-        <p>Click a profile to load its weights into the Signal Weights editor.</p>
-        <div id="profiles-list"></div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="card">
+          <div class="card-hd"><h2>Score Distribution <span class="info-tip" data-tip="Live breakdown of accounts across health bands based on current threshold settings. Updates when you save thresholds or weights.">ⓘ</span></h2></div>
+          <p>Current spread of accounts across health bands.</p>
+          <div id="cfg-score-dist"></div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><h2>Scoring Profiles <span class="info-tip" data-tip="Save and load different weight configurations. Click a profile to load its weights into the Signal Weights editor.">ⓘ</span></h2></div>
+          <p>Click a profile to load its weights into the Signal Weights editor.</p>
+          <div id="profiles-list"></div>
+        </div>
       </div>
     </div>
 
@@ -4742,6 +4740,6 @@ Header: Content-Type: application/json
 (function(){var btn=document.getElementById('mobile-overlay-dismiss');if(btn)btn.addEventListener('click',function(){document.getElementById('mobile-overlay').classList.add('dismissed')});})();
 </script>
 
-<script defer src="js/app.js?v=728"></script>
+<script defer src="js/app.js?v=729"></script>
 </body>
 </html>
