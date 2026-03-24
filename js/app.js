@@ -6271,7 +6271,7 @@ function renderBellDd() {
 
   let html = `<div style="padding:10px 14px 6px;font-size:var(--fs-sm);font-weight:700;color:var(--text);display:flex;align-items:center;justify-content:space-between">
     <span>Notifications</span>
-    <span style="font-weight:500;font-size:var(--fs-xs);color:var(--muted)">${new Set(active.map(a => a.cid)).size} accounts</span>
+    <span style="font-weight:500;font-size:var(--fs-xs);color:var(--muted)">${active.length} alerts</span>
   </div>`;
   html += top5.map(a => {
     const c = customers.find(x => x.id === a.cid);
@@ -8988,14 +8988,11 @@ function _renderAlerts() {
   _cachedSnoozed = snz;
   const list   = el('alerts-list');
 
-  // Update sidebar badge + topbar bell badge
-  // Show unique customer count (not total alerts) for a cleaner number
-  const _uniqueAlertCids = new Set(active.map(a => a.cid));
-  const _alertDisplayCount = _uniqueAlertCids.size;
+  // Update sidebar badge + topbar bell badge — show total alert count
   const ab = el('alert-badge');
-  if (ab) { if (_alertDisplayCount > 0) { ab.textContent = _alertDisplayCount; ab.style.display = ''; } else ab.style.display = 'none'; }
+  if (ab) { if (active.length > 0) { ab.textContent = active.length; ab.style.display = ''; } else ab.style.display = 'none'; }
   const bb = el('bell-badge');
-  if (bb) { if (_alertDisplayCount > 0) { bb.textContent = _alertDisplayCount; bb.style.display = ''; } else bb.style.display = 'none'; }
+  if (bb) { if (active.length > 0) { bb.textContent = active.length; bb.style.display = ''; } else bb.style.display = 'none'; }
 
   _updateAlertBulkBar();
 
