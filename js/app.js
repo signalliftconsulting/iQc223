@@ -2040,7 +2040,17 @@ function _wtSpotlightPage(page, idx, gen) {
 
   // Switch to the correct tab if this step specifies one
   if (step.tab) {
-    try { eval(step.tab); } catch(e) { console.warn('Walkthrough tab switch failed:', e); }
+    try {
+      new Function(step.tab)();
+    } catch(e) {
+      // Fallback: try direct cfgTab call
+      try {
+        var m = step.tab.match(/cfgTab\('(\w+)'\)/);
+        if (m) cfgTab(m[1]);
+        var m2 = step.tab.match(/apiSubTab\('(\w+)'\)/);
+        if (m2 && typeof apiSubTab === 'function') apiSubTab(m2[1]);
+      } catch(e2) { console.warn('Walkthrough tab switch failed:', e2); }
+    }
   }
 
   // Run a custom action if this step specifies one (e.g. triggering a demo score)
