@@ -705,13 +705,25 @@ function _renderHomeBase() {
   // Select top 2-3 insights, fallback if none are interesting
   _overviewCandidates.sort((a,b) => b.score - a.score);
   const _topInsights = _overviewCandidates.slice(0, 3);
+  // Build health headline
+  let _healthLine;
+  const _deltaWord = avgDelta > 2 ? 'improving' : avgDelta < -2 ? 'declining' : 'steady';
+  const _healthPct = Math.round(((healthy.length + expand.length) / total) * 100);
+  if (atRisk.length === 0 && critical.length === 0) {
+    _healthLine = `Overall portfolio health is strong and ${_deltaWord}, with ${_healthPct}% of accounts in good standing.`;
+  } else if (healthyPct >= 70) {
+    _healthLine = `Overall portfolio health is solid (${_healthPct}% healthy/expanding, avg score ${avgScore}) but ${atRisk.length + critical.length} account${atRisk.length + critical.length !== 1 ? 's need' : ' needs'} attention.`;
+  } else if (healthyPct >= 50) {
+    _healthLine = `Portfolio health is mixed (avg score ${avgScore}, ${_deltaWord}). ${healthy.length + expand.length} accounts are healthy, but ${atRisk.length + critical.length + watch.length} are in watch or at-risk status.`;
+  } else {
+    _healthLine = `Portfolio health needs attention. Only ${_healthPct}% of accounts are in good standing (avg score ${avgScore}, ${_deltaWord}), with ${atRisk.length + critical.length} at risk.`;
+  }
+
   let _portfolioBlurb;
   if (_topInsights.length === 0) {
-    if (healthyPct >= 80) _portfolioBlurb = 'Your portfolio is stable with no standout patterns this period. A good time to focus on expansion opportunities and proactive check-ins.';
-    else if (atRisk.length > 0) _portfolioBlurb = `No strong patterns detected this period. Keep an eye on your ${atRisk.length} at-risk account${atRisk.length !== 1 ? 's' : ''} and prioritize by MRR exposure.`;
-    else _portfolioBlurb = 'Portfolio looks steady. Focus on maintaining momentum and deepening engagement with your key accounts.';
+    _portfolioBlurb = _healthLine;
   } else {
-    _portfolioBlurb = _topInsights.map(i => i.text).join(' ');
+    _portfolioBlurb = _healthLine + ' ' + _topInsights.map(i => i.text).join(' ');
   }
 
   // Build urgency-scored, verb-first action items (max 4)
