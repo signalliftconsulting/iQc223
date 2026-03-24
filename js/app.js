@@ -6341,12 +6341,8 @@ function renderBellDd() {
     const c = customers.find(x => x.id === a.cid);
     if (!c) return;
     const hasCritRisk = a.cat === 'health' && (c.status === 'critical' || c.status === 'risk');
-    const hist = c.score_history || [];
-    let bigDrop = false;
-    if (hist.length >= 2) {
-      const delta = hist[hist.length - 1].score - hist[hist.length - 2].score;
-      if (delta <= -10) bigDrop = true;
-    }
+    const delta7 = typeof getDelta7d === 'function' ? getDelta7d(c) : null;
+    const bigDrop = delta7 !== null && delta7 <= -10;
     if (hasCritRisk || bigDrop) actNowCids.add(c.id);
   });
   // Get unique customers for Act Now
