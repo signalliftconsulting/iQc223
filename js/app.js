@@ -25083,21 +25083,23 @@ function _fcClassify(c) {
 
   const score = c.score || 0;
   const delta = _getDeltaNd(c, 30);
-  const declining = delta !== null && delta < 0;
+  const declining = delta !== null && delta < -3; // match momentum threshold
+  const anyDecline = delta !== null && delta < 0;
+  const status = c.status || '';
 
   // Expand: high score + growth signal or won
   if (score >= 80 && (c.growth === 'strong' || c.lifecycle === 'won')) {
     return { cat: 'expand', impact: _fcExpansionEst(c), prob: 0 };
   }
-  // Churn risk: very low score OR critical score + declining
+  // Churn risk: very low score OR critical/at-risk score + declining momentum
   if (score < 30 || (score < 40 && declining)) {
     const prob = _fcChurnProb(Math.min(score, 35));
     return { cat: 'churn', impact: -Math.round(mrr * prob), prob };
   }
-  // Contract: mid score + declining
-  if (score < 60 && declining) {
-    // Linear: 40% loss at score 40, 20% at score 59
-    const pct = 0.40 - 0.20 * ((score - 40) / 19);
+  // Contract: below 65 (watch/risk threshold) + any negative trend, OR critical/risk status regardless of trend
+  if ((score < 65 && anyDecline) || (status === 'critical' || status === 'risk')) {
+    const severity = Math.max(0, Math.min(1, (65 - score) / 40)); // 0 at score 65, ~1 at score 25
+    const pct = 0.10 + 0.30 * severity; // 10% at watch, 40% at critical
     return { cat: 'contract', impact: -Math.round(mrr * pct), prob: 0 };
   }
   // Retain
