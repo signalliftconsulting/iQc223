@@ -9033,10 +9033,12 @@ function updateAlertBadge() {
   try {
     const all    = buildAlerts();
     const active = all.filter(a => !isSnoozed(a.id) && !isDismissed(a.id));
+    const _critCount = active.filter(a => a.cat === 'health' && a.type === 'red').length;
+    const _badgeCount = _critCount > 0 ? _critCount : active.length;
     const ab = el('alert-badge');
-    if (ab) { if (active.length > 0) { ab.textContent = active.length; ab.style.display = ''; } else ab.style.display = 'none'; }
+    if (ab) { if (_badgeCount > 0) { ab.textContent = _badgeCount; ab.style.display = ''; } else ab.style.display = 'none'; }
     const bb = el('bell-badge');
-    if (bb) { if (active.length > 0) { bb.textContent = active.length; bb.style.display = ''; } else bb.style.display = 'none'; }
+    if (bb) { if (_badgeCount > 0) { bb.textContent = _badgeCount; bb.style.display = ''; } else bb.style.display = 'none'; }
   } catch(e) { console.warn('updateAlertBadge error:', e); }
 }
 
