@@ -93,6 +93,7 @@ Rules:
 - IMPORTANT: Look at the score history. If the score has improved significantly (10+ pts over recent entries), call this out as a positive trend in the summary. Acknowledge what's working - e.g. "Score climbed from 52 to 74 over the past month - whatever changed in engagement is working. Keep the momentum going." Improvements are just as important as risks.
 - Risk factors can include GREEN severity items for positive trends (title: "Score Trending Up", detail: explanation of the improvement)
 - If signals are null/missing, note the data gap as a risk factor
+- Days Since Contact: under 14 days is NORMAL and should NOT be flagged as a risk. Only flag contact gaps of 21+ days as amber, 30+ days as red. Do not mention last contact if it was recent (under 14 days).
 - Write in third person - do NOT use "we", "our", or "us"
 - IMPORTANT: Only mention the renewal date if it is within 90 days. If it says "do NOT mention" in the renewal data, completely ignore the renewal.
 - Format dates readably (e.g. "April 8, 2026" not "2026-04-08")`;
