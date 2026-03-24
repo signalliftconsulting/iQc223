@@ -169,6 +169,7 @@ const PLAN_FEATURES = {
   report_segments:   'core',
   api_webhooks:      'core',
   // Growth+
+  scheduled_reports:  'growth',
   csm_filtering:     'growth',
   manager_dashboard: 'growth',
   csm_dashboard:     'growth',

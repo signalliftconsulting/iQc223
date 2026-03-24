@@ -1479,9 +1479,10 @@ function reportEmailTab(which) {
   if (!body || !_remKey) return;
   const cfg = _getReportScheduleCfg(_remKey);
 
+  var _canSchedule = hasFeature('scheduled_reports');
   const tabHtml = '<div class="dtab-row" style="margin-bottom:14px">' +
     '<button class="dtab' + (which === 'send' ? ' active' : '') + '" onclick="reportEmailTab(\'send\')">Send Now</button>' +
-    '<button class="dtab' + (which === 'schedule' ? ' active' : '') + '" onclick="reportEmailTab(\'schedule\')">Schedule</button>' +
+    '<button class="dtab' + (which === 'schedule' ? ' active' : '') + '" onclick="reportEmailTab(\'schedule\')"' + (_canSchedule ? '' : ' style="opacity:.5"') + '>Schedule' + (_canSchedule ? '' : ' <span style="font-size:9px;vertical-align:super;color:var(--blue)">Growth</span>') + '</button>' +
   '</div>';
 
   if (which === 'send') {
@@ -1498,6 +1499,10 @@ function reportEmailTab(which) {
         '<p style="font-size:var(--fs-sm);color:var(--muted);margin-top:4px">Send Now delivers the report to all listed recipients. Send Test sends only to your email.</p>' +
       '</div>';
   } else {
+    if (!_canSchedule) {
+      body.innerHTML = tabHtml + upgradeHTML('scheduled_reports');
+      return;
+    }
     const schedOn = cfg.enabled !== false; // default on when opening schedule tab
     const days = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
     body.innerHTML = tabHtml +

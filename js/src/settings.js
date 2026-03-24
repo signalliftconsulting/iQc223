@@ -166,7 +166,7 @@ function renderBillingPlanCards() {
       tier: 'growth', name: 'Growth', color: 'var(--blue)',
       price: '',
       desc: 'Advanced insights for growing CS teams',
-      features: ['Up to 5 users', 'Up to 300 accounts', '5,000 AI calls / month', 'Everything in Core, plus:', 'CSM Performance dashboard & leaderboard', 'Signal Model (proprietary scoring)', 'Manager filtering across all views'],
+      features: ['Up to 5 users', 'Up to 300 accounts', '5,000 AI calls / month', 'Everything in Core, plus:', 'CSM Performance dashboard & leaderboard', 'Signal Model (proprietary scoring)', 'Manager filtering across all views', 'Scheduled report delivery'],
       priceKey: interval === 'annual' ? 'growth_annual' : 'growth_monthly',
     },
     {
