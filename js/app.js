@@ -25089,15 +25089,15 @@ function _fcClassify(c) {
   if (score >= 80 && (c.growth === 'strong' || c.lifecycle === 'won')) {
     return { cat: 'expand', impact: _fcExpansionEst(c), prob: 0 };
   }
-  // Churn risk: very low score
-  if (score < 30) {
-    const prob = _fcChurnProb(score);
+  // Churn risk: very low score OR critical score + declining
+  if (score < 30 || (score < 40 && declining)) {
+    const prob = _fcChurnProb(Math.min(score, 35));
     return { cat: 'churn', impact: -Math.round(mrr * prob), prob };
   }
   // Contract: mid score + declining
   if (score < 60 && declining) {
-    // Linear: 40% loss at score 30, 20% at score 59
-    const pct = 0.40 - 0.20 * ((score - 30) / 29);
+    // Linear: 40% loss at score 40, 20% at score 59
+    const pct = 0.40 - 0.20 * ((score - 40) / 19);
     return { cat: 'contract', impact: -Math.round(mrr * pct), prob: 0 };
   }
   // Retain
