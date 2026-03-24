@@ -1509,14 +1509,19 @@ function reportEmailTab(which) {
         '<div id="rem-sched-opts" style="' + (schedOn ? '' : 'opacity:.5;pointer-events:none;') + 'display:flex;flex-direction:column;gap:10px">' +
           '<label style="font-size:var(--fs-sm);font-weight:600;color:var(--text)">Frequency</label>' +
           '<div style="display:flex;gap:8px">' +
-            '<label style="font-size:var(--fs-base);display:flex;align-items:center;gap:4px"><input type="radio" name="rem-freq" value="daily" ' + (cfg.frequency === 'daily' ? 'checked' : '') + '/> Daily</label>' +
-            '<label style="font-size:var(--fs-base);display:flex;align-items:center;gap:4px"><input type="radio" name="rem-freq" value="weekly" ' + (cfg.frequency !== 'daily' ? 'checked' : '') + '/> Weekly</label>' +
+            '<label style="font-size:var(--fs-base);display:flex;align-items:center;gap:4px"><input type="radio" name="rem-freq" value="daily" ' + (cfg.frequency === 'daily' ? 'checked' : '') + ' onchange="toggleReportFreqDay()"/> Daily</label>' +
+            '<label style="font-size:var(--fs-base);display:flex;align-items:center;gap:4px"><input type="radio" name="rem-freq" value="weekly" ' + (cfg.frequency === 'weekly' || (!cfg.frequency || cfg.frequency === 'weekly') ? 'checked' : '') + ' onchange="toggleReportFreqDay()"/> Weekly</label>' +
+            '<label style="font-size:var(--fs-base);display:flex;align-items:center;gap:4px"><input type="radio" name="rem-freq" value="monthly" ' + (cfg.frequency === 'monthly' ? 'checked' : '') + ' onchange="toggleReportFreqDay()"/> Monthly</label>' +
           '</div>' +
           '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
-            '<div><label style="font-size:var(--fs-sm);font-weight:600;color:var(--text)">Day</label>' +
-              '<select id="rem-sched-day" class="form-input" style="font-size:var(--fs-base);margin-top:4px">' +
+            '<div id="rem-day-wrap" style="' + (cfg.frequency === 'daily' ? 'display:none' : '') + '"><label style="font-size:var(--fs-sm);font-weight:600;color:var(--text)">Day</label>' +
+              '<select id="rem-sched-day" class="form-input" style="font-size:var(--fs-base);margin-top:4px;' + (cfg.frequency === 'monthly' ? 'display:none' : '') + '">' +
                 days.map(d => '<option value="' + d + '"' + (cfg.day === d ? ' selected' : '') + '>' + d.charAt(0).toUpperCase() + d.slice(1) + '</option>').join('') +
-              '</select></div>' +
+              '</select>' +
+              '<select id="rem-sched-dom" class="form-input" style="font-size:var(--fs-base);margin-top:4px;' + (cfg.frequency !== 'monthly' ? 'display:none' : '') + '">' +
+                Array.from({length:28}, function(_,i) { var d = i+1; return '<option value="' + d + '"' + ((cfg.day_of_month || 1) == d ? ' selected' : '') + '>' + d + (d===1?'st':d===2?'nd':d===3?'rd':'th') + '</option>'; }).join('') +
+              '</select>' +
+            '</div>' +
             '<div><label style="font-size:var(--fs-sm);font-weight:600;color:var(--text)">Time</label>' +
               '<input type="time" id="rem-sched-time" class="form-input" value="' + (cfg.time || '09:00') + '" style="font-size:var(--fs-base);margin-top:4px"/></div>' +
           '</div>' +
@@ -1538,12 +1543,23 @@ function toggleReportSchedule() {
   if (opts) opts.style.pointerEvents = cb?.checked ? '' : 'none';
 }
 
+function toggleReportFreqDay() {
+  var freq = document.querySelector('input[name="rem-freq"]:checked')?.value || 'weekly';
+  var dayWrap = el('rem-day-wrap');
+  var daySel = el('rem-sched-day');
+  var domSel = el('rem-sched-dom');
+  if (dayWrap) dayWrap.style.display = freq === 'daily' ? 'none' : '';
+  if (daySel) daySel.style.display = freq === 'monthly' ? 'none' : '';
+  if (domSel) domSel.style.display = freq === 'monthly' ? '' : 'none';
+}
+
 function saveReportSchedule() {
   if (!_remKey) return;
   const cfg = _getReportScheduleCfg(_remKey);
   cfg.enabled = !!el('rem-sched-enabled')?.checked;
   cfg.frequency = document.querySelector('input[name="rem-freq"]:checked')?.value || 'weekly';
-  cfg.day = el('rem-sched-day')?.value || 'monday';
+  cfg.day = cfg.frequency === 'monthly' ? (el('rem-sched-dom')?.value || '1') : (el('rem-sched-day')?.value || 'monday');
+  if (cfg.frequency === 'monthly') cfg.day_of_month = parseInt(el('rem-sched-dom')?.value || '1');
   cfg.time = el('rem-sched-time')?.value || '09:00';
   cfg.recipients = (el('rem-sched-recip')?.value || '').trim();
   cfg.subject_prefix = (el('rem-sched-prefix')?.value || '[iQcadence Report]').trim();
