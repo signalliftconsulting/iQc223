@@ -95,30 +95,36 @@ var _WT_TOURS = {
         target: '#cfg-sm-section',
         title: 'iQcadence Signal Model',
         body: 'The Signal Model layers 26 factors on top of your base scores to detect hidden risks and expansion signals that raw numbers miss. Toggle it on and choose a sensitivity level to control how aggressively it flags accounts.',
-        tab: "cfgTab('config')"
+        tab: "cfgTab('scoring')"
       },
       {
         target: '#weight-rows',
-        title: 'Scoring Weights',
+        title: 'Signal Weights',
         body: 'Control how much each signal contributes to the health score - logins, adoption, tickets, NPS, CSAT, and contact recency. Drag the sliders to match what matters most for your business. Changes recalculate every account score automatically.',
-        tab: "cfgTab('config')"
+        tab: "cfgTab('scoring')"
       },
       {
         target: '#cfg-score-dist',
-        title: 'Score Distribution and Thresholds',
-        body: 'See how your accounts spread across health bands and adjust the boundaries that define Critical, At Risk, Watch, Healthy, and Expansion tiers. These thresholds drive alerts, color coding, and KPI cards across every page in iQcadence.',
-        tab: "cfgTab('config')"
+        title: 'Score Distribution & Profiles',
+        body: 'See how your accounts spread across health bands. Below the distribution, manage Scoring Profiles to save and load different weight configurations for different customer segments (e.g. Non-SaaS).',
+        tab: "cfgTab('scoring')"
+      },
+      {
+        target: '#cfg-pane-thresholds',
+        title: 'Thresholds & Operations',
+        body: 'Define score cutoffs for each health band (Critical, At Risk, Watch, Healthy, Expansion), signal sensitivity thresholds, and account operations like contact cadence, renewal windows, and expansion estimates.',
+        tab: "cfgTab('thresholds')"
       },
       {
         target: '#cfg-acct-ops',
         title: 'Account Operations',
-        body: 'Configure how iQcadence manages customer accounts day-to-day. Set contact cadence thresholds per tier (when follow-ups become overdue), renewal alert windows, and how expansion revenue is estimated across your book of business.',
-        tab: "cfgTab('config')"
+        body: 'Set contact cadence thresholds per tier (when follow-ups become overdue), renewal alert windows (how far out to trigger warnings), and how expansion revenue is estimated across your book of business.',
+        tab: "cfgTab('thresholds')"
       },
       {
         target: '#cfg-tab-account',
         title: 'Account Tab',
-        body: 'The Account tab holds your data health overview, bulk actions, CSM management, and account settings. Let\'s take a look inside.',
+        body: 'The Account tab holds your data health overview, bulk actions, CSM management, and account settings.',
         tab: "cfgTab('account')"
       },
       {
@@ -136,26 +142,26 @@ var _WT_TOURS = {
       {
         target: '#cfg-csm-list-card',
         title: 'Manage CSMs',
-        body: 'View all Customer Success Managers currently assigned to accounts. Remove a CSM to unassign them from their entire portfolio, or use this list to audit workload distribution before making changes on the CSM Performance page.',
+        body: 'View all Customer Success Managers currently assigned to accounts. Remove a CSM to unassign them from their entire portfolio, or use this list to audit workload distribution.',
         tab: "cfgTab('account')"
       },
       {
-        target: '#cfg-tab-api',
-        title: 'Integrations Tab',
-        body: 'The Integrations tab connects iQcadence to your existing tools. Let\'s walk through what\'s available.',
+        target: '#integrations-section',
+        title: 'Integrations',
+        body: 'Connect iQcadence to Stripe, HubSpot, Salesforce and more. Each integration syncs customer data automatically to keep your health scores up to date.',
         tab: "cfgTab('api')"
       },
       {
-        target: '#integrations-section',
-        title: 'Native Integrations',
-        body: 'Connect to popular platforms like Salesforce, HubSpot, Intercom, Zendesk, Stripe, and more with one-click setup. Each integration syncs customer data automatically to keep your health scores up to date.',
-        tab: "cfgTab('api');apiSubTab('integrations')"
+        target: '#cfg-pane-apidev',
+        title: 'API & Webhooks',
+        body: 'Set up custom webhook URLs for Zapier or other automation platforms, manage your API key for inbound requests, browse available REST endpoints, and monitor the event log.',
+        tab: "cfgTab('apidev')"
       },
       {
-        target: '#api-tab-devtools',
-        title: 'API and Webhooks',
-        body: 'In the API & Webhooks sub-tab, set up custom webhook URLs for Zapier or other automation platforms, manage your API key for inbound requests, browse available REST endpoints, and monitor the event log.',
-        tab: "cfgTab('api');apiSubTab('devtools')"
+        target: '#cfg-pane-billing',
+        title: 'Plan & Billing',
+        body: 'View your current plan, compare tiers, and manage your subscription. Core includes all features for small teams, Growth adds CSM Performance, Signal Model, and manager filtering.',
+        tab: "cfgTab('billing')"
       }
     ]
   },

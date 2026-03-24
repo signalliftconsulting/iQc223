@@ -1465,30 +1465,36 @@ var _WT_TOURS = {
         target: '#cfg-sm-section',
         title: 'iQcadence Signal Model',
         body: 'The Signal Model layers 26 factors on top of your base scores to detect hidden risks and expansion signals that raw numbers miss. Toggle it on and choose a sensitivity level to control how aggressively it flags accounts.',
-        tab: "cfgTab('config')"
+        tab: "cfgTab('scoring')"
       },
       {
         target: '#weight-rows',
-        title: 'Scoring Weights',
+        title: 'Signal Weights',
         body: 'Control how much each signal contributes to the health score - logins, adoption, tickets, NPS, CSAT, and contact recency. Drag the sliders to match what matters most for your business. Changes recalculate every account score automatically.',
-        tab: "cfgTab('config')"
+        tab: "cfgTab('scoring')"
       },
       {
         target: '#cfg-score-dist',
-        title: 'Score Distribution and Thresholds',
-        body: 'See how your accounts spread across health bands and adjust the boundaries that define Critical, At Risk, Watch, Healthy, and Expansion tiers. These thresholds drive alerts, color coding, and KPI cards across every page in iQcadence.',
-        tab: "cfgTab('config')"
+        title: 'Score Distribution & Profiles',
+        body: 'See how your accounts spread across health bands. Below the distribution, manage Scoring Profiles to save and load different weight configurations for different customer segments (e.g. Non-SaaS).',
+        tab: "cfgTab('scoring')"
+      },
+      {
+        target: '#cfg-pane-thresholds',
+        title: 'Thresholds & Operations',
+        body: 'Define score cutoffs for each health band (Critical, At Risk, Watch, Healthy, Expansion), signal sensitivity thresholds, and account operations like contact cadence, renewal windows, and expansion estimates.',
+        tab: "cfgTab('thresholds')"
       },
       {
         target: '#cfg-acct-ops',
         title: 'Account Operations',
-        body: 'Configure how iQcadence manages customer accounts day-to-day. Set contact cadence thresholds per tier (when follow-ups become overdue), renewal alert windows, and how expansion revenue is estimated across your book of business.',
-        tab: "cfgTab('config')"
+        body: 'Set contact cadence thresholds per tier (when follow-ups become overdue), renewal alert windows (how far out to trigger warnings), and how expansion revenue is estimated across your book of business.',
+        tab: "cfgTab('thresholds')"
       },
       {
         target: '#cfg-tab-account',
         title: 'Account Tab',
-        body: 'The Account tab holds your data health overview, bulk actions, CSM management, and account settings. Let\'s take a look inside.',
+        body: 'The Account tab holds your data health overview, bulk actions, CSM management, and account settings.',
         tab: "cfgTab('account')"
       },
       {
@@ -1506,26 +1512,26 @@ var _WT_TOURS = {
       {
         target: '#cfg-csm-list-card',
         title: 'Manage CSMs',
-        body: 'View all Customer Success Managers currently assigned to accounts. Remove a CSM to unassign them from their entire portfolio, or use this list to audit workload distribution before making changes on the CSM Performance page.',
+        body: 'View all Customer Success Managers currently assigned to accounts. Remove a CSM to unassign them from their entire portfolio, or use this list to audit workload distribution.',
         tab: "cfgTab('account')"
       },
       {
-        target: '#cfg-tab-api',
-        title: 'Integrations Tab',
-        body: 'The Integrations tab connects iQcadence to your existing tools. Let\'s walk through what\'s available.',
+        target: '#integrations-section',
+        title: 'Integrations',
+        body: 'Connect iQcadence to Stripe, HubSpot, Salesforce and more. Each integration syncs customer data automatically to keep your health scores up to date.',
         tab: "cfgTab('api')"
       },
       {
-        target: '#integrations-section',
-        title: 'Native Integrations',
-        body: 'Connect to popular platforms like Salesforce, HubSpot, Intercom, Zendesk, Stripe, and more with one-click setup. Each integration syncs customer data automatically to keep your health scores up to date.',
-        tab: "cfgTab('api');apiSubTab('integrations')"
+        target: '#cfg-pane-apidev',
+        title: 'API & Webhooks',
+        body: 'Set up custom webhook URLs for Zapier or other automation platforms, manage your API key for inbound requests, browse available REST endpoints, and monitor the event log.',
+        tab: "cfgTab('apidev')"
       },
       {
-        target: '#api-tab-devtools',
-        title: 'API and Webhooks',
-        body: 'In the API & Webhooks sub-tab, set up custom webhook URLs for Zapier or other automation platforms, manage your API key for inbound requests, browse available REST endpoints, and monitor the event log.',
-        tab: "cfgTab('api');apiSubTab('devtools')"
+        target: '#cfg-pane-billing',
+        title: 'Plan & Billing',
+        body: 'View your current plan, compare tiers, and manage your subscription. Core includes all features for small teams, Growth adds CSM Performance, Signal Model, and manager filtering.',
+        tab: "cfgTab('billing')"
       }
     ]
   },
@@ -14674,33 +14680,47 @@ function _updateSettingsGuideBadge() {
 
 function _renderSettingsGuide(tab) {
   var content = '';
-  if (tab === 'account') {
+  if (tab === 'scoring') {
     content =
-      '<strong>Account Settings</strong> - Manage your team and data from here.<br>' +
-      '<strong>CSM List:</strong> Add, edit, or remove Customer Success Managers. CSMs assigned here appear in the manager filter and CSM Performance page.<br>' +
+      '<strong>Scoring</strong> - Control how iQcadence calculates health scores.<br>' +
+      '<strong>Signal Model:</strong> Enable the proprietary scoring layer that analyzes 26 factors on top of your base weights. Choose Conservative, Balanced, or Aggressive sensitivity.<br>' +
+      '<strong>Signal Weights:</strong> Set how much each metric (logins, adoption, NPS, CSAT, tickets, contact days, growth) impacts the health score. Weights must total 100%.<br>' +
+      '<strong>Scoring Profiles:</strong> Save different weight sets for different segments (e.g. Non-SaaS) and assign them per customer.<br>' +
+      '<strong>Tip:</strong> The Signal Model works on top of your weights - it detects patterns like declining engagement and nudges scores accordingly.';
+  } else if (tab === 'thresholds') {
+    content =
+      '<strong>Thresholds & Operations</strong> - Define score bands and account management settings.<br>' +
+      '<strong>Score Thresholds:</strong> Set the boundaries for Critical, At Risk, Watch, Healthy, and Expansion status bands.<br>' +
+      '<strong>Signal Thresholds:</strong> Configure quiet account detection and momentum sensitivity.<br>' +
+      '<strong>Contact Cadence:</strong> Set how many days without contact triggers Due Soon and Overdue alerts, per tier.<br>' +
+      '<strong>Renewal Windows:</strong> Configure how far in advance renewal alerts fire at each urgency level.<br>' +
+      '<strong>Expansion Estimate:</strong> Choose how upsell potential is calculated for expansion-ready accounts.';
+  } else if (tab === 'account') {
+    content =
+      '<strong>Account</strong> - Manage your team and data.<br>' +
       '<strong>Data Health:</strong> See how complete your customer data is - missing fields, stale accounts, and signal coverage gaps.<br>' +
-      '<strong>Backup & Restore:</strong> Export your full dataset as a JSON backup or restore from a previous export.<br>' +
+      '<strong>CSM List:</strong> View and manage Customer Success Managers assigned to accounts.<br>' +
+      '<strong>Quick Actions:</strong> Re-score all accounts, export/import backups, or reset to defaults.<br>' +
       '<strong>Password:</strong> Change your account password.';
-  } else if (tab === 'billing') {
-    content =
-      '<strong>Plan & Billing</strong> - View your subscription and manage your plan.<br>' +
-      '<strong>Current Plan:</strong> See your active tier, usage limits (users, accounts, AI calls), and billing period.<br>' +
-      '<strong>Available Plans:</strong> Compare Core, Growth, and Custom tiers. Toggle monthly vs annual billing to see savings.<br>' +
-      '<strong>Tip:</strong> Upgrade or manage your subscription anytime. Changes take effect immediately.';
   } else if (tab === 'api') {
     content =
       '<strong>Integrations</strong> - Connect external tools to auto-sync customer data.<br>' +
-      '<strong>Native Integrations:</strong> Connect Salesforce, HubSpot, or Stripe to pull customer data, contacts, and revenue automatically.<br>' +
-      '<strong>API & Webhooks:</strong> Use the REST API to push data from any system. Generate API keys, view endpoints, and configure inbound webhooks for real-time updates.<br>' +
-      '<strong>Tip:</strong> Connected integrations sync on a schedule. Use the API for custom or real-time data flows.';
-  } else {
+      '<strong>Stripe:</strong> Sync subscription data, MRR, and growth signals automatically.<br>' +
+      '<strong>HubSpot / Salesforce:</strong> Pull contacts, deals, and company data into iQcadence.<br>' +
+      '<strong>Tip:</strong> Connected integrations sync on a schedule. Use the API tab for custom or real-time data flows.';
+  } else if (tab === 'apidev') {
     content =
-      '<strong>Scoring Configuration</strong> - Control how iQcadence calculates health scores.<br>' +
-      '<strong>iQcadence Signal Model:</strong> Enable the built-in signal model to automatically adjust scores based on signal trends, velocity, and cross-signal patterns. Choose Conservative, Balanced, or Aggressive sensitivity.<br>' +
-      '<strong>Signal Weights:</strong> Set how much each metric (logins, adoption, NPS, CSAT, tickets, contact days, growth) impacts the health score. Weights must total 100%.<br>' +
-      '<strong>Status Thresholds:</strong> Define the score boundaries for Critical, At Risk, Watch, Healthy, and Expand status bands.<br>' +
-      '<strong>Scoring Profiles:</strong> Create custom weight sets for different segments (e.g. Enterprise vs SMB) - assign them per customer in the Score form.<br>' +
-      '<strong>Tip:</strong> The Signal Model works on top of your weights - it detects patterns like declining engagement or improving sentiment and nudges scores accordingly.';
+      '<strong>API & Webhooks</strong> - Build custom integrations.<br>' +
+      '<strong>Webhooks:</strong> Configure inbound webhook URLs for Zapier or other automation platforms.<br>' +
+      '<strong>API Key:</strong> Generate and manage your REST API key for programmatic access.<br>' +
+      '<strong>Endpoints:</strong> Browse available API endpoints and test requests.<br>' +
+      '<strong>Event Log:</strong> Monitor recent webhook and API activity.';
+  } else if (tab === 'billing') {
+    content =
+      '<strong>Plan & Billing</strong> - View your subscription and compare plans.<br>' +
+      '<strong>Core:</strong> 3 users, 150 accounts, 1,000 AI calls/mo - full platform for small teams.<br>' +
+      '<strong>Growth:</strong> 5 users, 300 accounts, 5,000 AI calls/mo - adds CSM Performance, Signal Model, manager filtering, and scheduled reports.<br>' +
+      '<strong>Custom:</strong> Unlimited everything plus white-label branding and priority support.';
   }
   _renderGuide('settings-guide', 'iqc_settings_guide_dismissed', content);
 }

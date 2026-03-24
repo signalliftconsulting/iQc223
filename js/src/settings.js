@@ -333,33 +333,47 @@ function _updateSettingsGuideBadge() {
 
 function _renderSettingsGuide(tab) {
   var content = '';
-  if (tab === 'account') {
+  if (tab === 'scoring') {
     content =
-      '<strong>Account Settings</strong> - Manage your team and data from here.<br>' +
-      '<strong>CSM List:</strong> Add, edit, or remove Customer Success Managers. CSMs assigned here appear in the manager filter and CSM Performance page.<br>' +
+      '<strong>Scoring</strong> - Control how iQcadence calculates health scores.<br>' +
+      '<strong>Signal Model:</strong> Enable the proprietary scoring layer that analyzes 26 factors on top of your base weights. Choose Conservative, Balanced, or Aggressive sensitivity.<br>' +
+      '<strong>Signal Weights:</strong> Set how much each metric (logins, adoption, NPS, CSAT, tickets, contact days, growth) impacts the health score. Weights must total 100%.<br>' +
+      '<strong>Scoring Profiles:</strong> Save different weight sets for different segments (e.g. Non-SaaS) and assign them per customer.<br>' +
+      '<strong>Tip:</strong> The Signal Model works on top of your weights - it detects patterns like declining engagement and nudges scores accordingly.';
+  } else if (tab === 'thresholds') {
+    content =
+      '<strong>Thresholds & Operations</strong> - Define score bands and account management settings.<br>' +
+      '<strong>Score Thresholds:</strong> Set the boundaries for Critical, At Risk, Watch, Healthy, and Expansion status bands.<br>' +
+      '<strong>Signal Thresholds:</strong> Configure quiet account detection and momentum sensitivity.<br>' +
+      '<strong>Contact Cadence:</strong> Set how many days without contact triggers Due Soon and Overdue alerts, per tier.<br>' +
+      '<strong>Renewal Windows:</strong> Configure how far in advance renewal alerts fire at each urgency level.<br>' +
+      '<strong>Expansion Estimate:</strong> Choose how upsell potential is calculated for expansion-ready accounts.';
+  } else if (tab === 'account') {
+    content =
+      '<strong>Account</strong> - Manage your team and data.<br>' +
       '<strong>Data Health:</strong> See how complete your customer data is - missing fields, stale accounts, and signal coverage gaps.<br>' +
-      '<strong>Backup & Restore:</strong> Export your full dataset as a JSON backup or restore from a previous export.<br>' +
+      '<strong>CSM List:</strong> View and manage Customer Success Managers assigned to accounts.<br>' +
+      '<strong>Quick Actions:</strong> Re-score all accounts, export/import backups, or reset to defaults.<br>' +
       '<strong>Password:</strong> Change your account password.';
-  } else if (tab === 'billing') {
-    content =
-      '<strong>Plan & Billing</strong> - View your subscription and manage your plan.<br>' +
-      '<strong>Current Plan:</strong> See your active tier, usage limits (users, accounts, AI calls), and billing period.<br>' +
-      '<strong>Available Plans:</strong> Compare Core, Growth, and Custom tiers. Toggle monthly vs annual billing to see savings.<br>' +
-      '<strong>Tip:</strong> Upgrade or manage your subscription anytime. Changes take effect immediately.';
   } else if (tab === 'api') {
     content =
       '<strong>Integrations</strong> - Connect external tools to auto-sync customer data.<br>' +
-      '<strong>Native Integrations:</strong> Connect Salesforce, HubSpot, or Stripe to pull customer data, contacts, and revenue automatically.<br>' +
-      '<strong>API & Webhooks:</strong> Use the REST API to push data from any system. Generate API keys, view endpoints, and configure inbound webhooks for real-time updates.<br>' +
-      '<strong>Tip:</strong> Connected integrations sync on a schedule. Use the API for custom or real-time data flows.';
-  } else {
+      '<strong>Stripe:</strong> Sync subscription data, MRR, and growth signals automatically.<br>' +
+      '<strong>HubSpot / Salesforce:</strong> Pull contacts, deals, and company data into iQcadence.<br>' +
+      '<strong>Tip:</strong> Connected integrations sync on a schedule. Use the API tab for custom or real-time data flows.';
+  } else if (tab === 'apidev') {
     content =
-      '<strong>Scoring Configuration</strong> - Control how iQcadence calculates health scores.<br>' +
-      '<strong>iQcadence Signal Model:</strong> Enable the built-in signal model to automatically adjust scores based on signal trends, velocity, and cross-signal patterns. Choose Conservative, Balanced, or Aggressive sensitivity.<br>' +
-      '<strong>Signal Weights:</strong> Set how much each metric (logins, adoption, NPS, CSAT, tickets, contact days, growth) impacts the health score. Weights must total 100%.<br>' +
-      '<strong>Status Thresholds:</strong> Define the score boundaries for Critical, At Risk, Watch, Healthy, and Expand status bands.<br>' +
-      '<strong>Scoring Profiles:</strong> Create custom weight sets for different segments (e.g. Enterprise vs SMB) - assign them per customer in the Score form.<br>' +
-      '<strong>Tip:</strong> The Signal Model works on top of your weights - it detects patterns like declining engagement or improving sentiment and nudges scores accordingly.';
+      '<strong>API & Webhooks</strong> - Build custom integrations.<br>' +
+      '<strong>Webhooks:</strong> Configure inbound webhook URLs for Zapier or other automation platforms.<br>' +
+      '<strong>API Key:</strong> Generate and manage your REST API key for programmatic access.<br>' +
+      '<strong>Endpoints:</strong> Browse available API endpoints and test requests.<br>' +
+      '<strong>Event Log:</strong> Monitor recent webhook and API activity.';
+  } else if (tab === 'billing') {
+    content =
+      '<strong>Plan & Billing</strong> - View your subscription and compare plans.<br>' +
+      '<strong>Core:</strong> 3 users, 150 accounts, 1,000 AI calls/mo - full platform for small teams.<br>' +
+      '<strong>Growth:</strong> 5 users, 300 accounts, 5,000 AI calls/mo - adds CSM Performance, Signal Model, manager filtering, and scheduled reports.<br>' +
+      '<strong>Custom:</strong> Unlimited everything plus white-label branding and priority support.';
   }
   _renderGuide('settings-guide', 'iqc_settings_guide_dismissed', content);
 }
