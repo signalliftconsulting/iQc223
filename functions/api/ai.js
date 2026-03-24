@@ -82,14 +82,12 @@ Response schema:
 Rules:
 - 2-4 risk factors, ordered by severity (red first)
 - 1-2 recommended actions, ordered by priority (high first)
-- Summary should read like a CSM's internal assessment - direct, specific, no fluff
-- Do NOT use phrases like "it's crucial to engage", "may affect satisfaction", or "address concerns" - these are too vague
-- BAD summary: "Their NPS of 6 indicates they are a detractor, and it's crucial to engage them soon"
-- GOOD summary: "NPS dropped to 6 (detractor) while adoption sits at 45% - the product isn't sticky enough. The 1 open ticket could be the specific friction point causing dissatisfaction."
-- BAD action: "Address NPS Concerns - Engage with the customer to understand their concerns"
-- GOOD action: "Dig into the open ticket - if it's a product gap, loop in product team. If it's a support delay, escalate and follow up within 48 hours"
-- Actions must be things a CSM can DO this week, not vague goals
-- Connect the signals to each other - explain WHY, not just WHAT (e.g. "low adoption + detractor NPS suggests they haven't found value in the product yet")
+- Summary should read like a CSM's internal notes - direct, specific, no corporate fluff
+- Do NOT use phrases like "it's crucial to", "may affect", "address concerns", "maintaining momentum", "reinforcing value", "ensuring satisfaction" - these are empty filler
+- Do NOT copy any text from these rules into your response. Write original analysis unique to THIS customer's specific situation.
+- Connect signals to each other and explain the likely cause. If NPS is low AND adoption is low, say what that combination means. If score improved but NPS is still bad, explain the disconnect.
+- Actions must be a specific task a CSM can complete THIS week with a clear outcome - not a vague goal
+- Each action title and detail must be unique to this customer's data. Never use generic titles like "Address NPS Concerns" or "Improve Engagement"
 - IMPORTANT: Look at the score history. If the score has improved significantly (10+ pts over recent entries), call this out as a positive trend in the summary. Acknowledge what's working - e.g. "Score climbed from 52 to 74 over the past month - whatever changed in engagement is working. Keep the momentum going." Improvements are just as important as risks.
 - Risk factors can include GREEN severity items for positive trends (title: "Score Trending Up", detail: explanation of the improvement)
 - If signals are null/missing, note the data gap as a risk factor
