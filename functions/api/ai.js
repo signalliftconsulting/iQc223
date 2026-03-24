@@ -147,17 +147,14 @@ Rules for overview:
 
 Rules for action items (CRITICAL - these must be specific and distinct):
 - Exactly 3 action items, each addressing a DIFFERENT aspect of the portfolio
-- Each item MUST include specific numbers (dollar amounts, account counts, days, percentages)
+- Use ONLY the numbers from the Portfolio Stats above. Do NOT invent or estimate numbers that are not in the data.
 - Each item MUST be a concrete next step, not generic advice
-- BAD: "Investigate adoption issues in at-risk accounts" (too vague)
-- GOOD: "Call the 4 at-risk accounts ($28K MRR) this week - adoption under 20% is the common thread"
-- BAD: "Monitor upcoming renewals closely" (not actionable)
-- GOOD: "Prep renewal strategy for the 3 accounts renewing in 30 days - 1 is at-risk with $8.5K MRR"
-- BAD: "Review strategies for engaging expanding accounts" (generic)
-- GOOD: "Send expansion proposals to the top 3 Expand accounts - $15K upsell potential at 20% of MRR"
-- The 3 items should cover different topics: e.g. one about risk, one about renewals or contact gaps, one about growth/expansion
+- BAD examples (too vague): "Investigate adoption issues in at-risk accounts", "Monitor upcoming renewals closely", "Review strategies for engaging expanding accounts"
+- GOOD pattern: Start with a verb, reference the actual count and MRR from the stats, and give a specific action for THIS week
+- The 3 items MUST cover 3 different topics from this list: at-risk accounts, upcoming renewals, declining accounts, silent decliners, uncontacted accounts, expansion opportunities, overnight drops
 - Tone: red = urgent/needs action today, amber = important/this week, green = opportunity to capture
-- Do NOT repeat the same accounts or themes across items`;
+- Do NOT repeat the same accounts or themes across items
+- NEVER fabricate per-account MRR breakdowns or percentages that are not in the stats`;
   }
 
   if (promptType === 'save_playbook') {
