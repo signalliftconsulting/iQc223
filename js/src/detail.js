@@ -1349,7 +1349,7 @@ function renderDetailOverview() {
             const days = Math.round((d - today) / 86400000);
             const dateStr = d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
             const color = days <= 0 ? '#dc2626' : days <= 30 ? '#ea580c' : days <= 90 ? '#d97706' : 'var(--muted)';
-            const label = days < 0 ? 'Overdue' : days === 0 ? 'Today' : `${days}d left`;
+            const label = days < 0 ? 'Overdue' : days === 0 ? 'Today' : days <= 90 ? `${days}d left` : `${Math.floor(days / 30)}mo left`;
             return `<div style="font-weight:700;color:${color}">${label}</div><div style="font-size:var(--fs-sm);color:var(--muted)">${dateStr}</div>`;
           }
           if (c.renewal != null && c.renewal > 0) return urgencyHTML(c) + `<div style="font-size:var(--fs-sm);color:var(--muted)">${c.renewal}mo</div>`;
