@@ -81,12 +81,19 @@ Response schema:
 
 Rules:
 - 2-4 risk factors, ordered by severity (red first)
-- 2-4 recommended actions, ordered by priority (high first)
-- Summary should be conversational and reference specific data points
+- 1-2 recommended actions, ordered by priority (high first)
+- Summary should read like a CSM's internal assessment - direct, specific, no fluff
+- Do NOT use phrases like "it's crucial to engage", "may affect satisfaction", or "address concerns" - these are too vague
+- BAD summary: "Their NPS of 6 indicates they are a detractor, and it's crucial to engage them soon"
+- GOOD summary: "NPS dropped to 6 (detractor) while adoption sits at 45% - the product isn't sticky enough. The 1 open ticket could be the specific friction point causing dissatisfaction."
+- BAD action: "Address NPS Concerns - Engage with the customer to understand their concerns"
+- GOOD action: "Dig into the open ticket - if it's a product gap, loop in product team. If it's a support delay, escalate and follow up within 48 hours"
+- Actions must be things a CSM can DO this week, not vague goals
+- Connect the signals to each other - explain WHY, not just WHAT (e.g. "low adoption + detractor NPS suggests they haven't found value in the product yet")
 - If signals are null/missing, note the data gap as a risk factor
-- Be specific - mention actual numbers, dates, and thresholds
-- IMPORTANT: Only mention the renewal date if it is within 90 days. If the renewal is more than 90 days away, do NOT mention it at all - it is not relevant context. Renewals 6+ months out are not urgent and should be completely ignored in the summary and risk factors.
-- Format dates in a readable way (e.g. "April 8, 2026" not "2026-04-08")`;
+- Write in third person - do NOT use "we", "our", or "us"
+- IMPORTANT: Only mention the renewal date if it is within 90 days. If it says "do NOT mention" in the renewal data, completely ignore the renewal.
+- Format dates readably (e.g. "April 8, 2026" not "2026-04-08")`;
   }
 
   if (promptType === 'meeting_prep') {
