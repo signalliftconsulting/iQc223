@@ -488,11 +488,13 @@ function _renderAlerts() {
   _cachedSnoozed = snz;
   const list   = el('alerts-list');
 
-  // Update sidebar badge + topbar bell badge  -  show total alert count
+  // Update sidebar badge + topbar bell badge  -  show critical/risk count (not all alerts)
+  const _critCount = active.filter(a => a.cat === 'health' && a.type === 'red').length;
+  const _badgeCount = _critCount > 0 ? _critCount : active.length;
   const ab = el('alert-badge');
-  if (ab) { if (active.length > 0) { ab.textContent = active.length; ab.style.display = ''; } else ab.style.display = 'none'; }
+  if (ab) { if (_badgeCount > 0) { ab.textContent = _badgeCount; ab.style.display = ''; } else ab.style.display = 'none'; }
   const bb = el('bell-badge');
-  if (bb) { if (active.length > 0) { bb.textContent = active.length; bb.style.display = ''; } else bb.style.display = 'none'; }
+  if (bb) { if (_badgeCount > 0) { bb.textContent = _badgeCount; bb.style.display = ''; } else bb.style.display = 'none'; }
 
   _updateAlertBulkBar();
 
@@ -813,11 +815,10 @@ function renderAlertPanel(all, active, snz) {
     const snzValColor = snz.length >= 10 ? '#92400e' : '#64748b';
 
     kpiRow.innerHTML =
-      _kpi("filterByAlertKpi('all')", '#0f766e', 'Active Alerts', alertBadge, 'Active Alerts', active.length, alertValColor, totalSub, 'aw-kpi-flat', 'Total active alerts across your book. Click to show all.') +
       _kpi("filterByAlertKpi('critical')", '#991b1b', 'Critical / Risk', critical > 0 ? 'Alert' : 'Clear', 'Critical / Risk', critical, critical > 0 ? '#991b1b' : '#16a34a', critSub, 'aw-kpi-flat', 'Customers in Critical or Risk health status. Click to filter.') +
       _kpi("filterByAlertKpi('mrr')", '#92400e', 'MRR Exposed', mrrExposed > 0 ? 'Risk' : 'Safe', 'MRR Exposed', mrrStr, mrrExposed > 0 ? '#92400e' : '', mrrSubStr, 'aw-kpi-flat', 'Total MRR at risk, deduplicated. Each customer counted once even if flagged in multiple categories. Click to filter.') +
       _kpi("filterByAlertKpi('accounts')", '#0f766e', 'Accounts', pctAlerting + '%', 'Accounts Affected', `${affectedIds.size}<span style="font-size:1rem;font-weight:400;color:var(--subtle)"> / ${totalBook}</span>`, acctValColor, acctSub, 'aw-kpi-flat', 'Percentage and count of accounts with active alerts. Click to filter.') +
-      _kpi("filterByAlertKpi('snoozed')", '#475569', 'Snoozed', snz.length >= 10 ? 'High' : 'Paused', 'Snoozed', snz.length, snzValColor, snzSub, 'aw-kpi-flat', 'Alerts temporarily paused. Click to view snoozed alerts.');
+      (snz.length > 0 ? _kpi("filterByAlertKpi('snoozed')", '#475569', 'Snoozed', snz.length >= 10 ? 'High' : 'Paused', 'Snoozed', snz.length, snzValColor, snzSub, 'aw-kpi-flat', 'Alerts temporarily paused. Click to view snoozed alerts.') : '');
   }
 
   // ── Update feed count badge ──
