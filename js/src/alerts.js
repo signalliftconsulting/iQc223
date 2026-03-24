@@ -488,7 +488,7 @@ function _renderAlerts() {
   _cachedSnoozed = snz;
   const list   = el('alerts-list');
 
-  // Update sidebar badge + topbar bell badge — show total alert count
+  // Update sidebar badge + topbar bell badge  -  show total alert count
   const ab = el('alert-badge');
   if (ab) { if (active.length > 0) { ab.textContent = active.length; ab.style.display = ''; } else ab.style.display = 'none'; }
   const bb = el('bell-badge');

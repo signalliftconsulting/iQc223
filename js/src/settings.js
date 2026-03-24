@@ -43,7 +43,7 @@ function cfgTab(which) {
 // ─── BILLING ──────────────────────────────────────────────
 let _billingInterval = 'monthly';
 
-// Price IDs — set in js/config.js (gitignored) or fall back to empty
+// Price IDs  -  set in js/config.js (gitignored) or fall back to empty
 const BILLING_PRICES = (typeof STRIPE_PRICES !== 'undefined') ? STRIPE_PRICES : {};
 
 function setBillingInterval(interval) {

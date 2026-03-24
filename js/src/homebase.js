@@ -893,7 +893,7 @@ function _renderHomeBase() {
     html += _actionSkeleton;
     window._hbActionItems = _actionItems.slice(0, 3);
   } else {
-    // No AI — show hardcoded action items
+    // No AI  -  show hardcoded action items
     window._hbActionItems = _actionItems.slice(0, 3);
     if (_actionItems.length) {
       const _toneColors = { red: { bg:'rgba(239,68,68,.07)', border:'var(--red)' }, amber: { bg:'rgba(245,158,11,.07)', border:'var(--amber)' }, green: { bg:'rgba(22,163,74,.07)', border:'var(--green)' } };
@@ -1205,21 +1205,21 @@ function _loadAIPortfolioOverview(stats) {
   var actionsEl = el('hb-portfolio-actions');
   if (!blurbEl) return;
 
-  // Check session cache — already rendered from cache in HTML build
+  // Check session cache  -  already rendered from cache in HTML build
   if (_aiPortfolioCache && (Date.now() - _aiPortfolioCacheTime) < AI_FOCUS_CACHE_TTL) {
     if (actionsEl && _aiPortfolioCache.action_items) _renderAIActionItems(actionsEl, _aiPortfolioCache.action_items);
     return;
   }
 
   if (!checkAILimit()) {
-    // Can't call AI — show fallback
+    // Can't call AI  -  show fallback
     var fb = blurbEl.getAttribute('data-fallback');
     if (fb) blurbEl.innerHTML = fb;
     _renderFallbackActions(actionsEl);
     return;
   }
 
-  // Skeleton is already showing from HTML build — just fire the AI call
+  // Skeleton is already showing from HTML build  -  just fire the AI call
   _trackAICall();
   _aiCall({ prompt_type: 'portfolio_overview', stats: stats }).then(function(data) {
     if (!data.success) throw new Error(data.error || 'AI returned an error');

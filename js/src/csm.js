@@ -651,16 +651,16 @@ function renderCSMFocus(mgrList) {
     var _ccPri = _ccSev === 'high' ? 5 : _ccSev === 'medium' ? 3 : 2;
     var _ccColor = _ccSev === 'high' ? 'var(--red)' : 'var(--amber)';
     var _ccBg = _ccSev === 'high' ? 'var(--red-l)' : 'var(--amber-l)';
-    const detail = `<strong>${escHtml(best.name)}</strong> averages <strong>${best.avg} days</strong> between contacts while <strong>${escHtml(worst.name)}</strong> averages <strong>${worst.avg} days</strong> — a ${gap}-day gap. The team average is ${teamAvg} days. ${worst.declining > 0 ? `<strong>${escHtml(worst.name)}</strong> has <strong>${worst.declining} declining accounts</strong>, which is likely correlated with the longer contact gaps.` : ''} Customers who go longer without touchpoints are significantly more likely to show declining health scores.`;
+    const detail = `<strong>${escHtml(best.name)}</strong> averages <strong>${best.avg} days</strong> between contacts while <strong>${escHtml(worst.name)}</strong> averages <strong>${worst.avg} days</strong>  -  a ${gap}-day gap. The team average is ${teamAvg} days. ${worst.declining > 0 ? `<strong>${escHtml(worst.name)}</strong> has <strong>${worst.declining} declining accounts</strong>, which is likely correlated with the longer contact gaps.` : ''} Customers who go longer without touchpoints are significantly more likely to show declining health scores.`;
     items.push({ priority: _ccPri, icon: icPhone,
       color: _ccColor, bg: _ccBg,
       title: `${gap}-Day Contact Cadence Gap Between CSMs`,
-      text: `<strong>${escHtml(best.name)}</strong> contacts every ${best.avg}d vs <strong>${escHtml(worst.name)}</strong> at ${worst.avg}d — ${gap}-day gap`,
+      text: `<strong>${escHtml(best.name)}</strong> contacts every ${best.avg}d vs <strong>${escHtml(worst.name)}</strong> at ${worst.avg}d  -  ${gap}-day gap`,
       detail,
       steps: [
-        'Review <strong>' + escHtml(worst.name) + '</strong>\'s contact workflow — are they prioritizing the right accounts?',
+        'Review <strong>' + escHtml(worst.name) + '</strong>\'s contact workflow  -  are they prioritizing the right accounts?',
         'Set team cadence targets: Enterprise ≤14d, Mid-Market ≤21d, SMB ≤30d',
-        'Share <strong>' + escHtml(best.name) + '</strong>\'s approach — what\'s making them more responsive?'
+        'Share <strong>' + escHtml(best.name) + '</strong>\'s approach  -  what\'s making them more responsive?'
       ] });
   })();
 
@@ -681,7 +681,7 @@ function renderCSMFocus(mgrList) {
       detail += `<strong>${escHtml(bestSaver.name)}</strong> has <strong>${bestSaver.saved} accounts</strong> actively recovering (gaining 3+ pts/wk and moving out of risk status). `;
     }
     if (worstSaver.stuck >= 2) {
-      detail += `Meanwhile, <strong>${escHtml(worstSaver.name)}</strong> has <strong>${worstSaver.stuck} at-risk accounts</strong> that are flat or still declining — none showing recovery momentum. `;
+      detail += `Meanwhile, <strong>${escHtml(worstSaver.name)}</strong> has <strong>${worstSaver.stuck} at-risk accounts</strong> that are flat or still declining  -  none showing recovery momentum. `;
       detail += 'Understanding the difference in approach between these two CSMs could unlock better save rates across the team.';
     }
     var _srPri = worstSaver.stuck >= 4 ? 4 : worstSaver.stuck >= 2 ? 3 : 2;
@@ -691,9 +691,9 @@ function renderCSMFocus(mgrList) {
       text: `<strong>${escHtml(bestSaver.name)}</strong> recovering ${bestSaver.saved} accounts vs <strong>${escHtml(worstSaver.name)}</strong> with ${worstSaver.stuck} stuck at-risk`,
       detail,
       steps: [
-        bestSaver.saved >= 2 ? 'Have <strong>' + escHtml(bestSaver.name) + '</strong> share their recovery playbook — what outreach and actions led to turnaround?' : 'Identify what save strategies are working across the team',
-        worstSaver.stuck >= 2 ? 'Review <strong>' + escHtml(worstSaver.name) + '</strong>\'s stuck accounts — are they getting the right type of engagement?' : 'Ensure all CSMs have clear save plans for at-risk accounts',
-        'Track save rate as a team KPI — accounts recovered from risk to healthy per month'
+        bestSaver.saved >= 2 ? 'Have <strong>' + escHtml(bestSaver.name) + '</strong> share their recovery playbook  -  what outreach and actions led to turnaround?' : 'Identify what save strategies are working across the team',
+        worstSaver.stuck >= 2 ? 'Review <strong>' + escHtml(worstSaver.name) + '</strong>\'s stuck accounts  -  are they getting the right type of engagement?' : 'Ensure all CSMs have clear save plans for at-risk accounts',
+        'Track save rate as a team KPI  -  accounts recovered from risk to healthy per month'
       ] });
   })();
 
@@ -711,15 +711,15 @@ function renderCSMFocus(mgrList) {
     var _pmPri = _pmSev === 'high' ? 6 : _pmSev === 'medium' ? 4 : 3;
     var _pmColor = _pmSev === 'high' ? 'var(--red)' : 'var(--amber)';
     var _pmBg = _pmSev === 'high' ? 'var(--red-l)' : 'var(--amber-l)';
-    const detail = `<strong>${escHtml(worst.name)}</strong>'s entire portfolio is trending at <strong>${worst.avgDelta} pts/wk</strong> while the team average is ${teamDelta > 0 ? '+' : ''}${teamDelta}. <strong>${decliningAccts.length} of ${worst.count}</strong> accounts are actively declining. This isn't about one bad account — it's a portfolio-wide pattern that suggests something changed: workload, personal capacity, account complexity, or engagement approach. ${_pmSev === 'high' ? 'At this rate, multiple accounts could drop into critical within 1-2 weeks without intervention.' : 'This is worth a direct conversation to understand what\'s driving the decline.'}`;
+    const detail = `<strong>${escHtml(worst.name)}</strong>'s entire portfolio is trending at <strong>${worst.avgDelta} pts/wk</strong> while the team average is ${teamDelta > 0 ? '+' : ''}${teamDelta}. <strong>${decliningAccts.length} of ${worst.count}</strong> accounts are actively declining. This isn't about one bad account  -  it's a portfolio-wide pattern that suggests something changed: workload, personal capacity, account complexity, or engagement approach. ${_pmSev === 'high' ? 'At this rate, multiple accounts could drop into critical within 1-2 weeks without intervention.' : 'This is worth a direct conversation to understand what\'s driving the decline.'}`;
     items.push({ priority: _pmPri, icon: icDown,
       color: _pmColor, bg: _pmBg,
       title: `${escHtml(worst.name)}'s Portfolio Trending ${worst.avgDelta} pts/wk`,
       text: `<strong>${escHtml(worst.name)}</strong>'s book is at <strong>${worst.avgDelta} pts/wk</strong> with ${decliningAccts.length}/${worst.count} accounts declining`,
       detail,
       steps: [
-        'Schedule a 1:1 with <strong>' + escHtml(worst.name) + '</strong> — ask directly what\'s changed this week',
-        'Review the ' + decliningAccts.length + ' declining accounts — are they clustered by tier, lifecycle, or issue type?',
+        'Schedule a 1:1 with <strong>' + escHtml(worst.name) + '</strong>  -  ask directly what\'s changed this week',
+        'Review the ' + decliningAccts.length + ' declining accounts  -  are they clustered by tier, lifecycle, or issue type?',
         'Consider temporary workload relief if the decline is capacity-driven'
       ] });
   })();
@@ -739,7 +739,7 @@ function renderCSMFocus(mgrList) {
     if (!highEntLowScore.length || !lowEntHighScore.length) return;
     const struggling = highEntLowScore[0];
     const thriving = lowEntHighScore[0];
-    const detail = `<strong>${escHtml(struggling.name)}</strong> manages ${struggling.entPct}% enterprise accounts with an average score of only ${struggling.avgScore}, while <strong>${escHtml(thriving.name)}</strong> manages ${thriving.entPct}% enterprise with an average score of ${thriving.avgScore}. Enterprise accounts require deeper engagement, more strategic conversations, and longer touchpoints. This performance gap may reflect a complexity mismatch — not every CSM is equally equipped for high-touch enterprise management. Consider whether rebalancing by tier could improve outcomes.`;
+    const detail = `<strong>${escHtml(struggling.name)}</strong> manages ${struggling.entPct}% enterprise accounts with an average score of only ${struggling.avgScore}, while <strong>${escHtml(thriving.name)}</strong> manages ${thriving.entPct}% enterprise with an average score of ${thriving.avgScore}. Enterprise accounts require deeper engagement, more strategic conversations, and longer touchpoints. This performance gap may reflect a complexity mismatch  -  not every CSM is equally equipped for high-touch enterprise management. Consider whether rebalancing by tier could improve outcomes.`;
     items.push({ priority: 3, icon: icShuffle,
       color: 'var(--amber)', bg: 'var(--amber-l)',
       title: 'Enterprise Account Performance Mismatch',
@@ -767,23 +767,23 @@ function renderCSMFocus(mgrList) {
     if (!csmRenewals.length) return;
     csmRenewals.sort((a,b) => b.riskMRR - a.riskMRR);
     const riskiest = csmRenewals[0];
-    if (riskiest.atRisk === 0) return; // all renewals healthy — no insight needed
+    if (riskiest.atRisk === 0) return; // all renewals healthy  -  no insight needed
     const safest = [...csmRenewals].sort((a,b) => b.healthy - a.healthy)[0];
     var _rnSev = riskiest.riskMRR >= 20000 || riskiest.atRisk >= 3 ? 'high' : riskiest.atRisk >= 2 ? 'medium' : 'low';
     var _rnPri = _rnSev === 'high' ? 5 : _rnSev === 'medium' ? 3 : 2;
     var _rnColor = _rnSev === 'high' ? 'var(--red)' : 'var(--amber)';
     var _rnBg = _rnSev === 'high' ? 'var(--red-l)' : 'var(--amber-l)';
     const topRiskAcct = riskiest.atRiskAccts.sort((a,b) => (b.mrr||0) - (a.mrr||0))[0];
-    const detail = `<strong>${escHtml(riskiest.name)}</strong> has <strong>${riskiest.atRisk} at-risk account${riskiest.atRisk>1?'s':''}</strong> renewing in the next 90 days, with <strong>$${fmtNum(riskiest.riskMRR)}/mo</strong> at stake. The biggest risk is ${_cl(topRiskAcct)} at $${fmtNum(topRiskAcct.mrr||0)}/mo (score: ${topRiskAcct.score}).${safest.name !== riskiest.name && safest.healthy >= 2 ? ` In contrast, <strong>${escHtml(safest.name)}</strong> has ${safest.healthy} healthy renewals coming up — review what\'s different about how they prepare accounts pre-renewal.` : ''} Renewal readiness should be a weekly conversation topic for any CSM with at-risk renewals on the horizon.`;
+    const detail = `<strong>${escHtml(riskiest.name)}</strong> has <strong>${riskiest.atRisk} at-risk account${riskiest.atRisk>1?'s':''}</strong> renewing in the next 90 days, with <strong>$${fmtNum(riskiest.riskMRR)}/mo</strong> at stake. The biggest risk is ${_cl(topRiskAcct)} at $${fmtNum(topRiskAcct.mrr||0)}/mo (score: ${topRiskAcct.score}).${safest.name !== riskiest.name && safest.healthy >= 2 ? ` In contrast, <strong>${escHtml(safest.name)}</strong> has ${safest.healthy} healthy renewals coming up  -  review what\'s different about how they prepare accounts pre-renewal.` : ''} Renewal readiness should be a weekly conversation topic for any CSM with at-risk renewals on the horizon.`;
     items.push({ priority: _rnPri, icon: icCal,
       color: _rnColor, bg: _rnBg,
       title: `${escHtml(riskiest.name)}: ${riskiest.atRisk} At-Risk Renewal${riskiest.atRisk>1?'s':''} ($${fmtNum(riskiest.riskMRR)}/mo)`,
       text: `<strong>${escHtml(riskiest.name)}</strong> has ${riskiest.atRisk} at-risk renewal${riskiest.atRisk>1?'s':''} worth <strong>$${fmtNum(riskiest.riskMRR)}/mo</strong> in the next 90 days`,
       detail,
       steps: [
-        'Review save plans for each of <strong>' + escHtml(riskiest.name) + '</strong>\'s at-risk renewals — start with ' + _cl(topRiskAcct),
+        'Review save plans for each of <strong>' + escHtml(riskiest.name) + '</strong>\'s at-risk renewals  -  start with ' + _cl(topRiskAcct),
         'Ensure renewal prep conversations happen at least 30 days before each renewal date',
-        'Track renewal outcomes by CSM — build a save rate metric for team accountability'
+        'Track renewal outcomes by CSM  -  build a save rate metric for team accountability'
       ] });
   })();
 

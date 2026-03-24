@@ -199,7 +199,7 @@ function _checkUserSwitch(userId) {
       await resolveClientPlanTier();
       _loadAIUsage();
       // Check AI integration status early so homebase Focus List works
-      // AI is platform-provided — no per-client integration check needed
+      // AI is platform-provided  -  no per-client integration check needed
     } catch(err) {
       console.error('Supabase sync error:', err?.message || err, err);
       if (err?.message?.includes('quota')) {
@@ -300,7 +300,7 @@ function _checkUserSwitch(userId) {
     // Fresh sign-in only (no existing data loaded)
     // Block unconfirmed users (sign-up triggers SIGNED_IN briefly)
     if (!currentUser.email_confirmed_at && !currentUser.confirmed_at) {
-      console.log('[auth] Unconfirmed user — ignoring SIGNED_IN event');
+      console.log('[auth] Unconfirmed user  -  ignoring SIGNED_IN event');
       await sb.auth.signOut();
       showAuthGate();
       return;
@@ -321,7 +321,7 @@ function _checkUserSwitch(userId) {
       await loadCustomersFromSupabase();
       await resolveClientPlanTier();
       // Check AI integration status early so homebase Focus List works
-      // AI is platform-provided — no per-client integration check needed
+      // AI is platform-provided  -  no per-client integration check needed
     } catch(err) {
       console.error('Supabase sync error:', err?.message || err, err);
       if (err?.message?.includes('quota')) {

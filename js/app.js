@@ -333,7 +333,7 @@ function _checkTrialExpiration() {
   var daysLeft = Math.ceil((expiry - now) / 86400000);
 
   if (daysLeft <= 0) {
-    // Trial expired — block access
+    // Trial expired  -  block access
     var overlay = document.createElement('div');
     overlay.id = 'trial-expired-overlay';
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center';
@@ -346,7 +346,7 @@ function _checkTrialExpiration() {
       '</div>';
     document.body.appendChild(overlay);
   } else if (daysLeft <= 7) {
-    // Trial expiring soon — show warning banner
+    // Trial expiring soon  -  show warning banner
     showBillingWarning('Your trial access expires in ' + daysLeft + ' day' + (daysLeft !== 1 ? 's' : '') + '. Contact us to upgrade your plan.');
   }
 }
@@ -572,7 +572,7 @@ document.addEventListener('click', function(e) {
 });
 
 // Change delegation: data-change="fnName" [data-arg="value"]
-// With data-arg: passes (arg, value) — e.g. setTrendMetric("1", "logins")
+// With data-arg: passes (arg, value)  -  e.g. setTrendMetric("1", "logins")
 // Without data-arg: passes (value) where value = checked for checkboxes, value for selects/inputs
 // For file inputs: passes (event) so handler can access e.target.files
 document.addEventListener('change', function(e) {
@@ -1102,7 +1102,7 @@ const _GUIDE_DEFS = [
   } catch(e) { console.warn('ls:', e.message); }
 })();
 
-// Guide badges removed from nav — no badges to manage
+// Guide badges removed from nav  -  no badges to manage
 const _ACTIVE_GUIDES = new Set();
 
 // Show/hide all guide badges based on localStorage state. Called on boot.
@@ -1167,7 +1167,7 @@ function _dismissGuide(id, storageKey) {
 // ─── GUIDE MODAL POPUP ──────────────────────────────────────
 const _GUIDE_CONTENT = {
   alerts:
-    '<strong>Your early-warning system.</strong> Alerts auto-detect health drops, renewal windows, support spikes, engagement dips, sentiment changes, expansion signals, and more — 20+ alert types in total.<br><br>' +
+    '<strong>Your early-warning system.</strong> Alerts auto-detect health drops, renewal windows, support spikes, engagement dips, sentiment changes, expansion signals, and more  -  20+ alert types in total.<br><br>' +
     '<strong>Switch views:</strong> Use the <strong>Briefing</strong> view for a prioritized summary by severity, or switch to <strong>Category</strong>, <strong>Priority</strong>, <strong>Customer</strong>, or <strong>Table</strong> view to slice alerts the way you need.<br><br>' +
     '<strong>Take action:</strong> Click any alert to open the customer detail. Select multiple alerts with <strong>Shift-click</strong> to bulk snooze, dismiss, tag, or change lifecycle stage.<br><br>' +
     '<strong>Tip:</strong> Control which alerts fire and where they\'re routed (Slack, Teams, email) in Automations.',
@@ -1175,16 +1175,16 @@ const _GUIDE_CONTENT = {
     '<strong>Your full customer portfolio</strong> with health scores, MRR, signals, and lifecycle stage. Click any row to open the detail view where you can edit signals, view score history, manage touches, and add notes.<br><br>' +
     '<strong>Sort &amp; filter:</strong> Click any column header to sort. Use the <strong>Manager</strong> and <strong>Lifecycle</strong> dropdowns to narrow by CSM or stage. Use the search bar to find customers by name.<br><br>' +
     '<strong>Bulk actions:</strong> <strong>Shift-click</strong> to select multiple rows, then apply bulk tag, lifecycle change, or delete.<br><br>' +
-    '<strong>Tip:</strong> Every column — score, MRR, delta, renewal, tickets, NPS — is sortable, so you can quickly find your most at-risk or highest-value accounts.',
+    '<strong>Tip:</strong> Every column  -  score, MRR, delta, renewal, tickets, NPS  -  is sortable, so you can quickly find your most at-risk or highest-value accounts.',
   segments:
     '<strong>Compare customer groups side-by-side.</strong> Switch between <strong>Segments</strong> (by tag), <strong>Tiers</strong> (SMB / Mid / Enterprise), and <strong>Lifecycle</strong> views to analyze health, MRR, risk, and trends across cohorts.<br><br>' +
     '<strong>KPI cards</strong> at the top show total segments, accounts, MRR, your highest-risk segment, and your fastest-growing segment.<br><br>' +
-    '<strong>Trend chart:</strong> Select segments to overlay on the health trend chart — toggle 7d, 30d, 90d, 6m, 1y, 2y, or YTD ranges. Click any row to drill into that segment\'s customers.<br><br>' +
-    '<strong>Tip:</strong> Segments are built from tags — add tags in the Score form or detail view and they\'ll automatically appear here.',
+    '<strong>Trend chart:</strong> Select segments to overlay on the health trend chart  -  toggle 7d, 30d, 90d, 6m, 1y, 2y, or YTD ranges. Click any row to drill into that segment\'s customers.<br><br>' +
+    '<strong>Tip:</strong> Segments are built from tags  -  add tags in the Score form or detail view and they\'ll automatically appear here.',
   trends:
     '<strong>Track how your portfolio is changing over time.</strong> The chart shows your overall trend line, and you can overlay a <strong>CSM\'s book</strong> or <strong>individual customers</strong> for comparison.<br><br>' +
     '<strong>Metrics:</strong> Switch between Health Score, Logins, Adoption, Tickets, NPS, CSAT, MRR, ARR, and more. Add a second metric for dual-axis analysis.<br><br>' +
-    '<strong>Score Movers table</strong> below the chart lists every customer with their current score, 7-day change, status, and signals — fully sortable and filterable.<br><br>' +
+    '<strong>Score Movers table</strong> below the chart lists every customer with their current score, 7-day change, status, and signals  -  fully sortable and filterable.<br><br>' +
     '<strong>Tip:</strong> Use the range bar (3d → 2y / YTD) to zoom in on recent changes or see the long-term picture.',
   forecast:
     '<strong>See where your revenue is heading.</strong> The forecast classifies every account as Expand, Retain, Contract, or Churn based on health scores and signal trajectories.<br><br>' +
@@ -1205,10 +1205,10 @@ const _GUIDE_CONTENT = {
     '<strong>Generate ready-to-share reports</strong> for leadership, board meetings, and your own analysis. Choose a template, then print, save as PDF, export CSV, or email directly.<br><br>' +
     '<strong>Templates:</strong> Portfolio Health Summary, Weekly Review, Trend Report, At-Risk Report, Churn Risk, Renewal Forecast, Segment Analysis, CSM Performance, and more.<br><br>' +
     '<strong>Email delivery:</strong> Send any report to stakeholders as a one-time email.<br><br>' +
-    '<strong>Tip:</strong> The Weekly Review includes charts and narrative — ideal for recurring leadership updates.',
+    '<strong>Tip:</strong> The Weekly Review includes charts and narrative  -  ideal for recurring leadership updates.',
   score:
     '<strong>Add a new customer or re-score an existing one.</strong> Fill in account details and health signals, then click Calculate Health Score to see the result with a full signal breakdown and recommended playbook.<br><br>' +
-    '<strong>Signals:</strong> Enter logins, adoption %, open tickets, NPS, CSAT, days since contact, and growth signal. Check N/A next to any signal you don\'t track — its weight redistributes automatically.<br><br>' +
+    '<strong>Signals:</strong> Enter logins, adoption %, open tickets, NPS, CSAT, days since contact, and growth signal. Check N/A next to any signal you don\'t track  -  its weight redistributes automatically.<br><br>' +
     '<strong>Scoring profiles:</strong> Assign a profile to apply custom weights per customer or segment.<br><br>' +
     '<strong>Tip:</strong> Bulk-import via CSV Import if you have many accounts to add.',
   csv:
@@ -1222,13 +1222,13 @@ const _GUIDE_CONTENT = {
     '<strong>Tip:</strong> Connect your channels in the Advanced tab first (Slack webhook, Teams workflow, or email via Resend).',
   auditlog:
     '<strong>A complete record of everything that\'s happened in your account.</strong> Use it for accountability, debugging, and compliance.<br><br>' +
-    '<strong>Activity Log:</strong> Every customer-facing change — score updates, stage transitions, edits, and bulk re-scores — is logged with who made the change and when.<br><br>' +
-    '<strong>Config History:</strong> All settings changes — weight adjustments, threshold edits, profile updates, CSM changes.<br><br>' +
+    '<strong>Activity Log:</strong> Every customer-facing change  -  score updates, stage transitions, edits, and bulk re-scores  -  is logged with who made the change and when.<br><br>' +
+    '<strong>Config History:</strong> All settings changes  -  weight adjustments, threshold edits, profile updates, CSM changes.<br><br>' +
     '<strong>Tip:</strong> Use the search bar and action filter to quickly find specific changes.',
   users:
     '<strong>Manage who has access to your IQcadence account.</strong> Add team members so they can view customers, track health scores, and take action on alerts.<br><br>' +
     '<strong>Create a user:</strong> Click + Create User. They\'ll share the same customer data, settings, and scoring profiles.<br><br>' +
-    '<strong>Remove a user:</strong> Click delete on their row. Their data stays — only their login access is revoked.',
+    '<strong>Remove a user:</strong> Click delete on their row. Their data stays  -  only their login access is revoked.',
   settings:
     '<strong>Configure your health scoring engine.</strong> Adjust signal weights, set alert thresholds, create scoring profiles, and manage your account.<br><br>' +
     '<strong>Scoring:</strong> Set signal weights, status thresholds, scoring profiles, and expansion estimate settings.<br><br>' +
@@ -2838,11 +2838,11 @@ async function save(c) {
   var isNew = !customers.some(function(x) { return x.id === c.id && x._updated_at; }) && !c._updated_at;
 
   if (isNew) {
-    // New customer — simple insert/upsert, no conflict possible
+    // New customer  -  simple insert/upsert, no conflict possible
     var { error } = await sb.from('customers').upsert(row, { onConflict: 'id' });
     if (error) { console.error('Supabase save error:', error.message, error); throw error; }
   } else if (c._updated_at) {
-    // Existing customer with known version — optimistic lock
+    // Existing customer with known version  -  optimistic lock
     var { data, error } = await sb.from('customers').update(row).eq('id', c.id).eq('updated_at', c._updated_at).select('updated_at');
     if (error) { console.error('Supabase save error:', error.message, error); throw error; }
     if (!data || data.length === 0) {
@@ -2856,7 +2856,7 @@ async function save(c) {
     // Update our in-memory version stamp
     c._updated_at = data[0].updated_at;
   } else {
-    // Existing customer but no _updated_at (old cached data) — save normally, then fetch version
+    // Existing customer but no _updated_at (old cached data)  -  save normally, then fetch version
     var { data, error } = await sb.from('customers').upsert(row, { onConflict: 'id' }).select('updated_at');
     if (error) { console.error('Supabase save error:', error.message, error); throw error; }
     if (data && data[0]) c._updated_at = data[0].updated_at;
@@ -4449,7 +4449,7 @@ async function authSignUp() {
     // but an internal post-signup hook fails. Check if it's a soft error.
     if (msg.toLowerCase().includes('database') || msg.toLowerCase().includes('unexpected')) {
       console.warn('[auth] signUp soft error (user likely created):', msg);
-      // Show success anyway — the email will confirm if user was actually created
+      // Show success anyway  -  the email will confirm if user was actually created
       authOk('Account created! Check your email to confirm, then sign in.');
       setTimeout(function() { authTab('login'); }, 4000);
       return;
@@ -4511,7 +4511,7 @@ async function authSignOut() {
 }
 
 // Auto-register current user's profile on login (so admin can see them)
-// Must be in core bundle — called by main.js during boot before any data loads.
+// Must be in core bundle  -  called by main.js during boot before any data loads.
 var _ensureProfileBusy = false;
 async function ensureUserProfile(user) {
   if (_ensureProfileBusy) return;
@@ -4523,7 +4523,7 @@ async function _ensureUserProfileInner(user) {
     const { data: rows } = await sb.from('user_profiles').select('user_id, role, client_id').eq('user_id', user.id).limit(1);
     const data = rows && rows.length ? rows[0] : null;
     if (!data) {
-      // Not registered yet — create profile row
+      // Not registered yet  -  create profile row
       var fullName = (user.user_metadata && user.user_metadata.full_name) || user.email.split('@')[0];
       var companyName = (user.user_metadata && user.user_metadata.company_name) || '';
       await sb.from('user_profiles').insert({
@@ -4582,7 +4582,7 @@ async function _ensureUserProfileInner(user) {
         // Check if client already exists for this user (prevent duplicates from double-fire)
         var _existCheck = await sb.from('clients').select('id').eq('user_id', user.id).limit(1);
         if (_existCheck.data && _existCheck.data.length) {
-          // Client exists — link it and reload so all data loads with client_id
+          // Client exists  -  link it and reload so all data loads with client_id
           _userClientId = _existCheck.data[0].id;
           await sb.from('user_profiles').update({ client_id: _userClientId }).eq('user_id', user.id);
           console.log('[auth] Found existing client for user:', _userClientId);
@@ -7217,7 +7217,7 @@ function _renderHomeBase() {
     html += _actionSkeleton;
     window._hbActionItems = _actionItems.slice(0, 3);
   } else {
-    // No AI — show hardcoded action items
+    // No AI  -  show hardcoded action items
     window._hbActionItems = _actionItems.slice(0, 3);
     if (_actionItems.length) {
       const _toneColors = { red: { bg:'rgba(239,68,68,.07)', border:'var(--red)' }, amber: { bg:'rgba(245,158,11,.07)', border:'var(--amber)' }, green: { bg:'rgba(22,163,74,.07)', border:'var(--green)' } };
@@ -7529,21 +7529,21 @@ function _loadAIPortfolioOverview(stats) {
   var actionsEl = el('hb-portfolio-actions');
   if (!blurbEl) return;
 
-  // Check session cache — already rendered from cache in HTML build
+  // Check session cache  -  already rendered from cache in HTML build
   if (_aiPortfolioCache && (Date.now() - _aiPortfolioCacheTime) < AI_FOCUS_CACHE_TTL) {
     if (actionsEl && _aiPortfolioCache.action_items) _renderAIActionItems(actionsEl, _aiPortfolioCache.action_items);
     return;
   }
 
   if (!checkAILimit()) {
-    // Can't call AI — show fallback
+    // Can't call AI  -  show fallback
     var fb = blurbEl.getAttribute('data-fallback');
     if (fb) blurbEl.innerHTML = fb;
     _renderFallbackActions(actionsEl);
     return;
   }
 
-  // Skeleton is already showing from HTML build — just fire the AI call
+  // Skeleton is already showing from HTML build  -  just fire the AI call
   _trackAICall();
   _aiCall({ prompt_type: 'portfolio_overview', stats: stats }).then(function(data) {
     if (!data.success) throw new Error(data.error || 'AI returned an error');
@@ -9011,7 +9011,7 @@ function _renderAlerts() {
   _cachedSnoozed = snz;
   const list   = el('alerts-list');
 
-  // Update sidebar badge + topbar bell badge — show total alert count
+  // Update sidebar badge + topbar bell badge  -  show total alert count
   const ab = el('alert-badge');
   if (ab) { if (active.length > 0) { ab.textContent = active.length; ab.style.display = ''; } else ab.style.display = 'none'; }
   const bb = el('bell-badge');
@@ -10316,7 +10316,7 @@ function _renderPagination(totalItems) {
   }
   wrap.style.display = 'flex';
 
-  // "All" mode — show info but hide page nav buttons
+  // "All" mode  -  show info but hide page nav buttons
   if (_custPageSize === 0) {
     const info = el('cust-page-info');
     if (info) info.textContent = '1 - ' + totalItems + ' of ' + totalItems;
@@ -11090,7 +11090,7 @@ function _renderCustomers() {
   empty.style.display = 'none';
   table.style.display = '';
 
-  // Simple row rendering (no virtual scroll — pagination handles scale)
+  // Simple row rendering (no virtual scroll  -  pagination handles scale)
   tbody.style.height = '';
   tbody.style.position = '';
   tbody.style.display = '';
@@ -12042,7 +12042,7 @@ function _renderAIInsightsHTML(data) {
     var top = data.actions[0];
     html += '<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 12px;background:var(--blue-l, color-mix(in srgb, var(--blue) 8%, transparent));border-radius:var(--r);border:1px solid color-mix(in srgb, var(--blue) 20%, transparent)">';
     html += '<span style="flex-shrink:0;margin-top:1px">' + appIcon('bolt', 14) + '</span>';
-    html += '<div style="font-size:var(--fs-sm);line-height:1.4"><strong style="color:var(--text)">' + escHtml(top.title) + '</strong> <span style="color:var(--muted)"> — ' + escHtml(top.detail) + '</span></div>';
+    html += '<div style="font-size:var(--fs-sm);line-height:1.4"><strong style="color:var(--text)">' + escHtml(top.title) + '</strong> <span style="color:var(--muted)">  -  ' + escHtml(top.detail) + '</span></div>';
     html += '</div>';
     html += '<div style="font-size:11px;color:var(--muted);margin-top:4px;text-align:right">Use <strong>✦ Meeting Prep</strong> for talking points &amp; deeper analysis</div>';
   }
@@ -12071,7 +12071,7 @@ function openAIMeetingPrep() {
 
   // Update modal title
   var hd = document.querySelector('#qbr-modal .modal-hd h2');
-  if (hd) hd.innerHTML = appIcon('sparkle', 18) + ' Meeting Prep — ' + escHtml(c.name);
+  if (hd) hd.innerHTML = appIcon('sparkle', 18) + ' Meeting Prep  -  ' + escHtml(c.name);
   var sub = document.querySelector('#qbr-modal .modal-hd p');
   if (sub) sub.textContent = 'Briefing with talking points and risk analysis';
 
@@ -12142,14 +12142,14 @@ function _downloadAIContent(elementId, title) {
     // Fallback: open print window
     document.body.removeChild(container);
     var w = window.open('', '_blank', 'width=800,height=600');
-    if (!w) { toast('Popup blocked — please allow popups for this site', 'error'); return; }
+    if (!w) { toast('Popup blocked  -  please allow popups for this site', 'error'); return; }
     w.document.write('<!DOCTYPE html><html><head><title>' + escHtml(title || 'iQcadence') + '</title>');
     w.document.write('<style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:700px;margin:0 auto;padding:40px 30px;color:#1e293b;font-size:13px;line-height:1.7}</style>');
     w.document.write('</head><body>');
     w.document.write(container.innerHTML);
     w.document.write('<script>setTimeout(function(){window.print()},300)<\/script></body></html>');
     w.document.close();
-    toast('PDF ready — use Save as PDF in the print dialog', 'success');
+    toast('PDF ready  -  use Save as PDF in the print dialog', 'success');
     return;
   }
 
@@ -13427,14 +13427,14 @@ function renderDetailPlaybook() {
     if (checks[k] === true) { checks[k] = now; dirty = true; }
   });
 
-  // Prune stale keys (play no longer in playbook) — preserve __removed
+  // Prune stale keys (play no longer in playbook)  -  preserve __removed
   const validKeys = new Set(plays.map(playKey));
   Object.keys(checks).forEach(k => {
     if (k === '__removed') return;
     if (!validKeys.has(k)) { delete checks[k]; dirty = true; }
   });
 
-  // Auto-reset items older than 30 days — preserve __removed
+  // Auto-reset items older than 30 days  -  preserve __removed
   Object.keys(checks).forEach(k => {
     if (k === '__removed') return;
     if (typeof checks[k] === 'number' && (now - checks[k]) >= RESET_MS) {
@@ -13515,13 +13515,13 @@ function resetPlaybook() {
   c.playbook_checks = {};
   atUpdate(c).catch(e => console.warn('sync:', e.message));
   renderDetailPlaybook();
-  toast('Playbook reset — all items restored', 'success');
+  toast('Playbook reset  -  all items restored', 'success');
 }
 
 function clearPlaybookChecks() {
   const c = customers.find(x => x.id === detailId);
   if (!c) return;
-  // Remove completed items — store removed keys inside playbook_checks.__removed
+  // Remove completed items  -  store removed keys inside playbook_checks.__removed
   var checks = c.playbook_checks || {};
   var removed = checks.__removed || [];
   Object.keys(checks).forEach(function(k) {
@@ -14407,7 +14407,7 @@ function cfgTab(which) {
 // ─── BILLING ──────────────────────────────────────────────
 let _billingInterval = 'monthly';
 
-// Price IDs — set in js/config.js (gitignored) or fall back to empty
+// Price IDs  -  set in js/config.js (gitignored) or fall back to empty
 const BILLING_PRICES = (typeof STRIPE_PRICES !== 'undefined') ? STRIPE_PRICES : {};
 
 function setBillingInterval(interval) {
@@ -19483,10 +19483,10 @@ async function renderIntegrationsSection() {
   renderHubSpotCard(hubspotInt);
   renderStripeCard(stripeInt);
   renderSalesforceCard(salesforceInt);
-  // AI card is now static (platform-provided) — no per-client setup needed
+  // AI card is now static (platform-provided)  -  no per-client setup needed
   renderSyncOverview();
 
-  // AI is platform-provided — always enabled
+  // AI is platform-provided  -  always enabled
   // Show/hide AI meeting prep button in detail
   var aiBtn = el('dm-ai-meeting-btn');
   if (aiBtn) aiBtn.style.display = _aiIntegrationConnected ? '' : 'none';
@@ -28896,16 +28896,16 @@ function renderCSMFocus(mgrList) {
     var _ccPri = _ccSev === 'high' ? 5 : _ccSev === 'medium' ? 3 : 2;
     var _ccColor = _ccSev === 'high' ? 'var(--red)' : 'var(--amber)';
     var _ccBg = _ccSev === 'high' ? 'var(--red-l)' : 'var(--amber-l)';
-    const detail = `<strong>${escHtml(best.name)}</strong> averages <strong>${best.avg} days</strong> between contacts while <strong>${escHtml(worst.name)}</strong> averages <strong>${worst.avg} days</strong> — a ${gap}-day gap. The team average is ${teamAvg} days. ${worst.declining > 0 ? `<strong>${escHtml(worst.name)}</strong> has <strong>${worst.declining} declining accounts</strong>, which is likely correlated with the longer contact gaps.` : ''} Customers who go longer without touchpoints are significantly more likely to show declining health scores.`;
+    const detail = `<strong>${escHtml(best.name)}</strong> averages <strong>${best.avg} days</strong> between contacts while <strong>${escHtml(worst.name)}</strong> averages <strong>${worst.avg} days</strong>  -  a ${gap}-day gap. The team average is ${teamAvg} days. ${worst.declining > 0 ? `<strong>${escHtml(worst.name)}</strong> has <strong>${worst.declining} declining accounts</strong>, which is likely correlated with the longer contact gaps.` : ''} Customers who go longer without touchpoints are significantly more likely to show declining health scores.`;
     items.push({ priority: _ccPri, icon: icPhone,
       color: _ccColor, bg: _ccBg,
       title: `${gap}-Day Contact Cadence Gap Between CSMs`,
-      text: `<strong>${escHtml(best.name)}</strong> contacts every ${best.avg}d vs <strong>${escHtml(worst.name)}</strong> at ${worst.avg}d — ${gap}-day gap`,
+      text: `<strong>${escHtml(best.name)}</strong> contacts every ${best.avg}d vs <strong>${escHtml(worst.name)}</strong> at ${worst.avg}d  -  ${gap}-day gap`,
       detail,
       steps: [
-        'Review <strong>' + escHtml(worst.name) + '</strong>\'s contact workflow — are they prioritizing the right accounts?',
+        'Review <strong>' + escHtml(worst.name) + '</strong>\'s contact workflow  -  are they prioritizing the right accounts?',
         'Set team cadence targets: Enterprise ≤14d, Mid-Market ≤21d, SMB ≤30d',
-        'Share <strong>' + escHtml(best.name) + '</strong>\'s approach — what\'s making them more responsive?'
+        'Share <strong>' + escHtml(best.name) + '</strong>\'s approach  -  what\'s making them more responsive?'
       ] });
   })();
 
@@ -28926,7 +28926,7 @@ function renderCSMFocus(mgrList) {
       detail += `<strong>${escHtml(bestSaver.name)}</strong> has <strong>${bestSaver.saved} accounts</strong> actively recovering (gaining 3+ pts/wk and moving out of risk status). `;
     }
     if (worstSaver.stuck >= 2) {
-      detail += `Meanwhile, <strong>${escHtml(worstSaver.name)}</strong> has <strong>${worstSaver.stuck} at-risk accounts</strong> that are flat or still declining — none showing recovery momentum. `;
+      detail += `Meanwhile, <strong>${escHtml(worstSaver.name)}</strong> has <strong>${worstSaver.stuck} at-risk accounts</strong> that are flat or still declining  -  none showing recovery momentum. `;
       detail += 'Understanding the difference in approach between these two CSMs could unlock better save rates across the team.';
     }
     var _srPri = worstSaver.stuck >= 4 ? 4 : worstSaver.stuck >= 2 ? 3 : 2;
@@ -28936,9 +28936,9 @@ function renderCSMFocus(mgrList) {
       text: `<strong>${escHtml(bestSaver.name)}</strong> recovering ${bestSaver.saved} accounts vs <strong>${escHtml(worstSaver.name)}</strong> with ${worstSaver.stuck} stuck at-risk`,
       detail,
       steps: [
-        bestSaver.saved >= 2 ? 'Have <strong>' + escHtml(bestSaver.name) + '</strong> share their recovery playbook — what outreach and actions led to turnaround?' : 'Identify what save strategies are working across the team',
-        worstSaver.stuck >= 2 ? 'Review <strong>' + escHtml(worstSaver.name) + '</strong>\'s stuck accounts — are they getting the right type of engagement?' : 'Ensure all CSMs have clear save plans for at-risk accounts',
-        'Track save rate as a team KPI — accounts recovered from risk to healthy per month'
+        bestSaver.saved >= 2 ? 'Have <strong>' + escHtml(bestSaver.name) + '</strong> share their recovery playbook  -  what outreach and actions led to turnaround?' : 'Identify what save strategies are working across the team',
+        worstSaver.stuck >= 2 ? 'Review <strong>' + escHtml(worstSaver.name) + '</strong>\'s stuck accounts  -  are they getting the right type of engagement?' : 'Ensure all CSMs have clear save plans for at-risk accounts',
+        'Track save rate as a team KPI  -  accounts recovered from risk to healthy per month'
       ] });
   })();
 
@@ -28956,15 +28956,15 @@ function renderCSMFocus(mgrList) {
     var _pmPri = _pmSev === 'high' ? 6 : _pmSev === 'medium' ? 4 : 3;
     var _pmColor = _pmSev === 'high' ? 'var(--red)' : 'var(--amber)';
     var _pmBg = _pmSev === 'high' ? 'var(--red-l)' : 'var(--amber-l)';
-    const detail = `<strong>${escHtml(worst.name)}</strong>'s entire portfolio is trending at <strong>${worst.avgDelta} pts/wk</strong> while the team average is ${teamDelta > 0 ? '+' : ''}${teamDelta}. <strong>${decliningAccts.length} of ${worst.count}</strong> accounts are actively declining. This isn't about one bad account — it's a portfolio-wide pattern that suggests something changed: workload, personal capacity, account complexity, or engagement approach. ${_pmSev === 'high' ? 'At this rate, multiple accounts could drop into critical within 1-2 weeks without intervention.' : 'This is worth a direct conversation to understand what\'s driving the decline.'}`;
+    const detail = `<strong>${escHtml(worst.name)}</strong>'s entire portfolio is trending at <strong>${worst.avgDelta} pts/wk</strong> while the team average is ${teamDelta > 0 ? '+' : ''}${teamDelta}. <strong>${decliningAccts.length} of ${worst.count}</strong> accounts are actively declining. This isn't about one bad account  -  it's a portfolio-wide pattern that suggests something changed: workload, personal capacity, account complexity, or engagement approach. ${_pmSev === 'high' ? 'At this rate, multiple accounts could drop into critical within 1-2 weeks without intervention.' : 'This is worth a direct conversation to understand what\'s driving the decline.'}`;
     items.push({ priority: _pmPri, icon: icDown,
       color: _pmColor, bg: _pmBg,
       title: `${escHtml(worst.name)}'s Portfolio Trending ${worst.avgDelta} pts/wk`,
       text: `<strong>${escHtml(worst.name)}</strong>'s book is at <strong>${worst.avgDelta} pts/wk</strong> with ${decliningAccts.length}/${worst.count} accounts declining`,
       detail,
       steps: [
-        'Schedule a 1:1 with <strong>' + escHtml(worst.name) + '</strong> — ask directly what\'s changed this week',
-        'Review the ' + decliningAccts.length + ' declining accounts — are they clustered by tier, lifecycle, or issue type?',
+        'Schedule a 1:1 with <strong>' + escHtml(worst.name) + '</strong>  -  ask directly what\'s changed this week',
+        'Review the ' + decliningAccts.length + ' declining accounts  -  are they clustered by tier, lifecycle, or issue type?',
         'Consider temporary workload relief if the decline is capacity-driven'
       ] });
   })();
@@ -28984,7 +28984,7 @@ function renderCSMFocus(mgrList) {
     if (!highEntLowScore.length || !lowEntHighScore.length) return;
     const struggling = highEntLowScore[0];
     const thriving = lowEntHighScore[0];
-    const detail = `<strong>${escHtml(struggling.name)}</strong> manages ${struggling.entPct}% enterprise accounts with an average score of only ${struggling.avgScore}, while <strong>${escHtml(thriving.name)}</strong> manages ${thriving.entPct}% enterprise with an average score of ${thriving.avgScore}. Enterprise accounts require deeper engagement, more strategic conversations, and longer touchpoints. This performance gap may reflect a complexity mismatch — not every CSM is equally equipped for high-touch enterprise management. Consider whether rebalancing by tier could improve outcomes.`;
+    const detail = `<strong>${escHtml(struggling.name)}</strong> manages ${struggling.entPct}% enterprise accounts with an average score of only ${struggling.avgScore}, while <strong>${escHtml(thriving.name)}</strong> manages ${thriving.entPct}% enterprise with an average score of ${thriving.avgScore}. Enterprise accounts require deeper engagement, more strategic conversations, and longer touchpoints. This performance gap may reflect a complexity mismatch  -  not every CSM is equally equipped for high-touch enterprise management. Consider whether rebalancing by tier could improve outcomes.`;
     items.push({ priority: 3, icon: icShuffle,
       color: 'var(--amber)', bg: 'var(--amber-l)',
       title: 'Enterprise Account Performance Mismatch',
@@ -29012,23 +29012,23 @@ function renderCSMFocus(mgrList) {
     if (!csmRenewals.length) return;
     csmRenewals.sort((a,b) => b.riskMRR - a.riskMRR);
     const riskiest = csmRenewals[0];
-    if (riskiest.atRisk === 0) return; // all renewals healthy — no insight needed
+    if (riskiest.atRisk === 0) return; // all renewals healthy  -  no insight needed
     const safest = [...csmRenewals].sort((a,b) => b.healthy - a.healthy)[0];
     var _rnSev = riskiest.riskMRR >= 20000 || riskiest.atRisk >= 3 ? 'high' : riskiest.atRisk >= 2 ? 'medium' : 'low';
     var _rnPri = _rnSev === 'high' ? 5 : _rnSev === 'medium' ? 3 : 2;
     var _rnColor = _rnSev === 'high' ? 'var(--red)' : 'var(--amber)';
     var _rnBg = _rnSev === 'high' ? 'var(--red-l)' : 'var(--amber-l)';
     const topRiskAcct = riskiest.atRiskAccts.sort((a,b) => (b.mrr||0) - (a.mrr||0))[0];
-    const detail = `<strong>${escHtml(riskiest.name)}</strong> has <strong>${riskiest.atRisk} at-risk account${riskiest.atRisk>1?'s':''}</strong> renewing in the next 90 days, with <strong>$${fmtNum(riskiest.riskMRR)}/mo</strong> at stake. The biggest risk is ${_cl(topRiskAcct)} at $${fmtNum(topRiskAcct.mrr||0)}/mo (score: ${topRiskAcct.score}).${safest.name !== riskiest.name && safest.healthy >= 2 ? ` In contrast, <strong>${escHtml(safest.name)}</strong> has ${safest.healthy} healthy renewals coming up — review what\'s different about how they prepare accounts pre-renewal.` : ''} Renewal readiness should be a weekly conversation topic for any CSM with at-risk renewals on the horizon.`;
+    const detail = `<strong>${escHtml(riskiest.name)}</strong> has <strong>${riskiest.atRisk} at-risk account${riskiest.atRisk>1?'s':''}</strong> renewing in the next 90 days, with <strong>$${fmtNum(riskiest.riskMRR)}/mo</strong> at stake. The biggest risk is ${_cl(topRiskAcct)} at $${fmtNum(topRiskAcct.mrr||0)}/mo (score: ${topRiskAcct.score}).${safest.name !== riskiest.name && safest.healthy >= 2 ? ` In contrast, <strong>${escHtml(safest.name)}</strong> has ${safest.healthy} healthy renewals coming up  -  review what\'s different about how they prepare accounts pre-renewal.` : ''} Renewal readiness should be a weekly conversation topic for any CSM with at-risk renewals on the horizon.`;
     items.push({ priority: _rnPri, icon: icCal,
       color: _rnColor, bg: _rnBg,
       title: `${escHtml(riskiest.name)}: ${riskiest.atRisk} At-Risk Renewal${riskiest.atRisk>1?'s':''} ($${fmtNum(riskiest.riskMRR)}/mo)`,
       text: `<strong>${escHtml(riskiest.name)}</strong> has ${riskiest.atRisk} at-risk renewal${riskiest.atRisk>1?'s':''} worth <strong>$${fmtNum(riskiest.riskMRR)}/mo</strong> in the next 90 days`,
       detail,
       steps: [
-        'Review save plans for each of <strong>' + escHtml(riskiest.name) + '</strong>\'s at-risk renewals — start with ' + _cl(topRiskAcct),
+        'Review save plans for each of <strong>' + escHtml(riskiest.name) + '</strong>\'s at-risk renewals  -  start with ' + _cl(topRiskAcct),
         'Ensure renewal prep conversations happen at least 30 days before each renewal date',
-        'Track renewal outcomes by CSM — build a save rate metric for team accountability'
+        'Track renewal outcomes by CSM  -  build a save rate metric for team accountability'
       ] });
   })();
 
@@ -31899,7 +31899,7 @@ async function adminSaveEdit() {
   }
 }
 
-// ensureUserProfile() moved to auth.js (core bundle) — required during boot
+// ensureUserProfile() moved to auth.js (core bundle)  -  required during boot
 
 
 // ─── USAGE ANALYTICS (ADMIN ONLY) ──────────────────────────
@@ -32243,7 +32243,7 @@ function _checkUserSwitch(userId) {
       await resolveClientPlanTier();
       _loadAIUsage();
       // Check AI integration status early so homebase Focus List works
-      // AI is platform-provided — no per-client integration check needed
+      // AI is platform-provided  -  no per-client integration check needed
     } catch(err) {
       console.error('Supabase sync error:', err?.message || err, err);
       if (err?.message?.includes('quota')) {
@@ -32344,7 +32344,7 @@ function _checkUserSwitch(userId) {
     // Fresh sign-in only (no existing data loaded)
     // Block unconfirmed users (sign-up triggers SIGNED_IN briefly)
     if (!currentUser.email_confirmed_at && !currentUser.confirmed_at) {
-      console.log('[auth] Unconfirmed user — ignoring SIGNED_IN event');
+      console.log('[auth] Unconfirmed user  -  ignoring SIGNED_IN event');
       await sb.auth.signOut();
       showAuthGate();
       return;
@@ -32365,7 +32365,7 @@ function _checkUserSwitch(userId) {
       await loadCustomersFromSupabase();
       await resolveClientPlanTier();
       // Check AI integration status early so homebase Focus List works
-      // AI is platform-provided — no per-client integration check needed
+      // AI is platform-provided  -  no per-client integration check needed
     } catch(err) {
       console.error('Supabase sync error:', err?.message || err, err);
       if (err?.message?.includes('quota')) {

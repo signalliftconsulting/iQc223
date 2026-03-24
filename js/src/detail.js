@@ -150,7 +150,7 @@ function _renderAIInsightsHTML(data) {
     var top = data.actions[0];
     html += '<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 12px;background:var(--blue-l, color-mix(in srgb, var(--blue) 8%, transparent));border-radius:var(--r);border:1px solid color-mix(in srgb, var(--blue) 20%, transparent)">';
     html += '<span style="flex-shrink:0;margin-top:1px">' + appIcon('bolt', 14) + '</span>';
-    html += '<div style="font-size:var(--fs-sm);line-height:1.4"><strong style="color:var(--text)">' + escHtml(top.title) + '</strong> <span style="color:var(--muted)"> — ' + escHtml(top.detail) + '</span></div>';
+    html += '<div style="font-size:var(--fs-sm);line-height:1.4"><strong style="color:var(--text)">' + escHtml(top.title) + '</strong> <span style="color:var(--muted)">  -  ' + escHtml(top.detail) + '</span></div>';
     html += '</div>';
     html += '<div style="font-size:11px;color:var(--muted);margin-top:4px;text-align:right">Use <strong>✦ Meeting Prep</strong> for talking points &amp; deeper analysis</div>';
   }
@@ -179,7 +179,7 @@ function openAIMeetingPrep() {
 
   // Update modal title
   var hd = document.querySelector('#qbr-modal .modal-hd h2');
-  if (hd) hd.innerHTML = appIcon('sparkle', 18) + ' Meeting Prep — ' + escHtml(c.name);
+  if (hd) hd.innerHTML = appIcon('sparkle', 18) + ' Meeting Prep  -  ' + escHtml(c.name);
   var sub = document.querySelector('#qbr-modal .modal-hd p');
   if (sub) sub.textContent = 'Briefing with talking points and risk analysis';
 
@@ -250,14 +250,14 @@ function _downloadAIContent(elementId, title) {
     // Fallback: open print window
     document.body.removeChild(container);
     var w = window.open('', '_blank', 'width=800,height=600');
-    if (!w) { toast('Popup blocked — please allow popups for this site', 'error'); return; }
+    if (!w) { toast('Popup blocked  -  please allow popups for this site', 'error'); return; }
     w.document.write('<!DOCTYPE html><html><head><title>' + escHtml(title || 'iQcadence') + '</title>');
     w.document.write('<style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:700px;margin:0 auto;padding:40px 30px;color:#1e293b;font-size:13px;line-height:1.7}</style>');
     w.document.write('</head><body>');
     w.document.write(container.innerHTML);
     w.document.write('<script>setTimeout(function(){window.print()},300)<\/script></body></html>');
     w.document.close();
-    toast('PDF ready — use Save as PDF in the print dialog', 'success');
+    toast('PDF ready  -  use Save as PDF in the print dialog', 'success');
     return;
   }
 
@@ -1535,14 +1535,14 @@ function renderDetailPlaybook() {
     if (checks[k] === true) { checks[k] = now; dirty = true; }
   });
 
-  // Prune stale keys (play no longer in playbook) — preserve __removed
+  // Prune stale keys (play no longer in playbook)  -  preserve __removed
   const validKeys = new Set(plays.map(playKey));
   Object.keys(checks).forEach(k => {
     if (k === '__removed') return;
     if (!validKeys.has(k)) { delete checks[k]; dirty = true; }
   });
 
-  // Auto-reset items older than 30 days — preserve __removed
+  // Auto-reset items older than 30 days  -  preserve __removed
   Object.keys(checks).forEach(k => {
     if (k === '__removed') return;
     if (typeof checks[k] === 'number' && (now - checks[k]) >= RESET_MS) {
@@ -1623,13 +1623,13 @@ function resetPlaybook() {
   c.playbook_checks = {};
   atUpdate(c).catch(e => console.warn('sync:', e.message));
   renderDetailPlaybook();
-  toast('Playbook reset — all items restored', 'success');
+  toast('Playbook reset  -  all items restored', 'success');
 }
 
 function clearPlaybookChecks() {
   const c = customers.find(x => x.id === detailId);
   if (!c) return;
-  // Remove completed items — store removed keys inside playbook_checks.__removed
+  // Remove completed items  -  store removed keys inside playbook_checks.__removed
   var checks = c.playbook_checks || {};
   var removed = checks.__removed || [];
   Object.keys(checks).forEach(function(k) {

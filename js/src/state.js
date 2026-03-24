@@ -327,7 +327,7 @@ function _checkTrialExpiration() {
   var daysLeft = Math.ceil((expiry - now) / 86400000);
 
   if (daysLeft <= 0) {
-    // Trial expired — block access
+    // Trial expired  -  block access
     var overlay = document.createElement('div');
     overlay.id = 'trial-expired-overlay';
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center';
@@ -340,7 +340,7 @@ function _checkTrialExpiration() {
       '</div>';
     document.body.appendChild(overlay);
   } else if (daysLeft <= 7) {
-    // Trial expiring soon — show warning banner
+    // Trial expiring soon  -  show warning banner
     showBillingWarning('Your trial access expires in ' + daysLeft + ' day' + (daysLeft !== 1 ? 's' : '') + '. Contact us to upgrade your plan.');
   }
 }

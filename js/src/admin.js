@@ -656,7 +656,7 @@ async function adminSaveEdit() {
   }
 }
 
-// ensureUserProfile() moved to auth.js (core bundle) — required during boot
+// ensureUserProfile() moved to auth.js (core bundle)  -  required during boot
 
 
 // ─── USAGE ANALYTICS (ADMIN ONLY) ──────────────────────────

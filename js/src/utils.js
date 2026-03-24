@@ -91,7 +91,7 @@ document.addEventListener('click', function(e) {
 });
 
 // Change delegation: data-change="fnName" [data-arg="value"]
-// With data-arg: passes (arg, value) — e.g. setTrendMetric("1", "logins")
+// With data-arg: passes (arg, value)  -  e.g. setTrendMetric("1", "logins")
 // Without data-arg: passes (value) where value = checked for checkboxes, value for selects/inputs
 // For file inputs: passes (event) so handler can access e.target.files
 document.addEventListener('change', function(e) {

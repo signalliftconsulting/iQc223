@@ -39,7 +39,7 @@ function _renderPagination(totalItems) {
   }
   wrap.style.display = 'flex';
 
-  // "All" mode — show info but hide page nav buttons
+  // "All" mode  -  show info but hide page nav buttons
   if (_custPageSize === 0) {
     const info = el('cust-page-info');
     if (info) info.textContent = '1 - ' + totalItems + ' of ' + totalItems;
@@ -813,7 +813,7 @@ function _renderCustomers() {
   empty.style.display = 'none';
   table.style.display = '';
 
-  // Simple row rendering (no virtual scroll — pagination handles scale)
+  // Simple row rendering (no virtual scroll  -  pagination handles scale)
   tbody.style.height = '';
   tbody.style.position = '';
   tbody.style.display = '';

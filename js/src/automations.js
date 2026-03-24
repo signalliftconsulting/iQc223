@@ -1682,10 +1682,10 @@ async function renderIntegrationsSection() {
   renderHubSpotCard(hubspotInt);
   renderStripeCard(stripeInt);
   renderSalesforceCard(salesforceInt);
-  // AI card is now static (platform-provided) — no per-client setup needed
+  // AI card is now static (platform-provided)  -  no per-client setup needed
   renderSyncOverview();
 
-  // AI is platform-provided — always enabled
+  // AI is platform-provided  -  always enabled
   // Show/hide AI meeting prep button in detail
   var aiBtn = el('dm-ai-meeting-btn');
   if (aiBtn) aiBtn.style.display = _aiIntegrationConnected ? '' : 'none';

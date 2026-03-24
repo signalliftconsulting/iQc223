@@ -29,7 +29,7 @@ const _GUIDE_DEFS = [
   } catch(e) { console.warn('ls:', e.message); }
 })();
 
-// Guide badges removed from nav — no badges to manage
+// Guide badges removed from nav  -  no badges to manage
 const _ACTIVE_GUIDES = new Set();
 
 // Show/hide all guide badges based on localStorage state. Called on boot.
@@ -94,7 +94,7 @@ function _dismissGuide(id, storageKey) {
 // ─── GUIDE MODAL POPUP ──────────────────────────────────────
 const _GUIDE_CONTENT = {
   alerts:
-    '<strong>Your early-warning system.</strong> Alerts auto-detect health drops, renewal windows, support spikes, engagement dips, sentiment changes, expansion signals, and more — 20+ alert types in total.<br><br>' +
+    '<strong>Your early-warning system.</strong> Alerts auto-detect health drops, renewal windows, support spikes, engagement dips, sentiment changes, expansion signals, and more  -  20+ alert types in total.<br><br>' +
     '<strong>Switch views:</strong> Use the <strong>Briefing</strong> view for a prioritized summary by severity, or switch to <strong>Category</strong>, <strong>Priority</strong>, <strong>Customer</strong>, or <strong>Table</strong> view to slice alerts the way you need.<br><br>' +
     '<strong>Take action:</strong> Click any alert to open the customer detail. Select multiple alerts with <strong>Shift-click</strong> to bulk snooze, dismiss, tag, or change lifecycle stage.<br><br>' +
     '<strong>Tip:</strong> Control which alerts fire and where they\'re routed (Slack, Teams, email) in Automations.',
@@ -102,16 +102,16 @@ const _GUIDE_CONTENT = {
     '<strong>Your full customer portfolio</strong> with health scores, MRR, signals, and lifecycle stage. Click any row to open the detail view where you can edit signals, view score history, manage touches, and add notes.<br><br>' +
     '<strong>Sort &amp; filter:</strong> Click any column header to sort. Use the <strong>Manager</strong> and <strong>Lifecycle</strong> dropdowns to narrow by CSM or stage. Use the search bar to find customers by name.<br><br>' +
     '<strong>Bulk actions:</strong> <strong>Shift-click</strong> to select multiple rows, then apply bulk tag, lifecycle change, or delete.<br><br>' +
-    '<strong>Tip:</strong> Every column — score, MRR, delta, renewal, tickets, NPS — is sortable, so you can quickly find your most at-risk or highest-value accounts.',
+    '<strong>Tip:</strong> Every column  -  score, MRR, delta, renewal, tickets, NPS  -  is sortable, so you can quickly find your most at-risk or highest-value accounts.',
   segments:
     '<strong>Compare customer groups side-by-side.</strong> Switch between <strong>Segments</strong> (by tag), <strong>Tiers</strong> (SMB / Mid / Enterprise), and <strong>Lifecycle</strong> views to analyze health, MRR, risk, and trends across cohorts.<br><br>' +
     '<strong>KPI cards</strong> at the top show total segments, accounts, MRR, your highest-risk segment, and your fastest-growing segment.<br><br>' +
-    '<strong>Trend chart:</strong> Select segments to overlay on the health trend chart — toggle 7d, 30d, 90d, 6m, 1y, 2y, or YTD ranges. Click any row to drill into that segment\'s customers.<br><br>' +
-    '<strong>Tip:</strong> Segments are built from tags — add tags in the Score form or detail view and they\'ll automatically appear here.',
+    '<strong>Trend chart:</strong> Select segments to overlay on the health trend chart  -  toggle 7d, 30d, 90d, 6m, 1y, 2y, or YTD ranges. Click any row to drill into that segment\'s customers.<br><br>' +
+    '<strong>Tip:</strong> Segments are built from tags  -  add tags in the Score form or detail view and they\'ll automatically appear here.',
   trends:
     '<strong>Track how your portfolio is changing over time.</strong> The chart shows your overall trend line, and you can overlay a <strong>CSM\'s book</strong> or <strong>individual customers</strong> for comparison.<br><br>' +
     '<strong>Metrics:</strong> Switch between Health Score, Logins, Adoption, Tickets, NPS, CSAT, MRR, ARR, and more. Add a second metric for dual-axis analysis.<br><br>' +
-    '<strong>Score Movers table</strong> below the chart lists every customer with their current score, 7-day change, status, and signals — fully sortable and filterable.<br><br>' +
+    '<strong>Score Movers table</strong> below the chart lists every customer with their current score, 7-day change, status, and signals  -  fully sortable and filterable.<br><br>' +
     '<strong>Tip:</strong> Use the range bar (3d → 2y / YTD) to zoom in on recent changes or see the long-term picture.',
   forecast:
     '<strong>See where your revenue is heading.</strong> The forecast classifies every account as Expand, Retain, Contract, or Churn based on health scores and signal trajectories.<br><br>' +
@@ -132,10 +132,10 @@ const _GUIDE_CONTENT = {
     '<strong>Generate ready-to-share reports</strong> for leadership, board meetings, and your own analysis. Choose a template, then print, save as PDF, export CSV, or email directly.<br><br>' +
     '<strong>Templates:</strong> Portfolio Health Summary, Weekly Review, Trend Report, At-Risk Report, Churn Risk, Renewal Forecast, Segment Analysis, CSM Performance, and more.<br><br>' +
     '<strong>Email delivery:</strong> Send any report to stakeholders as a one-time email.<br><br>' +
-    '<strong>Tip:</strong> The Weekly Review includes charts and narrative — ideal for recurring leadership updates.',
+    '<strong>Tip:</strong> The Weekly Review includes charts and narrative  -  ideal for recurring leadership updates.',
   score:
     '<strong>Add a new customer or re-score an existing one.</strong> Fill in account details and health signals, then click Calculate Health Score to see the result with a full signal breakdown and recommended playbook.<br><br>' +
-    '<strong>Signals:</strong> Enter logins, adoption %, open tickets, NPS, CSAT, days since contact, and growth signal. Check N/A next to any signal you don\'t track — its weight redistributes automatically.<br><br>' +
+    '<strong>Signals:</strong> Enter logins, adoption %, open tickets, NPS, CSAT, days since contact, and growth signal. Check N/A next to any signal you don\'t track  -  its weight redistributes automatically.<br><br>' +
     '<strong>Scoring profiles:</strong> Assign a profile to apply custom weights per customer or segment.<br><br>' +
     '<strong>Tip:</strong> Bulk-import via CSV Import if you have many accounts to add.',
   csv:
@@ -149,13 +149,13 @@ const _GUIDE_CONTENT = {
     '<strong>Tip:</strong> Connect your channels in the Advanced tab first (Slack webhook, Teams workflow, or email via Resend).',
   auditlog:
     '<strong>A complete record of everything that\'s happened in your account.</strong> Use it for accountability, debugging, and compliance.<br><br>' +
-    '<strong>Activity Log:</strong> Every customer-facing change — score updates, stage transitions, edits, and bulk re-scores — is logged with who made the change and when.<br><br>' +
-    '<strong>Config History:</strong> All settings changes — weight adjustments, threshold edits, profile updates, CSM changes.<br><br>' +
+    '<strong>Activity Log:</strong> Every customer-facing change  -  score updates, stage transitions, edits, and bulk re-scores  -  is logged with who made the change and when.<br><br>' +
+    '<strong>Config History:</strong> All settings changes  -  weight adjustments, threshold edits, profile updates, CSM changes.<br><br>' +
     '<strong>Tip:</strong> Use the search bar and action filter to quickly find specific changes.',
   users:
     '<strong>Manage who has access to your IQcadence account.</strong> Add team members so they can view customers, track health scores, and take action on alerts.<br><br>' +
     '<strong>Create a user:</strong> Click + Create User. They\'ll share the same customer data, settings, and scoring profiles.<br><br>' +
-    '<strong>Remove a user:</strong> Click delete on their row. Their data stays — only their login access is revoked.',
+    '<strong>Remove a user:</strong> Click delete on their row. Their data stays  -  only their login access is revoked.',
   settings:
     '<strong>Configure your health scoring engine.</strong> Adjust signal weights, set alert thresholds, create scoring profiles, and manage your account.<br><br>' +
     '<strong>Scoring:</strong> Set signal weights, status thresholds, scoring profiles, and expansion estimate settings.<br><br>' +

@@ -93,7 +93,7 @@ async function authSignUp() {
     // but an internal post-signup hook fails. Check if it's a soft error.
     if (msg.toLowerCase().includes('database') || msg.toLowerCase().includes('unexpected')) {
       console.warn('[auth] signUp soft error (user likely created):', msg);
-      // Show success anyway — the email will confirm if user was actually created
+      // Show success anyway  -  the email will confirm if user was actually created
       authOk('Account created! Check your email to confirm, then sign in.');
       setTimeout(function() { authTab('login'); }, 4000);
       return;
@@ -155,7 +155,7 @@ async function authSignOut() {
 }
 
 // Auto-register current user's profile on login (so admin can see them)
-// Must be in core bundle — called by main.js during boot before any data loads.
+// Must be in core bundle  -  called by main.js during boot before any data loads.
 var _ensureProfileBusy = false;
 async function ensureUserProfile(user) {
   if (_ensureProfileBusy) return;
@@ -167,7 +167,7 @@ async function _ensureUserProfileInner(user) {
     const { data: rows } = await sb.from('user_profiles').select('user_id, role, client_id').eq('user_id', user.id).limit(1);
     const data = rows && rows.length ? rows[0] : null;
     if (!data) {
-      // Not registered yet — create profile row
+      // Not registered yet  -  create profile row
       var fullName = (user.user_metadata && user.user_metadata.full_name) || user.email.split('@')[0];
       var companyName = (user.user_metadata && user.user_metadata.company_name) || '';
       await sb.from('user_profiles').insert({
@@ -226,7 +226,7 @@ async function _ensureUserProfileInner(user) {
         // Check if client already exists for this user (prevent duplicates from double-fire)
         var _existCheck = await sb.from('clients').select('id').eq('user_id', user.id).limit(1);
         if (_existCheck.data && _existCheck.data.length) {
-          // Client exists — link it and reload so all data loads with client_id
+          // Client exists  -  link it and reload so all data loads with client_id
           _userClientId = _existCheck.data[0].id;
           await sb.from('user_profiles').update({ client_id: _userClientId }).eq('user_id', user.id);
           console.log('[auth] Found existing client for user:', _userClientId);

@@ -484,11 +484,11 @@ async function save(c) {
   var isNew = !customers.some(function(x) { return x.id === c.id && x._updated_at; }) && !c._updated_at;
 
   if (isNew) {
-    // New customer — simple insert/upsert, no conflict possible
+    // New customer  -  simple insert/upsert, no conflict possible
     var { error } = await sb.from('customers').upsert(row, { onConflict: 'id' });
     if (error) { console.error('Supabase save error:', error.message, error); throw error; }
   } else if (c._updated_at) {
-    // Existing customer with known version — optimistic lock
+    // Existing customer with known version  -  optimistic lock
     var { data, error } = await sb.from('customers').update(row).eq('id', c.id).eq('updated_at', c._updated_at).select('updated_at');
     if (error) { console.error('Supabase save error:', error.message, error); throw error; }
     if (!data || data.length === 0) {
@@ -502,7 +502,7 @@ async function save(c) {
     // Update our in-memory version stamp
     c._updated_at = data[0].updated_at;
   } else {
-    // Existing customer but no _updated_at (old cached data) — save normally, then fetch version
+    // Existing customer but no _updated_at (old cached data)  -  save normally, then fetch version
     var { data, error } = await sb.from('customers').upsert(row, { onConflict: 'id' }).select('updated_at');
     if (error) { console.error('Supabase save error:', error.message, error); throw error; }
     if (data && data[0]) c._updated_at = data[0].updated_at;
