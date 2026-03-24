@@ -1278,11 +1278,11 @@ function _aiActionToFilter(text) {
   var active = customers.filter(function(c) { return c.lifecycle !== 'churned'; });
   // Match keywords to customer filters — check specific patterns BEFORE broad ones
   if (t.match(/silent.declin|previously.healthy|off.the.radar/)) {
+    var healthyThreshold = (window._settings && window._settings.thresholds && window._settings.thresholds.healthy) || 65;
     var withHist = active.filter(function(c) { return c.history && c.history.length >= 2; });
     var ids = withHist.filter(function(c) {
-      var prev = c.history[Math.max(0, c.history.length - 8)];
-      var cur = c.history[c.history.length - 1];
-      return prev && prev.score >= 65 && cur.score < prev.score - 5;
+      var prev = getScoreAtCutoff(c);
+      return prev !== null && prev >= healthyThreshold && getDeltaPeriod(c) < -5;
     }).map(function(c) { return c.id; });
     if (ids.length) return { label: 'Silent Decliners', ids: ids };
   }
@@ -1302,9 +1302,7 @@ function _aiActionToFilter(text) {
   if (t.match(/declining|decline|down/)) {
     var withHist = active.filter(function(c) { return c.history && c.history.length >= 2; });
     var ids = withHist.filter(function(c) {
-      var recent = c.history[c.history.length - 1];
-      var older = c.history[Math.max(0, c.history.length - 8)];
-      return recent && older && recent.score < older.score - 2;
+      return getDeltaPeriod(c) < -2;
     }).map(function(c) { return c.id; });
     if (ids.length) return { label: 'Declining Accounts', ids: ids };
   }
