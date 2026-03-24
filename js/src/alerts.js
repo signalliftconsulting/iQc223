@@ -466,8 +466,17 @@ function updateAlertBadge() {
   try {
     const all    = buildAlerts();
     const active = all.filter(a => !isSnoozed(a.id) && !isDismissed(a.id));
-    const _affectedSet = new Set(active.map(a => a.cid));
-    const _badgeCount = _affectedSet.size;
+    const _actNowIds = new Set();
+    active.forEach(a => {
+      const c = customers.find(x => x.id === a.cid);
+      if (!c) return;
+      if (a.cat === 'health' && (c.status === 'critical' || c.status === 'risk')) _actNowIds.add(c.id);
+      if (c.history && c.history.length >= 2) {
+        const delta = typeof getDelta7d === 'function' ? getDelta7d(c) : null;
+        if (delta !== null && delta <= -10) _actNowIds.add(c.id);
+      }
+    });
+    const _badgeCount = _actNowIds.size;
     const ab = el('alert-badge');
     if (ab) { if (_badgeCount > 0) { ab.textContent = _badgeCount; ab.style.display = ''; } else ab.style.display = 'none'; }
     const bb = el('bell-badge');
@@ -490,9 +499,18 @@ function _renderAlerts() {
   _cachedSnoozed = snz;
   const list   = el('alerts-list');
 
-  // Update sidebar badge + topbar bell badge  -  show affected account count
-  const _affectedSet2 = new Set(active.map(a => a.cid));
-  const _badgeCount = _affectedSet2.size;
+  // Update sidebar badge + topbar bell badge  -  show Act Now count (critical/risk + big drops)
+  const _actNowIds = new Set();
+  active.forEach(a => {
+    const c = customers.find(x => x.id === a.cid);
+    if (!c) return;
+    if (a.cat === 'health' && (c.status === 'critical' || c.status === 'risk')) _actNowIds.add(c.id);
+    if (c.history && c.history.length >= 2) {
+      const delta = getDelta7d(c);
+      if (delta !== null && delta <= -10) _actNowIds.add(c.id);
+    }
+  });
+  const _badgeCount = _actNowIds.size;
   const ab = el('alert-badge');
   if (ab) { if (_badgeCount > 0) { ab.textContent = _badgeCount; ab.style.display = ''; } else ab.style.display = 'none'; }
   const bb = el('bell-badge');
