@@ -137,46 +137,41 @@ Rules:
 
   if (promptType === 'portfolio_overview') {
     const stats = data.stats || {};
-    return `Analyze this CS portfolio and write a concise 2-4 sentence executive briefing. Be specific — reference actual numbers, patterns, and risks.
+    const avgDeltaStr = stats.avgDelta > 0 ? '+' + stats.avgDelta : String(stats.avgDelta || 0);
 
-Portfolio Stats:
-- Total accounts: ${stats.total || 0}
-- Health distribution: ${stats.critical || 0} Critical, ${stats.risk || 0} Risk, ${stats.watch || 0} Watch, ${stats.healthy || 0} Healthy, ${stats.expand || 0} Expand
-- Average score: ${stats.avgScore || 0}
-- Score trend (${stats.periodDays || 7}d): ${stats.avgDelta > 0 ? '+' : ''}${stats.avgDelta || 0} pts
-- Improving accounts: ${stats.improving || 0}, Declining: ${stats.declining || 0} ($${fmtDollar(stats.decliningMRR)} MRR), Stable: ${stats.stable || 0}
-- MRR at risk (Critical + Risk accounts): $${fmtDollar(stats.atRiskMRR)}
-- Total MRR: $${fmtDollar(stats.totalMRR)}
-- Renewals in 30 days: ${stats.renewals30 || 0} ($${fmtDollar(stats.renewalMRR)} MRR)
-- At-risk renewals: ${stats.renewalsAtRisk || 0} ($${fmtDollar(stats.renewalAtRiskMRR)} MRR)
-- Silent decliners (previously healthy, now declining): ${stats.silentDecliners || 0} ($${fmtDollar(stats.silentDeclinerMRR)} MRR)
-- Overnight drops (5+ pts): ${stats.overnightDrops || 0}
-${stats.weakestSignal ? '- Weakest signal in at-risk accounts: ' + stats.weakestSignal : ''}
-${stats.tierDivergence ? '- Tier divergence: ' + stats.tierDivergence : ''}
+    // Build a narrative summary of what matters most
+    const highlights = [];
+    if (stats.overnightDrops > 0) highlights.push(`${stats.overnightDrops} accounts dropped 5+ points overnight`);
+    if (stats.silentDecliners > 0) highlights.push(`${stats.silentDecliners} previously healthy accounts are now declining ($${fmtDollar(stats.silentDeclinerMRR)} MRR)`);
+    if (stats.renewalsAtRisk > 0) highlights.push(`${stats.renewalsAtRisk} at-risk renewal${stats.renewalsAtRisk > 1 ? 's' : ''} coming up ($${fmtDollar(stats.renewalAtRiskMRR)} MRR)`);
+    if (stats.declining > stats.improving) highlights.push(`More accounts declining (${stats.declining}) than improving (${stats.improving})`);
+    if (stats.improving > stats.declining) highlights.push(`${stats.improving} accounts improving vs ${stats.declining} declining - positive momentum`);
+
+    return `You are a senior CS analyst writing a daily portfolio briefing. Write exactly 3 sentences.
+
+Data:
+- ${stats.total} accounts: ${stats.critical} Critical, ${stats.risk} Risk, ${stats.watch} Watch, ${stats.healthy} Healthy, ${stats.expand} Expand
+- Avg score: ${stats.avgScore}, trending ${avgDeltaStr} pts over ${stats.periodDays || 7}d
+- ${stats.declining} declining ($${fmtDollar(stats.decliningMRR)} MRR), ${stats.improving} improving
+- $${fmtDollar(stats.atRiskMRR)} MRR at risk, $${fmtDollar(stats.totalMRR)} total
+- ${stats.renewals30 || 0} renewals in 30d ($${fmtDollar(stats.renewalMRR)}), ${stats.renewalsAtRisk || 0} at risk
+${highlights.length ? '- Key signals: ' + highlights.join('; ') : ''}
+${stats.weakestSignal ? '- Weakest signal: ' + stats.weakestSignal : ''}
 ${stats.contactImpact ? '- Contact impact: ' + stats.contactImpact : ''}
 
-Response schema:
-{"overview":"2-4 sentence portfolio briefing highlighting the most important patterns and risks","action_items":[{"text":"verb-first action item with specific numbers and account details","tone":"red|amber|green"}]}
+Response: JSON only, no markdown
+{"overview":"exactly 3 sentences"}
 
-Rules for overview:
-- Read like a daily briefing from a VP of CS - strategic, specific, and actionable
-- Write in third person. Do NOT use "we", "our", or "us" - use "the portfolio", "your accounts", or reference specific segments directly
-- Do NOT restate numbers without context - explain what they mean
-- Highlight the most surprising or actionable pattern first
-- If the portfolio is mostly healthy, lead with what could go wrong next, not what's going well
+Sentence 1: The single most important thing happening in this portfolio right now. Lead with the biggest risk or most notable change. Be specific with numbers.
+Sentence 2: The second most important signal or pattern. Connect it to revenue impact if possible.
+Sentence 3: One positive signal or opportunity worth noting - what's going right.
 
-Rules for action items (CRITICAL - these must be specific and distinct):
-- Exactly 3 action items: 2 action items about risks/issues (tone red or amber) + 1 positive win or opportunity (tone green)
-- Each addresses a DIFFERENT aspect of the portfolio
-- Use ONLY the numbers from the Portfolio Stats above. Do NOT invent or estimate numbers that are not in the data.
-- Each item MUST be a concrete next step, not generic advice
-- BAD examples (too vague): "Investigate adoption issues in at-risk accounts", "Monitor upcoming renewals closely", "Review strategies for engaging expanding accounts"
-- GOOD pattern: Start with a verb, reference the actual count and MRR from the stats, and give a specific action for THIS week
-- The 3 items MUST cover 3 different topics from this list: at-risk accounts, upcoming renewals, declining accounts, silent decliners, uncontacted accounts, expansion opportunities, overnight drops, improving accounts
-- The green item should highlight something positive: expansion potential, improving accounts, strong engagement, or a win worth celebrating
-- Tone: red = urgent/needs action today, amber = important/this week, green = positive win or opportunity
-- Do NOT repeat the same accounts or themes across items
-- NEVER fabricate per-account MRR breakdowns or percentages that are not in the stats`;
+Rules:
+- Never use "we", "our", "us". Use "the portfolio", "your team", or name segments directly.
+- Never use filler phrases: "it's crucial", "it's important", "proactive engagement", "maintaining momentum", "capitalize on"
+- Every sentence must contain at least one number from the data
+- Do NOT just list stats - explain what they MEAN for the business
+- Write like a sharp analyst, not a corporate memo`;
   }
 
   if (promptType === 'save_playbook') {
