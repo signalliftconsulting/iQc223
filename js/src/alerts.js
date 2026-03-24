@@ -957,7 +957,7 @@ function renderAlertPanel(all, active, snz) {
         <span style="font-size:var(--fs-sm);color:${trendColor};font-weight:600">${trendLabel}</span>
         <span style="font-size:var(--fs-xs);color:var(--muted)">At-risk accounts over 30 days (currently ${curVal})</span>
       </div>
-      <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;cursor:pointer" onclick="filterByAlertKpi('accounts')">
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;cursor:pointer" onclick="filterByAlertKpi('atrisk')">
         <!-- Grid lines -->
         <line x1="${PAD}" y1="${yScale(maxVal)}" x2="${W - PAD}" y2="${yScale(maxVal)}" stroke="var(--border)" stroke-dasharray="3,3"/>
         <line x1="${PAD}" y1="${yScale(maxVal / 2)}" x2="${W - PAD}" y2="${yScale(maxVal / 2)}" stroke="var(--border)" stroke-dasharray="3,3"/>
@@ -1452,6 +1452,10 @@ function filterByAlertKpi(which) {
     _alertShowTable('Accounts Affected', _cachedAffectedIds);
   } else if (which === 'snoozed') {
     _alertShowTable('Snoozed', _cachedSnzIds);
+  } else if (which === 'atrisk') {
+    const ids = new Set();
+    customers.forEach(c => { if (c.lifecycle !== 'churned' && (c.status === 'critical' || c.status === 'risk' || c.status === 'watch')) ids.add(c.id); });
+    _alertShowTable('At-Risk Accounts', ids);
   }
 }
 function filterByAlertCat(cat) {
