@@ -84,7 +84,7 @@ serve(async (req) => {
       },
       body: new URLSearchParams({
         customer: client.stripe_customer_id,
-        return_url: return_url || 'https://iqcadence.com/',
+        return_url: return_url || 'https://iqc223.com/',
       }).toString(),
     });
 

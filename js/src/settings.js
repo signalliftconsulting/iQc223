@@ -43,8 +43,14 @@ function cfgTab(which) {
 // ─── BILLING ──────────────────────────────────────────────
 let _billingInterval = 'monthly';
 
-// Price IDs  -  set in js/config.js (gitignored) or fall back to empty
-const BILLING_PRICES = (typeof STRIPE_PRICES !== 'undefined') ? STRIPE_PRICES : {};
+// Price IDs from Stripe
+const BILLING_PRICES = {
+  core_monthly:   'price_1TEX1AGohQEmQpE1fpTOTdQp',
+  core_annual:    'price_1TEX26GohQEmQpE18InrvH21',
+  growth_monthly: 'price_1TEWVsGohQEmQpE1ElTsSKY0',
+  growth_annual:  'price_1TEWVsGohQEmQpE1p7TSIJMD',
+  custom_monthly: 'price_1TEX5JGohQEmQpE1uvd3t3ki',
+};
 
 function setBillingInterval(interval) {
   _billingInterval = interval;

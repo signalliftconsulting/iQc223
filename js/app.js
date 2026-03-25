@@ -332,22 +332,28 @@ function _checkTrialExpiration() {
   var now = new Date();
   var daysLeft = Math.ceil((expiry - now) / 86400000);
 
-  if (daysLeft <= 0) {
-    // Trial expired  -  block access
+  if (daysLeft <= 0 && _subscriptionStatus !== 'active') {
+    // Trial expired and no active subscription - block access
     var overlay = document.createElement('div');
     overlay.id = 'trial-expired-overlay';
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center';
-    overlay.innerHTML = '<div style="background:#fff;border-radius:12px;padding:40px;max-width:440px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.2)">' +
+    overlay.innerHTML = '<div style="background:#fff;border-radius:12px;padding:40px;max-width:480px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.2)">' +
       '<div style="width:48px;height:48px;background:#fef2f2;border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>' +
-      '<h2 style="margin:0 0 8px;font-size:20px;color:#0f172a">Trial Access Expired</h2>' +
-      '<p style="font-size:14px;color:#64748b;line-height:1.6;margin:0 0 20px">Your trial access ended on ' + expiry.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) + '. Contact us to continue using iQcadence.</p>' +
-      '<a href="mailto:support@iqcadence.com" style="display:inline-block;background:#0f766e;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">Contact Us</a>' +
+      '<h2 style="margin:0 0 8px;font-size:20px;color:#0f172a">Your Free Trial Has Ended</h2>' +
+      '<p style="font-size:14px;color:#64748b;line-height:1.6;margin:0 0 24px">Your 14-day trial ended on ' + expiry.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) + '. Choose a plan to continue using iQcadence.</p>' +
+      '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">' +
+        '<button onclick="document.getElementById(\'trial-expired-overlay\').remove();nav(\'settings\');setTimeout(function(){cfgTab(\'billing\')},200)" style="background:#0f766e;color:#fff;padding:10px 24px;border-radius:8px;border:none;font-weight:600;font-size:14px;cursor:pointer">View Plans</button>' +
+        '<a href="mailto:support@iqcadence.com" style="display:inline-flex;align-items:center;background:#f1f5f9;color:#475569;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">Contact Support</a>' +
+      '</div>' +
       '<div style="margin-top:12px"><a href="#" onclick="event.preventDefault();authSignOut()" style="font-size:13px;color:#64748b">Sign Out</a></div>' +
       '</div>';
     document.body.appendChild(overlay);
-  } else if (daysLeft <= 7) {
-    // Trial expiring soon  -  show warning banner
-    showBillingWarning('Your trial access expires in ' + daysLeft + ' day' + (daysLeft !== 1 ? 's' : '') + '. Contact us to upgrade your plan.');
+  } else if (daysLeft <= 7 && _subscriptionStatus !== 'active') {
+    // Trial expiring soon - show warning banner
+    showBillingWarning('Your free trial expires in ' + daysLeft + ' day' + (daysLeft !== 1 ? 's' : '') + '. Choose a plan to keep your data.');
+  } else if (daysLeft > 7 && daysLeft <= 14 && _subscriptionStatus !== 'active') {
+    // Early trial - subtle reminder
+    showBillingWarning(daysLeft + ' days left in your free trial. All features are unlocked.');
   }
 }
 
@@ -357,7 +363,7 @@ function showBillingWarning(msg) {
   var banner = document.createElement('div');
   banner.id = 'billing-warning-banner';
   banner.style.cssText = 'background:#fef3c7;color:#92400e;padding:10px 20px;text-align:center;font-size:13px;font-weight:600;border-bottom:1px solid #fcd34d;position:sticky;top:0;z-index:999';
-  banner.innerHTML = escHtml(msg) + ' <a href="#" data-action="cfgTab" data-arg="billing" style="color:#d97706;text-decoration:underline;margin-left:8px">Manage Billing</a>';
+  banner.innerHTML = escHtml(msg) + ' <a href="#" onclick="event.preventDefault();nav(\'settings\');setTimeout(function(){cfgTab(\'billing\')},200)" style="color:#d97706;text-decoration:underline;margin-left:8px">View Plans &rarr;</a>';
   document.body.prepend(banner);
 }
 
@@ -4553,7 +4559,7 @@ async function _ensureUserProfileInner(user) {
             name:         clientName,
             user_id:      user.id,
             plan_tier:    'growth',
-            trial_expires: '2026-04-07T23:59:59Z',
+            trial_expires: new Date(Date.now() + 14 * 86400000).toISOString(),
             created_at:   new Date().toISOString()
           }).select('id').single();
 
@@ -4599,7 +4605,7 @@ async function _ensureUserProfileInner(user) {
             name:         _pClientName,
             user_id:      user.id,
             plan_tier:    'growth',
-            trial_expires: '2026-04-07T23:59:59Z',
+            trial_expires: new Date(Date.now() + 14 * 86400000).toISOString(),
             created_at:   new Date().toISOString()
           }).select('id').single();
 
@@ -14590,8 +14596,14 @@ function cfgTab(which) {
 // ─── BILLING ──────────────────────────────────────────────
 let _billingInterval = 'monthly';
 
-// Price IDs  -  set in js/config.js (gitignored) or fall back to empty
-const BILLING_PRICES = (typeof STRIPE_PRICES !== 'undefined') ? STRIPE_PRICES : {};
+// Price IDs from Stripe
+const BILLING_PRICES = {
+  core_monthly:   'price_1TEX1AGohQEmQpE1fpTOTdQp',
+  core_annual:    'price_1TEX26GohQEmQpE18InrvH21',
+  growth_monthly: 'price_1TEWVsGohQEmQpE1ElTsSKY0',
+  growth_annual:  'price_1TEWVsGohQEmQpE1p7TSIJMD',
+  custom_monthly: 'price_1TEX5JGohQEmQpE1uvd3t3ki',
+};
 
 function setBillingInterval(interval) {
   _billingInterval = interval;

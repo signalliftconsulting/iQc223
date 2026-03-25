@@ -115,8 +115,8 @@ serve(async (req) => {
       mode: 'subscription',
       'line_items[0][price]': price_id,
       'line_items[0][quantity]': '1',
-      success_url: success_url || 'https://iqcadence.com/?billing=success',
-      cancel_url: cancel_url || 'https://iqcadence.com/?billing=canceled',
+      success_url: success_url || 'https://iqc223.com/?billing=success',
+      cancel_url: cancel_url || 'https://iqc223.com/?billing=canceled',
       'subscription_data[metadata][client_id]': clientId,
     });
 

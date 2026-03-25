@@ -197,7 +197,7 @@ async function _ensureUserProfileInner(user) {
             name:         clientName,
             user_id:      user.id,
             plan_tier:    'growth',
-            trial_expires: '2026-04-07T23:59:59Z',
+            trial_expires: new Date(Date.now() + 14 * 86400000).toISOString(),
             created_at:   new Date().toISOString()
           }).select('id').single();
 
@@ -243,7 +243,7 @@ async function _ensureUserProfileInner(user) {
             name:         _pClientName,
             user_id:      user.id,
             plan_tier:    'growth',
-            trial_expires: '2026-04-07T23:59:59Z',
+            trial_expires: new Date(Date.now() + 14 * 86400000).toISOString(),
             created_at:   new Date().toISOString()
           }).select('id').single();
 
