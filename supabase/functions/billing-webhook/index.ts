@@ -83,23 +83,35 @@ Deno.serve(async (req) => {
     // ── checkout.session.completed ──
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
-      const clientId = session.metadata?.client_id;
       const subscriptionId = session.subscription;
+      const stripeCustomerId = session.customer;
 
-      if (!clientId || !subscriptionId) {
-        console.log('[billing-webhook] Skipping: no client_id or subscription in session');
+      if (!subscriptionId) {
+        console.log('[billing-webhook] Skipping: no subscription in session');
         return new Response(JSON.stringify({ ok: true, skipped: true }), { status: 200 });
       }
 
-      // Fetch subscription details to get the product/tier
-      const subCtrl = new AbortController();
-      const subTimeout = setTimeout(() => subCtrl.abort(), 15000);
+      // Fetch subscription details to get the product/tier and metadata
       const subResp = await fetch(`https://api.stripe.com/v1/subscriptions/${subscriptionId}?expand[]=items.data.price.product`, {
         headers: { 'Authorization': `Bearer ${stripeKey}` },
-        signal: subCtrl.signal,
       });
-      clearTimeout(subTimeout);
       const subscription = await subResp.json();
+
+      // Get client_id from subscription metadata, session metadata, or look up by stripe_customer_id
+      let clientId = subscription.metadata?.client_id || session.metadata?.client_id;
+      if (!clientId && stripeCustomerId) {
+        const { data: clients } = await serviceClient
+          .from('clients')
+          .select('id')
+          .eq('stripe_customer_id', stripeCustomerId)
+          .limit(1);
+        if (clients?.length) clientId = clients[0].id;
+      }
+
+      if (!clientId) {
+        console.log('[billing-webhook] Could not resolve client_id for checkout session');
+        return new Response(JSON.stringify({ ok: true, skipped: true }), { status: 200 });
+      }
 
       const product = subscription.items?.data?.[0]?.price?.product;
       const tier = detectBillingTier(product);
