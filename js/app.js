@@ -14598,7 +14598,7 @@ let _billingInterval = 'monthly';
 
 // Price IDs from Stripe
 const BILLING_PRICES = {
-  core_monthly:   'price_1TEX1AGohQEmQpE1fpTOTdQp',
+  core_monthly:   'price_1TEuMkGrggweoji06uvVR1cf',
   core_annual:    'price_1TEX26GohQEmQpE18InrvH21',
   growth_monthly: 'price_1TEWVsGohQEmQpE1ElTsSKY0',
   growth_annual:  'price_1TEWVsGohQEmQpE1p7TSIJMD',
