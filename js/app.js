@@ -14599,10 +14599,10 @@ let _billingInterval = 'monthly';
 // Price IDs from Stripe
 const BILLING_PRICES = {
   core_monthly:   'price_1TEuMkGrggweoji06uvVR1cf',
-  core_annual:    'price_1TEX26GohQEmQpE18InrvH21',
-  growth_monthly: 'price_1TEWVsGohQEmQpE1ElTsSKY0',
-  growth_annual:  'price_1TEWVsGohQEmQpE1p7TSIJMD',
-  custom_monthly: 'price_1TEX5JGohQEmQpE1uvd3t3ki',
+  core_annual:    'price_1TExGHGrggweoji0FPUUGnEB',
+  growth_monthly: 'price_1TExH5Grggweoji0thNNAW3h',
+  growth_annual:  'price_1TExNQGrggweoji07PzEio5X',
+  custom_monthly: 'price_1TExR7Grggweoji050vl7BBN',
 };
 
 function setBillingInterval(interval) {
