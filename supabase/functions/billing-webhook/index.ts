@@ -5,7 +5,6 @@
 // Called by: Stripe → POST /functions/v1/billing-webhook
 // ═══════════════════════════════════════════════════════════════
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // ── Stripe signature verification (HMAC-SHA256) ──
@@ -53,7 +52,7 @@ function detectBillingTier(product: any): string {
   return 'core';
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
