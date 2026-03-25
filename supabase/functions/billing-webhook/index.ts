@@ -113,6 +113,25 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ ok: true, skipped: true }), { status: 200 });
       }
 
+      // Cancel any existing subscription before activating the new one
+      const { data: existingClient } = await serviceClient
+        .from('clients')
+        .select('stripe_subscription_id')
+        .eq('id', clientId)
+        .single();
+
+      if (existingClient?.stripe_subscription_id && existingClient.stripe_subscription_id !== subscriptionId) {
+        try {
+          await fetch(`https://api.stripe.com/v1/subscriptions/${existingClient.stripe_subscription_id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${stripeKey}` },
+          });
+          console.log(`[billing-webhook] Canceled old subscription: ${existingClient.stripe_subscription_id}`);
+        } catch (e) {
+          console.log(`[billing-webhook] Could not cancel old subscription: ${e.message}`);
+        }
+      }
+
       const product = subscription.items?.data?.[0]?.price?.product;
       const tier = detectBillingTier(product);
 

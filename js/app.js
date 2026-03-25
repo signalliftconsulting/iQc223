@@ -14759,9 +14759,11 @@ function renderBillingPlanCards() {
       '<div style="text-align:center">' +
         (isCurrent
           ? '<button class="btn btn-sm btn-outline" disabled>Current Plan</button>'
-          : priceId
-            ? '<button class="btn btn-sm" style="background:' + p.color + ';color:#fff;width:100%" onclick="startCheckout(\'' + priceId + '\')">Subscribe</button>'
-            : '<button class="btn btn-sm btn-outline" disabled>Coming Soon</button>') +
+          : _subscriptionStatus === 'active'
+            ? '<button class="btn btn-sm" style="background:' + p.color + ';color:#fff;width:100%" onclick="openBillingPortal()">Switch Plan</button>'
+            : priceId
+              ? '<button class="btn btn-sm" style="background:' + p.color + ';color:#fff;width:100%" onclick="startCheckout(\'' + priceId + '\')">Subscribe</button>'
+              : '<button class="btn btn-sm btn-outline" disabled>Coming Soon</button>') +
       '</div>' +
     '</div>';
   }).join('');
