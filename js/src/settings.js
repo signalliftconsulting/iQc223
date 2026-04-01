@@ -163,14 +163,14 @@ function renderBillingPlanCards() {
   var plans = [
     {
       tier: 'starter', name: 'Starter', color: 'var(--teal)',
-      price: interval === 'annual' ? '$29' : '$39',
+      price: interval === 'annual' ? '$41' : '$49',
       desc: 'Full platform for solo CSMs & tiny teams',
       features: ['2 users', '75 accounts', '1,000 AI calls / month', 'Full health scoring & Signal Model', 'AI insights, meeting prep & playbooks', 'Alerts, segments & automations', 'Forecasting, trends & CSM performance', 'Reports & scheduled delivery', 'Integrations, API & webhooks'],
       priceKey: interval === 'annual' ? 'starter_annual' : 'starter_monthly',
     },
     {
       tier: 'team', name: 'Team', color: 'var(--blue)',
-      price: interval === 'annual' ? '$59' : '$79',
+      price: interval === 'annual' ? '$66' : '$79',
       desc: 'Growing CS teams managing more accounts',
       popular: true,
       features: ['5 users', '200 accounts', '5,000 AI calls / month', 'Everything in Starter, plus:', 'Manager filtering across all views'],
@@ -178,7 +178,7 @@ function renderBillingPlanCards() {
     },
     {
       tier: 'business', name: 'Business', color: 'var(--purple)',
-      price: interval === 'annual' ? '$109' : '$149',
+      price: interval === 'annual' ? '$124' : '$149',
       desc: 'Mid-size CS orgs with larger portfolios',
       features: ['15 users', '500 accounts', 'Unlimited AI calls', 'Everything in Team', 'Priority support'],
       priceKey: interval === 'annual' ? 'business_annual' : 'business_monthly',
@@ -389,9 +389,9 @@ function _renderSettingsGuide(tab) {
   } else if (tab === 'billing') {
     content =
       '<strong>Plan & Billing</strong> - View your subscription and compare plans.<br>' +
-      '<strong>Starter:</strong> 2 users, 75 accounts, 1,000 AI calls/mo - $39/mo or $29/mo annual.<br>' +
-      '<strong>Team:</strong> 5 users, 200 accounts, 5,000 AI calls/mo - $79/mo or $59/mo annual.<br>' +
-      '<strong>Business:</strong> 15 users, 500 accounts, unlimited AI - $149/mo or $109/mo annual.<br>' +
+      '<strong>Starter:</strong> 2 users, 75 accounts, 1,000 AI calls/mo - $49/mo or $41/mo annual.<br>' +
+      '<strong>Team:</strong> 5 users, 200 accounts, 5,000 AI calls/mo - $79/mo or $66/mo annual.<br>' +
+      '<strong>Business:</strong> 15 users, 500 accounts, unlimited AI - $149/mo or $124/mo annual.<br>' +
       '<strong>Custom:</strong> Unlimited users & accounts, white-label branding, dedicated support.';
   }
   _renderGuide('settings-guide', 'iqc_settings_guide_dismissed', content);
