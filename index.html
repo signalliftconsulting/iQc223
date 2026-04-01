@@ -2906,7 +2906,7 @@ a:focus-visible,[role="button"]:focus-visible,.topbar-nav-btn:focus-visible,
           <button class="btn btn-sm btn-ghost" id="billing-toggle-annual" data-action="setBillingInterval" data-arg="annual">Annual <span style="color:var(--green);font-weight:700;font-size:11px">(Save ~17%)</span></button>
         </div>
       </div>
-      <div id="billing-plan-cards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;padding:16px"></div>
+      <div id="billing-plan-cards" style="display:grid;grid-template-columns:repeat(3,minmax(0,280px));gap:16px;padding:16px;justify-content:center"></div>
     </div>
   </div>
 
@@ -4786,6 +4786,6 @@ Header: Content-Type: application/json
 (function(){var btn=document.getElementById('mobile-overlay-dismiss');if(btn)btn.addEventListener('click',function(){document.getElementById('mobile-overlay').classList.add('dismissed')});})();
 </script>
 
-<script defer src="js/app.js?v=794"></script>
+<script defer src="js/app.js?v=795"></script>
 </body>
 </html>
