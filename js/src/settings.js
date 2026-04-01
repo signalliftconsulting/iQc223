@@ -180,7 +180,7 @@ function renderBillingPlanCards() {
       tier: 'business', name: 'Business', color: 'var(--purple)',
       price: interval === 'annual' ? '$124' : '$149',
       desc: 'Mid-size CS orgs with larger portfolios',
-      features: ['15 users', '500 accounts', 'Unlimited AI calls', 'Everything in Team', 'Priority support'],
+      features: ['15 users', '500 accounts', 'Unlimited AI calls', 'Everything in Team'],
       priceKey: interval === 'annual' ? 'business_annual' : 'business_monthly',
     },
   ];
