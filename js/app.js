@@ -14735,13 +14735,6 @@ function renderBillingPlanCards() {
       features: ['15 users', '500 accounts', 'Unlimited AI calls', 'Everything in Team', 'Priority support'],
       priceKey: interval === 'annual' ? 'business_annual' : 'business_monthly',
     },
-    {
-      tier: 'custom', name: 'Custom', color: 'var(--orange)',
-      price: '',
-      desc: 'Large teams & enterprise deployments',
-      features: ['Unlimited users & accounts', 'Unlimited AI calls', 'Everything in Business, plus:', 'White-label branding', 'Dedicated onboarding & support'],
-      priceKey: '',
-    }
   ];
 
   container.innerHTML = plans.map(function(p) {
@@ -14943,8 +14936,7 @@ function _renderSettingsGuide(tab) {
       '<strong>Plan & Billing</strong> - View your subscription and compare plans.<br>' +
       '<strong>Starter:</strong> 2 users, 75 accounts, 1,000 AI calls/mo - $49/mo or $41/mo annual.<br>' +
       '<strong>Team:</strong> 5 users, 200 accounts, 5,000 AI calls/mo - $79/mo or $66/mo annual.<br>' +
-      '<strong>Business:</strong> 15 users, 500 accounts, unlimited AI - $149/mo or $124/mo annual.<br>' +
-      '<strong>Custom:</strong> Unlimited users & accounts, white-label branding, dedicated support.';
+      '<strong>Business:</strong> 15 users, 500 accounts, unlimited AI - $149/mo or $124/mo annual.';
   }
   _renderGuide('settings-guide', 'iqc_settings_guide_dismissed', content);
 }
