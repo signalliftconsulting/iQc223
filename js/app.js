@@ -4657,9 +4657,9 @@ function updateUserUI(user) {
     const cfw = document.getElementById('client-filter-wrap');
     if (cfw) cfw.style.display = admin ? '' : 'none';
     if (admin && typeof loadAdminClients === 'function') loadAdminClients();
-    // Hide Plan & Billing tab and sidebar plan info for non-admin users
+    // Plan & Billing tab visible to all logged-in users
     const billingTab = document.getElementById('cfg-tab-billing');
-    if (billingTab) billingTab.style.display = admin ? '' : 'none';
+    if (billingTab) billingTab.style.display = '';
     if (sbPlan) sbPlan.style.display = admin ? '' : 'none';
   } else {
     if (pill)    pill.style.display    = 'none';
