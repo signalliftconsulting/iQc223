@@ -196,7 +196,7 @@ async function _ensureUserProfileInner(user) {
           var { data: newClient, error: clientErr } = await sb.from('clients').insert({
             name:         clientName,
             user_id:      user.id,
-            plan_tier:    'growth',
+            plan_tier:    'starter',
             trial_expires: new Date(Date.now() + 14 * 86400000).toISOString(),
             created_at:   new Date().toISOString()
           }).select('id').single();
@@ -242,7 +242,7 @@ async function _ensureUserProfileInner(user) {
           var _pResult = await sb.from('clients').insert({
             name:         _pClientName,
             user_id:      user.id,
-            plan_tier:    'growth',
+            plan_tier:    'starter',
             trial_expires: new Date(Date.now() + 14 * 86400000).toISOString(),
             created_at:   new Date().toISOString()
           }).select('id').single();
@@ -301,6 +301,10 @@ function updateUserUI(user) {
       const el2 = document.getElementById(id);
       if (el2) el2.style.display = admin ? '' : 'none';
     });
+    // Hide Plan & Billing tab and sidebar plan info for non-admin users
+    const billingTab = document.getElementById('cfg-tab-billing');
+    if (billingTab) billingTab.style.display = admin ? '' : 'none';
+    if (sbPlan) sbPlan.style.display = admin ? '' : 'none';
     const cfw = document.getElementById('client-filter-wrap');
     if (cfw) cfw.style.display = admin ? '' : 'none';
     if (admin && typeof loadAdminClients === 'function') loadAdminClients();
@@ -313,5 +317,9 @@ function updateUserUI(user) {
     });
     const cfw = document.getElementById('client-filter-wrap');
     if (cfw) cfw.style.display = 'none';
+    const billingTab2 = document.getElementById('cfg-tab-billing');
+    if (billingTab2) billingTab2.style.display = 'none';
+    const sbPlan2 = document.getElementById('sb-plan');
+    if (sbPlan2) sbPlan2.style.display = 'none';
   }
 }

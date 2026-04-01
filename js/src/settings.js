@@ -43,13 +43,13 @@ function cfgTab(which) {
 // ─── BILLING ──────────────────────────────────────────────
 let _billingInterval = 'monthly';
 
-// Price IDs from Stripe
+// Price IDs from Stripe (update with new price IDs when live)
 const BILLING_PRICES = {
-  core_monthly:   'price_1TEuMkGrggweoji06uvVR1cf',
-  core_annual:    'price_1TExGHGrggweoji0FPUUGnEB',
-  growth_monthly: 'price_1TExH5Grggweoji0thNNAW3h',
-  growth_annual:  'price_1TExNQGrggweoji07PzEio5X',
-  custom_monthly: 'price_1TExR7Grggweoji050vl7BBN',
+  starter_monthly:  'price_1TEuMkGrggweoji06uvVR1cf',
+  starter_annual:   'price_1TExGHGrggweoji0FPUUGnEB',
+  team_monthly:     'price_1TExH5Grggweoji0thNNAW3h',
+  team_annual:      'price_1TExNQGrggweoji07PzEio5X',
+  business_monthly: 'price_1TExR7Grggweoji050vl7BBN',
 };
 
 function setBillingInterval(interval) {
@@ -66,10 +66,10 @@ async function renderBillingSection() {
   var usageEl = el('billing-usage');
   if (!planEl) return;
 
-  var tier = clientPlanTier || 'growth';
+  var tier = clientPlanTier || 'starter';
   var label = PLAN_TIER_LABELS[tier] || tier;
   var color = PLAN_TIER_COLORS[tier] || 'var(--muted)';
-  var limits = PLAN_LIMITS[tier] || PLAN_LIMITS.pulse;
+  var limits = PLAN_LIMITS[tier] || PLAN_LIMITS.starter;
 
   // Fetch client billing info
   var client = null;
@@ -158,29 +158,37 @@ function renderBillingPlanCards() {
   if (!container) return;
 
   var interval = _billingInterval;
-  var currentTier = clientPlanTier || 'growth';
+  var currentTier = clientPlanTier || 'starter';
 
   var plans = [
     {
-      tier: 'core', name: 'Core', color: 'var(--teal)',
-      price: '',
-      desc: 'Health monitoring essentials for small teams',
-      features: ['Up to 3 users', 'Up to 150 accounts', '1,000 AI calls / month', 'Health scoring with custom weights', 'AI insights, meeting prep & playbooks', 'Alerts, segments & automations', 'Forecasting & trend analysis', 'Reports with scheduled delivery', 'Integrations, API & webhooks', 'Calendar & touch tracking'],
-      priceKey: interval === 'annual' ? 'core_annual' : 'core_monthly',
+      tier: 'starter', name: 'Starter', color: 'var(--teal)',
+      price: interval === 'annual' ? '$29' : '$39',
+      desc: 'Full platform for solo CSMs & tiny teams',
+      features: ['2 users', '75 accounts', '1,000 AI calls / month', 'Full health scoring & Signal Model', 'AI insights, meeting prep & playbooks', 'Alerts, segments & automations', 'Forecasting, trends & CSM performance', 'Reports & scheduled delivery', 'Integrations, API & webhooks'],
+      priceKey: interval === 'annual' ? 'starter_annual' : 'starter_monthly',
     },
     {
-      tier: 'growth', name: 'Growth', color: 'var(--blue)',
-      price: '',
-      desc: 'Advanced insights for growing CS teams',
-      features: ['Up to 5 users', 'Up to 300 accounts', '5,000 AI calls / month', 'Everything in Core, plus:', 'CSM Performance dashboard & leaderboard', 'Signal Model (proprietary scoring)', 'Manager filtering across all views', 'Scheduled report delivery'],
-      priceKey: interval === 'annual' ? 'growth_annual' : 'growth_monthly',
+      tier: 'team', name: 'Team', color: 'var(--blue)',
+      price: interval === 'annual' ? '$59' : '$79',
+      desc: 'Growing CS teams managing more accounts',
+      popular: true,
+      features: ['5 users', '200 accounts', '5,000 AI calls / month', 'Everything in Starter, plus:', 'Manager filtering across all views'],
+      priceKey: interval === 'annual' ? 'team_annual' : 'team_monthly',
     },
     {
-      tier: 'custom', name: 'Custom', color: 'var(--purple)',
+      tier: 'business', name: 'Business', color: 'var(--purple)',
+      price: interval === 'annual' ? '$109' : '$149',
+      desc: 'Mid-size CS orgs with larger portfolios',
+      features: ['15 users', '500 accounts', 'Unlimited AI calls', 'Everything in Team', 'Priority support'],
+      priceKey: interval === 'annual' ? 'business_annual' : 'business_monthly',
+    },
+    {
+      tier: 'custom', name: 'Custom', color: 'var(--orange)',
       price: '',
-      desc: 'Full platform with white-label & custom UI',
-      features: ['Unlimited users & accounts', 'Unlimited AI calls', 'Everything in Growth, plus:', 'White-label branding', 'Custom UI modifications', 'Priority support', 'Dedicated onboarding'],
-      priceKey: interval === 'annual' ? 'custom_annual' : 'custom_monthly',
+      desc: 'Large teams & enterprise deployments',
+      features: ['Unlimited users & accounts', 'Unlimited AI calls', 'Everything in Business, plus:', 'White-label branding', 'Dedicated onboarding & support'],
+      priceKey: '',
     }
   ];
 
@@ -206,6 +214,8 @@ function renderBillingPlanCards() {
       '<div style="text-align:center">' +
         (isCurrent
           ? '<button class="btn btn-sm btn-outline" disabled>Current Plan</button>'
+          : p.tier === 'custom'
+            ? '<a href="mailto:hello@iqcadence.com" class="btn btn-sm" style="background:' + p.color + ';color:#fff;width:100%;display:block;text-align:center;text-decoration:none">Contact Us</a>'
           : _subscriptionStatus === 'active'
             ? '<button class="btn btn-sm" style="background:' + p.color + ';color:#fff;width:100%" onclick="openBillingPortal()">Switch Plan</button>'
             : priceId
@@ -379,9 +389,10 @@ function _renderSettingsGuide(tab) {
   } else if (tab === 'billing') {
     content =
       '<strong>Plan & Billing</strong> - View your subscription and compare plans.<br>' +
-      '<strong>Core:</strong> 3 users, 150 accounts, 1,000 AI calls/mo - full platform for small teams.<br>' +
-      '<strong>Growth:</strong> 5 users, 300 accounts, 5,000 AI calls/mo - adds CSM Performance, Signal Model, manager filtering, and scheduled reports.<br>' +
-      '<strong>Custom:</strong> Unlimited everything plus white-label branding and priority support.';
+      '<strong>Starter:</strong> 2 users, 75 accounts, 1,000 AI calls/mo - $39/mo or $29/mo annual.<br>' +
+      '<strong>Team:</strong> 5 users, 200 accounts, 5,000 AI calls/mo - $79/mo or $59/mo annual.<br>' +
+      '<strong>Business:</strong> 15 users, 500 accounts, unlimited AI - $149/mo or $109/mo annual.<br>' +
+      '<strong>Custom:</strong> Unlimited users & accounts, white-label branding, dedicated support.';
   }
   _renderGuide('settings-guide', 'iqc_settings_guide_dismissed', content);
 }

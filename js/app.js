@@ -145,53 +145,52 @@ function _pagHTML(total, key, renderFnName) {
 }
 
 // ─── PLAN TIER GATING ──────────────────────────────────────
-let clientPlanTier = 'growth'; // default until resolved - admin gets custom via isAdmin()
+let clientPlanTier = 'starter'; // default until resolved - admin gets custom via isAdmin()
 let _subscriptionStatus = 'none'; // none | active | past_due | canceled | incomplete
 let _trialExpires = null; // ISO date string or null (null = no trial, paying customer)
 
-const PLAN_TIERS = ['core', 'growth', 'custom'];
-const PLAN_TIER_LABELS = { core: 'Core', growth: 'Growth', custom: 'Custom' };
-const PLAN_TIER_COLORS = { core: 'var(--teal)', growth: 'var(--blue)', custom: 'var(--purple)' };
+const PLAN_TIERS = ['starter', 'team', 'business', 'custom'];
+const PLAN_TIER_LABELS = { starter: 'Starter', team: 'Team', business: 'Business', custom: 'Custom' };
+const PLAN_TIER_COLORS = { starter: 'var(--teal)', team: 'var(--blue)', business: 'var(--purple)', custom: 'var(--orange)' };
 
 const PLAN_FEATURES = {
-  // Core (all tiers)
-  reports_basic:     'core',
-  trend_sparklines:  'core',
-  email_digest:      'core',
-  renewal_pipeline:  'core',
-  urgency_scoring:   'core',
-  at_risk_alerts:    'core',
-  priority_list:     'core',
-  qbr_prep:          'core',
-  playbooks:         'core',
-  automations:       'core',
-  sentiment:         'core',
-  audit_log:         'core',
-  forecasting:       'core',
-  custom_tags:       'core',
-  scoring_profiles:  'core',
-  segments:          'core',
-  alert_channels:    'core',
-  report_segments:   'core',
-  api_webhooks:      'core',
-  // Growth+
-  scheduled_reports:  'growth',
-  csm_filtering:     'growth',
-  manager_dashboard: 'growth',
-  csm_dashboard:     'growth',
-  csm_performance:   'growth',
-  report_csmperf:    'growth',
-  signal_model:      'growth',
-  // Custom+
-  next_best_action:  'custom',
-  momentum:          'custom',
-  white_label:       'custom',
+  // All features available on all tiers - no feature locking
+  reports_basic:     'starter',
+  trend_sparklines:  'starter',
+  email_digest:      'starter',
+  renewal_pipeline:  'starter',
+  urgency_scoring:   'starter',
+  at_risk_alerts:    'starter',
+  priority_list:     'starter',
+  qbr_prep:          'starter',
+  playbooks:         'starter',
+  automations:       'starter',
+  sentiment:         'starter',
+  audit_log:         'starter',
+  forecasting:       'starter',
+  custom_tags:       'starter',
+  scoring_profiles:  'starter',
+  segments:          'starter',
+  alert_channels:    'starter',
+  report_segments:   'starter',
+  api_webhooks:      'starter',
+  scheduled_reports: 'starter',
+  csm_filtering:     'starter',
+  manager_dashboard: 'starter',
+  csm_dashboard:     'starter',
+  csm_performance:   'starter',
+  report_csmperf:    'starter',
+  signal_model:      'starter',
+  next_best_action:  'starter',
+  momentum:          'starter',
+  white_label:       'starter',
 };
 
 const PLAN_LIMITS = {
-  core:   { users: 3,   accounts: 150,  ai_calls: 1000 },
-  growth: { users: 5,   accounts: 300,  ai_calls: 5000 },
-  custom: { users: Infinity, accounts: Infinity, ai_calls: Infinity },
+  starter:  { users: 2,        accounts: 75,       ai_calls: 1000 },
+  team:     { users: 5,        accounts: 200,      ai_calls: 5000 },
+  business: { users: 15,       accounts: 500,      ai_calls: Infinity },
+  custom:   { users: Infinity, accounts: Infinity, ai_calls: Infinity },
 };
 
 // ─── AI USAGE TRACKING ──────────────────────────────────────
@@ -251,7 +250,7 @@ function hasFeature(key) {
 }
 
 function getPlanLimit(key) {
-  const limits = PLAN_LIMITS[clientPlanTier || 'growth'] || PLAN_LIMITS.growth;
+  const limits = PLAN_LIMITS[clientPlanTier || 'starter'] || PLAN_LIMITS.starter;
   return limits[key];
 }
 
@@ -262,18 +261,10 @@ function tierBadgeHTML(tier) {
 }
 
 function upgradeHTML(featureKey) {
-  const needed = PLAN_FEATURES[featureKey] || 'growth';
+  const needed = PLAN_FEATURES[featureKey] || 'starter';
   const label  = PLAN_TIER_LABELS[needed] || needed;
   const color  = PLAN_TIER_COLORS[needed] || 'var(--blue)';
-  // Feature highlights for Growth tier upgrade prompt
-  const growthHighlights = [
-    '10 users &amp; 1,000 accounts',
-    '5,000 AI calls / month',
-    'CSM Performance Dashboard',
-    'Revenue Forecasting',
-    'Segments, Scoring Profiles &amp; Audit Log'
-  ];
-  const highlightsHTML = needed === 'growth' ? `<ul style="list-style:none;padding:0;margin:16px auto 0;max-width:300px;text-align:left">${growthHighlights.map(function(h){return '<li style="font-size:var(--fs-base);padding:3px 0;color:var(--text);display:flex;align-items:center;gap:6px"><span style="color:'+color+';font-weight:700">&#10003;</span> '+h+'</li>';}).join('')}</ul>` : '';
+  const highlightsHTML = '';
   return `<div style="text-align:center;padding:48px 20px;color:var(--muted)">
     <div style="margin-bottom:12px">${appIcon('lock',32)}</div>
     <h3 style="margin-bottom:6px;color:var(--text);font-size:18px">Upgrade to ${label}</h3>
@@ -285,7 +276,7 @@ function upgradeHTML(featureKey) {
 
 // Resolve the current user's client tier on boot
 // Legacy tier migration map (old DB values → new tier names)
-const TIER_MIGRATION = { solo: 'core', starter: 'core', pulse: 'core', team: 'growth', signal: 'growth', pro: 'growth', enterprise: 'custom', command: 'custom' };
+const TIER_MIGRATION = { core: 'starter', growth: 'team', solo: 'starter', pulse: 'starter', signal: 'team', pro: 'team', enterprise: 'custom', command: 'custom' };
 
 async function resolveClientPlanTier() {
   if (isAdmin()) { clientPlanTier = 'custom'; _subscriptionStatus = 'active'; return; }
@@ -304,18 +295,18 @@ async function resolveClientPlanTier() {
         .eq('id', _userClientId)
         .limit(1);
       const client = clientRows && clientRows.length ? clientRows[0] : null;
-      clientPlanTier = client?.plan_tier || 'growth';
+      clientPlanTier = client?.plan_tier || 'starter';
       _subscriptionStatus = client?.subscription_status || 'none';
       _trialExpires = client?.trial_expires || null;
     } else {
-      clientPlanTier = 'growth';
+      clientPlanTier = 'starter';
     }
     // Migrate legacy tier names
     if (TIER_MIGRATION[clientPlanTier]) clientPlanTier = TIER_MIGRATION[clientPlanTier];
     localStorage.setItem('iqc_plan_tier', clientPlanTier);
   } catch(e) {
     console.warn('Could not resolve plan tier:', e.message);
-    if (!PLAN_TIERS.includes(clientPlanTier)) clientPlanTier = 'growth';
+    if (!PLAN_TIERS.includes(clientPlanTier)) clientPlanTier = 'starter';
   }
   applyTierGating();
   // Show past-due warning if needed
@@ -4558,7 +4549,7 @@ async function _ensureUserProfileInner(user) {
           var { data: newClient, error: clientErr } = await sb.from('clients').insert({
             name:         clientName,
             user_id:      user.id,
-            plan_tier:    'growth',
+            plan_tier:    'starter',
             trial_expires: new Date(Date.now() + 14 * 86400000).toISOString(),
             created_at:   new Date().toISOString()
           }).select('id').single();
@@ -4604,7 +4595,7 @@ async function _ensureUserProfileInner(user) {
           var _pResult = await sb.from('clients').insert({
             name:         _pClientName,
             user_id:      user.id,
-            plan_tier:    'growth',
+            plan_tier:    'starter',
             trial_expires: new Date(Date.now() + 14 * 86400000).toISOString(),
             created_at:   new Date().toISOString()
           }).select('id').single();
@@ -4666,6 +4657,10 @@ function updateUserUI(user) {
     const cfw = document.getElementById('client-filter-wrap');
     if (cfw) cfw.style.display = admin ? '' : 'none';
     if (admin && typeof loadAdminClients === 'function') loadAdminClients();
+    // Hide Plan & Billing tab and sidebar plan info for non-admin users
+    const billingTab = document.getElementById('cfg-tab-billing');
+    if (billingTab) billingTab.style.display = admin ? '' : 'none';
+    if (sbPlan) sbPlan.style.display = admin ? '' : 'none';
   } else {
     if (pill)    pill.style.display    = 'none';
     if (signout) signout.style.display = 'none';
@@ -4675,6 +4670,10 @@ function updateUserUI(user) {
     });
     const cfw = document.getElementById('client-filter-wrap');
     if (cfw) cfw.style.display = 'none';
+    const billingTab2 = document.getElementById('cfg-tab-billing');
+    if (billingTab2) billingTab2.style.display = 'none';
+    const sbPlan2 = document.getElementById('sb-plan');
+    if (sbPlan2) sbPlan2.style.display = 'none';
   }
 }
 
@@ -14596,13 +14595,13 @@ function cfgTab(which) {
 // ─── BILLING ──────────────────────────────────────────────
 let _billingInterval = 'monthly';
 
-// Price IDs from Stripe
+// Price IDs from Stripe (update with new price IDs when live)
 const BILLING_PRICES = {
-  core_monthly:   'price_1TEuMkGrggweoji06uvVR1cf',
-  core_annual:    'price_1TExGHGrggweoji0FPUUGnEB',
-  growth_monthly: 'price_1TExH5Grggweoji0thNNAW3h',
-  growth_annual:  'price_1TExNQGrggweoji07PzEio5X',
-  custom_monthly: 'price_1TExR7Grggweoji050vl7BBN',
+  starter_monthly:  'price_1TEuMkGrggweoji06uvVR1cf',
+  starter_annual:   'price_1TExGHGrggweoji0FPUUGnEB',
+  team_monthly:     'price_1TExH5Grggweoji0thNNAW3h',
+  team_annual:      'price_1TExNQGrggweoji07PzEio5X',
+  business_monthly: 'price_1TExR7Grggweoji050vl7BBN',
 };
 
 function setBillingInterval(interval) {
@@ -14619,10 +14618,10 @@ async function renderBillingSection() {
   var usageEl = el('billing-usage');
   if (!planEl) return;
 
-  var tier = clientPlanTier || 'growth';
+  var tier = clientPlanTier || 'starter';
   var label = PLAN_TIER_LABELS[tier] || tier;
   var color = PLAN_TIER_COLORS[tier] || 'var(--muted)';
-  var limits = PLAN_LIMITS[tier] || PLAN_LIMITS.pulse;
+  var limits = PLAN_LIMITS[tier] || PLAN_LIMITS.starter;
 
   // Fetch client billing info
   var client = null;
@@ -14711,29 +14710,37 @@ function renderBillingPlanCards() {
   if (!container) return;
 
   var interval = _billingInterval;
-  var currentTier = clientPlanTier || 'growth';
+  var currentTier = clientPlanTier || 'starter';
 
   var plans = [
     {
-      tier: 'core', name: 'Core', color: 'var(--teal)',
-      price: '',
-      desc: 'Health monitoring essentials for small teams',
-      features: ['Up to 3 users', 'Up to 150 accounts', '1,000 AI calls / month', 'Health scoring with custom weights', 'AI insights, meeting prep & playbooks', 'Alerts, segments & automations', 'Forecasting & trend analysis', 'Reports with scheduled delivery', 'Integrations, API & webhooks', 'Calendar & touch tracking'],
-      priceKey: interval === 'annual' ? 'core_annual' : 'core_monthly',
+      tier: 'starter', name: 'Starter', color: 'var(--teal)',
+      price: interval === 'annual' ? '$29' : '$39',
+      desc: 'Full platform for solo CSMs & tiny teams',
+      features: ['2 users', '75 accounts', '1,000 AI calls / month', 'Full health scoring & Signal Model', 'AI insights, meeting prep & playbooks', 'Alerts, segments & automations', 'Forecasting, trends & CSM performance', 'Reports & scheduled delivery', 'Integrations, API & webhooks'],
+      priceKey: interval === 'annual' ? 'starter_annual' : 'starter_monthly',
     },
     {
-      tier: 'growth', name: 'Growth', color: 'var(--blue)',
-      price: '',
-      desc: 'Advanced insights for growing CS teams',
-      features: ['Up to 5 users', 'Up to 300 accounts', '5,000 AI calls / month', 'Everything in Core, plus:', 'CSM Performance dashboard & leaderboard', 'Signal Model (proprietary scoring)', 'Manager filtering across all views', 'Scheduled report delivery'],
-      priceKey: interval === 'annual' ? 'growth_annual' : 'growth_monthly',
+      tier: 'team', name: 'Team', color: 'var(--blue)',
+      price: interval === 'annual' ? '$59' : '$79',
+      desc: 'Growing CS teams managing more accounts',
+      popular: true,
+      features: ['5 users', '200 accounts', '5,000 AI calls / month', 'Everything in Starter, plus:', 'Manager filtering across all views'],
+      priceKey: interval === 'annual' ? 'team_annual' : 'team_monthly',
     },
     {
-      tier: 'custom', name: 'Custom', color: 'var(--purple)',
+      tier: 'business', name: 'Business', color: 'var(--purple)',
+      price: interval === 'annual' ? '$109' : '$149',
+      desc: 'Mid-size CS orgs with larger portfolios',
+      features: ['15 users', '500 accounts', 'Unlimited AI calls', 'Everything in Team', 'Priority support'],
+      priceKey: interval === 'annual' ? 'business_annual' : 'business_monthly',
+    },
+    {
+      tier: 'custom', name: 'Custom', color: 'var(--orange)',
       price: '',
-      desc: 'Full platform with white-label & custom UI',
-      features: ['Unlimited users & accounts', 'Unlimited AI calls', 'Everything in Growth, plus:', 'White-label branding', 'Custom UI modifications', 'Priority support', 'Dedicated onboarding'],
-      priceKey: interval === 'annual' ? 'custom_annual' : 'custom_monthly',
+      desc: 'Large teams & enterprise deployments',
+      features: ['Unlimited users & accounts', 'Unlimited AI calls', 'Everything in Business, plus:', 'White-label branding', 'Dedicated onboarding & support'],
+      priceKey: '',
     }
   ];
 
@@ -14759,6 +14766,8 @@ function renderBillingPlanCards() {
       '<div style="text-align:center">' +
         (isCurrent
           ? '<button class="btn btn-sm btn-outline" disabled>Current Plan</button>'
+          : p.tier === 'custom'
+            ? '<a href="mailto:hello@iqcadence.com" class="btn btn-sm" style="background:' + p.color + ';color:#fff;width:100%;display:block;text-align:center;text-decoration:none">Contact Us</a>'
           : _subscriptionStatus === 'active'
             ? '<button class="btn btn-sm" style="background:' + p.color + ';color:#fff;width:100%" onclick="openBillingPortal()">Switch Plan</button>'
             : priceId
@@ -14932,9 +14941,10 @@ function _renderSettingsGuide(tab) {
   } else if (tab === 'billing') {
     content =
       '<strong>Plan & Billing</strong> - View your subscription and compare plans.<br>' +
-      '<strong>Core:</strong> 3 users, 150 accounts, 1,000 AI calls/mo - full platform for small teams.<br>' +
-      '<strong>Growth:</strong> 5 users, 300 accounts, 5,000 AI calls/mo - adds CSM Performance, Signal Model, manager filtering, and scheduled reports.<br>' +
-      '<strong>Custom:</strong> Unlimited everything plus white-label branding and priority support.';
+      '<strong>Starter:</strong> 2 users, 75 accounts, 1,000 AI calls/mo - $39/mo or $29/mo annual.<br>' +
+      '<strong>Team:</strong> 5 users, 200 accounts, 5,000 AI calls/mo - $79/mo or $59/mo annual.<br>' +
+      '<strong>Business:</strong> 15 users, 500 accounts, unlimited AI - $149/mo or $109/mo annual.<br>' +
+      '<strong>Custom:</strong> Unlimited users & accounts, white-label branding, dedicated support.';
   }
   _renderGuide('settings-guide', 'iqc_settings_guide_dismissed', content);
 }

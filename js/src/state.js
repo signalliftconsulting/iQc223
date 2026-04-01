@@ -139,53 +139,52 @@ function _pagHTML(total, key, renderFnName) {
 }
 
 // ─── PLAN TIER GATING ──────────────────────────────────────
-let clientPlanTier = 'growth'; // default until resolved - admin gets custom via isAdmin()
+let clientPlanTier = 'starter'; // default until resolved - admin gets custom via isAdmin()
 let _subscriptionStatus = 'none'; // none | active | past_due | canceled | incomplete
 let _trialExpires = null; // ISO date string or null (null = no trial, paying customer)
 
-const PLAN_TIERS = ['core', 'growth', 'custom'];
-const PLAN_TIER_LABELS = { core: 'Core', growth: 'Growth', custom: 'Custom' };
-const PLAN_TIER_COLORS = { core: 'var(--teal)', growth: 'var(--blue)', custom: 'var(--purple)' };
+const PLAN_TIERS = ['starter', 'team', 'business', 'custom'];
+const PLAN_TIER_LABELS = { starter: 'Starter', team: 'Team', business: 'Business', custom: 'Custom' };
+const PLAN_TIER_COLORS = { starter: 'var(--teal)', team: 'var(--blue)', business: 'var(--purple)', custom: 'var(--orange)' };
 
 const PLAN_FEATURES = {
-  // Core (all tiers)
-  reports_basic:     'core',
-  trend_sparklines:  'core',
-  email_digest:      'core',
-  renewal_pipeline:  'core',
-  urgency_scoring:   'core',
-  at_risk_alerts:    'core',
-  priority_list:     'core',
-  qbr_prep:          'core',
-  playbooks:         'core',
-  automations:       'core',
-  sentiment:         'core',
-  audit_log:         'core',
-  forecasting:       'core',
-  custom_tags:       'core',
-  scoring_profiles:  'core',
-  segments:          'core',
-  alert_channels:    'core',
-  report_segments:   'core',
-  api_webhooks:      'core',
-  // Growth+
-  scheduled_reports:  'growth',
-  csm_filtering:     'growth',
-  manager_dashboard: 'growth',
-  csm_dashboard:     'growth',
-  csm_performance:   'growth',
-  report_csmperf:    'growth',
-  signal_model:      'growth',
-  // Custom+
-  next_best_action:  'custom',
-  momentum:          'custom',
-  white_label:       'custom',
+  // All features available on all tiers - no feature locking
+  reports_basic:     'starter',
+  trend_sparklines:  'starter',
+  email_digest:      'starter',
+  renewal_pipeline:  'starter',
+  urgency_scoring:   'starter',
+  at_risk_alerts:    'starter',
+  priority_list:     'starter',
+  qbr_prep:          'starter',
+  playbooks:         'starter',
+  automations:       'starter',
+  sentiment:         'starter',
+  audit_log:         'starter',
+  forecasting:       'starter',
+  custom_tags:       'starter',
+  scoring_profiles:  'starter',
+  segments:          'starter',
+  alert_channels:    'starter',
+  report_segments:   'starter',
+  api_webhooks:      'starter',
+  scheduled_reports: 'starter',
+  csm_filtering:     'starter',
+  manager_dashboard: 'starter',
+  csm_dashboard:     'starter',
+  csm_performance:   'starter',
+  report_csmperf:    'starter',
+  signal_model:      'starter',
+  next_best_action:  'starter',
+  momentum:          'starter',
+  white_label:       'starter',
 };
 
 const PLAN_LIMITS = {
-  core:   { users: 3,   accounts: 150,  ai_calls: 1000 },
-  growth: { users: 5,   accounts: 300,  ai_calls: 5000 },
-  custom: { users: Infinity, accounts: Infinity, ai_calls: Infinity },
+  starter:  { users: 2,        accounts: 75,       ai_calls: 1000 },
+  team:     { users: 5,        accounts: 200,      ai_calls: 5000 },
+  business: { users: 15,       accounts: 500,      ai_calls: Infinity },
+  custom:   { users: Infinity, accounts: Infinity, ai_calls: Infinity },
 };
 
 // ─── AI USAGE TRACKING ──────────────────────────────────────
@@ -245,7 +244,7 @@ function hasFeature(key) {
 }
 
 function getPlanLimit(key) {
-  const limits = PLAN_LIMITS[clientPlanTier || 'growth'] || PLAN_LIMITS.growth;
+  const limits = PLAN_LIMITS[clientPlanTier || 'starter'] || PLAN_LIMITS.starter;
   return limits[key];
 }
 
@@ -259,15 +258,7 @@ function upgradeHTML(featureKey) {
   const needed = PLAN_FEATURES[featureKey] || 'growth';
   const label  = PLAN_TIER_LABELS[needed] || needed;
   const color  = PLAN_TIER_COLORS[needed] || 'var(--blue)';
-  // Feature highlights for Growth tier upgrade prompt
-  const growthHighlights = [
-    '10 users &amp; 1,000 accounts',
-    '5,000 AI calls / month',
-    'CSM Performance Dashboard',
-    'Revenue Forecasting',
-    'Segments, Scoring Profiles &amp; Audit Log'
-  ];
-  const highlightsHTML = needed === 'growth' ? `<ul style="list-style:none;padding:0;margin:16px auto 0;max-width:300px;text-align:left">${growthHighlights.map(function(h){return '<li style="font-size:var(--fs-base);padding:3px 0;color:var(--text);display:flex;align-items:center;gap:6px"><span style="color:'+color+';font-weight:700">&#10003;</span> '+h+'</li>';}).join('')}</ul>` : '';
+  const highlightsHTML = '';
   return `<div style="text-align:center;padding:48px 20px;color:var(--muted)">
     <div style="margin-bottom:12px">${appIcon('lock',32)}</div>
     <h3 style="margin-bottom:6px;color:var(--text);font-size:18px">Upgrade to ${label}</h3>
@@ -279,7 +270,7 @@ function upgradeHTML(featureKey) {
 
 // Resolve the current user's client tier on boot
 // Legacy tier migration map (old DB values → new tier names)
-const TIER_MIGRATION = { solo: 'core', starter: 'core', pulse: 'core', team: 'growth', signal: 'growth', pro: 'growth', enterprise: 'custom', command: 'custom' };
+const TIER_MIGRATION = { core: 'starter', growth: 'team', solo: 'starter', pulse: 'starter', signal: 'team', pro: 'team', enterprise: 'custom', command: 'custom' };
 
 async function resolveClientPlanTier() {
   if (isAdmin()) { clientPlanTier = 'custom'; _subscriptionStatus = 'active'; return; }
@@ -298,18 +289,18 @@ async function resolveClientPlanTier() {
         .eq('id', _userClientId)
         .limit(1);
       const client = clientRows && clientRows.length ? clientRows[0] : null;
-      clientPlanTier = client?.plan_tier || 'growth';
+      clientPlanTier = client?.plan_tier || 'starter';
       _subscriptionStatus = client?.subscription_status || 'none';
       _trialExpires = client?.trial_expires || null;
     } else {
-      clientPlanTier = 'growth';
+      clientPlanTier = 'starter';
     }
     // Migrate legacy tier names
     if (TIER_MIGRATION[clientPlanTier]) clientPlanTier = TIER_MIGRATION[clientPlanTier];
     localStorage.setItem('iqc_plan_tier', clientPlanTier);
   } catch(e) {
     console.warn('Could not resolve plan tier:', e.message);
-    if (!PLAN_TIERS.includes(clientPlanTier)) clientPlanTier = 'growth';
+    if (!PLAN_TIERS.includes(clientPlanTier)) clientPlanTier = 'starter';
   }
   applyTierGating();
   // Show past-due warning if needed
